@@ -306,6 +306,8 @@ gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
 }
 body:is([data-detail="pro"], [data-detail="hobby"]) {
 --text-running: var(--text-working); line-height: 1.18; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .cont-head { margin-bottom: 2pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .cont-count { display: inline; }
 body:is([data-detail="pro"], [data-detail="hobby"]) h2 { font-size: var(--text-working);
 margin: 7pt 0 3pt; line-height: 1.18; }
 body:is([data-detail="pro"], [data-detail="hobby"]) h3 {
@@ -336,14 +338,18 @@ break-after: avoid; page-break-after: avoid; }
 gap: 3mm; break-inside: avoid; page-break-inside: avoid; margin: 2pt 0 5pt; }
 .checkpoint-result { min-width: 0; }
 .checkpoint-result .result-field { margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .checkpoint-result .result-field { gap: 0; }
 .checkpoint-result .writing-blank { min-width: 35mm; min-height: 20mm; width: auto; }
 .checkpoint-results:has(> :only-child) { grid-template-columns: minmax(35mm, 1fr); }
 .tool-settings { margin: 2pt 0; }
 .tool-setting { margin: 1pt 0; }
 .settings-key { table-layout: fixed; width: 100%; margin: 2pt 0; }
 .settings-key th, .settings-key td { padding: 1pt 3pt; vertical-align: top; }
-.settings-key th:nth-child(1) { width: 53%; }
-.settings-key th:nth-child(2) { width: 47%; }
+.settings-key col.setting-label { width: 8%; }
+.settings-key col.setting-description { width: 52%; }
+.settings-key col.setting-values { width: 40%; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .orientation-table :is(th, td):first-child {
+width: 1%; white-space: nowrap; overflow-wrap: normal; }
 body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow > h2,
 body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family > h2 {
 border: 0; margin: 3pt 0 1pt; }
@@ -364,6 +370,23 @@ body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family { margin: 3pt 
 .job-route { margin: 2pt 0; }
 .picture-notice { border-left: var(--rule-thin) solid var(--color-ink);
 padding-left: 5pt; }
+/* Compact modes use the physically proven 12pt / 12.5pt print rhythm. */
+body:is([data-detail="pro"], [data-detail="hobby"]) {
+--line-working: 12.5pt; line-height: var(--line-working); }
+body:is([data-detail="pro"], [data-detail="hobby"]) p,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-variant > p,
+body:is([data-detail="pro"], [data-detail="hobby"]) .family-common > p,
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) p { margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h2,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow > h2,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family > h2 {
+line-height: var(--line-working); margin: 4pt 0 0; padding-top: 1pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h3 { line-height: var(--line-working); }
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) :is(th, td) {
+padding: 0 3pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .banner { padding: 2pt; margin: 0 0 4pt; }
+body[data-detail="hobby"] h3 { margin: 4pt 0 0; padding-top: 1pt; }
+body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
 @media screen and (max-width: 600px) {
   html:not(.print-measuring) .checkpoint-results { grid-template-columns: minmax(0, 1fr); }
   html:not(.print-measuring) .checkpoint-result .writing-blank { min-width: 0; }
@@ -476,6 +499,11 @@ _MILL_SENSE = {
     ("x", "+"): "tool moves right relative to the work (table moves left)",
     ("y", "+"): "tool moves away from you relative to the work (table moves toward you)",
     ("z", "+"): "tool moves up",
+}
+_MILL_SHORT_SENSE = {
+    ("x", "+"): "tool right / table left",
+    ("y", "+"): "tool away / table toward you",
+    ("z", "+"): "tool up",
 }
 _LATHE_SENSE = {
     ("x", "+"): "away from the spindle axis",
@@ -1120,6 +1148,7 @@ class _Block:
     shared_html: str = ""
     op_id: int | None = None
     decisions: tuple[_Decision, ...] = ()
+    layout: str = "block"
 
 
 class _Row(tuple):
@@ -1265,13 +1294,15 @@ def _decision_evidence(decisions):
     )
 
 
-def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=()):
+def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=(), layout="block"):
     if decision.kind == "none":
         return ""
     css = "stop" if decision.kind == "block" else "caution"
     owner = (
-        f' data-setup-id="{escape(str(setup_id))}" data-op="{escape(str(op_id)) if op_id is not None else ""}"'
-        if setup_id is not None else ""
+        f' data-setup-id="{escape(str(setup_id))}"'
+        f' data-op="{escape(str(op_id)) if op_id is not None else ""}"'
+        if setup_id is not None
+        else ""
     )
     if owners:
         setup_ids = list(dict.fromkeys(item["setup_id"] for item in owners))
@@ -1282,13 +1313,14 @@ def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=()
             f' data-op="{escape(str(next(iter(op_ids)))) if len(op_ids) == 1 else ""}"'
             f' data-physical-ops="{escape(json.dumps(owners))}"'
         )
+    tag = "span" if layout == "inline" else "div"
     return (
-        f'<div class="decision {css}" data-decision="{decision.kind}" '
+        f'<{tag} class="decision {css}" data-decision="{decision.kind}" '
         f'data-source="{escape(decision.source)}" data-status="{escape(decision.status)}" '
         f'data-scope="{escape(decision.scope or "")}" '
         f'data-decision-evidence="{_decision_evidence((decision, *related))}"{owner}>'
-        + _p(decision.text)
-        + "</div>"
+        + (_numeric_html(decision.text) if layout == "inline" else _p(decision.text))
+        + f"</{tag}>"
     )
 
 
@@ -1326,13 +1358,28 @@ def _inspection_attributes(check):
     )
 
 
-def _inspection_method(method):
+def _inspection_method(method, *, layout="block"):
     content = (
         _worksheet(method)
         if isinstance(method, _Steps) and _readings(method[1]) and len(method[2]) >= 2
         else _item(method)
     )
-    return '<div class="inspection-method">' + content + "</div>"
+    context = method[0] if isinstance(method, _Steps) else getattr(method, "context", None)
+    attribute = f' data-page-context="{escape(context)}"' if context else ""
+    tag = (
+        "span"
+        if layout == "inline"
+        and not isinstance(method, _Steps)
+        and not getattr(method, "sketch", "")
+        and not _FIELD.search(str(method))
+        else "div"
+    )
+    return (
+        f'<{tag} class="inspection-method"{attribute}>'
+        + content
+        + f"</{tag}>"
+        + (" " if tag == "span" else "")
+    )
 
 
 def _inspection_html(check, *, result=True):
@@ -1785,9 +1832,14 @@ class _Traveler:
         self._blocks_by_setup = {}
         self._saw_cycle_homes = {}
         self._route_hold_steps = {}
+        self._route_hold_facts = {}
         self._route_cycles = {}
+        self._route_contours = {}
         self._route_datum_axes = {}
+        self._route_cut_direction = {}
         self._route_shared_warnings = {}
+        self._front_reference_layout = False
+        self._front_dro_guide = ""
         self.settings_active = False
         self.route_tool_labels = {}
         for setup in self.plan.get("setups", []):
@@ -2023,6 +2075,8 @@ class _Traveler:
         positive, negative = _SIGNS.get(axis, (set(), set()))
         sign = "+" if value in positive else "-" if value in negative else None
         words = (_LATHE_SENSE if lathe else _MILL_SENSE).get((axis, sign))
+        if self.detail == "hobby" and not lathe:
+            words = _MILL_SHORT_SENSE.get((axis, sign), words)
         return words or self.bench(value)
 
     def indicate_recipe(self, setup, axis, feature, authored, tool=None):
@@ -2201,8 +2255,10 @@ class _Traveler:
         return label
 
     def short_reference(self, reference, slot=None):
-        return self.reference(reference, slot) if self.detail != "pedantic" else short_reference_label(
-            self.bundle, reference, slot
+        return (
+            self.reference(reference, slot)
+            if self.detail != "pedantic"
+            else short_reference_label(self.bundle, reference, slot)
         )
 
     def tool_name(self, reference):
@@ -3320,7 +3376,11 @@ class _Traveler:
             for field in ("jaws_along", "fixed_jaw"):
                 values = {_mapping(setup.get("hold")).get(field) for setup in setups}
                 if len(values) == 1 and next(iter(values)) not in (
-                    None, "", "unknown", "none", "not_applicable"
+                    None,
+                    "",
+                    "unknown",
+                    "none",
+                    "not_applicable",
                 ):
                     fields[field] = next(iter(values))
             common[key] = (setups, fields)
@@ -3334,14 +3394,17 @@ class _Traveler:
             hold = _mapping(setup.get("hold"))
             reference, text = hold.get("stop_fixture"), hold.get("stop")
             if (
-                reference in (None, "", UNKNOWN) or not isinstance(text, str)
-                or not text.strip() or _FIELD.search(text)
+                reference in (None, "", UNKNOWN)
+                or not isinstance(text, str)
+                or not text.strip()
+                or _FIELD.search(text)
             ):
                 continue
             key = (self.mount_key(setup), self.holding_identity(setup, reference), text)
             candidates.setdefault(key, []).append(setup)
         return {
-            key: setups for key, setups in candidates.items()
+            key: setups
+            for key, setups in candidates.items()
             if len({setup.get("presentation_group", setup["id"]) for setup in setups}) > 1
         }
 
@@ -3356,13 +3419,16 @@ class _Traveler:
             if "fixed_jaw" in fields:
                 facts.append("fixed jaw " + _text(fields["fixed_jaw"]))
             lines.append(
-                self.setup_span([setup["id"] for setup in setups]) + ": " + name
+                self.setup_span([setup["id"] for setup in setups])
+                + ": "
+                + name
                 + (" (" + ", ".join(facts) + ")" if facts else "")
             )
         for (_, _, text), setups in self.shared_stop_instructions.items():
             lines.append(
                 self.setup_span([setup["id"] for setup in setups])
-                + ": " + self.bench(text, setups[0])
+                + ": "
+                + self.bench(text, setups[0])
             )
         return _p("Fixtures — " + "; ".join(lines) + ".") if lines else ""
 
@@ -3371,6 +3437,7 @@ class _Traveler:
         lathe = self.lathe(setup)
         compact = getattr(self, "detail", "pedantic") != "pedantic"
         evidence = []
+        shared_steps = {}
 
         def reference(value, slot):
             rendered = self.reference(value, slot)
@@ -3424,7 +3491,9 @@ class _Traveler:
             pointer = self.shop_made_pointer(setup, fixture, uses)
             mount += pointer
             if stated("chuck"):
-                mount += (" with the " if mount else "Chuck: ") + reference(hold["chuck"], "fixtures")
+                mount += (" with the " if mount else "Chuck: ") + reference(
+                    hold["chuck"], "fixtures"
+                )
             if stated("jaws_along") and "jaws_along" not in shared:
                 mount += f"; jaws along {_text(hold['jaws_along']).upper()}"
             angle = swivel_angle(hold)
@@ -3448,19 +3517,45 @@ class _Traveler:
                 steps.extend(placement + alignment)
             elif swivel_angle(hold):
                 steps.extend(alignment)
+        paired_grip = False
         if stated("parallels") and hold["parallels"] != "unknown":
             line = "Parallels: " + reference(hold["parallels"], "fixtures")
+            parallel = _mapping(resolve(self.bundle, "fixtures", hold["parallels"]))
+            height = _amount(parallel.get("height_mm"))
+            if compact and parallel.get("kind") == "parallels" and _known(height):
+                line = f"Parallels {_number(height)} mm"
+                if _known(hold.get("grip_mm")):
+                    line = f"Parallels/grip {_number(height)}/{_number(hold['grip_mm'])} mm"
+                    paired_grip = True
             if stated("riser"):
                 line += ", standing on " + reference(hold["riser"], "fixtures")
                 line += self.shop_made_pointer(setup, hold["riser"], uses)
             if stated("support_orientation"):
                 line += f" ({_text(hold['support_orientation'])} up)"
             steps.append(line + ".")
+            if compact and paired_grip:
+                shared_steps[
+                    (
+                        "parallels",
+                        identity(self.bundle, hold["parallels"], "fixtures"),
+                        height,
+                        hold["grip_mm"],
+                    )
+                ] = line + "."
         if stated("jaw_bar") and hold["jaw_bar"] != "unknown":
+            name = reference(hold["jaw_bar"], "fixtures")
+            bar = _mapping(resolve(self.bundle, "fixtures", hold["jaw_bar"]))
+            diameter = _amount(bar.get("dia_mm"))
+            if compact and _known(diameter):
+                name = f"Ø{_number(diameter)} mm round bar"
             steps.append(
-                "Round bar: "
-                + reference(hold["jaw_bar"], "fixtures")
-                + " between the work and the moving jaw, centred in the jaws, its centre "
+                (
+                    name + " at moving-jaw/work contact, centred; centre "
+                    if compact
+                    else "Round bar: "
+                    + name
+                    + " between the work and the moving jaw, centred in the jaws, its centre "
+                )
                 + self.jaw_bar_height(setup, hold)
                 + "."
             )
@@ -3530,18 +3625,20 @@ class _Traveler:
                 steps.append(line + ".")
         stop_pointer = self.shop_made_pointer(setup, hold.get("stop_fixture"), uses)
         if stop_pointer:
-            steps.append(
-                f"Work stop: {reference(hold['stop_fixture'], 'fixtures')}{stop_pointer}."
-            )
+            steps.append(f"Work stop: {reference(hold['stop_fixture'], 'fixtures')}{stop_pointer}.")
         for key, label in (
             ("locate", "Locate"),
             ("grip_on", "Grip on"),
             ("stop", "Stop"),
         ):
             if stated(key):
-                if compact and key == "stop" and any(
-                    setup["id"] in {member["id"] for member in members}
-                    for members in self.shared_stop_instructions.values()
+                if (
+                    compact
+                    and key == "stop"
+                    and any(
+                        setup["id"] in {member["id"] for member in members}
+                        for members in self.shared_stop_instructions.values()
+                    )
                 ):
                     continue
                 steps.append(f"{label}: {self.bench(hold[key], setup)}.")
@@ -3550,6 +3647,8 @@ class _Traveler:
                 step = self.bench(step, setup)
                 if step:
                     steps.append(step[:1].upper() + step[1:] + ".")
+                    if compact and not _FIELD.search(step):
+                        shared_steps[("clamp", step)] = steps[-1]
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
         for label, clamp in zip(clamp_labels(hold), clamps, strict=True):
             clamp = _mapping(clamp)
@@ -3594,18 +3693,27 @@ class _Traveler:
         if compact:
             # Inventory poses and successful alignment audits remain evaluated above;
             # the route prints settings, authored handling and adverse facts instead.
+            if paired_grip:
+                facts = [(name, value) for name, value in facts if name != "grip length mm"]
             facts = [
                 ({"grip length mm": "Grip mm"}.get(name, name), value)
                 for name, value in facts
-                if name in ("grip length mm", "nominal stickout mm", "set stickout", "stickout mm",
-                            "centre tip at Z", "quill out mm", "jaw 1 clocked °")
+                if name
+                in (
+                    "grip length mm",
+                    "nominal stickout mm",
+                    "set stickout",
+                    "stickout mm",
+                    "centre tip at Z",
+                    "quill out mm",
+                    "jaw 1 clocked °",
+                )
                 or "?" in str(value)
             ]
             if facts:
-                steps.append(
-                    "; ".join(f"{name}: {value}" for name, value in facts) + "."
-                )
+                steps.append("; ".join(f"{name}: {value}" for name, value in facts) + ".")
             self._route_hold_steps[setup["id"]] = tuple(steps)
+            self._route_hold_facts[setup["id"]] = shared_steps
             return (
                 "<p><strong>Hold.</strong> " + _fields(" ".join(steps)) + "</p>" if steps else "",
                 self.indexing(setup),
@@ -3881,7 +3989,8 @@ class _Traveler:
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         if not (_known(top) and _known(bottom) and _known(jaw) and scale):
             return "? height not set (jaw height, stock top/bottom or plan units unknown)"
-        return f"{self.operative(min(jaw, (top - bottom) * scale) / 2)} mm above the parallels"
+        shown = self.operative if getattr(self, "detail", "pedantic") == "pedantic" else _number
+        return f"{shown(min(jaw, (top - bottom) * scale) / 2)} mm above parallels"
 
     def hold_facts(self, setup, hold, lathe):
         o = self.operative if getattr(self, "detail", "pedantic") == "pedantic" else _number
@@ -5210,7 +5319,9 @@ class _Traveler:
                     elif planned <= _CRASH_ZONE_MM:
                         actions.append(
                             _Box(
-                                f"TIP {o(value)} ABOVE JAW TOP — check before plunging",
+                                f"TIP/JAW GAP {o(value)} mm"
+                                if self.detail == "pro"
+                                else f"TIP {o(value)} ABOVE JAW TOP — check before plunging",
                                 source="headroom",
                                 status="warn",
                                 kind="caution",
@@ -5260,10 +5371,15 @@ class _Traveler:
             if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
                 # Named with its distance when another obstacle is the row's closest.
                 check = (
-                    "keep the file clear of it" if hand
+                    "keep the file clear of it"
+                    if hand
                     else "hand feed past it; check the cutter clears it"
                 )
-                text = f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}"
+                text = (
+                    f"{cut[1].upper()} CUT GAP {o(cut[0])} mm"
+                    if self.detail == "pro"
+                    else f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}"
+                )
                 actions.append(
                     _Box(
                         text,
@@ -5725,12 +5841,15 @@ class _Traveler:
         if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
             hand = op.get("do") in HAND_FINISH
             check = (
-                "keep the file clear of it" if hand
+                "keep the file clear of it"
+                if hand
                 else "hand feed past it; check the cutter clears it"
             )
             boxes.append(
                 _Box(
-                    f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}",
+                    f"{cut[1].upper()} CUT GAP {o(cut[0])} mm"
+                    if self.detail == "pro"
+                    else f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}",
                     source="cut_clearance",
                     status="error" if cut[0] < 0 else "warn",
                     kind="block" if cut[0] < 0 else "caution",
@@ -5752,7 +5871,9 @@ class _Traveler:
         elif planned <= _CRASH_ZONE_MM:
             boxes.append(
                 _Box(
-                    f"TIP {o(value)} ABOVE JAW TOP — check before plunging",
+                    f"TIP/JAW GAP {o(value)} mm"
+                    if self.detail == "pro"
+                    else f"TIP {o(value)} ABOVE JAW TOP — check before plunging",
                     source="headroom",
                     status="warn",
                     kind="caution",
@@ -6018,8 +6139,12 @@ class _Traveler:
             solid, colon, normal = surface.rpartition(":")
             if slash and colon and normal in ("+x", "-x", "+y", "-y", "+z", "-z"):
                 return (
-                    self.reference(reference, "fixtures") + " " + _text(solid)
-                    + " " + normal.upper() + " face"
+                    self.reference(reference, "fixtures")
+                    + " "
+                    + _text(solid)
+                    + " "
+                    + normal.upper()
+                    + " face"
                 )
         return self.bench(face)
 
@@ -6041,9 +6166,10 @@ class _Traveler:
                 touch, record = _mapping(zero.get(axis)), _mapping(axes.get(axis))
                 if (
                     record.get("axis_set_status") != "computed"
-                    or not all(_known(record.get(key)) for key in (
-                        "edge_mm", "axis_set", "check_reading", "mirrored_reading"
-                    ))
+                    or not all(
+                        _known(record.get(key))
+                        for key in ("edge_mm", "axis_set", "check_reading", "mirrored_reading")
+                    )
                     or any(touch.get(key) != record.get(key) for key in ("face", "method", "from"))
                     or any(
                         identity(self.bundle, touch.get(key), slot)
@@ -6053,10 +6179,21 @@ class _Traveler:
                 ):
                     break
                 common = {
-                    key: record.get(key) for key in (
-                        "edge", "face", "method", "from", "edge_mm", "radius_mm",
-                        "paper_mm", "axis_set", "check_reading", "mirrored_reading",
-                        "check_jog_mm", "jog_mm", "mounted_saw_setting"
+                    key: record.get(key)
+                    for key in (
+                        "edge",
+                        "face",
+                        "method",
+                        "from",
+                        "edge_mm",
+                        "radius_mm",
+                        "paper_mm",
+                        "axis_set",
+                        "check_reading",
+                        "mirrored_reading",
+                        "check_jog_mm",
+                        "jog_mm",
+                        "mounted_saw_setting",
                     )
                 }
                 common["tool"] = identity(self.bundle, touch.get("tool"), "spindle")
@@ -6070,15 +6207,20 @@ class _Traveler:
                     approach = _mapping(proof.get("request")).get("approach_mm")
                     if (
                         proof.get("status") != "pass"
-                        or not isinstance(at, list) or len(at) != 2 or not all(map(_known, at))
-                        or not isinstance(point, list) or len(point) != 3
+                        or not isinstance(at, list)
+                        or len(at) != 2
+                        or not all(map(_known, at))
+                        or not isinstance(point, list)
+                        or len(point) != 3
                         or not all(_known(value) for value in (point[2], top, retract, approach))
                     ):
                         break
                     heights.append(at[1])
                     common["at_lateral_mm"] = at[0]
                     common["clearances_mm"] = [
-                        _number(top - point[2]), _number(approach), _number(retract - top)
+                        _number(top - point[2]),
+                        _number(approach),
+                        _number(retract - top),
                     ]
                 else:
                     common["at_mm"] = at
@@ -6124,7 +6266,8 @@ class _Traveler:
         text = "Saw datums: " + "; ".join(xy) + ". "
         text += (
             f"Pickups: tip {mm(abs(float(clearance[0])))} "
-            + ("below" if float(clearance[0]) >= 0 else "above") + " current top, "
+            + ("below" if float(clearance[0]) >= 0 else "above")
+            + " current top, "
             f"stand-off {mm(float(clearance[1]))}, retract {mm(float(clearance[2]))} above. "
             f"Every cut: fresh stopped {side} body-side touch at "
             f"{self.contact_label(z.get('face'))} Z{self.readout(z['edge_mm'])}, "
@@ -6143,15 +6286,30 @@ class _Traveler:
         elif _known(setting.get("kerf_offset_mm")) and setting["kerf_offset_mm"] != 0:
             text += f" Cutting-band offset {mm(setting['kerf_offset_mm'])}."
         same_height = all(item[3][0] == item[3][1] for item in group)
-        headings = ["Setup", "Pickup Z", "Cut Z"] if same_height else [
-            "Setup", "X pickup Z", "Y pickup Z", "Cut Z"
-        ]
+        headings = (
+            ["Setup", "Pickup Z", "Cut Z"]
+            if same_height
+            else ["Setup", "X pickup Z", "Y pickup Z", "Cut Z"]
+        )
         rows = [
-            [item[0]["id"], *([mm(item[3][0])] if same_height else map(mm, item[3])),
-             self.readout(item[4]["cut_plane"]["value"])]
+            [
+                item[0]["id"],
+                *([mm(item[3][0])] if same_height else map(mm, item[3])),
+                self.readout(item[4]["cut_plane"]["value"]),
+            ]
             for item in group
         ]
-        return _p(text) + _table(headings, rows, css="mounted-datums")
+        widths = None
+        if self.detail != "pedantic" and 1 < len(rows) <= 4:
+            headings, rows = (
+                ["Setting", *(row[0] for row in rows)],
+                [
+                    [heading, *(row[index] for row in rows)]
+                    for index, heading in enumerate(headings[1:], 1)
+                ],
+            )
+            widths = [18, *([82 / (len(headings) - 1)] * (len(headings) - 1))]
+        return _p(text) + _table(headings, rows, css="mounted-datums", widths=widths)
 
     def dro(self, setup, tools, *, procedure="inline"):
         detail = getattr(self, "detail", "pedantic")
@@ -6228,8 +6386,10 @@ class _Traveler:
                 else "? radius/diameter"
             )
         pieces = (
-            [f"<h2>DRO ZERO — {escape(self.zero_name(setup))}, "
-             f"{escape(_text(readout_units(self.bundle)))}, {escape(mode)} mode</h2>"]
+            [
+                f"<h2>DRO ZERO — {escape(self.zero_name(setup))}, "
+                f"{escape(_text(readout_units(self.bundle)))}, {escape(mode)} mode</h2>"
+            ]
             if detail == "pedantic"
             else []
         )
@@ -6266,7 +6426,8 @@ class _Traveler:
             pieces.append(_p("Tool-relative positive directions: " + direction_line + "."))
         authored_procedure = authored.get("procedure")
         if (
-            not separate_instructions and isinstance(authored_procedure, str)
+            not separate_instructions
+            and isinstance(authored_procedure, str)
             and authored_procedure not in ("", "unknown")
         ):
             pieces.append(_p(self.bench(authored_procedure, setup)))
@@ -6562,10 +6723,13 @@ class _Traveler:
                 # datum and exceptional contact geometry, not an ordinary DRO worksheet.
                 brief = [self.contact_label(target) if target else "? contact not set"]
                 if opposed:
-                    brief.append(f"actual midpoint {axis.upper()}{self.reading(readings['axis_set'])}")
+                    brief.append(
+                        f"actual midpoint {axis.upper()}{self.reading(readings['axis_set'])}"
+                    )
                     if computed.get("part_result") != "not_recorded":
                         brief.append(
-                            "actual contacts " + " / ".join(
+                            "actual contacts "
+                            + " / ".join(
                                 str(value) for value in computed.get("actual_contact_readings", [])
                             )
                         )
@@ -6573,17 +6737,22 @@ class _Traveler:
                     brief.append(f"{axis.upper()}{shown_edge}")
                 else:
                     brief.append(f"{axis.upper()}?")
-                if indicate or touch.get("measure") or method in {
-                    "trial_cut_measure", "face_then_set", "measure_then_set"
-                }:
+                if (
+                    indicate
+                    or touch.get("measure")
+                    or method in {"trial_cut_measure", "face_then_set", "measure_then_set"}
+                ):
                     debts = {text for _, text in compact_debts}
                     brief = [
-                        part for part in contact
-                        if not isinstance(part, _Box) and part not in debts
+                        part for part in contact if not isinstance(part, _Box) and part not in debts
                     ]
                 else:
                     if method not in (
-                        None, "paper", "touch", "opposed_edge_midpoint", "mounted_saw_side"
+                        None,
+                        "paper",
+                        "touch",
+                        "opposed_edge_midpoint",
+                        "mounted_saw_side",
                     ):
                         brief.append(self.bench(_METHODS.get(method, _text(method)), setup))
                     if method == "mounted_saw_side":
@@ -6591,17 +6760,24 @@ class _Traveler:
                     at = touch.get("at_mm")
                     scale = {"mm": 1.0, "in": 25.4}.get(self.units)
 
-                    def physical_reading(value):
+                    def physical_reading(value, scale=scale):
                         return o(value / scale) if _known(value) and scale else "?"
 
-                    if isinstance(at, list) and len(at) == 2 and (
-                        method == "mounted_saw_side"
-                        or detail == "hobby" and axis != "z"
-                        or mounted_setup and axis != "z"
+                    if (
+                        isinstance(at, list)
+                        and len(at) == 2
+                        and (
+                            method == "mounted_saw_side"
+                            or detail == "hobby"
+                            and axis != "z"
+                            or mounted_setup
+                            and axis != "z"
+                        )
                     ):
                         labels = "XY" if axis == "z" else ("YZ" if axis == "x" else "XZ")
                         brief.append(
-                            "at " + "/".join(
+                            "at "
+                            + "/".join(
                                 label + physical_reading(value)
                                 for label, value in zip(labels, at, strict=True)
                             )
@@ -6611,14 +6787,17 @@ class _Traveler:
                     point, top = path.get("contact_mm"), path.get("stock_top_mm")
                     retract = path.get("retract_height_mm")
                     approach = _mapping(proof.get("request")).get("approach_mm")
-                    if (mounted_setup or first_lesson) and axis in ("x", "y") and (
-                        isinstance(point, list) and len(point) == 3
+                    if (
+                        (mounted_setup or first_lesson)
+                        and axis in ("x", "y")
+                        and (isinstance(point, list) and len(point) == 3)
                     ):
                         recipe = []
                         if _known(top) and _known(point[2]):
                             recipe.append(
                                 f"tip {physical_reading(abs(top - point[2]))} "
-                                + ("below" if top >= point[2] else "above") + " current top"
+                                + ("below" if top >= point[2] else "above")
+                                + " current top"
                             )
                         if _known(approach):
                             recipe.append(f"stand-off {physical_reading(approach)}")
@@ -6667,10 +6846,16 @@ class _Traveler:
             )
             lesson.append(
                 _p(
-                    f"Use ABS mode in {readout_unit_label}. "
-                    "Coordinates describe the tool relative to the work; the table moves the "
-                    "opposite way. Axis Set assigns the current position's coordinate; Preset "
-                    "stores a destination and does not establish this datum."
+                    (
+                        f"ABS {readout_unit_label}. Coordinates are tool-relative; table motion "
+                        "is opposite. Axis Set assigns the current position; Preset stores "
+                        "a destination, not a datum."
+                        if detail == "hobby"
+                        else f"Use ABS mode in {readout_unit_label}. "
+                        "Coordinates describe the tool relative to the work; the table moves the "
+                        "opposite way. Axis Set assigns the current position's coordinate; Preset "
+                        "stores a destination and does not establish this datum."
+                    )
                     + (" " + direction_line + "." if direction_line and detail == "hobby" else "")
                 )
             )
@@ -6699,10 +6884,10 @@ class _Traveler:
             else:
                 lesson.append(
                     _p(
-                        "For opposed edges, compensate both actual contacts with the same "
-                        "finder; use their actual midpoint (edge 1 + edge 2) / 2, never half "
-                        "an assumed stock width. Clear vertically before a check jog; return "
-                        "to the contact reading before lowering without another Axis Set."
+                        "Opposed edges: same finder, compensate both actual contacts; use "
+                        "their midpoint (edge 1 + edge 2) / 2, never assumed stock width. "
+                        "Clear vertically before a check jog; return to the contact reading "
+                        "before lowering, without another Axis Set."
                     )
                 )
             paper = next(
@@ -6716,12 +6901,37 @@ class _Traveler:
             if paper is not None:
                 lesson.append(
                     _p(
-                        f"This setup's paper is {o(paper)} {units}: stop at light drag and "
+                        f"Paper {o(paper)} {units}: light drag; include actual thickness "
+                        "with the contact-side sign in Axis Set."
+                        if detail == "hobby"
+                        else f"This setup's paper is {o(paper)} {units}: stop at light drag and "
                         "include that actual thickness with the contact-side sign in Axis Set."
                     )
                 )
             if lesson_examples:
                 lesson.append(_p(min(lesson_examples, key=lambda item: item[0])[1]))
+            if not separate_instructions and not lathe:
+                checked_axes = [axis.upper() for axis in ("x", "y") if axis in axes]
+                if checked_axes:
+                    lesson.append(
+                        _inspection_method(
+                            _Steps(
+                                (
+                                    " and ".join(checked_axes) + " check jog",
+                                    (
+                                        "raise Z only until the tool clears the work and clamps, "
+                                        "without changing the axis under test.",
+                                        "jog the table by the stated check-jog amount "
+                                        "in the positive tool-relative direction; "
+                                        "the display must read the listed value.",
+                                        "jog back to the Axis Set value again, then lower; "
+                                        "do not Axis Set again.",
+                                    ),
+                                    (),
+                                )
+                            )
+                        )
+                    )
         elif detail == "pedantic":
             reference = next(
                 (
@@ -6745,7 +6955,9 @@ class _Traveler:
             pieces.append(
                 _table(
                     ["axis", "touch / datum", "Axis Set", "check jog", "must read", "if reversed"],
-                    rows, css="zero", widths=[7, 41, 13, 13, 13, 13],
+                    rows,
+                    css="zero",
+                    widths=[7, 41, 13, 13, 13, 13],
                 )
             )
         elif compact_rows:
@@ -6763,7 +6975,8 @@ class _Traveler:
                 else:
                     pieces.append(
                         "<p><strong>Datums.</strong> "
-                        + _fields(". ".join([*compact_rows, *pickups])) + ".</p>"
+                        + _fields(". ".join([*compact_rows, *pickups]))
+                        + ".</p>"
                     )
         pieces.extend(measurements)
         machine, printed = setup.get("machine"), set()
@@ -6779,10 +6992,21 @@ class _Traveler:
                 elif detail == "pedantic" or finder.get("status") != "pass":
                     pieces.append(rendered)
         if first_use:
-            pieces.insert(
-                1,
-                '<div id="dro-first-use"><h3>DRO FIRST USE</h3>' + "".join(lesson) + "</div>",
+            lesson_html = "".join(lesson)
+            if detail == "hobby":
+                lesson_html = lesson_html.replace("</p><p>", " ")
+            guide = (
+                f'<div id="dro-first-use" data-setup-id="{escape(setup["id"])}">'
+                + "<h3>DRO FIRST USE"
+                + (f" — {escape(setup['id'])}" if self._front_reference_layout else "")
+                + "</h3>"
+                + lesson_html
+                + "</div>"
             )
+            if self._front_reference_layout and separate_instructions:
+                self._front_dro_guide = guide
+            else:
+                pieces.insert(1, guide)
         correction = self.measured_top(setup)
         if correction:
             pieces.append(_p(correction))
@@ -6835,7 +7059,8 @@ class _Traveler:
                 after, served = _text(record.get("op")), record.get("next_op")
                 incoming = record.get("next_tool")
                 name = (
-                    self.route_tool_label(incoming) if detail != "pedantic"
+                    self.route_tool_label(incoming)
+                    if detail != "pedantic"
                     else self.touched_tool(incoming, tools, "tools")
                 )
                 if record.get("tool_change") is True:
@@ -6902,8 +7127,7 @@ class _Traveler:
                     )
                     if detail != "pro" or mounted:
                         line += (
-                            f", paper {o(touch.get('paper_mm'))}; "
-                            f"Axis Set Z{self.reading(setting)}"
+                            f", paper {o(touch.get('paper_mm'))}; Axis Set Z{self.reading(setting)}"
                         )
                     at = touch.get("at_mm")
                     if mounted and isinstance(at, list) and len(at) == 2:
@@ -6948,6 +7172,16 @@ class _Traveler:
             # The compact composer's decision blocks own these adverse facts.
             adverse_html = {_p(text) for _, text in compact_debts}
             pieces = [piece for piece in pieces if piece not in adverse_html]
+        if detail != "pedantic" and separate_instructions and not compact_debts:
+            pieces = [
+                '<span class="datum-clause">' + piece[3:-4] + "</span> "
+                if piece.startswith("<p>")
+                and piece.endswith("</p>")
+                and piece.count("<p>") == piece.count("</p>") == 1
+                and 'class="writing-blank"' not in piece
+                else piece
+                for piece in pieces
+            ]
         return "".join(pieces)
 
     def pickup_contact(self, axis, computed, *, axis_set=None):
@@ -7161,7 +7395,11 @@ class _Traveler:
         if teach and kind == "mechanical":
             lines.append(
                 _p(
-                    "Mechanical contact: offset the tip while stopped; run at the stated "
+                    "Mechanical finder: offset tip while stopped; run at stated speed. "
+                    "Approach in small handwheel steps until true and kicking sideways; "
+                    "back off and repeat the first kick."
+                    if detail == "hobby"
+                    else "Mechanical contact: offset the tip while stopped; run at the stated "
                     "speed. Approach in small handwheel steps until it runs true and kicks "
                     "sideways; back off and repeat the first kick to locate the edge."
                 )
@@ -7176,10 +7414,16 @@ class _Traveler:
         if teach and _known(radius):
             lines.append(
                 _p(
-                    f"Offset: at the pick-up the spindle axis is half the tip Ø ({o(tip)}) off "
-                    f"the edge, r = {o(radius)}. Coming from the − side (moving + onto the "
-                    f"edge): Axis Set edge − {o(radius)}. Coming from the + side: Axis Set edge "
-                    f"+ {o(radius)}. Each DRO ZERO row prints its signed Axis Set."
+                    "Finder-axis offset is half the tip diameter. From the − side "
+                    f"(moving + onto the edge): Axis Set edge − {o(radius)}; "
+                    f"from + side: Axis Set edge + {o(radius)}. "
+                    "Use the local datum and signed Axis Set."
+                    if detail == "hobby"
+                    else "Offset: at the pick-up the spindle axis is half the tip Ø "
+                    f"({o(tip)}) off the edge, r = {o(radius)}. Coming from the − side "
+                    f"(moving + onto the edge): Axis Set edge − {o(radius)}. "
+                    f"Coming from the + side: Axis Set edge + {o(radius)}. "
+                    "Each DRO ZERO row prints its signed Axis Set."
                 )
             )
         cite = finder.get("cite")
@@ -7190,7 +7434,10 @@ class _Traveler:
         finder_item = identity(self.bundle, reference, "spindle")
         if sum(key[0] == finder_item for key in self.finder_homes) > 1:
             title += f" on {self.reference(machine, 'machines')}"
-        return f'<div class="keep"><h3>{escape(title)}</h3>{"".join(lines)}</div>'
+        body = "".join(lines)
+        if detail == "hobby":
+            body = body.replace("</p><p>", " ")
+        return f'<div class="keep"><h3>{escape(title)}</h3>{body}</div>'
 
     @functools.cached_property
     def receipt_homes(self):
@@ -7924,12 +8171,17 @@ class _Traveler:
         if endpoint and endpoint.get("depth_scale") == "manual":
             depth = endpoint.get("depth_mm")
             if all(_known(endpoint.get(key)) for key in ("entry_z", "tip_z", "depth_mm")):
-                return [f"hand depth {o(depth)} from touching the top"]
+                return [
+                    f"hand depth {o(depth)} below top"
+                    if self.detail != "pedantic"
+                    else f"hand depth {o(depth)} from touching the top"
+                ]
             return [
                 "hand depth not set",
                 _Box(
                     "STOP: hand-fed penetration or touched entry is not established",
-                    source="blind_depth", status="unknown",
+                    source="blind_depth",
+                    status="unknown",
                     scope=f"{setup['id']}:{op.get('op')}",
                 ),
             ]
@@ -7952,7 +8204,11 @@ class _Traveler:
             # Consume checked operative endpoints, including the actual carried Axis Set;
             # never re-round their raw native entry or exit face in the renderer.
             entry = endpoint.get("dro_entry_z")
-            parts = [f"Z {o(entry)} → {o(endpoint.get('dro_tip_z'))}"]
+            parts = [
+                f"tip Z{o(endpoint.get('dro_tip_z'))}"
+                if self.detail != "pedantic" and _known(entry) and entry == 0
+                else f"Z {o(entry)} → {o(endpoint.get('dro_tip_z'))}"
+            ]
             if endpoint.get("exit_face", "not_applicable") != "not_applicable":
                 parts.append(f"breaks through at {o(endpoint.get('dro_exit_face'))}")
                 left = endpoint.get("dro_exit_mm")
@@ -7961,7 +8217,8 @@ class _Traveler:
                     parts.append(_Box("STOP: DRO tip stops short of break-through; raise exit"))
             elif _known(endpoint.get("depth_mm")):
                 depth = endpoint.get("dro_depth_mm")
-                parts.append(f"depth {o(depth if _known(depth) else endpoint['depth_mm'])}")
+                if self.detail == "pedantic" or not _known(entry) or entry != 0:
+                    parts.append(f"depth {o(depth if _known(depth) else endpoint['depth_mm'])}")
                 floor = endpoint.get("depth_floor_mm", "unknown")
                 if _known(depth) and _known(floor) and depth < floor - SAME_Z:
                     # Rounded up, the DRO tip leaves the hole shallower than its depth band.
@@ -8062,7 +8319,11 @@ class _Traveler:
         if not (_known(x) and _known(y)):
             return [_Box("STOP: hole X/Y not set")]
         o = self.readout
-        return [f"tool axis X {o(x)}, Y {o(y)}{self.frame_tag(setup)}"]
+        return [
+            f"X{o(x)}/Y{o(y)}{self.frame_tag(setup)}"
+            if self.detail != "pedantic"
+            else f"tool axis X {o(x)}, Y {o(y)}{self.frame_tag(setup)}"
+        ]
 
     def dro_to_z(self, setup, op):
         """The depth the DRO shows for ``op``: the ``dro_to_z`` coordinates checked (rounded
@@ -8238,7 +8499,9 @@ class _Traveler:
         top = _mapping(setup.get("stock_state")).get("top_z")
         edge, paper = axis.get("edge_mm"), axis.get("paper_mm")
         if not (
-            _known(top) and _known(edge) and _known(paper)
+            _known(top)
+            and _known(edge)
+            and _known(paper)
             and _known(axis.get("axis_set"))
             and math.isclose(top, edge, rel_tol=0, abs_tol=SAME_Z)
             and math.isclose(axis["axis_set"], edge + paper, rel_tol=0, abs_tol=SAME_Z)
@@ -8263,7 +8526,8 @@ class _Traveler:
             == identity(self.bundle, retouch.get("next_tool"), "spindle")
             and identity(self.bundle, following.get("holder"), "holders")
             == identity(self.bundle, touch["holder"], "holders")
-            and _known(retouch.get("top_z")) and _known(retouch.get("paper_mm"))
+            and _known(retouch.get("top_z"))
+            and _known(retouch.get("paper_mm"))
             and math.isclose(retouch["top_z"], top, rel_tol=0, abs_tol=SAME_Z)
             and math.isclose(retouch["paper_mm"], paper, rel_tol=0, abs_tol=SAME_Z)
         )
@@ -8618,11 +8882,14 @@ class _Traveler:
                     methods=methods,
                     reading_owned=reading_owned,
                     subjects=tuple(target["subject"] for target in targets),
-                    compact_criteria=((
-                        identity(self.bundle, reference, "gauges"), gauge,
-                        f"{'? ' if unresolved else ''}{name}: "
-                        + "; ".join(self.bench(clause) for clause in clauses),
-                    ),),
+                    compact_criteria=(
+                        (
+                            identity(self.bundle, reference, "gauges"),
+                            gauge,
+                            f"{'? ' if unresolved else ''}{name}: "
+                            + "; ".join(self.bench(clause) for clause in clauses),
+                        ),
+                    ),
                     **metadata,
                 )
             ]
@@ -8676,18 +8943,26 @@ class _Traveler:
                         for target in targets
                         if target["identity"]["feature_owner"] in group
                     ),
-                    compact_criteria=((
-                        identity(self.bundle, reference, "gauges"), gauge,
-                        ("? " if unresolved else "")
-                        + ", ".join(self.feature_name(feature) for feature in group)
-                        + " " + name + " " + shown_band
-                        + (
-                            ", GO / NO-GO sizes not set" if pair == "unknown"
-                            else self.go_no_go(pair, group[0], requirement, reference) if pair
-                            else ""
-                        )
-                        + (" to " + "|".join(map(_text, datums)) if datums else ""),
-                    ),),
+                    compact_criteria=(
+                        (
+                            identity(self.bundle, reference, "gauges"),
+                            gauge,
+                            ("? " if unresolved else "")
+                            + ", ".join(self.feature_name(feature) for feature in group)
+                            + " "
+                            + name
+                            + " "
+                            + shown_band
+                            + (
+                                ", GO / NO-GO sizes not set"
+                                if pair == "unknown"
+                                else self.go_no_go(pair, group[0], requirement, reference)
+                                if pair
+                                else ""
+                            )
+                            + (" to " + "|".join(map(_text, datums)) if datums else ""),
+                        ),
+                    ),
                     **metadata,
                 )
             )
@@ -8847,7 +9122,11 @@ class _Traveler:
                     + (f" ({_text(applied)})" if applied not in (None, "unknown") else "")
                 )
             elif category == "consumables":
-                cells.append(f"{shown} (in-house)")
+                cells.append(
+                    self.reference(reference, "consumables")
+                    if self.detail != "pedantic"
+                    else f"{shown} (in-house)"
+                )
             else:
                 cells.append(f"{_text(reference)} (not in shop list)")
         return ", ".join(cells)
@@ -9338,10 +9617,14 @@ class _Traveler:
             direction = self.direction(direction)
             scribed = saw and "follows" in op
             if saw:
+                plane = _mapping(op.get("cut_plane"))
+                side = {"below": "lower", "above": "higher"}.get(plane.get("keep"))
                 direction = (
                     self.feed_direction(setup)
                     if scribed
-                    else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+                    else f"keep {side}-{_text(plane['axis']).upper()} side of blade-centre plane"
+                    if side and plane.get("axis") in ("x", "y", "z")
+                    else "keep " + _text(plane.get("keep"))
                 )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
@@ -9350,7 +9633,11 @@ class _Traveler:
                 target = [part for part in target if part]
             elif saw:
                 target = [
-                    "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
+                    "retained "
+                    + _text(_mapping(op.get("cut_plane")).get("axis")).upper()
+                    + " edge "
+                    + _number(saw_numbers.get("retained_boundary_mm"))
+                    + " mm"
                 ]
             else:
                 target = (
@@ -9984,32 +10271,37 @@ class _Traveler:
             levels = self.z_levels(setup, op) or {}
             depths = levels.get("levels")
             depth_line = (
-                "Z " + " → ".join(self.readout(z) for z in depths) + " at each complete path."
+                "Z " + " → ".join(self.readout(z) for z in depths) + "."
                 if isinstance(depths, list) and depths
                 else ""
             )
-            pieces = [_p(depth_line)] if depth_line else []
+            pieces = [(depth_line, "")] if depth_line else []
             path = self.level_path(setup, op.get("op"))
             entries = path.get("entries")
             ordinary_entry = (
-                isinstance(entries, list) and entries
+                isinstance(entries, list)
+                and entries
                 and all(down.get("air") or down.get("contact") == "tangent" for down in entries)
             )
             if (
                 op.get("do") in FACING
-                and entry.get("raster") and len(entry["parts"]) == 1
-                and not entry["stops"] and not entry.get("unresolved")
-                and ordinary_entry and isinstance(depths, list) and depths
+                and entry.get("raster")
+                and len(entry["parts"]) == 1
+                and not entry["stops"]
+                and not entry.get("unresolved")
+                and ordinary_entry
+                and isinstance(depths, list)
+                and depths
                 and all(map(_known, depths))
                 and _known(entry.get("raster_step"))
             ):
                 text = "Face Z" + " → ".join(self.readout(z) for z in depths)
                 text += "; maximum stepover " + self.readout(entry["raster_step"]) + "."
-                paths[op_id] = '<div class="route-path">' + _p(text) + "</div>"
+                paths[op_id] = (text, "")
                 continue
             if not ordinary_entry:
                 if entry_note := self.level_entries(setup, op, self.waypoints(setup)):
-                    pieces.append(entry_note)
+                    pieces.append(("", entry_note))
             if not entry["parts"]:
                 reasons = list(dict.fromkeys(entry["stops"]))
                 text = "contour points not computed" + "".join(" — " + reason for reason in reasons)
@@ -10019,7 +10311,7 @@ class _Traveler:
                 entry["parts"], key=lambda part: part[0]
             ):
                 if isinstance(description, list):
-                    pieces.append(_list(description))
+                    pieces.append(("", _list(description)))
                     continue
                 if headings == ["pass", "X from", "Y from", "X to", "Y to", "Z"] and rows:
                     # Consecutive equal runs share their instruction, never their results.
@@ -10033,19 +10325,23 @@ class _Traveler:
                     lines = []
                     for run, across, row in runs:
                         if run:
-                            lines.append(
-                                f"X {run[0]} → {run[1]} at Y " + ", ".join(across)
-                            )
+                            lines.append(f"X {run[0]} → {run[1]} at Y " + ", ".join(across))
                         else:
                             lines.append(f"(X{row[1]}, Y{row[2]}) → (X{row[3]}, Y{row[4]})")
-                    pieces.append(_p("Centre: " + "; ".join(lines) + "."))
-                    if entry.get("raster_lifts"):
-                        pieces.append(_p(
-                            "Lift Z " + " / ".join(dict.fromkeys(entry["raster_lifts"]))
-                            + " between passes; return at lift height."
-                        ))
-                    else:
-                        pieces.append(_p(description + "; return at lift height."))
+                    pieces.append(("Centre: " + "; ".join(lines) + ".", ""))
+                    routine = ordinary_entry and not entry["stops"] and not entry.get("unresolved")
+                    if self.detail != "pro" or not routine:
+                        if entry.get("raster_lifts"):
+                            pieces.append(
+                                (
+                                    "Lift Z "
+                                    + " / ".join(dict.fromkeys(entry["raster_lifts"]))
+                                    + " between passes; return at lift height.",
+                                    "",
+                                )
+                            )
+                        else:
+                            pieces.append((description + "; return at lift height.", ""))
                 elif headings == ["P", "angle °", "X", "Y", "Z", "handwheel axis"] and rows:
                     points, previous = [], None
                     for row in rows:
@@ -10057,18 +10353,27 @@ class _Traveler:
                         ]
                         points.append("/".join(changed) or "same point")
                         previous = xy
-                    pieces.append(_p("Centre: " + " → ".join(points) + "."))
+                    pieces.append(("Centre: " + " → ".join(points) + ".", ""))
                     if any(row[5] for row in rows):
                         pieces.append(
-                            _p("Handwheel axes: " + " → ".join(row[5] or "?" for row in rows))
+                            ("Handwheel axes: " + " → ".join(row[5] or "?" for row in rows), "")
                         )
                 else:
-                    pieces.append(_p(description))
+                    pieces.append((description, ""))
                     if rows:
-                        pieces.append(_table(headings, rows, css="coords"))
+                        pieces.append(("", _table(headings, rows, css="coords")))
                 if after:
-                    pieces.append(_p(after))
-            paths[op_id] = '<div class="route-path">' + "".join(pieces) + "</div>"
+                    pieces.append((after, ""))
+            paths[op_id] = (
+                (" ".join(text for text, _ in pieces), "")
+                if all(not html for _, html in pieces)
+                else (
+                    "",
+                    '<div class="route-path">'
+                    + "".join(_p(text) if text else html for text, html in pieces)
+                    + "</div>",
+                )
+            )
         return paths
 
     def contours(self, setup, tools, stops=None):
@@ -10575,8 +10880,6 @@ class _Traveler:
         if not blocks:
             return ""
         if self.detail != "pedantic":
-            if not hasattr(self, "_route_contours"):
-                self._route_contours = {}
             self._route_contours[setup["id"]] = self.route_contour_parts(setup, blocks, stops)
             return ""
         html = []
@@ -10914,6 +11217,10 @@ class _Traveler:
         if revision:
             context += f" · rev {revision}"
         result = [notice] if notice else []
+        stock_caption = "Stock: " + self.arrival(setup)
+        fixture = _mapping(setup.get("hold")).get("fixture")
+        if fixture not in (None, "", "none", "not_applicable"):
+            stock_caption += "; fixture: " + self.reference(fixture, "workholding")
         for panel in chosen:
             top, extent = panel["top_px"], panel["height_px"]
             label = f"{context} — {panel['label']}"
@@ -10923,7 +11230,8 @@ class _Traveler:
                 f'data-panel-role="{escape(panel["role"])}" data-panel-top="{top}" '
                 f'data-panel-height="{extent}" data-page-context="Setup {escape(_text(sid))}">'
                 f"<figcaption>{escape(label)}</figcaption>"
-                f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {extent}" '
+                + (_p(stock_caption, "stock-fixture-caption") if panel is chosen[0] else "")
+                + f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {top} {width} {extent}" '
                 f'width="{width}" height="{extent}" role="img" aria-label="{escape(label)}">'
                 f"<title>{escape(label)}</title>"
                 f'<image href="{path}" x="0" y="0" width="{width}" height="{height}" '
@@ -11232,7 +11540,11 @@ class _Traveler:
                     cites.append(cite)
         if not cites:
             return "Speeds / feeds: no cited source — resolve speed/feed STOPs before powered cuts."
-        return "Speeds and feeds are starting points, not limits."
+        return (
+            "Starting speeds/feeds."
+            if self.detail != "pedantic"
+            else ("Speeds and feeds are starting points, not limits.")
+        )
 
     def material(self):
         spec = _mapping(self.bundle.features.get("material"))
@@ -11528,7 +11840,8 @@ class _Traveler:
             cutting = [op for op in operations if op.get("do") not in MANUAL]
             if cutting and all(op.get("do") in FACING for op in cutting):
                 return (
-                    "facing", self.mount_key(setup),
+                    "facing",
+                    self.mount_key(setup),
                     tuple(
                         (op.get("do"), identity(self.bundle, op.get("tool"), "tools"))
                         for op in operations
@@ -11543,7 +11856,8 @@ class _Traveler:
         for group in self.setup_groups(setups):
             shared = key(group[0]) if len(group) == 1 else None
             if (
-                shared is not None and groups
+                shared is not None
+                and groups
                 and key(groups[-1][0]) == shared
                 and not groups[-1][0].get("presentation_group")
             ):
@@ -11600,8 +11914,8 @@ class _Traveler:
                     )
                 manual_unset = not values and op.get("do") in MANUAL
                 facts = []
-                if _known(item.get("flutes")) and not manual_unset:
-                    facts.append(f"{_number(item['flutes'])}fl")
+                if item.get("kind") == "slitting_saw" and _known(item.get("flutes")):
+                    facts.append(f"{_number(item['flutes'])}T")
                 for key, label in (
                     ("lead_mm", "lead"),
                     ("kerf_mm", "kerf"),
@@ -11609,54 +11923,103 @@ class _Traveler:
                 ):
                     if _known(value := _amount(item.get(key))):
                         facts.append(f"{label} {millimetres(value)}")
-                if _known(length := _amount(item.get("flute_len_mm"))):
+                reach_status = self.finding_statuses.get(("reach", f"{setup['id']}:{op['op']}"))
+                if (
+                    _known(_amount(item.get("lead_mm")))
+                    or reach_status in ("error", "unknown", "unsupported", "warn")
+                ) and _known(length := _amount(item.get("flute_len_mm"))):
                     facts.append(f"cutting {millimetres(length)}")
                 if manual_unset and not facts:
                     continue
                 holder = op.get("holder")
                 key = (
                     reference,
-                    self.reference(holder, "holders") if holder not in (
-                        None, "unknown", "not_applicable"
-                    ) else "",
+                    self.reference(holder, "holders")
+                    if holder not in (None, "unknown", "not_applicable")
+                    else "",
                     values,
                     tuple(facts),
                 )
                 settings.setdefault(key, []).append(f"{setup['id']}:{row[0]}")
         rows = []
         variants = {}
-        for reference, holder, values, facts in settings:
+        for reference, _holder, _values, _facts in settings:
             variants[reference] = variants.get(reference, 0) + 1
+        grouped = {}
         for (reference, holder, values, facts), owners in settings.items():
             description = self.route_tool_name(reference)
-            description = self.route_tool_label(reference) + " — " + description
+            label = self.route_tool_label(reference)
             if holder and (not values or variants[reference] > 1):
                 description += f"; {holder}"
             if variants[reference] > 1:
                 description += " — " + ", ".join(owners)
+            equal_settings = (
+                self.detail == "pro"
+                and variants[reference] == 1
+                and values
+                and all(_NUMBER.fullmatch(value) or _WHOLE.fullmatch(value) for value in values)
+            )
+            key = (holder, values, facts, None if equal_settings else reference)
+            grouped.setdefault(key, []).append((label, description, owners))
+        for (_holder, values, facts, _reference), entries in grouped.items():
+            owners = [owner for _, _, members in entries for owner in members]
             rows.append(
                 f'<tr data-physical-ops="{escape(json.dumps(owners))}">'
-                + "<td>" + _numeric_html(description) + "</td>"
-                + "<td>" + _numeric_html("; ".join(
-                    part for part in (" / ".join(values) or "hand", "; ".join(facts)) if part
-                )) + "</td></tr>"
+                + '<th scope="row">'
+                + _numeric_html(" / ".join(label for label, _, _ in entries))
+                + "</th><td>"
+                + _numeric_html(" / ".join(description for _, description, _ in entries))
+                + "</td>"
+                + "<td>"
+                + _numeric_html(
+                    "; ".join(
+                        part for part in (" / ".join(values) or "hand", "; ".join(facts)) if part
+                    )
+                )
+                + "</td></tr>"
             )
         table = (
-            '<table class="settings-key"><thead><tr><th>Tool</th>'
-            f'<th>RPM / feed ({escape(unit)}/min); lengths ({escape(unit)})</th>'
-            '</tr></thead><tbody>' + "".join(rows) + "</tbody></table>"
-            if rows else ""
+            '<table class="settings-key"><colgroup><col class="setting-label">'
+            '<col class="setting-description"><col class="setting-values"></colgroup>'
+            "<thead><tr><th>Tool</th><th>Description</th>"
+            f"<th>RPM / feed ({escape(unit)}/min); lengths ({escape(unit)})</th>"
+            "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+            if rows
+            else ""
         )
         coolant_lines = [
             self.reference(coolant, "consumables") + ": " + self.setup_span(owners)
             for coolant, owners in coolants.items()
         ]
+        direction = ""
+        if self._route_cut_direction:
+            owners = [{"setup_id": sid, "op_id": op} for sid, op in self._route_cut_direction]
+            value = next(iter(self._route_cut_direction.values()))
+            direction = (
+                f'<p data-physical-ops="{escape(json.dumps(owners))}">'
+                + escape(self.direction(value).capitalize())
+                + " milling.</p>"
+            )
         return (
-            '<div class="tool-settings"><h2>Tools / settings</h2>' + table
+            '<div class="tool-settings"><h2>Tools / settings</h2>'
+            + table
             + (_p("Coolant — " + "; ".join(coolant_lines) + ".") if coolant_lines else "")
+            + direction
             + self.fixture_key()
             + "</div>"
         )
+
+    def family_label(self, group):
+        """Use an authored group name only when it identifies this complete family."""
+        name = group[0].get("presentation_group")
+        if not isinstance(name, str) or not name.strip() or len(group) < 2:
+            return None
+        members = [
+            setup["id"]
+            for setup in self.plan.get("setups", [])
+            if setup.get("presentation_group") == name
+        ]
+        return name if members == [setup["id"] for setup in group] else None
 
     def setup_span(self, owners):
         """Collapse only adjacent members of an authored presentation group."""
@@ -11667,7 +12030,7 @@ class _Traveler:
             if not members:
                 continue
             labels.append(
-                members[0] + "–" + members[-1]
+                self.family_label(group) or members[0] + "–" + members[-1]
                 if len(members) == len(group) and len(members) > 1
                 else ", ".join(members)
             )
@@ -11798,9 +12161,14 @@ class _Traveler:
         cut = plane.get("value")
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         if (
-            plane.get("axis") != "z" or not _known(cut) or scale is None
-            or not isinstance(start, list) or len(start) != 3 or not all(map(_known, start))
-            or not isinstance(moves, list) or not moves
+            plane.get("axis") != "z"
+            or not _known(cut)
+            or scale is None
+            or not isinstance(start, list)
+            or len(start) != 3
+            or not all(map(_known, start))
+            or not isinstance(moves, list)
+            or not moves
         ):
             return None
         previous, steps, signature = start, [], []
@@ -11819,14 +12187,16 @@ class _Traveler:
                 return None
             steps.append(
                 ("cut " if mode == "cut" else "")
-                + "XYZ"[axis] + ("cut" if slot else self.readout(value / scale))
+                + "XYZ"[axis]
+                + ("cut" if slot else self.readout(value / scale))
             )
             signature.append((axis, "cut-plane" if slot else value, mode))
             previous = point
         key = (
             identity(self.bundle, op.get("tool"), "tools"),
             identity(self.bundle, op.get("holder"), "holders"),
-            tuple(start), tuple(signature),
+            tuple(start),
+            tuple(signature),
         )
         owner = f"{setup['id']}:{op['op']}"
         home = self._saw_cycle_homes.setdefault(key, owner)
@@ -11842,14 +12212,21 @@ class _Traveler:
         origin = "/".join(
             axis + self.readout(value / scale) for axis, value in zip("XYZ", start, strict=True)
         )
+        mounted = self.mounted_datum_groups.get(setup["id"], ())
+        heading = (
+            "Saw cycle, Zcut from table."
+            if mounted and mounted[0][0]["id"] == setup["id"]
+            else f"Saw cycle {owner}, Zcut={self.readout(cut)}."
+        )
         return _p(
-            f"Saw cycle {owner}, Zcut={self.readout(cut)}. From {origin}, single-axis: "
+            f"{heading} From {origin}, single-axis: "
             + " → ".join(steps)
-            + ". Stop fully; capture stays clamped through the full return; only then release/retrieve.",
+            + ". Stop fully; capture stays clamped through the full return; "
+            "only then release/retrieve.",
             "route-cycle",
         )
 
-    def route_operation(self, setup, row):
+    def route_operation(self, setup, row, *, layout="block", lead_in=""):
         """Project one canonical row without duplicating its ledger and contour prose."""
         op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
         authored = note_text(row.authored_note, detail=self.detail)
@@ -11869,11 +12246,15 @@ class _Traveler:
             tool = (
                 self.route_tool_label(op["tool"])
                 if op.get("tool") not in (None, "unknown")
-                else consumable if consumable not in ("", "—", None) else ""
+                else consumable
+                if consumable not in ("", "—", None)
+                else ""
             )
             target = ""
         else:
-            tool = self.route_tool_label(op["tool"]) if op.get("tool") not in (None, "unknown") else ""
+            tool = (
+                self.route_tool_label(op["tool"]) if op.get("tool") not in (None, "unknown") else ""
+            )
             # The path owns its checked Z ladder; the target retains all other facts.
             values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
             path_owned = (
@@ -11881,40 +12262,79 @@ class _Traveler:
                 and self.z_levels(setup, op) is not None
             )
             depth_target = self.z_target(setup, op) if path_owned else None
-            target = "" if cycle else "; ".join(
-                str(value) for value in values
-                if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
+            target = (
+                ""
+                if cycle
+                else "; ".join(
+                    str(value)
+                    for value in values
+                    if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
+                )
             )
             action = action or row[1]
             direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
-            if direction not in ("", "—", None, "not applicable") and not isinstance(direction, _Box):
+            if (
+                self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
+                and (setup["id"], row.op_id) in self._route_cut_direction
+                and direction == self.direction(op["direction"])
+            ):
+                direction = ""
+            if direction not in ("", "—", None, "not applicable") and not isinstance(
+                direction, _Box
+            ):
                 target = "; ".join(filter(None, (target, str(direction))))
             allowance = op.get("stock_to_leave_mm")
             scale = {"mm": 1.0, "in": 25.4}.get(self.units)
             if _known(allowance) and allowance > 0 and scale:
-                target = "; ".join(filter(None, (
-                    target, "allowance " + self.readout(allowance / scale)
-                )))
+                target = "; ".join(
+                    filter(None, (target, "allowance " + self.readout(allowance / scale)))
+                )
         feature_ids = op_features(op)
         labels = []
         for feature_id in feature_ids:
             definition = _mapping(self.features.get(feature_id))
             authored_label = definition.get("label", definition.get("name"))
             label = (
-                authored_label if isinstance(authored_label, str) and authored_label.strip()
+                authored_label
+                if isinstance(authored_label, str) and authored_label.strip()
                 else self.feature_name(feature_id)
             )
             if label != feature_id or not action:
                 labels.append(label)
         feature = "; ".join(labels)
+        path_text, path_block = (
+            getattr(self, "_route_contours", {}).get(setup["id"], {}).get(str(row.op_id), ("", ""))
+        )
+        zero = self.records.get(("zero_check", setup["id"]), {})
+        numbered = any(
+            zero.get(key)
+            for key in ("retouch", "tool_touches", "derived_touches", "missing_touches")
+        ) or any(
+            re.search(r"\bop(?:s|erations?)?\b", str(text), re.IGNORECASE)
+            for text in [
+                note_text(setup.get("note"), detail=self.detail),
+                _mapping(setup.get("zero")).get("procedure", ""),
+                *(note_text(item.get("note"), detail=self.detail) for item in setup.get("ops", [])),
+            ]
+        )
+        tag = "span" if layout == "inline" else "p"
         content = (
-            f'<p class="route-operation" data-features="{escape(json.dumps(feature_ids))}">'
-            + (f"<strong>{escape(tool)}"
-               + (f" · {escape(feature)}" if feature else "") + ":</strong> " if tool else
-               f"<strong>{escape(feature)}:</strong> " if feature else "")
+            f'<{tag} class="route-operation" data-features="{escape(json.dumps(feature_ids))}">'
+            + lead_in
+            + (f"<b>{escape(str(row.op_id))}.</b> " if numbered else "")
+            + (
+                f"<strong>{escape(tool)}"
+                + (f" · {escape(feature)}" if feature else "")
+                + ":</strong> "
+                if tool
+                else f"<strong>{escape(feature)}:</strong> "
+                if feature
+                else ""
+            )
             + _fields(action)
             + ((" " if action else "") + _numeric_html(target) if target else "")
-            + "</p>"
+            + (" " + _fields(path_text) if path_text else "")
+            + f"</{tag}>"
         )
         for warning in row.warnings:
             # Decisions are rendered once at their actual owner, below. A contour pointer
@@ -11931,9 +12351,7 @@ class _Traveler:
         for check in row[-1]:
             if not isinstance(check, _Inspection):
                 content += (
-                    _inspection_method(check)
-                    if isinstance(check, (_Note, _Steps))
-                    else _p(check)
+                    _inspection_method(check) if isinstance(check, (_Note, _Steps)) else _p(check)
                 )
                 continue
             if check.compact_criteria:
@@ -11941,8 +12359,7 @@ class _Traveler:
                 for gauge_id, gauge, criterion in check.compact_criteria:
                     gauges.setdefault((gauge_id, gauge), []).append(criterion)
                 text = "; ".join(
-                    gauge + ": " + "; ".join(criteria)
-                    for (_, gauge), criteria in gauges.items()
+                    gauge + ": " + "; ".join(criteria) for (_, gauge), criteria in gauges.items()
                 )
             else:
                 text = check.text
@@ -11950,11 +12367,31 @@ class _Traveler:
                 _FIELD.search(str(method)) for method in check.methods
             )
             attributes = " " + _inspection_attributes(check) if reading_owner else ""
-            content += f'<div class="route-inspection"{attributes}>' + _p(text)
-            content += "".join(_inspection_method(method) for method in check.methods)
+            inline_methods = (
+                self.detail != "pedantic"
+                and not reading_owner
+                and all(
+                    not isinstance(method, _Steps) and not getattr(method, "sketch", "")
+                    for method in check.methods
+                )
+            )
+            content += f'<div class="route-inspection"{attributes}>'
+            if inline_methods:
+                content += (
+                    "<p>"
+                    + _numeric_html(text)
+                    + " "
+                    + " ".join(
+                        _inspection_method(method, layout="inline") for method in check.methods
+                    )
+                    + "</p>"
+                )
+            else:
+                content += _p(text) + "".join(
+                    _inspection_method(method) for method in check.methods
+                )
             content += "</div>"
-        paths = getattr(self, "_route_contours", {}).get(setup["id"], {})
-        content += paths.get(str(row.op_id), "")
+        content += path_block
         return content
 
     def setup_blocks(self, setup):
@@ -11972,8 +12409,12 @@ class _Traveler:
         fixture_tables = self.shop_made_tables(setup)
         feature_html = self.feature_map(setup)
         steps, hold_below = self.hold(setup)
-        dro_html = None if bench else self.dro(
-            setup, tools, procedure="inline" if self.detail == "pedantic" else "separate"
+        dro_html = (
+            None
+            if bench
+            else self.dro(
+                setup, tools, procedure="inline" if self.detail == "pedantic" else "separate"
+            )
         )
         clearance = None if bench else self.clearance(setup, numbers)
         purchased = self.purchased_tooling(setup)
@@ -11989,7 +12430,8 @@ class _Traveler:
             )
             for warning in row.warnings:
                 if (
-                    isinstance(warning, str) and not isinstance(warning, (_Box, _OperationNote))
+                    isinstance(warning, str)
+                    and not isinstance(warning, (_Box, _OperationNote))
                     and not _FIELD.search(warning)
                     and warning != pointer
                 ):
@@ -12001,7 +12443,17 @@ class _Traveler:
         member = next(iter(members)) if len(members) == 1 else None
         blocks = []
 
-        def add(key, html, *, comparison=None, records=(), shared_html="", op_id=None, decisions=()):
+        def add(
+            key,
+            html,
+            *,
+            comparison=None,
+            records=(),
+            shared_html="",
+            op_id=None,
+            decisions=(),
+            layout="block",
+        ):
             if html:
                 if comparison is None:
                     comparison = (sid, html) if 'class="writing-blank"' in html else html
@@ -12016,11 +12468,15 @@ class _Traveler:
                         shared_html,
                         op_id,
                         tuple(decisions),
+                        layout,
                     )
                 )
 
         selected_note = note_text(setup.get("note"), detail=self.detail)
-        add("note", _p(self.bench(selected_note, setup)) if selected_note else "")
+        add(
+            "note",
+            "<p>" + _fields(self.bench(selected_note, setup)) + "</p>" if selected_note else "",
+        )
         if self.detail == "pedantic":
             add("stock", self.stock_state(setup))
         add("holding", steps + hold_below)
@@ -12035,43 +12491,86 @@ class _Traveler:
         if self.detail != "pedantic" and not bench:
             procedure = _mapping(setup.get("zero")).get("procedure")
             if isinstance(procedure, str) and procedure not in ("", "unknown"):
-                add("datum-procedure", _p(self.bench(procedure, setup)))
-        for axis, text in self._route_datum_axes.get(sid, {}).items():
-            add(f"datum:{axis}", _p(text.rstrip(".") + "."))
+                tag = "p" if _FIELD.search(procedure) else "span"
+                add(
+                    "datum-procedure",
+                    f"<{tag}>" + _fields(self.bench(procedure, setup)) + f"</{tag}> ",
+                    layout="block" if tag == "p" else "inline",
+                )
+        datum_axes = self._route_datum_axes.get(sid, {})
+        if datum_axes:
+            add(
+                "datum-references",
+                "<p>"
+                + _fields("; ".join(text.rstrip(".") for text in datum_axes.values()) + ".")
+                + "</p>",
+                comparison=(
+                    sid if any(_FIELD.search(text) for text in datum_axes.values()) else None,
+                    tuple(datum_axes.items()),
+                ),
+            )
         add("datum", dro_html)
         if self.detail == "pedantic":
             add("clearance", clearance)
         for row in rows:
             records = tuple(check for check in row[-1] if isinstance(check, _Inspection))
             if self.detail != "pedantic":
-                instruction = self.route_operation(setup, row)
+                what = "guided sweep" if str(row.op_id) in self.sweep_ops else "contour table"
+                pointer = f"See {what} on Setup {_text(sid)} contour instructions"
+                inline = (
+                    not row[-1]
+                    and all(
+                        isinstance(warning, (_Box, _OperationNote))
+                        or warning == pointer
+                        or warning in self._route_shared_warnings[sid]
+                        for warning in row.warnings
+                    )
+                    and not any(fact.kind == "block" for fact in row.decisions)
+                    and not self._route_contours.get(sid, {}).get(str(row.op_id), ("", ""))[1]
+                    and not any(
+                        _FIELD.search(str(value))
+                        for value in [
+                            *row[:-1],
+                            note_text(row.authored_note, detail=self.detail),
+                        ]
+                    )
+                )
+                layout = "inline" if inline else "block"
+                instruction = self.route_operation(setup, row, layout=layout)
                 methods = tuple(
                     (
                         type(method).__name__,
                         tuple(method) if isinstance(method, _Steps) else str(method),
                         getattr(method, "sketch", ""),
                     )
-                    for check in records for method in check.methods
+                    for check in records
+                    for method in check.methods
                 )
                 reading_owned = any(
                     _FIELD.search(str(value)) for value in [*row[:-1], *row.warnings]
                 ) or any(
-                    check.reading_owned or any(_FIELD.search(str(method)) for method in check.methods)
+                    check.reading_owned
+                    or any(_FIELD.search(str(method)) for method in check.methods)
                     for check in records
                 )
                 add(
                     f"operation:{row.op_id}",
                     instruction,
                     comparison=(
-                        instruction, tuple(row[4:6]) if len(row) == 9 else (),
-                        row.tool_spec, methods,
-                        tuple(op_features(next(
-                            op for op in setup.get("ops", []) if op["op"] == row.op_id
-                        ))),
+                        instruction,
+                        tuple(row[4:6]) if len(row) == 9 else (),
+                        row.tool_spec,
+                        methods,
+                        tuple(
+                            op_features(
+                                next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
+                            )
+                        ),
                         sid if reading_owned else None,
                     ),
                     records=records,
                     op_id=row.op_id,
+                    layout=layout,
                 )
                 add(
                     f"saw-cycle:{row.op_id}",
@@ -12089,18 +12588,52 @@ class _Traveler:
                         f"shared-warning:{index}",
                         '<div class="operation-caution" '
                         f'data-physical-ops="{escape(json.dumps(identities))}">'
-                        + _warning_line(warning) + "</div>",
+                        + _warning_line(warning)
+                        + "</div>",
                         comparison=(warning, tuple(owner.op_id for owner in owners)),
                     )
                 for index, group in enumerate(_decision_groups(row.decisions)):
+                    signature = tuple(
+                        (fact.source, fact.status, fact.kind, fact.text) for fact in group
+                    )
+                    matches = [
+                        (other, other_group)
+                        for other in rows
+                        for other_group in _decision_groups(other.decisions)
+                        if tuple(
+                            (fact.source, fact.status, fact.kind, fact.text) for fact in other_group
+                        )
+                        == signature
+                        and (other is row or not any(_FIELD.search(fact.text) for fact in group))
+                    ]
+                    if matches[0][0] is not row:
+                        continue
+                    identities = [
+                        {"setup_id": sid, "op_id": other.op_id, "workpiece": other.workpiece}
+                        for other, _ in matches
+                    ]
+                    facts = tuple(fact for _, matched in matches for fact in matched)
+                    decision_layout = (
+                        "inline"
+                        if self.detail == "pro"
+                        and all(
+                            fact.kind == "caution"
+                            and fact.status == "warn"
+                            and fact.source in ("headroom", "cut_clearance")
+                            and not _FIELD.search(fact.text)
+                            for fact in facts
+                        )
+                        else "block"
+                    )
                     add(
                         f"operation-decision:{row.op_id}:{index}",
-                        _decision_html(group[0], group[1:], setup_id=sid, op_id=row.op_id),
-                        comparison=tuple(
-                            (fact.source, fact.status, fact.kind, fact.text) for fact in group
+                        _decision_html(
+                            facts[0], facts[1:], owners=identities, layout=decision_layout
                         ),
+                        comparison=signature,
                         op_id=row.op_id,
-                        decisions=group,
+                        decisions=facts,
+                        layout=decision_layout,
                     )
                 continue
             criteria, common_checks = [], []
@@ -12250,19 +12783,197 @@ class _Traveler:
         html = block.html + _checkpoint_results(block.records)
         if block.op_id is None:
             return html
-        owners = [{
-            "setup_id": block.setup_id, "op_id": block.op_id, "workpiece": block.workpiece
-        }]
+        owners = [{"setup_id": block.setup_id, "op_id": block.op_id, "workpiece": block.workpiece}]
+        tag = "span" if block.layout == "inline" else "div"
         return (
-            f'<div data-setup-id="{escape(block.setup_id or "")}" '
+            f'<{tag} data-setup-id="{escape(block.setup_id or "")}" '
             f'data-op="{escape(str(block.op_id))}" '
-            f'data-physical-ops="{escape(json.dumps(owners))}">' + html + "</div>"
+            f'data-physical-ops="{escape(json.dumps(owners))}">' + html + f"</{tag}> "
         )
 
     def setup_section(self, setup):
         return [[self.block_html(block) for block in self.setup_blocks(setup)]]
 
-    def family_html(self, group, blocks_by_setup):
+    def shared_route_facts(self, setups, blocks_by_setup):
+        """Print exact, proved local references once with explicit setup ownership."""
+        if self.detail == "pedantic":
+            return ""
+
+        def has_field(value):
+            if isinstance(value, str):
+                return bool(_FIELD.search(value))
+            if isinstance(value, dict):
+                return any(has_field(item) for item in value.values())
+            if isinstance(value, (list, tuple)):
+                return any(has_field(item) for item in value)
+            return False
+
+        candidates = {}
+        families = {
+            setup["id"]: index
+            for index, group in enumerate(self.route_groups(setups))
+            for setup in group
+        }
+        for setup in setups:
+            sid = setup["id"]
+            frame = setup_frame(self.bundle, setup)
+            if (
+                not isinstance(frame, dict)
+                or not frame
+                or setup.get("frame") in (None, "", UNKNOWN)
+                or any(
+                    not isinstance(frame.get(axis), list)
+                    or len(frame[axis]) != 3
+                    or not all(_known(value) for value in frame[axis])
+                    for axis in ("origin", "x", "y", "z")
+                )
+                or not resolve(self.bundle, "machines", setup.get("machine"))
+                or not resolve(
+                    self.bundle, "workholding", _mapping(setup.get("hold")).get("fixture")
+                )
+                or self.indexing(setup)
+                or self.setup_measurement_ids.get(sid)
+                or any(
+                    _FIELD.search(note_text(value, detail=self.detail))
+                    for value in (setup.get("note"), _mapping(setup.get("hold")).get("note"))
+                )
+            ):
+                continue
+            context = (
+                self.mount_key(setup),
+                setup["frame"],
+                json.dumps(frame, sort_keys=True),
+            )
+            note = note_text(setup.get("note"), detail=self.detail)
+            if note and note != UNKNOWN:
+                text = self.bench(note, setup)
+                candidates.setdefault(("orientation", context, note, text), []).append((sid, text))
+            if self.finding_statuses.get(("zero_check", sid)) == "pass":
+                zero = _mapping(setup.get("zero"))
+                computed = _mapping(self.records.get(("zero_check", sid), {}).get("axes"))
+                for axis, text in self._route_datum_axes.get(sid, {}).items():
+                    touch = _mapping(zero.get(axis))
+                    record = _mapping(computed.get(axis))
+                    if (
+                        not touch
+                        or touch.get("method")
+                        not in (None, "paper", "touch", "opposed_edge_midpoint")
+                        or touch.get("measure")
+                        or touch.get("after_op") is not None
+                        or (
+                            record.get("actual_contact_readings")
+                            and not (
+                                record.get("part_result") == "not_recorded"
+                                and record["actual_contact_readings"] == ["C−", "C+"]
+                                and not touch.get("actual_contact_readings")
+                                and not touch.get("part_result")
+                            )
+                        )
+                        or has_field(touch)
+                        or _FIELD.search(text)
+                        or not _known(record.get("axis_set"))
+                    ):
+                        continue
+                    signature = (
+                        json.dumps(touch, sort_keys=True),
+                        json.dumps(
+                            {
+                                key: record.get(key)
+                                for key in (
+                                    "edge_mm",
+                                    "axis_set",
+                                    "method",
+                                    "sign",
+                                    "paper_mm",
+                                    "radius_mm",
+                                    "part_result",
+                                    "actual_contact_readings",
+                                )
+                            },
+                            sort_keys=True,
+                        ),
+                    )
+                    key = ("datum", context, axis, signature, text)
+                    candidates.setdefault(key, []).append((sid, axis))
+            if any(
+                fact.kind != "none" and fact.source in ("hold_fields", "measurement", "alignment")
+                for fact in self.setup_decisions.get(sid, ())
+            ):
+                continue
+            for signature, text in self._route_hold_facts.get(sid, {}).items():
+                key = ("holding", context, signature, text)
+                candidates.setdefault(key, []).append((sid, text))
+        shared = {}
+        changed = set()
+        shared_notes = set()
+        for key, owners in candidates.items():
+            # Existing family composition already shares identical local facts.
+            if len({families[sid] for sid, _ in owners}) < 2:
+                continue
+            kind, text = key[0], key[-1]
+            ids = [sid for sid, _ in owners]
+            shared.setdefault((kind, tuple(ids)), []).append(text.rstrip("."))
+            for sid, item in owners:
+                changed.add(sid)
+                if kind == "datum":
+                    self._route_datum_axes[sid].pop(item)
+                elif kind == "orientation":
+                    shared_notes.add(sid)
+                else:
+                    self._route_hold_steps[sid] = tuple(
+                        step for step in self._route_hold_steps[sid] if step != item
+                    )
+        for sid in changed:
+            blocks = []
+            for block in blocks_by_setup[sid]:
+                if block.key == "note" and sid in shared_notes:
+                    continue
+                if block.key == "datum-references":
+                    axes = self._route_datum_axes[sid]
+                    if axes:
+                        blocks.append(
+                            replace(
+                                block,
+                                html="<p>"
+                                + _fields(
+                                    "; ".join(text.rstrip(".") for text in axes.values()) + "."
+                                )
+                                + "</p>",
+                                comparison=(
+                                    sid
+                                    if any(_FIELD.search(text) for text in axes.values())
+                                    else None,
+                                    tuple(axes.items()),
+                                ),
+                            )
+                        )
+                elif block.key == "holding":
+                    steps = self._route_hold_steps[sid]
+                    if steps:
+                        html = _p("Hold: " + " ".join(steps))
+                        blocks.append(replace(block, html=html, comparison=html))
+                else:
+                    blocks.append(block)
+            blocks_by_setup[sid] = blocks
+        scopes = {}
+        for (kind, ids), texts in shared.items():
+            scopes.setdefault(ids, []).append(
+                f'<span data-setup-members="{escape(json.dumps(ids))}" '
+                f'data-reference-kind="{kind}">' + _numeric_html("; ".join(texts)) + "</span>"
+            )
+        lines = [
+            "<strong>" + escape(self.setup_span(ids)) + ":</strong> " + "; ".join(facts)
+            for ids, facts in scopes.items()
+        ]
+        return (
+            '<p class="route-references"><strong>Shared references.</strong> '
+            + "; ".join(lines)
+            + ".</p>"
+            if lines
+            else ""
+        )
+
+    def family_html(self, group, blocks_by_setup, *, heading_note=""):
         ids = [setup["id"] for setup in group]
         displayed_ids = [_text(sid) for sid in ids]
         title = (
@@ -12271,7 +12982,14 @@ class _Traveler:
             + self.reference(group[0].get("machine"), "machines")
         )
         if self.detail != "pedantic":
-            title = displayed_ids[0] if len(ids) == 1 else displayed_ids[0] + "–" + displayed_ids[-1]
+            title = (
+                displayed_ids[0] if len(ids) == 1 else displayed_ids[0] + "–" + displayed_ids[-1]
+            )
+        heading = title
+        if self.detail != "pedantic" and (label := self.family_label(group)):
+            heading = f"{label} ({title})"
+        if heading_note:
+            heading += " — " + heading_note
         owners = {block.workpiece for setup in group for block in blocks_by_setup[setup["id"]]}
         members = list(owners) if len(owners) == 1 and None not in owners else []
         result = [
@@ -12280,12 +12998,18 @@ class _Traveler:
             f'data-setup-id="{escape(ids[0] or "") if len(ids) == 1 else ""}" '
             f'data-setup-members="{escape(json.dumps(ids))}" '
             f'data-workpiece="{escape(members[0]) if len(members) == 1 else ""}">'
-            f"<h2>{escape(title)}</h2>"
+            f"<h2>{escape(heading)}</h2>"
         ]
         maps = [{block.key: block for block in blocks_by_setup[sid]} for sid in ids]
+        prelude_html, prelude_operation = "", None
+        saw_cycles = [
+            self._route_cycles.get((setup["id"], op["op"]))
+            for setup in group
+            for op in setup.get("ops", [])
+            if spindle_saw(self.bundle, setup, op)
+        ]
         inferred = (
-            self.detail != "pedantic" and len(group) > 1
-            and not group[0].get("presentation_group")
+            self.detail != "pedantic" and len(group) > 1 and not group[0].get("presentation_group")
         )
         if inferred:
             # Match operation roles, not incidental local numbering. Metadata below
@@ -12299,13 +13023,18 @@ class _Traveler:
                 maps[index] = {aliases.get(key, key): block for key, block in mapping.items()}
             holds = [self._route_hold_steps.get(sid, ()) for sid in ids]
             common = [
-                step for step in holds[0]
+                step
+                for step in holds[0]
                 if all(step in steps for steps in holds[1:]) and not _FIELD.search(step)
             ]
             # An indexing instruction or authored reading is not a table annotation.
             table_safe = all(
                 not _FIELD.search(" ".join(steps))
                 and not _FIELD.search(note_text(setup.get("note"), detail=self.detail))
+                and not any(
+                    _FIELD.search(text)
+                    for text in self._route_datum_axes.get(setup["id"], {}).values()
+                )
                 and not self.indexing(setup)
                 for setup, steps in zip(group, holds, strict=True)
             )
@@ -12313,26 +13042,147 @@ class _Traveler:
                 if common:
                     result.append(_p("Hold: " + " ".join(common)))
                 orientation_rows = {}
+                has_datums = any("datum-references" in mapping for mapping in maps)
+                axes_by_setup = [self._route_datum_axes.get(setup["id"], {}) for setup in group]
+                common_axes = {
+                    axis: text
+                    for axis, text in axes_by_setup[0].items()
+                    if all(axes.get(axis) == text for axes in axes_by_setup[1:])
+                    and not _FIELD.search(text)
+                }
+                if common_axes:
+                    result.append(
+                        _p(
+                            "Common datums: "
+                            + "; ".join(text.rstrip(".") for text in common_axes.values())
+                            + "."
+                        )
+                    )
                 for setup, mapping, steps in zip(group, maps, holds, strict=True):
                     note = mapping.pop("note", None)
                     mapping.pop("holding", None)
                     local = " ".join(step for step in steps if step not in common)
-                    html = (note.html if note else "") + (_p(local) if local else "")
-                    orientation_rows.setdefault(html, []).append(setup["id"])
+                    note_text_ = note_text(setup.get("note"), detail=self.detail) if note else ""
+                    html = _fields(
+                        " ".join(
+                            filter(
+                                None, (self.bench(note_text_, setup) if note_text_ else "", local)
+                            )
+                        )
+                    )
+                    mapping.pop("datum-references", None)
+                    datums = "; ".join(
+                        text.rstrip(".")
+                        for axis, text in self._route_datum_axes.get(setup["id"], {}).items()
+                        if axis not in common_axes
+                    )
+                    orientation_rows.setdefault((html, datums), []).append(setup["id"])
                 table_rows = []
-                for html, owners in orientation_rows.items():
+                for (html, datums), owners in orientation_rows.items():
                     table_rows.append(
                         f'<tr data-setup-id="{escape(owners[0]) if len(owners) == 1 else ""}" '
                         f'data-setup-members="{escape(json.dumps(owners))}">'
                         f'<th scope="row">{escape(", ".join(owners))}</th><td>'
-                        + html + "</td></tr>"
+                        + html
+                        + (" " + _fields(datums) if datums else "")
+                        + "</td></tr>"
                     )
-                result.append(
-                    '<table class="orientation-table"><thead><tr><th>Setup</th>'
-                    '<th>Orientation / holding variant</th></tr></thead><tbody>'
-                    + "".join(table_rows) + "</tbody></table>"
+                if self.detail != "pedantic" and all(
+                    any(spindle_saw(self.bundle, setup, op) for op in setup.get("ops", []))
+                    for setup in group
+                ):
+                    result.extend(
+                        f'<p data-setup-members="{escape(json.dumps(owners))}">'
+                        + "<strong>"
+                        + escape(", ".join(owners))
+                        + ":</strong> "
+                        + html
+                        + (" " + _fields(datums) if datums else "")
+                        + "</p>"
+                        for (html, datums), owners in orientation_rows.items()
+                    )
+                else:
+                    result.append(
+                        '<table class="orientation-table"><thead><tr><th>Setup</th>'
+                        "<th>Orientation / holding"
+                        + (" / datums" if has_datums else "")
+                        + "</th>"
+                        + "</tr></thead><tbody>"
+                        + "".join(table_rows)
+                        + "</tbody></table>"
+                    )
+        elif self.detail != "pedantic":
+            prelude_keys = ("note", "holding", "datum-references")
+            preludes = []
+            for setup, mapping in zip(group, maps, strict=True):
+                note = note_text(setup.get("note"), detail=self.detail) if "note" in mapping else ""
+                holding = (
+                    self._route_hold_steps.get(setup["id"], ()) if "holding" in mapping else ()
                 )
+                datums = (
+                    self._route_datum_axes.get(setup["id"], {})
+                    if "datum-references" in mapping
+                    else {}
+                )
+                text = " ".join(
+                    filter(
+                        None,
+                        (
+                            self.bench(note, setup) if note else "",
+                            "Hold: " + " ".join(holding) if holding else "",
+                            "Datums: "
+                            + "; ".join(value.rstrip(".") for value in datums.values())
+                            + "."
+                            if datums
+                            else "",
+                        ),
+                    )
+                )
+                signature = tuple(
+                    (key, mapping[key].comparison) for key in prelude_keys if key in mapping
+                )
+                preludes.append((text, signature))
+            if (
+                preludes[0][0]
+                and all(prelude == preludes[0] for prelude in preludes)
+                and not _FIELD.search(preludes[0][0])
+                and not any(self.indexing(setup) for setup in group)
+            ):
+                prelude_html = (
+                    f'<span class="route-prelude" data-setup-members="{escape(json.dumps(ids))}">'
+                    + _fields(preludes[0][0])
+                    + "</span> "
+                )
+                inspection_blocks = [
+                    mapping.get(f"operation:{setup['ops'][0]['op']}")
+                    if manual_bench(self.bundle, setup)
+                    and len(setup.get("ops", [])) == 1
+                    and setup["ops"][0].get("do") == "inspect"
+                    else None
+                    for setup, mapping in zip(group, maps, strict=True)
+                ]
+                if all(
+                    block is not None
+                    and block.records
+                    and block.comparison == inspection_blocks[0].comparison
+                    and not any(record.reading_owned for record in block.records)
+                    and 'class="writing-blank"' not in block.html
+                    for block in inspection_blocks
+                ) and not any(
+                    fact.kind == "block"
+                    for mapping in maps
+                    for block in mapping.values()
+                    for fact in block.decisions
+                ):
+                    prelude_operation = inspection_blocks[0].key
+                else:
+                    result.append(prelude_html)
+                    prelude_html = ""
+                for mapping in maps:
+                    for key in prelude_keys:
+                        mapping.pop(key, None)
         keys = dict.fromkeys(key for mapping in maps for key in mapping)
+        last_inline_owners = None
         for key in keys:
             available = [mapping[key] for mapping in maps if key in mapping]
             variants = []
@@ -12346,47 +13196,125 @@ class _Traveler:
                 else:
                     match.append(block)
             for variant in variants:
+                if prelude_html and key == prelude_operation:
+                    block = variant[0]
+                    setup = next(setup for setup in group if setup["id"] == block.setup_id)
+                    row = next(
+                        row
+                        for row in self._rows_by_setup[block.setup_id]
+                        if row.op_id == block.op_id
+                    )
+                    variant[0] = replace(
+                        block,
+                        html=self.route_operation(
+                            setup, row, layout=block.layout, lead_in=prelude_html
+                        ),
+                    )
+                    prelude_html = ""
                 if len(variant) > 1:
                     identities = [
-                        {"setup_id": block.setup_id, "op_id": block.op_id,
-                         "workpiece": block.workpiece}
+                        {
+                            "setup_id": block.setup_id,
+                            "op_id": block.op_id,
+                            "workpiece": block.workpiece,
+                        }
                         for block in variant
                     ]
                     shared = variant[0].shared_html or variant[0].html
                     if variant[0].decisions:
                         facts = tuple(fact for block in variant for fact in block.decisions)
-                        shared = _decision_html(facts[0], facts[1:], owners=identities)
+                        shared = _decision_html(
+                            facts[0], facts[1:], owners=identities, layout=variant[0].layout
+                        )
                     label = (
                         _p(", ".join(block.setup_id for block in variant), "variant-label")
-                        if len(variant) != len(group) else ""
+                        if len(variant) != len(group)
+                        else ""
                     )
+                    tag = "span" if variant[0].layout == "inline" else "div"
+                    inline_owners = tuple(block.setup_id for block in variant)
+                    if tag == "span" and label:
+                        label = (
+                            '<span class="variant-label">'
+                            + escape(", ".join(inline_owners))
+                            + ": </span>"
+                            if inline_owners != last_inline_owners
+                            else ""
+                        )
+                    last_inline_owners = inline_owners if tag == "span" else None
                     result.append(
-                        '<div class="family-common" '
+                        f'<{tag} class="family-common" '
                         f'data-physical-ops="{escape(json.dumps(identities))}">'
-                        + label + shared
+                        + label
+                        + shared
                         + _checkpoint_results(
                             tuple(record for block in variant for record in block.records)
                         )
-                        + "</div>"
+                        + f"</{tag}> "
                     )
                 else:
                     block = variant[0]
                     label = f"Setup {block.setup_id}" + (
                         f" — {block.workpiece}" if block.workpiece else ""
                     )
+                    tag = "span" if block.layout == "inline" else "div"
+                    common_definition = (
+                        inferred
+                        and key == "datum"
+                        and {
+                            item[0]["id"]
+                            for item in self.mounted_datum_groups.get(block.setup_id, ())
+                        }
+                        == set(ids)
+                    ) or (
+                        inferred
+                        and key.startswith("saw-cycle:")
+                        and len(saw_cycles) == len(group)
+                        and all(cycle is not None for cycle in saw_cycles)
+                        and sum(bool(cycle) for cycle in saw_cycles) == 1
+                    )
+                    visible_label = ""
+                    if len(group) > 1 and not common_definition:
+                        visible_label = (
+                            '<span class="variant-label">' + escape(label) + ": </span>"
+                            if tag == "span" and last_inline_owners != (block.setup_id,)
+                            else _p(label, "variant-label")
+                            if tag != "span"
+                            else ""
+                        )
+                    last_inline_owners = (block.setup_id,) if tag == "span" else None
                     result.append(
-                        f'<div class="setup-variant" data-setup-title="{escape(label)}" '
+                        f'<{tag} class="setup-variant" data-setup-title="{escape(label)}" '
                         f'data-setup-id="{escape(block.setup_id or "")}" '
                         f'data-workpiece="{escape(block.workpiece or "")}">'
-                        + (_p(label, "variant-label") if len(group) > 1 else "")
+                        + visible_label
                         + self.block_html(block)
-                        + "</div>"
+                        + f"</{tag}> "
                     )
         result.append("</section>")
         return "".join(result)
 
     def render(self):
         setups = self.plan.get("setups", [])
+        self._front_reference_layout = self.detail == "hobby"
+        cutting = [
+            (setup["id"], op)
+            for setup in setups
+            for op in setup.get("ops", [])
+            if op.get("do") in ("face", "profile", "rough_profile")
+            or spindle_saw(self.bundle, setup, op)
+        ]
+        directions = {op.get("direction") for _, op in cutting}
+        if (
+            self.detail != "pedantic"
+            and len(cutting) > 1
+            and directions
+            in (
+                {"conventional"},
+                {"climb"},
+            )
+        ):
+            self._route_cut_direction = {(sid, op["op"]): op["direction"] for sid, op in cutting}
         blocks_by_setup = {}
         for setup in setups:
             sections = self.setup_section(setup)
@@ -12395,9 +13323,73 @@ class _Traveler:
                 for index, block in enumerate(block for section in sections for block in section)
                 if block
             ]
-        flow = [self.family_html(group, blocks_by_setup) for group in self.route_groups(setups)]
+        groups = self.route_groups(setups)
+        final = groups[-1] if self.detail == "hobby" and len(groups) > 1 else []
+        final_blocks = [block for setup in final for block in blocks_by_setup[setup["id"]]]
+        final_records = [record for block in final_blocks for record in block.records]
+        deferred_final = (
+            final
+            and final_records
+            and all(
+                manual_bench(self.bundle, setup)
+                and setup.get("ops")
+                and all(op.get("do") == "inspect" for op in setup["ops"])
+                and not self.indexing(setup)
+                for setup in final
+            )
+            and not any(record.reading_owned for record in final_records)
+            and not any(
+                block.key == "pictures"
+                or 'class="writing-blank"' in block.html
+                or any(fact.kind == "block" for fact in block.decisions)
+                for block in final_blocks
+            )
+        )
+        after = [setup["id"] for setup in groups[-2]] if deferred_final else []
+        saved_axes = {sid: dict(axes) for sid, axes in self._route_datum_axes.items()}
+        saved_holding = dict(self._route_hold_steps)
+        try:
+            references = self.shared_route_facts(setups, blocks_by_setup)
+            flow = [
+                self.family_html(
+                    group,
+                    blocks_by_setup,
+                    heading_note=(
+                        "final inspection: Complete ONLY AFTER " + self.setup_span(after)
+                        if deferred_final and group is final
+                        else ""
+                    ),
+                )
+                for group in groups
+            ]
+        finally:
+            self._route_datum_axes = saved_axes
+            self._route_hold_steps = saved_holding
         self.sheet_text = " ".join(re.sub(r"<[^>]+>", " ", block) for block in flow)
-        header = self.header(setups)
+        header = self.header(setups) + references
+        if self.detail == "hobby":
+            header += self._front_dro_guide
+            if deferred_final:
+                final_ids = [setup["id"] for setup in final]
+                route = " → ".join(
+                    self.setup_span([setup["id"] for setup in group]) for group in groups
+                )
+                final_html = flow.pop()
+                header += (
+                    _p("Execution order: " + route + ".")
+                    + '<section id="final-inspection-reference" class="final-reference" '
+                    + 'data-reference-only="true" '
+                    + f'data-execute-after="{escape(json.dumps(after))}">'
+                    + final_html
+                    + "</section>"
+                )
+                flow.append(
+                    '<p class="final-reference-return">After '
+                    + escape(self.setup_span(after))
+                    + ', complete <a href="#final-inspection-reference">'
+                    + escape(self.setup_span(final_ids))
+                    + " final inspection/results at the front of this job</a>.</p>"
+                )
         appendix = self.job_measurement_box() if self.detail == "pedantic" else ""
         content = self.finalize_measurements([[[header, *flow, appendix]]])[0][0]
         if self.detail != "pedantic":
@@ -12413,13 +13405,15 @@ class _Traveler:
             if self.detail == "pedantic"
             else part.replace("_", " ").replace("-", " ").title()
         )
-        drawing_line = (
-            _p(
-                f"Drawing {_text(drawing.get('number'))} · "
-                + (f"rev {revision}" if revision else "REV NOT CONFIRMED")
-            )
-            if self.detail != "pedantic"
-            else ""
+        quantity = escape(_text(self.plan.get("quantity")))
+        identity_html = (
+            f'<div class="meta"><h1>{escape(title)}</h1>'
+            f"<div>qty {quantity} · {self.detail}</div></div>"
+            if self.detail == "pedantic"
+            else f'<p class="job-identity"><strong>{escape(title)}</strong> · qty {quantity} · '
+            f"{escape(_text(drawing.get('number')))} · "
+            + escape(f"rev {revision}" if revision else "REV NOT CONFIRMED")
+            + "</p>"
         )
         banner = "CHECKED — FIRST ARTICLE RECORDED" if self.checked else "PLANNED — NOT APPROVED"
         demonstration = self.plan.get("purpose", "shop") == "demonstration"
@@ -12439,11 +13433,10 @@ class _Traveler:
             f"<title>{escape(part)} traveler</title><style>{_CSS}</style>"
             f'<script>{JOB_PRINT_JS}</script></head><body data-detail="{self.detail}">',
             f'<section class="page" data-sheet="job" data-title="JOB" data-part="{escape(part)}" '
+            f'data-quantity="{escape(_text(self.plan.get("quantity")))}" '
             f'data-drawing="{escape(_text(drawing.get("number")))}" '
             f'data-revision="{escape(revision or "")}"{disclosure}>',
-            f'<div class="meta"><h1>{escape(title)}</h1>'
-            f"<div>qty {escape(_text(self.plan.get('quantity')))} · {self.detail}</div></div>",
-            drawing_line,
+            identity_html,
             f'<div class="banner">{escape(banner)}</div>',
             *content,
             "</section></body></html>\n",

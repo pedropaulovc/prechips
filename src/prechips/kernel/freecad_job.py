@@ -14513,7 +14513,12 @@ class _Setup(ThreadMaterialMixin):
         ):
             return True
         ledger, sid = self.setup.get("preservation_ledger"), self.setup.get("id")
-        if not isinstance(ledger, list) or not ledger or not isinstance(sid, str) or sid in ("", UNKNOWN):
+        if (
+            not isinstance(ledger, list)
+            or not ledger
+            or not isinstance(sid, str)
+            or sid in ("", UNKNOWN)
+        ):
             return True
         prefix, seen = sid + ":", set()
         effects = {"inspect": "metadata", "release": "metadata", "coating": "unmodeled"}

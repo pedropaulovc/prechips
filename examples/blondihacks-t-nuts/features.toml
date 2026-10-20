@@ -37,7 +37,7 @@ manufacturing = [
   "The STEP's nominal-major bore is a thread_envelope, NOT a tapping drill, finished minor diameter or helical thread. Edge breaks and bottom-thread staking are not modeled.",
 ]
 process = "EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT. Complete four-member demonstration route; all commissioning fixtures are disclosed example values, not physical observations. PLANNED, not first-article approved."
-edge_break = "Remove raised burrs only; maximum incidental edge break 0.05 mm is AUTHOR'S CHOICE demonstration process data, not a video dimension or expanded drawing tolerance. Preserve bearing flats, usable threads and all finished size/fit limits."
+edge_break = "Raised burrs only; incidental edge break ≤0.05 mm. Preserve bearing flats, usable threads and finished size/fit."
 cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts", "README.md", "geometry-provenance.md"]
 
 [general_tolerances]
@@ -139,8 +139,8 @@ cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s", "https://www.youtu
 
 [acceptance.actual_slot_fit]
 features = ["base-envelope", "shoulders", "end-length"]
-contract = { kind = "manual", gauge_kind = "mating_part", accept = ["Slides freely by hand in the actual intended slot without binding or objectionable rocking.", "Both shoulder shelves bear under the lips without bottoming or wedging.", "Pulled-up top remains below the table top."], cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"] }
+contract = { kind = "manual", gauge_kind = "mating_part", accept = ["No binding or objectionable rocking in intended slot.", "BOTH flange shelves bear under lips: no bottoming or wedging.", "Top stays below table."], cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"] }
 
 [acceptance.stud_retention]
 features = ["threaded-hole"]
-contract = { kind = "manual", gauge_kind = "mating_hardware", accept = ["The intended 3/8-16 right-hand stud enters from the top by hand.", "Bottom-thread deformation stops the stud before it exits onto the table; do not force it through.", "The nut does not rotate or pass through the intended slot during the functional check."], cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"] }
+contract = { kind = "manual", gauge_kind = "mating_hardware", accept = ["Intended 3/8-16 RH stud: free top entry.", "Bottom-thread deformation stops stud before exit onto table.", "Nut neither rotates nor passes through intended slot."], cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"] }

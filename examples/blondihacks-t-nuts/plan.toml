@@ -133,7 +133,7 @@ frame = "bench-raw"
 stock_in = "stock"
 coolant = "none"
 picture_panels = []
-hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 18.465, parallels = "none", stop = "Retained cut face 20 mm beyond jaw end", grip_mm = 15.875, jaw_above_parallels_mm = 25.0, clamp = "Bed-seat raw bar with full-height jaw contact; retain starting-end reference. Independently support scrap beyond X103.", supports = [{ placement = "posed", id = "scrap-support", ref = "b0-scrap-support", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Top Z-1.5875; all support hardware X>=103, beyond kerf." }] }
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 18.465, parallels = "none", stop = "Retained cut face 20 mm beyond jaw end", grip_mm = 15.875, jaw_above_parallels_mm = 25.0, clamp = "Bed-seat bar, full-height grip; retain starting-end reference. Support scrap independently beyond X103.", supports = [{ placement = "posed", id = "scrap-support", ref = "b0-scrap-support", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Top Z-1.5875; all support hardware X>=103, beyond kerf." }] }
 [[setups.ops]]
 op = 20
 do = "cut_off"
@@ -141,7 +141,7 @@ feature = "base-envelope"
 tool = "initial-stock-saw"
 cut_plane = { axis = "x", value = 101.4095, keep = "below" }
 feed_mm_min = 25.4
-note = [{ text = "Kerf centre 4.4925 from starting end; retain 4.475. Stop fully before scrap retrieval.", detail = "pro" }, { text = "Retain the 113.665-mm batch bar; scrap length 12.446 mm.", detail = "pedantic" }]
+note = [{ text = "Kerf centre 4.4925 from starting end; retain 4.475. Stop before scrap retrieval.", detail = "pro" }, { text = "Retain the 113.665-mm batch bar; scrap length 12.446 mm.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s", "geometry-provenance.md: AUTHOR'S CHOICE example cutoff allocation and 300-sfm/25.4-mm/min setting"]
 
 # Q1-Q4: local bare hold/zero numbers are example fixture settings, not shop observations.
@@ -155,8 +155,8 @@ stock_in = "B0"
 coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 1.5875, bottom_z = -14.2875, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
-note = [{ text = "Whole bar: original 1-inch-wide face up, .625 vertical.", detail = "pro" }, { text = "Mark this reference face; finish related faces before resetting the batch (A3 PDF16/printed7).", detail = "hobby" }, { text = "Keep the quill retracted and lock the unused axis for a milling pass; no gloves near a rotating spindle.", detail = "pedantic" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -9.0], [44.1325, 9.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target; A3 PDF24/printed15: indicate, tighten and recheck" }, clamp = "Seat on both parallels against aligned fixed jaw." }
+note = [{ text = "Original 1-inch face up, .625 vertical.", detail = "pro" }, { text = "Mark this reference face; finish related faces before resetting the batch (A3 PDF16/printed7).", detail = "hobby" }, { text = "Keep the quill retracted and lock the unused axis for a milling pass; no gloves near a rotating spindle.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -9.0], [44.1325, 9.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target; A3 PDF24/printed15: indicate, tighten and recheck" }, clamp = "Fixed-jaw contact." }
 zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "raw front edge", edge_mm = -12.7, from = "-y", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -172,14 +172,14 @@ rpm = 500.0
 doc_mm = 1.5875
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Face .0625; do not face ends.", detail = "pro" }]
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE example pass depth"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = [{ text = "Deburr seating edges; preserve reference faces.", detail = "pro" }, { text = "Stop the spindle before hand filing.", detail = "pedantic" }]
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }, { text = "Stop the spindle before hand filing.", detail = "pedantic" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=234s"
 
 [[setups]]
@@ -192,9 +192,9 @@ stock_in = "Q1"
 coolant = "flood-fluid"
 picture_panels = ["setup"]
 stock_state = { top_z = 1.5875, bottom_z = -23.8125, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
-note = [{ text = "Adjacent narrow face up; original 1-inch dimension vertical.", detail = "pro" }, { text = "Setup X span -100.965..12.7 mm.", detail = "pedantic" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = -44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[-44.1325, -11.0], [-44.1325, -3.3]], jaw_bar = "round-bar", stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 reference against fixed jaw; seat on both parallels." }
-zero = { x = { edge = "accessible right reference end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick fixed-jaw reference before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [-44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
+note = [{ text = "Adjacent narrow face up; 1-inch vertical.", detail = "pro" }, { text = "Setup X span -100.965..12.7 mm.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = -44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[-44.1325, -11.0], [-44.1325, -3.3]], jaw_bar = "round-bar", stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 reference at fixed jaw." }
+zero = { x = { edge = "accessible right reference end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [-44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
@@ -209,14 +209,14 @@ rpm = 500.0
 doc_mm = 1.5875
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Face .0625; do not face ends.", detail = "pro" }]
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = [{ text = "Deburr seating edges; preserve reference faces.", detail = "pro" }]
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
 [[setups]]
 id = "Q3"
@@ -228,9 +228,9 @@ stock_in = "Q2"
 coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 1.5875, bottom_z = -22.225, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
-note = [{ text = "Opposite narrow face up; establish .875-inch base width.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[44.1325, -11.0], [44.1325, -3.3]], stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Seat machined right-angle corner against fixed jaw and both parallels." }
-zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick fixed-jaw reference before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
+note = [{ text = "Opposite narrow face up; width .875 inch.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[44.1325, -11.0], [44.1325, -3.3]], stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Machined right-angle corner down/against fixed jaw." }
+zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
@@ -245,14 +245,14 @@ rpm = 500.0
 doc_mm = 1.5875
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Face .0625; do not face ends.", detail = "pro" }]
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 30
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = [{ text = "Deburr seating edges; preserve reference faces.", detail = "pro" }]
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
 [[setups]]
 id = "Q4"
@@ -264,8 +264,8 @@ stock_in = "Q3"
 coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 1.5875, bottom_z = -12.7, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
-note = [{ text = "Opposite wide face up; establish .500-inch overall height.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 face on both parallels; fixed-jaw contact." }
+note = [{ text = "Opposite wide face up; height .500 inch.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 face down." }
 zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both opposed base edges", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed base faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -281,14 +281,14 @@ rpm = 500.0
 doc_mm = 1.5875
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Face .0625; do not face ends.", detail = "pro" }]
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=352s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 30
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = [{ text = "Deburr seating edges; preserve reference faces.", detail = "pro" }]
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
 [[setups]]
 id = "S1"
@@ -300,8 +300,8 @@ stock_in = "Q4"
 coolant = "cutting-oil"
 picture_panels = ["setup"]
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { shoulders = 0.0 }, note = "Authored shoulder start surface is Q4's finished top at S1 Z0, picked up with the rougher's declared top-face touch. This is a recipe datum, not a future measurement or native carry/clearance proof." }
-note = [{ text = "Top-up; finish common section before separation.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Finished bottom on both parallels; fixed-jaw contact; preserve lower grip." }
+note = [{ text = "Top-up; finish section before separation.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Finished bottom on both parallels; preserve lower grip." }
 zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both opposed base edges", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed base faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "shoulder-rougher", holder = "collet-12", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] }, tool_touches = [{ tool = "finishing-endmill", holder = "collet-12", z_face = "top", method = "paper", edge_mm = 0.0, paper_mm = 0.0508, at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, after_op = 10, before_ops = [20] }] }
 [[setups.ops]]
 op = 10
@@ -317,7 +317,7 @@ rpm = 750.0
 doc_mm = 3.175
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Rough both shoulders; leave allowance on walls only. Feed +X on negative-Y shoulder, -X opposite. Both shoulder operations: cross beyond raw ends, never across stem or shelves; preserve ends.", detail = "pro" }, { text = "Rough Z-.125 then -.250 at centre Y+/-.5075; floors Z-.250.", detail = "pedantic" }]
+note = [{ text = "Rough/finish: +X at -Y, -X at +Y; cross beyond ends, never across stem/shelves. Preserve ends; walls-only allowance.", detail = "pro" }, { text = "Rough Z-.125 then -.250 at centre Y+/-.5075; floors Z-.250.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=407s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=500s", "geometry-provenance.md: AUTHOR'S CHOICE selected cutter and derived centres"]
 [[setups.ops]]
 op = 20
@@ -333,14 +333,14 @@ doc_mm = 6.35
 ae_mm = 0.254
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Finish both walls without lowering floors.", detail = "pro" }, { text = "After roughing, touch the surviving stem top with the finisher through .002-inch paper: Axis Set Z+.002; +.250 jog reads +.252. Finish walls at centre Y+/-.4975 and Z-.250.", detail = "pedantic" }]
+note = [{ text = "Finish walls; floors unchanged.", detail = "pro" }, { text = "After roughing, touch the surviving stem top with the finisher through .002-inch paper: Axis Set Z+.002; +.250 jog reads +.252. Finish walls at centre Y+/-.4975 and Z-.250.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=583s", "geometry-provenance.md#physical-input-completion: AUTHOR'S CHOICE derived cutter centres and surviving-top finisher touch"]
 [[setups.ops]]
 op = 40
 do = "deburr"
 feature = "shoulders"
 tool = "needle-files"
-note = [{ text = "Remove seating burrs without rounding bearing shelves.", detail = "pro" }]
+note = [{ text = "Deburr seating edges; preserve bearing shelves.", detail = "pro" }]
 
 # C1a/C1b/C2: setup-local fixture poses; bare values are disclosed example fixture settings.
 # Every clear leg is explicit; capture remains clamped until final return to calibration.
@@ -354,15 +354,15 @@ stock_in = "S1"
 coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 113.665, bottom_z = 0.0 }
-note = [{ text = "Upright; carry only lower remainder to next cut.", detail = "pro" }, { text = "Install the true arbor/blade pair with spindle stopped; teeth CW from above, lower right-hand retainer tightens under this cutting sense (A3 PDF18/printed9).", detail = "pedantic" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Bottom on parallels; front flange at fixed jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Seat on both parallels. Independent table-anchored capture: grip full-width upper flange 12-24 mm above cut. Pad/collar M6: 8 N m. Base M8: 18 N m. Tightening targets, not holding-force certification.", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }] }
-zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Then find left stem X before saw installation.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
+note = [{ text = "Upright; carry lower remainder forward.", detail = "pro" }, { text = "Install the true arbor/blade pair with spindle stopped; teeth CW from above, lower right-hand retainer tightens under this cutting sense (A3 PDF18/printed9). Capture torques are tightening targets, not holding-force certification.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Bottom on both parallels; front flange at fixed jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }] }
+zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Find left stem X before installing saw.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
 [[setups.ops]]
 op = 10
 do = "scribe"
 feature = "end-length"
 tool = "layout-marker"
-note = [{ text = "Mark kerf centres Z3.3875, 2.2375, 1.0875 inch: four 1.025-inch blanks, three .125-inch kerfs.", detail = "pro" }]
+note = [{ text = "Scribe tabled centres: four 1.025-inch blanks; three .125-inch kerfs.", detail = "pro" }, { text = "Kerf centres Z3.3875, 2.2375, 1.0875 inch.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s", "geometry-provenance.md: AUTHOR'S CHOICE exact four-piece allocation"]
 [[setups.ops]]
 op = 20
@@ -379,7 +379,7 @@ direction = "conventional"
 saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 86.0425], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 104.0425], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
 saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 86.0425], mode = "clear" }, { to_mm = [-37.1475, -10.541, 86.0425], mode = "clear" }, { to_mm = [37.1475, -10.541, 86.0425], mode = "cut" }, { to_mm = [37.1475, -60.325, 86.0425], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
 outputs = { nut1_blank = { side = "above", carries_workpieces = ["nut1"], pose = { origin = [-100.33, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut1 registration" }, cite = "geometry-provenance.md: upper Z87.630..113.665 retained nut1 blank" }, bar_a = { side = "below", carries_workpieces = ["nut2", "nut3", "nut4"], pose = { origin = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: lower remainder retains batch coordinates" }, cite = "geometry-provenance.md: lower Z0..84.455" } }
-note = [{ text = "Stop fully before withdrawal; retrieve before repositioning capture. Never descend to another cut before withdrawal.", detail = "pro" }, { text = "Fresh lower-body touch: boss Z+.400 + .002 paper + .120 body/2 = cutting-midplane Z+.462. Calibration X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z3.3875 -> X-1.4625; cut +X to +1.4625. Stop fully, capture clamped; withdraw Y-2.375 -> Z5.125; return X-5.500 -> Y0 -> Z+.462, then release/retrieve nut1. Only then reposition capture.", detail = "pedantic" }, { text = "Entry/exit tooth engagement transitions are not certified by the established-engagement minimum.", detail = "pedantic" }]
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh lower-body touch: boss Z+.400 + .002 paper + .120 body/2 = cutting-midplane Z+.462. Calibration X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z3.3875 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, withdraw Y-2.375 -> Z5.125; return X-5.500 -> Y0 -> Z+.462, then release/retrieve nut1.", detail = "pedantic" }, { text = "Entry/exit tooth engagement transitions are not certified by the established-engagement minimum.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s", "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE example finite route and independent capture"]
 
 [[setups]]
@@ -392,9 +392,9 @@ stock_in = "stock_out.bar_a"
 coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 84.455, bottom_z = 0.0 }
-note = [{ text = "Upright; carry only lower remainder to next cut.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Bottom on parallels; front flange at fixed jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Seat on both parallels. Independent table-anchored capture: grip full-width upper flange 12-24 mm above cut. Pad/collar M6: 8 N m. Base M8: 18 N m. Tightening targets, not holding-force certification.", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }] }
-zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Then find left stem X before saw installation.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
+note = [{ text = "Upright; carry lower remainder forward.", detail = "pro" }, { text = "Capture torques are tightening targets, not holding-force certification.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Bottom on both parallels; front flange at fixed jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }] }
+zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Find left stem X before installing saw.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
 [[setups.ops]]
 op = 10
 do = "cut_off"
@@ -410,7 +410,7 @@ direction = "conventional"
 saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 56.8325], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 74.8325], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
 saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 56.8325], mode = "clear" }, { to_mm = [-37.1475, -10.541, 56.8325], mode = "clear" }, { to_mm = [37.1475, -10.541, 56.8325], mode = "cut" }, { to_mm = [37.1475, -60.325, 56.8325], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
 outputs = { nut2_blank = { side = "above", carries_workpieces = ["nut2"], pose = { origin = [-71.12, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut2 registration" }, cite = "geometry-provenance.md: upper Z58.420..84.455 retained nut2 blank" }, bar_b = { side = "below", carries_workpieces = ["nut3", "nut4"], pose = { origin = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: lower remainder retains batch coordinates" }, cite = "geometry-provenance.md: lower Z0..55.245" } }
-note = [{ text = "Stop fully before withdrawal; retrieve before repositioning capture. Never descend to another cut before withdrawal.", detail = "pro" }, { text = "Fresh body-side setting Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z2.2375 -> X-1.4625; cut +X to +1.4625. Stop fully with capture clamped; Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; only then release/retrieve nut2 and adjust capture.", detail = "pedantic" }]
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh body-side setting Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z2.2375 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, then Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; then release/retrieve nut2.", detail = "pedantic" }]
 note_cite = "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE complete second physical cycle"
 
 [[setups]]
@@ -423,9 +423,9 @@ stock_in = "stock_out.bar_b"
 coolant = "flood-fluid"
 picture_panels = ["setup"]
 stock_state = { top_z = 55.245, bottom_z = 0.0 }
-note = [{ text = "Upright final separation; return borrowed nut1 before E1.", detail = "pro" }, { text = "The native SAW CYCLE closest-approach annotation includes setting and clear moves; native checks, not the picture, establish modeled clearance.", detail = "pedantic" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 34.8, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Lower bar_b at vise left end; jaws X-16..85.6", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, jaw_protection = ".0508-mm paper only at cutting-piece/moving-jaw contact; none on balancer", align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Seat on both parallels. Independent table-anchored capture: grip full-width upper flange 12-24 mm above cut. Pad/collar M6: 8 N m. Base M8: 18 N m. Tightening targets, not holding-force certification. Borrow nut1 at opposite jaw end as balancer, not cutting stock or upper capture. Cut-stage retainer/jaw gap .04325 inch; not full-cycle closest gap.", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }, { placement = "posed", id = "borrowed-nut1-balancer", stock_ref = "stock_out.nut1_blank", pose = { origin_mm = [62.7, 0.0, 11.1125], x = [1.0, 0.0, 0.0], z = [0.0, 1.0, 0.0] }, note = "Actual nut1 blank; local y toward setup-Z." }] }
-zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Then find left stem X before saw installation.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
+note = [{ text = "Upright final cut; return nut1 before E1.", detail = "pro" }, { text = "Capture torques are tightening targets, not holding-force certification. The native SAW CYCLE closest-approach annotation includes setting and clear moves; native checks, not the picture, establish modeled clearance.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 34.8, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Lower bar_b at vise left end; jaws X-16..85.6 mm", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, jaw_protection = ".0508-mm paper at cutting-piece/moving-jaw contact only; none on balancer", align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 opposite jaw end: balancer only, not stock/capture; cut-stage retainer/jaw gap .04325 inch, not full-cycle minimum", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss contact on exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base; not a hand-held catch." }, { placement = "posed", id = "borrowed-nut1-balancer", stock_ref = "stock_out.nut1_blank", pose = { origin_mm = [62.7, 0.0, 11.1125], x = [1.0, 0.0, 0.0], z = [0.0, 1.0, 0.0] }, note = "Actual nut1 blank; local y toward setup-Z." }] }
+zero = { procedure = "Find front Y first, visually within +/-.300 inch of centre; do not trust unset X. Find left stem X before installing saw.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
 [[setups.ops]]
 op = 10
 do = "cut_off"
@@ -441,7 +441,7 @@ direction = "conventional"
 saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 27.6225], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 45.6225], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
 saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 27.6225], mode = "clear" }, { to_mm = [-37.1475, -10.541, 27.6225], mode = "clear" }, { to_mm = [37.1475, -10.541, 27.6225], mode = "cut" }, { to_mm = [37.1475, -60.325, 27.6225], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
 outputs = { nut3_blank = { side = "above", carries_workpieces = ["nut3"], pose = { origin = [-41.91, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut3 registration" }, cite = "geometry-provenance.md: upper Z29.210..55.245" }, nut4_blank = { side = "below", carries_workpieces = ["nut4"], pose = { origin = [13.335, 0.0, 0.0], x = [-1.0, 0.0, 0.0], y = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: nut4 Rz180 registration is self-inverse" }, cite = "geometry-provenance.md: lower Z0..26.035 retained nut4 blank" } }
-note = [{ text = "Stop fully before withdrawal; retrieve before repositioning capture. Never descend to another cut before withdrawal.", detail = "pro" }, { text = "Fresh body-side Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z1.0875 -> X-1.4625; cut +X to +1.4625. Stop fully, capture clamped; Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; only then release/retrieve.", detail = "pedantic" }, { text = "For stopped-spindle drawbar removal support the cutter with fixtures.wood-block rather than grasping its edges; no gloves at a rotating spindle.", detail = "pedantic" }]
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh body-side Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z1.0875 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, then Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; then release/retrieve.", detail = "pedantic" }, { text = "For stopped-spindle drawbar removal support the cutter with fixtures.wood-block rather than grasping its edges; no gloves at a rotating spindle.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s", "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE complete final physical cycle"]
 
 # E1: each retained output is consumed exactly once. Bare holds/zeros are example
@@ -458,7 +458,7 @@ coolant = "flood-fluid"
 picture_panels = ["setup"]
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
 note = [{ text = "Top-up reversed.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Free end left of jaws/supports; parallel support 19.05 mm, ending X-6.35 clear of cutter." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; free end left of jaws/supports. Parallels support 19.05 mm, end X-6.35 clear of cutter" }
 zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -475,7 +475,7 @@ doc_mm = 12.7
 ae_mm = 0.635
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Side-mill only the free end.", detail = "pro" }]
+note = [{ text = "Free end only.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
 
 [[setups]]
@@ -490,7 +490,7 @@ coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
 note = [{ text = "Top-up reversed.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Free end left of jaws/supports; parallel support 19.05 mm, ending X-6.35 clear of cutter." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; free end left of jaws/supports. Parallels support 19.05 mm, end X-6.35 clear of cutter" }
 zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -507,7 +507,7 @@ doc_mm = 12.7
 ae_mm = 0.635
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Side-mill only the free end.", detail = "pro" }]
+note = [{ text = "Free end only.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
 
 [[setups]]
@@ -522,7 +522,7 @@ coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
 note = [{ text = "Top-up reversed.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Free end left of jaws/supports; parallel support 19.05 mm, ending X-6.35 clear of cutter." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; free end left of jaws/supports. Parallels support 19.05 mm, end X-6.35 clear of cutter" }
 zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -539,7 +539,7 @@ doc_mm = 12.7
 ae_mm = 0.635
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Side-mill only the free end.", detail = "pro" }]
+note = [{ text = "Free end only.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
 
 [[setups]]
@@ -554,7 +554,7 @@ coolant = "flood-fluid"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
 note = [{ text = "Top-up reversed.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Free end left of jaws/supports; parallel support 19.05 mm, ending X-6.35 clear of cutter." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; free end left of jaws/supports. Parallels support 19.05 mm, end X-6.35 clear of cutter" }
 zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
@@ -571,7 +571,7 @@ doc_mm = 12.7
 ae_mm = 0.635
 approach_mm = 2.54
 direction = "conventional"
-note = [{ text = "Side-mill only the free end.", detail = "pro" }]
+note = [{ text = "Free end only.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
 
 # D1: one physical drilling/tapping sequence per member, no powered hand-tap data.
@@ -587,7 +587,7 @@ coolant = "cutting-oil"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
 note = [{ text = "Top-up reversed.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Keep hole and 35-mm underpart space clear between parallels." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
 zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
 [[setups.ops]]
 op = 10
@@ -620,7 +620,7 @@ tool = "taper-tap"
 holder = "tap-follower"
 depth_mm = 26.035
 approach_mm = 2.54
-note = [{ text = "Hand-tap with wrench and follower; follower guides, not drives. Spindle stopped; do not power tap.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
 
 [[setups]]
@@ -635,7 +635,7 @@ coolant = "cutting-oil"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
 note = [{ text = "Top-up reversed.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Keep hole and 35-mm underpart space clear between parallels." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
 zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
 [[setups.ops]]
 op = 10
@@ -668,7 +668,7 @@ tool = "taper-tap"
 holder = "tap-follower"
 depth_mm = 26.035
 approach_mm = 2.54
-note = [{ text = "Hand-tap with wrench and follower; follower guides, not drives. Spindle stopped; do not power tap.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
 
 [[setups]]
@@ -683,7 +683,7 @@ coolant = "cutting-oil"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
 note = [{ text = "Top-up reversed.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Keep hole and 35-mm underpart space clear between parallels." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
 zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
 [[setups.ops]]
 op = 10
@@ -716,7 +716,7 @@ tool = "taper-tap"
 holder = "tap-follower"
 depth_mm = 26.035
 approach_mm = 2.54
-note = [{ text = "Hand-tap with wrench and follower; follower guides, not drives. Spindle stopped; do not power tap.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
 
 [[setups]]
@@ -731,7 +731,7 @@ coolant = "cutting-oil"
 picture_panels = []
 stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
 note = [{ text = "Top-up reversed.", detail = "pro" }]
-hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Retained saw end at rod stop. Seat magnetic foot flush on clean steel fixed-jaw top; switch ON, secure rod screw, locate gently and recheck after tightening vise.", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom on both parallels; fixed-jaw contact. Keep hole and 35-mm underpart space clear between parallels." }
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
 zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
 [[setups.ops]]
 op = 10
@@ -764,7 +764,7 @@ tool = "taper-tap"
 holder = "tap-follower"
 depth_mm = 26.035
 approach_mm = 2.54
-note = [{ text = "Hand-tap with wrench and follower; follower guides, not drives. Spindle stopped; do not power tap.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
 
 # B1: explicit manual reholding; no thread metrology or separate retention result.
@@ -780,27 +780,27 @@ stock_in = "D1a"
 coolant = "none"
 picture_panels = []
 note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
-hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Nut centred; staking bottom face flush with jaw tops, not bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold as needed for hand deburring. Stake bottom-up by full-height flange side flats; stem hangs 12.3 mm above bed." }
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "threaded-hole"
 tool = "noga-deburrer"
-note = [{ text = "Deburr both hole mouths to common edge limit; preserve usable top entry threads, no intentional countersink.", detail = "pro" }]
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = [{ text = "Remove exterior/handling burrs to common edge limit.", detail = "pro" }]
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 30
 do = "fit"
 feature = "threaded-hole"
 tool = "punch"
-note = [{ text = "Stake only the last bottom thread.", detail = "pro" }]
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
 
 [[setups]]
@@ -814,27 +814,27 @@ stock_in = "D1b"
 coolant = "none"
 picture_panels = []
 note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
-hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Nut centred; staking bottom face flush with jaw tops, not bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold as needed for hand deburring. Stake bottom-up by full-height flange side flats; stem hangs 12.3 mm above bed." }
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "threaded-hole"
 tool = "noga-deburrer"
-note = [{ text = "Deburr both hole mouths to common edge limit; preserve usable top entry threads, no intentional countersink.", detail = "pro" }]
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = [{ text = "Remove exterior/handling burrs to common edge limit.", detail = "pro" }]
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 30
 do = "fit"
 feature = "threaded-hole"
 tool = "punch"
-note = [{ text = "Stake only the last bottom thread.", detail = "pro" }]
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
 
 [[setups]]
@@ -848,27 +848,27 @@ stock_in = "D1c"
 coolant = "none"
 picture_panels = []
 note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
-hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Nut centred; staking bottom face flush with jaw tops, not bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold as needed for hand deburring. Stake bottom-up by full-height flange side flats; stem hangs 12.3 mm above bed." }
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "threaded-hole"
 tool = "noga-deburrer"
-note = [{ text = "Deburr both hole mouths to common edge limit; preserve usable top entry threads, no intentional countersink.", detail = "pro" }]
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = [{ text = "Remove exterior/handling burrs to common edge limit.", detail = "pro" }]
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 30
 do = "fit"
 feature = "threaded-hole"
 tool = "punch"
-note = [{ text = "Stake only the last bottom thread.", detail = "pro" }]
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
 
 [[setups]]
@@ -882,27 +882,27 @@ stock_in = "D1d"
 coolant = "none"
 picture_panels = []
 note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
-hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Nut centred; staking bottom face flush with jaw tops, not bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold as needed for hand deburring. Stake bottom-up by full-height flange side flats; stem hangs 12.3 mm above bed." }
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "threaded-hole"
 tool = "noga-deburrer"
-note = [{ text = "Deburr both hole mouths to common edge limit; preserve usable top entry threads, no intentional countersink.", detail = "pro" }]
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = [{ text = "Remove exterior/handling burrs to common edge limit.", detail = "pro" }]
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 30
 do = "fit"
 feature = "threaded-hole"
 tool = "punch"
-note = [{ text = "Stake only the last bottom thread.", detail = "pro" }]
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
 
 # B2: mandatory finish on each member; same four operations, no optional rework loop.
@@ -912,35 +912,35 @@ presentation_group = "B2"
 machine = "bench-bandsaw"
 stock_in = "B1a"
 picture_panels = []
-note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off. Follow the specified JAX directions/SDS; no universal dwell or coating thickness is invented.", detail = "pedantic" }]
-hold = { note = [{ text = "Stable chemical-compatible tray, away from operating machinery and ignition; separate solvent/chemical from rotating-tool work. Ventilation, splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped. Retain member identity through cleaning, rinsing, drying and oiling; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "all-surfaces"
 process = ["acetone", "detergent"]
-note = [{ text = "Acetone-degrease, then detergent-clean per JAX directions.", detail = "pro" }]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = [{ text = "Apply neat per JAX directions/SDS; no fixed dwell or coating thickness specified.", detail = "pro" }]
+note = [{ text = "Neat per directions/SDS; no universal dwell/thickness.", detail = "pro" }]
 note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = [{ text = "Fresh-water rinse; dry, remove loose residue.", detail = "pro" }]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = [{ text = "Oil; wipe excess.", detail = "pro" }]
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
 
 [[setups]]
@@ -949,35 +949,35 @@ presentation_group = "B2"
 machine = "bench-bandsaw"
 stock_in = "B1b"
 picture_panels = []
-note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off. Follow the specified JAX directions/SDS; no universal dwell or coating thickness is invented.", detail = "pedantic" }]
-hold = { note = [{ text = "Stable chemical-compatible tray, away from operating machinery and ignition; separate solvent/chemical from rotating-tool work. Ventilation, splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped. Retain member identity through cleaning, rinsing, drying and oiling; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "all-surfaces"
 process = ["acetone", "detergent"]
-note = [{ text = "Acetone-degrease, then detergent-clean per JAX directions.", detail = "pro" }]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = [{ text = "Apply neat per JAX directions/SDS; no fixed dwell or coating thickness specified.", detail = "pro" }]
+note = [{ text = "Neat per directions/SDS; no universal dwell/thickness.", detail = "pro" }]
 note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = [{ text = "Fresh-water rinse; dry, remove loose residue.", detail = "pro" }]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = [{ text = "Oil; wipe excess.", detail = "pro" }]
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
 
 [[setups]]
@@ -986,35 +986,35 @@ presentation_group = "B2"
 machine = "bench-bandsaw"
 stock_in = "B1c"
 picture_panels = []
-note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off. Follow the specified JAX directions/SDS; no universal dwell or coating thickness is invented.", detail = "pedantic" }]
-hold = { note = [{ text = "Stable chemical-compatible tray, away from operating machinery and ignition; separate solvent/chemical from rotating-tool work. Ventilation, splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped. Retain member identity through cleaning, rinsing, drying and oiling; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "all-surfaces"
 process = ["acetone", "detergent"]
-note = [{ text = "Acetone-degrease, then detergent-clean per JAX directions.", detail = "pro" }]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = [{ text = "Apply neat per JAX directions/SDS; no fixed dwell or coating thickness specified.", detail = "pro" }]
+note = [{ text = "Neat per directions/SDS; no universal dwell/thickness.", detail = "pro" }]
 note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = [{ text = "Fresh-water rinse; dry, remove loose residue.", detail = "pro" }]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = [{ text = "Oil; wipe excess.", detail = "pro" }]
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
 
 [[setups]]
@@ -1023,35 +1023,35 @@ presentation_group = "B2"
 machine = "bench-bandsaw"
 stock_in = "B1d"
 picture_panels = []
-note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off. Follow the specified JAX directions/SDS; no universal dwell or coating thickness is invented.", detail = "pedantic" }]
-hold = { note = [{ text = "Stable chemical-compatible tray, away from operating machinery and ignition; separate solvent/chemical from rotating-tool work. Ventilation, splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped. Retain member identity through cleaning, rinsing, drying and oiling; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "all-surfaces"
 process = ["acetone", "detergent"]
-note = [{ text = "Acetone-degrease, then detergent-clean per JAX directions.", detail = "pro" }]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = [{ text = "Apply neat per JAX directions/SDS; no fixed dwell or coating thickness specified.", detail = "pro" }]
+note = [{ text = "Neat per directions/SDS; no universal dwell/thickness.", detail = "pro" }]
 note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = [{ text = "Fresh-water rinse; dry, remove loose residue.", detail = "pro" }]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = [{ text = "Oil; wipe excess.", detail = "pro" }]
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
 
 # F1: one final physical checkpoint/result per nut; no shared final approval.
@@ -1068,8 +1068,8 @@ do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut1"]
 checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { base-envelope = { width = "Across finished base sides.", height = "Finished bottom to stem top." }, shoulders = { thickness = "Finished bottom to each of BOTH shoulder shelves.", width = "Across finished stem walls." }, end-length = { length = "Between finished ends." }, actual_slot_fit = "Slide, then pull up in intended slot.", stud_retention = "Try intended stud in slot-mounted nut." }
-note = [{ text = "Fit never replaces numeric checks. Uniform black/oiled finish; no loose residue or obstructed fit/threads. One overall result per nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. Fit does not replace dimensions. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1085,8 +1085,8 @@ do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut2"]
 checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { base-envelope = { width = "Across finished base sides.", height = "Finished bottom to stem top." }, shoulders = { thickness = "Finished bottom to each of BOTH shoulder shelves.", width = "Across finished stem walls." }, end-length = { length = "Between finished ends." }, actual_slot_fit = "Slide, then pull up in intended slot.", stud_retention = "Try intended stud in slot-mounted nut." }
-note = [{ text = "Fit never replaces numeric checks. Uniform black/oiled finish; no loose residue or obstructed fit/threads. One overall result per nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. Fit does not replace dimensions. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1102,8 +1102,8 @@ do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut3"]
 checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { base-envelope = { width = "Across finished base sides.", height = "Finished bottom to stem top." }, shoulders = { thickness = "Finished bottom to each of BOTH shoulder shelves.", width = "Across finished stem walls." }, end-length = { length = "Between finished ends." }, actual_slot_fit = "Slide, then pull up in intended slot.", stud_retention = "Try intended stud in slot-mounted nut." }
-note = [{ text = "Fit never replaces numeric checks. Uniform black/oiled finish; no loose residue or obstructed fit/threads. One overall result per nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. Fit does not replace dimensions. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1119,6 +1119,6 @@ do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut4"]
 checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { base-envelope = { width = "Across finished base sides.", height = "Finished bottom to stem top." }, shoulders = { thickness = "Finished bottom to each of BOTH shoulder shelves.", width = "Across finished stem walls." }, end-length = { length = "Between finished ends." }, actual_slot_fit = "Slide, then pull up in intended slot.", stud_retention = "Try intended stud in slot-mounted nut." }
-note = [{ text = "Fit never replaces numeric checks. Uniform black/oiled finish; no loose residue or obstructed fit/threads. One overall result per nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. Fit does not replace dimensions. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]

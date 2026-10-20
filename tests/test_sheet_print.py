@@ -273,6 +273,8 @@ def printed_pages(html, tmp_path):
 def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owners(
     tmp_path, detail
 ):
+    from test_sheet_detail import operation_owners
+
     # A 0.01 axial step and a 1.0 rough leave run the shaft's S2 dome rough and finish
     # tables, printed side by side when short, over several pages each, unequal in length.
     bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
@@ -304,15 +306,36 @@ def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owne
         node for node in markup.nodes if node["tag"] == "section" and "data-sheet" in node["attrs"]
     ]
     assert len(sections) == 1 and sections[0]["attrs"]["data-sheet"] == "job"
-    setup_owners = [node for node in markup.nodes if "data-setup-title" in node["attrs"]]
-    assert [node["attrs"]["data-setup-id"] for node in setup_owners] == [
-        setup["id"] for setup in bundle.plan["setups"]
+    setup_owners = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "section"
+        and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
     ]
+    assert [
+        member
+        for node in setup_owners
+        for member in json.loads(node["attrs"]["data-setup-members"])
+    ] == [setup["id"] for setup in bundle.plan["setups"]]
     # The authored diameter is the section gripped, not a claim that the entire
     # arriving part has that diameter; retained shoulders may be larger.
     held_diameter = re.compile(r"\bheld\s+on\s+Ø\s*([0-9]+(?:\.[0-9]+)?)")
-    arrivals = markup.find("stock-state")
-    assert len(arrivals) == len(bundle.plan["setups"])
+    # Compact routes omit the verbose arrival audit, not physical operation owners.
+    if detail == "pedantic":
+        assert len(markup.find("stock-state")) == len(bundle.plan["setups"])
+        arrivals = markup.find("stock-state")
+    else:
+        assert {
+            (owner["setup_id"], str(owner["op_id"]))
+            for node in markup.nodes
+            for owner in operation_owners(node)
+        } == {
+            (setup["id"], str(op["op"])) for setup in bundle.plan["setups"] for op in setup["ops"]
+        }
+        arrivals = [
+            Markup(traveler.stock_state(setup)).find("stock-state")[0]
+            for setup in bundle.plan["setups"]
+        ]
     for arrival, setup in zip(arrivals, bundle.plan["setups"], strict=True):
         match = held_diameter.search(content(arrival))
         assert match is not None, content(arrival)
@@ -330,9 +353,30 @@ def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owne
         sum(len(setup["ops"]) for setup in bundle.plan["setups"]) if detail == "pedantic" else 0
     )
     assert not markup.find("blank-side")
-    # Diameter and roughness keep distinct criterion-owned recording areas;
-    # replacing the closing catchall must not suppress either real destination.
+    # Diameter and roughness remain explicit criteria with physical recording owners.
+    # Compact checkpoints may combine criteria; pedantic keeps the full instruction records.
     for feature in ("pivot_bearing", "pivot_journal"):
+        if detail != "pedantic":
+            destinations = [
+                node
+                for node in markup.find("checkpoint-result")
+                if feature in json.loads(node["attrs"]["data-features"])
+            ]
+            requirements = [
+                requirement.strip()
+                for node in destinations
+                for requirement in node["attrs"]["data-requirement"].split(",")
+            ]
+            assert requirements.count("dia") == requirements.count("finish_ra") == 1
+            assert any(
+                feature.replace("_", " ") in content(node)
+                for node in markup.find("route-inspection")
+            )
+            for destination in destinations:
+                (blank,) = markup.find("writing-blank", destination)
+                assert _original(destination) and _original(blank)
+                assert content(blank) == ""
+            continue
         records = {
             record["attrs"]["data-requirement"]: record
             for record in markup.find("inspection-record")
@@ -343,7 +387,22 @@ def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owne
         for record in records.values():
             (requirement,) = markup.find("inspection-requirement", record)
             assert feature.replace("_", " ") in content(requirement)
-            (blank,) = markup.find("writing-blank", record)
+            identity = (
+                "data-setup-id",
+                "data-op-id",
+                "data-workpiece",
+                "data-inspection-ids",
+                "data-feature",
+                "data-requirement",
+            )
+            destinations = [
+                node
+                for node in markup.find("checkpoint-result")
+                if all(node["attrs"][key] == record["attrs"][key] for key in identity)
+            ]
+            (destination,) = destinations
+            (blank,) = markup.find("writing-blank", destination)
+            assert _original(destination) and _original(blank)
             assert content(blank) == ""
     # One global physical count covers setup, contour and inspection continuations.
     # Short setup blocks need no recto boundary or blank reverse side.
@@ -504,13 +563,13 @@ def test_recording_counter_remeasures_inherited_continuation_line_height(tmp_pat
     assert [int(value) for value in re.findall(r"\brow-(\d+)\b", text)] == list(range(1, 61))
     if changed:
         assert "PRINT LAYOUT ERROR" in text and "inherited reserved typography" in text
-        assert not re.search(r"SHEET 0,\s*page\s+\d+", text)
+        assert not re.search(r"SETUP S0,\s*page\s+\d+", text)
     else:
         assert "PRINT LAYOUT ERROR" not in text
         (destination,) = [
             index + 1 for index, page in enumerate(pages) if all(label in page for label in fields)
         ]
-        pointers = [int(value) for value in re.findall(r"SHEET 0,\s*page\s+(\d+)", text)]
+        pointers = [int(value) for value in re.findall(r"SETUP S0,\s*page\s+(\d+)", text)]
         assert pointers and all(page == destination for page in pointers)
 
 
@@ -913,6 +972,9 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         bundle,
         [SimpleNamespace(rule="coordinates", subject="S1", numbers=numbers, status="pass")],
         {},
+        # Optional progress destinations and full owner titles are the pedantic
+        # contour contract; compact routes intentionally use a different presentation.
+        detail="pedantic",
     )
     original = Markup(html)
     expected_rows = [
@@ -920,13 +982,16 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
         for table in original.find("coords")
         for row in _body_rows(original, table)
     ]
+    assert len(expected_rows) == 360
     expected_titles = [
         content(node)
         for node in original.nodes
         if node["tag"] == "h3" and node["parent"] in original.find("contour")
     ]
+    assert len(expected_titles) == 2
     prepare = r"""() => {
       const parsed = new DOMParser().parseFromString(__PUBLIC__, 'text/html');
+      document.body.dataset.detail = parsed.body.dataset.detail;
       const sections = [...parsed.querySelectorAll('section.page[data-sheet]')];
       window.expectedContourTitles = __TITLES__;
       window.originalStatuses = Object.fromEntries(sections.map(section =>
@@ -999,7 +1064,7 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
       sourceHTML: [...document.querySelectorAll('section.page[data-sheet]')]
         .map(section => section.outerHTML).join(''),
       runningStatuses: [...document.querySelectorAll('.cont-head')].map(head => ({
-        status: window.originalStatuses[head.closest('section').dataset.sheet],
+        status: window.originalStatuses[head.closest('section.page[data-sheet]').dataset.sheet],
         text: head.textContent
       })),
       continuedHeaders: [...document.querySelectorAll('table.coords[data-job-print-split]')]
@@ -2301,16 +2366,17 @@ def test_inline_note_and_worksheet_views_keep_readings_and_calculations_once(
         figure["page"] for figure in details["figures"]
     )
     records = printed.find("inspection-record")
+    identity = ("data-setup-id", "data-op-id", "data-workpiece", "data-inspection-ids")
     expected_records = {
-        record["attrs"]["data-inspection-ids"]: record["attrs"]["data-op-id"]
+        tuple(record["attrs"][key] for key in identity)
         for record in original.find("inspection-record")
     }
     assert len(expected_records) == 2
-    assert {record["attrs"]["data-inspection-ids"] for record in records} == expected_records.keys()
+    assert {
+        tuple(record["attrs"][key] for key in identity) for record in records
+    } == expected_records
     assert all(
-        record["attrs"]["data-op-id"] == expected_records[record["attrs"]["data-inspection-ids"]]
-        and record["attrs"]["data-setup-id"] == "S1"
-        and not printed.find("result-field", record)
+        record["attrs"]["data-setup-id"] == "S1" and not printed.find("result-field", record)
         for record in records
     )
     assert len(printed.find("performed-mark")) == (2 if detail == "pedantic" else 0)
@@ -2462,19 +2528,32 @@ def test_mixed_worksheet_prompts_keep_sole_named_table_field_and_clear_underscor
           };
         })""",
     )
-    (worksheet,) = printed.find("worksheet")
-    (steps,) = printed.find("steps", worksheet)
-    entries = [node for node in printed.nodes if node["tag"] == "li" and node["parent"] is steps]
-    assert [content(entry) for entry in entries] == [
-        re.sub(r"\{([^{}]+)\}", r"[\1]", step).replace("______", "") for step in authored[:2]
+    worksheets = printed.find("worksheet")
+    assert worksheets
+    steps = [step for worksheet in worksheets for step in printed.find("steps", worksheet)]
+    entries = [node for node in printed.nodes if node["tag"] == "li" and node["parent"] in steps]
+    by_number = {}
+    fragment_order = []
+    for entry in entries:
+        number = int(entry["attrs"]["value"])
+        if not fragment_order or fragment_order[-1] != number:
+            fragment_order.append(number)
+        by_number.setdefault(number, []).append(content(entry))
+        assert _original(entry)
+    assert fragment_order == [1, 2]
+    assert [" ".join(by_number[number]).split() for number in fragment_order] == [
+        re.sub(r"\{([^{}]+)\}", r"[\1]", step).replace("______", "").split()
+        for step in authored[:2]
     ]
-    assert not printed.find("field", steps)
-    (table,) = printed.find("readings", worksheet)
-    (row,) = _body_rows(printed, table)
+    assert all(not printed.find("field", step) for step in steps)
+    tables = [table for worksheet in worksheets for table in printed.find("readings", worksheet)]
+    (row,) = [row for table in tables for row in _body_rows(printed, table)]
     cells = _cells(printed, row)
     assert [content(cell) for cell in cells[:2]] == ["1", "[X1]"]
     assert [content(label) for label in printed.find("field-label", cells[2])] == ["X1"]
-    assert [content(node) for node in printed.find("calc", worksheet)] == authored[2:]
+    assert [
+        content(node) for worksheet in worksheets for node in printed.find("calc", worksheet)
+    ] == authored[2:]
     assert len(printed.find("writing-blank")) == len(spaces) == 2
     assert all(space["original"] and space["samePage"] and space["visible"] for space in spaces)
     (named,) = [space for space in spaces if space["tableOwned"]]
@@ -2605,6 +2684,8 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
         },
     ]
     sheet = picture_sheet(panels)
+    if generated_headers:
+        sheet.detail = "pedantic"
     sheet.arrival = lambda setup: "Ø12.000 × 35.000 mm stock blank"
     render = sheet.report["renders"]["S1"]
     render.update({"path": asset["path"], "sha256": asset["sha256"]})
@@ -2613,6 +2694,7 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
     source = sheet.fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
     original = Markup(source)
     (caption,) = [content(node) for node in original.nodes if node["tag"] == "p"]
+    assert "Ø12.000 × 35.000 mm stock blank" in caption
     prepare = None
     if generated_headers:
         headings = ["JOB PAGE", "SETUP S1", "SETUP S2"]
@@ -2635,21 +2717,26 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
         assert not any("PRINT LAYOUT ERROR" in page for page in pages)
         assert all(page.strip() for page in pages)
         assert all(any(heading in page for page in pages) for heading in headings)
-        assert all("BRACKET · BRK-071 · rev B" in page for page in pages)
+        assert all(
+            all(token.casefold() in page.casefold() for token in ("bracket", "BRK-071", "rev B"))
+            for page in pages
+        )
         assert all("qty 20" in page and "PLANNED — NOT APPROVED" in page for page in pages)
         public = Markup(public_html)
         assert not public.find("signoff") and not public.find("blank-side")
         (job,) = public.find("page")
         assert job["attrs"]["data-sheet"] == "job"
         assert [
-            node["attrs"]["data-setup-id"]
+            member
             for node in public.nodes
-            if "data-setup-title" in node["attrs"]
+            if node["tag"] == "section"
+            and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
+            for member in json.loads(node["attrs"]["data-setup-members"])
         ] == ["S1", "S2"]
         (figure_page,) = [
             index for index, page in enumerate(pages) if caption in page and "Main setup" in page
         ]
-        assert "SETUP S1" in pages[figure_page]
+        assert "setup s1" in pages[figure_page].casefold()
         # Feed the complete generated job, not a synthetic shortened continuation.
         prepare = r"""() => {
           const parsed = new DOMParser().parseFromString(__PUBLIC__, 'text/html');

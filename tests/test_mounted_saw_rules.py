@@ -405,11 +405,17 @@ def test_sheet_reach_preserves_finite_saw_debt_without_axial_fallback(
     assert candidates == []
     (action,) = actions
     assert (action.source, action.status, action.scope, action.kind) == (
-        "finite_saw", status, "S1:20", "block"
+        "finite_saw",
+        status,
+        "S1:20",
+        "block",
     )
     (decision,) = traveler.producer_decisions["S1"]
     assert (decision.source, decision.status, decision.scope, decision.kind) == (
-        "finite_saw", status, "S1:20", "block"
+        "finite_saw",
+        status,
+        "S1:20",
+        "block",
     )
     assert str(action)
     assert decision.text == str(action)

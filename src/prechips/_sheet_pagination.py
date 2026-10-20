@@ -30,8 +30,10 @@ JOB_PRINT_JS = r"""(() => {
     const setup = node.closest("[data-setup-title]"),
       physical = node.closest("[data-setup-id]"),
       member = node.closest("[data-member]"), workpiece = node.closest("[data-workpiece]");
-    const values = [setup?.dataset.setupTitle, physical?.dataset.setupId,
-      member?.dataset.member, workpiece?.dataset.workpiece].filter(Boolean);
+    const title = setup?.dataset.setupTitle || "", id = physical?.dataset.setupId || "",
+      tokens = title.split(/[\s·:,()—]+/);
+    const values = [title, ...[id, member?.dataset.member, workpiece?.dataset.workpiece]
+      .filter((value) => value && !tokens.includes(value))].filter(Boolean);
     return { identity: [...new Set(values)].join(" · ") || "Job",
       setup: physical?.dataset.setupId || "", member: member?.dataset.member || "",
       workpiece: workpiece?.dataset.workpiece || "", title: setup?.dataset.setupTitle || "" };
@@ -42,9 +44,15 @@ JOB_PRINT_JS = r"""(() => {
   function box(el) {
     const s = getComputedStyle(el);
     if (s.display === "contents") {
-      const bounds = [...el.children].filter(
-        (child) => getComputedStyle(child).display !== "none"
-      ).map(box);
+      const bounds = [...el.childNodes].flatMap((child) => {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          return getComputedStyle(child).display === "none" ? [] : [box(child)];
+        }
+        if (child.nodeType !== Node.TEXT_NODE || !child.textContent.trim()) return [];
+        const range = document.createRange();
+        range.selectNode(child);
+        return [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      });
       return bounds.length
         ? { top: Math.min(...bounds.map((r) => r.top)),
           bottom: Math.max(...bounds.map((r) => r.bottom)) }
@@ -108,6 +116,10 @@ JOB_PRINT_JS = r"""(() => {
     ref.append(slot);
     return ref;
   }
+  const TYPOGRAPHY = ["font-family", "font-size", "font-weight", "font-style",
+    "font-stretch", "font-variant-numeric", "font-feature-settings",
+    "font-variation-settings", "font-kerning", "font-optical-sizing",
+    "letter-spacing", "word-spacing", "line-height"];
   function measureLocator(ref) {
     const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(slot);
     const line = parseFloat(style.lineHeight);
@@ -116,34 +128,59 @@ JOB_PRINT_JS = r"""(() => {
     }
     const probe = document.createElement("span");
     probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;"
-      + "display:inline-block;padding:0;margin:0;border:0";
-    for (const property of ["font-family", "font-size", "font-weight", "font-style",
-      "font-stretch", "font-variant-numeric", "font-feature-settings",
-      "font-variation-settings", "font-kerning", "font-optical-sizing",
-      "letter-spacing", "word-spacing", "line-height"]) {
+      + "display:inline-block;left:0;top:0;padding:0;margin:0;border:0";
+    for (const property of TYPOGRAPHY) {
       probe.style.setProperty(property, style.getPropertyValue(property));
     }
     document.body.append(probe);
-    let width;
+    const range = document.createRange();
+    let width, top = 0, bottom = line;
     try {
       for (let digit = 0; digit <= 9; digit++) {
         probe.textContent = String(digit).repeat(locatorPass.digits);
-        const measured = probe.getBoundingClientRect().width;
+        const bounds = probe.getBoundingClientRect(), measured = bounds.width;
         if (!Number.isFinite(measured) || measured <= 0
             || !style.fontVariantNumeric.includes("tabular-nums")
             || (width !== undefined && measured !== width)) {
           throw new Error("A recording locator lacks measured tabular digit metrics.");
         }
         width = measured;
+        range.selectNodeContents(probe);
+        const glyph = range.getBoundingClientRect();
+        if (!Number.isFinite(glyph.height) || glyph.height <= 0) {
+          throw new Error("A recording locator has no measured digit glyph height.");
+        }
+        top = Math.min(top, glyph.top - bounds.top);
+        bottom = Math.max(bottom, glyph.bottom - bounds.top);
       }
     } finally { probe.remove(); }
-    // Empty reserved counters take exactly the same line box as the final ink.
+    // Retain the measured baseline: increasing line-height after probing moves
+    // the glyph origin. The reservation covers the original line box and every
+    // digit's measured top/bottom, with ink offset into that same envelope.
+    const height = bottom - top;
     slot.style.cssText = `display:inline-block;position:relative;width:${width}px;`
-      + `min-width:${width}px;max-width:${width}px;height:${line}px;min-height:${line}px;`
-      + `max-height:${line}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
+      + `min-width:${width}px;max-width:${width}px;height:${height}px;min-height:${height}px;`
+      + `max-height:${height}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
       + `flex:0 0 ${width}px;padding:0;margin:0;border:0`;
-    slot.firstElementChild.style.cssText = "position:absolute;left:0;top:0;display:block;"
+    slot.firstElementChild.style.cssText = `position:absolute;left:0;top:${-top}px;display:block;`
       + "white-space:nowrap;line-height:inherit;padding:0;margin:0;border:0";
+    // Reference prose has its own glyph overhang under tight body leading.
+    // Give this complete locator a local formatting box and reserve its actual
+    // top/bottom overhang, rather than borrowing a larger owner or weakening fit.
+    ref.style.display = "inline-block";
+    ref.style.maxWidth = "100%";
+    ref.style.verticalAlign = "bottom";
+    ref.style.paddingTop = "0";
+    ref.style.paddingBottom = "0";
+    const bounds = ref.getBoundingClientRect();
+    range.selectNodeContents(ref);
+    const glyphs = locatorLines(range).filter((rect) => rect[4] && rect[5]);
+    if (glyphs.length) {
+      ref.style.paddingTop =
+        Math.max(0, bounds.top - Math.min(...glyphs.map((rect) => rect[1]))) + "px";
+      ref.style.paddingBottom =
+        Math.max(0, Math.max(...glyphs.map((rect) => rect[3])) - bounds.bottom) + "px";
+    }
   }
   function prepareLocators() {
     locatorPass = { expected: new Map(), reservations: new Map() };
@@ -239,7 +276,8 @@ JOB_PRINT_JS = r"""(() => {
       blank.parentElement.append(ref);
       measureLocator(ref);
       ref.remove();
-      ref.removeAttribute("style");
+      ref.style.removeProperty("position");
+      ref.style.removeProperty("visibility");
       locatorPass.reservations.set(meta.key, ref);
     }
   }
@@ -313,7 +351,8 @@ JOB_PRINT_JS = r"""(() => {
       Number(document.documentElement.dataset.printWidth), starts]);
   }
   function finishLocators() {
-    const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
+    const allRefs = locatorNodes(document, "[" + LOCATOR_REF + "]");
+    const refs = allRefs.filter(locatorVisible);
     for (const ref of refs) {
       const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
       // Re-read live inherited CSS, not the line box pinned by the reservation.
@@ -325,7 +364,9 @@ JOB_PRINT_JS = r"""(() => {
     }
     const registry = locatorRegistry(), before = locatorLayout(registry),
       byKey = new Map(registry.map((entry) => [entry.key, entry]));
-    for (const ref of refs) {
+    // Hidden original repeat rows still retain valid addresses when their
+    // continuation copies print. Only visible references participate in geometry.
+    for (const ref of allRefs) {
       const target = byKey.get(ref.getAttribute(LOCATOR_REF));
       const ink = ref.querySelector(".fixed-locator-digit")?.firstElementChild;
       if (!target || !ink || ink.textContent !== "") {
@@ -342,13 +383,22 @@ JOB_PRINT_JS = r"""(() => {
     }
     for (const ref of refs) {
       const slot = ref.querySelector(".fixed-locator-digit"), ink = slot.firstElementChild,
-        page = locatorPage(ref), owner = ref.closest("tr,.cont-head,li,p,.op-action")
+        // An inline method label's glyph box omits the line-height leading used
+        // by its reserved counter. Its method block owns the complete line box.
+        page = locatorPage(ref),
+        owner = ref.closest("tr,.cont-head,li,p,.op-action,.inspection-method")
           ?? ref.parentElement;
       const ownerRect = locatorRect(owner), ownerBounds = { left: ownerRect[0],
         top: ownerRect[1], right: ownerRect[2], bottom: ownerRect[3] },
         refRects = locatorLines(ref), slotRect = locatorRect(slot);
       if (!locatorWithin(slotRect, ownerBounds) || !locatorWithin(slotRect, page)) {
-        throw new Error("A recording-locator reservation escapes its owner or local print page.");
+        throw new Error("A recording-locator reservation escapes its owner or local print page. "
+          + JSON.stringify({ key: ref.getAttribute(LOCATOR_REF),
+            owner: { tag: owner.tagName, id: owner.id, class: owner.getAttribute("class"),
+              bounds: ownerBounds },
+            slot: { left: slotRect[0], top: slotRect[1], right: slotRect[2], bottom: slotRect[3] },
+            page: { number: page.page, left: page.left, top: page.top,
+              right: page.right, bottom: page.bottom } }));
       }
       const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
       const range = document.createRange();
@@ -363,7 +413,21 @@ JOB_PRINT_JS = r"""(() => {
             if (!containers.some((bounds) => locatorWithin(rect,
               { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] }))
                 || !locatorWithin(rect, ownerBounds) || !locatorWithin(rect, page)) {
-              throw new Error("A recording-locator glyph escapes its reservation or print owner.");
+              const style = getComputedStyle(node.parentElement);
+              throw new Error("A recording-locator glyph escapes its reservation or print owner. "
+                + JSON.stringify({ key: ref.getAttribute(LOCATOR_REF),
+                  character: node.textContent.slice(offset, offset + 1),
+                  ink: node.parentElement === ink,
+                  glyph: { left: rect[0], top: rect[1], right: rect[2], bottom: rect[3] },
+                  containers, slot: slotRect, reference: refRects,
+                  owner: { tag: owner.tagName, class: owner.getAttribute("class"),
+                    bounds: ownerBounds },
+                  page: { number: page.page, left: page.left, top: page.top,
+                    right: page.right, bottom: page.bottom },
+                  typography: { family: style.fontFamily, size: style.fontSize,
+                    weight: style.fontWeight, lineHeight: style.lineHeight,
+                    slotLineHeight: getComputedStyle(slot).lineHeight,
+                    inkLineHeight: getComputedStyle(ink).lineHeight } }));
             }
           }
         }
@@ -390,7 +454,18 @@ JOB_PRINT_JS = r"""(() => {
         [...row.cells].every((cell) => cell.colSpan === 1 && cell.rowSpan === 1));
       const count = Math.max(0, ...rows.map((row) => row.cells.length));
       const row = rows.find((candidate) => candidate.cells.length === count);
-      if (!row) continue;
+      if (!row || count === 0) continue;
+      const firstColumn = rows.filter((candidate) => candidate.cells.length === count)
+        .map((candidate) => candidate.cells[0]);
+      if (firstColumn.every((cell) => cell.textContent.trim().replace(/\s+/g, " ").length <= 20
+          && !cell.querySelector("figure,.field,.result-field,.authored-blank"))) {
+        // Short keys are labels, not prose. Their min-content width must include
+        // the complete key/header instead of a single character from anywhere-wrap.
+        for (const cell of firstColumn) {
+          cell.style.whiteSpace = "nowrap";
+          cell.style.overflowWrap = "normal";
+        }
+      }
       // Let the browser allocate content-sized columns once at the print width.
       // Continuation fragments retain those measured widths, not equal shares or
       // a new allocation based only on the few rows left in that fragment.
@@ -412,73 +487,43 @@ JOB_PRINT_JS = r"""(() => {
     });
     const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
       .map((node) => node.cloneNode(true));
+    const compactRunning = ["pro", "hobby"].includes(document.body.dataset.detail);
+    const quantity = section.dataset.quantity ? "qty " + section.dataset.quantity : "";
     const title = [section.dataset.part, section.dataset.drawing,
-      section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED"]
+      section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
+      quantity]
       .filter(Boolean).join(" · ");
-    const titleOwners = new Map();
-    for (const source of section.querySelectorAll("h3.page-context > [data-title-source]")) {
-      const key = source.dataset.titleSource, units = new Map();
-      const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT), nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach((node, ordinal) => {
-        const identity = key + ":text:" + ordinal, span = document.createElement("span");
-        span.dataset.titleUnit = identity;
-        units.set(identity, node.length);
-        node.replaceWith(span);
-        span.append(node);
-      });
-      // DOM text lengths and Range offsets are UTF-16 units, including non-BMP titles.
-      titleOwners.set(key, { length: source.textContent.length, units });
-    }
-    for (const repeat of section.querySelectorAll("[data-title-repeat]")) {
-      const key = repeat.dataset.titleRepeat;
-      if (!titleOwners.has(key)) continue;
-      const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT), nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach((node, ordinal) => {
-        const span = document.createElement("span");
-        span.dataset.titleUnit = key + ":text:" + ordinal;
-        node.replaceWith(span);
-        span.append(node);
-      });
-    }
-    function fullTitleCanonicalOnPage(key) {
-      const owner = titleOwners.get(key);
-      if (!owner?.units.size) return false;
+    const titleOwners = new Map(
+      [...section.querySelectorAll("h3.page-context > [data-title-source]")]
+        .map((source) => [source.dataset.titleSource, source.textContent])
+    );
+    function fullTitleCanonicalOnPage(key, originalOnly = false) {
+      const text = titleOwners.get(key);
+      if (!text) return false;
       const left = section.getBoundingClientRect().left,
         right = left + Number(document.documentElement.dataset.printWidth);
       const within = (r) => r.left >= left - .01 && r.right <= right + .01
         && r.top >= pageTop - .01 && r.bottom <= pageTop + CAP + .01;
       for (const span of section.querySelectorAll("[data-title-source]")) {
-        if (span.dataset.titleSource !== key) continue;
+        if (span.dataset.titleSource !== key || span.textContent !== text) continue;
         const running = span.closest(".cont-context"), original = span.closest("h3.page-context");
-        if (!running && (!original || span.closest("[" + ADDED + "]"))) continue;
-        if (span.textContent.length !== owner.length) continue;
-        const units = [...span.querySelectorAll("[data-title-unit]")];
-        if (units.length !== owner.units.size || units.some((node) =>
-          !owner.units.has(node.dataset.titleUnit)
-            || node.textContent.length !== owner.units.get(node.dataset.titleUnit))) continue;
-        if (!span.getClientRects().length || !within(span.getBoundingClientRect())
-            || [...span.querySelectorAll("*")].some((node) =>
-              [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        if (running ? originalOnly : !original || span.closest("[" + ADDED + "]")) continue;
+        if (!span.getClientRects().length || !within(span.getBoundingClientRect())) continue;
+        // A single Range measures every retained title run, including nested numeric
+        // spans. Per-word wrappers and repeated subtree queries made a long depth
+        // list quadratic during prefix fitting without proving anything stronger.
         const range = document.createRange();
-        if (units.some((node) => {
-          range.selectNodeContents(node);
-          return [...range.getClientRects()].some((rect) => !within(rect));
-        })) continue;
-        return true;
+        range.selectNodeContents(span);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+        if (rects.length && rects.every(within)) return true;
       }
       return false;
     }
     function refreshTitleCopies(t) {
       for (const span of t.tHead?.querySelectorAll("[data-title-repeat]") || []) {
-        const key = span.dataset.titleRepeat, owner = titleOwners.get(key),
-          units = [...span.querySelectorAll("[data-title-unit]")];
-        const whole = owner && span.textContent.length === owner.length
-          && units.length === owner.units.size && units.every((node) =>
-            owner.units.has(node.dataset.titleUnit)
-              && node.textContent.length === owner.units.get(node.dataset.titleUnit));
-        span.toggleAttribute("data-title-suppressed", !!whole && fullTitleCanonicalOnPage(key));
+        const key = span.dataset.titleRepeat;
+        span.toggleAttribute("data-title-suppressed",
+          span.textContent === titleOwners.get(key) && fullTitleCanonicalOnPage(key));
       }
     }
     const contextHeads = new Map();
@@ -486,8 +531,13 @@ JOB_PRINT_JS = r"""(() => {
       // Stable within a pass and inherited by source fragments; identical titles in
       // different physical setups never select each other's heading.
       owner.dataset.printContext = String(index);
-      contextHeads.set(String(index),
-        owner.querySelector(":scope > .page-context")?.cloneNode(true));
+      const original = owner.querySelector(":scope > .page-context");
+      if (!original) return;
+      const style = getComputedStyle(original);
+      contextHeads.set(String(index), {
+        heading: original.cloneNode(true),
+        typography: TYPOGRAPHY.map((property) => [property, style.getPropertyValue(property)])
+      });
     });
     const operationHeads = new Map();
     [...section.querySelectorAll("tbody.operation")].forEach((body, index) => {
@@ -747,29 +797,37 @@ JOB_PRINT_JS = r"""(() => {
       return el.tagName === "TR"
         ? prefixBottom(el.closest("table"), el, contents) : textBottom(el, contents);
     }
-    function pageProgress(el, relax = true) {
+    function pageProgress(el, relax = true, firstPrefixOnly = false) {
+      // A full repeated heading can already exhaust the page. No original
+      // prefix can fit below that start; compact context before cloning words.
+      if (box(el).top >= pageTop + CAP) return null;
       if (el.tagName === "TABLE") {
         const progress = sourceProgress(el, el.tBodies[0]);
         return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
       }
       for (const point of pointsIn(el)) {
         const contents = contentsAt(el, point);
-        if (originalText(contents) && fits(textBottom(el, contents))) {
-          return () => textBottom(el, contents);
-        }
+        if (!originalText(contents)) continue;
+        if (fits(textBottom(el, contents))) return () => textBottom(el, contents);
+        // The first pass is only an admission trial for full repeated context.
+        // A conservative rejection can shorten that copy, never refuse source:
+        // after compaction the complete mixed-block prefix search runs below.
+        if (firstPrefixOnly) break;
       }
       if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
-      return relax && prepareFields(el) ? pageProgress(el, false) : null;
+      return relax && prepareFields(el) ? pageProgress(el, false, firstPrefixOnly) : null;
     }
     function compactContext(el, suffix = "") {
       const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
         .map((ref) => ref.cloneNode(true));
       const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
       if (!identity) return false;
+      const authored = el.dataset.pageContext?.split(/\s+[—·]\s+/, 1)[0].trim(),
+        label = authored && el.textContent.startsWith(authored) ? authored : identity[0];
       const range = document.createRange(),
         walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       range.selectNodeContents(el);
-      let remaining = identity[0].length, node;
+      let remaining = label.length, node;
       while ((node = walker.nextNode())) {
         if (remaining <= node.length) {
           range.setEnd(node, remaining);
@@ -788,18 +846,30 @@ JOB_PRINT_JS = r"""(() => {
       const running = document.createElement("span");
       running.className = "cont-title";
       const setup = physicalOwner(origin), owner = origin.closest("[data-page-context]");
-      running.textContent = [title, setup.identity === "Job" ? "" : setup.identity]
-        .filter(Boolean).join(" · ") + " (continued)";
+      running.textContent = [compactRunning ? section.dataset.part || title : title,
+        compactRunning && section.dataset.part ? quantity : "",
+        setup.identity === "Job" ? "" : setup.identity]
+        .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
       for (const [key, value] of Object.entries({ setupTitle: setup.title,
         setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
         if (value) head.dataset[key] = value;
       }
       if (owner) head.dataset.pageContext = owner.dataset.pageContext;
-      if (section.dataset.continuationLabel) {
-        running.append(" · " + section.dataset.continuationLabel);
-      }
-      if (statusContents.length) {
-        running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+      if (compactRunning) {
+        const status = statusContents.map((node) => node.textContent).join("")
+          .replace("EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT", "EXAMPLE ONLY");
+        if (section.dataset.continuationLabel &&
+            !status.includes(section.dataset.continuationLabel)) {
+          running.append(" · " + section.dataset.continuationLabel);
+        }
+        if (status) running.append(" · " + status);
+      } else {
+        if (section.dataset.continuationLabel) {
+          running.append(" · " + section.dataset.continuationLabel);
+        }
+        if (statusContents.length) {
+          running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+        }
       }
       const count = document.createElement("span");
       count.className = "cont-count";
@@ -820,11 +890,36 @@ JOB_PRINT_JS = r"""(() => {
         const context = document.createElement("span");
         context.className = "cont-context";
         context.dataset.pageContext = owner.dataset.pageContext;
-        if (source) context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
-        else context.textContent = owner.dataset.pageContext;
+        if (source) {
+          context.append(...[...source.heading.childNodes].map((node) => node.cloneNode(true)));
+          // The copied destination counters were reserved in the original heading.
+          // Preserve that context's typography before fitting the running header,
+          // rather than discovering a different inherited line box after pagination.
+          for (const [property, value] of source.typography) {
+            context.style.setProperty(property, value);
+          }
+        } else context.textContent = owner.dataset.pageContext;
         cleanLocatorCopy(context);
-        head.append("\n", context);
-        if (!pageProgress(el)) {
+        const label = context.textContent.trim().replace(/\s+/g, " "),
+          duplicateOwner = compactRunning && label
+            && (" " + setup.identity.replace(/\s+/g, " ") + " ").includes(" " + label + " ")
+            && !context.querySelector(ORDINARY_EXCLUSIONS);
+        // Keep ownership metadata and every authored caption. Only this generated
+        // text-only copy can be absent when its complete label is already visible
+        // in the running owner; locator/instruction context is never suppressed.
+        if (!duplicateOwner) head.append("\n", context);
+        const titleKey = source?.heading.querySelector("[data-title-source]")?.dataset.titleSource;
+        if (titleKey) {
+          // Prefer the complete authored heading when it opens this page. A full
+          // running copy above the same heading wastes space and presents it twice.
+          // Trial only the repeated identity; restore it when the complete original
+          // is absent, fragmented or cannot fit at its retained working typography.
+          const full = context.cloneNode(true);
+          if (compactContext(context) && !fullTitleCanonicalOnPage(titleKey, true)) {
+            context.replaceChildren(...full.childNodes);
+          }
+        }
+        if (!pageProgress(el, true, true)) {
           // Only repeated context may compact. The complete authored title and
           // every original instruction remain source and must advance finitely.
           for (const repeated of el.querySelectorAll(".record-continuation")) {
@@ -903,7 +998,11 @@ JOB_PRINT_JS = r"""(() => {
           if (node.parentElement?.closest("figure,.checkpoint-results,[" + ADDED + "]")) {
             return NodeFilter.FILTER_REJECT;
           }
-          return node.nodeType === Node.TEXT_NODE || node.matches("figure," + RESULTS)
+          // An enclosing worksheet row may span many pages. Its nested table
+          // advances at complete source groups, never within a row or field.
+          const table = node.parentElement?.closest("table");
+          if (table && el.contains(table)) return NodeFilter.FILTER_REJECT;
+          return node.nodeType === Node.TEXT_NODE || node.matches("table,figure," + RESULTS)
             ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         }
       });
@@ -911,7 +1010,27 @@ JOB_PRINT_JS = r"""(() => {
       while ((node = walker.nextNode())) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
-          points.push([parent, slot], [parent, slot + 1]);
+          points.push([parent, slot]);
+          if (node.tagName === "TABLE") {
+            const bodies = [...node.tBodies];
+            for (const [index, body] of bodies.entries()) {
+              const rows = [...body.rows];
+              // Authored tables normally group rows in separate bodies. Also
+              // support a conventional single-body READINGS table, provided no
+              // merged cell binds one complete reading row to the next.
+              if (bodies.length === 1 && node.classList.contains("readings")
+                  && rows.every((row) => [...row.cells].every((cell) => cell.rowSpan === 1))) {
+                for (const row of rows.slice(0, -1)) {
+                  points.push([body, [...body.childNodes].indexOf(row) + 1]);
+                }
+              }
+              if (index < bodies.length - 1) {
+                points.push([node, [...node.childNodes].indexOf(body) + 1]);
+              }
+            }
+          }
+          // Outside-table endpoints leave no empty header-only table shell.
+          points.push([parent, slot + 1]);
           continue;
         }
         if (node.parentElement.closest(
@@ -973,12 +1092,44 @@ JOB_PRINT_JS = r"""(() => {
       return contents;
     }
     function contentsAt(el, point, tail = false) {
-      if (el.tagName === "TR") return rowContents(el, point, tail);
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      if (tail) range.setStart(...point);
-      else range.setEnd(...point);
-      return range.cloneContents();
+      let contents;
+      if (el.tagName === "TR") contents = rowContents(el, point, tail);
+      else {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        if (tail) range.setStart(...point);
+        else range.setEnd(...point);
+        contents = range.cloneContents();
+      }
+      const boundary = point[0],
+        table = boundary.nodeType === Node.ELEMENT_NODE
+          && boundary.matches("table,tbody") ? boundary.closest("table") : null;
+      if (!tail || !table || !el.contains(table)) return contents;
+      const copy = [...contents.querySelectorAll("table")].find(
+        (node) => node.dataset.tableContext === table.dataset.tableContext
+      );
+      if (!copy) throw new Error("A nested table continuation lost its source owner.");
+      // Range cloning from a body boundary omits the measured columns and head.
+      // Restore only this table's skeleton and registered repeatable context;
+      // recording destinations and canonical figures remain sole original atoms.
+      const skeleton = [...table.children].filter(
+        (part) => part.tagName === "COLGROUP" || part.tagName === "THEAD"
+      ).map((part) => {
+        const repeated = part.cloneNode(true);
+        repeated.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+          .forEach((row) => row.remove());
+        return repeated;
+      });
+      copy.prepend(...skeleton);
+      copy.setAttribute(SPLIT, "");
+      const head = copy.tHead || copy.createTHead(),
+        columns = head.querySelector("tr:not(.repeat):not(.table-context)");
+      for (const source of tableHeads.get(table.dataset.tableContext) || []) {
+        const row = repeatTableRow(source);
+        if (columns) columns.before(row);
+        else head.append(row);
+      }
+      return contents;
     }
     function originalText(contents) {
       // Retained whole figures and over-page original context advance source;
@@ -995,7 +1146,7 @@ JOB_PRINT_JS = r"""(() => {
     }
     function sourceProgress(t, body, relax = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
-      if (!row) return null;
+      if (!row || box(row).top >= pageTop + CAP) return null;
       if (t.classList.contains("measurement-actions")) {
         return originalText(row) && fits(prefixBottom(t, row))
           ? { row, point: null, contents: null } : null;
@@ -1004,6 +1155,9 @@ JOB_PRINT_JS = r"""(() => {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
+        // Fixed measured columns make later source prefixes no smaller. A full
+        // scan cannot recover space below an already non-fitting first prefix.
+        break;
       }
       if (originalText(row) && fits(prefixBottom(t, row))) {
         return { row, point: null, contents: null };
@@ -1073,6 +1227,21 @@ JOB_PRINT_JS = r"""(() => {
       }
       return changed;
     }
+    function retainSourceAtoms(el, fragments) {
+      const selector = "figure,.field,.result-field,.authored-blank," + RESULTS;
+      const atoms = (root) => [...root.querySelectorAll(selector)].filter((node) => {
+        const owner = node.parentElement?.closest(selector);
+        return !owner || !root.contains(owner);
+      });
+      const originals = atoms(el), copies = fragments.flatMap(atoms);
+      if (originals.length !== copies.length
+          || originals.some((node, index) => !node.isEqualNode(copies[index]))) {
+        throw new Error("A source figure or recording destination was split, lost, or reordered.");
+      }
+      // Measurement uses disposable clones; the accepted partition must retain
+      // the loaded canonical images and sole live recording destinations.
+      copies.forEach((copy, index) => copy.replaceWith(originals[index]));
+    }
     // Only original source is fragmented. Repeated context is admitted whole,
     // and the writing box stays with the final measured source caption line.
     function fragment(el, relax = true) {
@@ -1095,10 +1264,12 @@ JOB_PRINT_JS = r"""(() => {
         if (!candidate.prefixCredit) continue;
         const first = candidate.first, remaining = candidate.remaining;
         if (candidate.complete && el.tagName === "TR") {
+          retainSourceAtoms(el, [first]);
           el.replaceChildren(first);
           return el;
         }
         if (!candidate.tailCredit) continue;
+        retainSourceAtoms(el, [first, remaining]);
         const rest = el.cloneNode(false);
         rest.append(remaining);
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
@@ -1117,7 +1288,11 @@ JOB_PRINT_JS = r"""(() => {
           const identity = document.createElement("p");
           identity.className = "record-continuation";
           identity.textContent = rest.dataset.recordTitle + " (continued)";
-          rest.querySelector(".inspection-requirement").prepend(identity);
+          const owner = rest.querySelector(".inspection-requirement")
+            || rest.querySelector(".inspection-layout") || rest.cells[0];
+          // A valid tail may begin in a method after the complete requirement
+          // printed on the previous page. Keep identity with that retained method.
+          owner.prepend(identity);
         }
         if (rest.tagName === "LI" && rest.dataset.pageContext) {
           const identity = document.createElement("span");
@@ -1188,6 +1363,16 @@ JOB_PRINT_JS = r"""(() => {
       head.after(...notes);
       if (!accepted()) notes.forEach((row) => row.remove());
     }
+    function repeatTableRow(source) {
+      const row = cleanLocatorCopy(source.cloneNode(true));
+      row.setAttribute(ADDED, "");
+      row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
+        .forEach((mark) => mark.remove());
+      row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+        field.replaceWith(...locatorFieldContext(field));
+      });
+      return row;
+    }
     function tableContext(t, progress, optionalOnly = false) {
       if (!t.hasAttribute(SPLIT)) return;
       refreshInstructionMirrors(t);
@@ -1198,17 +1383,14 @@ JOB_PRINT_JS = r"""(() => {
         if (source.dataset.instructionRef && fullInstructionOnPage(source.dataset.instructionRef)) {
           continue;
         }
-        const row = cleanLocatorCopy(source.cloneNode(true));
-        row.setAttribute(ADDED, "");
-        row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
-          .forEach((mark) => mark.remove());
-        row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
-          field.replaceWith(...locatorFieldContext(field));
-        });
-        const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
+        const row = repeatTableRow(source);
+        const head = t.tHead || t.createTHead();
+        const columns = head.querySelector("tr:not(.repeat):not(.table-context)");
         const followingContext = optionalOnly && row.classList.contains("table-context")
-          ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
-        (followingContext || columns).before(row);
+          ? head.querySelector(`tr.table-context:not([${ADDED}])`) : null;
+        const anchor = followingContext || columns;
+        if (anchor) anchor.before(row);
+        else head.append(row);
         refreshTitleCopies(t);
         if (fits(budget())) continue;
         if (row.hasAttribute("data-optional-context")) {
@@ -1301,7 +1483,7 @@ JOB_PRINT_JS = r"""(() => {
     }
     function startTablePage(t) {
       t.setAttribute(SPLIT, "");
-      t.tHead.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+      t.tHead?.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
         .forEach((row) => row.remove());
       breakAt(t);
       const progress = sourceProgress(t, t.tBodies[0]);
@@ -1452,7 +1634,7 @@ JOB_PRINT_JS = r"""(() => {
         } else if (el.tagName === "FIGURE") {
           move(el);
           if (!fits(box(el).bottom)) refuseFigure(el);
-        } else if (el.children.length
+        } else if (el.children.length && style.display !== "inline"
             && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
               + ".caution, .unverified")) {
           // Ordinary flow containers may share a page and fragment between their
@@ -1470,18 +1652,31 @@ JOB_PRINT_JS = r"""(() => {
           CAP -= parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth);
           try { walk(el); } finally { CAP = capacity; }
         } else {
-          move(el);
+          // Inline prose shares lines with its siblings. Fragment its complete
+          // ordered content here: visiting only element children misses direct
+          // text between/after readings, which can escape onto an uncounted page.
+          if (style.display !== "inline") move(el);
           let current = el;
           while (!fits(box(current).bottom)) {
             const rest = fragment(current);
-            if (!rest) throw new Error(
-              "An over-page text block could not be continued without losing content."
-            );
+            if (!rest) {
+              // Atomic inline readings have no legal word boundary. Move that
+              // complete item only when no original prefix fits this page.
+              if (style.display === "inline" && move(current)
+                  && fits(box(current).bottom)) break;
+              throw new Error(
+                "An over-page text block could not be continued without losing content."
+              );
+            }
             breakAt(rest);
             current = rest;
           }
         }
       }
+    }
+    for (const figure of section.querySelectorAll("figure")) {
+      const bounds = box(figure), height = bounds.bottom - bounds.top;
+      if (height > CAP) refuseFigure(figure, height);
     }
     walk(section);
     section.querySelectorAll(".cont-head").forEach((head) => {

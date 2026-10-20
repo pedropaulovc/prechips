@@ -196,10 +196,18 @@ Both functions read the in-memory bundle/memo and allocate returned objects; the
 ```text
 from prechips.sheet import render_traveler
 
-render_traveler(bundle, findings, report, approval=None) -> str
+render_traveler(
+    bundle, findings, report, approval=None, *, detail: TravelerDetail = "hobby"
+) -> str
 ```
 
 Return fresh setup-sheet HTML from the actual bundle, findings and report. `approval` is the CLI's normalized approval dictionary, not a path to TOML. Approval can change release presentation but never supplies machining numbers or replaces findings. See [eligibility and approval](../report-and-telemetry.md#eligibility-and-approval) before calling the renderer directly.
+
+`TravelerDetail` is defined in `prechips.model` as
+`Literal["pro", "hobby", "pedantic"]`. The keyword-only `detail` selects
+[printed content](../report-and-telemetry.md#traveler-detail-modes), defaulting to
+`"hobby"`. An unsupported value raises `ValueError`. It does not evaluate rules
+or change supplied findings, report identity or approval requirements.
 
 The function returns a string without writing HTML, PNGs or PDF files and without starting a browser. Its module loads the packaged `tokens.css` resource on import. Invalid printable image geometry or incomplete panel coverage raises `ValueError`; other unexpected state errors propagate. Use the CLI when you need approval parsing, collision checks and transactional output replacement.
 

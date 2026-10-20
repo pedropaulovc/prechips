@@ -6,7 +6,7 @@ import json
 
 import pytest
 from test_sheet_ops import printed_sheet as printed_sheet
-from test_sheet_print import printed_pages
+from test_sheet_print import LABEL, printed_pages
 
 from prechips._sheet_pagination import JOB_PRINT_JS
 from prechips.sheet import _CSS, _writing_field
@@ -185,6 +185,11 @@ def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(pri
     for field in details["fields"]:
         assert field["setup"] == "S2" and field["workpiece"] == "nut2"
         assert field["original"] and field["fits"]
+        assert field["context"] == (
+            "S2 op 20 inspection"
+            if field["label"] == "opposite-face observed"
+            else "S2 op 30 contour"
+        )
     assert details["references"]
     for reference in details["references"]:
         assert SETUP_TWO in reference["text"] and "nut2" in reference["text"]
@@ -204,12 +209,21 @@ def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(pri
     ]
 
 
-def test_nested_owners_and_job_identity_print_on_actual_continuation_pages(tmp_path):
-    pages = printed_pages(_job(_nested_work()), tmp_path)
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_nested_owners_and_job_identity_print_on_actual_continuation_pages(tmp_path, detail):
+    pages = printed_pages(_job(_nested_work(), detail=detail), tmp_path)
     assert 3 <= len(pages) < 20
     assert all(text.strip() and "PRINT LAYOUT ERROR" not in text for text in pages)
+    assert DRAWING in pages[0] and "rev C" in pages[0]
+    labels = [LABEL.search(page) for page in pages[1:]]
+    assert all(labels), pages
+    assert [(int(label[1]), int(label[2])) for label in labels] == [
+        (page, len(pages)) for page in range(2, len(pages) + 1)
+    ]
     for text in pages[1:]:
-        assert PART in text and DRAWING in text and "rev C" in text
+        assert PART in text
+        if detail == "pedantic":
+            assert DRAWING in text and "rev C" in text
         assert SETUP_TWO in text and "EXAMPLE ONLY" in text
         assert "S2 op 20 inspection" in text or "S2 op 30 contour" in text
     assert sum("Original inspection diagram" in text for text in pages) == 1

@@ -765,6 +765,32 @@ define the current unresolved physical-registration boundary.
 Each `[[setups]]` record selects a machine, frame, entering stock, hold and
 operation list. The records run in authored order.
 
+### Authored notes
+
+Setup `note`, hold `note` and operation `note` accept either a string or a
+nonempty list of inline tables with exactly `text` and `detail` fields. Each
+segment's `text` must be nonblank and must not be `"unknown"` after stripping
+whitespace. `detail` is its minimum printed level: `pro`, `hobby` or `pedantic`.
+Segments retain authored order; hobby includes pro segments, and pedantic
+includes all segments. A plain string prints at every level. The checker reads
+all segments regardless of the selected presentation.
+
+For example, a setup note can contain:
+
+```toml
+note = [
+  { text = "Seat against the fixed jaw.", detail = "pro" },
+  { text = "Check that no chip is trapped underneath.", detail = "hobby" },
+]
+```
+
+This representation applies only to those three `note` fields. It does not
+change stock/support notes or `inspection_note`. Never classify a required
+action or safety instruction above the lowest mode that needs it. See
+[traveler detail modes](report-and-telemetry.md#traveler-detail-modes).
+
+### Setup fields
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `id` | `str` |
@@ -773,13 +799,15 @@ operation list. The records run in authored order.
 | `coolant` | `str` |
 | `stock_in` | `str \| list[str]` |
 | `joint` | Tagged cylindrical, surface or threaded joint (required for array `stock_in`) |
-| `note` | `str` |
+| `note` | [Authored note](#authored-notes) |
 | `deburr_mm` | `Number` |
 | `deburr_cite` | `Citations` |
 | `stock_state` | `StockState` |
 | `hold` | `Hold` |
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
+| `presentation_group` | `str`: optional authored grouping for shared setup presentation; does not merge physical setups or checks |
+| `picture_panels` | `list[str]`: canonical figure-group selectors for hobby output; omitted selects all available groups, `[]` selects none, `"unknown"` requests none while retaining unresolved state. Pro omits setup figures; pedantic shows all groups. Invalid selectors are refused. |
 
 ### Manual stations and travel scope
 
@@ -1192,7 +1220,7 @@ See [hold requirements](rules-setup.md#hold_fields) for applicability and
 | `grip_on` | `str` |
 | `stop` | `str` |
 | `clamp` | `str` |
-| `note` | `str` |
+| `note` | [Authored note](#authored-notes) |
 | `centre_lubrication` | `str` |
 | `riser` | `str` |
 | `method` | `str` |
@@ -1779,7 +1807,7 @@ execution order; `op` is its within-setup identity.
 | `tool` | `str` |
 | `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `direction` | `str` |
-| `note` | `str` |
+| `note` | [Authored note](#authored-notes) |
 | `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`; or `ends`, a guided sweep's two arc-end marks measured from the bar's own faces) |
 | `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
 | `inspection_note` | `str \| list[str]` (numbered steps; see [Checks and written methods](#checks-and-written-methods)) |

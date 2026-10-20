@@ -579,9 +579,7 @@ def test_actual_native_saw_face_certificates_pass_strict_host_consumer(batch_nat
     )
     mapping = facts["workpiece_mapping"]
     assert all(set(mapping[member]) == set(job["features"]["canonical"]) for member in MEMBERS)
-    expected = {
-        member: mapping[member][batch_native["created"][member]] for member in MEMBERS
-    }
+    expected = {member: mapping[member][batch_native["created"][member]] for member in MEMBERS}
     assert len(set(expected.values())) == 4
     assert job["workpieces"]["nut4"]["pose"]["x"] == [-1, 0, 0]
     assert job["workpieces"]["nut4"]["pose"]["y"] == [0, -1, 0]

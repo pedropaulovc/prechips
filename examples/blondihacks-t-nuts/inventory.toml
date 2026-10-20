@@ -7,7 +7,7 @@
 # Raw stock is declared once in plan.toml; no duplicate stock inventory is implied.
 
 [machines.pm-25mv-bd]
-name = "PM-25MV-BD (adopted example mill)"
+name = "PM-25MV-BD mill"
 kind = "mill"
 make = "Precision Matthews"
 control = "manual with DRO"
@@ -30,7 +30,7 @@ spindle_to_table_min_mm = { value = 50, measured = { status = "measured", by = "
 spindle_to_table_max_mm = { value = 300, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [machines.bench-bandsaw]
-name = "Example bench / powered bandsaw station"
+name = "Bench / powered bandsaw"
 kind = "bench"
 present = true
 verify = false
@@ -39,7 +39,7 @@ note = "Example non-spindle bench capability for B0 and manual bench operations.
 cite = "Author-selected demonstration equipment; example value (realistic, not a shop measurement), 2026-10-11"
 
 [fixtures.mill-vise]
-name = "Example 4-inch mill vise"
+name = "4-inch mill vise"
 kind = "vise"
 present = true
 verify = false
@@ -51,7 +51,7 @@ opening_mm = { value = 100, measured = { status = "measured", by = "example valu
 note = "Example installed geometry: jaws along X, fixed jaw rear. Align using gauges.dti; setup-specific seating, stop and grip are in plan.toml. No force rating is claimed."
 
 [fixtures.bench-vise]
-name = "Example bench vise"
+name = "Bench vise"
 kind = "vise"
 present = true
 verify = false
@@ -62,7 +62,7 @@ jaw_depth_mm = { value = 10, measured = { status = "measured", by = "example val
 opening_mm = { value = 125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.parallels-25]
-name = "Example 25 mm parallel pair"
+name = "25 mm parallels"
 kind = "parallels"
 present = true
 verify = false
@@ -71,7 +71,7 @@ length_mm = { value = 150, measured = { status = "measured", by = "example value
 width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.parallels-30]
-name = "Example 30 mm parallel pair"
+name = "30 mm parallels"
 kind = "parallels"
 present = true
 verify = false
@@ -80,7 +80,7 @@ length_mm = { value = 150, measured = { status = "measured", by = "example value
 width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.parallels-35]
-name = "Example 35 mm parallel pair"
+name = "35 mm parallels"
 kind = "parallels"
 present = true
 verify = false
@@ -89,7 +89,7 @@ length_mm = { value = 150, measured = { status = "measured", by = "example value
 width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.round-bar]
-name = "Example moving-jaw round bar"
+name = "Moving-jaw round bar"
 kind = "round_bar"
 present = true
 verify = false
@@ -97,7 +97,7 @@ dia_mm = { value = 6.35, measured = { status = "measured", by = "example value (
 length_mm = { value = 150, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.end-stop]
-name = "Example retained-end rod stop"
+name = "Magnetic rod stop"
 kind = "stop"
 shop_made = false
 present = true
@@ -118,7 +118,7 @@ solids = [
 ]
 
 [fixtures.wood-block]
-name = "Example wood support block"
+name = "Wood support block"
 kind = "block"
 present = true
 verify = false
@@ -127,7 +127,7 @@ width_mm = { value = 50, measured = { status = "measured", by = "example value (
 height_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.b0-scrap-support]
-name = "Example pre-made B0 scrap pedestal"
+name = "Scrap pedestal"
 kind = "custom"
 shop_made = false
 present = true
@@ -136,7 +136,7 @@ note = "Pre-made example support; local coordinates equal bench-raw setup coordi
 solids = [{ name = "pedestal", shape = "box", at_mm = [103, -12.7, -36.5875], size_mm = [10, 25.4, 35], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
 
 [fixtures.saw-setting-post]
-name = "Example pre-made saw setting post"
+name = "Saw setting post"
 kind = "custom"
 shop_made = false
 present = true
@@ -148,7 +148,7 @@ solids = [
 ]
 
 [fixtures.capture-post]
-name = "Example pre-made anchored capture post/base"
+name = "Anchored capture post/base"
 kind = "custom"
 shop_made = false
 present = true
@@ -165,7 +165,7 @@ solids = [
 ]
 
 [fixtures.capture-head]
-name = "Example pre-made upper capture head"
+name = "Upper capture head"
 kind = "custom"
 shop_made = false
 present = true
@@ -191,7 +191,7 @@ solids = [
 ]
 
 [fixtures.capture-moving-pad]
-name = "Example capture moving pad"
+name = "Capture moving pad"
 kind = "custom"
 shop_made = false
 present = true
@@ -200,7 +200,7 @@ note = "Local+Z points setup+X, press acts−X. Plan origin[11.1125,3,zc+18], lo
 solids = [{ name = "moving-pad", shape = "box", at_mm = [-2, -6, 0], size_mm = [4, 12, 8.8875], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
 
 [tools.roughing-endmill]
-name = "Example 3/4 in HSS TiCN squaring mill"
+name = "3/4 in HSS TiCN squaring mill"
 kind = "endmill"
 material = "HSS"
 coating = "TiCN"
@@ -218,7 +218,7 @@ projection_mm = { "holders.collet-19" = { value = 41.275, measured = { status = 
 cite = "Author-selected demonstration geometry, example value (realistic, not a shop measurement); source video names Niagara HSS TiCN but does not establish these dimensions"
 
 [tools.shoulder-rougher]
-name = "Example 1/2 in HSS shoulder rougher"
+name = "1/2 in HSS shoulder rougher"
 kind = "endmill"
 material = "HSS"
 present = true
@@ -235,7 +235,7 @@ projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = 
 cite = "Author-selected demonstration tool, example value (realistic, not a shop measurement); not identified by video cutter colour"
 
 [tools.finishing-endmill]
-name = "Example 1/2 in HSS finishing mill"
+name = "1/2 in HSS finishing mill"
 kind = "endmill"
 material = "HSS"
 present = true
@@ -252,7 +252,7 @@ projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = 
 cite = "Author-selected demonstration tool geometry, example value (realistic, not a shop measurement)"
 
 [tools.edge-finder]
-name = "Starrett 827A mechanical edge finder (example selection)"
+name = "Starrett 827A mechanical edge finder"
 kind = "edge_finder"
 make = "Starrett"
 material = "HSS"
@@ -269,7 +269,7 @@ note = "Catalogue .375 in body/.200 in contact; the corresponding qualified exam
 cite = ["https://www.starrett.com/products/precision-shop-tools/edge-and-center-finders/827A", "https://solutions.travers.com/how-to-use-a-.200-edge-finder-travers-tool-co"]
 
 [tools.slitting-saw]
-name = "MariTool 301-2.0-.50-.125-36T (example selection)"
+name = "MariTool 301-2.0-.50-.125-36T HSS saw"
 kind = "slitting_saw"
 make = "MariTool"
 sku = "301-2.0-.50-.125-36T"
@@ -289,7 +289,7 @@ note = "Catalogue2 in OD/.125 in width/.5 in bore/36T HSS,80–100 sfm,.0004–.
 cite = "https://www.maritool.com/product_info.php?products_id=25574"
 
 [tools.centre-drill]
-name = "Example #3 HSS centre drill"
+name = "#3 HSS centre drill"
 kind = "center_drill"
 material = "HSS"
 present = true
@@ -306,7 +306,7 @@ note = "#3 catalogue geometry:1/4 in body,7/64 in pilot and pilot length,2 in OA
 cite = "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1194.md, Table6, printed873; installed example value (realistic, not a shop measurement)"
 
 [tools.tap-drill]
-name = "Example 5/16 in HSS jobber drill"
+name = "5/16 in HSS jobber drill"
 kind = "drill"
 material = "HSS"
 present = true
@@ -322,7 +322,7 @@ note = "Commercial3/8-16 tap drill5/16 in. Jobber LOC3-3/16 in/OAL4-1/2 in are c
 cite = ["C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/2254.md, Table3, printed1933", "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1182.md, printed861"]
 
 [tools.taper-tap]
-name = "Example 3/8-16 right-hand HSS taper tap"
+name = "3/8-16 RH HSS taper tap"
 kind = "tap"
 material = "HSS"
 present = true
@@ -340,7 +340,7 @@ note = "Author-selected example geometry; lead12.7 mm is qualified8 pitches, not
 cite = "Source nominal3/8-16: https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s; remaining tool geometry example value (realistic, not a shop measurement)"
 
 [tools.tap-wrench]
-name = "Example hand tap wrench"
+name = "Hand tap wrench"
 kind = "tap_wrench"
 present = true
 verify = false
@@ -350,7 +350,7 @@ note = "Example nominal tap-size capacity5–12 mm, represented by legal range_m
 cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
 
 [tools.initial-stock-saw]
-name = "Example 14 TPI bandsaw blade"
+name = "14 TPI HSS bandsaw blade"
 kind = "bandsaw"
 material = "HSS"
 present = true
@@ -388,7 +388,7 @@ verify = false
 cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"
 
 [holders.collet-19]
-name = "Example R8 3/4 in collet"
+name = "R8 3/4 in collet"
 kind = "collet"
 taper = "R8"
 present = true
@@ -400,7 +400,7 @@ grip_mm = { value = 25.4, measured = { status = "measured", by = "example value 
 cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
 
 [holders.collet-12]
-name = "Example R8 1/2 in collet"
+name = "R8 1/2 in collet"
 kind = "collet"
 taper = "R8"
 present = true
@@ -412,7 +412,7 @@ grip_mm = { value = 22.225, measured = { status = "measured", by = "example valu
 cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
 
 [holders.collet-9]
-name = "Example R8 3/8 in finder collet"
+name = "R8 3/8 in finder collet"
 kind = "collet"
 taper = "R8"
 present = true
@@ -424,7 +424,7 @@ grip_mm = { value = 25.4, measured = { status = "measured", by = "example value 
 cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
 
 [holders.drill-chuck]
-name = "Example R8 drill chuck"
+name = "R8 drill chuck"
 kind = "drill_chuck"
 taper = "R8"
 present = true
@@ -440,7 +440,7 @@ grip_mm = { value = 19.05, measured = { status = "measured", by = "example value
 cite = "Author-selected R8 chuck/capacity, example value (realistic, not a shop measurement); tool projections are independent installed pair facts"
 
 [holders.saw-arbor]
-name = "Example complete R8 mounted-saw arbor"
+name = "Complete R8 saw arbor"
 kind = "arbor"
 taper = "R8"
 present = true
@@ -465,7 +465,7 @@ components = [
 ]
 
 [holders.tap-follower]
-name = "Example 3/8-16 tap follower"
+name = "3/8-16 tap follower"
 kind = "tap_follower"
 present = true
 verify = false
@@ -475,7 +475,7 @@ note = "Guides selected3/8-16 RH tap, does not grip or drive. fits is the legal 
 cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
 
 [gauges.calipers]
-name = "Example 0–6 in calipers"
+name = "Calipers"
 kind = "caliper"
 present = true
 verify = false
@@ -485,7 +485,7 @@ note = "Author-selected identified demonstration comparator with positive .0005 
 cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
 
 [gauges.dti]
-name = "Example dial test indicator for vise alignment"
+name = "Dial test indicator"
 kind = "dial_test_indicator"
 present = true
 verify = false
@@ -495,43 +495,43 @@ note = "Example vise-alignment capability, not a part-thread or dimensional insp
 cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
 
 [gauges.actual-slot]
-name = "Example intended recipient T-slot"
+name = "Intended T-slot"
 kind = "mating_part"
 present = true
 verify = false
-note = "Disclosed example recipient dimensions, mm: throat12.7, undercut22.86, total depth13.97, lip depth6.985; derived undercut height6.985. Not identified as the PM-25 table and not a numeric fit certification. Actual comparator acceptance: free hand sliding without objectionable rocking, both shoulders bear without bottoming/wedging, pulled-up top remains below table. No load rating or numerical recess/overlap requirement."
+note = "Disclosed example recipient dimensions, mm: throat12.7, undercut22.86, total depth13.97, lip depth6.985; derived undercut height6.985. Not identified as the PM-25 table and not a numeric fit certification. No load rating or numerical recess/overlap requirement."
 cite = "Author-selected demonstration recipient; example value (realistic, not a shop measurement); source functional comparison https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"
 
 [gauges.mating-hardware]
-name = "Example intended 3/8-16 RH stud and nut"
+name = "Intended 3/8-16 RH stud/nut"
 kind = "mating_hardware"
 present = true
 verify = false
 thread = "3/8-16"
 thread_hand = "right"
-note = "Identified demonstration comparator, not certified formal-class GO/NO-GO gauges. Intended stud enters by hand and stops before exiting bottom; nut must not rotate or pass through intended slot. No adopted formal class, minor-dia or minimum-thread-count acceptance."
+note = "Identified demonstration comparator, not certified formal-class GO/NO-GO gauges. No adopted formal class, minor-dia or minimum-thread-count acceptance."
 cite = "Author-selected comparator identity, example value (realistic, not a shop measurement); source nominal https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s"
 
 # Plain consumable schema has only name/products: product disclosures carry example
 # provenance without fabricated measured wrappers, kind fields or source fields.
 [consumables.cutting-oil]
-name = "Example cutting oil"
+name = "Cutting oil"
 products = ["Cutting oil; author-selected example product, not video identification"]
 
 [consumables.flood-fluid]
-name = "Example 5% semi-synthetic flood fluid"
+name = "5% semi-synthetic flood fluid"
 products = ["Water-miscible semi-synthetic flood fluid at5% in water; author-selected example product/concentration, not video identification"]
 
 [consumables.paper-shim]
-name = "Example .002 in paper shim"
+name = ".002 in paper shim"
 products = ["Paper .0508 mm thick; example value (realistic, not a shop measurement), 2026-10-11; contact shim thickness is authored in plan zero recipes"]
 
 [consumables.acetone]
-name = "Acetone degreaser"
+name = "Acetone"
 products = ["Acetone; author-selected example cleaning supply"]
 
 [consumables.detergent]
-name = "Final-clean detergent"
+name = "Detergent"
 products = ["Detergent for final cleaning after degreasing; author-selected example supply; JAX directions https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 
 [consumables.jax-blackener]
@@ -539,13 +539,13 @@ name = "JAX Iron/Steel/Nickel Blackener"
 products = ["JAX Iron/Steel/Nickel Blackener, supplied neat; follow directions https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf and2024-10-04 SDS https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf; ventilation/splash protection/chemical-compatible gloves/segregated waste; no universal dwell or coating thickness invented"]
 
 [consumables.rinse-water]
-name = "Fresh rinse water"
+name = "Fresh water"
 products = ["Fresh clean water for post-blackening rinse; author-selected example supply per JAX directions"]
 
 [consumables.paper-towel]
-name = "Drying towels"
+name = "Paper towels"
 products = ["Clean paper towels for drying after rinse; author-selected example supply"]
 
 [consumables.oil]
-name = "Example ISO-VG32 light machine oil"
+name = "ISO-VG32 light machine oil"
 products = ["ISO-VG32 light machine oil after rinse/dry; author-selected example product, not video identification"]

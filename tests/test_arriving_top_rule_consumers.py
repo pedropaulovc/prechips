@@ -211,9 +211,7 @@ def install_selected_patch_proof(data, setup, selected_bounds=(0, 4.5, 1, 5.5)):
     radius = contact["footprint_radius_mm"]
     for left, bottom, right, top in patches:
         assert all(
-            math.hypot(px - x, py - y) <= radius
-            for px in (left, right)
-            for py in (bottom, top)
+            math.hypot(px - x, py - y) <= radius for px in (left, right) for py in (bottom, top)
         )
     areas = [(right - left) * (top - bottom) for left, bottom, right, top in patches]
     left, bottom, right, top = selected_bounds

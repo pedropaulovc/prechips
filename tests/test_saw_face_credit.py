@@ -323,7 +323,10 @@ def test_missing_certificate_never_falls_back_to_bare_claims(certified_saw, expl
     assert result.numbers["unclaimed_indices"] == [41, 73]
     if explicit:
         assert "face-creation proof refused for lower:#7" in result.sentence
-        assert "current finite slitting-saw request and native geometry are not bound" in result.sentence
+        assert (
+            "current finite slitting-saw request and native geometry are not bound"
+            in result.sentence
+        )
         assert "faces have no cutting op or as-stock claim" not in result.sentence
     else:
         assert "faces have no cutting op or as-stock claim" in result.sentence

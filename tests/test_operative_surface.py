@@ -473,7 +473,10 @@ def test_manual_tap_missing_native_endpoint_keeps_typed_depth_debt(
     assert parts[0] == "hand depth not set"
     (_, debt) = parts
     assert (debt.source, debt.status, debt.scope, debt.kind) == (
-        "blind_depth", "unknown", "D1:30", "block"
+        "blind_depth",
+        "unknown",
+        "D1:30",
+        "block",
     )
     assert "26.035" not in " ".join(parts)
     assert "Z ?" not in " ".join(parts)

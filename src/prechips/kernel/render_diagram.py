@@ -39,7 +39,7 @@ _BADGE_PITCH = _BADGE_HEIGHT + _BADGE_GAP
 _PANEL_MAX_HEIGHT = 1792
 _FOOTER_TEXT_TOP = 88
 _FOOTER_BOTTOM_PAD = 16
-# Legend text starts at 380; reserve a 60 px inner gutter before notes at 960.
+# Text-only continuation bands retain their established sample/text gutter.
 _FOOTER_LEGEND_WIDTH = 520
 # Same deliberate outer margin as the full-width panel's left and right content.
 _PROFILE_BOTTOM_PAD = 32
@@ -1206,46 +1206,69 @@ class _Diagram:
             self.meshes.append((points, [], _WHITE))
         self.components = framed
         self.canvas = RenderCanvas([], self.camera, (0, 0, 1, 1), width=1, height=1)
-        # The complete setup and axes stay in one full-width print panel. Text-only
-        # footer overflow gets complete continuation bands, never a smaller scene.
-        self.footer_top = 1060 + extra
-        self.scene_bottom = 740
-        self.note_lines = self._notes()
-        self.legend_rows = self._legend()
-        self.axes_height = _FOOTER_TEXT_TOP + 320 + _FOOTER_BOTTOM_PAD
-        height = self.footer_top + self.axes_height
-        if height > _PANEL_MAX_HEIGHT:
-            # Only the conservative reservation is being replaced, not any axes
-            # primitive or body cell. Ordinary already-fitting frames stay unchanged.
-            self.axes_height = self._axes_minimum()
-            height = self.footer_top + self.axes_height
-            if height > _PANEL_MAX_HEIGHT:
-                maximum = _PANEL_MAX_HEIGHT - (self.footer_top - extra) - self.axes_height
-                raise _setup_height_refusal(self, extra, maximum, None, height)
-        capacity = _footer_capacity(self.footer_top)
-        self.footer_legend_rows = len(self.legend_rows)
-        self.footer_note_rows = len(self.note_lines)
-        if max(self.footer_legend_rows, self.footer_note_rows) > capacity:
-            # Primitive sketch callers need no setup identity; only actual setup-text
-            # continuation needs the measured, setup-specific owner header.
-            _, continuation_top = _footer_header(spec)
-            whole_capacity = _footer_capacity(continuation_top)
-            self.footer_legend_rows = _footer_end(self.legend_ends, 0, capacity, whole_capacity)
-            self.footer_note_rows = _footer_end(self.note_ends, 0, capacity, whole_capacity)
-        self.footer_rows = max(self.footer_legend_rows, self.footer_note_rows)
-        height = self.footer_top + max(self.axes_height, _footer_height(self.footer_rows))
-        self.dimension_y = self.footer_top - 146
-        self.lanes = (290, self.footer_top - 140)
-        self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
-        self.lane_split = 800
-        viewport = (440, 380, 1160, self.scene_bottom)
+        # Compact by placing information beside information, not by scaling the work.
+        # The ordinary viewport is still 720 x 360; growth only extends its key lanes.
+        subtitles = {
+            "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
+            "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
+            "elevation": self.spec.get("view_note", "SETUP Z UP"),
+        }
+        self.subtitle_lines = (
+            _wrap(self.canvas, subtitles[self.view], 1020) if self.view in subtitles else []
+        )
+        subtitle_bottom = 92 + max(0, len(self.subtitle_lines) - 1) * _LEADING + _TEXT_HEIGHT
+        self.header_divider = subtitle_bottom + 18
+        self.stage_heading_y = self.header_divider + 16
+        lane_top = self.stage_heading_y + _TEXT_HEIGHT + 16
+        viewport_top = self.stage_heading_y + _TEXT_HEIGHT + 24
+        viewport = (440, viewport_top, 1160, viewport_top + 360)
+        badge_reserve = 0
         if self.view in ("plan", "elevation") and (
             any(component.get("code") for component in self.components)
             or any(_role(component) == "pad" for component in self.components)
         ):
-            # Two real exterior badge bands, sized from the larger glyph cells.
-            viewport = (440, 430, 1160, 630)
+            # Preserve the existing 720 x 200 coded view, with complete exterior badge
+            # rows on either side. Their measured widths, not a fixed tall stage, reserve
+            # the space; a dense set of codes legitimately needs a taller panel.
+            codes = [
+                _plain(component["code"]) if component.get("code") else _pad_code(component, index)
+                for index, component in enumerate(self.components, 1)
+                if component.get("code") or _is_pad(component, self._component_label(component))
+            ]
+            rows = max(1, _rows_for([_badge_width(self.canvas, code) for code in codes], 720))
+            badge_reserve = rows * _BADGE_PITCH + 10
+            viewport_top = lane_top + badge_reserve
+            viewport = (440, viewport_top, 1160, viewport_top + 200)
         self.viewport = viewport
+        self.scene_bottom = viewport[3]
+        self.stock_summary = self._stock_summary()
+        summary_height = (
+            (len(self.stock_summary) - 1) * _LEADING + _TEXT_HEIGHT if self.stock_summary else 0
+        )
+        measurement_rows = 2 if self.spec.get("stickout_mm") is not None else 1
+        self.dimension_y = (
+            self.scene_bottom
+            + badge_reserve
+            + 24
+            + _TEXT_HEIGHT
+            + 8
+            + (measurement_rows - 1) * (_LEADING + 16)
+            + extra
+        )
+        self.footer_top = self.dimension_y + 24 + summary_height + 16
+        self.lanes = (lane_top, self.dimension_y + 12)
+        self.badge_plot = (440, lane_top, 1160, self.dimension_y - _TEXT_HEIGHT - 20)
+        self.lane_specs = ((32, 360, 410), (1208, 360, 1190))
+        self.lane_split = 800
+        self.note_lines = self._notes()
+        self.legend_rows = self._legend()
+        self.axes_height = self._axes_minimum()
+        if self.footer_top + self.axes_height > _PANEL_MAX_HEIGHT:
+            maximum = _PANEL_MAX_HEIGHT - (self.footer_top - extra) - self.axes_height
+            raise _setup_height_refusal(
+                self, extra, maximum, None, self.footer_top + self.axes_height
+            )
+        height = self.footer_top + self._main_footer_layout()
         self.canvas = RenderCanvas(self.meshes, self.camera, viewport, height=height, fit=fit)
         self.stock_pixels = [self.canvas.project(p) for p in _corners(self.stock)]
         self.position_badges.extend(
@@ -1451,6 +1474,7 @@ class _Diagram:
             rows.append(("PAD BADGES: POSITIONS", "text"))
         if self.nominal and "nominal" not in kinds:
             rows.append(("FINISHED OUTLINE, THIS SETUP", "nominal"))
+        self.legend_entries = rows
         wrapped, self.legend_ends = [], []
         for label, kind in rows:
             wrapped.extend((line, kind) for line in _wrap(self.canvas, label, _FOOTER_LEGEND_WIDTH))
@@ -1504,6 +1528,15 @@ class _Diagram:
         if self.spec.get("key_closest_cut"):
             self._closest_cut()
         self._labels()
+        if self.position_badges and self.view not in ("plan", "elevation"):
+            widths = [_badge_width(self.canvas, item["label"]) for item in self.position_badges]
+            span = self.badge_plot[2] - self.badge_plot[0]
+            columns = max(1, int((span + _BADGE_GAP) / (max(widths) + _BADGE_GAP)))
+            rows = math.ceil(len(widths) / columns)
+            required = rows * _BADGE_HEIGHT + (rows - 1) * _BADGE_GAP
+            self.lane_overflow = max(
+                self.lane_overflow, required - (self.badge_plot[3] - self.badge_plot[1])
+            )
         if self.lane_overflow > 0:
             return self.canvas.png()
         if self.position_badges:
@@ -1516,7 +1549,7 @@ class _Diagram:
             self._waypoint_badges(
                 self.position_badges,
                 lambda p: p,
-                (440, 280, 1160, self.footer_top - 210),
+                self.badge_plot,
                 prefix="",
                 colour=_FIXTURE,
                 exclusion=exclusion,
@@ -1546,19 +1579,13 @@ class _Diagram:
         c = self.canvas
         _text(c, 32, 27, self._title(), scale=_TITLE_SCALE)
         # The isometric orientation is its axes key, so it has no generator subtitle.
-        subtitles = {
-            "lathe": "SPINDLE Z TO RIGHT  /  RADIAL X UP  /  FULL ARRIVING STOCK",
-            "plan": "SETUP X TO RIGHT  /  Y UP  /  VIEW FROM +Z",
-            "elevation": self.spec.get("view_note", "SETUP Z UP"),
-        }
-        if self.view in subtitles:
-            for index, line in enumerate(_wrap(c, subtitles[self.view], 1020)):
-                _text(c, 34, 92 + index * _LEADING, line, _MUTED)
+        for index, line in enumerate(self.subtitle_lines):
+            _text(c, 34, 92 + index * _LEADING, line, _MUTED)
         _text(c, 1565, 92, "DIMENSIONS IN mm", _MUTED, align="right")
-        c.line((32, 196), (1568, 196), _INK, width=2)
-        _text(c, 32, 220, "PLACED STOCK + WORKHOLDING", _INK)
+        c.line((32, self.header_divider), (1568, self.header_divider), _INK, width=2)
+        _text(c, 32, self.stage_heading_y, "PLACED STOCK + WORKHOLDING", _INK)
         if self.spec.get("preload") == "counterclockwise":
-            center = (1055, 220 + _TEXT_HEIGHT / 2)
+            center = (1055, self.stage_heading_y + _TEXT_HEIGHT / 2)
             arc = [
                 (center[0] + 13 * math.cos(a), center[1] - 13 * math.sin(a))
                 for a in (i * math.pi / 12 for i in range(2, 23))
@@ -1566,7 +1593,7 @@ class _Diagram:
             for a, b in zip(arc, arc[1:], strict=False):
                 c.line(a, b, _FIXTURE, width=2)
             c.arrow(arc[-2], arc[-1], _FIXTURE, width=2)
-            _text(c, 1568, 220, "CCW PRELOAD / +Z", _FIXTURE, align="right")
+            _text(c, 1568, self.stage_heading_y, "CCW PRELOAD / +Z", _FIXTURE, align="right")
 
     def _component_pixels(self, components):
         return [
@@ -1887,12 +1914,10 @@ class _Diagram:
         self.callouts.append(_Callout(label, [middle], _AMBER))
         self.keyed_cut = True
 
-    def _measurements(self):
-        c = self.canvas
-        y = self.dimension_y
+    def _stock_summary(self):
+        """The unchanged stock facts, wrapped before reserving their complete stage band."""
         if self.stock is None:
-            _text(c, 440, y - _TEXT_HEIGHT - 8, "STOCK EXTENTS: NOT DECLARED", _MUTED)
-            return
+            return []
         box = self.stock
         sizes = [box[i + 3] - box[i] for i in range(3)]
         # Round stock is its diameter (the stock dimension gives its length); a bounding box
@@ -1910,7 +1935,18 @@ class _Diagram:
             if swivel
             else f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
         )
-        summary = _wrap(c, stock_text, 1536)
+        return _wrap(self.canvas, stock_text, 1536)
+
+    def _measurements(self):
+        c = self.canvas
+        y = self.dimension_y
+        if self.stock is None:
+            _text(c, 440, y - _TEXT_HEIGHT - 8, "STOCK EXTENTS: NOT DECLARED", _MUTED)
+            return
+        box = self.stock
+        sizes = [box[i + 3] - box[i] for i in range(3)]
+        swivel = self.spec.get("swivel")
+        summary = self.stock_summary
         for index, line in enumerate(summary):
             _text(
                 c,
@@ -2913,18 +2949,110 @@ class _Diagram:
 
         return available, _match(len(points), available, cost)
 
+    def _main_footer_layout(self):
+        """Pack whole semantic key entries beside the horizontal axes explanation.
+
+        Canonical wrapped rows/entry ends remain the continuation cursor. Only the main
+        band's painting is reflowed, so a text continuation never loses or repeats words.
+        """
+        capacity = max(0, _footer_capacity(self.footer_top))
+        self.footer_note_rows = len(self.note_lines)
+        if self.footer_note_rows > capacity:
+            _, continuation_top = _footer_header(self.spec)
+            self.footer_note_rows = _footer_end(
+                self.note_ends, 0, capacity, _footer_capacity(continuation_top)
+            )
+        legend_left = max(584, self.axes_right + 32)
+        legend_right = 944 if self.footer_note_rows else 1568
+        span = legend_right - legend_left
+
+        def pack(entries, rows, count):
+            columns, used = [[]], 0
+            for entry in entries:
+                height = len(entry[2])
+                if height > rows:
+                    break
+                if used + height > rows:
+                    if len(columns) == count:
+                        break
+                    columns.append([])
+                    used = 0
+                columns[-1].append(entry)
+                used += height
+            return columns, sum(len(column) for column in columns)
+
+        candidates = []
+        for count in range(1, 4):
+            column_width = (span - (count - 1) * 24) // count
+            text_width = column_width - 32
+            if count > 1 and text_width < 240:
+                break
+            entries = []
+            for label, kind in self.legend_entries:
+                # A narrower candidate must not manufacture spaces inside a word.
+                # Keep this entry whole in a wider column or its owned continuation.
+                if any(
+                    self.canvas.text_width(word, scale=_BODY_SCALE) > text_width
+                    for word in label.split()
+                ):
+                    break
+                entries.append((label, kind, _wrap(self.canvas, label, text_width)))
+            _, consumed = pack(entries, capacity, count)
+            entries = entries[:consumed]
+            low = max((len(entry[2]) for entry in entries), default=0)
+            high = sum(len(entry[2]) for entry in entries)
+            while low < high:
+                middle = (low + high) // 2
+                if pack(entries, middle, count)[1] == consumed:
+                    high = middle
+                else:
+                    low = middle + 1
+            columns, _ = pack(entries, low, count)
+            height = max(
+                self.axes_height,
+                _footer_height(low),
+                _footer_height(self.footer_note_rows),
+            )
+            candidates.append((-consumed, height, count, column_width, columns))
+        negative_count, height, _, column_width, columns = min(candidates, key=lambda c: c[:3])
+        consumed = -negative_count
+        self.footer_legend_rows = self.legend_ends[consumed - 1] if consumed else 0
+        self.footer_rows = max(
+            max((sum(len(entry[2]) for entry in column) for column in columns), default=0),
+            self.footer_note_rows,
+        )
+        self.footer_columns = [
+            (legend_left + index * (column_width + 24), column)
+            for index, column in enumerate(columns)
+            if column
+        ]
+        return height
+
     def _footer(self):
         c = self.canvas
         c.line((32, self.footer_top), (1568, self.footer_top), _INK, width=2)
         self._triad(c, self.footer_top)
-        _footer_text(
-            c,
-            self.footer_top,
-            self.legend_rows[: self.footer_legend_rows],
-            self.note_lines[: self.footer_note_rows],
-            _footer_label(self.legend_ends, 0, self.footer_legend_rows, "KEY", "LEGEND ENTRY"),
-            _footer_label(self.note_ends, 0, self.footer_note_rows, "SETUP NOTES", "NOTE"),
-        )
+        for sample_x, entries in self.footer_columns:
+            _text(c, sample_x + 32, self.footer_top + 23, "KEY")
+            row = 0
+            for _, kind, lines in entries:
+                y = self.footer_top + _FOOTER_TEXT_TOP + row * _LEADING
+                # Stroke caps extend two pixels left of the sample's centreline.
+                _legend_sample(c, sample_x + 2, y, kind)
+                for index, line in enumerate(lines):
+                    _text(
+                        c,
+                        sample_x + 32,
+                        y + index * _LEADING,
+                        line,
+                        _MUTED if kind == "text" else _INK,
+                    )
+                row += len(lines)
+        if self.footer_note_rows:
+            label = _footer_label(self.note_ends, 0, self.footer_note_rows, "SETUP NOTES", "NOTE")
+            _text(c, 960, self.footer_top + 23, label)
+        for index, line in enumerate(self.note_lines[: self.footer_note_rows]):
+            _text(c, 960, self.footer_top + _FOOTER_TEXT_TOP + index * _LEADING, line, _MUTED)
 
     def _axes_minimum(self):
         """Actual unscaled axes primitives and full body cells, with the footer margin."""
@@ -2936,12 +3064,12 @@ class _Diagram:
                 measured.drawn_bottom,
                 max((box[4] for box in measured.text_boxes), default=0),
             )
+            self.axes_right = max((box[3] for box in measured.text_boxes), default=0)
             self._measured_axes_height = bottom + _FOOTER_BOTTOM_PAD
         return self._measured_axes_height
 
     def _triad(self, c, footer_top):
-        x, y = 140, footer_top + 185
-        _text(c, 32, footer_top + 23, "SETUP AXES")
+        x, y = 130, footer_top + 135
         right, up, toward = self.camera
         normal_axis = None
         label_boxes = []
@@ -2974,16 +3102,19 @@ class _Diagram:
                 left += _TEXT_HEIGHT + 8
             label_boxes.append((left, top, left + width, top + _TEXT_HEIGHT))
             _text(c, left, top, label, colour)
+        explanation_x = max(290, max(box[2] for box in label_boxes) + 24)
+        for index, line in enumerate(_wrap(c, "SETUP AXES", 240)):
+            _text(c, explanation_x, footer_top + 20 + index * _LEADING, line)
         if normal_axis is not None:
             direction = "TOWARD" if toward[normal_axis] > 0 else "AWAY"
-            _text(c, 32, footer_top + 290, f"{'XYZ'[normal_axis]} {direction}", _MUTED)
+            _text(
+                c, explanation_x + 24, footer_top + 120, f"{'XYZ'[normal_axis]} {direction}", _MUTED
+            )
         else:
-            c.circle(37, footer_top + 307, 6, fill=_WHITE, outline=_MUTED)
-            c.circle(37, footer_top + 307, 2, fill=_MUTED)
-            # Keep the complete phrase inside the axes column, with a real gutter
-            # before the adjacent legend's samples (not only its text boxes).
-            for index, line in enumerate(_wrap(c, "VIEW NORMAL", 270)):
-                _text(c, 49, footer_top + 290 + index * _LEADING, line, _MUTED)
+            c.circle(explanation_x + 5, footer_top + 137, 6, fill=_WHITE, outline=_MUTED)
+            c.circle(explanation_x + 5, footer_top + 137, 2, fill=_MUTED)
+            for index, line in enumerate(_wrap(c, "VIEW NORMAL", 240)):
+                _text(c, explanation_x + 24, footer_top + 120 + index * _LEADING, line, _MUTED)
 
 
 def _footer_capacity(top, text_top=_FOOTER_TEXT_TOP):
@@ -3040,6 +3171,28 @@ def _footer_text_top(key_label, note_label):
     return 23 + rows * _LEADING + 20
 
 
+def _legend_sample(c, x, y, kind):
+    """One unchanged material/direction sample, attached to its complete semantic entry."""
+    if kind == "stock":
+        c.rect(x, y + 8, 24, 24, (160, 174, 184), outline=_INK)
+    elif kind == "fixture":
+        c.rect(x, y + 8, 24, 24, _FIXTURE, outline=_INK)
+    elif kind == "removal":
+        c.rect(x, y + 8, 24, 24, _AMBER_LIGHT, outline=_AMBER)
+        for dx in (0, 7, 14):
+            c.line((x + 2 + dx, y + 30), (x + 8 + dx, y + 10), _AMBER, width=2)
+    elif kind == "tool":
+        c.arrow((x, y + _TEXT_HEIGHT / 2), (x + 24, y + _TEXT_HEIGHT / 2), _GREEN, width=3)
+    elif kind in ("context", "nominal"):
+        c.line(
+            (x, y + _TEXT_HEIGHT / 2),
+            (x + 24, y + _TEXT_HEIGHT / 2),
+            _BLUE if kind == "nominal" else _MUTED,
+            width=2,
+            dashed=True,
+        )
+
+
 def _footer_text(c, top, legend_rows, note_lines, key_label="KEY", note_label="SETUP NOTES"):
     """Paint measured key/note rows with the setup footer's unchanged sample associations."""
     text_top = _footer_text_top(key_label, note_label)
@@ -3048,24 +3201,7 @@ def _footer_text(c, top, legend_rows, note_lines, key_label="KEY", note_label="S
             _text(c, 380, top + 23 + index * _LEADING, line)
     for index, (label, kind) in enumerate(legend_rows):
         y = top + text_top + index * _LEADING
-        if kind == "stock":
-            c.rect(350, y + 8, 24, 24, (160, 174, 184), outline=_INK)
-        elif kind == "fixture":
-            c.rect(350, y + 8, 24, 24, _FIXTURE, outline=_INK)
-        elif kind == "removal":
-            c.rect(350, y + 8, 24, 24, _AMBER_LIGHT, outline=_AMBER)
-            for dx in (0, 7, 14):
-                c.line((352 + dx, y + 30), (358 + dx, y + 10), _AMBER, width=2)
-        elif kind == "tool":
-            c.arrow((350, y + _TEXT_HEIGHT / 2), (374, y + _TEXT_HEIGHT / 2), _GREEN, width=3)
-        elif kind in ("context", "nominal"):
-            c.line(
-                (350, y + _TEXT_HEIGHT / 2),
-                (374, y + _TEXT_HEIGHT / 2),
-                _BLUE if kind == "nominal" else _MUTED,
-                width=2,
-                dashed=True,
-            )
+        _legend_sample(c, 350, y, kind)
         _text(c, 380, y, label, _MUTED if kind == "text" else _INK)
     if note_lines:
         for index, line in enumerate(_wrap(c, note_label, 608)):

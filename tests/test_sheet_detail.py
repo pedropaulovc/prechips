@@ -210,6 +210,19 @@ def assert_number(text, expected):
     )
 
 
+def assert_coordinate(text, axis, expected):
+    # A sentence-ending period is punctuation, not a partial decimal or identifier.
+    values = [
+        float(value.replace("−", "-"))
+        for value in re.findall(
+            rf"(?<!\w){re.escape(axis)}\s*([+−-]?(?:\d+(?:\.\d+)?|\.\d+))(?!\w|\.[\w.])",
+            text,
+            re.IGNORECASE,
+        )
+    ]
+    assert any(abs(value - expected) <= 0.0001 for value in values), (axis, expected, text)
+
+
 def operation_owners(node):
     """Read physical operation identity without depending on its visual layout."""
     attrs = node["attrs"]
@@ -226,11 +239,7 @@ def operation_owners(node):
             }
         ]
     owners = json.loads(attrs.get("data-physical-ops", "[]"))
-    return [
-        owner
-        for owner in owners
-        if isinstance(owner, dict) and owner.get("op_id") is not None
-    ]
+    return [owner for owner in owners if isinstance(owner, dict) and owner.get("op_id") is not None]
 
 
 def operation_nodes(markup, within=None):
@@ -261,11 +270,7 @@ def operation_owner(node):
 
 def settings_text(markup, row):
     """Separate table cells as the browser does, rather than joining drill500."""
-    cells = [
-        node
-        for node in markup.nodes
-        if node["parent"] is row and node["tag"] in ("td", "th")
-    ]
+    cells = [node for node in markup.nodes if node["parent"] is row and node["tag"] in ("td", "th")]
     assert cells
     return " ".join(content(cell) for cell in cells)
 
@@ -278,9 +283,7 @@ def assert_displayed_block(markup, owner, message):
         assert "caution" not in owner["attrs"]["class"].split()
     else:
         assert "operation" in owner["attrs"]["class"].split()
-        (notice,) = [
-            node for node in markup.find("box", owner) if message in content(node)
-        ]
+        (notice,) = [node for node in markup.find("box", owner) if message in content(node)]
         assert content(notice).strip() == f"STOP: {message}"
 
 
@@ -707,6 +710,193 @@ def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers
     assert not any(node["attrs"].get("id") == "dro-first-use" for node in pro.nodes)
 
 
+def datum_sharing_job():
+    """Three authored stages with equal physical references, not a layout-family fixture."""
+    from test_envelope_m5 import measured
+
+    data = mill_job(setups=3)
+    data.features["frames"]["F"].update(
+        origin=[0.0, 0.0, 0.0],
+        x=[1.0, 0.0, 0.0],
+        y=[0.0, 1.0, 0.0],
+        z=[0.0, 0.0, 1.0],
+    )
+    data.inventory["fixtures"] = {
+        "vise": {"kind": "vise", "name": "Datum vise"},
+        "parallel-pair": {"kind": "parallels", "height_mm": measured(12.7)},
+    }
+    data.inventory["tools"]["finder"]["name"] = "Qualified finder"
+    for index, setup in enumerate(data.plan["setups"]):
+        setup["presentation_group"] = f"stage-{index + 1}"
+        setup["note"] = "Keep the marked face uppermost"
+        setup["hold"] = {
+            "fixture": "vise",
+            "parallels": "parallel-pair",
+            "grip_mm": 7.62,
+            "clamp": "Seat stock firmly against the stop",
+        }
+        setup["zero"]["x"].update(
+            edge="Primer left reference" if index == 0 else "Shared left reference",
+            edge_mm=19.05,
+        )
+    return data
+
+
+def datum_sharing_output(data, findings, detail):
+    markup = Markup(rendered(data, findings, detail=detail))
+    shared = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-reference-kind") == "datum"
+        and "shared left reference" in content(node).casefold()
+    ]
+    flows = {
+        member: node
+        for node in markup.nodes
+        if node["tag"] == "section"
+        and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
+        for member in json.loads(node["attrs"]["data-setup-members"])
+    }
+    assert flows.keys() == {"S1", "S2", "S3"}
+    return markup, shared, flows
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_equal_proved_references_print_once_with_exact_physical_setup_owners(detail):
+    data = datum_sharing_job()
+    findings = zero_recipe.evaluate(data)
+    assert [(finding.subject, finding.status) for finding in findings] == [
+        ("S1", "pass"),
+        ("S2", "pass"),
+        ("S3", "pass"),
+    ]
+    # 0.750-inch edge minus the independently specified 0.100-inch finder radius.
+    assert all(
+        finding.numbers["axes"]["x"]["axis_set"] == pytest.approx(16.51) for finding in findings
+    )
+    markup, shared, flows = datum_sharing_output(data, findings, detail)
+    (reference,) = shared
+    assert json.loads(reference["attrs"]["data-setup-members"]) == ["S2", "S3"]
+    assert_coordinate(content(reference), "x", 0.75)
+    assert content(job_page(markup)).casefold().count("shared left reference") == 1
+    assert all(
+        "shared left reference" not in content(flows[sid]).casefold() for sid in ("S2", "S3")
+    )
+    holding = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-reference-kind") == "holding"
+        and "parallels/grip" in content(node).casefold()
+    ]
+    (parallel_reference,) = holding
+    assert json.loads(parallel_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
+    for value in (12.7, 7.62):
+        assert_number(content(parallel_reference), value)
+    assert content(job_page(markup)).casefold().count("parallels/grip") == 1
+    clamps = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-reference-kind") == "holding"
+        and "seat stock firmly against the stop" in content(node).casefold()
+    ]
+    (clamp_reference,) = clamps
+    assert json.loads(clamp_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
+    assert content(job_page(markup)).casefold().count("seat stock firmly against the stop") == 1
+    orientations = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-reference-kind") == "orientation"
+        and "keep the marked face uppermost" in content(node).casefold()
+    ]
+    (orientation,) = orientations
+    assert json.loads(orientation["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
+    assert content(job_page(markup)).casefold().count("keep the marked face uppermost") == 1
+    assert {
+        (owner["setup_id"], str(owner["op_id"]))
+        for node in markup.nodes
+        for owner in operation_owners(node)
+    } == {("S1", "10"), ("S2", "10"), ("S3", "10")}
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "difference", ["frame", "incomplete_frame", "reference", "mount", "status"]
+)
+def test_equal_numbers_do_not_share_references_with_different_physical_evidence(detail, difference):
+    data = datum_sharing_job()
+    third = data.plan["setups"][2]
+    if difference == "frame":
+        data.features["frames"]["other-frame"] = deepcopy(data.features["frames"]["F"])
+        third["frame"] = "other-frame"
+    elif difference == "incomplete_frame":
+        data.features["frames"]["other-frame"] = {"binding": "nominal"}
+        third["frame"] = "other-frame"
+    elif difference == "reference":
+        data.inventory["tools"]["other-finder"] = deepcopy(data.inventory["tools"]["finder"])
+        third["zero"]["x"]["tool"] = "other-finder"
+    elif difference == "mount":
+        data.inventory["fixtures"]["other-vise"] = deepcopy(data.inventory["fixtures"]["vise"])
+        third["hold"]["fixture"] = "other-vise"
+    findings = zero_recipe.evaluate(data)
+    assert all(finding.status == "pass" for finding in findings)
+    assert all(
+        finding.numbers["axes"]["x"]["axis_set"] == pytest.approx(16.51) for finding in findings
+    )
+    if difference == "status":
+        findings = [
+            replace(finding, status="unknown") if finding.subject == "S3" else finding
+            for finding in findings
+        ]
+    markup, shared, flows = datum_sharing_output(data, findings, detail)
+    assert not shared
+    for sid in ("S2", "S3"):
+        text = content(flows[sid])
+        assert "shared left reference" in text.casefold()
+        assert_coordinate(text, "x", 0.75)
+    if difference in ("frame", "incomplete_frame", "mount"):
+        orientations = [
+            node
+            for node in markup.nodes
+            if node["attrs"].get("data-reference-kind") == "orientation"
+            and "keep the marked face uppermost" in content(node).casefold()
+        ]
+        (orientation,) = orientations
+        assert json.loads(orientation["attrs"]["data-setup-members"]) == ["S1", "S2"]
+        assert "keep the marked face uppermost" in content(flows["S3"]).casefold()
+        assert content(job_page(markup)).casefold().count("keep the marked face uppermost") == 2
+    if difference == "status":
+        (unresolved,) = [finding for finding in findings if finding.subject == "S3"]
+        notices = finding_nodes(markup, unresolved)
+        assert notices and all(finding_has_kind(node, unresolved, "block") for node in notices)
+
+
+@pytest.mark.parametrize("reading_location", ["axis", "note"])
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_authored_contact_readings_stay_at_each_physical_setup(detail, reading_location):
+    data = datum_sharing_job()
+    for setup in data.plan["setups"][1:]:
+        if reading_location == "axis":
+            setup["zero"]["x"]["procedure"] = "Record {contact} before zeroing."
+        else:
+            setup["note"] = "Record {contact} before zeroing."
+    findings = zero_recipe.evaluate(data)
+    assert all(finding.status == "pass" for finding in findings)
+    markup, shared, flows = datum_sharing_output(data, findings, detail)
+    assert not shared
+    fields = [
+        node
+        for node in markup.find("field")
+        if [content(label) for label in markup.find("field-label", node)] == ["contact"]
+    ]
+    assert len(fields) == 2
+    for sid in ("S2", "S3"):
+        local = markup.find("field", flows[sid])
+        assert len(local) == 1 and local[0] in fields
+        (blank,) = markup.find("writing-blank", local[0])
+        assert content(blank) == ""
+        assert "shared left reference" in content(flows[sid]).casefold()
+
+
 @pytest.mark.parametrize("problem", ["missing_tip", "out_of_range"])
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
 def test_finder_safety_facts_remain_visible_when_the_tutorial_is_omitted(problem, detail):
@@ -957,10 +1147,7 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
         # renderable setups. This private key covers the composed final family.
         sheet.plan = {**sheet.plan, "setups": finals}
         settings_markup = Markup(sheet.settings_key())
-        settings = [
-            node for node in settings_markup.nodes
-            if "data-physical-ops" in node["attrs"]
-        ]
+        settings = [node for node in settings_markup.nodes if "data-physical-ops" in node["attrs"]]
         owned = [
             node
             for node in settings
@@ -979,9 +1166,7 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
     elif changed_field == "feature":
         expected = sheet.feature_label(last["ops"][0]["feature"], marked=False)
         assert any(expected in content(variant) for variant in variants)
-        assert not any(
-            expected in content(common) for common in markup.find("family-common")
-        )
+        assert not any(expected in content(common) for common in markup.find("family-common"))
     else:
         fixture_name = data.inventory["fixtures"]["offset-vise"]["name"]
         assert any(fixture_name in content(variant) for variant in variants)
@@ -1065,10 +1250,18 @@ def test_compact_human_heading_omits_drawing_identifiers_without_changing_raw_bi
     data.plan["drawing"] = {"number": "BOUND-DRAWING-731", "revision": "BOUND-REVISION-C"}
     markup = Markup(rendered(data, detail=detail))
     page = job_page(markup)
-    (heading,) = [node for node in markup.nodes if node["tag"] == "h1"]
+    (identity,) = markup.find("job-identity", page)
+    (heading,) = [
+        node
+        for node in markup.nodes
+        if node["parent"] is identity
+        and " ".join(content(node).split()).casefold() == data.plan["part"].replace("-", " ")
+    ]
     assert " ".join(content(heading).split()).casefold() == data.plan["part"].replace("-", " ")
     assert data.plan["drawing"]["number"] not in content(heading)
     assert data.plan["drawing"]["revision"] not in content(heading)
+    assert data.plan["drawing"]["number"] in content(identity)
+    assert data.plan["drawing"]["revision"] in content(identity)
     assert page["attrs"]["data-part"] == data.plan["part"]
     assert page["attrs"]["data-drawing"] == data.plan["drawing"]["number"]
     assert page["attrs"]["data-revision"] == data.plan["drawing"]["revision"]
@@ -1133,10 +1326,9 @@ def test_selected_numeric_acceptance_prints_once_at_its_physical_inspection_not_
     assert len(criteria) == 1
     operation = operation_owner(criteria[0])
     assert operation is not None
-    assert {
-        (owner["setup_id"], str(owner["op_id"]))
-        for owner in operation_owners(operation)
-    } == {(data.plan["setups"][0]["id"], str(data.plan["setups"][0]["ops"][0]["op"]))}
+    assert {(owner["setup_id"], str(owner["op_id"])) for owner in operation_owners(operation)} == {
+        (data.plan["setups"][0]["id"], str(data.plan["setups"][0]["ops"][0]["op"]))
+    }
     page_values = numeric_values(visible_text(rendered(data, detail=detail)))
     for limit in band:
         assert sum(abs(value - limit) <= 0.000001 for value in page_values) == 1
@@ -1318,9 +1510,7 @@ def test_clearance_decisions_render_known_gaps_as_cautions_and_collision_or_unkn
     else:
         sheet, setup = near_holding(gap if obstacle == "cut" else 12.0)
         if obstacle == "tip":
-            sheet.records[("headroom", "S1")] = headroom(
-                tip_above_jaws=gap, jaw_top_z=-0.5 - gap
-            )
+            sheet.records[("headroom", "S1")] = headroom(tip_above_jaws=gap, jaw_top_z=-0.5 - gap)
 
     (box,) = sheet.crash_boxes(setup, setup["ops"][0])
     assert box.kind == kind
@@ -1346,9 +1536,7 @@ def test_clearance_decisions_render_known_gaps_as_cautions_and_collision_or_unkn
         "scope": scope,
         "kind": kind,
     }
-    (notice,) = [
-        node for node in decision_nodes(markup) if evidence in decision_evidence(node)
-    ]
+    (notice,) = [node for node in decision_nodes(markup) if evidence in decision_evidence(node)]
     assert notice["attrs"]["data-decision"] == kind
     assert ("stop" in notice["attrs"]["class"].split()) == (kind == "block")
     assert ("caution" in notice["attrs"]["class"].split()) == (kind == "caution")
@@ -1359,9 +1547,7 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
     data = load_bundle(
         Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
     )
-    finals = [
-        setup for setup in data.plan["setups"] if setup["id"] in ("F1a", "F1b", "F1c", "F1d")
-    ]
+    finals = [setup for setup in data.plan["setups"] if setup["id"] in ("F1a", "F1b", "F1c", "F1d")]
     assert [setup["id"] for setup in finals] == ["F1a", "F1b", "F1c", "F1d"]
     _, _, markup = collected_family(data, finals, detail=detail)
     expected_owners = {
@@ -1373,8 +1559,7 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
     records = markup.find("checkpoint-result")
     assert len(records) == 4
     assert {
-        (record["attrs"]["data-setup-id"], record["attrs"]["data-workpiece"])
-        for record in records
+        (record["attrs"]["data-setup-id"], record["attrs"]["data-workpiece"]) for record in records
     } == expected_owners
     for record in records:
         assert record["attrs"]["data-op-id"] == "10"
@@ -1423,15 +1608,323 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
         ):
             for limit in band:
                 assert_number(limits_text, limit * scale)
-        for clause in (
-            "Slides freely by hand in the actual intended slot "
-            "without binding or objectionable rocking.",
-            "Both shoulder shelves bear under the lips without bottoming or wedging.",
-            "Pulled-up top remains below the table top.",
-            "The intended 3/8-16 right-hand stud enters from the top by hand.",
-            "Bottom-thread deformation stops the stud before it exits onto the table; "
-            "do not force it through.",
-            "The nut does not rotate or pass through the intended slot "
-            "during the functional check.",
+        # Method and criterion jointly express the physical fit procedure.
+        # Numeric acceptance bands above must still survive without method prose.
+        for relationship in (
+            (
+                r"(?:\bslides?\b.*?\bby hand\b|\bhand[- ]slides?\b)",
+                r"\b(?:no|without) binding\b.*?\brocking\b.*?\bintended slot\b",
+            ),
+            (
+                r"\bboth\b.*?\b(?:flange|shoulder) shelves\b.*?\bbear under\b.*?\blips\b",
+                r"\b(?:no|without) bottoming\b.*?\bwedging\b",
+            ),
+            (r"\bpull(?:ed)?[ -]up\b", r"\btop\b.*?\bbelow\b.*?\btable\b"),
+            (
+                r"\bintended 3/8-16\b.*?\b(?:RH|right.hand) stud\b",
+                r"(?:\b(?:insert stud|stud enters)\b.*?\bfrom\b.*?\btop by hand\b|"
+                r"\bhand[- ]insert\b.*?\bstud\b.*?\bfrom\b.*?\btop\b)",
+            ),
+            (
+                r"\bbottom.thread deformation\b.*?\bstops\b.*?\bstud\b.*?"
+                r"\bbefore\b.*?\b(?:exit|exits)\b.*?\btable\b",
+                r"\bdo not force\b.*?\bthrough\b",
+            ),
+            (
+                r"\bnut\b.*?\b(?:does not|neither) rotates?\b.*?"
+                r"\b(?:or|nor) pass(?:es)? through\b.*?\bintended slot\b",
+            ),
         ):
-            assert clause in criteria_text
+            assert all(re.search(clause, text, re.IGNORECASE) for clause in relationship), (
+                relationship,
+                text,
+            )
+
+
+def terminal_inspection_job():
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    finals = data.plan["setups"][-4:]
+    assert [setup["id"] for setup in finals] == ["F1a", "F1b", "F1c", "F1d"]
+    return data, finals
+
+
+def assert_terminal_inspection_route(markup, data, *, deferred):
+    """Compare authored physical setup/op order, not paragraph or table layout."""
+    flows = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "section"
+        and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
+    ]
+    owners = {
+        sid: flow for flow in flows for sid in json.loads(flow["attrs"]["data-setup-members"])
+    }
+    authored = [setup["id"] for setup in data.plan["setups"]]
+    displayed = [sid for flow in flows for sid in json.loads(flow["attrs"]["data-setup-members"])]
+    assert displayed == (authored[-4:] + authored[:-4] if deferred else authored)
+    for setup in data.plan["setups"]:
+        sid = setup["id"]
+        physical_ops = list(
+            dict.fromkeys(
+                str(owner["op_id"])
+                for node in operation_nodes(markup, owners[sid])
+                for owner in operation_owners(node)
+                if owner["setup_id"] == sid
+            )
+        )
+        assert physical_ops == [str(op["op"]) for op in setup["ops"]], sid
+    return owners
+
+
+def assert_terminal_results(markup, *, reading_owned=False):
+    finals = {"F1a": "nut1", "F1b": "nut2", "F1c": "nut3", "F1d": "nut4"}
+    records = [
+        node
+        for node in markup.find("checkpoint-result")
+        if node["attrs"]["data-setup-id"] in finals
+    ]
+    expected = (
+        finals if not reading_owned else {sid: nut for sid, nut in finals.items() if sid != "F1a"}
+    )
+    assert {
+        (record["attrs"]["data-setup-id"], record["attrs"]["data-workpiece"]) for record in records
+    } == set(expected.items())
+    assert len(records) == len(expected)
+    for record in records:
+        member = record["attrs"]["data-workpiece"]
+        assert record["attrs"]["data-op-id"] == "10"
+        assert record["attrs"]["data-shared-check"] == ""
+        assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+        assert set(json.loads(record["attrs"]["data-inspection-ids"])) == {
+            f"{member}/base-envelope:width",
+            f"{member}/base-envelope:height",
+            f"{member}/shoulders:width",
+            f"{member}/shoulders:thickness",
+            f"{member}/end-length:length",
+            f"{member}/part:actual_slot_fit",
+            f"{member}/part:stud_retention",
+        }
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
+    return records
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_terminal_inspection_reference_preserves_deferred_execution_and_physical_results(detail):
+    data, _ = terminal_inspection_job()
+    markup = Markup(rendered(data, detail=detail))
+    references = [
+        node for node in markup.nodes if node["attrs"].get("id") == "final-inspection-reference"
+    ]
+    deferred = detail == "hobby"
+    owners = assert_terminal_inspection_route(markup, data, deferred=deferred)
+    records = assert_terminal_results(markup)
+    links = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "a" and node["attrs"].get("href") == "#final-inspection-reference"
+    ]
+    if not deferred:
+        assert not references and not links
+        return
+    (reference,) = references
+    assert reference["attrs"]["data-reference-only"] == "true"
+    assert json.loads(reference["attrs"]["data-execute-after"]) == ["B2a", "B2b", "B2c", "B2d"]
+    assert any(
+        re.search(r"\bcomplete\s+only\s+after\s+B2\b", content(node), re.IGNORECASE)
+        for node in descendants(markup, reference)
+        if node["tag"] in ("p", "h1", "h2", "h3", "h4", "h5", "h6")
+    )
+    reference_nodes = list(descendants(markup, reference))
+    assert all(record in reference_nodes for record in records)
+    assert all(owners[sid] in reference_nodes for sid in ("F1a", "F1b", "F1c", "F1d"))
+    route = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and content(node).startswith("Execution order:")
+    ]
+    (route,) = route
+    assert re.search(r"\bB2\b.*\bF1\b", content(route))
+    (link,) = links
+    assert re.search(r"\bF1\b.*\bfinal inspection", content(link), re.IGNORECASE)
+    assert re.search(r"\bafter\s+B2\b", content(link["parent"]), re.IGNORECASE)
+    assert link not in reference_nodes
+    remaining_ops = [
+        node
+        for node in operation_nodes(markup)
+        if any(
+            owner["setup_id"] not in ("F1a", "F1b", "F1c", "F1d")
+            for owner in operation_owners(node)
+        )
+    ]
+    assert remaining_ops
+    positions = {id(node): index for index, node in enumerate(markup.nodes)}
+    assert positions[id(link)] > max(positions[id(node)] for node in remaining_ops)
+    text = " ".join(content(reference).split())
+    assert re.search(r"\bhand[- ]slide\b.*?\bpull up\b", text, re.IGNORECASE)
+    assert re.search(r"\bhand[- ]insert\b.*?\bstud\b.*?\btop\b", text, re.IGNORECASE)
+    assert re.search(r"\bdo not force through\b", text, re.IGNORECASE)
+
+
+@pytest.mark.parametrize(
+    "unsafe",
+    [
+        "reading_owned",
+        "method_field",
+        "note_field",
+        "indexing",
+        "picture",
+        "blocking",
+    ],
+)
+def test_terminal_inspection_with_local_work_stays_at_its_execution_position(unsafe):
+    data, finals = terminal_inspection_job()
+    first = finals[0]
+    findings = []
+    if unsafe == "reading_owned":
+        first["ops"][0]["checks"] = {"length": "calipers"}
+        first["ops"][0]["inspection_methods"] = {
+            "length": "Measure the ends; record {finished_length}."
+        }
+    elif unsafe == "method_field":
+        first["ops"][0]["inspection_methods"]["end-length"] = {
+            "length": "Measure the ends; record {finished_length}."
+        }
+    elif unsafe == "note_field":
+        first["note"] = "Before inspecting, record {terminal_temperature}."
+    elif unsafe == "indexing":
+        first["hold"]["index"] = {"angle_deg": 0}
+    elif unsafe == "picture":
+        first["picture_panels"] = ["setup"]
+        kernel = deepcopy(data.kernel or {})
+        kernel.setdefault("status", "ok")
+        kernel.setdefault("setups", {})["F1a"] = {
+            "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
+            "fixture_rendered": True,
+            "render_scene": {
+                "width_px": 1,
+                "height_px": 1,
+                "print_panels": [
+                    {
+                        "id": "setup",
+                        "selection_group": "setup",
+                        "annotations": [],
+                        "role": "setup",
+                        "label": "Terminal inspection fixture",
+                        "top_px": 0,
+                        "height_px": 1,
+                    }
+                ],
+            },
+        }
+        data = replace(data, kernel=kernel)
+    elif unsafe == "blocking":
+        findings = [
+            Finding(
+                "reach",
+                "F1a:10",
+                "error",
+                {},
+                [],
+                "Resolve terminal inspection clearance before proceeding.",
+            )
+        ]
+    assets = render_assets(data)
+    report = build_report(data, findings, assets=assets)
+    markup = Markup(render_traveler(data, findings, report, None, detail="hobby"))
+    assert not any(node["attrs"].get("id") == "final-inspection-reference" for node in markup.nodes)
+    assert not any(
+        node["attrs"].get("href") == "#final-inspection-reference" for node in markup.nodes
+    )
+    owners = assert_terminal_inspection_route(markup, data, deferred=False)
+    assert_terminal_results(markup, reading_owned=unsafe == "reading_owned")
+    local = owners["F1a"]
+    if unsafe in ("reading_owned", "method_field", "note_field"):
+        label = "terminal temperature" if unsafe == "note_field" else "finished length"
+        fields = [
+            node
+            for node in markup.find("field")
+            if any(content(caption) == label for caption in markup.find("field-label", node))
+        ]
+        (field,) = fields
+        assert field in list(descendants(markup, local))
+        scope = field
+        while scope is not None and "data-setup-id" not in scope["attrs"]:
+            scope = scope["parent"]
+        assert scope is not None and scope["attrs"]["data-setup-id"] == "F1a"
+        if unsafe != "note_field":
+            operation = operation_owner(field)
+            assert operation is not None
+            assert {
+                (owner["setup_id"], str(owner["op_id"]), owner["workpiece"])
+                for owner in operation_owners(operation)
+            } == {("F1a", "10", "nut1")}
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+    elif unsafe == "indexing":
+        assert re.search(
+            r"\bindex\b.*\bplate arithmetic not computed\b", content(local), re.IGNORECASE
+        )
+    elif unsafe == "picture":
+        (picture,) = markup.find("fixture-render")
+        assert picture in list(descendants(markup, local))
+        assert "Terminal inspection fixture" in content(picture)
+        (image,) = [
+            node for node in descendants(markup, picture) if node["tag"] in ("img", "image")
+        ]
+        path = report["renders"]["F1a"]["path"]
+        assert image["attrs"].get("src", image["attrs"].get("href")) == path
+        assert assets[path] == _png((80, 100, 120))
+    elif unsafe == "blocking":
+        (finding,) = findings
+        notices = finding_nodes(markup, finding)
+        assert notices and all(finding_has_kind(node, finding, "block") for node in notices)
+        assert any(node in list(descendants(markup, local)) for node in notices)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("with_reading", [False, True], ids=["plain-note", "owned-reading"])
+def test_selected_detail_note_keeps_plain_manual_work_inline_but_readings_local(
+    detail, with_reading
+):
+    data, _ = terminal_inspection_job()
+    setup = next(setup for setup in data.plan["setups"] if setup["id"] == "B2a")
+    operation = next(op for op in setup["ops"] if op["op"] == 40)
+    text = (
+        "Record the oil-film check: {customreading}."
+        if with_reading
+        else "Keep the witness face upright."
+    )
+    operation["note"] = [{"text": text, "detail": "pro"}]
+    markup = Markup(rendered(data, detail=detail))
+    instructions = []
+    for node in markup.find("route-operation"):
+        owner = operation_owner(node)
+        if owner is not None and any(
+            item["setup_id"] == "B2a" and str(item["op_id"]) == "40"
+            for item in operation_owners(owner)
+        ):
+            instructions.append((node, owner))
+    ((instruction, owner),) = instructions
+    assert {
+        (item["setup_id"], str(item["op_id"]), item["workpiece"])
+        for item in operation_owners(owner)
+    } == {("B2a", "40", "nut1")}
+    assert instruction["tag"] == ("p" if with_reading else "span")
+    fields = [
+        node
+        for node in markup.find("field")
+        if any(content(label) == "customreading" for label in markup.find("field-label", node))
+    ]
+    if with_reading:
+        assert "Record the oil-film check:" in content(owner)
+        (field,) = fields
+        assert field in list(descendants(markup, owner))
+        assert operation_owner(field) is owner
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+    else:
+        assert not fields
+        assert "Keep the witness face upright." in content(owner)

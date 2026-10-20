@@ -3183,8 +3183,10 @@ def test_coordinate_free_checkpoint_exemption_requires_an_exact_complete_ledger(
         "native inspect": [{**inspect, "effect": "native"}],
         "unmodeled inspect": [{**inspect, "effect": "unmodeled"}],
         "metadata coating": [{**inspect, "do": "coating"}],
-        "mixed unknown action": [inspect, {"subject": "S2:20", "do": "unknown",
-                                           "effect": "unmodeled"}],
+        "mixed unknown action": [
+            inspect,
+            {"subject": "S2:20", "do": "unknown", "effect": "unmodeled"},
+        ],
     }
     for action in ("deburr", "fit", "scribe"):
         for effect in ("metadata", "unmodeled"):
@@ -3210,8 +3212,9 @@ def test_coordinate_free_checkpoint_exemption_keeps_native_and_holding_consumers
     base = _coordinate_free_checkpoint_job(engine, island)
     placeholder = base["setups"][1]["hold"]
     holds = {
-        "missing positive contact model": {key: value for key, value in placeholder.items()
-                                           if key != "contact_model"},
+        "missing positive contact model": {
+            key: value for key, value in placeholder.items() if key != "contact_model"
+        },
         "unresolved contact model": {**placeholder, "contact_model": "unknown"},
         "null contact model": {**placeholder, "contact_model": None},
         "null hold": None,
@@ -3237,11 +3240,11 @@ def test_coordinate_free_checkpoint_exemption_keeps_native_and_holding_consumers
         jobs.append(job)
     native_ops = {
         "native metadata inspect": {"subject": "S2:10", "do": "inspect"},
-        "native cutting operation": {
-            **deepcopy(base["setups"][0]["ops"][0]), "subject": "S2:10"
-        },
+        "native cutting operation": {**deepcopy(base["setups"][0]["ops"][0]), "subject": "S2:10"},
         "inspect with operative profile geometry": {
-            **deepcopy(base["setups"][0]["ops"][0]), "subject": "S2:10", "do": "inspect",
+            **deepcopy(base["setups"][0]["ops"][0]),
+            "subject": "S2:10",
+            "do": "inspect",
             "stock_removal_bounds": {"x": [0.0, 5.0], "y": [-5.0, 55.0], "z": [0.0, 20.0]},
         },
     }
@@ -3296,9 +3299,7 @@ def test_coordinate_free_descendant_does_not_hide_real_branch_contacts_or_suppor
     assert facts["checkpoint_overshoot_ok"] == []
 
 
-def test_coordinate_free_intermediary_does_not_hide_a_later_consumers_unknown_stock(
-    engine, island
-):
+def test_coordinate_free_intermediary_does_not_hide_a_later_consumers_unknown_stock(engine, island):
     job = _coordinate_free_checkpoint_job(engine, island)
     job["setups"].append({**_setup([], _clamped((2.0, 50.0)), setup_id="S3"), "stock_in": "S2"})
     result = engine.run(job)
@@ -3327,26 +3328,26 @@ def test_coordinate_free_coating_does_not_clear_independent_material_preservatio
     # Use a real frame for this independent proof: the contact-only exemption must
     # not make coating a dimensional no-op, nor fake stock through a frameless setup.
     later["frame"] = deepcopy(frame)
-    later["inspection_preservation"] = [{
-        "check_id": "S2:10",
-        "feature": "thickness",
-        "requirement": "height",
-        "workpiece_id": "island",
-        "after": "S1:10",
-        "before": "S3:10",
-        "nominal_mm": 20.0,
-    }]
+    later["inspection_preservation"] = [
+        {
+            "check_id": "S2:10",
+            "feature": "thickness",
+            "requirement": "height",
+            "workpiece_id": "island",
+            "after": "S1:10",
+            "before": "S3:10",
+            "nominal_mm": 20.0,
+        }
+    ]
     boundary = {
-        **_setup([{"subject": "S3:10", "do": "release"}], _clamped((35.0, 30.0)),
-                 setup_id="S3"),
+        **_setup([{"subject": "S3:10", "do": "release"}], _clamped((35.0, 30.0)), setup_id="S3"),
         "stock_in": "S2",
         "preservation_ledger": [{"subject": "S3:10", "do": "release", "effect": "metadata"}],
     }
     base["setups"].append(boundary)
     metadata = deepcopy(base)
     metadata["setups"][1]["preservation_ledger"] = [
-        entry for entry in metadata["setups"][1]["preservation_ledger"]
-        if entry["do"] != "coating"
+        entry for entry in metadata["setups"][1]["preservation_ledger"] if entry["do"] != "coating"
     ]
     plain, coated = engine.run({"jobs": [metadata, base]})["results"]
     for result in (plain, coated):

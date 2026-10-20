@@ -1137,9 +1137,11 @@ Standalone video examples are tracked separately from consumer-export delivery:
 the [catalog-adapted T-nuts](examples/blondihacks-t-nuts/README.md),
 [360-brass ring](examples/blondihacks-brass-ring/README.md) and
 [adapted two-piece Magic Tube](examples/blondihacks-magic-tube/README.md)
-use local shop inputs and preserve missing real measurements. Their expected exit is 4 and
-their travelers remain PLANNED. Source/catalog identity and bound CAD are not
-physical feasibility, first-article or live-farm acceptance evidence.
+use local shop inputs and preserve the distinction between demonstration values
+and missing real measurements. Their current expected exits belong in each
+example's guide; their travelers remain PLANNED. Source/catalog identity and
+bound CAD are not physical feasibility, first-article or live-farm acceptance
+evidence.
 The [plan reference](docs/plan.md) owns retained-output identity and removable
 threaded-joint fields; [geometry limits](docs/rules-geometry.md#limits) remain
 applicable to multi-solid routes. Exact native material ownership is not a
@@ -1433,8 +1435,9 @@ first-article acceptance.
    706 tests with `-n2 --dist loadscope` and `PRECHIPS_KERNEL_WORKERS=1`;
    `ruff check .` and `ruff format --check .` passed. This was not the full
    suite, a release or completion of the broader work.
-   Registered batch lineage (0b) now extends that support as described below;
-   inspection expansion (0c) and detail modes remain unimplemented. See
+   Registered batch lineage (0b) now extends that support as described below.
+   Detail modes are implemented as described below; inspection expansion (0c)
+   remains separate unfinished work. See
    [inventory](docs/inventory.md#mounted-slitting-saw-assembly),
    [operations](docs/plan.md#mounted-slitting-saw-path-and-capture) and
    [geometry limits](docs/rules-geometry.md#saw-cut-off).
@@ -1461,6 +1464,19 @@ first-article acceptance.
    [outputs](docs/plan.md#registered-finite-saw-outputs),
    [supports](docs/plan.md#posed-and-borrowed-supports) and
    [pickups](docs/plan.md#transverse-pickup-path).
+
+   **Traveler detail modes implemented; acceptance pending:** `pro`, default
+   `hobby` and `pedantic` select presentation without changing checks, report
+   identity or approval. Classified setup/hold/operation notes retain all prose
+   for checking. Compact shared instructions preserve distinct physical
+   inspection destinations; hobby adds DRO guidance and selected complete
+   figures, while pedantic expands setup content. All modes use continuous
+   measured Letter flow without automatic blank-back/setup-front padding.
+   The requested pro ≤2 / hobby ≤5 physical-page caps have not been met.
+   Page-cap work, final validation and independent rendered-page reviews remain
+   pending; implementation does not establish physical paper acceptance or
+   real-shop readiness. See the
+   [current output contract](docs/report-and-telemetry.md#traveler-detail-modes).
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
    bench/manual machine keeps the manual-bench waiver and has no blade-speed

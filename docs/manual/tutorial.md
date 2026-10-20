@@ -122,14 +122,14 @@ Open `out/docs-smoke/pivot-shaft/traveler.html` in a browser. Start with `JOB ST
 Find setup S0 and compare it with the plan:
 
 1. `HOLD` gives the chuck, grip, stop and clamping instructions.
-2. `TOOLS FOR THIS SETUP` maps the selected inventory identities to local tool numbers.
+2. The tooling/settings beside the operations identify the selected tools; pedantic also expands `TOOLS FOR THIS SETUP`.
 3. `DRO ZERO` gives touch-off instructions and direction checks. The lathe's X display reads diameter.
 4. `OPERATIONS` presents op 10 facing and op 20 centre drilling, with starting speed, feed, target and the authored instructions.
-5. The attached holding picture and clearance section show the modeled setup. `setup-S1.png` belongs to authored setup S0 because filenames use ordinal numbering.
+5. Hobby includes selected complete holding figures; pedantic expands the figures and clearance section. `setup-S1.png` belongs to authored setup S0 because filenames use ordinal numbering.
 
-The setup sheet is the document the operator reads and writes on. The report keeps rule IDs, detailed numbers, source citations and input hashes for investigation. An operation's performed mark records that the operation was performed; it is not inspection acceptance or permission to proceed past a stop.
+The setup sheet is the document the operator reads and writes on. The report keeps rule IDs, detailed numbers, source citations and input hashes for investigation. `traveler` defaults to `--detail hobby`; choose `pro` for compact working instructions or `pedantic` for expanded tables and worksheets. The [detail-mode contract](../report-and-telemetry.md#traveler-detail-modes) describes their contents. The performed mark in pedantic records that an operation was performed; it is not inspection acceptance or permission to proceed past a stop.
 
-Use the browser's print preview for the whole HTML file on Letter portrait paper. Keep JavaScript enabled so the layout inserts blank backs and starts each logical setup section on a front side; print the whole file double-sided. If scripts are disabled, print single-sided. Check the preview rather than assuming that one setup occupies one physical sheet. The CLI has not generated a PDF for you. See the [generated-sheet reference](../report-and-telemetry.md#generated-traveler) for the print contract.
+Use the browser's print preview for the whole HTML file on Letter portrait paper with JavaScript enabled. The sheet flows continuously; setups may share a page, and no automatic blank backs force setup fronts. Inspect every page before choosing single- or double-sided printing. Do not assume one setup occupies one physical sheet. The CLI has not generated a PDF for you. See the [print contract](../report-and-telemetry.md#printing-and-layout-refusal).
 
 [Approval](../report-and-telemetry.md#eligibility-and-approval) requires separate first-article evidence bound to the eligible report; it cannot waive required unresolved checks. A generated report or printed sheet does not certify the physical setup, prevent every collision or simulate the operator's motion path.
 

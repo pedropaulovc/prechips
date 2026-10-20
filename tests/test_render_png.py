@@ -1575,13 +1575,88 @@ def _vise_spec(size, touching=True):
     return meshes, spec
 
 
+def _assert_main_footer_entries(diagram):
+    """Check full painted body cells and real sample gutters, independent of packing."""
+    colors = {
+        "stock": (160, 174, 184),
+        "fixture": (120, 98, 76),
+        "tool": (24, 91, 58),
+        "nominal": (35, 83, 147),
+        "removal": (252, 235, 190),
+        "context": (85, 93, 100),
+    }
+    first_panel = diagram.print_panels[0]
+    footer_boxes = [
+        box
+        for box in diagram.canvas.text_boxes
+        if diagram.footer_top < box[2] < first_panel["height_px"]
+    ]
+    painted = []
+    for column_index, (sample_x, entries) in enumerate(diagram.footer_columns):
+        next_left = (
+            diagram.footer_columns[column_index + 1][0]
+            if column_index + 1 < len(diagram.footer_columns)
+            else 960
+            if diagram.footer_note_rows
+            else diagram.canvas.width - 32
+        )
+        previous_bottom = diagram.footer_top
+        for semantic_label, kind, lines in entries:
+            painted.append((semantic_label, kind))
+            assert " ".join(lines) == semantic_label
+            cells = []
+            for line in lines:
+                matches = [
+                    box
+                    for box in footer_boxes
+                    if box[0] == line and box[1] == sample_x + 32 and box[2] >= previous_bottom
+                ]
+                assert matches, (semantic_label, line)
+                cell = min(matches, key=lambda box: box[2])
+                assert cell[3] + 4 <= next_left
+                assert cell[4] - cell[2] >= 35
+                assert cell[4] <= first_panel["height_px"]
+                assert any(
+                    _pixel(diagram.canvas, x, y) != _WHITE
+                    for y in range(cell[2], cell[4])
+                    for x in range(cell[1], cell[3])
+                )
+                cells.append(cell)
+                previous_bottom = cell[4]
+            assert cells
+            first = cells[0]
+            sample_pixels = {
+                _pixel(diagram.canvas, x, y)
+                for y in range(first[2], first[4])
+                for x in range(sample_x, first[1] - 4)
+            }
+            if kind in colors:
+                assert colors[kind] in sample_pixels, semantic_label
+            assert {
+                _pixel(diagram.canvas, x, y)
+                for y in range(first[2], first[4])
+                for x in range(first[1] - 4, first[1])
+            } == {_WHITE}
+            for _, left, top, _, bottom in cells[1:]:
+                assert {
+                    _pixel(diagram.canvas, x, y)
+                    for y in range(top, bottom)
+                    for x in range(sample_x, left)
+                } == {_WHITE}
+    assert painted == diagram.legend_entries[: len(painted)]
+    assert diagram.footer_legend_rows == (diagram.legend_ends[len(painted) - 1] if painted else 0)
+    diagram.canvas.assert_text_layout(min_scale=5)
+
+
 def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     stock = [0, 0, 0, 18, 26.2, 34.2]
     spec = {
         "setup_id": "S1",
         "view": "isometric",
         "stock_box": stock,
-        "legend": ["retained", "removed", "holding", "tool"],
+        "zero_mm": [0, 0, 0],
+        "datums": [],
+        "legend": ["retained", "removed", "holding", "tool", "context"],
         "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
         "nominal_render_outline_mm": [
             [[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]
@@ -1590,24 +1665,59 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     diagram, _ = _composed_diagram([], spec)
     axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
     assert [box[0] for box in axes_words] == ["VIEW", "NORMAL"]
+    first_sample = min(x for x, _ in diagram.footer_columns)
     for _, _, top, right, bottom in axes_words:
-        assert right + 32 < 350
+        assert right + 32 <= first_sample
         assert {
             _pixel(diagram.canvas, x, y)
-            for y in range(top - 4, bottom + 4)
-            for x in range(right + 4, 346)
+            for y in range(top, bottom)
+            for x in range(right + 4, first_sample)
         } == {_WHITE}
-    for kind, color in (("tool", (24, 91, 58)), ("nominal", (35, 83, 147))):
-        index = next(i for i, (_, entry) in enumerate(diagram.legend_rows) if entry == kind)
-        y = diagram.footer_top + 88 + index * 45
-        samples = {
-            _pixel(diagram.canvas, x, row) for row in range(y, y + 35) for x in range(350, 375)
-        }
-        assert color in samples
+    _assert_main_footer_entries(diagram)
+    assert [
+        (label, kind) for _, entries in diagram.footer_columns for label, kind, _ in entries
+    ] == diagram.legend_entries
+    assert diagram.legend_entries == [
+        ("RETAINED AFTER SETUP", "stock"),
+        ("REMOVED THIS SETUP", "removal"),
+        ("WORKHOLDING", "fixture"),
+        ("TOOL / APPROACH", "tool"),
+        ("MACHINE OUTLINE", "context"),
+        ("FINISHED OUTLINE, THIS SETUP", "nominal"),
+    ]
     width, height, pixels = _decode_png(diagram.canvas.png())
     assert pixels == diagram.canvas.rgb
     assert width == 1600 and height / width * 7.5 <= 8.4
     diagram.canvas.assert_text_layout(min_scale=5)
+
+
+def test_no_notes_main_compacts_by_translation_without_shrinking_the_work():
+    # Synthetic raster/layout evidence only; native scenes are regenerated separately.
+    meshes, spec = _vise_spec(150)
+    spec["datums"] = []
+    diagram, _ = _composed_diagram(meshes, spec)
+    main = diagram.print_panels[0]
+    assert diagram.canvas.width == 1600
+    assert main["height_px"] <= 1050
+    assert not diagram.note_lines
+    assert not diagram.footer_details
+    left, top, right, bottom = diagram.viewport
+    assert (right - left, bottom - top) == (720, 360)
+    assert top < 380
+    assert diagram.camera == _FRONT
+    legacy = RenderCanvas(diagram.meshes, diagram.camera, (440, 380, 1160, 740), height=1200)
+    assert diagram.canvas.scale == legacy.scale
+    assert diagram.canvas._world_centre == legacy._world_centre
+    for point in _corners(spec["stock_box"]):
+        old_x, old_y = legacy.project(point)
+        x, y = diagram.canvas.project(point)
+        assert x == pytest.approx(old_x)
+        assert y - old_y == pytest.approx(top - 380)
+        assert left <= x <= right and top <= y <= bottom
+    _assert_main_footer_entries(diagram)
+    assert [
+        (label, kind) for _, entries in diagram.footer_columns for label, kind, _ in entries
+    ] == diagram.legend_entries
 
 
 @pytest.mark.parametrize("radius", [5.1, 3.25])
@@ -1832,7 +1942,7 @@ def pure_native_outline_render():
 
 
 def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
-    """Exercise the real spec producer with no FreeCAD imports or geometry."""
+    """Real spec producer for explicit mill arrival: no holding, threads or workpieces."""
     face = SimpleNamespace(Edges=edges)
     solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
     monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
@@ -1847,12 +1957,16 @@ def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
         fixture_debts=[],
         fixture_gaps=[],
         fixture=[],
+        capture_fixture=[],
         fixture_possible=[],
+        fixture_possible_shapes=[],
+        jaw_frame_box=None,
         jaws=None,
-        owner=SimpleNamespace(features={}),
+        owner=SimpleNamespace(features={}, workpieces={}),
         ops=[{"subject": "S1:20"}],
         finished=solid,
         faces=[face],
+        thread_regions=[],
         _rest_render=lambda debts: [],
         _expects_parallels=lambda: False,
         _render_tool=lambda annotation, lathe, rests: (None, None),
@@ -2609,9 +2723,9 @@ def test_a_long_legend_keeps_the_stock_dimension_above_the_actual_footer():
     spec["legend"] = [f"SOURCE NOTE {index}" for index in range(12)]
     diagram, _ = _composed_diagram(meshes, spec)
     assert len(diagram.legend_rows) > len(baseline.legend_rows)
-    assert diagram.canvas.height - diagram.footer_top > (
-        baseline.canvas.height - baseline.footer_top
-    )
+    _assert_main_footer_entries(diagram)
+    printed = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert sorted(map(int, re.findall(r"\bSOURCE NOTE (\d+)\b", printed))) == list(range(12))
     assert diagram.dimensions.keys() == baseline.dimensions.keys()
     for label, (start, end) in diagram.dimensions.items():
         assert start[1] == end[1] < diagram.footer_top - 36
@@ -2735,24 +2849,22 @@ def test_setup_text_footer_continues_in_complete_readable_owned_bands(overflow, 
     assert numbered["K"] == (list(range(1, 61)) if overflow != "notes" else [])
     note_rows = 0
     footer_panels = panels[1 : 1 + len(diagram.footer_details)]
-    owners = [(panels[0], diagram.footer_top, 88)] + [
-        (panel, detail.footer_top, detail.text_top)
+    _assert_main_footer_entries(diagram)
+    owners = [(panels[0], diagram.footer_top)] + [
+        (panel, detail.footer_top)
         for panel, detail in zip(footer_panels, diagram.footer_details, strict=True)
     ]
-    for panel, footer_top, text_top in owners:
-        for _, left, top, right, bottom in diagram.canvas.text_boxes:
-            if (
-                left == 380
-                and panel["top_px"] + footer_top < top
-                and bottom <= panel["top_px"] + panel["height_px"]
+    for panel, footer_top in owners:
+        for label, left, top, right, bottom in diagram.canvas.text_boxes:
+            if not (
+                panel["top_px"] + footer_top < top < bottom <= panel["top_px"] + panel["height_px"]
             ):
+                continue
+            if left == 960 and label in diagram.note_lines:
+                note_rows += 1
+                assert right <= 1568
+            elif panel is not panels[0] and left == 380:
                 assert right + 56 <= 960
-        note_rows += sum(
-            left == 960
-            and panel["top_px"] + footer_top + text_top <= top
-            and bottom <= panel["top_px"] + panel["height_px"]
-            for _, left, top, _, bottom in diagram.canvas.text_boxes
-        )
     assert note_rows == len(baseline.note_lines) + (120 if overflow != "key" else 0)
     # Every ordinary multi-row note remains whole at the chosen band boundaries.
     assert diagram.footer_note_rows in {0, *diagram.note_ends}
@@ -2810,6 +2922,7 @@ def test_one_overlong_footer_entry_continues_with_its_explicit_source_entry_iden
         cursor += panel["height_px"]
     assert cursor == height
     diagram.canvas.assert_text_layout(min_scale=5)
+    _assert_main_footer_entries(diagram)
     for _, left, top, right, bottom in diagram.canvas.text_boxes:
         assert (
             sum(
@@ -2819,7 +2932,7 @@ def test_one_overlong_footer_entry_continues_with_its_explicit_source_entry_iden
             == 1
         )
         if left == 380 and any(
-            panel["role"] == "setup"
+            panel in diagram.print_panels[1 : 1 + len(diagram.footer_details)]
             and panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
             for panel in diagram.print_panels
         ):
@@ -3416,17 +3529,24 @@ def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
             for index in range(30)
         ],
     }
-    fixed = _Diagram([], spec)
+    meshes = [_block(spec["stock_box"], (160, 175, 185), "part")]
+    fixed = _Diagram(meshes, spec)
     fixed.grows_to_fit = True
     fixed.render()
-    assert fixed.lane_overflow > 0  # the 1000 px picture cannot hold them
+    assert fixed.lane_overflow > 0  # the unextended compact lanes cannot hold them
 
-    diagram, png = _main_diagram([], spec)
+    diagram, png = _main_diagram(meshes, spec)
+    assert diagram.extra > fixed.extra
+    assert diagram.canvas.height > fixed.canvas.height
+    assert diagram.lane_overflow <= 0
     keys = [box for box in diagram.canvas.text_boxes if box[0].startswith("DATUM F")]
     assert len(keys) == 30
     assert all(bottom + 4 <= diagram.footer_top for *_, bottom in keys), diagram.footer_top
     assert all(bottom - top >= 21 for _, _, top, _, bottom in keys)
-    assert _decode_png(render_diagram([], spec)[0])[:2] == _decode_png(png)[:2]
+    # Both paths now see actual stock; only the public path settles missing-solid debt.
+    public_png, debts, _ = render_diagram(meshes, spec)
+    assert debts == []
+    assert _decode_png(public_png)[:2] == _decode_png(png)[:2]
 
 
 def _lane_pressure_scene(count):
@@ -3446,12 +3566,10 @@ def _lane_pressure_scene(count):
 
 
 @pytest.mark.parametrize("count", [42, 44])
-def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_budget(
-    count, monkeypatch
-):
+def test_main_lane_pressure_grows_without_refitting_or_omitting_content(count, monkeypatch):
     meshes, spec = _lane_pressure_scene(count)
     # Unique tokens expose every source word through actual painted output, including
-    # the complete logical note that cannot fit beside the axes in the rescued band.
+    # a complete logical note continued when lane growth leaves too little footer room.
     spec["notes"] = [" ".join(f"N{index:03d}" for index in range(1, 61))]
     supplied = json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True)
     attempts = []
@@ -3467,14 +3585,12 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
     width, height, pixels = _decode_png(png)
     assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
     assert width == 1600
-    assert attempts[0].extra == 0 and attempts[0].lane_overflow > 308
+    assert attempts[0].extra == 0 and attempts[0].lane_overflow > 0
     assert diagram.lane_overflow <= 0
-    assert diagram.axes_height < 424
-    maximum = 1792 - (diagram.footer_top - diagram.extra) - diagram.axes_height
-    assert 308 < diagram.extra <= maximum
-    assert sum(attempt.extra == maximum for attempt in attempts) <= 1
-    if math.ceil(attempts[0].lane_overflow) > maximum:
-        assert diagram.extra == maximum
+    assert diagram.extra > 0
+    assert diagram.footer_top > attempts[0].footer_top
+    assert diagram.print_panels[0]["height_px"] <= 1792
+    assert len({attempt.extra for attempt in attempts}) == len(attempts)
     assert diagram.camera == _FRONT
     assert diagram.viewport == attempts[0].viewport
     assert diagram.canvas.scale == attempts[0].canvas.scale
@@ -3503,10 +3619,12 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
     axes = [
         box
         for box in diagram.canvas.text_boxes
-        if box[1] < 350 and diagram.footer_top < box[2] < first_band["height_px"]
+        if box[0] in {"SETUP", "AXES", "X", "Y", "Z", "Z TOWARD"}
+        and diagram.footer_top < box[2] < first_band["height_px"]
     ]
-    assert {"SETUP AXES", "X", "Y", "Z", "Z TOWARD"} <= {box[0] for box in axes}
+    assert {"SETUP", "AXES", "X", "Y", "Z", "Z TOWARD"} <= {box[0] for box in axes}
     assert max(box[4] for box in axes) + 16 <= first_band["height_px"]
+    _assert_main_footer_entries(diagram)
     diagram.canvas.assert_text_layout(min_scale=5)
     cursor = 0
     for panel in diagram.print_panels:
@@ -3531,7 +3649,7 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
 
 
 def test_main_lane_actual_maximum_overflow_refuses_once_without_composing(monkeypatch):
-    meshes, spec = _lane_pressure_scene(60)
+    meshes, spec = _lane_pressure_scene(96)
     attempts, composed = [], []
     render, compose = _Diagram.render, render_module._compose_diagram
 
@@ -3549,14 +3667,15 @@ def test_main_lane_actual_maximum_overflow_refuses_once_without_composing(monkey
     with pytest.raises(ValueError, match="complete setup panel") as failure:
         render_diagram(meshes, spec)
     last = attempts[-1]
-    maximum = 1792 - (last.footer_top - last.extra) - last.axes_height
+    message = str(failure.value)
+    maximum = int(re.search(r"\bmax_extra_px=(\d+)", message).group(1))
     assert last.extra == maximum
     assert last.lane_overflow > 0
     assert sum(attempt.extra == maximum for attempt in attempts) == 1
     assert not composed
-    message = str(failure.value)
+    assert last.canvas.height <= 1792
     assert "owner=_Diagram, role=setup" in message
-    assert "setup_id='LANE60', view='plan'" in message
+    assert "setup_id='LANE96', view='plan'" in message
     assert f"attempted_extra_px={last.extra}" in message
     assert f"max_extra_px={maximum}" in message
     assert f"axes_min_px={last._axes_minimum()}" in message

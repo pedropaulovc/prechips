@@ -768,9 +768,7 @@ def evaluate(bundle):
                         for reason in row.get("reasons", ())
                     ] or evidence.get("reasons", [])
                     cause = "; ".join(reasons) or "complete causal boundary proof is absent"
-                    saw_refusals.setdefault(index, []).append(
-                        f"{setup['id']}:{op['op']}: {cause}"
-                    )
+                    saw_refusals.setdefault(index, []).append(f"{setup['id']}:{op['op']}: {cause}")
             continue
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation, even with an explicit face override, credits only the
