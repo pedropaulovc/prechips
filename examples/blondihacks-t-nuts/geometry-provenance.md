@@ -274,6 +274,44 @@ D1, B1, B2 and F1 groups share presentation instructions only; their physical
 operation identities, findings and results remain separate. The canonical STEP
 bytes, SHA-256 and geometry export observations above are unchanged.
 
+### Facing entry allowance
+
+Q1–Q4 operation10 uses the existing `contour.sweep_bounds` and `sweep_frame`
+to extend the planned cut area 2.54 mm (.100 inch) toward the actual raster
+entry. This is an **AUTHOR'S CHOICE illustrative process allowance**, not a
+video dimension, shop measurement, uncertainty bound or safety qualification.
+The finished removal bounds, face depths, stepover and finished geometry are
+unchanged. The cutter centre remains one cutter radius beyond the planned cut
+area boundary; this radius is not the physical gap from the stock.
+
+The source contours explicitly use `sweep_frame = "model"`: sweep source frames
+resolve from the geometry manifest, not the plan-owned setup-frame table.
+The bounds are transformed from the local audit extents below into that model
+frame; they are not setup-frame numbers merely relabelled as model coordinates.
+For the selected .750-inch cutter, the intended directed centre paths are:
+
+| Setup | Existing setup frame | Setup-frame X projection, mm | Centre X start → end, inch |
+| --- | --- | --- | --- |
+| Q1 | batch-bottom-up | −15.24..100.965 | −.975 → 4.350 |
+| Q2 | side-one-up | −103.505..12.7 | −4.450 → +.875 |
+| Q3 | side-two-up | −15.24..100.965 | −.975 → 4.350 |
+| Q4 | top-up | −15.24..100.965 | −.975 → 4.350 |
+
+Q2 enters at the B0-sawn far end, not the accessible right datum end;
++.875 inch is its exit. Q1/Q3/Q4 enter at the original starting end.
+The existing .001-inch-per-inch starting-end squareness corresponds to about
+.0012 inch across the 1 × .625-inch section diagonal. The existing .0001-inch
+DRO resolution is an illustrative capability, not positioning accuracy.
+Those inputs provide scale for the chosen allowance but do not establish a
+complete error budget. B0 length and face error, finder error, burrs, backlash
+and manual positioning error remain undeclared; in particular Q2 has no
+declared B0 error bound. No measurement is invented to justify .100 inch.
+
+The actual incoming stock, transformed into each setup frame, must still be
+used for native entry classification and pre/post geometry checks. Nominal
+outside-stock entry does not certify real-world clearance or machining safety.
+The prominent example-only warning and unresolved source boundaries remain.
+
 ## Finite saw and native pickup design
 
 The saw, arbor, vises, supports and capture are explicit demonstration inputs, not

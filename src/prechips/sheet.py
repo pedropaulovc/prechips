@@ -1120,12 +1120,16 @@ class _Note(str):
 class _Criterion(str):
     """A complete displayed criterion with producer-owned parts for compact layout."""
 
-    def __new__(cls, text, *, heading="", value=None, methods=(), context=""):
+    def __new__(
+        cls, text, *, heading="", value=None, methods=(), context="", subjects=(), expanded=None
+    ):
         criterion = super().__new__(cls, text)
         criterion.heading = heading
         criterion.value = value
         criterion.methods = methods
         criterion.context = context
+        criterion.subjects = tuple(subjects)
+        criterion.expanded = text if expanded is None else expanded
         return criterion
 
 
@@ -1386,6 +1390,37 @@ def _typed_values(values, scope):
             yield _Decision("measurement", "unknown", scope, "block", str(value))
 
 
+def _inspection_identity_attributes(subjects):
+    return f'data-inspection-ids="{escape(json.dumps(subjects))}"'
+
+
+def _inspection_criteria(checks):
+    """Keep criterion identity separate from physical recording-field ownership."""
+    for check in checks:
+        if isinstance(check, _Criterion):
+            yield check
+        elif isinstance(check, _Inspection):
+            if check.compact_criteria:
+                for _, _, criterion in check.compact_criteria:
+                    yield (
+                        criterion
+                        if isinstance(criterion, _Criterion)
+                        else _Criterion(criterion, subjects=check.subjects, expanded=check.text)
+                    )
+            else:
+                yield _Criterion(check.text, subjects=check.subjects)
+
+
+def _criterion_html(criterion, text=None, *, formatter=_numeric_html):
+    return (
+        '<span class="inspection-criterion" '
+        + _inspection_identity_attributes(criterion.subjects)
+        + ">"
+        + formatter(str(criterion) if text is None else text)
+        + "</span>"
+    )
+
+
 def _inspection_attributes(check):
     owner = (
         "Batch " + ", ".join(check.covered_workpieces)
@@ -1397,7 +1432,7 @@ def _inspection_attributes(check):
         f'data-feature="{escape(", ".join(check.features))}" '
         f'data-features="{escape(json.dumps(check.features))}" '
         f'data-requirement="{escape(check.requirement)}" '
-        f'data-inspection-ids="{escape(json.dumps(check.subjects))}" '
+        f"{_inspection_identity_attributes(check.subjects)} "
         f'data-setup-id="{escape(check.setup_id or "")}" '
         f'data-op-id="{escape(str(check.op_id) if check.op_id is not None else "")}" '
         f'data-workpiece="{escape(check.workpiece or "")}" '
@@ -1443,7 +1478,12 @@ def _inspection_method(method, *, layout="block", label="inline"):
 def _inspection_html(check, *, result=True):
     return (
         '<div class="inspection-layout"><div class="inspection-requirement">'
-        + _p(check.text)
+        + "<p>"
+        + "; ".join(
+            _criterion_html(criterion, criterion.expanded)
+            for criterion in _inspection_criteria((check,))
+        )
+        + "</p>"
         + "</div>"
         + "".join(_inspection_method(method) for method in check.methods)
         + (
@@ -1470,7 +1510,10 @@ def _checkpoint_results(records):
             + _writing_field(owner, "result-field")
             + "</div>"
         )
-    return '<div class="checkpoint-results">' + "".join(cells) + "</div>" if cells else ""
+    return "".join(
+        '<div class="checkpoint-results">' + "".join(cells[start : start + 4]) + "</div>"
+        for start in range(0, len(cells), 4)
+    )
 
 
 def _ledger_row(
@@ -1559,7 +1602,15 @@ def _ledger_row(
                 + "</td></tr>"
             )
         else:
-            result.append(f'<tr class="inspection-message"><td>{_ledger_text(check)}</td></tr>')
+            result.append(
+                '<tr class="inspection-message"><td>'
+                + (
+                    _criterion_html(check, formatter=_ledger_text)
+                    if isinstance(check, _Criterion)
+                    else _ledger_text(check)
+                )
+                + "</td></tr>"
+            )
     result.append("</tbody>")
     return "".join(result)
 
@@ -3327,8 +3378,8 @@ class _Traveler:
                 for op in setup.get("ops", [])
             ):
                 return (
-                    "Hand-tap movement is not checked; the planner has not identified "
-                    "the hole's inside surface in the model."
+                    "Hand-tap movement is not checked: "
+                    "the hole's inside surface is not identified in the model."
                 )
         if "point away from the setup approach" in message:
             return "faces to cut point away from the tool; they cannot be cut in this setup"
@@ -6292,6 +6343,7 @@ class _Traveler:
                         "check_jog_mm",
                         "jog_mm",
                         "mounted_saw_setting",
+                        "mounted_saw",
                     )
                 }
                 common["tool"] = identity(self.bundle, touch.get("tool"), "spindle")
@@ -6335,6 +6387,25 @@ class _Traveler:
             item[0]["id"]: group for group in groups.values() if len(group) > 1 for item in group
         }
 
+    def mounted_saw_xy(self, record):
+        """Distinct literal-mm body-contact and arbor positions from the zero record."""
+        mounted = _mapping(record.get("mounted_saw"))
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        positions = []
+        for field, label, size in (
+            ("point_mm", "Blade-body contact", 3),
+            ("axis_xy_mm", "arbor axis", 2),
+        ):
+            values = mounted.get(field)
+            if not isinstance(values, (list, tuple)) or len(values) != size:
+                values = (None, None)
+            coordinates = "/".join(
+                axis + (self.readout(value / scale) if scale and _known(value) else "?")
+                for axis, value in zip("XY", values[:2], strict=True)
+            )
+            positions.append(f"{label} {coordinates}")
+        return "; ".join(positions)
+
     def mounted_datum_table(self, setup):
         group = self.mounted_datum_groups.get(setup["id"])
         if not group:
@@ -6362,10 +6433,11 @@ class _Traveler:
             xy.append(
                 f"{record.get('edge', record.get('face'))} {axis}{self.readout(record['edge_mm'])}"
                 + f" at {other}{mm(common['at_lateral_mm'])}"
+                + f"; Axis Set {axis}{self.readout(record['axis_set'])}"
             )
             if self.detail == "hobby":
                 xy[-1] += (
-                    f"; Axis Set {axis}{self.readout(record['axis_set'])}; "
+                    "; "
                     f"{jog(record, axis)} "
                     f"check {self.readout(record['check_reading'])}; "
                     f"{self.readout(record['mirrored_reading'])} reversed: STOP"
@@ -6382,6 +6454,7 @@ class _Traveler:
             f"stand-off {mm(float(clearance[1]))}, retract {mm(float(clearance[2]))} above. "
             f"Every cut: fresh stopped {side} body-side touch at "
             f"{self.contact_label(z.get('face'))} Z{self.readout(z['edge_mm'])}, "
+            f"{self.mounted_saw_xy(z)}; "
             f"{mm(setting.get('paper_mm'))} paper; "
             f"Axis Set cutting midplane Z{self.readout(z['axis_set'])}."
         )
@@ -6879,6 +6952,7 @@ class _Traveler:
                         brief.append(self.bench(_METHODS.get(method, _text(method)), setup))
                     if method == "mounted_saw_side":
                         brief.append("fresh stopped " + self.mounted_saw_contact(computed))
+                        brief.append(self.mounted_saw_xy(computed))
                     at = touch.get("at_mm")
                     scale = {"mm": 1.0, "in": 25.4}.get(self.units)
 
@@ -6898,7 +6972,7 @@ class _Traveler:
                     ):
                         labels = "XY" if axis == "z" else ("YZ" if axis == "x" else "XZ")
                         brief.append(
-                            "at "
+                            ("pickup reference at " if method == "mounted_saw_side" else "at ")
                             + "/".join(
                                 label + physical_reading(value)
                                 for label, value in zip(labels, at, strict=True)
@@ -7059,7 +7133,7 @@ class _Traveler:
                             )
                         )
                     )
-        elif detail == "pedantic":
+        elif detail == "pedantic" and rows:
             reference = next(
                 (
                     _mapping(authored.get(axis)).get("tool")
@@ -8857,7 +8931,29 @@ class _Traveler:
                         else None
                     )
                     rows += self.inspection_rows(
-                        requirement, owners, reference, pair, requirement in missing, note, []
+                        requirement,
+                        owners,
+                        reference,
+                        pair,
+                        requirement in missing,
+                        note,
+                        [
+                            target
+                            for target in selected
+                            if target["identity"]["feature_owner"] in group
+                        ],
+                        debt_subjects=tuple(
+                            _field(finding, "subject")
+                            for finding in self.findings
+                            if _field(finding, "rule") == "inspection"
+                            and (evidence := _mapping(_field(finding, "numbers"))).get(
+                                "missing_requirement"
+                            )
+                            and evidence.get("setup_id") == setup["id"]
+                            and evidence.get("op_id") == op["op"]
+                            and _mapping(evidence.get("identity")).get("feature_owner") in group
+                            and _mapping(evidence.get("identity")).get("requirement") == requirement
+                        ),
                     )
                 continue
             partitions = {}
@@ -8940,7 +9036,9 @@ class _Traveler:
             rows.append(self.note("Inspection", note))
         return rows
 
-    def inspection_rows(self, requirement, owners, reference, pair, absent, note, targets):
+    def inspection_rows(
+        self, requirement, owners, reference, pair, absent, note, targets, *, debt_subjects=()
+    ):
         """Render selected numeric or part-owned criteria, retaining authored debt."""
 
         def finding_for(target):
@@ -9040,7 +9138,10 @@ class _Traveler:
             if first.get("method") in (None, "unknown"):
                 line += "; inspection method not set"
             if not known:
-                return [line, *methods]
+                return [
+                    _Criterion(line, subjects=tuple(target["subject"] for target in targets)),
+                    *methods,
+                ]
             return [
                 _Inspection(
                     line,
@@ -9065,6 +9166,8 @@ class _Traveler:
                                 heading=name,
                                 methods=methods,
                                 context=name + ":",
+                                subjects=tuple(target["subject"] for target in targets),
+                                expanded=line,
                             ),
                         ),
                     ),
@@ -9072,7 +9175,15 @@ class _Traveler:
                 )
             ]
         if absent or requirement == "unknown" or not owners or not targets:
-            return [line, *methods]
+            if owners:
+                line = ", ".join(self.feature_name(feature) for feature in owners) + " — " + line
+            return [
+                _Criterion(
+                    line,
+                    subjects=tuple(target["subject"] for target in targets) or debt_subjects,
+                ),
+                *methods,
+            ]
         # Equal bands retain the original read-once grouping. Distinct authored
         # bands get distinct result associations, without copying method obligations.
         groups = (
@@ -9102,8 +9213,13 @@ class _Traveler:
                 else band
             )
             text += " — " + line.replace(target, shown_band, 1)
+            subjects = tuple(
+                target["subject"]
+                for target in targets
+                if target["identity"]["feature_owner"] in group
+            )
             if not known:
-                rows.extend([text, *(methods if not rows else ())])
+                rows.extend([_Criterion(text, subjects=subjects), *(methods if not rows else ())])
                 continue
             feature_labels = [self.feature_name(feature) for feature in group]
             repeated_dimension = self.detail != "pedantic" and all(
@@ -9122,11 +9238,7 @@ class _Traveler:
                     or any(isinstance(value, str) for value in values),
                     methods=methods if not rows else (),
                     reading_owned=reading_owned and len(groups) == 1,
-                    subjects=tuple(
-                        target["subject"]
-                        for target in targets
-                        if target["identity"]["feature_owner"] in group
-                    ),
+                    subjects=subjects,
                     compact_criteria=(
                         (
                             identity(self.bundle, reference, "gauges"),
@@ -9155,6 +9267,8 @@ class _Traveler:
                                 ),
                                 methods=methods if not rows else (),
                                 context=name + ":",
+                                subjects=subjects,
+                                expanded=text,
                             ),
                         ),
                     ),
@@ -10322,27 +10436,28 @@ class _Traveler:
         scale = {"mm": 1.0, "in": 25.4}.get(self.units)
         if box is None or scale is None or not _known(radius) or run is None:
             return ""
+        radius_mm = radius * scale
 
         def clear_side(axis, centre, side):
             # Project onto this side: a gap on the other axis cannot certify it.
             point = [box[0] / scale, box[1] / scale]
             point[axis] = centre
             outside = centre * scale < box[axis] if side < 0 else centre * scale > box[axis + 3]
-            return outside and in_air(box, point, radius, scale)
+            return outside and in_air(box, point, radius_mm, scale)
 
         # The outer ends are every piece's ends only when no keep-out split a pass.
         whole = bool(points) and all(min(abs(p[run] - end) for end in ends) <= 1e-9 for p in points)
         low, high = sorted(ends)
         air = [s for v, s in ((low, -1), (high, 1)) if clear_side(run, v, s)]
-        every = bool(points) and all(in_air(box, point, radius, scale) for point in points)
+        every = bool(points) and all(in_air(box, point, radius_mm, scale) for point in points)
         text = ""
         if air:
             text += "; " + self._raster_air_ends(pieces if points else [], run, axis, air, whole)
-            text += ", a cutter radius past the stock"
+            text += ", clear of stock"
         if every and air:
             text += " — every pass runs in and out clear"
         elif every:
-            text += "; every pass runs in and out clear, a cutter radius past the stock"
+            text += "; every pass runs in and out clear of stock"
         elif air and not whole:
             text += (
                 "; a keep-out splits passes into pieces that also start and stop between,"
@@ -10356,10 +10471,17 @@ class _Traveler:
             and "XY".index(side[1]) == across
             and clear_side(across, entry, -1 if side[0] == "-" else 1)
         ):
-            text += (
-                "; pass 1 enters from air, a cutter radius outside the stock on the open "
-                f"{side} side"
-            )
+            text += f"; pass 1 enters from air, clear of stock on the open {side} side"
+        area_ends = raster.get("area_ends")
+        if (
+            text
+            and isinstance(area_ends, list)
+            and len(area_ends) == 2
+            and all(map(_known, area_ends))
+            and min(area_ends) - low >= radius - 1e-9
+            and high - max(area_ends) >= radius - 1e-9
+        ):
+            text += "; cutter centres extend at least a radius beyond the planned cut area"
         return text
 
     @staticmethod
@@ -10591,12 +10713,21 @@ class _Traveler:
             return None
         start, end = segments[0][0][0], segments[0][1][0]
         entries = path.get("entries", [])
+        entry_kinds = {
+            "air"
+            if down.get("air") is True and down.get("contact") in (None, "air")
+            else "tangent"
+            if down.get("air") is False and down.get("contact") == "tangent"
+            else None
+            for down in entries
+        }
         if len(entries) != len(segments) or any(
             segment[0][0] != start
             or segment[1][0] != end
             or segment[0][1] != segment[1][1]
             or down.get("xy") != segment[0]
-            or down.get("contact") != "tangent"
+            or len(entry_kinds) != 1
+            or None in entry_kinds
             for segment, down in zip(segments, entries, strict=True)
         ):
             return None
@@ -10606,6 +10737,7 @@ class _Traveler:
             self.readout(start),
             self.readout(end),
             ", ".join(self.readout(segment[0][1]) for segment in segments),
+            next(iter(entry_kinds)),
         )
 
     def route_contour_parts(self, setup, tools, blocks, stops):
@@ -12355,7 +12487,7 @@ class _Traveler:
                 ):
                     facts.append(f"{flutes} flutes")
                 for key, label in (
-                    ("lead_mm", "lead"),
+                    ("lead_mm", "chamfer/lead length" if item.get("kind") == "tap" else "lead"),
                     ("kerf_mm", "kerf"),
                     ("thickness_mm", "body"),
                 ):
@@ -12366,7 +12498,8 @@ class _Traveler:
                     _known(_amount(item.get("lead_mm")))
                     or reach_status in ("error", "unknown", "unsupported", "warn")
                 ) and _known(length := _amount(item.get("flute_len_mm"))):
-                    facts.append(f"cutting {millimetres(length)}")
+                    label = "threaded cutting length" if item.get("kind") == "tap" else "cutting"
+                    facts.append(f"{label} {millimetres(length)}")
                 if manual_unset and not facts:
                     continue
                 holder = op.get("holder")
@@ -12376,7 +12509,9 @@ class _Traveler:
                         projections[pair_key] = tuple(
                             str(part)
                             for part in self.tool_detail(
-                                reference, holder, length_format=millimetres
+                                reference,
+                                holder,
+                                length_format=lambda value: f"{_number(value)} mm",
                             )
                             if str(part).startswith("projection ")
                         )
@@ -12887,7 +13022,11 @@ class _Traveler:
         for check in row[-1]:
             if not isinstance(check, _Inspection):
                 content += (
-                    _inspection_method(check) if isinstance(check, (_Note, _Steps)) else _p(check)
+                    _inspection_method(check)
+                    if isinstance(check, (_Note, _Steps))
+                    else "<p>" + _criterion_html(check) + "</p>"
+                    if isinstance(check, _Criterion)
+                    else _p(check)
                 )
                 continue
             reading_owner = check.reading_owned or any(
@@ -12900,7 +13039,7 @@ class _Traveler:
             for gauge_id, gauge, criterion in check.compact_criteria:
                 gauges.setdefault((gauge_id, gauge), []).append(criterion)
             if not gauges:
-                content += _p(check.text)
+                content += "<p>" + _criterion_html(next(_inspection_criteria((check,)))) + "</p>"
             for (_, gauge), criteria in gauges.items():
                 bands = (
                     not reading_owner
@@ -12916,6 +13055,8 @@ class _Traveler:
                 )
                 gauge_label = gauge + (f" ({unit})" if shared_unit else "")
                 for index, criterion in enumerate(criteria):
+                    if not isinstance(criterion, _Criterion):
+                        criterion = _Criterion(criterion, subjects=check.subjects)
                     methods = tuple(
                         method
                         for method in getattr(criterion, "methods", ())
@@ -12967,12 +13108,14 @@ class _Traveler:
                             shown = str(shown).rstrip(".") + " —"
                         content += (
                             "<p>"
-                            + _numeric_html(gauge_prefix + shown)
+                            + _criterion_html(criterion, gauge_prefix + shown)
                             + (" " + method_html if method_html else "")
                             + "</p>"
                         )
                     else:
-                        content += _p(gauge_prefix + criterion)
+                        content += (
+                            "<p>" + _criterion_html(criterion, gauge_prefix + criterion) + "</p>"
+                        )
                         content += method_html
             content += "".join(
                 _inspection_method(method)
@@ -13152,6 +13295,16 @@ class _Traveler:
                 )
                 layout = "inline" if inline else "block"
                 instruction = self.route_operation(setup, row, layout=layout)
+                comparison_instruction = instruction
+                for criterion in _inspection_criteria(row[-1]):
+                    comparison_instruction = comparison_instruction.replace(
+                        '<span class="inspection-criterion" '
+                        + _inspection_identity_attributes(criterion.subjects)
+                        + ">",
+                        '<span class="inspection-criterion" '
+                        + _inspection_identity_attributes(())
+                        + ">",
+                    )
                 methods = tuple(
                     (
                         type(method).__name__,
@@ -13172,7 +13325,7 @@ class _Traveler:
                     f"operation:{row.op_id}",
                     instruction,
                     comparison=(
-                        instruction,
+                        comparison_instruction,
                         tuple(row[4:6]) if len(row) == 9 else (),
                         row.tool_spec,
                         methods,
@@ -13592,6 +13745,35 @@ class _Traveler:
             else ""
         )
 
+    def shared_criterion_identities(self, variant, html):
+        """Union only corresponding criteria of already-equal member instructions."""
+        if not all(block.key.startswith("operation:") for block in variant):
+            return html
+        criteria = []
+        for block in variant:
+            row = next(
+                (
+                    row
+                    for row in self._rows_by_setup.get(block.setup_id, ())
+                    if row.op_id == block.op_id
+                ),
+                None,
+            )
+            if row is None:
+                return html
+            criteria.append(tuple(_inspection_criteria(row[-1])))
+        opening = '<span class="inspection-criterion" '
+        parts = html.split(opening)
+        for index, corresponding in enumerate(zip(*criteria, strict=True), 1):
+            subjects = tuple(
+                dict.fromkeys(
+                    subject for criterion in corresponding for subject in criterion.subjects
+                )
+            )
+            _, closing, body = parts[index].partition(">")
+            parts[index] = _inspection_identity_attributes(subjects) + closing + body
+        return opening.join(parts)
+
     def family_html(self, group, blocks_by_setup, *, heading_note=""):
         ids = [setup["id"] for setup in group]
         displayed_ids = [_text(sid) for sid in ids]
@@ -13627,21 +13809,25 @@ class _Traveler:
                 row = self._route_facing_paths.get((setup["id"], str(op["op"])))
                 if row is None:
                     continue
-                z, lift, start, end, ys = row
+                z, lift, start, end, ys, entry_kind = row
                 facing.setdefault(setup["id"], []).append(
                     f'<span class="facing-path" data-op-id="{escape(str(op["op"]))}">'
                     + _numeric_html(f"X {start} → {end}; Y {ys}.")
                     + "</span>"
                 )
-                facing_levels.setdefault((z, lift), []).append(f"{setup['id']}:{op['op']}")
+                facing_levels.setdefault((z, lift, entry_kind), []).append(
+                    f"{setup['id']}:{op['op']}"
+                )
         facing_rules = [
             _p(
                 (", ".join(owners) + ": " if len(facing_levels) > 1 else "")
-                + f"Each Y: lower to Z{z} at tangent start; feed X start→end one-way; "
+                + f"Each Y: lower to Z{z} "
+                + ("in air at start" if entry_kind == "air" else "at tangent start")
+                + "; feed X start→end one-way; "
                 + f"lift Z{lift} before return/reposition.",
                 "facing-cycle",
             )
-            for (z, lift), owners in facing_levels.items()
+            for (z, lift, entry_kind), owners in facing_levels.items()
         ]
         facing_embedded = False
         prelude_html, prelude_operation = "", None
@@ -13898,6 +14084,7 @@ class _Traveler:
             )
         keys = list(dict.fromkeys(key for mapping in maps for key in mapping))
         last_inline_owners = None
+        last_visible_owners = tuple(ids)
         for key in keys:
             available = [mapping[key] for mapping in maps if key in mapping]
             variants = []
@@ -13936,18 +14123,21 @@ class _Traveler:
                         for block in variant
                     ]
                     shared = variant[0].shared_html or variant[0].html
+                    shared = self.shared_criterion_identities(variant, shared)
                     if variant[0].decisions:
                         facts = tuple(fact for block in variant for fact in block.decisions)
                         shared = _decision_html(
                             facts[0], facts[1:], owners=identities, layout=variant[0].layout
                         )
+                    inline_owners = tuple(block.setup_id for block in variant)
                     label = (
                         _p(", ".join(block.setup_id for block in variant), "variant-label")
                         if len(variant) != len(group)
+                        or self.detail != "pedantic"
+                        and last_visible_owners != inline_owners
                         else ""
                     )
                     tag = "span" if variant[0].layout == "inline" else "div"
-                    inline_owners = tuple(block.setup_id for block in variant)
                     if tag == "span" and label:
                         label = (
                             '<span class="variant-label">'
@@ -13957,6 +14147,7 @@ class _Traveler:
                             else ""
                         )
                     last_inline_owners = inline_owners if tag == "span" else None
+                    last_visible_owners = inline_owners
                     result.append(
                         f'<{tag} class="family-common" '
                         f'data-physical-ops="{escape(json.dumps(identities))}">'
@@ -14003,6 +14194,7 @@ class _Traveler:
                             else ""
                         )
                     last_inline_owners = (block.setup_id,) if tag == "span" else None
+                    last_visible_owners = tuple(ids) if common_definition else (block.setup_id,)
                     result.append(
                         f'<{tag} class="setup-variant" data-setup-title="{escape(label)}" '
                         f'data-setup-id="{escape(block.setup_id or "")}" '
@@ -14131,7 +14323,7 @@ class _Traveler:
             f"<div>qty {quantity} · {self.detail}</div></div>"
             if self.detail == "pedantic"
             else f'<p class="job-identity"><strong>{escape(title)}</strong> · qty {quantity} · '
-            f"{escape(_text(drawing.get('number')))} · {self.detail.title()} · "
+            f"{escape(_text(drawing.get('number')))} · "
             + escape(f"rev {revision}" if revision else "REV NOT CONFIRMED")
             + "</p>"
         )

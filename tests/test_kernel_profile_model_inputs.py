@@ -1,6 +1,7 @@
 """Explicit guided-profile intent reaches native inputs without a geometry claim."""
 
 from copy import deepcopy
+from itertools import product
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from test_geometry_rules import rules_bundle
 from prechips import kernel
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates
+from prechips.rules.level_entry import in_air
 
 TNUT = Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
 
@@ -265,3 +267,113 @@ def test_unknown_raster_pass_is_not_omitted_beside_a_valid_final_depth_path():
     assert len(native["paths"]) == 1
     assert native["paths"][0]["xy_mm"] == [[0, 0], [10, 0]]
     assert native["reason"]
+
+
+def test_tnut_facing_entry_allowance_changes_paths_not_finished_removal():
+    bundle = load_bundle(TNUT)
+    baseline = deepcopy(bundle)
+    expected = {
+        "Q1": (-22.225, -24.765, 110.49, "batch-bottom-up"),
+        "Q2": (-110.49, -113.03, 22.225, "side-one-up"),
+        "Q3": (-22.225, -24.765, 110.49, "side-two-up"),
+        "Q4": (-22.225, -24.765, 110.49, "top-up"),
+    }
+    removal = {
+        "Q1": {"x": [-12.7, 100.965], "y": [-12.7, 12.7], "z": [0.0, 1.5875]},
+        "Q2": {"x": [-100.965, 12.7], "y": [-14.2875, 0.0], "z": [0.0, 1.5875]},
+        "Q3": {"x": [-12.7, 100.965], "y": [-14.2875, 0.0], "z": [0.0, 1.5875]},
+        "Q4": {"x": [-12.7, 100.965], "y": [-11.1125, 11.1125], "z": [0.0, 1.5875]},
+    }
+    model_boxes = {
+        "Q1": {"x": [-2.54, 113.665], "y": [-12.7, 12.7], "z": [-1.5875, 0.0]},
+        "Q2": {"x": [0.0, 116.205], "y": [-12.7, -11.1125], "z": [0.0, 14.2875]},
+        "Q3": {"x": [-2.54, 113.665], "y": [11.1125, 12.7], "z": [0.0, 14.2875]},
+        "Q4": {"x": [-2.54, 113.665], "y": [-11.1125, 11.1125], "z": [12.7, 14.2875]},
+    }
+    for setup in baseline.plan["setups"]:
+        if setup["id"] in expected:
+            op = next(item for item in setup["ops"] if item["op"] == 10)
+            del op["contour"]["sweep_bounds"]
+            del op["contour"]["sweep_frame"]
+    before = {
+        row.subject: row.numbers
+        for row in coordinates.evaluate(baseline, pre_kernel=True)
+        if row.subject in expected
+    }
+    after = {
+        row.subject: row.numbers
+        for row in coordinates.evaluate(bundle, pre_kernel=True)
+        if row.subject in expected
+    }
+    assert set(before) == set(after) == set(expected)
+    for subject, (old_start, new_start, end, frame) in expected.items():
+        setup = next(item for item in bundle.plan["setups"] if item["id"] == subject)
+        op = next(item for item in setup["ops"] if item["op"] == 10)
+        old_setup = next(item for item in baseline.plan["setups"] if item["id"] == subject)
+        old_op = next(item for item in old_setup["ops"] if item["op"] == 10)
+        assert setup["frame"] == frame
+        assert op["contour"]["sweep_frame"] == "model"
+        assert op["contour"]["sweep_bounds"] == model_boxes[subject]
+        basis = bundle.plan["frames"][frame]
+        points = [
+            [
+                sum((point[i] - basis["origin"][i]) * basis[axis][i] for i in range(3))
+                for axis in ("x", "y", "z")
+            ]
+            for point in product(*(model_boxes[subject][axis] for axis in ("x", "y", "z")))
+        ]
+        for index, axis in enumerate(("x", "y", "z")):
+            extent = [min(point[index] for point in points), max(point[index] for point in points)]
+            expected_extent = list(removal[subject][axis])
+            if axis == "x":
+                expected_extent[0] -= 2.54
+            assert extent == pytest.approx(expected_extent)
+        assert op["stock_removal_bounds"] == old_op["stock_removal_bounds"] == removal[subject]
+        assert op["to_z"] == old_op["to_z"] == 0.0
+        old_profile = next(item for item in before[subject]["profiles"] if item["op"] == 10)
+        profile = next(item for item in after[subject]["profiles"] if item["op"] == 10)
+        old_passes, passes = old_profile["cutter_centre"], profile["cutter_centre"]
+        assert len(old_passes) == len(passes) == 3
+        for old_path, path in zip(old_passes, passes, strict=True):
+            assert len(old_path) == len(path) == 2
+            assert [point[0] for point in old_path] == pytest.approx([old_start, end])
+            assert [point[0] for point in path] == pytest.approx([new_start, end])
+            assert [point[1] for point in path] == [point[1] for point in old_path]
+        assert profile["raster"]["lift_z"] == pytest.approx(4.1275)
+        prepared = kernel.op_inputs(
+            bundle, setup, op, finishing=set(), complete=set(), tables=after[subject]
+        )
+        paths = kernel._engine_op(prepared)["tool_paths"]
+        assert "reason" not in paths
+        assert paths["levels_mm"] == [0.0, 0.0]
+        cut_paths = [path for path in paths["paths"] if path["z_mm"] == [0.0, 0.0]]
+        assert len(cut_paths) == 3
+        for path in cut_paths:
+            assert [point[0] for point in path["xy_mm"]] == pytest.approx([new_start, end])
+        entries = [
+            path
+            for path in paths["paths"]
+            if len(path["xy_mm"]) == 1 and path["xy_mm"][0][0] == new_start
+        ]
+        assert len(entries) == 3
+        for path in entries:
+            assert path["z_mm"] == pytest.approx([0.0, 4.1275])
+
+
+@pytest.mark.parametrize(
+    "box,old_start,new_start",
+    [
+        ([-12.7, -12.7, -14.2875, 100.965, 12.7, 1.5875], -22.225, -24.765),
+        ([-100.965, -14.2875, -23.8125, 12.7, 0.0, 1.5875], -110.49, -113.03),
+        ([-12.7, -14.2875, -22.225, 100.965, 0.0, 1.5875], -22.225, -24.765),
+        ([-12.7, -11.1125, -12.7, 100.965, 11.1125, 1.5875], -22.225, -24.765),
+    ],
+    ids=["Q1", "Q2", "Q3", "Q4"],
+)
+def test_facing_entry_uses_full_incoming_box_not_planned_cut_area(box, old_start, new_start):
+    # Synthetic incoming-stock evidence exercises the existing finite-disk classifier.
+    # It does not replace Main's actual native cold/warm stock observations.
+    assert in_air(box, [old_start, 0.0], 9.525, 1.0) is False
+    assert in_air(box, [new_start, 0.0], 9.525, 1.0) is True
+    larger_stock = [box[0] - 5.08, *box[1:]]
+    assert in_air(larger_stock, [new_start, 0.0], 9.525, 1.0) is False

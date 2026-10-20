@@ -67,14 +67,22 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
-def test_authored_frame_provenance_is_carried_by_its_citation():
+@pytest.mark.parametrize(
+    "citation",
+    [
+        ["AUTHOR'S CHOICE"],
+        "geometry-provenance.md: AUTHOR'S CHOICE local datum",
+        ["geometry-provenance.md: AUTHOR'S CHOICE batch frame", "https://example.com/source"],
+    ],
+)
+def test_authored_frame_provenance_is_carried_by_its_citation(citation):
     frame = {
         "origin": [0.0, 0.0, 0.0],
         "x": [1.0, 0.0, 0.0],
         "y": [0.0, 1.0, 0.0],
         "z": [0.0, 0.0, 1.0],
         "binding": "nominal",
-        "cite": ["AUTHOR'S CHOICE"],
+        "cite": citation,
         "note": "Establish the physical pickup before cutting.",
     }
     plan = {"frames": {"setup-frame": frame}}
@@ -341,7 +349,10 @@ def test_standalone_validator_rejects_semantic_report_mutations(
     # Mutate after canonical/hash parsing: this regression exercises the independent
     # semantic checks, rather than merely proving the report checksum detects edits.
     monkeypatch.setitem(namespace, "read_report", corrupted_report)
-    with pytest.raises(ValueError):
+    rejected_by = (
+        "construction evidence" if corruption == "construction" else r"(?:sfm|saw row speed)"
+    )
+    with pytest.raises(ValueError, match=rejected_by):
         validate(case)
 
 
@@ -710,6 +721,457 @@ def test_legacy_unknown_requirement_cells_remain_visibly_feature_scoped(tmp_path
     path.write_text(html.replace(decision, altered), encoding="utf-8")
     with pytest.raises(ValueError, match="sheet hides"):
         VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "detail,criterion",
+    [
+        (
+            "pro",
+            '<div class="route-inspection"><p>caliper: ? cone boss north face '
+            "length 41.50–42.52 mm</p></div>",
+        ),
+        (
+            "hobby",
+            '<div class="route-inspection"><p>caliper: ? cone boss north face '
+            "length 41.50–42.52 mm</p></div>",
+        ),
+        (
+            "pedantic",
+            '<table><tr class="inspection-record"><td>cone boss north face — '
+            "? length 41.50–42.52 : caliper</td></tr></table>",
+        ),
+    ],
+)
+def test_sheet_accepts_current_unknown_inspection_criterion(tmp_path, detail, criterion):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, detail=detail, grouped=False)
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": "cone_boss_north_face:length",
+            "status": "unknown",
+            "numbers": {},
+        }
+    ]
+    path.write_text(html.replace(decision, criterion), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "feature,requirement,prose",
+    [
+        ("body-length", "length", "? body-length 41.50–42.52"),
+        ("cap-head-length", "length", "? cap-head-length 41.50–42.52"),
+        ("cone_socket", "dia", "? cone socket, crank socket Ø 12.0–12.1"),
+        ("crank_socket", "dia", "? cone socket, crank socket Ø 12.0–12.1"),
+        ("cone_socket", "dia", "cone socket, crank socket — ? Ø 12.0–12.1 : caliper"),
+        ("crank_socket", "dia", "cone socket, crank socket — ? Ø 12.0–12.1 : caliper"),
+        ("back-face", "length", "back-face — ? length ? : no gauge chosen"),
+    ],
+)
+def test_sheet_inspection_accepts_complete_current_owner_headings(
+    tmp_path, feature, requirement, prose
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = f"{feature}:{requirement}"
+    report["findings"] = [
+        {"rule": "inspection", "subject": subject, "status": "unknown", "numbers": {}}
+    ]
+    criterion = (
+        f'<span class="inspection-criterion" data-inspection-ids="{escape(json.dumps([subject]))}">'
+        f"{prose}</span>"
+    )
+    path.write_text(html.replace(decision, criterion), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("presentation", ["span", "pedantic"])
+@pytest.mark.parametrize(
+    "feature,requirement,prose",
+    [
+        (
+            "body-length",
+            "seam_limit",
+            "body-length — ? seam limit (no drawing limit): no gauge chosen",
+        ),
+        ("thread", "thread_class", "thread — ? thread class UNC-2A: thread gauge"),
+        ("seat", "finish_ra", "seat — ? Ra smooth: roughness comparator"),
+    ],
+)
+def test_sheet_inspection_accepts_absent_and_string_specifications(
+    tmp_path, presentation, feature, requirement, prose
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = f"{feature}:{requirement}"
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": subject,
+            "status": "unknown",
+            "numbers": {
+                "identity": {
+                    "feature_owner": feature,
+                    "requirement": requirement,
+                    "workpiece": None,
+                }
+            },
+        }
+    ]
+    ids = escape(json.dumps([subject]))
+    criterion = (
+        f'<span class="inspection-criterion" data-inspection-ids="{ids}">{prose}</span>'
+        if presentation == "span"
+        else f'<table><tr class="inspection-message"><td>{prose}</td></tr></table>'
+    )
+    path.write_text(html.replace(decision, criterion), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("presentation", ["span", "pedantic"])
+def test_sheet_inspection_rejects_longer_requirement_registered_by_sibling(tmp_path, presentation):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = "end:length"
+    report["findings"] = [
+        {"rule": "inspection", "subject": subject, "status": "unknown", "numbers": {}},
+        {
+            "rule": "inspection",
+            "subject": "other:length_overall",
+            "status": "pass",
+            "numbers": {},
+        },
+    ]
+    prose = "end — ? length overall 5"
+    criterion = (
+        f'<span class="inspection-criterion" '
+        f'data-inspection-ids="{escape(json.dumps([subject]))}">{prose}</span>'
+        if presentation == "span"
+        else f"<table><tr><td>{prose}</td></tr></table>"
+    )
+    path.write_text(html.replace(decision, criterion), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "subject,prose",
+    [
+        ("bore:dia", "pivot bore — ? Ø 10.0–10.1 : caliper"),
+        ("cone_boss_north_face:length", "other cone boss north face — ? length 41.50–42.52"),
+        ("bore:dia", "pivot bore Ø ?"),
+        ("bore:dia", "bore Ø ? pivot bore Ø 10.0–10.1"),
+        ("bore:dia", "bore — ? length 10.0–10.1"),
+        ("end:length", "end — ? length ref 5"),
+        ("bore:dia", "bore — Ø 10.0–10.1"),
+        ("bore:dia", "? bore Ø"),
+        ("bore:dia", "<span hidden>?</span> bore Ø 10.0–10.1"),
+    ],
+)
+@pytest.mark.parametrize("semantic", [False, True])
+def test_sheet_inspection_metadata_cannot_excuse_wrong_visible_criterion(
+    tmp_path, subject, prose, semantic
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {"rule": "inspection", "subject": subject, "status": "unknown", "numbers": {}}
+    ]
+    attributes = (
+        f'class="inspection-criterion" data-inspection-ids="{escape(json.dumps([subject]))}"'
+        if semantic
+        else ""
+    )
+    replacement = f"<table><tr {attributes}><td>{prose}</td></tr></table>"
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("mutation", ["none", "wrong_heading", "hidden_marker", "wrong_member"])
+def test_sheet_unknown_manual_acceptance_uses_human_requirement_owner(tmp_path, mutation):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = "nut1/part:burrs_and_chips"
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": subject,
+            "status": "unknown",
+            "numbers": {
+                "identity": {
+                    "feature_owner": None,
+                    "requirement": "burrs_and_chips",
+                    "workpiece": "nut1",
+                }
+            },
+        }
+    ]
+    heading = "stud retention" if mutation == "wrong_heading" else "burrs and chips"
+    marker = "<span hidden>?</span>" if mutation == "hidden_marker" else "?"
+    member = "nut2" if mutation == "wrong_member" else "nut1"
+    replacement = (
+        f'<div data-workpiece="{member}"><span class="inspection-criterion" '
+        f'data-inspection-ids="{escape(json.dumps([subject]))}">'
+        f"{marker} {heading}: no gauge chosen — acceptance criteria not set</span></div>"
+    )
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    if mutation == "none":
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("mutation", ["none", "wrong_member", "drop_id", "hidden_marker"])
+def test_sheet_compact_criterion_uses_existing_physical_family_ownership(tmp_path, mutation):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = "nut1/end-length:length"
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": subject,
+            "status": "unknown",
+            "numbers": {
+                "identity": {
+                    "feature_owner": "end-length",
+                    "requirement": "length",
+                    "workpiece": "nut1",
+                }
+            },
+        }
+    ]
+    members = ["nut2"] if mutation == "wrong_member" else ["nut1", "nut2", "nut3", "nut4"]
+    physical = [
+        {"setup_id": f"E{index}", "op_id": 10, "workpiece": member}
+        for index, member in enumerate(members, 1)
+    ]
+    ids = [] if mutation == "drop_id" else [subject]
+    marker = "<span hidden>?</span>" if mutation == "hidden_marker" else "?"
+    replacement = (
+        f'<div data-physical-ops="{escape(json.dumps(physical))}">'
+        f'<p><span class="inspection-criterion" data-inspection-ids="{escape(json.dumps(ids))}">'
+        f"{marker} end-length 10–11</span></p></div>"
+    )
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    if mutation == "none":
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("target", ["nut1", "nut4"])
+def test_sheet_four_member_family_cannot_borrow_one_members_unknown_marker(tmp_path, target):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": f"{target}/end-length:length",
+            "status": "unknown",
+            "numbers": {
+                "identity": {
+                    "feature_owner": "end-length",
+                    "requirement": "length",
+                    "workpiece": target,
+                }
+            },
+        }
+    ]
+    physical = [
+        {"setup_id": f"E{index}", "op_id": 10, "workpiece": f"nut{index}"} for index in range(1, 5)
+    ]
+    criteria = "".join(
+        '<span class="inspection-criterion" '
+        f'data-inspection-ids="{escape(json.dumps([f"nut{index}/end-length:length"]))}">'
+        f"{'? ' if index == 4 else ''}end-length 10–11</span> "
+        for index in range(1, 5)
+    )
+    replacement = f'<div data-physical-ops="{escape(json.dumps(physical))}"><p>{criteria}</p></div>'
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    if target == "nut4":
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("op", [30, 20])
+def test_sheet_process_hold_unknown_retains_scoped_legacy_path(tmp_path, op):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {"rule": "inspection", "subject": "D1a:30", "status": "unknown", "numbers": {}}
+    ]
+    box = (
+        '<div class="unverified"><p>? Not verified by the planner:</p>'
+        f"<p>Inspection limits / gauges (op {op}).</p></div>"
+    )
+    path.write_text(html.replace(decision, box), encoding="utf-8")
+    if op == 30:
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
+def test_sheet_accepts_owned_undeclared_centre_support_debt(tmp_path):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {"rule": "centre_support", "subject": "D1a", "status": "unknown", "numbers": {}}
+    ]
+    replacement = (
+        '<div class="decision stop" data-decision="block" data-source="centre_support" '
+        'data-status="unknown" data-scope="D1a">'
+        "<p>which centre the work rides in is undeclared.</p></div>"
+    )
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+    path.write_text(html.replace(decision, replacement.replace("D1a", "D1b")), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "? length 41.50–42.52",
+        "? cone boss south face length 41.50–42.52",
+        "? other cone boss north face lengthwise 41.50–42.52",
+        "? cone boss north face radius 41.50–42.52",
+        "cone boss north face length 41.50–42.52",
+        "cone boss north face length 41.50–42.52 ? cone boss north face Ra 1.6",
+        "cone boss north face length 41.50–42.52 ? cone boss south face length 41.50–42.52",
+        "cone boss north face Ra 1.6 ? cone boss south face length 41.50–42.52",
+        "cone boss north face length 41.50–42.52</p><p>? cone boss north face Ra 1.6",
+        "<span hidden>?</span> cone boss north face length 41.50–42.52",
+        '<span aria-hidden="true">?</span> cone boss north face length 41.50–42.52',
+        '<span style="display:none">?</span> cone boss north face length 41.50–42.52',
+        "<script>?</script> cone boss north face length 41.50–42.52",
+        "cone boss north face length 41.50–42.52; method: confirm calibration",
+    ],
+)
+def test_sheet_inspection_debt_cannot_borrow_a_sibling_marker(tmp_path, criterion):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": "cone_boss_north_face:length",
+            "status": "unknown",
+            "numbers": {},
+        }
+    ]
+    replacement = f'<div class="route-inspection"><p>{criterion}</p></div>'
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "<p>PROCESS HOLD — ? cone boss north face length 42.040–42.080</p>",
+        "<table><tr><td>PROCESS HOLD — ? cone boss north face "
+        "length 42.040–42.080</td></tr></table>",
+        '<div class="route-inspection" data-feature="cone_boss_north_face" '
+        'data-requirement="length">?</div>',
+        '<div hidden><div class="route-inspection">? cone boss north face '
+        "length 41.50–42.52</div></div>",
+    ],
+)
+def test_sheet_inspection_requires_visible_drawing_criterion(tmp_path, replacement):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": "cone_boss_north_face:length",
+            "status": "unknown",
+            "numbers": {},
+        }
+    ]
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["none", "wrong_subject", "wrong_workpiece", "wrong_ancestor", "missing_identity"]
+)
+def test_sheet_inspection_preserves_physical_workpiece_owner(tmp_path, mutation):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    subject = "nut1/end-length:length"
+    report["findings"] = [
+        {
+            "rule": "inspection",
+            "subject": subject,
+            "status": "unknown",
+            "numbers": {
+                "identity": {
+                    "feature_owner": "end-length",
+                    "requirement": "length",
+                    "workpiece": "nut1",
+                }
+            },
+        }
+    ]
+    recorded_subject = "nut2/end-length:length" if mutation == "wrong_subject" else subject
+    workpiece = "nut2" if mutation == "wrong_workpiece" else "nut1"
+    ancestor_workpiece = "nut2" if mutation == "wrong_ancestor" else workpiece
+    attributes = (
+        f'data-inspection-ids="{escape(json.dumps([recorded_subject]))}" '
+        f'data-workpiece="{workpiece}"'
+        if mutation != "missing_identity"
+        else ""
+    )
+    replacement = (
+        f'<div data-workpiece="{ancestor_workpiece}"><table>'
+        f'<tr class="inspection-record" {attributes}><td>'
+        "end-length — ? length 10–11</td></tr></table></div>"
+    )
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    if mutation == "none":
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_generated_final_inspection_debt_is_visible_to_validator(tmp_path, freecad_kernel, detail):
+    from test_arithmetic import (
+        CUTTING,
+        FEATURES,
+        HEADER,
+        INVENTORY,
+        POLICY,
+        drill,
+        face,
+        one_setup,
+        release,
+        setup,
+        spot,
+    )
+    from test_cli import run_cli
+
+    s1 = one_setup(face(), spot(), drill(), release(40))
+    s2 = setup("S2", "[10]", 'stock_in = "S1"\n', align="", top_z=0.0) + face()
+    for name, text in (
+        ("features.toml", FEATURES),
+        ("inventory.toml", INVENTORY),
+        ("cutting.toml", CUTTING),
+        ("policy.toml", POLICY),
+        ("plan.toml", HEADER + s1 + s2),
+    ):
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    out = tmp_path / "expected"
+    result = run_cli("check", tmp_path / "plan.toml", "--out", out, "--detail", detail)
+    assert result.returncode == 4, result.stderr
+    report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+    finding = next(
+        row
+        for row in report["findings"]
+        if row["rule"] == "inspection" and row["subject"] == "h1:dia"
+    )
+    assert finding["status"] == "unknown"
+    assert finding["numbers"]["unresolved_cut_effects"] == ["S2:10"]
+    # Exercise the real consumer against this debt, without making unrelated
+    # findings in the numerical fixture part of the disclosure assertion.
+    VALIDATOR["check_sheet"](tmp_path, {**report, "findings": [finding]})
 
 
 def test_inspection_domain_tracks_four_physical_members_and_manual_part_relationships(monkeypatch):

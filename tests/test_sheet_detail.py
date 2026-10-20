@@ -582,11 +582,18 @@ def test_missing_drawing_requirements_stay_visible_without_acquiring_a_result(de
     assert "depth" in content(job_page(markup)).lower()
     identities = [
         identity
-        for record in markup.nodes
-        if "data-inspection-ids" in record["attrs"]
+        for record in [*markup.find("inspection-record"), *markup.find("checkpoint-result")]
         for identity in json.loads(record["attrs"]["data-inspection-ids"])
     ]
     assert missing.subject not in identities
+    (criterion,) = [
+        node
+        for node in markup.find("inspection-criterion")
+        if missing.subject in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    text = content(criterion).casefold()
+    assert all(word in text for word in ("body", "depth", "?"))
+    assert not markup.find("writing-blank", criterion)
     assert any("body:dia" == identity for identity in identities)
     text = visible_text(render_traveler(data, findings, report, detail=detail))
     assert_number(text, data.features["features"]["body"]["dia"][0])
@@ -1115,6 +1122,22 @@ def test_family_shares_identical_instructions_but_keeps_every_physical_checkpoin
     assert len(methods) == len(finals[0]["ops"][0]["inspection_methods"])
     assert all(content(method).strip() for method in methods)
     assert len(markup.find("checkpoint-result", common[0])) == len(expected_owners)
+    criteria = markup.find("inspection-criterion", common[0])
+    targets = [
+        target for setup in finals for target in op_check_targets(data, setup, setup["ops"][0])
+    ]
+    expected_ids = {
+        frozenset(
+            target["subject"]
+            for target in targets
+            if target["identity"]["requirement"] == requirement
+        )
+        for requirement in {target["identity"]["requirement"] for target in targets}
+    }
+    assert {
+        frozenset(json.loads(criterion["attrs"]["data-inspection-ids"])) for criterion in criteria
+    } == expected_ids
+    assert len(criteria) == len(expected_ids)
     for node in markup.find("checkpoint-result", common[0]):
         assert (node["attrs"]["data-setup-id"], node["attrs"]["data-workpiece"]) in expected_owners
         assert node["attrs"]["data-op-id"] == str(finals[0]["ops"][0]["op"])
@@ -1272,6 +1295,7 @@ def test_compact_human_heading_omits_drawing_identifiers_without_changing_raw_bi
     assert data.plan["drawing"]["revision"] not in content(heading)
     assert data.plan["drawing"]["number"] in content(identity)
     assert data.plan["drawing"]["revision"] in content(identity)
+    assert not re.search(r"(?:^|·)\s*(?:Pro|Hobby)\s*(?:·|$)", content(identity))
     assert page["attrs"]["data-part"] == data.plan["part"]
     assert page["attrs"]["data-drawing"] == data.plan["drawing"]["number"]
     assert page["attrs"]["data-revision"] == data.plan["drawing"]["revision"]
@@ -2064,7 +2088,10 @@ def test_compact_saw_stops_before_first_withdrawal_and_holds_capture_through_cal
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
 @pytest.mark.parametrize("display_units", ["mm", "in"])
-def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(detail, display_units):
+@pytest.mark.parametrize("entry_mode", ["legacy_tangent", "air", "mixed_family"])
+def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
+    detail, display_units, entry_mode
+):
     data = load_bundle(
         Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
     )
@@ -2077,6 +2104,17 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
         "Q3": (-22.225, 110.49, [-14.2875, -7.14248, 0.0]),
         "Q4": (-22.225, 110.49, [-11.1125, 0.0, 11.1125]),
     }
+    air_starts = {"Q1": -24.765, "Q2": -113.03, "Q3": -24.765, "Q4": -24.765}
+    air_owners = (
+        set(native)
+        if entry_mode == "air"
+        else {"Q1", "Q2"}
+        if entry_mode == "mixed_family"
+        else set()
+    )
+    for sid in air_owners:
+        _, end, ys = native[sid]
+        native[sid] = (air_starts[sid], end, ys)
     findings = []
     for sid, (start, end, ys) in native.items():
         profile = {
@@ -2108,7 +2146,12 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
                     "raise_z": profile["raster"]["lift_z"],
                     "raise_clear": True,
                     "entries": [
-                        {"xy": segment[0], "pass": True, "air": False, "contact": "tangent"}
+                        {
+                            "xy": segment[0],
+                            "pass": True,
+                            "air": sid in air_owners,
+                            **({} if sid in air_owners else {"contact": "tangent"}),
+                        }
                         for segment in profile["cutter_centre"]
                     ],
                 }
@@ -2159,6 +2202,23 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
     ]
     assert [row["attrs"]["data-setup-id"] for row in rows] == list(native)
     formatter = _Traveler(data, [], {}, None, detail=detail)
+    cycles = markup.find("facing-cycle", table["parent"])
+    assert len(cycles) == (2 if entry_mode == "mixed_family" else 1)
+    air_endpoints = (
+        {
+            "Q1": [-24.765, 110.49],
+            "Q2": [-113.03, 22.225],
+            "Q3": [-24.765, 110.49],
+            "Q4": [-24.765, 110.49],
+        }
+        if display_units == "mm"
+        else {
+            "Q1": [-0.975, 4.35],
+            "Q2": [-4.45, 0.875],
+            "Q3": [-0.975, 4.35],
+            "Q4": [-0.975, 4.35],
+        }
+    )
     for row, finding in zip(rows, findings, strict=True):
         (path,) = markup.find("facing-path", row)
         assert path["attrs"]["data-op-id"] == "10"
@@ -2174,11 +2234,23 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
         ]
         # Numeric order preserves both feed endpoints and every actual Y centre.
         assert numeric_values(content(path)) == [float(value) for value in expected]
-        (cycle,) = markup.find("facing-cycle", table["parent"])
+        if finding.subject in air_owners:
+            assert numeric_values(content(path))[:2] == pytest.approx(
+                air_endpoints[finding.subject]
+            )
+        (cycle,) = [
+            cycle
+            for cycle in cycles
+            if len(cycles) == 1 or f"{finding.subject}:10" in content(cycle)
+        ]
         context = content(cycle)
         assert_coordinate(context, "Z", float(formatter.readout(profile["dro_to_z"])))
         assert_coordinate(context, "Z", float(formatter.readout(profile["raster"]["lift_z"])))
         assert re.search(r"\b(?:lift|raise)\b.*\breturn\b", context, re.IGNORECASE)
+        assert ("tangent" in context.casefold()) is (finding.subject not in air_owners)
+        assert bool(re.search(r"\blower\b.*\bin air\b", context, re.IGNORECASE)) is (
+            finding.subject in air_owners
+        )
     q1, _, _, q4 = rows
     q4_notices = [
         node
@@ -2238,6 +2310,10 @@ def test_compact_hand_tap_unknown_names_inside_surface_without_changing_typed_ev
     markup = Markup(_decision_html(decision, setup_id=setup["id"], op_id=setup["ops"][0]["op"]))
     (notice,) = finding_nodes(markup, finding)
     assert finding_has_kind(notice, finding, "block")
+    text = content(notice).casefold()
+    assert re.search(r"hand.tap movement.*?not checked", text)
+    assert "inside surface" in text and "not identified" in text
+    assert "planner" not in text
     assert finding.to_dict() == original
 
 
@@ -2920,19 +2996,19 @@ def test_hobby_settings_keep_exact_selected_holder_projection_and_qualification(
     first, second = (setup["id"] for setup in data.plan["setups"])
     assert "Short installed collet" in selected[first]
     assert "Long installed collet" in selected[second]
-    assert_number(selected[second], 1.8)
+    assert re.search(r"\bprojection\s+45\.72\s+mm\b", selected[second])
     assert "projection" in selected[second] and "from holder face" in selected[second]
     if qualification in ("conflict", "missing"):
         assert "projection ?" in selected[first]
-        assert not re.search(r"projection\s+(?:1\.25|1\.8)\b", selected[first])
+        assert not re.search(r"projection\s+(?:31\.75|45\.72)\s+mm\b", selected[first])
         if qualification == "missing":
             assert "not recorded for the selected holder" in selected[first]
     else:
         projection = re.search(
-            r"\bprojection\s+(\d+(?:\.\d+)?)\s+from holder face(.*)$", selected[first]
+            r"\bprojection\s+(\d+(?:\.\d+)?)\s+mm\s+from holder face(.*)$", selected[first]
         )
         assert projection, selected[first]
-        assert float(projection[1]) == pytest.approx(1.25)
+        assert float(projection[1]) == pytest.approx(31.75)
         if qualification == "bare":
             assert re.search(r"\?M\d+|\?\s+not verified", projection[2])
         else:
@@ -3417,6 +3493,58 @@ def test_dro_lessons_follow_machine_family_and_later_links_resolve_to_applicable
             assert target is mill_guide
 
 
+def test_pedantic_missing_pickups_keep_owned_stops_without_guide_references():
+    data = mill_job(setups=2)
+    for setup in data.plan["setups"]:
+        setup["presentation_group"] = setup["id"]
+        setup.pop("zero")
+    html = rendered(data, zero_recipe.evaluate(data), detail="pedantic")
+    markup = Markup(html)
+    assert not markup.find("dro-guide")
+    assert not markup.find("zero-guide")
+    evidence = decision_snapshot(html)
+    for setup in data.plan["setups"]:
+        assert ("block", "zero_check", "unknown", f"{setup['id']}:zero") in evidence
+
+
+def test_pedantic_guide_starts_at_first_setup_with_an_actual_pickup():
+    data = mill_job(setups=2)
+    first, valid = data.plan["setups"]
+    first.pop("zero")
+    for setup in data.plan["setups"]:
+        setup["presentation_group"] = setup["id"]
+    html = rendered(data, zero_recipe.evaluate(data), detail="pedantic")
+    markup = Markup(html)
+    (guide,) = markup.find("dro-guide")
+    assert guide["attrs"]["data-setup-id"] == valid["id"]
+    assert "Axis Set" in content(guide) and "Preset" in content(guide)
+    assert not markup.find("zero-guide", physical_flow(markup, first["id"]))
+    assert markup.find("zero", physical_flow(markup, valid["id"]))
+    assert ("block", "zero_check", "unknown", f"{first['id']}:zero") in decision_snapshot(html)
+
+
+def test_pedantic_later_pickup_links_resolve_past_a_setup_without_pickups():
+    data = mill_job(setups=3)
+    first, empty, later = data.plan["setups"]
+    empty.pop("zero")
+    for setup in data.plan["setups"]:
+        setup["presentation_group"] = setup["id"]
+    html = rendered(data, zero_recipe.evaluate(data), detail="pedantic")
+    markup = Markup(html)
+    (guide,) = markup.find("dro-guide")
+    assert guide["attrs"]["data-setup-id"] == first["id"]
+    assert not markup.find("zero-guide", physical_flow(markup, empty["id"]))
+    (pointer,) = markup.find("zero-guide", physical_flow(markup, later["id"]))
+    links = [node for node in descendants(markup, pointer) if node["tag"] == "a"]
+    assert links
+    for link in links:
+        href = link["attrs"]["href"]
+        assert href.startswith("#")
+        (target,) = [node for node in markup.nodes if node["attrs"].get("id") == href[1:]]
+        assert target is guide
+    assert ("block", "zero_check", "unknown", f"{empty['id']}:zero") in decision_snapshot(html)
+
+
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
 @pytest.mark.parametrize("display_units", ["mm", "in"])
 def test_authored_rough_turn_note_does_not_replace_canonical_numeric_operation_facts(
@@ -3508,7 +3636,7 @@ def test_compact_doc_qualifier_does_not_repeat_owned_paths_or_tables(detail, own
     if owner == "path":
         sheet._route_contours[setup["id"]] = {"10": ("Depths: Z-.125, then Z-.25.", "")}
     elif owner == "facing":
-        sheet._route_facing_paths[(setup["id"], "10")] = ("0", "1", "0", "1", "0")
+        sheet._route_facing_paths[(setup["id"], "10")] = ("0", "1", "0", "1", "0", "tangent")
         sheet._route_contours[setup["id"]] = {"10": ("Face Z-.25; maximum stepover 0.1.", "")}
     else:
         sheet._route_contours[setup["id"]] = {
@@ -3725,3 +3853,413 @@ def test_compact_saw_fallback_keeps_geometry_stop_typed_not_flattened_into_actio
     ]
     assert evidence
     assert all(entry["status"] == "unknown" and entry["kind"] == "block" for entry in evidence)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+@pytest.mark.parametrize("shared", [True, False], ids=["shared", "local"])
+def test_mounted_saw_positions_keep_contact_and_arbor_distinct_and_pro_axis_sets_numeric(
+    detail, display_units, shared
+):
+    data, findings = mounted_jog_job("x", 2.75, "check_jog_mm")
+    data.plan["dro"]["units"] = display_units
+    mounted = {
+        "point_mm": [-119.38, 7.62, 10.16],
+        "axis_xy_mm": [-139.7, -2.54],
+        "spindle_state": "stopped",
+    }
+    for setup, finding in zip(data.plan["setups"], findings, strict=True):
+        setup["zero"]["z"]["mounted_saw"] = deepcopy(mounted)
+        finding.numbers["axes"]["z"]["mounted_saw"] = deepcopy(mounted)
+    if not shared:
+        data.plan["setups"] = data.plan["setups"][:1]
+        findings = findings[:1]
+    setup = data.plan["setups"][0]
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail=detail)
+    if shared:
+        markup = Markup(sheet.mounted_datum_table(setup))
+        text = " ".join(content(node) for node in markup.nodes if node["tag"] == "p")
+    else:
+        sheet.dro(setup, {}, procedure="separate")
+        text = "; ".join(sheet._route_datum_axes[setup["id"]].values())
+    contact = re.search(r"Blade-body contact\s+(X[^\s;]+)", text)
+    arbor = re.search(r"arbor axis\s+(X[^\s;]+)", text)
+    assert contact and arbor, text
+    divisor = 25.4 if display_units == "in" else 1.0
+    for role, values in ((contact[1], mounted["point_mm"]), (arbor[1], mounted["axis_xy_mm"])):
+        for axis, value in zip("XY", values[:2], strict=True):
+            assert_coordinate(role, axis, value / divisor)
+    for axis in ("x", "y"):
+        (setting,) = re.findall(rf"Axis Set {axis.upper()}([+−-]?\d+(?:\.\d+)?)", text)
+        assert float(setting.replace("−", "-")) == pytest.approx(
+            findings[0].numbers["axes"][axis]["axis_set"] / divisor, abs=0.0001
+        )
+    if detail == "pro":
+        assert "reversed" not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("field", ["point_mm", "axis_xy_mm"])
+@pytest.mark.parametrize("state", ["missing", "nonfinite"])
+def test_mounted_saw_missing_position_does_not_borrow_generic_pickup_or_invent_zero(
+    detail, field, state
+):
+    data, findings = mounted_jog_job("x", 2.75, "check_jog_mm")
+    data.plan["setups"] = data.plan["setups"][:1]
+    finding = replace(findings[0], status="unknown")
+    mounted = {"point_mm": [-119.38, 7.62, 10.16], "axis_xy_mm": [-139.7, -2.54]}
+    if state == "missing":
+        mounted.pop(field)
+    else:
+        mounted[field][0] = float("inf")
+    finding.numbers["axes"]["z"]["mounted_saw"] = mounted
+    original = deepcopy(finding.to_dict())
+    setup = data.plan["setups"][0]
+    sheet = _Traveler(data, [finding], build_report(data, [finding]), None, detail=detail)
+    sheet.dro(setup, {}, procedure="separate")
+    text = sheet._route_datum_axes[setup["id"]]["z"]
+    label = "Blade-body contact" if field == "point_mm" else "arbor axis"
+    (position,) = re.findall(re.escape(label) + r"\s+(X[^\s;]+)", text)
+    assert position.startswith("X?")
+    if state == "missing":
+        assert "/Y?" in position
+    assert "inf" not in position.casefold()
+    assert sheet.finding_fact(finding).status == "unknown"
+    assert finding.to_dict() == original
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_different_mounted_arbor_positions_remain_local_recipes(detail):
+    data, findings = mounted_jog_job("x", 2.75, "check_jog_mm")
+    for index, (setup, finding) in enumerate(zip(data.plan["setups"], findings, strict=True)):
+        mounted = {
+            "point_mm": [-119.38, 7.62, 10.16],
+            "axis_xy_mm": [-139.7 - 25.4 * index, -2.54],
+        }
+        setup["zero"]["z"]["mounted_saw"] = deepcopy(mounted)
+        finding.numbers["axes"]["z"]["mounted_saw"] = deepcopy(mounted)
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail=detail)
+    for index, setup in enumerate(data.plan["setups"]):
+        assert sheet.mounted_datum_table(setup) is None
+        sheet.dro(setup, {}, procedure="separate")
+        text = sheet._route_datum_axes[setup["id"]]["z"]
+        (axis_position,) = re.findall(r"arbor axis\s+(X[^\s;]+)", text)
+        assert_coordinate(axis_position, "X", -139.7 - 25.4 * index)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("local_first", [False, True], ids=["family-only", "after-local-context"])
+def test_shared_operation_restores_visible_family_scope_after_a_local_instruction(
+    detail, local_first
+):
+    data, setups, findings = milling_family_job()
+    first = setups[0]
+    first["zero"] = {"procedure": "Pick up only this member's marked reference."}
+    sheet, blocks, _ = collected_family(data, setups, findings, detail=detail)
+    selected = {
+        setup["id"]: [
+            block
+            for block in blocks[setup["id"]]
+            if block.key == "operation:10"
+            or local_first
+            and setup is first
+            and block.key == "datum-procedure"
+        ]
+        for setup in setups
+    }
+    markup = Markup(sheet.family_html(setups, selected))
+    (common,) = [node for node in markup.find("family-common") if operation_owners(node)]
+    expected = {setup["id"] for setup in setups}
+    assert {owner["setup_id"] for owner in operation_owners(common)} == expected
+    assert {str(owner["op_id"]) for owner in operation_owners(common)} == {"10"}
+    labels = markup.find("variant-label", common)
+    assert bool(labels) is local_first
+    if local_first:
+        assert {part.strip().rstrip(":") for part in content(labels[0]).split(",")} == expected
+        local = [
+            node
+            for node in markup.find("setup-variant")
+            if node["attrs"]["data-setup-id"] == first["id"]
+        ]
+        assert any(markup.nodes.index(node) < markup.nodes.index(common) for node in local)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_tap_chamfer_and_threaded_cutting_labels_do_not_relabel_reamer_geometry(detail):
+    data = mill_job(setups=2)
+    for setup, kind, action in zip(
+        data.plan["setups"], ("tap", "reamer"), ("hand_tap", "ream"), strict=True
+    ):
+        data.inventory["tools"][kind] = {
+            "kind": kind,
+            "name": f"Selected {kind}",
+            "dia_mm": 9.525,
+            "lead_mm": 12.7,
+            "flute_len_mm": 31.75,
+        }
+        setup["ops"] = [{"op": 10, "do": action, "tool": kind, "depth_mm": 8.0}]
+    sheet = _Traveler(data, [], build_report(data, []), None, detail=detail)
+    for setup in data.plan["setups"]:
+        sheet.setup_blocks(setup)
+    markup = Markup(sheet.settings_key())
+    entries = {
+        json.loads(node["attrs"]["data-physical-ops"])[0].split(":")[0]: content(node)
+        for node in markup.find("tool-setting-entry")
+    }
+    tap, reamer = (entries[setup["id"]] for setup in data.plan["setups"])
+    assert re.search(r"chamfer/lead length\s+0\.5\b", tap)
+    assert re.search(r"threaded cutting length\s+1\.25\b", tap)
+    assert re.search(r"\blead\s+0\.5\b", reamer)
+    assert re.search(r"\bcutting\s+1\.25\b", reamer)
+    assert "threaded cutting length" not in reamer and "chamfer/lead length" not in reamer
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_plain_unknown_criteria_keep_visible_identity_without_creating_result_fields(detail):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    data.features["features"]["body"]["dia"] = "unknown"
+    findings = inspection.evaluate(data)
+    (target,) = op_check_targets(data, setup, setup["ops"][0])
+    _, _, markup = collected_family(data, [setup], findings, detail=detail)
+    (criterion,) = [
+        node
+        for node in markup.find("inspection-criterion")
+        if target["subject"] in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    text = content(criterion).casefold()
+    assert "body" in text and "?" in text
+    assert "ø" in text or "diameter" in text or "dia" in text
+    assert not markup.find("checkpoint-result")
+    assert not markup.find("writing-blank", criterion)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_unknown_manual_contract_uses_human_criterion_not_a_fake_part_feature(detail):
+    data, _, finals = inspection_family_job()
+    data.features["acceptance"]["actual_slot_fit"]["contract"] = "unknown"
+    setup = finals[0]
+    targets = op_check_targets(data, setup, setup["ops"][0])
+    (target,) = [
+        target for target in targets if target["identity"]["requirement"] == "actual_slot_fit"
+    ]
+    _, _, markup = collected_family(data, [setup], inspection.evaluate(data), detail=detail)
+    (criterion,) = [
+        node
+        for node in markup.find("inspection-criterion")
+        if target["subject"] in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    text = content(criterion).casefold()
+    assert all(word in text for word in ("actual", "slot", "fit", "?"))
+    assert not re.search(r"\bpart\b", text)
+    assert not markup.find("writing-blank", criterion)
+    assert all(
+        target["subject"] not in json.loads(record["attrs"]["data-inspection-ids"])
+        for record in [*markup.find("inspection-record"), *markup.find("checkpoint-result")]
+    )
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_one_members_unknown_criterion_does_not_lend_its_marker_to_known_siblings(detail):
+    data, _, finals = inspection_family_job()
+    findings, known_subjects = [], set()
+    unknown_subject = None
+    for setup in finals:
+        for target in op_check_targets(data, setup, setup["ops"][0]):
+            is_length = target["identity"]["requirement"] == "length"
+            unresolved = setup is finals[-1] and is_length
+            if unresolved:
+                unknown_subject = target["subject"]
+            elif is_length:
+                known_subjects.add(target["subject"])
+            findings.append(
+                Finding(
+                    "inspection",
+                    target["subject"],
+                    "unknown" if unresolved else "pass",
+                    {
+                        key: target[key]
+                        for key in (
+                            "identity",
+                            "setup_id",
+                            "op_id",
+                            "shared_check_id",
+                            "covered_workpieces",
+                        )
+                    },
+                    ["Synthetic inspection-plan evidence; not physical results"],
+                    "Inspection plan incomplete" if unresolved else "Inspection plan complete",
+                )
+            )
+    original = deepcopy([finding.to_dict() for finding in findings])
+    _, _, markup = collected_family(data, finals, findings, detail=detail)
+    length_criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if set(json.loads(node["attrs"]["data-inspection-ids"]))
+        & (known_subjects | {unknown_subject})
+    ]
+    assert len(length_criteria) == 2
+    (unknown,) = [
+        node
+        for node in length_criteria
+        if unknown_subject in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    assert set(json.loads(unknown["attrs"]["data-inspection-ids"])) == {unknown_subject}
+    assert "?" in content(unknown)
+    assert ancestor_with_class(unknown, "family-common") is None
+    owner = ancestor_with_class(unknown, "setup-variant")
+    assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
+    (known,) = [node for node in length_criteria if node is not unknown]
+    assert set(json.loads(known["attrs"]["data-inspection-ids"])) == known_subjects
+    assert "?" not in content(known)
+    assert len(markup.find("checkpoint-result")) == len(finals)
+    assert [finding.to_dict() for finding in findings] == original
+
+
+@pytest.mark.parametrize(
+    "defect", ["mixed", "unknown", "contradictory", "wrong_start", "unproved_return"]
+)
+def test_facing_compaction_requires_uniform_entry_truth_and_same_proved_return(defect):
+    sheet = _Traveler(mill_job(setups=1), [], {}, None, detail="hobby")
+    segments = [[[-24.765, y], [110.49, y]] for y in (-12.7, 0.0)]
+    entry = {
+        "raster_profiles": [
+            {
+                "dro_to_z": 0.0,
+                "cutter_centre": segments,
+                "raster": {"cycle": "one_way", "run_axis": "x", "passes": 2, "lift_z": 4.1275},
+            }
+        ]
+    }
+    path = {
+        "raise_z": 4.1275,
+        "raise_clear": True,
+        "entries": [{"xy": segment[0].copy(), "pass": True, "air": True} for segment in segments],
+    }
+    assert sheet.compact_facing_path(entry, path, [0.0]) is not None
+    if defect == "mixed":
+        path["entries"][1].update(air=False, contact="tangent")
+    elif defect == "unknown":
+        path["entries"][1]["air"] = "unknown"
+    elif defect == "contradictory":
+        path["entries"][1]["contact"] = "tangent"
+    elif defect == "wrong_start":
+        path["entries"][1]["xy"][0] += 0.1
+    else:
+        path["raise_clear"] = "unknown"
+    assert sheet.compact_facing_path(entry, path, [0.0]) is None
+
+
+@pytest.mark.parametrize("area_ends", [[-15.24, 100.965], None, [-15.24, 110.49]])
+def test_raster_area_allowance_does_not_claim_tangent_stock_exit_is_clear(area_ends):
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    data.kernel["setups"] = {
+        setup["id"]: {"stock_bbox_mm": [-12.7, -20.0, -5.0, 100.965, 20.0, 0.0]}
+    }
+    sheet = _Traveler(data, [], {}, None, detail="hobby")
+    profile = {
+        "cutter_centre": [[[-24.765, 0.0], [110.49, 0.0]]],
+        "raster": {
+            "run_axis": "x",
+            "ends": [-24.765, 110.49],
+            "area_ends": area_ends,
+            "clearance_mm": 9.525,
+        },
+    }
+    text = sheet.raster_clearance(setup, profile)
+    assert "enters from air at -X" in text
+    assert "leaves into air" not in text
+    assert "every pass runs in and out clear" not in text
+    assert ("planned cut area" in text) is (area_ends == [-15.24, 100.965])
+    data.kernel["setups"][setup["id"]]["stock_bbox_mm"] = None
+    assert sheet.raster_clearance(setup, profile) == ""
+
+
+@pytest.mark.parametrize("model_units", ["mm", "in"])
+@pytest.mark.parametrize("end_in, clear", [(1.25, False), (1.5, False), (1.6, True)])
+def test_raster_air_proof_uses_physical_radius_for_both_model_unit_systems(
+    model_units, end_in, clear
+):
+    data = mill_job(setups=1)
+    data.features["units"] = model_units
+    setup = data.plan["setups"][0]
+    data.kernel["setups"] = {setup["id"]: {"stock_bbox_mm": [-25.4, -25.4, -5.0, 25.4, 25.4, 0.0]}}
+    scale = 25.4 if model_units == "mm" else 1.0
+    end = end_in * scale
+    profile = {
+        "cutter_centre": [[[-end, 0.0], [end, 0.0]]],
+        "raster": {
+            "run_axis": "x",
+            "ends": [-end, end],
+            "area_ends": [-0.75 * scale, 0.75 * scale],
+            "clearance_mm": 0.5 * scale,
+            "open_side": "+y",
+            "entry_pass": end,
+        },
+    }
+    sheet = _Traveler(data, [], {}, None, detail="hobby")
+    text = sheet.raster_clearance(setup, profile)
+    assert bool(re.search(r"\b(?:air|clear)\b", text)) is clear
+    assert ("every pass runs in and out clear" in text) is clear
+    assert ("pass 1 enters from air" in text) is clear
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requirement(detail):
+    data, _, finals = inspection_family_job()
+    for setup in finals:
+        setup["ops"][0]["missing_requirements"] = {
+            "depth": "gauges.calipers",
+            "width": "gauges.calipers",
+        }
+    (debt,) = [
+        finding
+        for finding in inspection.evaluate(data)
+        if finding.numbers.get("missing_requirement")
+        and finding.numbers.get("setup_id") == finals[-1]["id"]
+        and finding.numbers["identity"]["requirement"] == "width"
+    ]
+    _, _, markup = collected_family(data, finals, [debt], detail=detail)
+    (criterion,) = [
+        node
+        for node in markup.find("inspection-criterion")
+        if debt.subject in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    text = content(criterion).casefold()
+    assert "width" in text and "depth" not in text and "?" in text
+    assert ancestor_with_class(criterion, "family-common") is not None
+    (depth,) = [
+        node
+        for node in markup.find("inspection-criterion")
+        if re.search(r"\bdepth\b", content(node), re.IGNORECASE)
+    ]
+    assert json.loads(depth["attrs"]["data-inspection-ids"]) == []
+    assert "?" in content(depth)
+    assert len(markup.find("checkpoint-result")) == len(finals)
+
+
+def test_pedantic_plain_criterion_preserves_authored_writing_field_and_identity():
+    from prechips.sheet import _Criterion, _ledger_row, _Row
+
+    criterion = _Criterion(
+        "? Body diameter unknown; record {bore_reading}.",
+        subjects=("body:dia",),
+    )
+    row = _Row(
+        ("10", "Body", "Micrometer", "Inspect", [criterion]),
+        setup_id="B1",
+        op_id=10,
+    )
+    markup = Markup(
+        _ledger_row(row, ["step", "feature", "gauge", "action", "inspect"], detail="pedantic")
+    )
+    (visible,) = markup.find("inspection-criterion")
+    assert json.loads(visible["attrs"]["data-inspection-ids"]) == ["body:dia"]
+    (field,) = markup.find("field", visible)
+    (blank,) = markup.find("writing-blank", field)
+    assert content(blank) == ""
+    assert "bore" in content(field).casefold() and "reading" in content(field).casefold()
+    assert "{bore_reading}" not in content(visible)
+    assert not markup.find("result-field")

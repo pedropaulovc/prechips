@@ -21,6 +21,9 @@ are ``data-job-print[-split|-stacked|-fragment]``. ``.cont-head`` starts a physi
 page; setup wrappers do not force page breaks. ``.checkpoint-results`` is one
 horizontal, break-inside-avoid row. Each direct ``.checkpoint-result`` contains a
 labelled original blank with >=35mm interior width and >=20mm interior height.
+Running totals reserve measured source-bound digit envelopes in every detail mode
+before source fitting. Mixed containers with direct prose fragment as ordered
+content; element-only worksheet and step containers retain child/table pagination.
 No generated context owns a writing destination, diagram, or machining decision.
 """
 
@@ -911,33 +914,30 @@ JOB_PRINT_JS = r"""(() => {
     const physicalLabels = [...new Set([...section.querySelectorAll(
       "[data-setup-id],[data-physical-ops]")].flatMap(
       (node) => sourcePhysicalOwners(node).map((owner) => owner.setup)))];
-    function reservePageOwners(count) {
-      // Reserve the widest possible endpoint pair before any source fitting.
-      // Filling the actual range after splitting must not change header geometry.
-      if (!physicalLabels.length) return;
-      const slot = document.createElement("span");
-      slot.className = "cont-page-owners";
-      slot.style.cssText = "display:inline-block;white-space:nowrap;vertical-align:bottom";
-      count.append(slot);
-      let widest = "", width = 0;
-      for (const label of physicalLabels) {
-        slot.textContent = label;
-        const measured = slot.getBoundingClientRect().width;
-        if (measured > width) { widest = label; width = measured; }
+    function reserveRunningSlot(slot, candidates) {
+      // Measure in place at the inherited typography, before fitting source.
+      // Both deferred totals and owner ranges retain this envelope when filled.
+      slot.style.display = "inline-block";
+      slot.style.whiteSpace = "nowrap";
+      slot.style.verticalAlign = "bottom";
+      const range = document.createRange();
+      let width = 0, height = 0, above = 0, below = 0;
+      for (const candidate of candidates) {
+        slot.textContent = candidate;
+        const bounds = slot.getBoundingClientRect();
+        range.selectNodeContents(slot);
+        const ink = range.getBoundingClientRect();
+        width = Math.max(width, bounds.width);
+        height = Math.max(height, bounds.height);
+        above = Math.max(above, bounds.top - ink.top);
+        below = Math.max(below, ink.bottom - bounds.bottom);
       }
-      slot.textContent = " · Setups " + widest + " (continued) → " + widest;
-      const bounds = slot.getBoundingClientRect(), range = document.createRange();
-      range.selectNodeContents(slot);
-      const ink = range.getBoundingClientRect(),
-        above = Math.max(0, bounds.top - ink.top),
-        below = Math.max(0, ink.bottom - bounds.bottom);
-      // Tight working leading can be shorter than the actual glyph envelope.
-      // Keep its measured baseline and reserve that overhang before source fitting,
-      // as for locator ink; a fixed line-box height alone would leave ink outside.
+      // Tight working leading can be shorter than the glyph envelope. Preserve
+      // its baseline and reserve the actual overhang, as for recording locators.
       slot.style.paddingTop = above + "px";
       slot.style.paddingBottom = below + "px";
-      slot.style.width = bounds.width + "px";
-      slot.style.height = bounds.height + above + below + "px";
+      slot.style.width = width + "px";
+      slot.style.height = height + above + below + "px";
       slot.textContent = "";
     }
     function finishPageOwners() {
@@ -1062,13 +1062,21 @@ JOB_PRINT_JS = r"""(() => {
       count.append(" · page " + pages + " of ");
       const total = document.createElement("span");
       total.className = "cont-page-total";
-      total.textContent = "?";
+      total.style.fontKerning = "none";
       count.append(total);
       // The count line is present during every fit/progress measurement. Its final
       // digits cannot change the title wrapping or the preserved working context.
       head.append(running, "\n", count);
       el.before(head);
-      if (compactRunning) reservePageOwners(count);
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
+      if (compactRunning && physicalLabels.length) {
+        const owners = document.createElement("span");
+        owners.className = "cont-page-owners";
+        count.append(owners);
+        reserveRunningSlot(owners, physicalLabels.map(
+          (label) => " · Setups " + label + " (continued) → " + label));
+      }
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
@@ -1826,6 +1834,8 @@ JOB_PRINT_JS = r"""(() => {
           move(el);
           if (!fits(box(el).bottom)) refuseFigure(el);
         } else if (el.children.length && style.display !== "inline"
+            && ![...el.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
             && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
               + ".caution, .unverified")) {
           // Ordinary flow containers may share a page and fragment between their
@@ -1872,7 +1882,16 @@ JOB_PRINT_JS = r"""(() => {
     walk(section);
     finishPageOwners();
     section.querySelectorAll(".cont-head").forEach((head) => {
-      head.querySelector(".cont-page-total").textContent = String(pages);
+      const total = head.querySelector(".cont-page-total"), value = String(pages);
+      if (value.length > locatorPass.digits) throw new Error(
+        "A running page total exceeds its source-bound digit reservation.");
+      total.textContent = value;
+      const bounds = total.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(total);
+      const ink = range.getBoundingClientRect();
+      if (ink.left < bounds.left - .01 || ink.right > bounds.right + .01
+          || ink.top < bounds.top - .01 || ink.bottom > bounds.bottom + .01) throw new Error(
+        "A running page total exceeds its measured reservation.");
     });
     for (const grid of section.querySelectorAll(RESULTS)) {
       const cells = [...grid.querySelectorAll(":scope > .checkpoint-result")];

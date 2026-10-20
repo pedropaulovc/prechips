@@ -552,6 +552,25 @@ destinations and their member/location ownership. Equal limits do not authorize
 one result for separate workpieces. An explicitly authored shared check retains
 its declared covered members; compact presentation does not create one.
 
+Each displayed criterion has an inline `.inspection-criterion` wrapper carrying
+the existing `data-inspection-ids` JSON subject list, independently of whether
+it owns a recording field. Unknown bands, manual contracts and authored missing
+requirements therefore retain their canonical criterion/debt identities
+without acquiring result blanks. Visible owner, requirement and local unknown
+marker remain necessary; metadata is not disclosure. Process holds keep their
+setup/operation identity rather than becoming feature criteria.
+
+Already-equal shared instructions may union corresponding member criterion IDs,
+not unrelated checks or known/unknown variants. Identity attributes alone do not
+prevent sharing, but visible limits, methods, trust state and physical reading
+ownership still do. Separate member records and their result fields remain
+separate.
+
+Compact identity lines retain the drawing number and actual revision without a
+visible audience token; the selected detail remains in document metadata.
+After a setup-local instruction, a shared compact instruction restates its
+visible family scope without changing its physical owners or comparison.
+
 Both compact modes retain operative tool paths and canonical operation
 allowances, including explicit zero leave, alongside authored instructions.
 Path-owned depths are not repeated as depth-of-cut prose. Each inspection's
@@ -560,17 +579,41 @@ check is attached to an inspection or a machining operation; distinct scoped
 methods are not replaced by the first feature's method. These associations do
 not establish physical fit or require duplicate authored prose.
 
+Compact facing cycles retain their evaluated entry kind: uniformly proved air
+entries may say to lower in air; uniformly tangent entries retain tangent
+wording. Mixed or unresolved entries are not folded into either cycle, and
+different entry kinds do not share a cycle merely because depth/lift match.
+Raster stock-clearance claims still require the actual incoming-stock proof.
+A radius allowance refers to the planned cut area only when evaluated area/end
+bounds establish it; that allowance is not a stock-clearance proof.
+
 Applicable receipt checks and actual shop-made construction obligations remain
 at their first-use setup, with later-use references; a receipt reference is not
 evidence of acceptance. Compact holding retains locating-fixture placement and
 alignment when due, not exhaustive model-pose coordinates or clearance tables.
 Hobby DRO guidance is shared once per applicable machine family, so a lathe
-lesson cannot replace milling guidance. Pro remains free of routine DRO
-teaching and default forward-spindle narration; nondefault or mixed spindle
-senses and unknown-direction stops retain their operation owners.
+lesson cannot replace milling guidance. A setup without pickup rows retains
+its unknowns and stops, not a link to an absent or inapplicable guide. Pro
+remains free of routine DRO teaching and default forward-spindle narration;
+nondefault or mixed spindle senses and unknown-direction stops retain their
+operation owners.
 
 Compact datum owners retain evaluated AxisSet targets, distinct from surface
 coordinates. Setup-local operative constraints stay associated with the work.
+
+Mounted-saw recipes distinguish the body-contact point from the arbor-axis
+position using the canonical zero record. Shared pro saw settings retain the
+numeric X/Y Axis Set targets without importing the hobby jog lesson. Hobby
+tool keys show selected-holder installed projections explicitly in source
+millimetres, preserving their verification/debt markers; other tool lengths
+retain their existing display units. Tap chamfer/lead and threaded cutting
+length labels do not relabel a reamer's geometry. Unknown hand-tap coverage
+still identifies both the unchecked movement and unidentified bore surface.
+
+Result cells are emitted in consecutive grids of at most four, without
+cloning or reordering physical inspection records. A trailing single cell may
+span its row; field minimums and print containment checks remain unchanged.
+
 An unresolved selected tool withholds contour coordinates without discarding
 independent recorded contour failures, such as an unresolved step size.
 
