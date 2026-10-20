@@ -133,8 +133,21 @@ def test_reference_orientation_selects_the_actual_legacy_block_height():
         [{"ref": None}],
         [{"ref": "blocks", "placement": "unposed"}],
         [{"ref": "blocks", "unsupported_role": "rest"}],
+        [{"ref": "blocks", "ops": [10]}],
+        [{"ref": "blocks", "jaw_side": "turned"}],
         [{"ref": "blocks", "jaw_lead_mm": 5}],
         [{"ref": "blocks", "at_z_mm": 5}],
+        [{"ref": "blocks", "engage_at_z_mm": 5}],
+        [{"ref": "blocks", "orientation": None}],
+        ["none"],
+        ["not_applicable"],
+        "",
+        False,
+        0,
+        {},
+        {"ref": "blocks"},
+        posed(ref="blocks"),
+        [["blocks"]],
         [posed(ref="missing")],
         [posed(ref="unknown")],
         [posed(ref="blocks", stock_ref="earlier-output")],
@@ -198,3 +211,99 @@ def test_headroom_leaves_native_obstacle_clearance_evidence_untouched():
     finding = evaluate(data)[0]
     assert finding.numbers["support_blocks_mm"] == 0
     assert data.kernel == original
+
+
+@pytest.mark.parametrize("support", ["blocks", "fixtures.blocks"])
+def test_matching_riser_cannot_hide_conflicting_support_orientation(support):
+    data = support_bundle([{"ref": support, "orientation": "2 in height"}])
+    data.plan["setups"][0]["hold"]["riser"] = "blocks"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+    assert finding.numbers["sum_mm"] == "unknown"
+
+
+def test_matching_support_orientation_does_not_fill_an_unauthored_riser_orientation():
+    data = support_bundle([{"ref": "blocks", "orientation": "1 in height"}])
+    hold = data.plan["setups"][0]["hold"]
+    hold["riser"] = "fixtures.blocks"
+    del hold["support_orientation"]
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "supports",
+    [
+        ["blocks", "blocks"],
+        ["blocks", "fixtures.blocks"],
+        ["blocks", {"ref": "blocks", "orientation": "1 in height"}],
+    ],
+)
+def test_explicit_riser_does_not_resolve_multiple_listed_legacy_candidates(supports):
+    data = support_bundle(supports)
+    data.plan["setups"][0]["hold"]["riser"] = "blocks"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("riser", ["unknown", "missing", {}, [], ["blocks"], 0])
+def test_unknown_or_malformed_explicit_riser_is_not_replaced_by_a_known_support(riser):
+    data = support_bundle([posed(ref="blocks"), "blocks"])
+    data.plan["setups"][0]["hold"]["riser"] = riser
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+    assert finding.numbers["sum_mm"] == "unknown"
+
+
+def test_matching_reference_key_in_another_inventory_category_is_not_the_same_riser():
+    data = support_bundle(["tools.blocks"])
+    data.inventory["tools"]["blocks"] = {"kind": "spacer", "height_mm": 25.4}
+    data.plan["setups"][0]["hold"]["riser"] = "blocks"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("verify", [True, "unknown"])
+def test_auxiliary_verification_debt_does_not_suppress_known_primary_stack_error(verify):
+    data = support_bundle([posed(ref="blocks")])
+    data.inventory["fixtures"]["blocks"]["verify"] = verify
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(150)
+    original = deepcopy(data.inventory)
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["support_blocks_mm"] == 0
+    assert finding.numbers["sum_mm"] == pytest.approx(156)
+    assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(-6)
+    assert finding.numbers["stacks"][0]["verify"] is False
+    assert data.inventory == original
+
+
+def test_refused_legacy_height_retains_consumed_measurement_debt():
+    data = support_bundle([posed(ref="blocks"), "fixtures.spacer"])
+    data.inventory["fixtures"]["spacer"] = {
+        "kind": "spacer",
+        "height_mm": {
+            "value": 5,
+            "measured": {
+                "status": "assumed",
+                "by": "vendor",
+                "date": "unknown",
+                "instrument": "unknown",
+            },
+        },
+    }
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["support_blocks_mm"] == "unknown"
+    assert finding.numbers["sum_mm"] == "unknown"
+    debt = next(
+        entry
+        for entry in finding.numbers["measurements"]
+        if entry["id"] == "fixtures.spacer.height"
+    )
+    assert debt["status"] == "assumed"

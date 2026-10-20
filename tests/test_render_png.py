@@ -2918,13 +2918,15 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     detail.canvas.assert_text_layout(min_scale=5)
 
 
-def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_owners():
+@pytest.mark.parametrize("finite_saw", [False, True], ids=["cut", "finite-saw-cycle"])
+def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_owners(finite_saw):
     meshes, spec = _vise_spec(12)
     spec["closest_cut"] = {
         "mm": 1.25,
         "tag": "fixed_jaw",
         "from_mm": [1.25, 3, 5],
         "to_mm": [0, 3, 5],
+        **({"scope": "machining_trajectory"} if finite_saw else {}),
     }
     supplied = json.dumps(spec, sort_keys=True)
     png, debts, panels = render_diagram(meshes, spec)
@@ -2935,7 +2937,7 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
     (detail,) = _holding_details(meshes, spec, main)
     contacts = {callout.label for callout in detail.callouts if callout.colour == _CONTACT}
     assert contacts == {"FIXED JAW CONTACT AT X 0", "MOVING JAW CONTACT AT X 12"}
-    cut = "CUT 1.25 mm FROM FIXED JAW"
+    cut = f"{'SAW CYCLE' if finite_saw else 'CUT'} 1.25 mm FROM FIXED JAW"
     assert cut in {callout.label for callout in detail.callouts}
     (path,) = [path for label, path in detail.leaders if label == cut]
     ends = [detail.canvas.project(spec["closest_cut"][key]) for key in ("from_mm", "to_mm")]
@@ -3347,10 +3349,14 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
         ({"op": "40"}, "CUT 6.653 mm FROM FIXED JAW (OP 40)"),
         ({"op": "10", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (OP 10)"),
         ({"op": "unknown", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (SAW BLADE)"),
+        (
+            {"op": "10", "blade": True, "scope": "machining_trajectory"},
+            "SAW CYCLE 6.653 mm FROM FIXED JAW (OP 10)",
+        ),
         ({"op": "unknown"}, "CUT 6.653 mm FROM FIXED JAW"),
         ({}, "CUT 6.653 mm FROM FIXED JAW"),
     ],
-    ids=["op", "saw-op", "blade", "unknown-op", "no-op"],
+    ids=["op", "saw-op", "blade", "finite-saw-cycle", "unknown-op", "no-op"],
 )
 def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(named, label):
     # Rocker RK-B6: S4's least cut is op 40's, a bench file's; a reader checking op 27's
@@ -3368,7 +3374,7 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
     main = _Diagram(meshes, spec)
     main.render()
     (detail,) = _holding_details(meshes, spec, main)
-    cuts = [label for label, _ in detail.leaders if label.startswith("CUT ")]
+    cuts = [label for label, _ in detail.leaders if label.startswith(("CUT ", "SAW CYCLE "))]
     assert cuts == [label], cuts
     detail.canvas.assert_text_layout(min_scale=3)
 

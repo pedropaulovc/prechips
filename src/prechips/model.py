@@ -551,6 +551,9 @@ ToolTouch = record(
         **texts("tool holder x_method x_face gauge z_face method z_gauge z_measure"),
         **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
         "check_jog_mm": Number,
+        # Explicit native paper-contact pose and full-stack retract for a staged touch.
+        "at_mm": Vector,
+        "retract_clearance_mm": Number,
         "mounted_saw": MountedSawTouch,
         # The blade corner a grooving/parting blade's Z touch sets, where the touched
         # face's normal cannot give it (a scribe): docs/rules-coordinates.md.

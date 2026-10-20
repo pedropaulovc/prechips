@@ -80,6 +80,7 @@ def discover_kernel():
 
 # Scoped to one input preparation, never shared across concurrent bundles or native jobs.
 _INPUT_DEBTS = ContextVar("kernel_input_debts", default=None)
+_TOP_COMMAND_INPUTS = ContextVar("kernel_top_command_inputs", default=False)
 
 
 def _collect_debts(prepare):
@@ -87,12 +88,14 @@ def _collect_debts(prepare):
     def collected(*args, **kwargs):
         state = {"items": {}, "debts": {}, "host_only": set()}
         token = _INPUT_DEBTS.set(state)
+        command_token = _TOP_COMMAND_INPUTS.set(True)
         try:
             result = prepare(*args, **kwargs)
             result["measurement_debts"] = [state["debts"][key] for key in sorted(state["debts"])]
             result["refused_fields"] = sorted(state["debts"].keys() - state["host_only"])
             return result
         finally:
+            _TOP_COMMAND_INPUTS.reset(command_token)
             _INPUT_DEBTS.reset(token)
 
     return collected
@@ -638,6 +641,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
         **declared,
     }
+    pickup_key = _top_pickup_key(bundle, setup, op)
+    if pickup_key is not None:
+        # A command dependency, never material evidence from an authored numeric top.
+        result["zero_pickup_key"] = pickup_key
+        result["tool"] = _inventory_identity(bundle, op.get("tool"), "spindle")
+        result["holder"] = _inventory_identity(bundle, op.get("holder"), "holders")
     if op.get("do") in {"profile", "rough_profile", "finish_profile"} and "sweep_bounds" in record(
         op.get("contour")
     ):
@@ -756,7 +765,13 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
     if tables is not None and not turned:
-        table = table_checkpoints(subject, tables, op["op"], units)
+        table = table_checkpoints(
+            subject,
+            tables,
+            op["op"],
+            units,
+            profile_model=result.get("profile_model") if "stock_removal_bounds" not in op else None,
+        )
         if table is not None:
             result["checkpoints"] = table
         sweep = tool_paths(op, tables, units)
@@ -1140,7 +1155,7 @@ def _exact_arc(arc, scale):
     return {"exact_arc_mm": {"centre": [v * scale for v in centre], "radius": radius * scale}}
 
 
-def table_checkpoints(subject, tables, op, units):
+def table_checkpoints(subject, tables, op, units, *, profile_model=None):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
     each printed table's ``paths`` (``xy_mm`` in cutting order, its ``tip_z_mm``, row
@@ -1157,10 +1172,18 @@ def table_checkpoints(subject, tables, op, units):
     offset arcs/joins and walls, a feature-plane-to-setup basis (plan units), and physical
     ``pitch_mm``. The native kernel regenerates bounded holes from these curves, never
     from rounded row chords; the public input schema is unchanged.
+
+    Canonical ``linear_table`` profile paths opt in only for an explicit guided sweep
+    without a broad removal box. Their complete printed final-depth paths model material
+    removal, not proof that the separate axial levels or entry/tool moves are known.
     """
     from prechips.rules.coordinates import FRAGMENT_FORMAT, ROW_FORMAT, checkpoints
 
-    printed = [path for path in checkpoints(subject, tables, op) if path["rows"]]
+    printed = [
+        path
+        for path in checkpoints(subject, tables, op)
+        if path["rows"] and (path["kind"] != "linear_table" or profile_model == "guided_sweep")
+    ]
     if not printed:
         return None
     bounded = any(path["bounded"] for path in printed)
@@ -1172,7 +1195,11 @@ def table_checkpoints(subject, tables, op, units):
     for path in printed:
         points = []
         for name, xy, tip, overshoot in path["rows"]:
-            if isinstance(xy, list) and len(xy) == 2 and all(number(v) for v in (*xy, tip)):
+            if (
+                isinstance(xy, list)
+                and len(xy) == 2
+                and all(number(v) and math.isfinite(v) for v in (*xy, tip))
+            ):
                 xy_mm = [v * scale for v in xy]
                 point = {
                     "id": name,
@@ -1199,6 +1226,11 @@ def table_checkpoints(subject, tables, op, units):
                     "stepped": path["stepped"],
                     "method": path["method"],
                     "chain_geometry": path["chain_geometry"],
+                    **(
+                        {"material_scope": path["material_scope"]}
+                        if "material_scope" in path
+                        else {}
+                    ),
                     **_exact_arc(path.get("exact_arc"), scale),
                 }
             )
@@ -1961,6 +1993,8 @@ def hold_inputs(bundle, setup):
     fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
+    if isinstance(setup.get("hold", {}), dict) and hold.keys() <= {"note", "cite"}:
+        result["contact_model"] = "none"
     # Scene-only debts (supports below the seat) and gaps (undrawn possible obstacles).
     debts, gaps = [], []
     if kind == "vise":
@@ -2181,9 +2215,191 @@ def _pickup_scene_id(bundle, setup, hold, lineage=None, model=None):
     return hashlib.sha256(_json(context).encode()).hexdigest()
 
 
+def _top_pickup_specs(setup):
+    """Explicit stock-top paper poses and their authored operation boundaries."""
+    from prechips.rules.zero_recipe.faces import _boundary
+
+    if "top_feature" in record(setup.get("stock_state")):
+        return []
+    zero, result = record(setup.get("zero")), []
+    top = record(zero.get("z"))
+    if top.get("face") == "top" and top.get("method") == "paper" and "at_mm" in top:
+        result.append(("z", top, _boundary(setup.get("ops", []), top)))
+    for index, source in enumerate(zero.get("tool_touches", [])):
+        source = record(source)
+        if source.get("z_face") == "top" and source.get("method") == "paper" and "at_mm" in source:
+            result.append((f"tool_touch:{index}", source, _boundary(setup.get("ops", []), source)))
+    return result
+
+
+def _top_pickup_at(setup, done=0, touch=None):
+    """Select only a pose authored at this boundary and, if given, for this touch."""
+    for entry in _top_pickup_specs(setup):
+        _, source, position = entry
+        if position != done:
+            continue
+        if touch is not None and (
+            "at_mm" not in touch
+            or source.get("z_face", source.get("face")) != touch.get("z_face", touch.get("face"))
+            or any(
+                source.get(field) != touch.get(field)
+                for field in (
+                    "tool",
+                    "holder",
+                    "at_mm",
+                    "retract_clearance_mm",
+                    "paper_mm",
+                    "check_jog_mm",
+                    "after_op",
+                    "before_ops",
+                    "method",
+                )
+            )
+        ):
+            continue
+        return entry
+    return None
+
+
+def _top_pickup_key(bundle, setup, op):
+    """The latest explicitly posed top setting needed by this operation's tool."""
+    positions = {entry["op"]: index for index, entry in enumerate(setup.get("ops", []))}
+    position = positions.get(op.get("op"))
+    if position is None:
+        return None
+    tool = _inventory_identity(bundle, op.get("tool"), "spindle")
+    selected = None
+    selected_boundary = -1
+    for key, source, boundary in _top_pickup_specs(setup):
+        if key == "z":
+            selected = key
+        if (
+            isinstance(boundary, int)
+            and not isinstance(boundary, bool)
+            and boundary <= position
+            and boundary >= selected_boundary
+            and _inventory_identity(bundle, source.get("tool"), "spindle") == tool
+        ):
+            selected = key
+            selected_boundary = boundary
+    return selected
+
+
+def _arriving_top_pickup(bundle, setup, source, scene_id, scale, position):
+    """A posed paper touch on actual stock at the exact authored operation boundary."""
+    from prechips.rules.zero_recipe.faces import _boundary
+    from prechips.rules.zero_recipe.touch import TOUCH_LAND_MM
+
+    reasons, errors = [], []
+    tool_ref = _inventory_identity(bundle, source.get("tool"), "spindle")
+    holder_ref = _inventory_identity(bundle, source.get("holder"), "holders")
+    tool = measurement_item(bundle, "spindle", tool_ref)
+    holder = measurement_item(bundle, "holders", holder_ref)
+    kind = record(tool).get("kind", UNKNOWN)
+    if kind != "endmill":
+        reasons.append("arriving-top proof needs a qualified flat-ended end mill")
+    if not holder:
+        reasons.append("arriving-top proof needs a selected holder")
+    projection = _projection(
+        bundle, {"tool": tool_ref, "holder": holder_ref}, require_measured=True
+    )
+    nose = _measured_length(tool, "nose_radius", positive=False)
+    envelope = {
+        "contact_kind": "flat_end" if kind == "endmill" and nose == 0 else UNKNOWN,
+        "nose_radius_mm": nose,
+        "tip_dia_mm": _measured_length(tool, "dia", positive=False),
+        "tip_length_mm": _measured_length(tool, "flute_len", positive=False),
+        "shank_dia_mm": _measured_length(tool, "shank", positive=False),
+        "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+        "holder_dia_mm": _measured_length(holder, "gauge_dia", positive=False),
+        "holder_gauge_len_mm": _measured_length(holder, "gauge_len", positive=False),
+    }
+    for field, value in envelope.items():
+        if field == "contact_kind":
+            continue
+        if not number(value) or not math.isfinite(value):
+            reasons.append(f"tool_envelope.{field} needs a measured finite fact")
+        elif field == "nose_radius_mm":
+            if value != 0:
+                errors.append("arriving-top contact requires an explicitly flat end")
+        elif value <= 0:
+            errors.append(f"tool_envelope.{field} must be positive")
+    if not projection["verified"]:
+        reasons.append("selected top-touch tool-holder projection is unresolved")
+    if (
+        number(envelope["tip_length_mm"])
+        and number(envelope["projection_mm"])
+        and envelope["projection_mm"] <= envelope["tip_length_mm"]
+    ):
+        errors.append("selected top-touch projection must extend above its cutting length")
+
+    def length(value):
+        converted = value * scale if number(value) and math.isfinite(value) and scale else UNKNOWN
+        return converted if number(converted) and math.isfinite(converted) else UNKNOWN
+
+    at = source.get("at_mm")
+    at = [length(value) for value in at] if isinstance(at, list) and len(at) == 2 else UNKNOWN
+    if at == UNKNOWN or not all(number(value) for value in at):
+        reasons.append("arriving-top touch needs two finite selected at_mm coordinates")
+    request = {
+        "model": "arriving_top_v1",
+        "axis": "z",
+        "scene_id": scene_id,
+        "position": position,
+        "from": source.get("from", "+z"),
+        "method": "paper",
+        "face": "top",
+        "surface": {"kind": "stock", "face": "stock:+z", "side": "+z"},
+        "edge_mm": length(
+            source.get("edge_mm")
+            if "z_face" in source
+            else record(setup.get("stock_state")).get("top_z")
+        ),
+        "at_mm": at,
+        "paper_mm": length(source.get("paper_mm")),
+        "retract_clearance_mm": length(source.get("retract_clearance_mm")),
+        "check_jog_mm": length(source.get("check_jog_mm")),
+        "contact_land_mm": TOUCH_LAND_MM,
+        "tool": tool_ref,
+        "holder": holder_ref,
+        "tool_kind": kind,
+        "tool_envelope": envelope,
+        **({"after_op": source["after_op"]} if "after_op" in source else {}),
+        **({"before_ops": source["before_ops"]} if "before_ops" in source else {}),
+    }
+    if request["from"] != "+z":
+        reasons.append("arriving-top paper touch must approach from setup +Z")
+    for field in ("edge_mm", "paper_mm", "retract_clearance_mm", "check_jog_mm"):
+        value = request[field]
+        if not number(value):
+            reasons.append(f"arriving-top {field} is unknown")
+        elif field == "paper_mm" and value < 0:
+            errors.append("arriving-top paper_mm must be nonnegative")
+        elif field == "retract_clearance_mm" and value <= 0:
+            errors.append("arriving-top retract_clearance_mm must be positive")
+    ops = setup.get("ops", [])
+    if not isinstance(position, int) or isinstance(position, bool) or not 0 <= position <= len(ops):
+        reasons.append("stock-top touch operation boundary is unresolved")
+    if "z_face" not in source and position != 0:
+        reasons.append("arriving-top initial zero applies only before the setup's first operation")
+    if _boundary(ops, source) != position:
+        reasons.append("stock-top touch operation boundary is inconsistent")
+    if "after_op" in source:
+        after = next(
+            (index + 1 for index, op in enumerate(ops) if op["op"] == source["after_op"]), None
+        )
+        if after is None:
+            reasons.append("stock-top touch after_op does not resolve")
+        elif isinstance(position, int) and not isinstance(position, bool) and after != position:
+            errors.append("stock-top touch after_op and before_ops do not name the same boundary")
+    request["reasons"], request["errors"] = reasons, errors
+    request["recipe_id"] = hashlib.sha256(_json(request).encode()).hexdigest()
+    return request
+
+
 @_collect_debts
 def zero_pickup_inputs(bundle, setup, hold=None, *, lineage=None, model=None):
-    """Requested transverse finder proof inputs; absence of at_mm stays arithmetic-only."""
+    """Explicit transverse finder paths and posed arriving-top paper touches."""
     from prechips.measurements import length_keys
 
     requests = {}
@@ -2278,6 +2494,10 @@ def zero_pickup_inputs(bundle, setup, hold=None, *, lineage=None, model=None):
         request["reasons"], request["errors"] = reasons, errors
         request["recipe_id"] = hashlib.sha256(_json(request).encode()).hexdigest()
         requests[axis] = request
+    for key, source, position in _top_pickup_specs(setup):
+        if scene_id is None:
+            scene_id = _pickup_scene_id(bundle, setup, prepared_hold, lineage, model)
+        requests[key] = _arriving_top_pickup(bundle, setup, source, scene_id, scale, position)
     return {"requests": requests}
 
 
@@ -2417,10 +2637,20 @@ def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners
     }, sent
 
 
+def _cold_coordinates(bundle):
+    """Canonical requested commands, independent of stored native pickup results."""
+    from prechips.rules.coordinates import evaluate
+
+    token = _TOP_COMMAND_INPUTS.set(True)
+    try:
+        return {finding.subject: finding.numbers for finding in evaluate(bundle, pre_kernel=True)}
+    finally:
+        _TOP_COMMAND_INPUTS.reset(token)
+
+
 def _pickup_lineage_inputs(bundle, setup, prepared=None):
     """Exact operative producer inputs, including borrowed support source histories."""
     from prechips.material_routes import MaterialGraph, producer_setup, setup_lineage
-    from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.geometry_common import complete_form_subjects, finishing_subjects
 
     needed = setup_lineage(bundle.plan, setup["id"])
@@ -2443,10 +2673,7 @@ def _pickup_lineage_inputs(bundle, setup, prepared=None):
         solids = bundle.features.get("solids")
         graph = MaterialGraph(bundle.plan) if solids or "workpieces" in bundle.plan else None
         owners = bundle.finished_feature_owners if solids else {}
-        coordinates = {
-            finding.subject: finding.numbers
-            for finding in coordinate_findings(bundle, pre_kernel=True)
-        }
+        coordinates = _cold_coordinates(bundle)
         finishing, complete = finishing_subjects(bundle), complete_form_subjects(bundle)
         prepared = [
             _setup_inputs(bundle, entry, coordinates, finishing, complete, graph, owners)[0]
@@ -2500,7 +2727,6 @@ def _model_inputs(bundle):
 
 def build_job(bundle):
     from prechips.material_routes import MaterialGraph
-    from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.geometry_common import (
         complete_form_subjects,
         finishing_subjects,
@@ -2512,9 +2738,7 @@ def build_job(bundle):
     owners = bundle.finished_feature_owners if solids else {}
     model = _model_inputs(bundle)
     # The kernel request: a bounded op's printed tables go whole, for the kernel to clip.
-    coordinates = {
-        finding.subject: finding.numbers for finding in coordinate_findings(bundle, pre_kernel=True)
-    }
+    coordinates = _cold_coordinates(bundle)
     finishing = finishing_subjects(bundle)
     complete = complete_form_subjects(bundle)
     for setup in bundle.plan["setups"]:
@@ -2656,6 +2880,9 @@ _ENGINE_OP = (
     "mounted_saw",
     "feature",
     "profile_model",
+    "zero_pickup_key",
+    "tool",
+    "holder",
     "faces",
     "workpiece_faces",
     "joint_cut",
@@ -2730,6 +2957,7 @@ _ENGINE_CHUCK = (
     "head_solids",
 )
 _ENGINE_COMMON = (
+    "contact_model",
     "parallels_ref",
     "parallels_height_mm",
     "parallels_length_mm",
@@ -2904,6 +3132,7 @@ ENGINE_SOURCES = (
     "render_diagram.py",
     "render_png.py",
     "saw_engagement.py",
+    "saw_face_credit.py",
     "step_faces.py",
     "thread_material.py",
     "zero_pickup.py",

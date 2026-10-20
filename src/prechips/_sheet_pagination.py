@@ -40,7 +40,17 @@ JOB_PRINT_JS = r"""(() => {
   let CAP;
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
-    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    const s = getComputedStyle(el);
+    if (s.display === "contents") {
+      const bounds = [...el.children].filter(
+        (child) => getComputedStyle(child).display !== "none"
+      ).map(box);
+      return bounds.length
+        ? { top: Math.min(...bounds.map((r) => r.top)),
+          bottom: Math.max(...bounds.map((r) => r.bottom)) }
+        : { top: 0, bottom: 0 };
+    }
+    const r = el.getBoundingClientRect();
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
   const LOCATOR_TARGET = "data-locator-target", LOCATOR_REF = "data-locator-ref";
@@ -371,6 +381,29 @@ JOB_PRINT_JS = r"""(() => {
     if (!ref) throw new Error("A recording reference lacks its pristine measured reservation.");
     ref.prepend(" · ");
     return [...nodes, ref];
+  }
+  function prepareTableColumns() {
+    for (const table of document.querySelectorAll(JOB + " table")) {
+      if (table.querySelector(":scope > colgroup")
+          || getComputedStyle(table).tableLayout !== "auto") continue;
+      const rows = [...table.rows].filter((row) =>
+        [...row.cells].every((cell) => cell.colSpan === 1 && cell.rowSpan === 1));
+      const count = Math.max(0, ...rows.map((row) => row.cells.length));
+      const row = rows.find((candidate) => candidate.cells.length === count);
+      if (!row) continue;
+      // Let the browser allocate content-sized columns once at the print width.
+      // Continuation fragments retain those measured widths, not equal shares or
+      // a new allocation based only on the few rows left in that fragment.
+      const columns = document.createElement("colgroup");
+      columns.setAttribute(ADDED, "");
+      for (const cell of row.cells) {
+        const column = document.createElement("col");
+        column.style.width = cell.getBoundingClientRect().width + "px";
+        columns.append(column);
+      }
+      table.prepend(columns);
+      table.style.tableLayout = "fixed";
+    }
   }
   function paginate(section) {
     // Recompute original/context distinctions at this width, never from a previous pass.
@@ -812,7 +845,7 @@ JOB_PRINT_JS = r"""(() => {
         const prev = start.previousElementSibling;
         const caption = prev && prev.tagName === "P"
           && /^(TABLE|OL|UL)$/.test(start.tagName) && !prev.hasAttribute(ADDED);
-        if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
+        if (heading(prev) || caption || prev?.matches(".lead-in,.variant-label")) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
           start = start.parentElement;
@@ -1337,7 +1370,8 @@ JOB_PRINT_JS = r"""(() => {
         return index;
       };
       let j = over();
-      if (j === 0 && move(t)) j = over();
+      if (j === 0 && (t.matches("table.tools, table.measurement-actions")
+          || !sourceProgress(t, t.tBodies[0])) && move(t)) j = over();
       if (!t.classList.contains("operations")) {
         const bodies = [...t.tBodies];
         const authored = bodies.filter((body) => !body.hasAttribute("data-job-print-fragment"));
@@ -1394,7 +1428,13 @@ JOB_PRINT_JS = r"""(() => {
     function walk(parent) {
       for (const el of [...parent.children]) {
         if (!el.isConnected || el.hasAttribute(ADDED)) continue;
-        if (["page", "always"].includes(getComputedStyle(el).breakBefore)) {
+        const style = getComputedStyle(el);
+        if (style.display === "none") continue;
+        if (style.display === "contents") {
+          walk(el);
+          continue;
+        }
+        if (["page", "always"].includes(style.breakBefore)) {
           // Honor an authored page boundary without retaining a second native
           // break after the measured running header. Reset restores the source.
           el.style.breakBefore = "auto";
@@ -1412,11 +1452,13 @@ JOB_PRINT_JS = r"""(() => {
         } else if (el.tagName === "FIGURE") {
           move(el);
           if (!fits(box(el).bottom)) refuseFigure(el);
-        } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
-          continue;
         } else if (el.children.length
             && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
               + ".caution, .unverified")) {
+          // Ordinary flow containers may share a page and fragment between their
+          // children. Only an explicit keep-together box moves as a whole.
+          if (["avoid", "avoid-page"].includes(style.breakInside)
+              && b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) continue;
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
@@ -1510,6 +1552,7 @@ JOB_PRINT_JS = r"""(() => {
       root.dataset.pageCapacity = CAP;
       root.dataset.printWidth = measure.getBoundingClientRect().width;
       measure.remove();
+      prepareTableColumns();
       prepareLocators();
       document.querySelectorAll("ol").forEach((list) => {
         [...list.children].filter((item) => item.tagName === "LI").forEach((item, index) => {

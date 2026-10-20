@@ -2159,12 +2159,14 @@ def _boundary(feature, frame, frames):
 
 
 def _sweep_area(feature, op, frame, frames):
-    """Setup-XY corners of the area a ``linear_table`` sweeps, or None: ``contour.
-    sweep_bounds`` in ``sweep_frame``, else a face op's or side-milling profile's
-    (:func:`_rastered`) setup-frame ``stock_removal_bounds``, else the feature's own
-    bounds."""
+    """Setup-XY corners of the area a ``linear_table`` sweeps, or None: an explicitly
+    authored ``contour.sweep_bounds`` must resolve in ``sweep_frame``. Only when that
+    key is absent may a face or side-milling profile use ``stock_removal_bounds``,
+    then the feature's bounds."""
     contour = mapping(op.get("contour"))
-    if isinstance(contour.get("sweep_bounds"), dict):
+    if "sweep_bounds" in contour:
+        if not isinstance(contour["sweep_bounds"], dict):
+            return None
         envelope = {
             **feature,
             "bounds": contour["sweep_bounds"],
@@ -2946,34 +2948,89 @@ def _band(value):
 # A printed row's id (:func:`row_id`) is its table's name, ``FRAGMENT_FORMAT`` for a piece
 # of a clipped table, then ``ROW_FORMAT``: the kernel names the rows of each piece it clips
 # (:func:`checkpoints`) with these same formats.
-ROW_FORMAT = {"arc_table": " row {}", "line_table": "[{}]"}
+ROW_FORMAT = {"arc_table": " row {}", "line_table": "[{}]", "linear_table": " point {}"}
 FRAGMENT_FORMAT = " fragment {}"
 
 
 def _table_name(subject, kind, table):
-    name = f"{subject} {table.get('stage')} " + (
-        "arc" if kind == "arc_table" else f"line {table.get('side')}"
-    )
+    if kind == "linear_table":
+        label = f"linear path {table['path_index'] + 1} final depth"
+    else:
+        label = "arc" if kind == "arc_table" else f"line {table.get('side')}"
+    name = f"{subject} {table.get('stage')} {label}"
     if "fragment" in table:
         name += FRAGMENT_FORMAT.format(table["fragment"][0])
     return name
 
 
 def row_id(subject, kind, table, index):
-    """A printed row's id: ``S1:40 rough arc row 3`` (``arc_table``) or ``S1:40 rough line
-    +X[0]`` (``line_table``); a piece of a clipped table adds ``fragment k``."""
+    """A printed row's id: arc ``row i``, join ``[i]``, or linear final-depth ``point i``.
+    A piece of a clipped table adds ``fragment k`` to its table name."""
     return _table_name(subject, kind, table) + ROW_FORMAT[kind].format(index)
 
 
+def _linear_checkpoints(subject, numbers, op):
+    """Canonical linear material paths at their actual printed final depth.
+
+    Profile ``cutter_centre`` is already ordered and rounded by coordinates; it is not
+    regenerated from a feature box or confused with tool-envelope rapids. As for an
+    arc/join material table, its final tip is independent of the native-entry-dependent
+    axial schedule. The separate tool paths retain unknown start/level evidence.
+    """
+    result = []
+    for profile_index, profile in enumerate(numbers.get("profiles", [])):
+        if (
+            profile.get("op") != op
+            or mapping(profile.get("contour")).get("method") != "linear_table"
+        ):
+            continue
+        points = profile.get("cutter_centre")
+        if isinstance(points, list) and points:
+            # A raster has independent passes; an outline is one complete polyline.
+            nested = isinstance(points[0], list) and points[0] and isinstance(points[0][0], list)
+            paths = points if nested else [points]
+        else:
+            paths = [[UNKNOWN]]
+        tip = profile.get("dro_to_z", UNKNOWN)
+        for path_index, path in enumerate(paths):
+            if not isinstance(path, list) or not path:
+                path = [UNKNOWN]
+            table = {**profile, "path_index": path_index}
+            result.append(
+                {
+                    "name": _table_name(subject, "linear_table", table),
+                    "kind": "linear_table",
+                    "rows": [
+                        (row_id(subject, "linear_table", table, index), xy, tip, False)
+                        for index, xy in enumerate(path)
+                    ],
+                    "bounded": False,
+                    "cutter_side": profile.get("cutter_side", UNKNOWN),
+                    "directed": profile.get("cut_order") in _CUT_SENSE,
+                    "stepped": False,
+                    "method": "linear_table",
+                    "chain_geometry": None,
+                    "stage": profile.get("stage"),
+                    "profile_index": profile_index,
+                    "path_index": path_index,
+                    "material_scope": "final_depth",
+                }
+            )
+    return result
+
+
 def checkpoints(subject, numbers, op):
-    """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order.
+    """Each printed cutter-centre arc/join table and linear profile path, in cutting order.
 
     A table is its ``name`` and ``kind`` (:func:`row_id`), its ``rows`` of (row id,
     printed setup XY ``dro_xy``, printed tip Z ``dro_tip_z``, corner overshoot?) in plan
     units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``),
     the side of its travel its cutter clears from (``cutter_side``) and whether its rows
     are single-axis stair steps (``stepped``: keyed at its ends and miters, not every
-    step). What the DRO shows is what the kernel clips and checks.
+    step). Linear profiles use a distinct ``linear_table`` kind and stable final-depth
+    row identities. Their ``material_scope="final_depth"`` matches arc/join tables:
+    the actual printed final tip defines material removal, never rapid/lift moves or a
+    claim that the separate axial pass schedule is known.
     """
     result = []
     for kind in ("arc_table", "line_table"):
@@ -3013,7 +3070,7 @@ def checkpoints(subject, numbers, op):
                     "exact_arc": table.get("exact_arc"),
                 }
             )
-    return result
+    return result + _linear_checkpoints(subject, numbers, op)
 
 
 def _clip_facts(bundle, subject):
@@ -4303,7 +4360,7 @@ def evaluate(bundle, *, pre_kernel=False):
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
-        top = top_reader(bundle, setup)
+        top = top_reader(bundle, setup, native_top=not pre_kernel)
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}

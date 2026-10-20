@@ -1,4 +1,4 @@
-"""One real-STEP native batch exercises bounded tapping and both host proof joins.
+"""One real-STEP native batch exercises bounded tapping and all three host proof joins.
 
 The frozen T-nut is never regenerated or modified.  Its published nominal section
 and a separately specified 8-mm preparation drill supply the geometric oracles;
@@ -22,9 +22,11 @@ from test_kernel_inspection_preservation_native import (
 )
 
 from prechips import kernel
+from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.kernel.step_faces import StepFile
 from prechips.material_routes import MaterialGraph
+from prechips.measurements import length_debt
 from prechips.rules import coverage, reach
 from prechips.rules.resolution import (
     inspection_preservation_evidence,
@@ -340,6 +342,28 @@ def _case(thread_native, case="positive"):
     return replace(thread_native["bundles"][case], kernel=native), native
 
 
+def _tap_reach(bundle):
+    [finding] = [row for row in reach.evaluate(bundle) if row.subject == "B1:20"]
+    return finding
+
+
+def _assert_no_exact_tap_reach(finding):
+    for key in (
+        "reach_depth_mm",
+        "reach_top_z_mm",
+        "shank_hits",
+        "holder_wall_hits",
+        "claimed_indices",
+        "claimed_face_count",
+        "machined_faces",
+        "machined_face_count",
+    ):
+        assert key not in finding.numbers, (key, finding)
+    assert not any(key.startswith("rotary") for key in finding.numbers)
+    if finding.status != "pass":
+        assert "shank_reach" not in finding.numbers
+
+
 def _bounded(material, lower=LOWER_VOLUME, upper=DRILLED_VOLUME):
     assert material["model"] == "bounded_material_v1"
     assert material["state"] == "bounded"
@@ -465,6 +489,42 @@ def test_native_287_cylinder_gets_host_representation_not_machining_credit(threa
     assert set(finding.numbers["unclaimed_indices"]) == all_indices - shelf_indices - {index}
 
 
+def test_actual_native_thread_proof_drives_qualified_host_reach_without_exact_credit(thread_native):
+    bundle, native = _case(thread_native)
+    setup, op = _tap(bundle)
+    request = kernel.op_inputs(bundle, setup, op)["manual_thread"]
+    detail = native["ops"]["B1:20"]
+    material = detail["manual_thread"]
+    proof = detail["represented_thread_envelope"]
+    finding = _tap_reach(bundle)
+    assert finding.status == "pass", finding
+    assert finding.numbers["model"] == "qualified_hand_tap_reach_v1"
+    assert finding.numbers["evaluation"] == "represented_geometry"
+    assert finding.numbers["helical_geometry"] == "unmodeled"
+    assert finding.numbers["tool"] == request["tool"] == "tools.tap"
+    assert finding.numbers["workpiece_id"] == "nut1"
+    assert finding.numbers["threaded_span_mm"] == pytest.approx(12.7)
+    for field, expected in (
+        ("tip_depth_mm", 26.035),
+        ("lead_mm", 12.7),
+        ("formed_depth_mm", 13.335),
+        ("flute_len_mm", 40.0),
+    ):
+        assert finding.numbers[field] == pytest.approx(expected)
+        assert finding.numbers[field] == request[field] == material[field]
+    evidence = finding.numbers["represented_thread_envelope"]
+    assert evidence["status"] == "pass" and evidence["proof"] is proof
+    assert evidence["indices"] == [native["workpiece_mapping"]["nut1"][THREAD]]
+    assert finding.numbers["shank_reach"] == "outside_stock_entry_plane"
+    _assert_no_exact_tap_reach(finding)
+    # This is the original native memo, not an exact-cut rewrite for reach.
+    assert bundle.kernel is native
+    assert detail["claimed_indices"] == "unknown"
+    assert detail.get("machined_faces", []) == []
+    for field in ("reach_depth_mm", "shank_hits", "holder_wall_hits", "tool_hits"):
+        assert detail.get(field, "unknown") == "unknown", (field, detail)
+
+
 def test_all_four_real_native_support_proofs_feed_host_preservation(thread_native):
     bundle, native = _case(thread_native)
     check = _setup(bundle, "S1")["ops"][2]
@@ -520,6 +580,11 @@ def test_native_thread_controls_cannot_become_host_face_credit(thread_native, ca
     detail = native["ops"]["B1:20"]
     assert detail.get("machined_faces", []) == []
     assert detail.get("represented_thread_envelope", {}).get("status") != "pass"
+    finding = _tap_reach(bundle)
+    assert finding.status != "pass", finding
+    if case != "unsupported-manual-thread":
+        assert finding.status in {"unknown", "error"}, finding
+        _assert_no_exact_tap_reach(finding)
     if case == "nonthread-face":
         # A valid material transition does not certify an unrelated planar claim.
         assert detail["manual_thread"]["status"] == "pass"
@@ -693,6 +758,9 @@ def test_actual_native_thread_proof_cannot_replay_for_other_identity(
     setup, op = _tap(bundle)
     indices, evidence = coverage.represented_thread_envelope(bundle, native, setup, op)
     assert indices == set() and evidence["status"] == "unknown"
+    finding = _tap_reach(bundle)
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
 
 
 def test_native_proofs_do_not_authorize_a_changed_host_registration_or_scope(thread_native):
@@ -702,6 +770,9 @@ def test_native_proofs_do_not_authorize_a_changed_host_registration_or_scope(thr
     changed = replace(original, plan=plan)
     setup, op = _tap(changed)
     assert coverage.represented_thread_envelope(changed, native, setup, op)[0] == set()
+    finding = _tap_reach(changed)
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
     check = _setup(changed, "S1")["ops"][2]
     evidence = inspection_preservation_evidence(
         changed, "F1", check, "base-envelope", "width", "nut1"
@@ -716,3 +787,275 @@ def test_native_proofs_do_not_authorize_a_changed_host_registration_or_scope(thr
             changed, "F1", check, "base-envelope", "width", "nut1"
         )
         assert evidence["status"] != "pass"
+
+
+@pytest.mark.parametrize("owner", ["manual_thread", "represented_thread_envelope"])
+def test_actual_native_thread_reach_needs_both_native_proofs(thread_native, owner):
+    original, raw = _case(thread_native)
+    native = deepcopy(raw)
+    native["ops"]["B1:20"].pop(owner)
+    finding = _tap_reach(replace(original, kernel=native))
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize(
+    "field,changed",
+    [
+        ("tip_depth_mm", 27.0),
+        ("lead_mm", 13.0),
+        ("formed_depth_mm", 14.0),
+        ("flute_len_mm", 45.0),
+    ],
+)
+@pytest.mark.parametrize("mutation", ["missing", "unknown", "changed"])
+def test_actual_native_reach_qualification_must_match_current_request(
+    thread_native, field, changed, mutation
+):
+    original, raw = _case(thread_native)
+    native = deepcopy(raw)
+    material = native["ops"]["B1:20"]["manual_thread"]
+    if mutation == "missing":
+        material.pop(field)
+    else:
+        material[field] = "unknown" if mutation == "unknown" else changed
+    bundle = replace(original, kernel=native)
+    setup, op = _tap(bundle)
+    # Face representation is still valid; it cannot substitute for the four
+    # current tip/lead/formed/flute qualifications that reach additionally needs.
+    assert coverage.represented_thread_envelope(bundle, native, setup, op)[0]
+    finding = _tap_reach(bundle)
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("depth_mm", 27.0), ("lead_mm", 12.0), ("flute_len_mm", 45.0)],
+)
+def test_actual_native_thread_reach_cannot_replay_after_current_qualification_changes(
+    thread_native, field, value
+):
+    original, _ = _case(thread_native)
+    bundle = replace(original, plan=deepcopy(original.plan), inventory=deepcopy(original.inventory))
+    setup, op = _tap(bundle)
+    if field == "depth_mm":
+        op[field] = value
+    else:
+        bundle.inventory["tools"]["tap"][field] = measured(value)
+    request = kernel.op_inputs(bundle, setup, op)["manual_thread"]
+    assert request["status"] == "ready", request
+    finding = _tap_reach(bundle)
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("depth_mm", 25.0),
+        ("depth_mm", 0.0),
+        ("lead_mm", 14.0),
+        ("lead_mm", -1.0),
+        ("flute_len_mm", 25.0),
+        ("flute_len_mm", 0.0),
+    ],
+)
+def test_current_short_or_invalid_tap_qualification_is_error_not_stale_unknown(
+    thread_native, field, value
+):
+    original, _ = _case(thread_native)
+    bundle = replace(original, plan=deepcopy(original.plan), inventory=deepcopy(original.inventory))
+    setup, op = _tap(bundle)
+    if field == "depth_mm":
+        op[field] = value
+    else:
+        bundle.inventory["tools"]["tap"][field] = measured(value)
+    request = kernel.op_inputs(bundle, setup, op)["manual_thread"]
+    assert request["status"] == "error", request
+    finding = _tap_reach(bundle)
+    assert finding.status == "error", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize(
+    "stale_field,stale_value",
+    [
+        (None, None),
+        ("producer", "D1:10"),
+        ("feature", "shoulders"),
+        ("workpiece_id", "nut2"),
+        ("registration", {"pose": "unknown"}),
+        ("partition_path", [{"split": "S1", "output": "other"}]),
+        ("region", {"depth_mm": 1.0}),
+        ("diameter_mm", 10.0),
+        ("tip_depth_mm", 27.0),
+        ("lead_mm", 13.0),
+        ("formed_depth_mm", 14.0),
+        ("flute_len_mm", 45.0),
+    ],
+)
+def test_current_native_manual_thread_error_survives_but_stale_error_is_unknown(
+    thread_native, stale_field, stale_value
+):
+    original, raw = _case(thread_native)
+    native = deepcopy(raw)
+    material = native["ops"]["B1:20"]["manual_thread"]
+    material.update(status="error", reasons=["native tap qualification failed"])
+    if stale_field is not None:
+        material[stale_field] = deepcopy(stale_value)
+    finding = _tap_reach(replace(original, kernel=native))
+    assert finding.status == ("error" if stale_field is None else "unknown"), finding
+    if stale_field is None:
+        assert "native tap qualification failed" in finding.sentence
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize("field", ["dia_mm", "lead_mm", "flute_len_mm"])
+@pytest.mark.parametrize("status", ["assumed", "illustrative"])
+def test_actual_native_tap_reach_does_not_discharge_current_measurement_debt(
+    thread_native, field, status
+):
+    original, _ = _case(thread_native)
+    bundle = replace(original, inventory=deepcopy(original.inventory))
+    bundle.inventory["tools"]["tap"][field]["measured"]["status"] = status
+    setup, op = _tap(bundle)
+    assert kernel.op_inputs(bundle, setup, op)["manual_thread"]["status"] == "unknown"
+    finding = _tap_reach(bundle)
+    assert finding.status == "unknown", finding
+    debt_id = f"tools.tap.{field.removesuffix('_mm')}"
+    assert any(
+        row["id"] == debt_id and row["status"] == status for row in finding.numbers["measurements"]
+    ), finding
+    _assert_no_exact_tap_reach(finding)
+
+
+def _reach_with_corrupt_ready_qualification(thread_native, monkeypatch, changes):
+    """Host guards reject a corrupt ready payload independently of normalization."""
+    original, raw = _case(thread_native)
+    native = deepcopy(raw)
+    bundle = replace(original, kernel=native)
+    setup, op = _tap(bundle)
+    inputs = kernel.op_inputs(bundle, setup, op)
+    request = inputs["manual_thread"]
+    material = native["ops"]["B1:20"]["manual_thread"]
+    for field, value in changes.items():
+        if field == "threaded_span_mm":
+            request["region"]["depth_mm"] = value
+            material["region"]["depth_mm"] = value
+        else:
+            request[field] = value
+            material[field] = value
+    assert request["status"] == "ready"
+    monkeypatch.setattr(kernel, "op_inputs", lambda *args, **kwargs: deepcopy(inputs))
+    return reach._represented_hand_tap_reach(bundle, setup, op, native, inputs, [], None)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["tip_depth_mm", "lead_mm", "formed_depth_mm", "flute_len_mm", "threaded_span_mm"],
+)
+@pytest.mark.parametrize("value", [None, True, "unknown", math.nan, math.inf, -math.inf])
+def test_ready_hand_tap_reach_still_requires_finite_qualified_lengths(
+    thread_native, monkeypatch, field, value
+):
+    finding = _reach_with_corrupt_ready_qualification(thread_native, monkeypatch, {field: value})
+    assert finding.status == "unknown", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"tip_depth_mm": 0.0},
+        {"tip_depth_mm": -1.0},
+        {"lead_mm": -1.0},
+        {"formed_depth_mm": 0.0},
+        {"formed_depth_mm": -1.0},
+        {"flute_len_mm": 0.0},
+        {"flute_len_mm": -1.0},
+        {"threaded_span_mm": 0.0},
+        {"threaded_span_mm": -1.0},
+        {"formed_depth_mm": 13.0},
+        {"tip_depth_mm": 25.0, "formed_depth_mm": 12.3},
+        {"lead_mm": 14.0, "formed_depth_mm": 12.035},
+        {"flute_len_mm": 26.0},
+    ],
+)
+def test_ready_hand_tap_reach_still_refuses_known_invalid_numeric_relationships(
+    thread_native, monkeypatch, changes
+):
+    finding = _reach_with_corrupt_ready_qualification(thread_native, monkeypatch, changes)
+    assert finding.status == "error", finding
+    _assert_no_exact_tap_reach(finding)
+
+
+def test_represented_hand_tap_reach_preserves_known_operation_error(thread_native):
+    bundle, native = _case(thread_native)
+    setup, op = _tap(bundle)
+    inputs = kernel.op_inputs(bundle, setup, op)
+    blocked = Finding(
+        "reach",
+        "B1:20",
+        "error",
+        {"mapping_errors": ["invalid selected STEP face"]},
+        ["plan.setups.B1.ops.20"],
+        "B1:20: invalid selected STEP face.",
+    )
+    finding = reach._represented_hand_tap_reach(bundle, setup, op, native, inputs, [], blocked)
+    assert finding == blocked
+
+
+@pytest.mark.parametrize(
+    "action,kind,representation",
+    [
+        ("tap", "threaded_hole", "thread_envelope"),
+        ("die_thread", "threaded_hole", "thread_envelope"),
+        ("drill", "threaded_hole", "thread_envelope"),
+        ("hand_tap", "hole", "thread_envelope"),
+        ("hand_tap", "threaded_hole", None),
+        ("hand_tap", "threaded_hole", "exact"),
+    ],
+)
+def test_represented_hand_tap_reach_leaves_other_approaches_and_features_unchanged(
+    thread_native, action, kind, representation
+):
+    original, native = _case(thread_native)
+    bundle = replace(original, plan=deepcopy(original.plan), features=deepcopy(original.features))
+    setup, op = _tap(bundle)
+    op["do"] = action
+    feature = bundle.features["features"]["threaded-hole"]
+    feature["kind"] = kind
+    if representation is None:
+        feature.pop("representation")
+    else:
+        feature["representation"] = representation
+    assert reach._represented_hand_tap_reach(bundle, setup, op, native, {}, [], None) is None
+
+
+@pytest.mark.parametrize("native_status,expected", [("pass", "unknown"), ("error", "error")])
+def test_ready_represented_tap_proof_cannot_discharge_context_measurement_debt(
+    thread_native, native_status, expected
+):
+    original, raw = _case(thread_native)
+    native = deepcopy(raw)
+    bundle = replace(original, kernel=native)
+    setup, op = _tap(bundle)
+    inputs = kernel.op_inputs(bundle, setup, op)
+    assert inputs["manual_thread"]["status"] == "ready"
+    # A ready numeric payload cannot erase debts carried by its host context.
+    # Construct the real debt schema rather than hand-authoring a diagnostic.
+    unqualified = deepcopy(bundle.inventory["tools"]["tap"])
+    unqualified["flute_len_mm"]["measured"]["status"] = "assumed"
+    debt = length_debt(unqualified, "flute_len", "tools", "tap")
+    inputs["measurement_debts"] = [debt]
+    material = native["ops"]["B1:20"]["manual_thread"]
+    material.update(status=native_status, reasons=["native tap qualification failed"])
+    finding = reach._represented_hand_tap_reach(bundle, setup, op, native, inputs, [], None)
+    assert finding.status == expected, finding
+    if expected == "unknown":
+        assert finding.numbers["measurements"] == [debt]
+        assert debt["id"] in finding.sentence
+    else:
+        assert "native tap qualification failed" in finding.sentence
+    _assert_no_exact_tap_reach(finding)

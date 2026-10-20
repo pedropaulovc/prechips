@@ -10,6 +10,8 @@ Mounted disks consume the shared finite kerf-coverage and assembly-clearance res
 neither axial flute depth nor diameter minus flange radius establishes their reach.
 """
 
+import math
+
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     TURNING,
@@ -18,7 +20,7 @@ from prechips.rules.geometry_common import (
     op_contexts,
     with_measurement_debts,
 )
-from prechips.rules.resolution import number, same_length
+from prechips.rules.resolution import number, op_feature, record, same_length
 
 # A radial gap this close to the cutter's own radius is the bore the op itself cuts.
 OWN_BORE_MM = 0.01
@@ -63,11 +65,120 @@ def _clearances(detail, inputs):
     return rows
 
 
+def _represented_hand_tap_reach(bundle, setup, op, facts, inputs, cite, blocked):
+    """Qualified tip travel from a proved entry plane, not exact helical cut credit."""
+
+    if op.get("do") != "hand_tap":
+        return None
+    feature = record(bundle.feature_definitions.get(op_feature(op)))
+    if feature.get("kind") != "threaded_hole" or feature.get("representation") != "thread_envelope":
+        return None
+    from prechips.kernel import op_inputs
+    from prechips.rules.coverage import represented_thread_envelope
+
+    if blocked is not None and blocked.status == "error":
+        return blocked
+    subject = f"{setup['id']}:{op['op']}"
+    request = record(op_inputs(bundle, setup, op).get("manual_thread"))
+    material = record(record(record(facts.get("ops")).get(subject)).get("manual_thread"))
+    lengths = ("tip_depth_mm", "lead_mm", "formed_depth_mm", "flute_len_mm")
+    depth = record(request.get("region")).get("depth_mm", "unknown")
+    values = {
+        "model": "qualified_hand_tap_reach_v1",
+        "evaluation": "represented_geometry",
+        "helical_geometry": "unmodeled",
+        "tool": request.get("tool", "unknown"),
+        "workpiece_id": request.get("workpiece_id"),
+        "threaded_span_mm": depth,
+        **{key: request.get(key, "unknown") for key in lengths},
+    }
+
+    def result(status, message):
+        return with_measurement_debts(
+            Finding("reach", subject, status, values, cite, f"{subject}: {message}."),
+            inputs.get("measurement_debts", []),
+        )
+
+    if request.get("status") == "error":
+        return result("error", "; ".join(request.get("reasons", [])) or "tap reach is invalid")
+    if request.get("model") != "bounded_thread_envelope_v1" or request.get("status") != "ready":
+        return result(
+            "unknown",
+            "the selected tap, threaded span, lead or cutting reach is unresolved",
+        )
+    tip, lead, formed, flute = (values[key] for key in lengths)
+    if not all(
+        number(value) and math.isfinite(value) for value in (tip, lead, formed, flute, depth)
+    ):
+        return result(
+            "unknown",
+            "qualified tap reach needs finite tip, lead, cutting and span lengths",
+        )
+    if min(tip, formed, flute, depth) <= 0 or lead < 0:
+        return result("error", "tap tip travel, formed span and cutting length must be positive")
+    if not same_length(formed, tip - lead):
+        return result("error", "formed thread reach does not equal tip travel minus qualified lead")
+    if (formed < depth and not same_length(formed, depth)) or (
+        tip < depth + lead and not same_length(tip, depth + lead)
+    ):
+        return result(
+            "error",
+            "tap tip travel does not form the complete span beyond its qualified lead",
+        )
+    if tip > flute and not same_length(tip, flute):
+        return result("error", "required tap tip travel exceeds its qualified cutting length")
+    indices, evidence = represented_thread_envelope(bundle, facts, setup, op)
+    values["represented_thread_envelope"] = evidence
+    matching = (
+        material.get("model") == "bounded_thread_envelope_v1"
+        and material.get("producer") == subject
+        and material.get("feature") == request.get("feature")
+        and material.get("workpiece_id") == request.get("workpiece_id")
+        and material.get("region") == request.get("region")
+        and material.get("diameter_mm") == request.get("diameter_mm")
+        and "registration" in evidence
+        and material.get("registration") == evidence["registration"]
+        and "partition_path" in evidence
+        and material.get("partition_path") == evidence["partition_path"]
+        and all(material.get(key) == request.get(key) for key in lengths)
+    )
+    if matching and material.get("status") == "error":
+        return result(
+            "error", "; ".join(material.get("reasons", [])) or "native tap reach proof is invalid"
+        )
+    if not indices or evidence.get("status") != "pass":
+        reasons = evidence.get("reasons", [])
+        return result(
+            "unknown", "; ".join(reasons) or "native represented-thread reach is unproven"
+        )
+    if not matching:
+        return result(
+            "unknown",
+            "native tap tip, lead and cutting reach do not match current qualification",
+        )
+    if inputs.get("measurement_debts"):
+        return result("unknown", "current tool or stock measurement requirements remain unresolved")
+    # The material proof establishes the actual global stock entry plane at
+    # this feature mouth. With all tip travel inside the cutting length, the
+    # noncutting shank past the flutes never reaches that plane.
+    values["shank_reach"] = "outside_stock_entry_plane"
+    return result(
+        "pass",
+        "qualified tap cutting length covers tip travel and lead for the represented span; "
+        "the shank stays outside the proved stock entry plane, "
+        "without claiming exact helical geometry",
+    )
+
+
 def evaluate(bundle):
     rows = []
-    for setup, op, _, detail, inputs, cite, blocked in op_contexts(
+    for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "reach", ("flute_len_mm",)
     ):
+        represented = _represented_hand_tap_reach(bundle, setup, op, facts, inputs, cite, blocked)
+        if represented is not None:
+            rows.append(represented)
+            continue
         if blocked:
             rows.append(blocked)
             continue

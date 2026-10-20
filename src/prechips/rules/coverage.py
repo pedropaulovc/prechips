@@ -23,6 +23,7 @@ from prechips.rules.geometry_common import (
     approach,
     approach_model_reason,
     cutting_action,
+    finite_saw_evidence,
     op_claims,
     provenance,
     rotary_debt_text,
@@ -235,6 +236,8 @@ def represented_thread_envelope(bundle, facts, setup, op):
             return refused("the represented thread's material partition is unresolved")
         path = [{"split": split, "output": output} for split, output in next(iter(paths))]
     evidence["workpiece_id"] = member
+    evidence["registration"] = registration
+    evidence["partition_path"] = path
     if request.get("feature") != name or request.get("workpiece_id") != member:
         return refused("the current thread request does not identify this feature and member")
     for row, model in (
@@ -346,6 +349,342 @@ def represented_thread_envelope(bundle, facts, setup, op):
     return seen, {**evidence, "status": "pass", "reasons": [], "indices": sorted(seen)}
 
 
+def _saw_number(value):
+    return number(value) and math.isfinite(value)
+
+
+def _saw_binding_matches(actual, expected):
+    """Bind JSON facts without accepting a boolean in place of a numeric identity."""
+    if isinstance(expected, dict):
+        return (
+            isinstance(actual, dict)
+            and actual.keys() == expected.keys()
+            and all(_saw_binding_matches(actual[key], value) for key, value in expected.items())
+        )
+    if isinstance(expected, list):
+        return (
+            isinstance(actual, list)
+            and len(actual) == len(expected)
+            and all(_saw_binding_matches(a, b) for a, b in zip(actual, expected, strict=True))
+        )
+    if number(expected):
+        return _saw_number(actual) and _saw_number(expected) and actual == expected
+    return type(actual) is type(expected) and actual == expected
+
+
+def _saw_output_matches(output, spec, subject, path, saw):
+    """Accepted named child, including the native six-decimal conservation ledger."""
+    members = spec.get("carries_workpieces")
+    side = spec.get("side")
+    bounds, children = output.get("bbox_mm"), output.get("children_volume_mm3")
+    if (
+        output.get("status") != "pass"
+        or output.get("side") != side
+        or output.get("partition") != subject
+        or output.get("partition_path") != path
+        or not isinstance(members, list)
+        or not members
+        or any(not isinstance(member, str) or not member for member in members)
+        or len(set(members)) != len(members)
+        or output.get("carries_workpieces") != members
+        or output.get("whole_targets") != members
+        or not isinstance(bounds, list)
+        or len(bounds) != 6
+        or any(not _saw_number(value) for value in bounds)
+        or any(bounds[i] > bounds[i + 3] for i in range(3))
+        or not isinstance(children, list)
+        or len(children) != 2
+        or any(not _saw_number(value) or value <= 0 for value in children)
+        or any(
+            not _saw_number(output.get(key)) or output[key] <= 0
+            for key in ("volume_mm3", "stock_volume_before_mm3", "removed_kerf_volume_mm3")
+        )
+        or not _saw_number(output.get("conservation_error_mm3"))
+        or not 0 <= output["conservation_error_mm3"] <= 1e-6
+    ):
+        return False
+    index = 0 if side == "below" else 1
+    # Four independently rounded volumes can differ by 2e-6 in addition to the
+    # accepted native 1e-6 conservation error. This never enlarges face tolerances.
+    return (
+        abs(output["stock_volume_before_mm3"] - output["removed_kerf_volume_mm3"] - sum(children))
+        <= 3e-6 + 1e-9
+        and abs(output["volume_mm3"] - children[index]) <= 2e-6 + 1e-9
+        and output["stock_volume_before_mm3"] == saw["stock_volume_before_mm3"]
+        and abs(output["removed_kerf_volume_mm3"] - saw["removed_kerf_volume_mm3"]) <= 1e-6 + 1e-9
+        and all(
+            abs(volume - child["volume_mm3"]) <= 1e-6 + 1e-9
+            for volume, child in zip(children, saw["outputs"], strict=False)
+        )
+    )
+
+
+def _saw_face_geometry_matches(row, saw, side):
+    """Complete trimmed-footprint creation witnesses, not plane coincidence alone."""
+    keys = (
+        "plane_z_mm",
+        "plane_error_mm",
+        "area_mm2",
+        "area_tolerance_mm2",
+        "volume_tolerance_mm3",
+        "boundary_uncovered_area_mm2",
+        "preexisting_boundary_area_mm2",
+        "outward_column_volume_mm3",
+        "outward_missing_before_mm3",
+        "outward_missing_removed_mm3",
+        "inward_column_volume_mm3",
+        "inward_missing_child_mm3",
+    )
+    if any(not _saw_number(row.get(key)) for key in keys):
+        return False
+    band, normal = saw["cutting_band_mm"], row.get("normal")
+    sign = 1 if side == "below" else -1
+    edge = band[0] if side == "below" else band[1]
+    width, area = band[1] - band[0], row["area_mm2"]
+    area_limit = max(1e-6, area * 1e-6)
+    volume_limit = max(1e-6, area * width * 1e-6)
+    return (
+        row.get("surface") == "plane"
+        and _saw_binding_matches(normal, [0, 0, sign])
+        and _saw_binding_matches(row.get("cutting_band_mm"), band)
+        and area > 0
+        and row["area_tolerance_mm2"] == area_limit
+        and row["volume_tolerance_mm3"] == volume_limit
+        and 0 <= row["plane_error_mm"] <= 1e-6
+        and abs(row["plane_z_mm"] - edge) <= 1e-6
+        and all(
+            0 <= row[key] <= area_limit
+            for key in ("boundary_uncovered_area_mm2", "preexisting_boundary_area_mm2")
+        )
+        and all(
+            0 <= row[key] <= volume_limit
+            for key in (
+                "outward_missing_before_mm3",
+                "outward_missing_removed_mm3",
+                "inward_missing_child_mm3",
+            )
+        )
+        and row["outward_column_volume_mm3"] > 0
+        and row["inward_column_volume_mm3"] > 0
+        and math.isclose(row["outward_column_volume_mm3"], area * width, rel_tol=1e-9, abs_tol=1e-9)
+        and math.isclose(
+            row["inward_column_volume_mm3"],
+            area * min(width, 1e-3),
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        )
+    )
+
+
+def saw_face_credit(bundle, facts, setup, op):
+    """Only a bound registered finite slitting-saw cut_off proves a newly created face."""
+    from prechips.kernel import op_inputs, workpiece_inputs
+
+    if (
+        op.get("do") != "cut_off"
+        or not registered_workpieces(bundle)
+        or "workpiece_faces" not in op
+    ):
+        return set(), {}
+    inputs = op_inputs(bundle, setup, op)
+    if inputs.get("saw_tool") != "slitting_saw":
+        return set(), {}
+    subject = f"{setup['id']}:{op['op']}"
+    detail = record(record(facts.get("ops")).get(subject))
+    proof = record(detail.get("saw_face_credit"))
+    evidence = {
+        "operation": subject,
+        "status": UNKNOWN,
+        "indices": [],
+        "faces": [],
+        "proof": proof,
+    }
+
+    def refused(reason):
+        native = proof.get("reasons")
+        reasons = [reason] + (
+            [text for text in native if isinstance(text, str) and text.strip()]
+            if isinstance(native, list)
+            else []
+        )
+        return set(), {**evidence, "reasons": list(dict.fromkeys(reasons))}
+
+    request = {
+        key: inputs[key]
+        for key in (
+            "subject",
+            "do",
+            "saw_tool",
+            "kerf_mm",
+            "cut_plane",
+            "mounted_saw",
+            "workpiece_faces",
+            "outputs",
+        )
+        if key in inputs
+    }
+    geometry, _, saw = finite_saw_evidence(detail, "geometry")
+    plane = record(request.get("cut_plane"))
+    kerf = request.get("kerf_mm")
+    if (
+        facts.get("status") != "ok"
+        or request.get("subject") != subject
+        or request.get("do") != op.get("do")
+        or record(request.get("mounted_saw")).get("model") != "finite_disk_v1"
+        or geometry != "pass"
+        or plane.get("axis") != "z"
+        or not _saw_number(plane.get("value"))
+        or not _saw_number(kerf)
+        or kerf <= 0
+        or proof.get("model") != "finite_saw_face_credit_v1"
+        or proof.get("producer") != subject
+        or proof.get("reasons", []) != []
+        or not _saw_binding_matches(proof.get("request"), request)
+        or not _saw_binding_matches(request.get("workpiece_faces"), op["workpiece_faces"])
+        or any(
+            abs(actual - expected) > 1e-6
+            for actual, expected in zip(
+                saw.get("cutting_band_mm", []),
+                [plane["value"] - kerf / 2, plane["value"] + kerf / 2],
+                strict=False,
+            )
+        )
+    ):
+        return refused("the current finite slitting-saw request and native geometry are not bound")
+    members, refs = operation_members(bundle, setup, op), claim_refs(bundle, op, setup)
+    mapping = face_mapping(bundle, facts, setup)
+    invalid = record(facts.get("mapping_errors"))
+    if (
+        not members
+        or not known_refs(refs)
+        or len(set(refs)) != len(refs)
+        or any(ref not in mapping for ref in refs)
+        or any(
+            not isinstance(mapping[ref], int) or isinstance(mapping[ref], bool) or mapping[ref] < 0
+            for ref in refs
+        )
+        or len({mapping[ref] for ref in refs}) != len(refs)
+        or any(ref in invalid or ref[1] in invalid for ref in refs)
+        or detail.get("mapping_errors")
+    ):
+        return refused("the explicit member-qualified face inventory is unresolved")
+    protected = {
+        member: member_protection_evidence(bundle, setup, member, facts) for member in members
+    }
+    registrations = record(
+        workpiece_inputs(bundle.plan["workpieces"], bundle.features.get("units"))
+    )
+    if any(
+        value["status"] != "pass"
+        or not _saw_binding_matches(value["proof"].get("registration"), registrations.get(member))
+        for member, value in protected.items()
+    ):
+        return refused("the selected workpiece has no matching current native protection proof")
+    specs = record(request.get("outputs"))
+    outputs = record(record(record(facts.get("setups")).get(setup["id"])).get("outputs"))
+    if (
+        len(specs) != 2
+        or any(record(spec).get("side") not in ("below", "above") for spec in specs.values())
+        or {record(spec).get("side") for spec in specs.values()} != {"below", "above"}
+    ):
+        return refused("the current saw has no pair of registered named children")
+    rows, inventory = proof.get("faces"), facts.get("faces")
+    if not isinstance(rows, list) or not rows or not isinstance(inventory, list):
+        return refused("the native saw face-creation inventory is absent")
+    expected = {mapping[ref]: ref for ref in refs}
+    seen = set()
+    for raw in rows:
+        row = record(raw)
+        index = row.get("index")
+        if (
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or index not in expected
+            or index in seen
+            or (row.get("workpiece_id"), row.get("canonical_ref")) != expected[index]
+        ):
+            return refused(
+                "the native saw face inventory contains a stale, foreign or repeated index"
+            )
+        seen.add(index)
+    accepted = set()
+    for row in rows:
+        index, member = row["index"], row["workpiece_id"]
+        audit = {
+            "index": index,
+            "workpiece_id": member,
+            "canonical_ref": row["canonical_ref"],
+            "status": UNKNOWN,
+            "reasons": [],
+            "proof": row,
+        }
+        evidence["faces"].append(audit)
+        protection = protected[member]["proof"]
+        carriers = [
+            name
+            for name, spec in specs.items()
+            if isinstance(record(spec).get("carries_workpieces"), list)
+            and member in spec["carries_workpieces"]
+        ]
+        candidates = [
+            face for face in inventory if isinstance(face, dict) and face.get("index") == index
+        ]
+        if (
+            row.get("status") != "pass"
+            or row.get("reasons") != []
+            or len(candidates) != 1
+            or not _saw_binding_matches(candidates[0].get("index"), index)
+            or candidates[0].get("workpiece_id") != member
+            or candidates[0].get("canonical_ref", candidates[0].get("ref")) != row["canonical_ref"]
+            or not _saw_binding_matches(row.get("registration"), protection["registration"])
+            or not _saw_binding_matches(
+                row.get("input_partition_path"), protection["partition_path"]
+            )
+            or len(carriers) != 1
+        ):
+            native = row.get("reasons")
+            audit["reasons"] = [
+                "the native face is not bound to this explicit live member and input",
+                *(
+                    [text for text in native if isinstance(text, str) and text.strip()]
+                    if isinstance(native, list)
+                    else []
+                ),
+            ]
+            continue
+        name = carriers[0]
+        spec, output = specs[name], record(outputs.get(name))
+        path = protection["partition_path"] + [{"split": setup["id"], "output": name}]
+        if (
+            row.get("output") != name
+            or row.get("side") != spec["side"]
+            or not isinstance(spec.get("pose"), dict)
+            or not _saw_binding_matches(row.get("output_registration"), spec["pose"])
+            or not _saw_binding_matches(row.get("partition_path"), path)
+            or not _saw_binding_matches(row.get("output_proof"), output)
+            or not _saw_output_matches(output, spec, subject, path, saw)
+        ):
+            audit["reasons"] = [
+                "the face has no matching accepted named output and conservation proof"
+            ]
+            continue
+        if not _saw_face_geometry_matches(row, saw, spec["side"]):
+            audit["reasons"] = [
+                "the complete newly created planar face and material columns are unproved"
+            ]
+            continue
+        accepted.add(index)
+        audit["status"] = "pass"
+    return accepted, {
+        **evidence,
+        "status": "pass" if accepted and len(accepted) == len(refs) else UNKNOWN,
+        "reasons": []
+        if len(accepted) == len(refs)
+        else ["not every explicit saw face is certified"],
+        "indices": sorted(accepted),
+    }
+
+
 def evaluate(bundle):
     from prechips.kernel import run_geometry
 
@@ -396,6 +735,7 @@ def evaluate(bundle):
     claimed, rotary, errors, debt = set(), set(), [], False
     unsupported = set()
     represented, represented_rows = set(), []
+    saw_rows, saw_refusals = [], {}
     mapping = face_mapping(bundle, facts)
     representation_faces = _thread_representation_faces(bundle, mapping)
     for setup, op in operations(bundle):
@@ -410,13 +750,32 @@ def evaluate(bundle):
                 debt = True
             # Even a successful bounded transition proves no exact helical machining.
             continue
+        if op.get("do") in SAW_OPS:
+            # Ordinary claims never credit a saw, including transient joint features.
+            indices, evidence = saw_face_credit(bundle, facts, setup, op)
+            claimed.update(indices)
+            if evidence:
+                saw_rows.append(evidence)
+                refs = claim_refs(bundle, op, setup)
+                for ref in refs if known_refs(refs) else ():
+                    index = mapping.get(ref)
+                    if index is None or index in indices:
+                        continue
+                    reasons = [
+                        reason
+                        for row in evidence.get("faces", ())
+                        if row.get("index") == index
+                        for reason in row.get("reasons", ())
+                    ] or evidence.get("reasons", [])
+                    cause = "; ".join(reasons) or "complete causal boundary proof is absent"
+                    saw_refusals.setdefault(index, []).append(
+                        f"{setup['id']}:{op['op']}: {cause}"
+                    )
+            continue
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation, even with an explicit face override, credits only the
             # final STEP faces the kernel certifies its accepted finishing cut leaves.
             claimed.update(op_claims(bundle, facts, setup, op)[0] or ())
-            continue
-        if op.get("do") in SAW_OPS:
-            # A saw cut removes stock; its kerf face is not credit toward target faces.
             continue
         action = cutting_action(op)
         if action is False and op.get("do") not in HAND_FINISH:
@@ -499,6 +858,12 @@ def evaluate(bundle):
         "unclaimed_faces": [_face_name(face) for face in faces if face["index"] in unclaimed],
         "unclaimed_indices": unclaimed,
     }
+    if saw_rows:
+        values["saw_face_credit"] = saw_rows
+        cite.append(
+            "kernel saw_face_credit: bound finite slitting-saw creation of explicit "
+            "planar member faces; no finish, tolerance or execution certification"
+        )
     if represented_rows:
         values["represented_thread_envelope"] = represented_rows
         values["represented_thread_envelope_indices"] = sorted(all_faces & represented)
@@ -554,12 +919,21 @@ def evaluate(bundle):
                 values["rotary_gaps"] = list(gaps.values())
         problems = []
         if unclaimed:
-            names = [
-                _face_name(face) or f"imported face index {face['index']}"
-                for face in faces
-                if face["index"] in unclaimed
-            ]
-            problems.append("faces have no cutting op or as-stock claim: " + ", ".join(names))
+            names = []
+            for face in faces:
+                index = face["index"]
+                if index not in unclaimed:
+                    continue
+                name = _face_name(face) or f"imported face index {index}"
+                if index in saw_refusals:
+                    cause = "; ".join(dict.fromkeys(saw_refusals[index]))
+                    problems.append(
+                        f"finite slitting-saw face-creation proof refused for {name} ({cause})"
+                    )
+                else:
+                    names.append(name)
+            if names:
+                problems.append("faces have no cutting op or as-stock claim: " + ", ".join(names))
         if gaps:
             problems.append(
                 "rotary windows leave part of a claimed face uncut: "

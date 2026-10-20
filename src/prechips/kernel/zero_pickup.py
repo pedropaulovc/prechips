@@ -1,8 +1,8 @@
-"""Native transverse finder contact and full-stack path proof.
+"""Native finder and explicit arriving-top contact/full-stack path proofs.
 
 FreeCAD/Part and existing native sweep primitives are injected by the job. This
 module neither imports the job nor owns material routing or mounted-saw zero.
-Coordinates are already in the current setup; Z is the lowest finder tip point.
+Coordinates are already in the current setup; Z is the lowest tool tip point.
 """
 
 import math
@@ -62,8 +62,8 @@ class _Pickup:
             return None
         return value
 
-    def _components(self):
-        finder = self.request.get("finder")
+    def _components(self, field="finder", label="finder"):
+        finder = self.request.get(field)
         if not isinstance(finder, dict):
             finder = {}
         self.reasons.extend(_messages(finder.get("reasons")))
@@ -85,9 +85,9 @@ class _Pickup:
             components.append(("tip", 0, tip / 2, 0, length))
         if length is not None and projection is not None:
             if projection < length:
-                self.errors.append("finder projection is shorter than its measured tip length")
+                self.errors.append(f"{label} projection is shorter than its measured tip length")
             elif projection == length:
-                self.errors.append("finder has no exposed shank above its measured tip")
+                self.errors.append(f"{label} has no exposed shank above its measured tip")
             elif shank is not None:
                 components.append(("shank", 0, shank / 2, length, projection))
         if holder is not None and projection is not None and gauge is not None:
@@ -300,6 +300,9 @@ class _Pickup:
             "legs": [],
         }
         self.result["path"] = path
+        self._sweep_legs(legs, path, components, obstacles)
+
+    def _sweep_legs(self, legs, path, components, obstacles):
         for index, kind, first, last in legs:
             leg = {"index": index, "kind": kind, "from_mm": first, "to_mm": last, "components": []}
             path["legs"].append(leg)
@@ -338,7 +341,7 @@ class _Pickup:
                         )
         if self.result["collisions"]:
             self.errors.append(
-                "finder tip, shank or selected holder collides along the exact pickup path"
+                "pickup tip, shank or selected holder collides along the exact pickup path"
             )
 
     def run(self):
@@ -383,8 +386,239 @@ class _Pickup:
         return _finish(self.result)
 
 
+def _contact_land_patch(contact, land, *, area_tol, length_tol):
+    """Find one actual connected contact patch supporting the finite touch land.
+
+    Other top islands within the occupied tool projection are not the datum.
+    Join coplanar fragments only by positive-area overlap or a shared boundary
+    segment; point contact and mere proximity do not connect a usable patch.
+    """
+    faces = contact.Faces
+    if not faces or contact.Area <= area_tol or land.Area <= area_tol:
+        return None
+    remaining = set(range(len(faces)))
+    while remaining:
+        seed = min(remaining)
+        remaining.remove(seed)
+        component = [seed]
+        frontier = [seed]
+        while frontier and remaining:
+            current = frontier.pop()
+            joined = []
+            for index in remaining:
+                common = faces[current].common(faces[index])
+                if common.Area > area_tol or common.Length > length_tol:
+                    joined.append(index)
+            remaining.difference_update(joined)
+            frontier.extend(joined)
+            component.extend(joined)
+        patch = faces[seed]
+        for index in sorted(component[1:]):
+            patch = patch.fuse(faces[index])
+        patch = patch.removeSplitter()
+        if land.cut(patch).Area <= area_tol:
+            return patch
+    return None
+
+
+class _ArrivingTop(_Pickup):
+    """A qualified flat-end projection touching actual stock, not a target-face alias.
+
+    The full occupied disk is conservative for collisions, not a claim that its
+    interior is filled with cutting edges. Contact uses the existing qualified
+    flat-end model and a finite planar land. Tool overhang is allowed.
+    """
+
+    def __init__(self, App, Part, setup, stock, fixtures, helpers, request):
+        super().__init__(App, Part, setup, stock, fixtures, helpers, "z", request)
+        self.result["model"] = "arriving_top_v1"
+        self.result["arrival"] = deepcopy(helpers.get("arrival", {}))
+
+    def _contact(self, tip):
+        surface = self.request.get("surface")
+        if surface != {"kind": "stock", "face": "stock:+z", "side": "+z"}:
+            self.reasons.append("arriving top needs the explicit actual-stock +Z surface")
+            return None
+        if self.stock is None:
+            return None
+        edge, at, land = (
+            self.request.get("edge_mm"),
+            self.request.get("at_mm"),
+            self.request.get("contact_land_mm"),
+        )
+        if not _number(edge):
+            self.reasons.append("declared arriving top plane is unknown")
+            return None
+        if not isinstance(at, list) or len(at) != 2 or not all(map(_number, at)):
+            self.reasons.append("selected arriving-top touch coordinates are unknown")
+            return None
+        if not _number(land):
+            self.reasons.append("finite arriving-top contact land is unknown")
+            return None
+        if land <= 0:
+            self.errors.append("arriving-top contact land must be positive")
+            return None
+        radius = tip / 2
+        if land / math.sqrt(2) > radius:
+            self.errors.append("selected tool cannot cover the finite contact land")
+            return None
+        directed = [
+            (index, face)
+            for index, face in enumerate(self.stock.Faces)
+            if type(face.Surface).__name__ == "Plane"
+            and (face.normalAt(*face.ParameterRange[::2]) - self.V(0, 0, 1)).Length <= self.tol
+            and abs(face.CenterOfMass.z - edge) <= self.tol
+        ]
+        if not directed:
+            self.errors.append("declared arriving top has no actual +Z planar stock patch")
+            return None
+        patch = directed[0][1]
+        for _, face in directed[1:]:
+            patch = patch.fuse(face)
+        patch = patch.removeSplitter()
+        point = [*at, edge]
+        footprint = self.Part.Face(self.Part.Wire(self.Part.makeCircle(radius, self.V(*point))))
+        contact = footprint.common(patch).removeSplitter()
+        if contact.Area <= self.area:
+            self.errors.append("selected top touch has no positive-area planar contact")
+            return None
+        half = land / 2
+        corners = [
+            self.V(at[0] + x, at[1] + y, edge)
+            for x, y in ((-half, -half), (half, -half), (half, half), (-half, half))
+        ]
+        square = self.Part.Face(self.Part.makePolygon([*corners, corners[0]]))
+        selected_patch = _contact_land_patch(
+            contact, square, area_tol=self.area, length_tol=self.tol
+        )
+        if selected_patch is None:
+            self.reasons.append(
+                "selected top touch does not retain the finite planar contact land "
+                "in one connected patch"
+            )
+            return None
+        missing_land = square.cut(selected_patch).Area
+        paper = self.request["paper_mm"]
+        axis = [*at, edge + paper]
+        self.result["resolved_contact"] = {
+            "surface": deepcopy(surface),
+            "contact_model": "flat_end_projection_v1",
+            "plane_mm": edge,
+            "point_mm": point,
+            "axis_mm": axis,
+            "normal": [0, 0, 1],
+            "land_mm": land,
+            "land_bbox_mm": list(self.bbox(square)),
+            "land_area_mm2": square.Area,
+            "missing_land_area_mm2": missing_land,
+            "footprint_radius_mm": radius,
+            "footprint_area_mm2": footprint.Area,
+            "contact_area_mm2": contact.Area,
+            "uncovered_area_mm2": footprint.cut(patch).Area,
+            "patch_bbox_mm": list(self.bbox(selected_patch)),
+            "patch_area_mm2": selected_patch.Area,
+            "patch_face_indices": [
+                index for index, face in directed if face.common(selected_patch).Area > self.area
+            ],
+        }
+        return axis
+
+    def _path(self, centre, clearance, jog, components, obstacles):
+        height = max(box[5] for box in self.obstacle_boxes) + clearance
+        if height <= centre[2]:
+            self.errors.append("top pickup retract height is not above the paper-contact pose")
+        start = [*centre[:2], height]
+        checked = [*centre[:2], centre[2] + jog]
+        path = {
+            "complete": True,
+            "start_mm": start,
+            "contact_mm": centre,
+            "stock_top_mm": self.result["physical_upper_bound_mm"],
+            "retract_height_mm": height,
+            "jog_mm": jog,
+            "legs": [],
+        }
+        self.result["path"] = path
+        self._sweep_legs(
+            [
+                (0, "descend", start, centre),
+                (1, "check_jog", centre, checked),
+                (2, "retract", checked, start),
+            ],
+            path,
+            components,
+            obstacles,
+        )
+
+    def run(self):
+        request = self.request
+        if request.get("model") != "arriving_top_v1":
+            self.reasons.append("requested arriving-top model is unsupported or unknown")
+        for key in ("recipe_id", "scene_id", "tool", "holder"):
+            value = request.get(key)
+            if not isinstance(value, str) or not value.strip() or value == _UNKNOWN:
+                self.reasons.append(f"arriving-top {key} identity is unknown")
+        if request.get("axis") != "z" or request.get("from") != "+z":
+            self.errors.append("arriving-top touch requires setup Z from +Z")
+        if request.get("method") != "paper":
+            self.reasons.append("arriving-top proof requires an explicit paper touch")
+        position = request.get("position", 0)
+        arrival = self.result["arrival"]
+        if (
+            not isinstance(position, int)
+            or isinstance(position, bool)
+            or position < 0
+            or position != arrival.get("position", 0)
+        ):
+            self.reasons.append("top touch does not match the actual native stock boundary")
+        elif position == 0:
+            if "after_op" in request or request.get("before_ops", []) != []:
+                self.reasons.append("initial top touch cannot alias a later operation boundary")
+        else:
+            after, before = request.get("after_op"), request.get("before_ops")
+            if after is None or str(after) != str(arrival.get("after_op")):
+                self.reasons.append("top touch after-operation boundary is unresolved")
+            if (
+                not isinstance(before, list)
+                or not before
+                or str(arrival.get("before_op")) not in {str(item) for item in before}
+            ):
+                self.reasons.append("top touch before-operation boundary is unresolved")
+        if request.get("tool_kind") != "endmill":
+            self.reasons.append("arriving-top touch needs a qualified flat-end mill")
+        envelope = request.get("tool_envelope")
+        envelope = envelope if isinstance(envelope, dict) else {}
+        if envelope.get("contact_kind") != "flat_end":
+            self.reasons.append("selected tool flat-end contact qualification is unknown")
+        nose = envelope.get("nose_radius_mm")
+        if not _number(nose):
+            self.reasons.append("selected tool flat-end nose radius is unknown")
+        elif nose != 0:
+            self.errors.append("arriving-top flat-end proof requires zero nose radius")
+        paper = request.get("paper_mm")
+        if not _number(paper):
+            self.reasons.append("arriving-top paper thickness is unknown")
+        elif paper < 0:
+            self.errors.append("arriving-top paper thickness cannot be negative")
+        tip, _, components = self._components("tool_envelope", "touch tool")
+        obstacles = self._scene()
+        if self.stock is not None:
+            self.result["stock_bbox_mm"] = list(self.bbox(self.stock))
+            self.result["physical_upper_bound_mm"] = self.result["stock_bbox_mm"][5]
+        clearance = self._positive(request, "retract_clearance_mm")
+        jog = request.get("check_jog_mm")
+        if not _number(jog):
+            self.reasons.append("signed arriving-top check jog is unknown")
+        if tip is None or not _number(paper) or paper < 0:
+            return _finish(self.result)
+        centre = self._contact(tip)
+        if centre is not None and clearance is not None and _number(jog):
+            self._path(centre, clearance, jog, components, obstacles)
+        return _finish(self.result)
+
+
 def prove_pickups(App, Part, setup, stock, fixtures, *, helpers):
-    """Prove only explicitly requested X/Y pickups against the arriving native scene.
+    """Prove explicitly requested pickups against the actual arriving native scene.
 
     ``helpers`` supplies the existing native ``sweep`` and ``bbox`` functions,
     exact ``model_faces`` map, and ``plane_tol``, ``hit_mm3``, ``area_tol``. The
@@ -395,16 +629,29 @@ def prove_pickups(App, Part, setup, stock, fixtures, *, helpers):
     if not isinstance(requests, dict):
         return {}
     results = {}
-    for axis in ("x", "y"):
-        request = requests.get(axis)
+    for key, request in requests.items():
         if not isinstance(request, dict):
             continue
-        pickup = _Pickup(App, Part, setup, stock, fixtures, helpers, axis, request)
+        if key in ("x", "y"):
+            axis = key
+        elif (
+            isinstance(key, str)
+            and (key == "z" or key.startswith("tool_touch:"))
+            and request.get("model") == "arriving_top_v1"
+        ):
+            axis = "z"
+        else:
+            continue
+        pickup = (
+            _ArrivingTop(App, Part, setup, stock, fixtures, helpers, request)
+            if axis == "z"
+            else _Pickup(App, Part, setup, stock, fixtures, helpers, axis, request)
+        )
         try:
-            results[axis] = pickup.run()
+            results[key] = pickup.run()
         except Exception as exc:
             pickup.reasons.append(f"native pickup geometry is unresolved: {exc}")
             if pickup.result["collisions"]:
                 pickup.errors.append("known collision remains despite unresolved pickup geometry")
-            results[axis] = _finish(pickup.result)
+            results[key] = _finish(pickup.result)
     return results

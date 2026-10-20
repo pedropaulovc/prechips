@@ -370,6 +370,17 @@ expectations, **not native results exercised by this authoring change**; entry
 and exit transitions are separate. Full finite motion, mounting, capture,
 material/target protection and native pickups must supply actual checker proof.
 
+C2 selects the complete canonical picture group `["setup"]`. The current
+native scene places `closest_cut` in this main group, together with the full
+fixture context and its continuations; no `holding_detail:1` exists in that
+scene. This is one selected C2 setup figure, not a fixed physical band count.
+Its **SAW CYCLE** annotation reports the full-cycle closest approach,
+including calibration and stopped clear moves. The canonical native result
+is .0508 mm at the pre-clear blade-body/setting-boss gap, distinct from the
+cut-stage retainer/jaw clearance 1.0985 mm (.04325 inch). Do not substitute
+the cut-stage value for the full-cycle minimum or claim that selecting a
+picture is itself a clearance proof.
+
 ## Cutting-data sources
 
 The local offline reference root is
@@ -442,6 +453,57 @@ The first actual native-generation attempt identified missing fact qualification
 and contact selectors. The corrective input declarations remain illustrative;
 they do not turn the example into a physical measurement or a ready-to-run job.
 
+The existing per-feature `stock_state.entry_z` field explicitly names the
+declared material start in each operation's own setup frame:
+
+| Setups | Feature | Entry Z, mm | Recipe basis |
+| --- | --- | ---: | --- |
+| Q1–Q4 | `base-envelope` | +1.5875 | Current unfinished upper face, with .0625-inch stock to remove before finished-face Z0; use that setup's fresh top-face paper touch. |
+| S1 | `shoulders` | 0 | Q4's finished upper face; rough-wall and full-height finishing starts as detailed below. |
+| E1a–d | `end-length` | 0 | Finished upper face of the registered retained blank in `top-up-reversed`; use the declared fresh top-face paper touch before full-height end milling. |
+
+These are authored recipe datums, not measured heights or permission to trust
+future stock. Actual native entry stock, lift clearance, finite cutter descent
+and zero survival remain separate evidence. In particular, a missing air-entry
+proof is not resolved by inventing a plunge feed. The declared outside-stock
+approaches and end returns must be judged against their actual finite stock
+and tool geometry.
+
+Fresh top-face paper touches have explicit selected tool-axis coordinates,
+not a native assumption that an unqualified bounding-box center is usable:
+
+| Setup | Selected axis [X,Y], setup mm |
+| --- | --- |
+| Q1 | [44.1325,0] |
+| Q2 | [−44.1325,−7.1425] |
+| Q3 | [44.1325,−7.1425] |
+| Q4 | [44.1325,0] |
+| S1 rougher | [44.1325,0] |
+| E1a–d | [0,0] |
+
+Each recipe declares 12.7-mm retract clearance and retains the +6.35-mm signed
+check jog. The three selected endmills explicitly qualify a sharp flat end
+with the existing `nose_radius_mm=0` field; their existing flute lengths and
+shanks now carry the same exact illustrative measurement marker. No dimensions
+were changed and no physical tool measurement occurred.
+
+These selected axes lie on the actual intended upper lands. Q2/Q3's upper
+land is narrower than the .750-inch cutter and E1's stem is slightly narrower
+than the .500-inch cutter, so partial end-face overhang is explicit. Contact
+requires a real bounded planar overlap and the **whole occupied tool/holder**
+must clear the actual approach/retraction path. A partial support footprint is
+not permission for any part of the tool to penetrate stock or fixtures.
+
+S1's after-roughing finisher touch deliberately uses the surviving stem top:
+the rough stem is 13.081 mm wide, wider than the 12.7-mm finisher. A rough-floor
+touch would need a genuinely off-axis contact lens to avoid the tall stem;
+it is no longer this recipe. The named `ToolTouch` uses `z_face="top"`,
+`after_op=10`, `before_ops=[20]`, paper .0508 mm and top height0. Its explicit
+tool axis is [44.1325,0] mm with 12.7-mm retract clearance, using the staged
+ToolTouch pose fields. Native contact-land and whole-tool/holder clearance
+must be proved against the **actual stock after roughing10, before finishing20**.
+The initial arrival-top witness is not substituted for that later-stage proof.
+
 - Saw X/Y pickups select the **actual arriving stock** with `stock:-x` and
   `stock:-y`, respectively. Their separately authored transverse coordinates and
   lowest tip heights select the exposed stem and front-flange planes; the native
@@ -451,6 +513,23 @@ they do not turn the example into a physical measurement or a ready-to-run job.
 - E1a–d X pickups name `retained-saw-end`, the exact single canonical #304 plane
   on that setup's sole carried member. This is the exposed upper part of the
   retained end, not a contact through the rod stop.
+  The end stop now includes explicit occupied rod and mounting solids rather
+  than an undrawn nominal diameter/length. The Ø6.35 ×50-mm rod and all eight
+  poses remain unchanged: setup X12.7..62.7, Y±3.175, Z−12.7..−6.35.
+  Its connected socket/cantilever, targeted rod and M4 screw bores, occupied
+  screw shank/head and switchable magnetic foot are pre-made illustrative
+  fixture facts, not hardware recovered from the video.
+  The foot occupies setup X30..50/Y12..30/Z−7.7..7.3, seating on the adopted
+  clean steel fixed-jaw top in both E1 and D1. It does not pass through the
+  vise bed; its footprint lies within both actual jaw spans. The Ø6.40 socket
+  bore is .025 mm above the rod axis so the rod seats against its lower wall,
+  with the screw tip contacting from above. Voids do not erase the occupied
+  rod or screw. All added primitives carry the exact example measurement marker.
+  Pro instructions require seating the foot flush, switching ON, securing the
+  rod screw, gentle locating contact and rechecking after vise tightening.
+  The vise, not the stop, carries cutting loads. Native contact/pickup/clearance
+  evidence and magnetic holding capacity are not established by these authored
+  dimensions.
 - S1's linear-table sweep names the retained stem envelope over the **whole raw
   batch length**, model X0..113.665 and Y±6.2865 mm. Offsetting its two long
   walls by the .500-inch cutter radius plus .010-inch rough allowance produces
@@ -468,6 +547,17 @@ they do not turn the example into a physical measurement or a ready-to-run job.
   shoulder floors still finish at setup Z−6.35, with no invented axial leave.
   This authored path contract does not substitute for native target, allowance,
   stock and cutter/fixture evidence.
+  `stock_state.entry_z.shoulders=0` explicitly names Q4's finished upper face
+  as this profile's start surface in the S1 frame, using the rougher's declared
+  top-face paper touch. It is an authored recipe datum, not an observed or
+  future measurement. Rough levels remain Z−3.175/−6.35. The approved finisher
+  touch is now on the surviving **stem top at Z0** through .0508-mm paper,
+  not the rough shoulder floor: Axis Set +.002 inch, then +.250 jog reads
+  +.252. The finish cut still engages the full wall from Z0 to Z−6.35 and does
+  not lower the shoulder floors.
+  Declaring this start does not certify carried stock or turn an unverified
+  descent into proven air travel; native entry/material validation remains
+  separate.
 - Each D1 setup explicitly declares the centered hole's nominal entry Z0 and
   local section thickness 12.7 mm. These are derived from the adopted nominal
   design, not caliper readings. The 15.621-mm point-inclusive drill depth and

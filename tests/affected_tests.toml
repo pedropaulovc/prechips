@@ -37,6 +37,7 @@ ignore = [
 "src/prechips/kernel/render_diagram.py" = "freecad_kernel"
 "src/prechips/kernel/render_png.py" = "freecad_kernel"
 "src/prechips/kernel/saw_engagement.py" = "freecad_kernel"
+"src/prechips/kernel/saw_face_credit.py" = "freecad_kernel"
 "src/prechips/kernel/step_faces.py" = "freecad_kernel"
 "src/prechips/kernel/thread_material.py" = "freecad_kernel"
 "src/prechips/kernel/zero_pickup.py" = "freecad_kernel"
@@ -99,7 +100,14 @@ ignore = [
 # Manual threading crosses these existing rule boundaries. Keep its focused
 # regressions selected alongside the historical coverage-derived consumers.
 "src/prechips/rules/_bench.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
-"src/prechips/rules/coordinates.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/coordinates.py" = [
+    "tests/test_manual_die_tools.py",
+    "tests/test_thread_preparation.py",
+    "tests/test_threaded_joints.py",
+    "tests/test_manual_thread_boundaries.py",
+    "tests/test_kernel_profile_model_inputs.py",
+    "tests/test_render_annotations.py",
+]
 "src/prechips/rules/datum_consistency.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/geometry_common.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/op_chain.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
@@ -151,6 +159,16 @@ ignore = [
 [sources]
 # New modules have explicit conservative consumers until the next coordinated
 # coverage-map rebuild; native modules also appear in [consumers] above.
+"src/prechips/kernel/saw_face_credit.py" = [
+    "tests/test_saw_face_credit_native.py",
+    "tests/test_batch_native.py",
+    "tests/test_saw_face_credit.py",
+]
+"src/prechips/rules/_support_stack.py" = [
+    "tests/test_support_stack.py",
+    "tests/test_support_stack_consumers.py",
+    "tests/test_headroom_placed_support.py",
+]
 "src/prechips/_sheet_pagination.py" = [
     "tests/test_sheet_pagination.py",
     "tests/test_sheet_inspection_targets.py",
@@ -179,6 +197,7 @@ ignore = [
     "tests/test_saw_engagement.py",
 ]
 "src/prechips/kernel/zero_pickup.py" = [
+    "tests/test_arriving_top_native.py",
     "tests/test_batch_native.py",
     "tests/test_zero_pickup_native.py",
 ]
@@ -607,6 +626,9 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/kernel/__init__.py" = [
+    "tests/test_arriving_top_inputs.py",
+    "tests/test_arriving_top_rule_consumers.py",
+    "tests/test_arriving_top_native.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_bandsaw_scribed.py",
@@ -705,6 +727,11 @@ ignore = [
     "tests/test_sheet_manual_arc.py",
 ]
 "src/prechips/kernel/freecad_job.py" = [
+    "tests/test_arriving_top_native.py",
+    "tests/test_mounted_saw_clearance.py",
+    "tests/test_mounted_saw_native.py",
+    "tests/test_saw_face_credit_native.py",
+    "tests/test_batch_native.py",
     "tests/test_kernel_thread_material_safety.py",
     "tests/test_kernel_guard_frames.py",
     "tests/test_kernel_guided_profile.py",
@@ -951,6 +978,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/model.py" = [
+    "tests/test_arriving_top_inputs.py",
     "tests/test_angularity.py",
     "tests/test_area_hold_schema.py",
     "tests/test_arithmetic.py",
@@ -1549,6 +1577,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/coordinates.py" = [
+    "tests/test_arriving_top_rule_consumers.py",
     "tests/test_angularity.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
@@ -1644,6 +1673,8 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/coverage.py" = [
+    "tests/test_saw_face_credit.py",
+    "tests/test_kernel_thread_material_native.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_blank_credit.py",
@@ -2557,6 +2588,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/reach.py" = [
+    "tests/test_kernel_thread_material_native.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_built_up_prejoin.py",
@@ -2941,6 +2973,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/tip_endpoints.py" = [
+    "tests/test_arriving_top_rule_consumers.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_bandsaw_scribed.py",

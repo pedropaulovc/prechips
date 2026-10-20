@@ -14,7 +14,7 @@ from test_sheet_ops import SPOT, T4, Markup, content, reach_records, shop
 
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
-from prechips.rules.level_entry import level_paths
+from prechips.rules.level_entry import in_air, level_paths
 from prechips.sheet import _Traveler
 
 GRID = (0.001, 3)
@@ -32,12 +32,16 @@ def open_path(
     operation=None,
     line=None,
     profiles=None,
+    stock_bbox=...,
+    tool_dia=6.0,
+    units="mm",
 ):
     """``level_paths`` for one open two-level line (0,-5) → (0,5) inside a 20 mm stock box
     whose top is ``box_top``, with the setup's stock top at Z0. ``operation`` replaces the
     op's coordinates entry (its depth levels), ``line`` its join table; ``center_cutting``
-    None leaves it undeclared."""
-    tool = {"kind": "endmill", "dia_mm": 6.0, "material": "HSS"}
+    None leaves it undeclared. Optional stock, diameter and plan-unit overrides exercise
+    entry geometry without replacing the native setup-entry stock evidence."""
+    tool = {"kind": "endmill", "dia_mm": tool_dia, "material": "HSS"}
     if center_cutting is not None:
         tool["center_cutting"] = center_cutting
     bundle = SimpleNamespace(
@@ -60,7 +64,13 @@ def open_path(
         },
         kernel={
             "status": "ok",
-            "setups": {"S1": {"stock_bbox_mm": [-10.0, -10.0, -10.0, 10.0, 10.0, box_top]}},
+            "setups": {
+                "S1": {
+                    "stock_bbox_mm": [-10.0, -10.0, -10.0, 10.0, 10.0, box_top]
+                    if stock_bbox is ...
+                    else stock_bbox
+                }
+            },
         },
     )
     op = {"op": 20, "tool": "em", "approach_mm": approach}
@@ -75,7 +85,258 @@ def open_path(
     def top(z, done):
         return coordinates.dro_z(z, GRID)
 
-    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, "mm", coordinates.dro_z, top)
+    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, units, coordinates.dro_z, top)
+
+
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+def test_finite_disk_clears_a_stock_corner_without_clearing_either_infinite_slab(scale):
+    box = [-12.7, -11.1125, -12.7, 100.965, 11.1125, 0.0]
+    point_mm = [-19.05, -12.6365]
+    radius = 6.35
+    # Independent oracle: the nearest corner forms a right triangle with legs 6.35
+    # and 1.524 mm. Neither axis alone separates the disk from the infinite slabs.
+    assert 6.35 <= radius and 1.524 <= radius
+    assert 6.35**2 + 1.524**2 > (radius + 0.001) ** 2
+    point = [value / scale for value in point_mm]
+    assert in_air(box, point, radius, scale) is True
+    [record], debts = open_path(
+        box_top=0.0,
+        stock_bbox=box,
+        tool_dia=2 * radius,
+        units="mm" if scale == 1.0 else "in",
+        line={"op": 20, "dro_xy": [point, [0.0, 0.0]]},
+        plunge=False,
+        center_cutting=False,
+    )
+    assert record["entries"] == [{"xy": point, "air": True, "pass": False}]
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("clearance", [0.000999, 0.001001])
+@pytest.mark.parametrize("corner", [False, True], ids=["side", "corner"])
+def test_entry_air_retains_the_full_millimetre_stock_margin(clearance, corner):
+    box = [0.0, 0.0, -10.0, 20.0, 20.0, 1.0]
+    # A 3-4-5 triangle makes the diagonal clearance known independently of the
+    # implementation's closest-point calculation, including below the air margin.
+    distance = 5.0 + clearance
+    point = [-0.6 * distance, -0.8 * distance] if corner else [-distance, 10.0]
+    expected_air = clearance > 0.001
+    assert in_air(box, point, 5.0, 1.0) is expected_air
+    [record], debts = open_path(
+        box_top=1.0,
+        stock_bbox=box,
+        tool_dia=10.0,
+        line={"op": 20, "dro_xy": [point, [10.0, 10.0]]},
+        plunge=False,
+    )
+    [entry] = record["entries"]
+    assert entry["air"] is expected_air
+    assert "contact" not in entry
+    if expected_air:
+        assert "plunge_mm_rev" not in record and debts == []
+    else:
+        assert record["plunge_mm_rev"] == "unknown"
+        assert any("plunge feed is unknown" in debt for debt in debts)
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "radius"),
+    [
+        ([-12.7, -11.1125, -12.7, 100.965, 11.1125, 0.0], [-22.225, 0.0], 9.525),
+        ([-100.965, -11.1125, -12.7, 12.7, 11.1125, 0.0], [-110.49, 0.0], 9.525),
+        ([0.0, 0.0, -10.0, 20.0, 20.0, 0.0], [-3.0, -4.0], 5.0),
+    ],
+    ids=["Q-side", "Q2-side", "3-4-5-corner"],
+)
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_tangent_entry_is_contact_not_air_and_needs_no_invented_plunge_feed(
+    box, point, radius, units
+):
+    # Radius and native box stay mm; only printed XY is converted, exactly once.
+    xy = [value / 25.4 for value in point] if units == "in" else point
+    assert in_air(box, xy, radius, 25.4 if units == "in" else 1.0) is False
+    [record], debts = open_path(
+        box_top=0.0,
+        stock_bbox=box,
+        tool_dia=radius * 2,
+        units=units,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [xy, [0.0, 0.0]]},
+    )
+    assert record["entries"] == [{"xy": xy, "air": False, "pass": False, "contact": "tangent"}]
+    assert record["levels"] == [-1.0, -2.0]
+    assert "lowered" not in record
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("clearance", [-0.0000005, 0.0, 0.0000005])
+def test_tangent_equality_tolerance_is_not_a_stock_air_margin(clearance):
+    point = [-13.0 - clearance, 0.0]
+    [record], debts = open_path(
+        box_top=1.0,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [point, [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["air"] is False
+    assert record["entries"][0]["contact"] == "tangent"
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("intrusion", [0.000002, 0.1, 3.0])
+@pytest.mark.parametrize("center_cutting", [True, False, None])
+def test_positive_stock_intrusion_still_needs_a_sourced_centre_cutting_plunge(
+    intrusion, center_cutting
+):
+    point = [-13.0 + intrusion, 0.0]
+    line = {"op": 20, "dro_xy": [point, [0.0, 5.0]]}
+    [record], debts = open_path(box_top=1.0, plunge=False, center_cutting=center_cutting, line=line)
+    assert record["entries"] == [{"xy": point, "air": False, "pass": False}]
+    assert record["plunge_mm_rev"] == "unknown"
+    assert any("plunge feed is unknown" in debt for debt in debts)
+    [record], debts = open_path(box_top=1.0, center_cutting=center_cutting, line=line)
+    if center_cutting is True:
+        assert record["plunge_mm_rev"] == 0.05 and debts == []
+    else:
+        assert record["plunge_mm_rev"] == "unknown"
+        assert any("plunge feed is unknown" in debt for debt in debts)
+
+
+@pytest.mark.parametrize("approach", ["unknown", 0.0], ids=["unknown-raise", "low-raise"])
+def test_tangent_entry_does_not_waive_the_return_height_debt(approach):
+    [record], debts = open_path(
+        box_top=1.0,
+        approach=approach,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [[-13.0, 0.0], [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["contact"] == "tangent"
+    assert record["entries"][0]["air"] is False
+    assert record["levels"] == [-1.0, -2.0]
+    assert record["raise_clear"] in ("unknown", False)
+    assert "plunge_mm_rev" not in record
+    assert len(debts) == 1 and "returns to its entry" in debts[0]
+
+
+def test_tangent_entry_does_not_invent_an_axial_depth_schedule():
+    [record], debts = open_path(
+        box_top=1.0,
+        plunge=False,
+        center_cutting=False,
+        operation={
+            "op": 20,
+            "dro_to_z": -8.0,
+            "z_levels": {"levels": "unknown", "dro_start_z": "unknown"},
+        },
+        line={"op": 20, "dro_xy": [[-13.0, 0.0], [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["contact"] == "tangent"
+    assert record["entries"][0]["air"] is False
+    assert record["levels"] == record["from_z"] == "unknown"
+    assert "lowered" not in record and "raise_clear" not in record
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "radius", "scale"),
+    [
+        (None, [-13.0, 0.0], 3.0, 1.0),
+        ([], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0] * 5, [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, "unknown", 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([10.0, -10.0, -10.0, -10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, 2.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, float("inf"), 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, float("nan")], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], None, 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [float("nan"), 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-float("inf"), 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], None, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], -3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("inf"), 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("nan"), 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, None),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 0.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, -1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, float("inf")),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-1e308, 0.0], 3.0, 25.4),
+    ],
+    ids=[
+        "missing-stock",
+        "empty-stock",
+        "short-stock",
+        "unknown-bound",
+        "reversed-x",
+        "reversed-z",
+        "infinite-bound",
+        "nan-stock-top",
+        "missing-xy",
+        "short-xy",
+        "nan-xy",
+        "infinite-xy",
+        "missing-radius",
+        "negative-radius",
+        "infinite-radius",
+        "nan-radius",
+        "missing-scale",
+        "zero-scale",
+        "negative-scale",
+        "infinite-scale",
+        "finite-input-conversion-overflow",
+    ],
+)
+def test_invalid_entry_geometry_never_proves_air(box, point, radius, scale):
+    assert in_air(box, point, radius, scale) is False
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "diameter", "units"),
+    [
+        (None, [-13.0, 0.0], 6.0, "mm"),
+        ([], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0], [-13.0, 0.0], 6.0, "mm"),
+        ([10.0, -10.0, -10.0, -10.0, 10.0, 1.0], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, float("nan")], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [None, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [float("inf"), 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], None, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("nan"), "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 6.0, "unknown"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-1e308, 0.0], 6.0, "in"),
+    ],
+    ids=[
+        "missing-stock",
+        "empty-stock",
+        "short-stock",
+        "reversed-stock",
+        "nonfinite-stock",
+        "missing-coordinate",
+        "nonfinite-coordinate",
+        "missing-diameter",
+        "nonfinite-diameter",
+        "unknown-units",
+        "finite-input-conversion-overflow",
+    ],
+)
+def test_unproven_entry_geometry_never_claims_contact_or_waives_plunge_debt(
+    box, point, diameter, units
+):
+    [record], debts = open_path(
+        box_top=1.0,
+        stock_bbox=box,
+        tool_dia=diameter,
+        units=units,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [point, [0.0, 5.0]]},
+    )
+    [entry] = record["entries"]
+    assert entry["air"] is False and "contact" not in entry
+    assert record["plunge_mm_rev"] == "unknown"
+    assert any("plunge feed is unknown" in debt for debt in debts)
 
 
 def test_an_open_path_returns_over_the_stock_only_when_the_stock_box_proves_it():

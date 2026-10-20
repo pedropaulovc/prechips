@@ -527,7 +527,7 @@ def reads_unknown(bundle, setup, op, readings=None):
     if done == UNKNOWN:
         return True
     credited = []
-    stands = face_stands(bundle, setup, face, edge, done, credited=credited)
+    stands = face_stands(bundle, setup, face, edge, done, credited=credited, touch=touch)
     return (stands is not None and not number(stands)) or (
         bool(credited) and _credited_side(bundle, setup, touch, face, edge) != 1
     )
@@ -664,6 +664,8 @@ def face_stands(
     credited=None,
     carried=None,
     errors=None,
+    *,
+    touch=None,
 ):
     """Where ``face`` physically stands once ``setup``'s first ``done`` ops have run.
 
@@ -684,6 +686,42 @@ def face_stands(
     from ..coordinates import formed_z
 
     native_face = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
+    if face == "top" and native_face is None:
+        from prechips.kernel import _TOP_COMMAND_INPUTS, _top_pickup_at
+
+        if _TOP_COMMAND_INPUTS.get():
+            requested = _top_pickup_at(setup, done, touch)
+            if requested is not None:
+                key, recipe, _ = requested
+                command = (
+                    mapping(setup.get("stock_state")).get("top_z")
+                    if key == "z" and done == 0
+                    else recipe.get("edge_mm")
+                )
+                if number(command) and carried is not None:
+                    carried.append({"native_edge_mm": command, "requested_top": True})
+                return command if number(command) else UNKNOWN
+        from ..coordinates import UNIT_MM
+        from .native import top_pickup_evidence
+
+        proof = top_pickup_evidence(bundle, setup, done, touch)
+        if proof is not None:
+            if proof["status"] != "pass":
+                if debts is not None:
+                    debts.extend(proof["reasons"])
+                if proof["status"] == "error" and errors is not None:
+                    errors.extend(proof["reasons"])
+                return UNKNOWN
+            plane = mapping(proof.get("resolved_contact")).get("plane_mm")
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            if not number(plane) or scale is None:
+                if debts is not None:
+                    debts.append("native top contact has no physical plane in known units")
+                return UNKNOWN
+            stands = plane / scale
+            if carried is not None:
+                carried.append({"native_edge_mm": stands, "pickup_proof": proof})
+            return stands
     if registered_workpieces(bundle) and native_face in bundle.feature_definitions:
         members = operation_members(bundle, setup)
         if not members or member_protection_status(bundle, setup, members[0]) is not True:
@@ -783,7 +821,17 @@ def _face_checker(bundle, setup, errors, unknowns):
             return edge, [], False
         debts, credited, carried, contradictions = [], [], [], []
         stands = face_stands(
-            bundle, setup, face, edge, done, source, debts, credited, carried, contradictions
+            bundle,
+            setup,
+            face,
+            edge,
+            done,
+            source,
+            debts,
+            credited,
+            carried,
+            contradictions,
+            touch=touch,
         )
         if contradictions:
             errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)
@@ -812,6 +860,7 @@ def _face_checker(bundle, setup, errors, unknowns):
                         credited,
                         carried,
                         contradictions,
+                        touch=touch,
                     )
                     if contradictions:
                         errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)

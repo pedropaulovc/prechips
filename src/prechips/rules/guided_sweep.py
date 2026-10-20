@@ -23,6 +23,7 @@ import math
 
 from .. import trig
 from ..measurements import length_debt, length_fact, limits_debt, limits_fact, record_debt
+from ._support_stack import bearing_layers, support_height
 from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid, dro_grid_debt
 from .resolution import UNKNOWN, authored, identity, number, record, resolve, uncertain
 
@@ -1182,19 +1183,16 @@ def _rotation(arc, label, debts, record_, scale):
 
 
 def _support_lift(bundle, setup):
-    """The height (mm) the hold's parallels and support blocks (or riser) lift the work off
-    its fixture's bed, as the headroom stack reads them: 0 when none is declared, None
-    when a declared one is unknown or unproven (:func:`_trusted_height`)."""
+    """Bearing lift off the bed; posed auxiliaries remain independent obstacles."""
     hold = record(setup.get("hold"))
-    absent = (None, "none", "not_applicable")
-    parts = (
-        (hold.get("parallels"), None),
-        (hold.get("supports", hold.get("riser")), hold.get("support_orientation")),
-    )
+    layers, issues = bearing_layers(bundle, hold)
+    if issues:
+        return None
+    parallels = hold.get("parallels")
+    if parallels not in (None, "none", "not_applicable"):
+        layers.insert(0, ("parallels", parallels, None))
     total = 0.0
-    for reference, orientation in parts:
-        if reference in absent:
-            continue
+    for _, reference, orientation in layers:
         height = _trusted_height(bundle, reference, orientation)
         if height is None:
             return None
@@ -1206,15 +1204,13 @@ def _trusted_height(bundle, reference, orientation):
     """A support's height (mm) as the headroom stack reads it, or None when the item is
     missing or flagged to verify, or its declared height is itself flagged: headroom leaves
     such a stack unresolved, so the picture draws no rollers on it."""
-    from .headroom import _height
-
     item = resolve(bundle, "fixtures", reference)
     if not isinstance(item, dict) or uncertain(item):
         return None
     fact = length_fact(item, "height", require_measured=False)
     if number(fact["value"]) and not fact["verified"]:
         return None
-    height = _height(item, orientation)
+    height = support_height(item, orientation)
     # A negative height lifts nothing: no true table to stand the rollers on.
     return height if number(height) and height >= 0 else None
 

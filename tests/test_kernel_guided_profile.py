@@ -116,6 +116,30 @@ def oracle_sweep(op):
         pieces.append(capsule(a[0], b[0], a[1], op["radius_mm"], path["tip_z_mm"]))
     return pieces[0].fuse(pieces[1])
 
+def ready_paths(op, entry=0):
+    # Normalized table packet: printed tables arrive separately as checkpoints.
+    # The intermediate level makes full commanded motion distinct from the final cut.
+    op["tool_paths"] = {
+        "paths": [], "tables": True, "levels_mm": [op["to_z"], -1],
+        "entry_z_mm": entry,
+    }
+
+def build_facts(runner, ops):
+    runner.ops = ops
+    runner.built = runner._build()
+    return [runner._op(op) for op in ops]
+
+def motion_facts(runner, op):
+    try:
+        moves = runner._tool_moves(op)
+    except job._Unknown as exc:
+        return {"unknown": str(exc)}
+    return {
+        "unknown": None,
+        "lateral_levels": [[move[1], move[2]] for move in moves if len(move[0]) > 1],
+        "end_tops": [move[2] for move in moves if len(move[0]) == 1],
+    }
+
 def distance(a, b):
     return a.cut(b).Volume + b.cut(a).Volume
 
@@ -190,6 +214,92 @@ for name, rotated in [("registered", False), ("rotated_translated", True)]:
         "guarded": runner._guarded(rough),
     }
     result["positive"][name] = row
+
+# Entry is measured independently from BEFORE stock intersected with the whole
+# raw capsule sweep, in setup mm; neither a declared entry nor a kernel helper
+# supplies this oracle. Keep the original unbound-path controls above unchanged.
+result["ready_entry"] = {}
+for name, rotated in [("registered", False), ("rotated_translated", True)]:
+    entry_runner = scene(rotated)
+    rough, finish = operation(), operation(0)
+    for op in (rough, finish):
+        ready_paths(op)
+    facts = build_facts(entry_runner, [rough, finish])
+    rows = []
+    for op, op_facts in zip((rough, finish), facts):
+        before, after, why = entry_runner.cuts[id(op)]
+        swept = oracle_sweep(op)
+        rows.append({
+            "actual_entry": before.common(swept).BoundBox.ZMax,
+            "difference": distance(after, before.cut(swept)),
+            "stock_removal_error": op_facts.get("stock_removal_error"),
+            "guided_error": entry_runner.guided_errors.get(id(op)),
+            "cut_reason": why, "motion": motion_facts(entry_runner, op),
+        })
+    result["ready_entry"][name] = {
+        "built": entry_runner.built[0] is not None,
+        "reason": entry_runner.built[1], "ops": rows,
+        "rough_difference": distance(entry_runner.cuts[id(rough)][1], bar.cut(oracle_sweep(rough))),
+        "finish_difference": distance(
+            entry_runner.cuts[id(finish)][1],
+            bar.cut(oracle_sweep(rough)).cut(oracle_sweep(finish))),
+    }
+
+result["entry_mismatch"] = {}
+for scene_name, rotated in [("registered", False), ("rotated_translated", True)]:
+    for label, entry in [("too_low", -1), ("too_high", 1)]:
+        for stage, leave in [("rough", .254), ("finish", 0)]:
+            entry_runner = scene(rotated)
+            op = operation(leave)
+            ready_paths(op, entry)
+            facts = build_facts(entry_runner, [op])[0]
+            before, after, why = entry_runner.cuts[id(op)]
+            result["entry_mismatch"][scene_name + "/" + stage + "/" + label] = {
+                "actual_entry": bar.common(oracle_sweep(op)).BoundBox.ZMax,
+                "failed_build": entry_runner.built[0] is None,
+                "reason": entry_runner.built[1],
+                "before_difference": distance(before, bar),
+                "after_difference": distance(after, bar),
+                "guided_error": entry_runner.guided_errors.get(id(op)),
+                "stock_removal_error": facts.get("stock_removal_error"),
+            }
+
+result["entry_unknown"] = {}
+for name, entry in [
+    ("missing", None), ("nan", float("nan")),
+    ("positive_infinity", float("inf")), ("negative_infinity", -float("inf")),
+]:
+    entry_runner = scene()
+    op = operation()
+    ready_paths(op, entry)
+    if name == "missing":
+        del op["tool_paths"]["entry_z_mm"]
+    facts = build_facts(entry_runner, [op])[0]
+    before, after, why = entry_runner.cuts[id(op)]
+    result["entry_unknown"][name] = {
+        "failed_build": entry_runner.built[0] is None,
+        "reason": entry_runner.built[1],
+        "after_difference": distance(after, before),
+        "motion": motion_facts(entry_runner, op),
+        "guided_error": entry_runner.guided_errors.get(id(op)),
+        "stock_removal_error": facts.get("stock_removal_error"),
+    }
+
+result["motion_debt"] = {}
+for name in ("absent", "reasoned_unknown"):
+    debt_runner = scene()
+    op = operation()
+    if name == "reasoned_unknown":
+        op["tool_paths"] = {"reason": "intermediate levels and entry are unresolved"}
+    facts = build_facts(debt_runner, [op])[0]
+    before, after, why = debt_runner.cuts[id(op)]
+    result["motion_debt"][name] = {
+        "built": debt_runner.built[0] is not None, "reason": debt_runner.built[1],
+        "difference": distance(after, bar.cut(oracle_sweep(op))),
+        "guided_error": debt_runner.guided_errors.get(id(op)),
+        "stock_removal_error": facts.get("stock_removal_error"),
+        "motion": motion_facts(debt_runner, op),
+    }
 
 runner = scene()
 result["missing_paths"] = {}
@@ -331,6 +441,47 @@ result["box"] = {
     "extra_groups": len(groups),
     "floor_layer_left": Part.makeBox(18, 1, .5, V(1, 5, -5)).common(after).Volume,
 }
+
+# A real profiled supply has an elevated boss entirely outside both cutter
+# capsules. Its global top is +3, but actual swept-region entry remains zero.
+# Fuse to one connected solid so no holding/split exception can mask entry.
+remote_boss = Part.makeBox(4, 4, 3, V(5, -2, 0))
+local_stock = Part.makeBox(30, 20, 10, V(-5, -10, -10)).fuse(remote_boss).removeSplitter()
+local_path = out + "/remote-boss-stock.step"
+local_stock.exportStep(local_path)
+with open(local_path, "rb") as handle:
+    local_digest = hashlib.sha256(handle.read()).hexdigest()
+result["local_entry"] = {}
+for name, declared in [("actual_surface", 0), ("global_bbox_top", 3)]:
+    local_runner = initialize(box_path, {
+        "shape": "profiled", "step_path": local_path, "step_sha256": local_digest,
+    }, IDENTITY)
+    local_refs = []
+    for index, face in enumerate(local_runner.faces):
+        b = face.BoundBox
+        if abs(b.YLength) < 1e-7 and abs(abs(b.YMin)-4) < 1e-7 and abs(b.ZMin+5) < 1e-7:
+            local_refs.append(local_runner.owner.labels[index])
+    assert len(local_refs) == 2
+    op = operation(.5, y=5.5, x=[-7, 27], tip=-5)
+    op.pop("workpiece_faces")
+    op.update(faces=local_refs, radius_mm=1)
+    ready_paths(op, declared)
+    swept = oracle_sweep(op)
+    facts = build_facts(local_runner, [op])[0]
+    before, after, why = local_runner.cuts[id(op)]
+    result["local_entry"][name] = {
+        "stock_difference": distance(before, local_stock),
+        "global_top": local_stock.BoundBox.ZMax,
+        "actual_entry": local_stock.common(swept).BoundBox.ZMax,
+        "boss_sweep_intersection": remote_boss.common(swept).Volume,
+        "built": local_runner.built[0] is not None, "reason": local_runner.built[1],
+        "expected_difference": distance(after, local_stock.cut(swept)),
+        "unchanged_difference": distance(after, before),
+        "boss_loss": remote_boss.cut(after).Volume,
+        "target_loss": box_target.cut(after).Volume,
+        "guided_error": local_runner.guided_errors.get(id(op)),
+        "stock_removal_error": facts.get("stock_removal_error"),
+    }
 with open(out + "/guided.json", "w", encoding="utf-8") as handle:
     json.dump(result, handle)
 """
@@ -440,3 +591,80 @@ def test_guided_planar_box_control_has_exact_volume_and_no_axial_shelf_leave(gui
     assert facts["difference"] == pytest.approx(0, abs=1e-5)
     assert facts["floor_layer_left"] == pytest.approx(0, abs=1e-6)
     assert facts["extra_groups"] == 0
+
+
+@pytest.mark.parametrize("scene", ["registered", "rotated_translated"])
+def test_guided_ready_entry_binds_exact_rough_and_finish_geometry(guided_native, scene):
+    facts = guided_native["ready_entry"][scene]
+    assert facts["built"], facts["reason"]
+    assert facts["reason"] is None
+    assert facts["rough_difference"] == pytest.approx(0, abs=1e-5)
+    assert facts["finish_difference"] == pytest.approx(0, abs=1e-5)
+    assert len(facts["ops"]) == 2
+    for row in facts["ops"]:
+        assert row["actual_entry"] == pytest.approx(0, abs=1e-7)
+        assert row["difference"] == pytest.approx(0, abs=1e-5)
+        assert row["cut_reason"] is None
+        assert row["guided_error"] is row["stock_removal_error"] is None
+        assert row["motion"]["unknown"] is None
+        assert row["motion"]["lateral_levels"] == [[-6.35, -1], [-6.35, -1]]
+        assert row["motion"]["end_tops"] == [0, 0, 0, 0]
+
+
+@pytest.mark.parametrize("scene", ["registered", "rotated_translated"])
+@pytest.mark.parametrize("stage", ["rough", "finish"])
+@pytest.mark.parametrize("entry", ["too_low", "too_high"])
+def test_guided_ready_entry_mismatch_is_error_and_preserves_stock(
+    guided_native, scene, stage, entry
+):
+    facts = guided_native["entry_mismatch"][scene + "/" + stage + "/" + entry]
+    assert facts["actual_entry"] == pytest.approx(0, abs=1e-7)
+    assert facts["failed_build"] and facts["reason"]
+    assert facts["before_difference"] == pytest.approx(0, abs=1e-5)
+    assert facts["after_difference"] == pytest.approx(0, abs=1e-5)
+    assert isinstance(facts["guided_error"], str)
+    assert "actual guided cut entry" in facts["guided_error"]
+    assert facts["stock_removal_error"] == facts["guided_error"]
+
+
+@pytest.mark.parametrize("entry", ["missing", "nan", "positive_infinity", "negative_infinity"])
+def test_guided_ready_missing_or_nonfinite_entry_is_unknown_not_penetration(guided_native, entry):
+    facts = guided_native["entry_unknown"][entry]
+    assert facts["failed_build"] and facts["reason"]
+    assert facts["after_difference"] == pytest.approx(0, abs=1e-5)
+    assert facts["guided_error"] is facts["stock_removal_error"] is None
+    assert isinstance(facts["motion"]["unknown"], str) and facts["motion"]["unknown"]
+
+
+@pytest.mark.parametrize("packet", ["absent", "reasoned_unknown"])
+def test_guided_unknown_motion_keeps_final_depth_material_without_readiness(guided_native, packet):
+    facts = guided_native["motion_debt"][packet]
+    assert facts["built"], facts["reason"]
+    assert facts["reason"] is None
+    assert facts["difference"] == pytest.approx(0, abs=1e-5)
+    assert facts["guided_error"] is facts["stock_removal_error"] is None
+    assert isinstance(facts["motion"]["unknown"], str) and facts["motion"]["unknown"]
+    assert "lateral_levels" not in facts["motion"]
+    if packet == "reasoned_unknown":
+        assert "intermediate levels and entry are unresolved" in facts["motion"]["unknown"]
+
+
+def test_guided_entry_uses_local_swept_stock_not_remote_boss_top(guided_native):
+    accepted = guided_native["local_entry"]["actual_surface"]
+    rejected = guided_native["local_entry"]["global_bbox_top"]
+    for facts in (accepted, rejected):
+        assert facts["stock_difference"] == pytest.approx(0, abs=1e-5)
+        assert facts["actual_entry"] == pytest.approx(0, abs=1e-7)
+        assert facts["global_top"] == pytest.approx(3, abs=1e-7)
+        assert facts["boss_sweep_intersection"] == pytest.approx(0, abs=1e-7)
+        assert facts["boss_loss"] == pytest.approx(0, abs=1e-6)
+        assert facts["target_loss"] == pytest.approx(0, abs=1e-6)
+    assert accepted["built"], accepted["reason"]
+    assert accepted["reason"] is None
+    assert accepted["expected_difference"] == pytest.approx(0, abs=1e-5)
+    assert accepted["guided_error"] is accepted["stock_removal_error"] is None
+    assert not rejected["built"] and rejected["reason"]
+    assert rejected["unchanged_difference"] == pytest.approx(0, abs=1e-5)
+    assert isinstance(rejected["guided_error"], str)
+    assert "actual guided cut entry" in rejected["guided_error"]
+    assert rejected["stock_removal_error"] == rejected["guided_error"]

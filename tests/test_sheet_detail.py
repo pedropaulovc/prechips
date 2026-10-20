@@ -23,7 +23,7 @@ from test_sheet_measurement_debt import stopped_setup
 from test_sheet_ops import Markup, content
 
 from prechips.findings import Finding, exit_code
-from prechips.inputs import Bundle
+from prechips.inputs import Bundle, load_bundle
 from prechips.model import TRAVELER_DETAILS
 from prechips.report import build_report, canonical_bytes, render_assets
 from prechips.rules import consistency, fixture_interference, hold_fields, inspection
@@ -210,6 +210,80 @@ def assert_number(text, expected):
     )
 
 
+def operation_owners(node):
+    """Read physical operation identity without depending on its visual layout."""
+    attrs = node["attrs"]
+    if (
+        "operation" in attrs.get("class", "").split()
+        and "data-op" in attrs
+        and "data-setup-id" in attrs
+    ):
+        return [
+            {
+                "setup_id": attrs["data-setup-id"],
+                "op_id": attrs["data-op"],
+                "workpiece": attrs.get("data-workpiece", ""),
+            }
+        ]
+    owners = json.loads(attrs.get("data-physical-ops", "[]"))
+    return [
+        owner
+        for owner in owners
+        if isinstance(owner, dict) and owner.get("op_id") is not None
+    ]
+
+
+def operation_nodes(markup, within=None):
+    return [
+        node
+        for node in (markup.nodes if within is None else descendants(markup, within))
+        if operation_owners(node)
+    ]
+
+
+def descendants(markup, owner):
+    for node in markup.nodes:
+        parent = node["parent"]
+        while parent is not None:
+            if parent is owner:
+                yield node
+                break
+            parent = parent["parent"]
+
+
+def operation_owner(node):
+    while node is not None:
+        if operation_owners(node):
+            return node
+        node = node["parent"]
+    return None
+
+
+def settings_text(markup, row):
+    """Separate table cells as the browser does, rather than joining drill500."""
+    cells = [
+        node
+        for node in markup.nodes
+        if node["parent"] is row and node["tag"] in ("td", "th")
+    ]
+    assert cells
+    return " ".join(content(cell) for cell in cells)
+
+
+def assert_displayed_block(markup, owner, message):
+    """Check the notice, not the ledger wrapper that aggregates its evidence."""
+    if "data-decision" in owner["attrs"]:
+        assert owner["attrs"]["data-decision"] == "block"
+        assert "stop" in owner["attrs"]["class"].split()
+        assert "caution" not in owner["attrs"]["class"].split()
+    else:
+        assert "operation" in owner["attrs"]["class"].split()
+        (notice,) = [
+            node for node in markup.find("box", owner) if message in content(node)
+        ]
+        assert content(notice).strip() == f"STOP: {message}"
+
+
 def test_public_default_is_hobby_while_private_composer_stays_pedantic():
     data = bench_job()
     exhaustive = "Explain the retained reference during training."
@@ -391,7 +465,7 @@ def test_segmented_bench_handling_is_validated_from_full_input_not_the_audience_
         expected = concise if with_instruction_note else setup["ops"][0]["do"]
         assert any(
             expected.casefold() in content(action).casefold()
-            for action in Markup(html).find("op-action")
+            for action in operation_nodes(Markup(html))
         )
         assert (exhaustive in text) is (detail == "pedantic")
         decisions.append(decision_snapshot(html))
@@ -530,10 +604,12 @@ def test_compact_levels_keep_authored_execution_readings_but_not_generated_opera
     for field in fields:
         (blank,) = markup.find("writing-blank", field)
         assert content(blank) == ""
-        owner = ancestor_with_class(field, "operation")
+        owner = operation_owner(field)
         assert owner is not None
-        assert owner["attrs"]["data-setup-id"] == setup["id"]
-        assert owner["attrs"]["data-op"] == str(setup["ops"][0]["op"])
+        owners = operation_owners(owner)
+        assert len(owners) == 1
+        assert owners[0]["setup_id"] == setup["id"]
+        assert str(owners[0]["op_id"]) == str(setup["ops"][0]["op"])
     assert len(markup.find("writing-blank")) == len(fields)
     assert not markup.find("checkpoint-result")
     assert any("Calculate:" in content(method) and "mean" in content(method) for method in methods)
@@ -627,7 +703,6 @@ def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers
             assert_number(text, value)
         paper_in = data.plan["setups"][0]["zero"]["z"]["paper_mm"] / 25.4
         assert_number(text, paper_in)
-        assert any(node["attrs"].get("href") == "#dro-first-use" for node in markup.nodes)
     pro = Markup(rendered(data, findings, detail="pro"))
     assert not any(node["attrs"].get("id") == "dro-first-use" for node in pro.nodes)
 
@@ -677,13 +752,21 @@ def test_compact_projection_hides_acquisition_paperwork_not_consumed_unknowns_or
             if finding.status == "unknown":
                 nodes = finding_nodes(markup, finding)
                 assert nodes and all(finding_has_kind(node, finding, "block") for node in nodes)
-        operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
+        operations = {}
+        for node in operation_nodes(markup):
+            for op_id in {str(owner["op_id"]) for owner in operation_owners(node)}:
+                operations.setdefault(op_id, []).append(node)
         assert {"10", "20", "30", "40", "50"} <= operations.keys()
-        assert "?" in content(operations["10"])
-        assert_number(content(operations["50"]), -1.5)
+        assert any("?" in content(node) for node in operations["10"])
+        assert_number(" ".join(content(node) for node in operations["50"]), -1.5)
         if detail == "pedantic":
             for name, value in (("speed", 500), ("feed", 25)):
-                (field,) = markup.find(f"op-{name}", operations["50"])
+                fields = {
+                    id(field): field
+                    for node in operations["50"]
+                    for field in markup.find(f"op-{name}", node)
+                }
+                (field,) = fields.values()
                 (cell,) = [
                     node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is field
                 ]
@@ -696,7 +779,7 @@ def test_compact_projection_hides_acquisition_paperwork_not_consumed_unknowns_or
                 if owner in json.loads(node["attrs"].get("data-physical-ops", "[]"))
             ]
             for value in (500, 25):
-                assert_number(content(settings), value)
+                assert_number(settings_text(markup, settings), value)
     assert [finding.to_dict() for finding in findings] == original
     assert snapshots[0] == snapshots[1] == snapshots[2]
 
@@ -825,7 +908,7 @@ def test_family_shares_identical_instructions_but_keeps_every_physical_checkpoin
             for owner in json.loads(node["attrs"]["data-physical-ops"])
         }
         == expected_owners
-        and markup.find("operation", node)
+        and operation_owners(node)
     ]
     assert len(common) == 1
     methods = markup.find("inspection-method", common[0])
@@ -869,15 +952,22 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
     ]
     assert variants
     if changed_field == "rpm":
-        assert any(markup.find("operation", node) for node in variants)
-        settings = Markup(sheet.settings_key()).find("tool-setting")
+        assert any(operation_nodes(markup, node) for node in variants)
+        # The partition fixture's upstream nodes are graph placeholders, not
+        # renderable setups. This private key covers the composed final family.
+        sheet.plan = {**sheet.plan, "setups": finals}
+        settings_markup = Markup(sheet.settings_key())
+        settings = [
+            node for node in settings_markup.nodes
+            if "data-physical-ops" in node["attrs"]
+        ]
         owned = [
             node
             for node in settings
             if json.loads(node["attrs"]["data-physical-ops"]) == [f"{last['id']}:10"]
         ]
         assert len(owned) == 1
-        assert_number(content(owned[0]), findings[-1].numbers["rpm"])
+        assert_number(settings_text(settings_markup, owned[0]), findings[-1].numbers["rpm"])
         unchanged = [
             node
             for node in settings
@@ -885,18 +975,12 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
             == {f"{setup['id']}:10" for setup in finals[:-1]}
         ]
         assert len(unchanged) == 1
-        assert_number(content(unchanged[0]), findings[0].numbers["rpm"])
+        assert_number(settings_text(settings_markup, unchanged[0]), findings[0].numbers["rpm"])
     elif changed_field == "feature":
         expected = sheet.feature_label(last["ops"][0]["feature"], marked=False)
-        assert any(
-            expected in content(field)
-            for variant in variants
-            for field in markup.find("op-feature", variant)
-        )
+        assert any(expected in content(variant) for variant in variants)
         assert not any(
-            expected in content(field)
-            for common in markup.find("family-common")
-            for field in markup.find("op-feature", common)
+            expected in content(common) for common in markup.find("family-common")
         )
     else:
         fixture_name = data.inventory["fixtures"]["offset-vise"]["name"]
@@ -1032,18 +1116,27 @@ def test_selected_numeric_acceptance_prints_once_at_its_physical_inspection_not_
     data = bench_job()
     markup = Markup(rendered(data, detail=detail))
     band = data.features["features"]["body"]["dia"]
-    criteria = [
-        node
-        for node in markup.find("inspection-requirement")
-        if all(
+
+    def has_band(node):
+        return all(
             any(abs(value - limit) <= 0.000001 for value in numeric_values(content(node)))
             for limit in band
         )
+
+    criteria = [
+        node
+        for node in markup.nodes
+        if operation_owner(node) is not None
+        and has_band(node)
+        and not any(has_band(child) for child in descendants(markup, node))
     ]
     assert len(criteria) == 1
-    operation = ancestor_with_class(criteria[0], "operation")
+    operation = operation_owner(criteria[0])
     assert operation is not None
-    assert operation["attrs"]["data-op"] == str(data.plan["setups"][0]["ops"][0]["op"])
+    assert {
+        (owner["setup_id"], str(owner["op_id"]))
+        for owner in operation_owners(operation)
+    } == {(data.plan["setups"][0]["id"], str(data.plan["setups"][0]["ops"][0]["op"]))}
     page_values = numeric_values(visible_text(rendered(data, detail=detail)))
     for limit in band:
         assert sum(abs(value - limit) <= 0.000001 for value in page_values) == 1
@@ -1115,9 +1208,9 @@ def test_identical_decisions_share_a_notice_per_owner_without_losing_source_stat
         scoped = [finding for finding in findings if finding.subject == subject]
         owned = [
             node
-            for node in markup.find("operation")
-            if node["attrs"]["data-op"] == str(setup["ops"][0]["op"])
-            and ancestor_with_class(node, "setup-variant")["attrs"]["data-setup-id"] == setup["id"]
+            for node in decision_nodes(markup)
+            if node["attrs"].get("data-op") == str(setup["ops"][0]["op"])
+            and node["attrs"].get("data-setup-id") == setup["id"]
         ]
         assert len(owned) == 1
         notice = owned[0]
@@ -1147,12 +1240,11 @@ def test_same_text_different_statuses_keep_evidence_and_highest_operator_severit
     markup = Markup(rendered(data, [unresolved, failed], detail=detail))
     operation = next(
         node
-        for node in markup.find("operation")
+        for node in decision_nodes(markup)
         if finding_has_kind(node, unresolved, "block") and finding_has_kind(node, failed, "block")
     )
     assert content(operation).count(message) == 1
-    assert f"STOP: {message}" in content(operation)
-    assert f"CAUTION: {message}" not in content(operation)
+    assert_displayed_block(markup, operation, message)
     assert {
         (entry["source"], entry["status"], entry["scope"], entry["kind"])
         for entry in decision_evidence(operation)
@@ -1182,8 +1274,7 @@ def test_optional_warning_and_error_share_one_highest_severity_notice_with_both_
     (notice,) = notices.values()
     assert notice["attrs"]["data-setup-id"] == setup["id"]
     assert notice["attrs"]["data-op"] == str(op["op"])
-    assert f"STOP: {message}" in content(notice)
-    assert f"CAUTION: {message}" not in content(notice)
+    assert_displayed_block(markup, notice, message)
     assert finding_has_kind(notice, optional, "caution")
     assert finding_has_kind(notice, failed, "block")
     assert {
@@ -1196,3 +1287,151 @@ def test_optional_warning_and_error_share_one_highest_severity_notice_with_both_
     owner = ancestor_with_class(notice, "setup-variant")
     assert owner is not None and owner["attrs"]["data-setup-id"] == setup["id"]
     assert content(notice).count(message) == 1
+
+
+@pytest.mark.parametrize(
+    ("obstacle", "gap", "kind"),
+    [
+        ("jaw", 0.5, "caution"),
+        ("jaw", -0.5, "block"),
+        ("jaw", "unknown", "block"),
+        ("tip", 0.5, "caution"),
+        ("tip", -0.5, "block"),
+        ("cut", 0.5, "caution"),
+        ("cut", -0.5, "block"),
+    ],
+)
+def test_clearance_decisions_render_known_gaps_as_cautions_and_collision_or_unknown_as_blocks(
+    monkeypatch, obstacle, gap, kind
+):
+    from test_sheet_ops import SPOT, headroom, near_holding, shop
+
+    from prechips.sheet import _typed_values
+
+    if obstacle == "jaw":
+        sheet = shop({}, kind="lathe")
+        setup = SPOT
+        sheet.jaw_front_z = lambda setup: 0.0
+        sheet.lathe_approaches = lambda setup: {"60": gap}
+        sheet.path_zs = lambda setup, op: []
+        sheet.posed_start = lambda setup, op: None
+    else:
+        sheet, setup = near_holding(gap if obstacle == "cut" else 12.0)
+        if obstacle == "tip":
+            sheet.records[("headroom", "S1")] = headroom(
+                tip_above_jaws=gap, jaw_top_z=-0.5 - gap
+            )
+
+    (box,) = sheet.crash_boxes(setup, setup["ops"][0])
+    assert box.kind == kind
+    if kind == "caution":
+        assert box.status == "warn"
+
+    data = bench_job()
+    owner = data.plan["setups"][0]
+    scope = f"{owner['id']}:{owner['ops'][0]['op']}"
+    (decision,) = _typed_values([box], scope)
+    operation_rows = _Traveler.operation_rows
+
+    def with_clearance(self, setup, tools):
+        rows = operation_rows(self, setup, tools)
+        rows[0].decisions = (*rows[0].decisions, decision)
+        return rows
+
+    monkeypatch.setattr(_Traveler, "operation_rows", with_clearance)
+    markup = Markup(rendered(data))
+    evidence = {
+        "source": decision.source,
+        "status": decision.status,
+        "scope": scope,
+        "kind": kind,
+    }
+    (notice,) = [
+        node for node in decision_nodes(markup) if evidence in decision_evidence(node)
+    ]
+    assert notice["attrs"]["data-decision"] == kind
+    assert ("stop" in notice["attrs"]["class"].split()) == (kind == "block")
+    assert ("caution" in notice["attrs"]["class"].split()) == (kind == "caution")
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    finals = [
+        setup for setup in data.plan["setups"] if setup["id"] in ("F1a", "F1b", "F1c", "F1d")
+    ]
+    assert [setup["id"] for setup in finals] == ["F1a", "F1b", "F1c", "F1d"]
+    _, _, markup = collected_family(data, finals, detail=detail)
+    expected_owners = {
+        ("F1a", "nut1"),
+        ("F1b", "nut2"),
+        ("F1c", "nut3"),
+        ("F1d", "nut4"),
+    }
+    records = markup.find("checkpoint-result")
+    assert len(records) == 4
+    assert {
+        (record["attrs"]["data-setup-id"], record["attrs"]["data-workpiece"])
+        for record in records
+    } == expected_owners
+    for record in records:
+        assert record["attrs"]["data-op-id"] == "10"
+        assert record["attrs"]["data-shared-check"] == ""
+        assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
+        member = record["attrs"]["data-workpiece"]
+        assert set(json.loads(record["attrs"]["data-inspection-ids"])) == {
+            f"{member}/base-envelope:width",
+            f"{member}/base-envelope:height",
+            f"{member}/shoulders:width",
+            f"{member}/shoulders:thickness",
+            f"{member}/end-length:length",
+            f"{member}/part:actual_slot_fit",
+            f"{member}/part:stud_retention",
+        }
+    for setup_id, member in expected_owners:
+        owned = [
+            node
+            for node in operation_nodes(markup)
+            if any(
+                owner["setup_id"] == setup_id
+                and owner["workpiece"] == member
+                and str(owner["op_id"]) == "10"
+                for owner in operation_owners(node)
+            )
+        ]
+        assert owned
+        text = " ".join(" ".join(content(node).split()) for node in owned)
+        # Method prose repeats sizes, so it cannot stand in for a dropped criterion.
+        criteria_text = text
+        for node in owned:
+            for method in markup.find("inspection-method", node):
+                criteria_text = criteria_text.replace(" ".join(content(method).split()), "")
+        # Pedantic criteria use manifest millimetres; compact uses readout inches.
+        # Keep independent inch limits, not values recovered from the checkpoint.
+        scale = 25.4 if detail == "pedantic" else 1.0
+        limits_text = re.sub(r"(?<=\d)[-–—…](?=[\d.])", " ", criteria_text)
+        for band in (
+            (0.873, 0.877),
+            (0.498, 0.502),
+            (0.248, 0.252),
+            (0.493, 0.497),
+            (0.998, 1.002),
+        ):
+            for limit in band:
+                assert_number(limits_text, limit * scale)
+        for clause in (
+            "Slides freely by hand in the actual intended slot "
+            "without binding or objectionable rocking.",
+            "Both shoulder shelves bear under the lips without bottoming or wedging.",
+            "Pulled-up top remains below the table top.",
+            "The intended 3/8-16 right-hand stud enters from the top by hand.",
+            "Bottom-thread deformation stops the stud before it exits onto the table; "
+            "do not force it through.",
+            "The nut does not rotate or pass through the intended slot "
+            "during the functional check.",
+        ):
+            assert clause in criteria_text

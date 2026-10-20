@@ -166,17 +166,18 @@ def evaluate(bundle):
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
-        from prechips.kernel import zero_pickup_inputs
+        from prechips.kernel import _top_pickup_specs, zero_pickup_inputs
 
         pickup_inputs = (
             zero_pickup_inputs(bundle, setup)
-            if any("at_mm" in mapping(zero.get(axis)) for axis in ("x", "y"))
+            if _top_pickup_specs(setup)
+            or any("at_mm" in mapping(zero.get(axis)) for axis in ("x", "y"))
             else {}
         )
         pickups = {
-            axis: proof
-            for axis in ("x", "y")
-            if (proof := zero_pickup_evidence(bundle, setup, axis, normalized=pickup_inputs))
+            key: proof
+            for key in mapping(pickup_inputs.get("requests"))
+            if (proof := zero_pickup_evidence(bundle, setup, key, normalized=pickup_inputs))
             is not None
         }
         ops = records(setup.get("ops"))
@@ -832,7 +833,9 @@ def evaluate(bundle):
         for axis, proof in pickups.items():
             if proof["status"] != "pass":
                 sentence += (
-                    f" The requested {axis.upper()} pickup path is {proof['status']}: "
+                    " The requested "
+                    f"{'Z tool touch' if axis.startswith('tool_touch:') else axis.upper()} "
+                    f"pickup path is {proof['status']}: "
                     + "; ".join(proof["reasons"])
                     + ". Arithmetic Axis Sets do not establish pickup clearance."
                 )

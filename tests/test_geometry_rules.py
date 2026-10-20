@@ -540,14 +540,17 @@ def _bounded_clamp_wall(bundle, lower=2.0, upper=3.0):
         (1.999999999, 3.0, "unknown"),
     ],
 )
-@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws", "unknown"])
-def test_bounded_clamp_wall_uses_proven_interval_not_exact_or_protective_method(
+@pytest.mark.parametrize(
+    "method", ["hard_jaws", "soft jaws", "soft_jaws", "MANDREL", "wax", "unknown"]
+)
+def test_bounded_clamp_wall_uses_proven_interval_and_named_protective_method(
     bundle, lower, upper, status, method
 ):
     _bounded_clamp_wall(bundle, lower, upper)
     bundle.plan["setups"][0]["hold"]["method"] = method
     row = finding(thin_wall_under_clamp, bundle)
-    assert row.status == status
+    protected = method.lower() in {"soft jaws", "soft_jaws", "mandrel", "wax"}
+    assert row.status == ("pass" if protected else status)
     assert row.numbers["min_wall_mm"] == "unknown"
     assert row.numbers["min_wall_bounds_mm"] == {"lower": lower, "upper": upper}
 
@@ -567,8 +570,10 @@ def test_bounded_clamp_wall_uses_proven_interval_not_exact_or_protective_method(
         (2.0, math.inf),
     ],
 )
-def test_bounded_clamp_wall_rejects_invalid_interval(bundle, lower, upper):
+@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws", "mandrel", "wax"])
+def test_bounded_clamp_wall_rejects_invalid_interval(bundle, lower, upper, method):
     _bounded_clamp_wall(bundle, lower, upper)
+    bundle.plan["setups"][0]["hold"]["method"] = method
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
 
@@ -590,11 +595,13 @@ def test_bounded_clamp_wall_rejects_invalid_interval(bundle, lower, upper):
     ],
 )
 @pytest.mark.parametrize("lower,upper", [(2.0, 3.0), (0.5, 1.0)])
+@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws"])
 def test_bounded_clamp_wall_requires_identified_successful_native_proof(
-    bundle, section, key, value, lower, upper
+    bundle, section, key, value, lower, upper, method
 ):
     detail = _bounded_clamp_wall(bundle, lower, upper)
     detail[section][key] = value
+    bundle.plan["setups"][0]["hold"]["method"] = method
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
 
@@ -619,9 +626,11 @@ def test_bounded_clamp_wall_rejects_conflicting_exact_scalar(bundle):
 
 
 @pytest.mark.parametrize("floor", ["unknown", 0, -1, True, math.nan, math.inf])
-def test_bounded_clamp_wall_requires_valid_policy_floor(bundle, floor):
+@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws", "mandrel", "wax"])
+def test_bounded_clamp_wall_requires_valid_policy_floor(bundle, floor, method):
     _bounded_clamp_wall(bundle)
     bundle.policy["numbers"]["thin_wall_floor_mm"] = floor
+    bundle.plan["setups"][0]["hold"]["method"] = method
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
 
@@ -639,8 +648,11 @@ def test_bounded_clamp_wall_requires_verified_policy_floor(bundle):
         {"measured": {"status": "measured", "by": "test", "date": "2026-10-03"}},
     ],
 )
-def test_bounded_clamp_wall_preserves_fixture_measurement_debt(bundle, debt):
-    _bounded_clamp_wall(bundle)
+@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws"])
+@pytest.mark.parametrize("lower,upper", [(0.5, 1.0), (1.0, 3.0), (2.0, 3.0)])
+def test_bounded_clamp_wall_preserves_fixture_measurement_debt(bundle, debt, method, lower, upper):
+    _bounded_clamp_wall(bundle, lower, upper)
+    bundle.plan["setups"][0]["hold"]["method"] = method
     bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, **debt}
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
@@ -707,6 +719,21 @@ def test_bounded_strap_wall_preserves_unresolved_other_clamps(bundle, lower, upp
     assert "under the strap footprints" in row.sentence or status == "unknown"
     if debts and status == "unknown":
         assert debts[0] in row.sentence
+
+
+@pytest.mark.parametrize("lower,upper", [(0.5, 1.0), (1.0, 3.0)])
+@pytest.mark.parametrize("method", ["soft_jaws", "mandrel", "wax"])
+def test_bounded_protective_strap_holding_cannot_waive_other_clamp_debt(
+    bundle, lower, upper, method
+):
+    _strap_hold(bundle)
+    bundle.plan["setups"][0]["hold"]["method"] = method
+    detail = _bounded_clamp_wall(bundle, lower, upper)
+    debt = "clamp 2 has no sampled footprint bearing"
+    detail["strap_wall_debts"] = [debt]
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == "unknown"
+    assert debt in row.sentence
 
 
 @pytest.mark.parametrize("pose,verify", [(False, False), (True, True)])

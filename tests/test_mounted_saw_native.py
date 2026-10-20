@@ -405,6 +405,26 @@ def _cases(engine, paths):
     _, saw = case("offset-zero")
     # 0.04 mm is smaller than the (kerf-body)/2 available containment margin.
     saw["blade"]["kerf_offset_mm"] = 0.04
+
+    job, _ = case("finite-rear-post")
+    # This post intersects the old all-holding Z kerf slab, but never the finite saw.
+    job["setups"][0]["hold"]["solids"].append(
+        _box("rear-post", [-20.0, 40.0, -75.0], [40.0, 10.0, 225.0])
+    )
+    job, _ = case("withdrawal-distance")
+    job["setups"][0]["hold"]["solids"].append(
+        _box("withdrawal-stop", [101.0, -50.0, 13.0], [1.0, 1.0, 3.0])
+    )
+    job, _ = case("lift-distance")
+    job["setups"][0]["hold"]["solids"].append(
+        _box("lift-stop", [91.125, -61.0, 110.0], [1.0, 2.0, 1.0])
+    )
+    job, saw = case("pre-cut-distance")
+    saw["trajectory"]["start_mm"] = [-35.0, -60.0, 15.0]
+    saw["trajectory"]["moves"].insert(0, {"to_mm": [-35.0, -10.541, 15.0], "mode": "clear"})
+    job["setups"][0]["hold"]["solids"].append(
+        _box("pre-cut-stop", [-61.65, -50.0, 14.0], [1.0, 1.0, 2.0])
+    )
     return jobs
 
 
@@ -802,3 +822,142 @@ def test_zero_geometry_and_spindle_state_are_independent_of_cut_geometry(
         assert any(
             hit["obstacle"] == "stock" and hit["volume_mm3"] > 0.0 for hit in touch["collisions"]
         ), touch
+
+
+def test_finite_fixture_minimum_replaces_the_all_holding_kerf_plane(native_cases):
+    _, saw = _detail(native_cases, "finite-rear-post")
+    proof = saw["fixture_clearance"]
+    assert proof["status"] == "complete", proof
+    assert proof["source"] == "finite_occupied_sweeps"
+    assert proof["scope"] == "machining_trajectory" and proof["frame"] == "setup"
+    assert proof["model"] == "finite_disk_v1"
+    binding = proof["binding"]
+    assert binding["setup"] == "S1" and binding["op"] == "S1:10"
+    assert len(binding["step_sha256"]) == len(binding["request_sha256"]) == 64
+    # The actual lower flange is 1 mm above the lower jaw. The infinite kerf plane
+    # would instead claim 0 to rear-post, which lies beyond every finite component.
+    near = proof["minimum"]
+    assert near["mm"] == pytest.approx(1.0, abs=1e-6)
+    assert near["tag"] == "lower-front-jaw"
+    assert near["component"] == "arbor:lower-flange"
+    assert (near["move_index"], near["mode"], near["stage"]) == (0, "cut", "cut")
+    assert near["from_mm"][2] == pytest.approx(11.0)
+    assert near["to_mm"][2] == pytest.approx(10.0)
+    assert math.dist(near["from_mm"], near["to_mm"]) == pytest.approx(near["mm"])
+    scene = native_cases["finite-rear-post"]["setups"]["S1"]["render_scene"]
+    cut = scene["closest_cut"]
+    assert cut is not None and scene["cut_clearances"] == []
+    for key in ("mm", "from_mm", "to_mm"):
+        assert cut[key] == pytest.approx(near[key], abs=1e-6)
+    for key in ("tag", "component", "move_index", "mode", "stage"):
+        assert cut[key] == near[key]
+    assert cut["blade"] is True and cut["op"] == "10"
+    assert cut["binding"] == binding and cut["scope"] == "machining_trajectory"
+    assert sum("closest_cut" in panel["annotations"] for panel in scene["print_panels"]) == 1
+
+
+@pytest.mark.parametrize(
+    "case,tag,component,index,stage,mm,near,far",
+    [
+        (
+            "pre-cut-distance",
+            "pre-cut-stop",
+            "blade_cutting",
+            0,
+            "pre_cut",
+            0.25,
+            [-60.4, -50.0, 16.0],
+            [-60.65, -50.0, 16.0],
+        ),
+        (
+            "withdrawal-distance",
+            "withdrawal-stop",
+            "blade_cutting",
+            1,
+            "post_cut",
+            0.6,
+            [100.4, -50.0, 16.0],
+            [101.0, -50.0, 16.0],
+        ),
+        (
+            "lift-distance",
+            "lift-stop",
+            "arbor:nose",
+            2,
+            "post_cut",
+            0.25,
+            [90.875, -60.0, 111.0],
+            [91.125, -60.0, 111.0],
+        ),
+    ],
+)
+def test_fixture_distance_includes_clear_and_arbor_sweeps(
+    native_cases, case, tag, component, index, stage, mm, near, far
+):
+    _, saw = _detail(native_cases, case)
+    proof = saw["fixture_clearance"]
+    assert proof["status"] == "complete", proof
+    minimum = proof["minimum"]
+    assert minimum["mm"] == pytest.approx(mm, abs=1e-6)
+    assert minimum["tag"] == tag and minimum["component"] == component
+    assert (minimum["move_index"], minimum["mode"], minimum["stage"]) == (index, "clear", stage)
+    assert minimum["from_mm"] == pytest.approx(near, abs=1e-6)
+    assert minimum["to_mm"] == pytest.approx(far, abs=1e-6)
+    assert math.dist(minimum["from_mm"], minimum["to_mm"]) == pytest.approx(mm, abs=1e-6)
+    rows = proof["sweeps"]
+    moves = 4 if case == "pre-cut-distance" else 3
+    components = {
+        "blade_cutting",
+        "blade_body",
+        "arbor:lower-flange",
+        "arbor:upper-flange",
+        "arbor:pilot",
+        "arbor:stem",
+        "arbor:nose",
+    }
+    assert len(rows) == proof["expected_sweeps"] == len(components) * moves
+    assert {(row["component"], row["move_index"]) for row in rows} == {
+        (component, move) for component in components for move in range(moves)
+    }
+    assert all(row["tested_fixtures"] == len(proof["scene"]) for row in rows)
+    assert all(row["move_index"] >= 0 and row["mode"] != "calibration" for row in rows)
+    assert not {"stock", "child:lower", "child:upper"} & {item["tag"] for item in proof["scene"]}
+    cut = native_cases[case]["setups"]["S1"]["render_scene"]["closest_cut"]
+    assert cut["mm"] == pytest.approx(mm, abs=1e-6) and cut["component"] == component
+    assert cut["stage"] == stage and cut["move_index"] == index
+
+
+def test_native_zero_distance_is_not_replaced_with_a_positive_clearance(native_cases):
+    _, saw = _detail(native_cases, "mid-sweep-obstacle")
+    proof = saw["fixture_clearance"]
+    assert proof["status"] == "complete", proof
+    near = proof["minimum"]
+    assert near["mm"] == 0.0 and near["tag"] == "mid-sweep-stop"
+    assert near["component"] == "blade_cutting" and near["stage"] == "cut"
+    assert near["from_mm"] == pytest.approx(near["to_mm"], abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["scene-debt", "incomplete-envelope", "missing-envelope-component", "diagonal-clear"],
+)
+def test_incomplete_finite_scene_or_cycle_never_falls_back_to_plane_distance(native_cases, case):
+    _, saw = _detail(native_cases, case)
+    proof = saw["fixture_clearance"]
+    assert proof["status"] == "unknown" and proof["minimum"] == "unknown", proof
+    assert proof["reasons"]
+    assert native_cases[case]["setups"]["S1"]["render_scene"]["closest_cut"] is None
+
+
+def test_calibration_contact_does_not_replace_machining_cycle_minimum(native_cases):
+    _, saw = _detail(native_cases, "positive")
+    proof = saw["fixture_clearance"]
+    assert proof["minimum"]["mm"] == pytest.approx(1.0)
+    assert saw["zero"]["touches"][0]["body_face_z_mm"] - 10.0 == pytest.approx(0.05)
+    assert all(row["mode"] in {"cut", "clear"} for row in proof["sweeps"])
+    assert (
+        proof["binding"]["request_sha256"]
+        != _detail(native_cases, "finite-rear-post")[1]["fixture_clearance"]["binding"][
+            "request_sha256"
+        ]
+    )

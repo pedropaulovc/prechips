@@ -3116,6 +3116,255 @@ def test_a_run_out_that_parts_the_stock_is_refused_by_the_held_split_check(engin
     assert "later setup S2's entry stock is unknown" in facts["checkpoint_reason"]
 
 
+def _coordinate_free_checkpoint_job(engine, island):
+    """The physical miter above, followed by explicitly contact-free manual work."""
+    profile = _profile(3.0, MITER, tip=10.0, overshoot={"S1:10 finish line -X[2]"})
+    job = _job(engine, island, [profile], west=WEST)
+    later = job["setups"][1]
+    later.pop("frame")
+    later["hold"] = {
+        "kind": "unknown",
+        "fixture_kind": "unknown",
+        "contact_model": "none",
+        "reason": "Coordinate-free manual work; no fixture contacts are declared",
+        "debts": [],
+        "gaps": [],
+        "refused_fields": [],
+    }
+    later["preservation_ledger"] = [
+        {"subject": "S2:10", "do": "inspect", "effect": "metadata"},
+        {"subject": "S2:20", "do": "coating", "effect": "unmodeled"},
+        {"subject": "S2:30", "do": "release", "effect": "metadata"},
+    ]
+    return job
+
+
+def test_coordinate_free_manual_descendants_do_not_add_future_frame_unknown(engine, island):
+    base = _coordinate_free_checkpoint_job(engine, island)
+    ledger = base["setups"][1]["preservation_ledger"]
+    cases, jobs = [], []
+    for entries in ([ledger[0]], [ledger[1]], [ledger[2]], ledger):
+        for hold in ({"contact_model": "none"}, base["setups"][1]["hold"]):
+            job = deepcopy(base)
+            job["setups"][1].update(preservation_ledger=deepcopy(entries), hold=deepcopy(hold))
+            cases.append((entries, hold))
+            jobs.append(job)
+    results = engine.run({"jobs": jobs})["results"]
+    for case, result in zip(cases, results, strict=True):
+        assert result["status"] == "ok", (case, result)
+        facts = result["ops"]["S1:10"]
+        assert facts["checkpoint_count"] == 3, (case, facts)
+        assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], (case, facts)
+        assert "checkpoint_reason" not in facts, (case, facts)
+        assert facts["checkpoint_overshoot_ok"] == ["S1:10 finish line -X[2]"], (case, facts)
+        # Exempting a contact consumer does not invent a usable frame or propagate stock.
+        later = result["setups"]["S2"]
+        assert later["reason"] == "numeric setup frame is unknown", (case, later)
+        assert later["fixture_reason"] == later["reason"], (case, later)
+        assert "stock_bbox_mm" not in later, (case, later)
+
+
+def test_coordinate_free_checkpoint_exemption_requires_an_exact_complete_ledger(engine, island):
+    base = _coordinate_free_checkpoint_job(engine, island)
+    inspect = {"subject": "S2:10", "do": "inspect", "effect": "metadata"}
+    ledgers = {
+        "null ledger": None,
+        "non-list ledger": inspect,
+        "empty ledger": [],
+        "non-entry ledger": ["inspect"],
+        "missing effect": [{"subject": "S2:10", "do": "inspect"}],
+        "foreign subject": [{**inspect, "subject": "S3:10"}],
+        "empty subject suffix": [{**inspect, "subject": "S2:"}],
+        "non-string subject": [{**inspect, "subject": 10}],
+        "duplicate subject": [inspect, {**inspect, "do": "release"}],
+        "hidden geometry": [{**inspect, "stock_removal_bounds": deepcopy(BOX)}],
+        "unknown action": [{**inspect, "do": "unknown"}],
+        "unknown effect": [{**inspect, "effect": "unknown"}],
+        "native inspect": [{**inspect, "effect": "native"}],
+        "unmodeled inspect": [{**inspect, "effect": "unmodeled"}],
+        "metadata coating": [{**inspect, "do": "coating"}],
+        "mixed unknown action": [inspect, {"subject": "S2:20", "do": "unknown",
+                                           "effect": "unmodeled"}],
+    }
+    for action in ("deburr", "fit", "scribe"):
+        for effect in ("metadata", "unmodeled"):
+            ledgers[f"{effect} {action}"] = [{**inspect, "do": action, "effect": effect}]
+    jobs = []
+    for ledger in ledgers.values():
+        job = deepcopy(base)
+        job["setups"][1]["preservation_ledger"] = ledger
+        jobs.append(job)
+    missing = deepcopy(base)
+    missing["setups"][1].pop("preservation_ledger")
+    jobs.append(missing)
+    results = engine.run({"jobs": jobs})["results"]
+    for name, result in zip([*ledgers, "missing ledger"], results, strict=True):
+        facts = result["ops"]["S1:10"]
+        assert facts["checkpoint_hits"] == "unknown", (name, facts)
+        assert facts["checkpoint_errors"] == [], (name, facts)
+        assert "later setup S2's frame is unusable" in facts["checkpoint_reason"], (name, facts)
+        assert facts["checkpoint_overshoot_ok"] == [], (name, facts)
+
+
+def test_coordinate_free_checkpoint_exemption_keeps_native_and_holding_consumers(engine, island):
+    base = _coordinate_free_checkpoint_job(engine, island)
+    placeholder = base["setups"][1]["hold"]
+    holds = {
+        "missing positive contact model": {key: value for key, value in placeholder.items()
+                                           if key != "contact_model"},
+        "unresolved contact model": {**placeholder, "contact_model": "unknown"},
+        "null contact model": {**placeholder, "contact_model": None},
+        "null hold": None,
+        "non-dict hold": [],
+        "null kind": {**placeholder, "kind": None},
+        "null fixture kind": {**placeholder, "fixture_kind": None},
+        "known kind": {**placeholder, "kind": "solids"},
+        "known fixture kind": {**placeholder, "fixture_kind": "custom"},
+        "holding debt": {**placeholder, "debts": ["support contact is unresolved"]},
+        "holding gap": {**placeholder, "gaps": ["a toe clamp is not drawn"]},
+        "refused holding field": {**placeholder, "refused_fields": ["clamps"]},
+        "hidden pose": {**placeholder, "pose": deepcopy(_clamped((2.0, 50.0))["pose"])},
+        "hidden solids": {**placeholder, "solids": _clamped((2.0, 50.0))["solids"]},
+        "hidden clamps": {**placeholder, "clamps": _clamped((2.0, 50.0))["clamps"]},
+        "empty geometry field": {**placeholder, "solids": []},
+        "structured press pad": {**_clamped((2.0, 50.0)), "contact_model": "none"},
+        "structured vise": {**deepcopy(SEATED), "contact_model": "none"},
+    }
+    jobs = []
+    for hold in holds.values():
+        job = deepcopy(base)
+        job["setups"][1]["hold"] = hold
+        jobs.append(job)
+    native_ops = {
+        "native metadata inspect": {"subject": "S2:10", "do": "inspect"},
+        "native cutting operation": {
+            **deepcopy(base["setups"][0]["ops"][0]), "subject": "S2:10"
+        },
+        "inspect with operative profile geometry": {
+            **deepcopy(base["setups"][0]["ops"][0]), "subject": "S2:10", "do": "inspect",
+            "stock_removal_bounds": {"x": [0.0, 5.0], "y": [-5.0, 55.0], "z": [0.0, 20.0]},
+        },
+    }
+    for op in native_ops.values():
+        job = deepcopy(base)
+        op.pop("checkpoints", None)
+        job["setups"][1]["ops"] = [op]
+        if op["do"] == "finish_profile":
+            job["setups"][1]["preservation_ledger"].append(
+                {"subject": "S2:40", "do": "finish_profile", "effect": "native"}
+            )
+            op["subject"] = "S2:40"
+        jobs.append(job)
+    results = engine.run({"jobs": jobs})["results"]
+    for name, result in zip([*holds, *native_ops], results, strict=True):
+        facts = result["ops"]["S1:10"]
+        assert facts["checkpoint_hits"] == "unknown", (name, facts)
+        assert facts["checkpoint_errors"] == [], (name, facts)
+        assert "later setup S2's frame is unusable" in facts["checkpoint_reason"], (name, facts)
+        assert facts["checkpoint_overshoot_ok"] == [], (name, facts)
+
+
+def test_coordinate_free_descendant_does_not_hide_real_branch_contacts_or_support_debt(
+    engine, island
+):
+    base = _coordinate_free_checkpoint_job(engine, island)
+    jobs = []
+    for hold in (
+        _clamped((2.0, 50.0)),
+        _clamped((35.0, 30.0), gaps=["a toe clamp is not drawn"]),
+    ):
+        job = deepcopy(base)
+        # Both descendants receive S1's actually derived stock. S3 does not pretend
+        # that the frameless S2 has supplied any new stock or a coordinate transform.
+        job["setups"].append({**_setup([], hold, setup_id="S3"), "stock_in": "S1"})
+        jobs.append(job)
+    pressed, unresolved = engine.run({"jobs": jobs})["results"]
+    facts = pressed["ops"]["S1:10"]
+    assert "stock_reason" not in pressed["setups"]["S3"], pressed["setups"]["S3"]
+    assert _later(facts) == {("S1:10 finish line -X[2]", "S3", "clamp press")}, facts
+    assert facts["checkpoint_hits"] == 1 and "checkpoint_reason" not in facts, facts
+    (error,) = facts["checkpoint_errors"]
+    assert error["area_mm2"] > 1.0, error
+    assert facts["checkpoint_overshoot_ok"] == []
+    facts = unresolved["ops"]["S1:10"]
+    assert facts["checkpoint_hits"] == "unknown" and facts["checkpoint_errors"] == [], facts
+    assert (
+        "later setup S3 has undrawn components (a toe clamp is not drawn)"
+        in facts["checkpoint_reason"]
+    ), facts
+    assert "later setup S2's frame is unusable" not in facts["checkpoint_reason"], facts
+    assert facts["checkpoint_overshoot_ok"] == []
+
+
+def test_coordinate_free_intermediary_does_not_hide_a_later_consumers_unknown_stock(
+    engine, island
+):
+    job = _coordinate_free_checkpoint_job(engine, island)
+    job["setups"].append({**_setup([], _clamped((2.0, 50.0)), setup_id="S3"), "stock_in": "S2"})
+    result = engine.run(job)
+    facts = result["ops"]["S1:10"]
+    assert facts["checkpoint_hits"] == "unknown" and facts["checkpoint_errors"] == [], facts
+    assert "later setup S3's entry stock is unknown" in facts["checkpoint_reason"], facts
+    assert "setup S2 frame is unusable" in result["setups"]["S3"]["stock_reason"]
+    assert "later setup S2's frame is unusable" not in facts["checkpoint_reason"], facts
+    assert facts["checkpoint_overshoot_ok"] == []
+
+
+def test_coordinate_free_coating_does_not_clear_independent_material_preservation_debt(
+    engine, island
+):
+    base = _coordinate_free_checkpoint_job(engine, island)
+    frame = deepcopy(base["setups"][0]["frame"])
+    base["workpieces"] = {"island": {"pose": deepcopy(frame)}}
+    top = engine.refs(island, (5.0, 5.0, 20.0), (65.0, 45.0, 20.0), kind="Plane")
+    assert len(top) == 1
+    base["features"]["thickness"] = top
+    source, later = base["setups"]
+    source["ops"][0]["workpiece_faces"] = {"island": base["features"]["west"]}
+    source["preservation_ledger"] = [
+        {"subject": "S1:10", "do": "finish_profile", "effect": "native"}
+    ]
+    # Use a real frame for this independent proof: the contact-only exemption must
+    # not make coating a dimensional no-op, nor fake stock through a frameless setup.
+    later["frame"] = deepcopy(frame)
+    later["inspection_preservation"] = [{
+        "check_id": "S2:10",
+        "feature": "thickness",
+        "requirement": "height",
+        "workpiece_id": "island",
+        "after": "S1:10",
+        "before": "S3:10",
+        "nominal_mm": 20.0,
+    }]
+    boundary = {
+        **_setup([{"subject": "S3:10", "do": "release"}], _clamped((35.0, 30.0)),
+                 setup_id="S3"),
+        "stock_in": "S2",
+        "preservation_ledger": [{"subject": "S3:10", "do": "release", "effect": "metadata"}],
+    }
+    base["setups"].append(boundary)
+    metadata = deepcopy(base)
+    metadata["setups"][1]["preservation_ledger"] = [
+        entry for entry in metadata["setups"][1]["preservation_ledger"]
+        if entry["do"] != "coating"
+    ]
+    plain, coated = engine.run({"jobs": [metadata, base]})["results"]
+    for result in (plain, coated):
+        facts = result["ops"]["S1:10"]
+        assert facts["checkpoint_hits"] == 0 and facts["checkpoint_errors"] == [], facts
+        assert "checkpoint_reason" not in facts, facts
+        assert facts["checkpoint_overshoot_ok"] == ["S1:10 finish line -X[2]"]
+        assert "stock_reason" not in result["setups"]["S3"], result["setups"]["S3"]
+    for sid in ("S2", "S3"):
+        (clear,) = plain["setups"][sid]["inspection_preservation"]
+        assert clear["status"] == "pass" and clear["reasons"] == [], clear
+        (debt,) = coated["setups"][sid]["inspection_preservation"]
+        assert debt["status"] == "unknown", debt
+        assert debt["reasons"] == ["S2:20: material effects are unmodeled"], debt
+        assert debt["operations"] == ["S1:10", "S2:20"], debt
+        assert debt["region"] == clear["region"] and debt["region"]["nominal_mm"] == 20.0
+
+
 # ------------------------------------------------------------ discrete chain-drill stock
 
 # Two radius-1 drill holes 0.5 mm west of the island's west wall (x = 5): an arc table's

@@ -10,13 +10,16 @@ import hashlib
 import json
 import subprocess
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import IDENTITY, Engine
 from test_kernel_retained_outputs import _probe
 from test_mounted_saw_native import POSE, _box, _mounted, _pad
 
+from prechips import kernel
 from prechips.kernel.step_faces import StepFile
+from prechips.rules import coverage
 
 FRAME = {
     "origin": [0, 0, 0],
@@ -102,7 +105,7 @@ def _saw(z):
     return saw
 
 
-def _route(engine, path, refs, selected):
+def _route(engine, path, refs, selected, created):
     setups = []
     incoming = "stock"
     for number, z in enumerate(CUTS, 1):
@@ -138,6 +141,10 @@ def _route(engine, path, refs, selected):
                         "kerf_mm": KERF,
                         "mounted_saw": _saw(z),
                         "outputs": outputs,
+                        "workpiece_faces": {
+                            member: [created[member]]
+                            for member in ((f"nut{number}",) if number < 3 else ("nut3", "nut4"))
+                        },
                     }
                 ],
             }
@@ -207,7 +214,7 @@ def _pickup_request(setup):
     return request
 
 
-def _cases(job, refs, selected):
+def _cases(job, refs, selected, opposite):
     cases = {"positive": job}
 
     def variant(name):
@@ -216,6 +223,22 @@ def _cases(job, refs, selected):
 
     def split(candidate, index=0):
         return candidate["setups"][index]["ops"][0]
+
+    unclaimed = variant("unclaimed-saw-faces")
+    for setup in unclaimed["setups"][:3]:
+        setup["ops"][0].pop("workpiece_faces")
+    wrong_end = variant("opposite-saw-faces")
+    for setup in wrong_end["setups"][:3]:
+        op = setup["ops"][0]
+        op["workpiece_faces"] = {member: [opposite[member]] for member in op["workpiece_faces"]}
+    offset = split(variant("target-plane-stock-offset"))
+    offset["cut_plane"]["value"] -= 0.01
+    for point in [
+        offset["mounted_saw"]["trajectory"]["start_mm"],
+        *[move["to_mm"] for move in offset["mounted_saw"]["trajectory"]["moves"][:2]],
+        offset["mounted_saw"]["trajectory"]["moves"][-1]["to_mm"],
+    ]:
+        point[2] -= 0.01
 
     split(variant("duplicate-membership"))["outputs"]["tail1"]["carries_workpieces"].append("nut1")
     split(variant("missing-membership"))["outputs"]["tail1"]["carries_workpieces"].remove("nut4")
@@ -370,15 +393,24 @@ def batch_native(tmp_path_factory, freecad_kernel):
         for row in inventory
         if abs(row["bbox_mm"][0] + 12.7) < 1e-6 and abs(row["bbox_mm"][3] + 12.7) < 1e-6
     )
+    # Inspect selections intentionally remain independent: the first three
+    # inspect their free +X ends, not the -X ends created by their own cuts.
     selected = {member: negative_x if member == "nut4" else positive_x for member in MEMBERS}
-    job = _route(engine, path, refs, selected)
-    jobs = _cases(job, refs, selected)
+    # The authored target's lower model-X end maps to setup -Z for nut1..3.
+    # Nut4 reverses canonical X, so its same canonical -X end maps to setup +Z.
+    created = {member: negative_x for member in MEMBERS}
+    opposite = {member: positive_x for member in MEMBERS}
+    job = _route(engine, path, refs, selected, created)
+    jobs = _cases(job, refs, selected, opposite)
     payload = engine.run({"jobs": list(jobs.values())})
     assert len(payload["results"]) == len(jobs), payload
     return {
         "results": dict(zip(jobs, payload["results"], strict=True)),
         "selected": selected,
+        "created": created,
+        "opposite": opposite,
         "job": job,
+        "jobs": jobs,
         "refs": refs,
         "directory": directory,
         "executable": freecad_kernel,
@@ -426,6 +458,231 @@ def test_three_native_cuts_preserve_four_targets_and_conserve_each_child(batch_n
     # lower face and nut4's upper face lie on the corresponding kerf boundaries.
     assert TARGET_BOXES["nut1"][2] == pytest.approx(CUTS[0] + KERF / 2)
     assert TARGET_BOXES["nut4"][5] == pytest.approx(CUTS[2] - KERF / 2)
+
+
+@pytest.mark.parametrize("case", ["positive", "forward-output-registration"])
+def test_exact_native_saw_face_credit_tracks_created_ends_and_real_named_children(
+    batch_native, case
+):
+    result = json.loads(json.dumps(_result(batch_native, case)))
+    job = batch_native["jobs"][case]
+    certified = set()
+    for number, members in enumerate((("nut1",), ("nut2",), ("nut3", "nut4")), 1):
+        sid = f"S{number}"
+        subject = f"{sid}:10"
+        op = job["setups"][number - 1]["ops"][0]
+        detail = result["ops"][subject]
+        assert detail["claimed_indices"] == []
+        credit = detail["saw_face_credit"]
+        assert credit["model"] == "finite_saw_face_credit_v1"
+        assert credit["producer"] == subject
+        assert credit["request"] == {
+            key: op[key]
+            for key in (
+                "subject",
+                "do",
+                "saw_tool",
+                "kerf_mm",
+                "cut_plane",
+                "mounted_saw",
+                "workpiece_faces",
+                "outputs",
+            )
+        }
+        assert {row["workpiece_id"] for row in credit["faces"]} == set(members)
+        assert len(credit["faces"]) == len(members)
+        input_path = [{"split": f"S{i}", "output": f"tail{i}"} for i in range(1, number)]
+        for row in credit["faces"]:
+            member = row["workpiece_id"]
+            output = f"blank{member[-1]}"
+            below = member == "nut4"
+            side = "below" if below else "above"
+            plane = TARGET_BOXES[member][5 if below else 2]
+            ref = batch_native["created"][member]
+            assert row["status"] == "pass" and row["reasons"] == [], row
+            assert row["canonical_ref"] == ref
+            assert row["index"] == result["workpiece_mapping"][member][ref]
+            assert row["output"] == output and row["side"] == side
+            assert row["registration"] == job["workpieces"][member]
+            assert row["output_registration"] == op["outputs"][output]["pose"]
+            assert row["input_partition_path"] == input_path
+            assert row["partition_path"] == input_path + [{"split": sid, "output": output}]
+            assert row["output_proof"] == result["setups"][sid]["outputs"][output]
+            assert row["output_proof"]["status"] == "pass"
+            assert row["surface"] == "plane"
+            assert row["normal"] == [0, 0, 1 if below else -1]
+            assert row["plane_z_mm"] == pytest.approx(plane, abs=1e-6)
+            assert row["cutting_band_mm"] == pytest.approx(
+                [CUTS[number - 1] - KERF / 2, CUTS[number - 1] + KERF / 2], abs=1e-6
+            )
+            assert 0 <= row["plane_error_mm"] <= 1e-6
+            assert row["area_mm2"] == pytest.approx(8 * 10, abs=1e-6)
+            assert row["area_tolerance_mm2"] == pytest.approx(max(1e-6, 80 * 1e-6))
+            assert row["volume_tolerance_mm3"] == pytest.approx(max(1e-6, 80 * KERF * 1e-6))
+            assert row["outward_column_volume_mm3"] == pytest.approx(80 * KERF, abs=1e-6)
+            assert row["inward_column_volume_mm3"] == pytest.approx(80 * 1e-3, abs=1e-6)
+            for metric in ("boundary_uncovered_area_mm2", "preexisting_boundary_area_mm2"):
+                assert 0 <= row[metric] <= row["area_tolerance_mm2"], row
+            for metric in (
+                "outward_missing_before_mm3",
+                "outward_missing_removed_mm3",
+                "inward_missing_child_mm3",
+            ):
+                assert 0 <= row[metric] <= row["volume_tolerance_mm3"], row
+            certified.add((member, ref, row["index"]))
+    assert len(certified) == 4
+    assert batch_native["created"]["nut4"] == batch_native["selected"]["nut4"]
+    assert all(
+        batch_native["created"][member] != batch_native["selected"][member]
+        for member in MEMBERS[:3]
+    )
+
+
+def test_actual_native_saw_face_certificates_pass_strict_host_consumer(batch_native, monkeypatch):
+    job = batch_native["jobs"]["positive"]
+    facts = json.loads(json.dumps(_result(batch_native)))
+    plan = deepcopy(job)
+    submitted_ops = {
+        (setup["id"], int(op["subject"].rsplit(":", 1)[1])): op
+        for setup in job["setups"]
+        for op in setup["ops"]
+    }
+    # The fixture submits native-mm requests directly. Add only raw-plan identity
+    # and registration authorship; normalizing these poses must reproduce exactly
+    # what was submitted, not rewrite any native certificate or geometry metric.
+    for member in plan["workpieces"].values():
+        member["pose"]["binding"] = "independently authored canonical-to-batch registration"
+    assert kernel.workpiece_inputs(plan["workpieces"], "mm") == job["workpieces"]
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            op["op"] = int(op["subject"].rsplit(":", 1)[1])
+            if "outputs" in op:
+                for output in op["outputs"].values():
+                    output["pose"]["binding"] = "independently authored retained-child registration"
+                assert (
+                    kernel._retained_output_inputs(op["outputs"], "mm")
+                    == submitted_ops[setup["id"], op["op"]]["outputs"]
+                )
+    definitions = {name: {"faces": refs} for name, refs in job["features"].items()}
+    bundle = SimpleNamespace(
+        plan=plan,
+        features={"units": "mm", "features": definitions},
+        feature_definitions=definitions,
+        kernel=facts,
+    )
+    # Bridge only the request boundary: all maps, protection proofs, output
+    # ledgers and face-creation witnesses are the untouched actual native result.
+    monkeypatch.setattr(
+        kernel,
+        "op_inputs",
+        lambda _bundle, setup, op: submitted_ops[setup["id"], op["op"]],
+    )
+    mapping = facts["workpiece_mapping"]
+    assert all(set(mapping[member]) == set(job["features"]["canonical"]) for member in MEMBERS)
+    expected = {
+        member: mapping[member][batch_native["created"][member]] for member in MEMBERS
+    }
+    assert len(set(expected.values())) == 4
+    assert job["workpieces"]["nut4"]["pose"]["x"] == [-1, 0, 0]
+    assert job["workpieces"]["nut4"]["pose"]["y"] == [0, -1, 0]
+    assert {
+        subject for subject, detail in facts["ops"].items() if detail.get("saw_face_credit")
+    } == {"S1:10", "S2:10", "S3:10"}
+    credited = set()
+    for number, members in enumerate((("nut1",), ("nut2",), ("nut3", "nut4")), 1):
+        setup = plan["setups"][number - 1]
+        op = setup["ops"][0]
+        assert op["workpiece_faces"] == {
+            member: [batch_native["created"][member]] for member in members
+        }
+        indices, evidence = coverage.saw_face_credit(bundle, facts, setup, op)
+        assert indices == {expected[member] for member in members}, evidence
+        assert evidence["status"] == "pass", evidence
+        certificate = facts["ops"][f"S{number}:10"]["saw_face_credit"]
+        assert evidence["proof"] is certificate
+        assert len(evidence["faces"]) == len(certificate["faces"]) == len(members)
+        input_path = [{"split": f"S{i}", "output": f"tail{i}"} for i in range(1, number)]
+        for audit, row in zip(evidence["faces"], certificate["faces"], strict=True):
+            member = row["workpiece_id"]
+            assert audit["status"] == "pass" and audit["proof"] is row
+            assert row["index"] == expected[member]
+            assert row["side"] == ("below" if member == "nut4" else "above")
+            assert row["input_partition_path"] == input_path
+            assert row["partition_path"] == input_path + [
+                {"split": setup["id"], "output": f"blank{member[-1]}"}
+            ]
+        credited.update(indices)
+    assert credited == set(expected.values())
+
+    # Replay one foreign named-child binding on a host-only copy. Both actual
+    # S3 certificates and every saw metric stay unchanged; only nut4 loses credit.
+    replayed = deepcopy(facts)
+    replayed["setups"]["S3"]["outputs"]["blank4"]["partition_path"][-1]["output"] = "blank3"
+    assert replayed["ops"] == facts["ops"]
+    setup = plan["setups"][2]
+    indices, evidence = coverage.saw_face_credit(bundle, replayed, setup, setup["ops"][0])
+    assert indices == {expected["nut3"]}, evidence
+    assert evidence["status"] == "unknown"
+    audits = {row["workpiece_id"]: row for row in evidence["faces"]}
+    assert audits["nut3"]["status"] == "pass"
+    assert audits["nut4"]["status"] == "unknown" and audits["nut4"]["reasons"]
+
+
+def test_unclaimed_new_boundaries_do_not_receive_saw_face_credit(batch_native):
+    result = _result(batch_native, "unclaimed-saw-faces")
+    for number in range(1, 4):
+        sid = f"S{number}"
+        detail = result["ops"][f"{sid}:10"]
+        assert detail["claimed_indices"] == []
+        assert not detail.get("saw_face_credit", {}).get("faces"), detail
+        assert detail["saw"]["status"] == "pass"
+        assert all(row["status"] == "pass" for row in result["setups"][sid]["outputs"].values())
+
+
+def test_opposite_target_end_cannot_borrow_its_members_successful_split(batch_native):
+    result = _result(batch_native, "opposite-saw-faces")
+    count = 0
+    for number in range(1, 4):
+        sid = f"S{number}"
+        detail = result["ops"][f"{sid}:10"]
+        assert detail["claimed_indices"] == []
+        assert detail["saw"]["status"] == "pass"
+        assert all(row["status"] == "pass" for row in result["setups"][sid]["outputs"].values())
+        rows = detail["saw_face_credit"]["faces"]
+        assert len(rows) == (2 if number == 3 else 1)
+        for row in rows:
+            member = row["workpiece_id"]
+            assert row["canonical_ref"] == batch_native["opposite"][member]
+            assert row["canonical_ref"] != batch_native["created"][member]
+            assert row["status"] == "unknown" and row["reasons"], row
+            assert row["output_proof"]["status"] == "pass"
+            count += 1
+    assert count == 4
+
+
+def test_small_actual_plane_offset_leaves_stock_not_target_face_creation(batch_native):
+    result = _result(batch_native, "target-plane-stock-offset")
+    detail = result["ops"]["S1:10"]
+    assert detail["claimed_indices"] == []
+    assert detail["saw"]["status"] == "pass"
+    assert detail["saw"]["cutting_band_mm"] == pytest.approx(
+        [CUTS[0] - KERF / 2 - 0.01, CUTS[0] + KERF / 2 - 0.01], abs=1e-6
+    )
+    output = result["setups"]["S1"]["outputs"]["blank1"]
+    assert output["status"] == "pass"
+    assert output["bbox_mm"][2] == pytest.approx(TARGET_BOXES["nut1"][2] - 0.01, abs=1e-6)
+    target = result["setups"]["N1"]["workpieces"]["nut1"]
+    assert target["status"] == "pass" and target["bbox_mm"] == pytest.approx(TARGET_BOXES["nut1"])
+    rows = detail["saw_face_credit"]["faces"]
+    assert len(rows) == 1
+    assert rows[0]["status"] == "unknown" and rows[0]["reasons"], rows
+    assert rows[0]["output_proof"] == output
+    # This is a local face-creation failure, not a failed cut or route.
+    assert all(
+        row["status"] == "pass"
+        for number in (2, 3)
+        for row in result["ops"][f"S{number}:10"]["saw_face_credit"]["faces"]
+    )
 
 
 def test_qualified_faces_subjects_and_nested_members_survive_json_and_render(batch_native):
@@ -478,10 +735,26 @@ def test_failed_partition_never_publishes_children_or_downstream_proof(batch_nat
     following = result["setups"][downstream]
     assert "stock_bbox_mm" not in following
     assert result["ops"][downstream + ":20"]["claimed_indices"] == "unknown"
+    detail = result["ops"][sid + ":10"]
+    assert detail["claimed_indices"] == []
+    assert not any(
+        row.get("status") == "pass" for row in detail.get("saw_face_credit", {}).get("faces", [])
+    ), detail
     if case in {"short-sweep", "residual-ligament"}:
         saw = result["ops"]["S1:10"]["saw"]
         assert saw["status"] != "pass"
         assert saw["uncovered_kerf_volume_mm3"] > 0
+    if case in {"duplicate-membership", "missing-membership"}:
+        # Rejecting the declared member partition must not rewrite a genuinely
+        # successful independent finite-saw geometry result.
+        assert detail["saw"]["status"] == "pass"
+        assert detail["saw"]["engagement"]["status"] == "pass"
+        assert detail["saw"]["zero"]["status"] == "pass"
+    if case == "low-kerf-protected":
+        saw = detail["saw"]
+        assert saw["status"] != "pass"
+        assert saw["uncovered_kerf_volume_mm3"] == pytest.approx(0, abs=1e-6)
+        assert saw["unintended_removal_volume_mm3"] == pytest.approx(80 * 0.16, abs=1e-5)
 
 
 def test_repeated_registration_is_not_a_second_physical_workpiece(batch_native):
@@ -522,6 +795,13 @@ def test_independent_mount_statuses_survive_complete_route(batch_native, case, s
     other = "zero" if section == "engagement" else "engagement"
     assert saw[other]["status"] == "pass"
     assert all(row["status"] == "pass" for row in result["setups"]["S1"]["outputs"].values())
+    detail = result["ops"]["S1:10"]
+    assert detail["claimed_indices"] == []
+    rows = detail["saw_face_credit"]["faces"]
+    assert len(rows) == 1
+    assert rows[0]["status"] == "pass" and rows[0]["reasons"] == [], rows
+    assert rows[0]["canonical_ref"] == batch_native["created"]["nut1"]
+    assert rows[0]["outward_column_volume_mm3"] == pytest.approx(80 * KERF, abs=1e-6)
 
 
 def test_capture_debt_does_not_become_an_empty_fixture_pass(batch_native):
@@ -532,6 +812,11 @@ def test_capture_debt_does_not_become_an_empty_fixture_pass(batch_native):
     assert not any(
         row.get("status") == "pass" for row in result["setups"]["S1"].get("outputs", {}).values()
     )
+    detail = result["ops"]["S1:10"]
+    assert detail["claimed_indices"] == []
+    assert not any(
+        row.get("status") == "pass" for row in detail.get("saw_face_credit", {}).get("faces", [])
+    ), detail
 
 
 def test_return_path_sweeps_whole_assembly_not_only_cutting_move(batch_native):

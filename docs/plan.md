@@ -1623,9 +1623,9 @@ coordinate and method describe what is touched and what the operator sets.
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
 | `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
-| `at_mm` | `[Number, Number]`: X pickup `[Y, Ztip]`, Y pickup `[X, Ztip]`, opting into the transverse path proof below. For Z, `[X, Y]` retains its separate touch-location meaning |
+| `at_mm` | `[Number, Number]`: X pickup `[Y, Ztip]`, Y pickup `[X, Ztip]`; for Z, the selected tool-axis `[X, Y]`. Explicit paper/top Z poses request [actual-stock top proof](rules-coordinates.md#explicit-actual-stock-top-contact) |
 | `approach_mm` | Positive transverse pickup approach distance |
-| `retract_clearance_mm` | Positive clearance above actual arriving-stock top |
+| `retract_clearance_mm` | Positive pickup retract clearance; a posed top touch retracts above the complete occupied scene |
 
 ### Transverse pickup path
 
@@ -1752,6 +1752,16 @@ unless the procedure explicitly obtains one.
 | `corner` | `"chuck_side" \| "tailstock_side"`: a grooving/parting blade's Z touch corner where the touched face gives no measured normal (a scribe); a face normal that contradicts it is an error ([zero_check](rules-coordinates.md#zero_check)) |
 | `before_ops` | `list[int]` |
 | `after_op` | `int` |
+| `holder` | `str`: selected holder for an explicitly posed native top touch |
+| `at_mm` | `[Number, Number]`: explicit tool-axis `[X, Y]` on `z_face = "top"`, `method = "paper"`; requests native proof at this touch's operation boundary |
+| `retract_clearance_mm` | Positive clearance above the occupied scene for that posed top touch |
+| `check_jog_mm` | Signed Z jog from the paper-contact Axis Set, before retracting |
+
+The posed top-touch fields follow manifest units despite their `_mm` names and
+convert once to native mm. `after_op` and `before_ops`, when both present, must
+identify the same boundary. The native proof uses the actual material at that
+boundary; it never borrows the initial touch's surviving land. See
+[actual-stock top contact](rules-coordinates.md#explicit-actual-stock-top-contact).
 
 ## Operation
 

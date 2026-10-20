@@ -115,6 +115,16 @@ def evaluate(bundle):
                             "drawn straps meet the shop floor but other clamps are unresolved: "
                             + "; ".join(debts)
                         )
+                elif str(method).strip().lower() in _PROTECTED:
+                    status, message = (
+                        "pass",
+                        f"bounded wall {zone} has a named protective holding method",
+                    )
+                    if debts:
+                        status = "unknown"
+                        message = "protective holding leaves other clamps unresolved: " + "; ".join(
+                            debts
+                        )
                 elif upper < floor:
                     status, message = (
                         "error",

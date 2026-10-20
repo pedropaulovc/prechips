@@ -341,6 +341,80 @@ def test_sheet_debt_follows_each_actual_finite_check(monkeypatch):
     assert traveler.spindle_saw_debt(setup, "geometry")
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_sheet_reach_accepts_complete_finite_saw_without_axial_debt(monkeypatch, detail):
+    data = finite_bundle(monkeypatch)
+    setup = data.plan["setups"][0]
+    finding = op_row(reach, data)
+    assert finding.status == "pass"
+    assert set(finding.numbers) == {"operation", "saw"}
+    traveler = _Traveler(data, [finding], {}, None, detail=detail)
+    candidates, actions = [], []
+
+    traveler.reach_candidates(setup, setup["ops"][0], candidates, actions)
+
+    assert candidates == []
+    assert actions == []
+    assert traveler.producer_decisions.get("S1", []) == []
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    "evidence,status",
+    [
+        ("missing", "unknown"),
+        ("model-marker-only", "unknown"),
+        ("missing-body-band", "unknown"),
+        ("collision", "error"),
+        ("native-error", "error"),
+    ],
+)
+def test_sheet_reach_preserves_finite_saw_debt_without_axial_fallback(
+    monkeypatch, detail, evidence, status
+):
+    data = finite_bundle(monkeypatch)
+    setup = data.plan["setups"][0]
+    native = data.kernel["ops"]["S1:20"]
+    if evidence == "missing":
+        del native["saw"]
+    elif evidence == "model-marker-only":
+        native["saw"] = {"model": "finite_disk_v1", "status": "pass"}
+    elif evidence == "missing-body-band":
+        del native["saw"]["body_band_mm"]
+    elif evidence == "native-error":
+        native["saw"]["status"] = "error"
+        native["saw"]["reasons"] = ["native finite sweep failed"]
+    else:
+        native["saw"]["collisions"] = [
+            {
+                "component": "blade_body",
+                "obstacle": "raised_jaw",
+                "move_index": 0,
+                "mode": "cut",
+                "volume_mm3": 1.0,
+                "bbox_mm": [0, 0, 4, 1, 1, 5],
+            }
+        ]
+    finding = op_row(reach, data)
+    assert finding.status == status
+    traveler = _Traveler(data, [finding], {}, None, detail=detail)
+    candidates, actions = [], []
+
+    traveler.reach_candidates(setup, setup["ops"][0], candidates, actions)
+
+    assert candidates == []
+    (action,) = actions
+    assert (action.source, action.status, action.scope, action.kind) == (
+        "finite_saw", status, "S1:20", "block"
+    )
+    (decision,) = traveler.producer_decisions["S1"]
+    assert (decision.source, decision.status, decision.scope, decision.kind) == (
+        "finite_saw", status, "S1:20", "block"
+    )
+    assert str(action)
+    assert decision.text == str(action)
+
+
 def test_capture_and_fixture_setting_pad_keep_inventory_acceptance_ownership():
     data = slitting_bundle()
     setup = data.plan["setups"][0]

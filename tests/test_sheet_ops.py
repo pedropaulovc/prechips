@@ -172,10 +172,255 @@ def shop(records, kind="mill", *, detail="pedantic"):
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
-    sheet.operative = lambda v: (
-        f"{v:.3f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "?"
+    sheet.operative = lambda v, places=3: (
+        f"{v:.{places}f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "?"
     )
     return sheet
+
+
+def native_top_touch_sheet(*, detail="pedantic", units="mm", display_units=None, jog=0.0508):
+    """An already adjudicated native path, with manifest lengths still in setup units."""
+    scale = 25.4 if units == "in" else 1.0
+    proof = {
+        "status": "pass",
+        "setup_id": "S1",
+        "key": "tool_touch:0",
+        "model": "private-model-identity",
+        "recipe_hash": "private-recipe-identity",
+        "obstacles": [
+            {"name": "stock", "bbox_mm": [0.0, 0.0, 0.0, 127.0, 127.0, 25.4]},
+            {"name": "clamp", "bbox_mm": [0.0, 0.0, 25.4, 25.4, 25.4, 88.9]},
+        ],
+        "request": {
+            "at_mm": [50.8, 76.2],
+            "paper_mm": 0.127,
+            "check_jog_mm": jog,
+            "retract_clearance_mm": 12.7,
+        },
+        "resolved_contact": {
+            "plane_mm": 25.4,
+            "point_mm": [50.8, 76.2, 25.4],
+            "axis_mm": [50.8, 76.2, 25.527],
+            "plane_id": "private-contact-plane",
+        },
+        "path": {
+            "complete": True,
+            "start_mm": [50.8, 76.2, 101.6],
+            "contact_mm": [50.8, 76.2, 25.527],
+            "retract_height_mm": 101.6,
+            "stock_top_mm": 25.4,
+            "jog_mm": jog,
+        },
+    }
+    touch = {
+        "tool": "cutter",
+        "before_ops": [20],
+        "after_op": 10,
+        "z_face": "top",
+        "method": "paper",
+        "edge_mm": 25.4 / scale,
+        "paper_mm": 0.127 / scale,
+        "z_axis_set": 25.527 / scale,
+        # Already carried by zero_check; the renderer must not derive another surface.
+        "setting_residual_mm": 0.0,
+        "at_mm": [50.8 / scale, 76.2 / scale],
+        "retract_clearance_mm": 12.7 / scale,
+        "pickup_proof": proof,
+    }
+    setup = {
+        "id": "S1",
+        "machine": "mill",
+        "stock_state": {"top_z": 25.4 / scale, "top_feature": "top"},
+        "zero": {"tool_touches": [touch]},
+        "ops": [
+            {"op": 10, "do": "face", "feature": "top", "tool": "facer"},
+            {"op": 20, "do": "pocket", "feature": "pocket", "tool": "cutter"},
+        ],
+    }
+    sheet = shop({("zero_check", "S1"): {"tool_touches": [touch]}}, detail=detail)
+    sheet.units = units
+    sheet.bundle.features["units"] = units
+    sheet.plan.update(
+        dro={"kind": "digital", "units": display_units or units},
+        setups=[setup],
+    )
+    sheet.setup = setup
+    sheet.touched_tool = lambda reference, tools, slot: "T2 flat end mill"
+    return sheet, setup, touch
+
+
+def _assert_manifest_top_position(text, units):
+    position = re.search(
+        rf"tool axis at setup X ([+-]?\d+(?:\.\d+)?), "
+        rf"Y ([+-]?\d+(?:\.\d+)?) {units}\b",
+        text,
+    )
+    assert position, text
+    scale = 25.4 if units == "in" else 1.0
+    assert [float(value) for value in position.groups()] == pytest.approx(
+        [50.8 / scale, 76.2 / scale]
+    )
+    clearance = re.search(rf"requested retract clearance ([+-]?\d+(?:\.\d+)?) {units}\b", text)
+    assert clearance and float(clearance[1]) == pytest.approx(12.7 / scale)
+
+
+def _assert_native_top_motion(text, jog, *, axis_set=None):
+    """Read physical path facts without treating its millimetres as plan-unit lengths."""
+    coordinate = r"([+-]?\d+(?:\.\d+)?)"
+    position = re.search(rf"physical setup X {coordinate}, Y {coordinate} mm\b", text)
+    start = re.search(rf"start[^;]*?\bZ {coordinate} mm\b", text)
+    contact = re.search(rf"lower[^;]*?paper contact[^;]*?\bZ {coordinate} mm\b", text)
+    checked = re.search(rf"check ([+−-])Z {coordinate} mm\b", text)
+    retract = re.search(rf"retract[^;]*?\bZ {coordinate} mm\b", text)
+    assert position and start and contact and checked and retract, text
+    assert [float(value) for value in position.groups()] == pytest.approx([50.8, 76.2])
+    assert float(start[1]) == pytest.approx(101.6)
+    assert float(contact[1]) == pytest.approx(25.527)
+    assert float(retract[1]) == pytest.approx(101.6)
+    assert checked[1] == ("−" if jog < 0 else "+")
+    assert float(checked[2]) == pytest.approx(abs(jog))
+    assert start.start() < contact.start() < checked.start() < retract.start()
+    setting_step = text[contact.end() : checked.start()]
+    assert "axis set" in setting_step.lower()
+    if axis_set is not None:
+        setting = re.search(rf"\bAxis Set Z {coordinate}", setting_step)
+        assert setting and float(setting[1]) == pytest.approx(axis_set, abs=0.0005)
+    # The occupied-stack-safe height is not the nominal top plus requested clearance.
+    assert float(retract[1]) != pytest.approx(25.4 + 12.7)
+    for identity in ("private-model-identity", "private-recipe-identity", "private-contact-plane"):
+        assert identity not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    ("units", "display_units"), [("mm", "mm"), ("in", "in"), ("mm", "in"), ("in", "mm")]
+)
+@pytest.mark.parametrize("jog", [0.0508, -0.0508])
+def test_staged_top_tool_touch_keeps_manifest_position_native_motion_and_dro_units(
+    detail, units, display_units, jog
+):
+    sheet, setup, touch = native_top_touch_sheet(
+        detail=detail, units=units, display_units=display_units, jog=jog
+    )
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert re.search(r"\bBefore op 20\b", text) and re.search(r"\bafter op 10\b", text)
+    assert "T2 flat end mill" in text
+    _assert_manifest_top_position(text, units)
+    display_scale = 25.4 if display_units == "in" else 1.0
+    _assert_native_top_motion(text, jog, axis_set=25.527 / display_scale)
+    assert not sheet.producer_decisions.get("S1")
+    assert "STOP" not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_an_explicit_top_touch_without_proof_keeps_xy_and_retract_but_blocks_the_path(
+    detail, units
+):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail, units=units)
+    del touch["pickup_proof"]
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    _assert_manifest_top_position(text, units)
+    assert "STOP" in text and re.search(r"path.*unproved", text, re.IGNORECASE)
+    assert "Axis Set Z" in text
+    assert not re.search(r"above.*clamp", text, re.IGNORECASE)
+    assert "101.6" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert (decision.source, decision.status, decision.kind) == ("zero_check", "unknown", "block")
+    assert "STOP" in decision.text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_nonpassing_top_tool_touch_preserves_native_reason_and_never_prints_a_safe_path(
+    detail, status
+):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail)
+    reason = (
+        "fixture intercepts the vertical return" if status == "error" else "contact land unresolved"
+    )
+    touch["pickup_proof"].update(status=status, reasons=[reason])
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    _assert_manifest_top_position(text, "mm")
+    assert "STOP" in text and reason in text
+    assert "101.6" not in text and "physical setup X" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert (decision.source, decision.status, decision.kind, decision.scope) == (
+        "zero_check",
+        status,
+        "block",
+        "S1:tool_touch:0",
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("start_mm", None),
+        ("start_mm", [50.8, 76.2]),
+        ("start_mm", [50.8, 76.2, float("nan")]),
+        ("contact_mm", None),
+        ("contact_mm", [50.8, 76.2, "unknown"]),
+        ("contact_mm", [50.8, float("inf"), 25.527]),
+        ("retract_height_mm", None),
+        ("retract_height_mm", "unknown"),
+        ("retract_height_mm", float("inf")),
+        ("jog_mm", None),
+        ("jog_mm", "unknown"),
+        ("jog_mm", float("nan")),
+    ],
+)
+def test_incomplete_pass_top_pickup_is_a_typed_stop_in_both_direct_and_tool_touch_consumers(
+    field, value
+):
+    from prechips.sheet import _Box
+
+    sheet, setup, touch = native_top_touch_sheet()
+    if value is None:
+        del touch["pickup_proof"]["path"][field]
+    else:
+        touch["pickup_proof"]["path"][field] = value
+    pickup = sheet.pickup_contact("z", touch)
+    assert isinstance(pickup, _Box)
+    assert (pickup.source, pickup.status, pickup.kind, pickup.scope) == (
+        "zero_check",
+        "unknown",
+        "block",
+        "S1:tool_touch:0",
+    )
+    assert "STOP" in pickup and "incomplete" in pickup.lower()
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert str(pickup) in text and "physical setup X" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert decision.source == "zero_check" and decision.kind == "block"
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("jog", [0.0508, -0.0508])
+def test_initial_z_pickup_seam_uses_the_same_physical_native_path(units, jog):
+    sheet, _, touch = native_top_touch_sheet(units=units, jog=jog)
+    proof = deepcopy(touch["pickup_proof"])
+    proof["key"] = "z"
+    computed = {
+        "axis_set": touch["z_axis_set"],
+        "at_mm": list(touch["at_mm"]),
+        "pickup_proof": proof,
+    }
+    _assert_native_top_motion(sheet.pickup_contact("z", computed), jog)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_legacy_top_touch_without_explicit_xy_or_proof_does_not_invent_a_native_path(detail):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail)
+    for field in ("pickup_proof", "at_mm", "retract_clearance_mm"):
+        del touch[field]
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert re.search(r"\bBefore op 20\b", text) and re.search(r"\bafter op 10\b", text)
+    assert "T2 flat end mill" in text and "Axis Set Z" in text
+    assert "paper" in text
+    assert "STOP" not in text and "retract" not in text and "physical setup" not in text
+    assert sheet.pickup_contact("z", {"axis_set": touch["z_axis_set"]}) is None
+    assert not sheet.producer_decisions.get("S1")
 
 
 SPOT = {"id": "S1", "ops": [{"op": 60, "do": "spot", "feature": "hole", "tool": "c"}]}
@@ -364,6 +609,157 @@ def contour_records(levels):
 
 
 POCKET = {"id": "S1", "ops": [{"op": 10, "do": "pocket", "feature": "ear", "tool": "c"}]}
+
+
+def level_entry_note(entries, *, raster=False, levels=(-0.5,), feed=120.0, **record):
+    """Render the canonical coordinates record, without deriving contact in the test."""
+    path = {
+        "op": 10,
+        "entries": [{"pass": raster, **entry} for entry in entries],
+        "levels": list(levels),
+        "from_z": 0.0,
+        "raise_z": 2.0,
+        "raster": raster,
+        "closed": False,
+        **record,
+    }
+    sheet = shop(
+        {
+            ("coordinates", "S1"): {"level_paths": [path]},
+            ("speeds_feeds", "S1:10"): {"plunge_mm_min": feed},
+        }
+    )
+    sheet.plan["setups"] = [POCKET]
+    (paragraph,) = Markup(sheet.level_entries(POCKET, POCKET["ops"][0], [])).find("contour-context")
+    return content(paragraph).lower()
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("levels", [(-0.5,), (-0.5, -1.0)])
+def test_tangent_entries_lower_without_claiming_air_or_inventing_a_plunge_feed(raster, levels):
+    note = level_entry_note(
+        [
+            {"xy": [-3.0, -4.0], "air": False, "contact": "tangent"},
+            {"xy": [13.0, 14.0], "air": False, "contact": "tangent"},
+        ],
+        raster=raster,
+        levels=levels,
+    )
+    assert "tangent" in note and re.search(r"\blower\b", note)
+    assert not re.search(r"\b(?:plunge|air|clear)\b", note)
+    assert "mm/min" not in note and "stop" not in note
+    if raster:
+        # Same-kind pass starts share one instruction, rather than repeating each XY.
+        assert note.count("tangent") == note.count("lower") == 1
+        assert "-3.000" not in note and "13.000" not in note
+    elif len(levels) == 1:
+        assert "-0.500" in note
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("levels", [(-0.5,), (-0.5, -1.0)])
+def test_mixed_entry_classes_keep_lowering_and_the_cutting_feed_at_their_own_xy(raster, levels):
+    note = level_entry_note(
+        [
+            {"xy": [-3.0, -4.0], "air": False, "contact": "tangent"},
+            {"xy": [-6.0, 0.0], "air": True},
+            {"xy": [1.0, 1.0], "air": False},
+        ],
+        raster=raster,
+        levels=levels,
+        plunge_mm_rev=0.01,
+    )
+    entries = note.split("between levels", 1)[0].split(";")
+    tangent, air, cutting = [
+        next(clause for clause in entries if xy in clause)
+        for xy in ("x -3.000, y -4.000", "x -6.000, y 0.000", "x 1.000, y 1.000")
+    ]
+    assert "tangent" in tangent and "lower" in tangent
+    assert not re.search(r"\b(?:clear|air|plunge)\b", tangent)
+    assert "clear" in air and "lower" in air and "plunge" not in air
+    assert "plunge" in cutting and re.search(r"\b120\s+mm/min\b", cutting)
+    assert "mm/min" not in tangent + air
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize(
+    "contact",
+    [
+        pytest.param({}, id="missing"),
+        pytest.param({"contact": "unknown"}, id="unknown"),
+        pytest.param({"contact": None}, id="none"),
+        pytest.param({"contact": "TANGENT"}, id="wrong-case"),
+        pytest.param({"contact": "tangent "}, id="trailing-space"),
+    ],
+)
+def test_only_the_exact_tangent_marker_removes_cutting_entry_and_feed_debt(raster, contact):
+    reason = "cutter centre-cutting capability unknown"
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, **contact}],
+        raster=raster,
+        # Equal start/depth alone is not proof that this lowering avoids stock.
+        from_z=-0.5,
+        plunge_mm_rev="unknown",
+        plunge_reason=reason,
+        feed="unknown",
+    )
+    assert "plunge" in note and "stop" in note and reason in note
+    assert not re.search(r"\b(?:lower|tangent|clear|air)\b", note)
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("entry_kind", ["air", "stock-top"])
+def test_existing_proven_non_tangent_lowering_keeps_its_own_clearance_meaning(raster, entry_kind):
+    record = {"lowered": "top"} if entry_kind == "stock-top" else {}
+    note = level_entry_note(
+        [{"xy": [-6.0, 0.0], "air": entry_kind == "air"}],
+        raster=raster,
+        from_z=-0.5,
+        **record,
+    )
+    assert "lower" in note and "plunge" not in note and "tangent" not in note
+    assert "mm/min" not in note
+    assert ("clear" in note) is (entry_kind == "air")
+    if entry_kind == "stock-top":
+        assert "top of the stock" in note
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize(
+    ("raised", "clearance"),
+    [
+        pytest.param("unknown", {}, id="unknown-height-missing-proof"),
+        pytest.param("unknown", {"raise_clear": "unknown"}, id="unknown-height"),
+        pytest.param(-0.5, {"raise_clear": False}, id="below-stock"),
+        pytest.param(2.0, {}, id="known-height-missing-proof"),
+        pytest.param(2.0, {"raise_clear": True}, id="proven-above-stock"),
+    ],
+)
+def test_tangent_lowering_does_not_erase_the_between_level_raise_or_its_unknowns(
+    raster, raised, clearance
+):
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, "contact": "tangent"}],
+        raster=raster,
+        levels=(-0.5, -1.0),
+        raise_z=raised,
+        **clearance,
+    )
+    expected = f"{raised:.3f}" if isinstance(raised, (int, float)) else "?"
+    assert re.findall(r"\b(?:raise|lift) to z (\?|[+-]?\d+(?:\.\d+)?)", note) == [expected]
+    assert "back" in note and "tangent" in note and "lower" in note
+    assert ("above the stock" in note) is (clearance.get("raise_clear") is True)
+    assert "plunge" not in note and "mm/min" not in note
+
+
+def test_a_closed_tangent_path_does_not_invent_a_between_level_raise_or_return():
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, "contact": "tangent"}],
+        levels=(-0.5, -1.0),
+        closed=True,
+    )
+    assert "stay" in note and "x -3.000, y -4.000" in note
+    assert not re.search(r"\b(?:raise|lift|rapid|plunge)\b", note)
 
 
 def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
@@ -724,6 +1120,117 @@ def test_outline_rows_are_cutter_clearance_only_wholly_outside_the_kernel_entry_
     note = outline_note(bundle)
     named = re.search(r";\s*([^;]*) stand wholly clear of the stock", note)
     assert (named.group(1).split(", ") if named else []) == clear
+
+
+@pytest.mark.parametrize("units", ["mm", "in", "unknown"])
+@pytest.mark.parametrize(
+    ("points_mm", "every"),
+    [
+        pytest.param([[-3.1, -4.1], [13.1, -4.1]], True, id="diagonal-air"),
+        pytest.param([[-3.0, -4.0], [13.0, -4.0]], False, id="exact-tangent"),
+        pytest.param([[-3.0003, -4.0], [13.0003, -4.0]], False, id="sub-margin-gap"),
+        pytest.param([[-2.9, -4.0], [12.9, -4.0]], False, id="intrusion"),
+        pytest.param([[-3.1, -4.1], [12.8, -4.1]], False, id="one-end-intrudes"),
+        pytest.param([[-3.1, -4.1], ["unknown", -4.1]], False, id="unknown-end"),
+    ],
+)
+def test_direct_raster_clearance_uses_each_finite_disk_not_its_axis_bounding_box(
+    units, points_mm, every
+):
+    scale = 25.4 if units == "in" else 1.0
+    points = [
+        [value / scale if isinstance(value, (int, float)) else value for value in point]
+        for point in points_mm
+    ]
+    ends = [point[0] for point in points]
+    if ends[1] == "unknown":
+        # A clipped piece's unresolved end does not erase the known outer raster bound.
+        ends[1] = 13.1 / scale
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    profile = {
+        "cutter_centre": [points],
+        "raster": {
+            "run_axis": "x",
+            "ends": ends,
+            "clearance_mm": 5.0,
+            "entry_pass": points[0][1],
+            "open_side": "-y",
+        },
+    }
+    note = sheet.raster_clearance(POCKET, profile)
+    assert bool(EVERY.search(note)) is (every and units != "unknown")
+    # Diagonal clearance proves the whole disk clear, not either individual stock side.
+    assert not re.search(r"(?:enters from|leaves into) air at [+-][XY]\b", note)
+    assert "pass 1" not in note
+    if not every or units == "unknown":
+        assert not AIR.search(note)
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("x_gap", "y_gap", "x_clear", "y_clear"),
+    [
+        (3.1, 4.1, False, False),
+        (5.01, 4.1, True, False),
+        (3.1, 5.01, False, True),
+        (5.0, 4.0, False, False),
+        (5.0005, 4.0, False, False),
+    ],
+)
+def test_direct_raster_side_claims_require_that_sides_own_positive_margin(
+    units, x_gap, y_gap, x_clear, y_clear
+):
+    scale = 25.4 if units == "in" else 1.0
+    points = [[-x_gap / scale, -y_gap / scale], [(10.0 + x_gap) / scale, -y_gap / scale]]
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    profile = {
+        "cutter_centre": [points],
+        "raster": {
+            "run_axis": "x",
+            "ends": [point[0] for point in points],
+            "clearance_mm": 5.0,
+            "entry_pass": points[0][1],
+            "open_side": "-y",
+        },
+    }
+    note = sheet.raster_clearance(POCKET, profile)
+    assert EVERY.search(note)
+    assert ("enters from air at -X" in note) is x_clear
+    assert ("leaves into air at +X" in note) is x_clear
+    assert ("pass 1 enters from air" in note) is y_clear
+
+
+@pytest.mark.parametrize("units", ["mm", "in", "unknown"])
+def test_direct_outline_clearance_names_only_proven_positive_finite_disk_clearance(units):
+    labelled = [
+        ("diagonal-air", [-3.1, -4.1]),
+        ("tangent", [-3.0, -4.0]),
+        ("sub-margin-gap", [-3.0003, -4.0]),
+        ("intrusion", [-2.9, -4.0]),
+        ("unknown", ["unknown", -4.0]),
+        ("nonfinite-x", [float("nan"), -4.0]),
+        ("nonfinite-y", [-3.1, float("inf")]),
+        ("inside-stock", [1.0, 1.0]),
+    ]
+    scale = 25.4 if units == "in" else 1.0
+    points = [
+        [value / scale if isinstance(value, (int, float)) else value for value in point]
+        for _, point in labelled
+    ]
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    rows = [[label, *point] for (label, _), point in zip(labelled, points, strict=True)]
+    part = ((0, -1, 0), "Cutter-centre checkpoints", ["P", "X", "Y"], rows, "Return as authored.")
+    result = sheet.outline_clearance(
+        POCKET, {"cutter_radius_mm": 5.0, "cutter_centre": points}, part
+    )
+    assert (result[0], *result[2:]) == (part[0], *part[2:])
+    named = re.search(r";\s*([^;]*) stand wholly clear of the stock", result[1])
+    assert (named.group(1).split(", ") if named else []) == (
+        ["diagonal-air"] if units != "unknown" else []
+    )
 
 
 def test_a_contour_table_repeats_its_operation_context_and_coordinate_values():
@@ -1526,8 +2033,13 @@ def test_the_op_that_bonds_names_its_compound_as_its_consumable(joint):
         {"op": 30, "do": "fit", "feature": "body"},
     ]
     markup = Markup(_bench_sheet(ops, joint=joint))
-    cells = [content(markup.find("op-consumable", row)[0]) for row in markup.find("operation")]
-    assert [cell.endswith("Loctite 638") for cell in cells] == [False, True, False]
+    rows = {row["attrs"]["data-op"]: row for row in markup.find("operation")}
+    assert set(rows) == {"10", "20", "30"}
+    assert ["Loctite 638" in content(rows[str(op["op"])]) for op in ops] == [
+        False,
+        True,
+        False,
+    ]
 
 
 def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand():
@@ -2261,7 +2773,7 @@ def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale()
         for caption in captions
     )
     assert "Main setup" in captions[0] and "Rear clamp" in captions[1]
-    assert "NOT SHOWN: rear clamp" in html
+    assert any("not drawn: rear clamp" in content(node) for node in markup.find("render-debt"))
     assert "graphic exaggeration: leader clearance" in html
 
 
@@ -2339,7 +2851,8 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
     (setup_owner,) = [
         node
         for node in markup.nodes
-        if node["attrs"].get("data-setup-id") == setup_id and "data-setup-title" in node["attrs"]
+        if node["tag"] == "section"
+        and setup_id in json.loads(node["attrs"].get("data-setup-members", "[]"))
     ]
     pages = [setup_owner]
     if field == "operation.inspection_note":
@@ -2360,18 +2873,18 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
         notes = [node for operation in operations for node in markup.find("op-note", operation)]
         assert [content(node) for node in notes] == [instruction]
     else:
-        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
-        notes = [
+        (holding_owner,) = [
             node
-            for block in blocks
-            for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith("Note: ")
+            for node in markup.find("setup-variant", setup_owner)
+            if node["attrs"].get("data-setup-id") == setup_id
+            and any(
+                heading["parent"] is node
+                and heading["tag"] in {"h2", "h3"}
+                and content(heading) == "HOLD"
+                for heading in markup.nodes
+            )
         ]
-        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
-            instruction
-        ]
+        assert content(holding_owner).count(instruction) == 1
     (body,) = [node for node in markup.nodes if node["tag"] == "body"]
     assert content(body).count(instruction) == 1
     assert repo_citation not in html
@@ -2671,7 +3184,7 @@ def test_numeric_prose_table_cells_preserve_whole_signed_decimals_and_source_byt
     assert not any(value in readings for value in controls)
 
 
-def test_coating_optional_space_is_not_a_dimensional_inspection_record():
+def test_coating_note_and_unknown_checks_do_not_invent_a_dimensional_inspection_record():
     note = "Existing five-place dry-film check; keep its gauge and limits as authored."
     markup, _, _ = ledger(
         {},
@@ -2686,19 +3199,19 @@ def test_coating_optional_space_is_not_a_dimensional_inspection_record():
         ],
     )
     operation = markup.find("operation")[0]
-    area = markup.find("process-observations", operation)[0]
-    assert "optional" in content(area).casefold()
-    assert area["attrs"]["data-process"] == "coating"
+    assert not markup.find("process-observations", operation)
+    assert not markup.find("writing-blank", operation)
     assert not any(
-        name in area["attrs"] for name in ("data-feature", "data-features", "data-requirement")
+        name in node["attrs"]
+        for node in [operation, *markup.find("inspection-message", operation)]
+        for name in ("data-feature", "data-features", "data-requirement")
     )
-    assert len(markup.find("writing-blank", area)) == 1
     assert not markup.find("inspection-record", operation)
     assert markup.find("inspection-message", operation)
     assert content(markup.find("op-action", operation)[0]) == note
     assert not any(
         unit in content(label)
-        for label in markup.find("field-label", area)
+        for label in markup.find("field-label", operation)
         for unit in ("mm", "µm", "inches")
     )
 
@@ -3887,6 +4400,67 @@ def test_public_before_hold_measurement_reuses_its_original_destination(detail):
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_grouped_before_hold_measurements_keep_each_physical_destination(detail):
+    def group_setups(bundle):
+        (setup,) = bundle.plan["setups"]
+        setup["presentation_group"] = "shared holding instructions"
+        duplicate = deepcopy(setup)
+        duplicate["id"] = "S2-copy"
+        bundle.plan["setups"].append(duplicate)
+
+    markup, bundle = recording_traveler(
+        "pivot-shaft/plan.toml", {"S2"}, change=group_setups, detail=detail
+    )
+    fields = [
+        node
+        for node in markup.find("field")
+        if [content(label) for label in markup.find("field-label", node)] == ["Z M"]
+    ]
+    assert len(fields) == 2
+    owners = []
+    for field in fields:
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+        owner = field
+        while owner is not None and "setup-variant" not in owner["attrs"].get("class", "").split():
+            owner = owner["parent"]
+        assert owner is not None
+        owners.append(owner["attrs"]["data-setup-id"])
+    assert owners == ["S2", "S2-copy"]
+    assert all(setup["zero"]["z"]["measure_before_hold"] is True for setup in bundle.plan["setups"])
+    assert not markup.find("setup-measurement")
+    result_ids = []
+    result_owners = []
+    for common in markup.find("family-common"):
+        assert not markup.find("field", common)
+        assert not markup.find("authored-blank", common)
+        for blank in markup.find("writing-blank", common):
+            assert content(blank) == ""
+            assert "result-field" in blank["parent"]["attrs"].get("class", "").split()
+            checkpoint = blank["parent"]["parent"]
+            assert "checkpoint-result" in checkpoint["attrs"].get("class", "").split()
+            attrs = checkpoint["attrs"]
+            assert attrs["data-setup-id"] in {"S2", "S2-copy"}
+            assert attrs["data-op-id"]
+            assert not attrs["data-shared-check"]
+            subjects = json.loads(attrs["data-inspection-ids"])
+            assert subjects
+            result_ids.extend(
+                (attrs["data-setup-id"], attrs["data-op-id"], subject) for subject in subjects
+            )
+            result_owners.append(
+                (
+                    attrs["data-setup-id"],
+                    attrs["data-op-id"],
+                    attrs["data-features"],
+                    attrs["data-requirement"],
+                )
+            )
+    assert len(result_ids) == len(set(result_ids))
+    assert len(result_owners) == len(set(result_owners))
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize("units", ["in", "unknown"])
 def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units, detail):
     def change(bundle):
@@ -3941,6 +4515,20 @@ def test_public_measurements_are_axis_owned_and_require_a_resolved_setup(setup_i
     unresolved, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=unresolved_owner)
     assert unresolved.find("zero")
     assert not unresolved.find("setup-measurement")
+    if setup_id is None:
+        decisions = [
+            node
+            for node in unresolved.find("decision")
+            if node["attrs"].get("data-decision") == "block"
+            and node["attrs"].get("data-status") == "unknown"
+        ]
+        assert decisions
+        assert all(content(node).strip() for node in decisions)
+        assert any(
+            evidence["scope"] is None
+            for node in decisions
+            for evidence in json.loads(node["attrs"]["data-decision-evidence"])
+        )
 
 
 def recording_paths(

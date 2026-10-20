@@ -48,6 +48,74 @@ def solid(name="pad"):
     }
 
 
+@pytest.mark.parametrize(
+    "hold",
+    [
+        "absent",
+        {},
+        {"note": "Final visual inspection only"},
+        {"cite": "Synthetic final inspection instruction"},
+        {"note": "Inspect without a modeled fixture", "cite": "Synthetic instruction"},
+    ],
+)
+def test_only_absent_or_text_only_hold_declares_no_contact_model(tmp_path, hold):
+    data = rules_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    if hold == "absent":
+        setup.pop("hold")
+    else:
+        setup["hold"] = deepcopy(hold)
+    before = deepcopy((data.plan, data.inventory, data.features))
+    prepared = kernel.hold_inputs(data, setup)
+    unresolved = kernel.hold_inputs(data, {**setup, "hold": {"fixture": "unknown"}})
+
+    assert prepared["contact_model"] == "none"
+    assert {key: value for key, value in prepared.items() if key != "contact_model"} == unresolved
+    assert prepared["kind"] == prepared["method"] == "unknown"
+    assert prepared["reason"] == "Fixture solids are not declared for this holding kind."
+    assert prepared["debts"] == prepared["gaps"] == prepared["refused_fields"] == []
+    projected = kernel._engine_hold(prepared)
+    assert projected["contact_model"] == "none"
+    assert "contact_model" not in kernel._engine_hold(unresolved)
+    assert (data.plan, data.inventory, data.features) == before
+
+
+@pytest.mark.parametrize(
+    "hold",
+    [
+        "unknown",
+        {"fixture": "unknown"},
+        {"fixture": "missing-fixture"},
+        {"note": "Inspect", "fixture": "unknown"},
+        {"method": "unknown"},
+        {"supports": []},
+        {"clamps": []},
+        {"pose": "unknown"},
+        {"parallels": "unknown"},
+        {"stop_fixture": "unknown"},
+        {"contact_model": "none"},
+    ],
+)
+def test_explicit_hold_intent_never_becomes_no_contact_from_missing_geometry(tmp_path, hold):
+    data = rules_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    setup["hold"] = deepcopy(hold)
+    prepared = kernel.hold_inputs(data, setup)
+    assert "contact_model" not in prepared
+    assert "contact_model" not in kernel._engine_hold(prepared)
+
+
+def test_hand_fed_hold_early_return_does_not_gain_no_contact_marker(tmp_path, monkeypatch):
+    data = rules_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    setup["hold"] = {}
+    monkeypatch.setattr(kernel, "hand_fed", lambda *args, **kwargs: ("admitted", []))
+    prepared = kernel.hold_inputs(data, setup)
+    assert prepared["kind"] == kernel.HAND_FED
+    assert "contact_model" not in prepared
+    assert "contact_model" not in kernel._engine_hold(prepared)
+
+
 def pickup_bundle(tmp_path):
     data = rules_bundle(tmp_path)
     # This direct Bundle fixture bypasses loader/schema normalization; name the supply

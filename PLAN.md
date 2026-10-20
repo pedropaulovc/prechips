@@ -845,6 +845,32 @@ decide); an undecided or missing union is `?`. A whole-face non-rotary claim
 supersedes a gap, as does as-stock for `coverage` only. A per-op
 `claimed_indices` entry never credits a face by itself.
 
+**Finite slitting-saw face creation.** Saw coverage is a separate native
+certificate, never an ordinary `claimed_indices` claim. Only an explicitly
+registered `slitting_saw` `cut_off` with `workpiece_faces`, complete passing
+`finite_disk_v1` geometry and successfully published named children can
+prove a newly created planar target face. `finite_saw_face_credit_v1` binds
+the producer and current normalized saw request, member/canonical/global
+face identity, current native member protection registration and input path,
+the unique carrying output's side and normalized registration, its exact
+accepted output/conservation proof, and the path extended by the current
+setup/output edge.
+
+Exact trimmed B-rep boundary differences, independently cross-checked against
+their native common measures, and full-area outward/inward material columns
+establish that this cut, not preexisting air or an old boundary, created the
+entire target face at the appropriate kerf edge. The existing named-output
+contract excludes `saw_cut` from this credit.
+The host independently checks finite nonboolean witnesses, fixed area/volume
+tolerance formulas, band/side orientation and complete request/material
+bindings; coverage findings retain accepted and refused certificate rows.
+Missing or refused proof leaves the face uncovered, never a fabricated pass.
+Bandsaw and hand-saw operations remain no-credit. No saw receives surface
+finish, dimensional/tolerance or physical-execution certification; existing
+final caliper checks are unchanged. See the
+[certificate contract](docs/rules-geometry.md#finite-saw-face-creation-credit).
+
+
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
 | rule | inputs | tier | on the sheet |

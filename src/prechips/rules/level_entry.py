@@ -4,9 +4,9 @@ For every mill op the coordinates rule prints a cutter path for (arc and join ta
 outlines, raster passes), this walks the path pieces in the order the setup sheet prints
 them and records, per piece the cutter has to go down at:
 
-* where it goes down: a cutter wholly outside the stock the setup receives (the kernel's
-  setup-frame ``stock_bbox_mm``, by its as-is face tolerance) goes down in air; anything
-  else plunges into material, since nothing else proves the spot clear;
+* where it goes down: a finite circular cutter outside the setup's actual arriving-stock
+  box by its as-is face tolerance goes down in air. Exact boundary tangency is recorded
+  separately: no positive stock intrusion, but no claim of positive air clearance;
 * from where: level 1 from the op's DRO start Z, level ``k`` from level ``k-1``'s Z, which
   the same path already cut at that spot (each level runs the whole path). Levels
   coordinates could not compute stay unknown, never one level at the op's depth. One level
@@ -31,12 +31,12 @@ from __future__ import annotations
 import math
 
 from ..measurements import length_debt
-from .resolution import UNKNOWN, length_mm, number, resolve, select
+from .resolution import LENGTH_TOLERANCE_MM, UNKNOWN, length_mm, number, resolve, select
 from .speeds_feeds import plunge_row
 from .tip_endpoints import mapping
 
-# The kernel's as-is face tolerance (its STOCK_TOL): a cutter clears the stock box only
-# past it by this much, so box rounding never makes a claim.
+# The kernel's as-is face tolerance (its STOCK_TOL): positive air clearance must retain
+# this margin. Numerical equality at the boundary is separate tangent-contact evidence.
 STOCK_TOL_MM = 1e-3
 _PATH_METHODS = {"stairs", "chords"}
 
@@ -52,18 +52,45 @@ def stock_box(bundle, setup):
     return box
 
 
-def in_air(box, point, radius, scale):
-    """Whether a cutter of ``radius`` mm centred at ``point`` (plan units) stands wholly
-    outside ``box`` in X or Y by the kernel tolerance; False when anything is unknown."""
-    if box is None or not number(radius) or not scale:
-        return False
-    if not (isinstance(point, list) and len(point) >= 2 and all(number(v) for v in point[:2])):
-        return False
-    return any(
-        point[axis] * scale + radius <= box[axis] - STOCK_TOL_MM
-        or point[axis] * scale - radius >= box[axis + 3] + STOCK_TOL_MM
+def _entry_contact(box, point, radius, scale):
+    """Air, tangent contact, or unknown against the actual stock's outer XY box.
+
+    Distance to the closest point of the box proves the whole finite cutter disk is
+    outside, including beyond a corner where its own XY bounding box can overlap.
+    The box is rounded natively; only the existing physical-equality tolerance can
+    identify boundary contact. It is not the larger positive-air-clearance margin.
+    """
+    if not (
+        isinstance(box, list)
+        and len(box) == 6
+        and isinstance(point, list)
+        and len(point) >= 2
+        and all(number(v) and math.isfinite(v) for v in (*box, *point[:2], radius, scale))
+        and radius > 0
+        and scale > 0
+        and all(box[axis] <= box[axis + 3] for axis in range(3))
+    ):
+        return UNKNOWN
+    gaps = [
+        max(box[axis] - point[axis] * scale, point[axis] * scale - box[axis + 3], 0.0)
         for axis in range(2)
-    )
+    ]
+    clearance = math.hypot(*gaps) - radius
+    if not math.isfinite(clearance):
+        return UNKNOWN
+    if clearance >= STOCK_TOL_MM:
+        return "air"
+    if abs(clearance) <= LENGTH_TOLERANCE_MM:
+        return "tangent"
+    return UNKNOWN
+
+
+def in_air(box, point, radius, scale):
+    """Whether the actual finite cutter clears stock by the positive native margin.
+
+    Tangency is deliberately not air. Unknown or nonfinite inputs prove neither.
+    """
+    return _entry_contact(box, point, radius, scale) == "air"
 
 
 def _xy(point):
@@ -175,9 +202,11 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                 continue
             first = points[0]
             if is_raster or last is None or not _same(first, last, tolerance):
-                downs.append(
-                    {"xy": first, "air": in_air(box, first, radius, scale), "pass": is_raster}
-                )
+                contact = _entry_contact(box, first, radius, scale)
+                down = {"xy": first, "air": contact == "air", "pass": is_raster}
+                if contact == "tangent":
+                    down["contact"] = "tangent"
+                downs.append(down)
             last = points[-1]
         if not downs:
             continue
@@ -241,7 +270,9 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                         f"op {record['op']} returns to its entry at Z {raised:g}, not above "
                         "the stock it receives"
                     )
-        if "lowered" not in record and any(not down["air"] for down in downs):
+        if "lowered" not in record and any(
+            not down["air"] and down.get("contact") != "tangent" for down in downs
+        ):
             feed, _, why = plunge_row(bundle, op, measurements=measurements)
             record["plunge_mm_rev"] = feed
             if not number(feed):

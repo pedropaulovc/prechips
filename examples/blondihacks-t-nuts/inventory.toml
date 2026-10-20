@@ -99,11 +99,23 @@ length_mm = { value = 150, measured = { status = "measured", by = "example value
 [fixtures.end-stop]
 name = "Example retained-end rod stop"
 kind = "stop"
+shop_made = false
 present = true
 verify = false
 dia_mm = { value = 6.35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 length_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-note = "Local zero end contacts the retained end; plan stop pose points local +Z along setup +X."
+note = "AUTHOR'S CHOICE: pre-made illustrative rod-stop assembly, not hardware identified in the video. Retain the declared Ø6.35 × 50 mm rod: local zero end contacts retained canonical #304 at setup X+12.7; local +Z points setup +X, local +X points setup +Y and local +Y points setup +Z under the unchanged stop pose [12.7,0,-9.525]. Rod occupies setup X12.7..62.7, Y±3.175, Z-12.7..-6.35, leaving the upper pickup at Y-5.08/Z-2.54 exposed. An integral socket/cantilever joins a switchable magnetic foot seated flat on the steel fixed-jaw top Z-7.7 in both E1 and D1; foot occupies X30..50/Y12..30/Z-7.7..7.3, inside both declared fixed-jaw spans. The Ø6.40 socket bore is .025 mm above the seated rod axis; its lower wall and the occupied M4 screw tip contact the rod without interpenetration. All external screw and switch envelopes are included. Before loading, seat the foot flush, switch ON and secure the rod with the socket screw; recheck retained-end contact after tightening the vise. Gentle positioning contact only: the vise carries cutting loads. These example dimensions and geometric contacts do not certify magnetic holding force or physical shop readiness."
+solids = [
+  { name = "rod", shape = "cylinder", at_mm = [0, 0, 0], axis = [0, 0, 1], dia_mm = 6.35, length_mm = 50, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "rod-socket", shape = "box", at_mm = [-5, -5, 27.3], size_mm = [10, 13, 10], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "cantilever", shape = "box", at_mm = [0, 1.825, 27.3], size_mm = [12, 10, 10], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "magnetic-foot", shape = "box", at_mm = [12, 1.825, 17.3], size_mm = [18, 15, 20], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "rod-bore", shape = "cylinder", at_mm = [0, 0.025, 26.3], axis = [0, 0, 1], dia_mm = 6.4, length_mm = 12, void = true, cuts = ["rod-socket", "cantilever"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-bore", shape = "cylinder", at_mm = [0, 3.175, 32.3], axis = [0, 1, 0], dia_mm = 4, length_mm = 8.65, void = true, cuts = ["rod-socket", "cantilever"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-shank", shape = "cylinder", at_mm = [0, 3.175, 32.3], axis = [0, 1, 0], dia_mm = 4, length_mm = 8.65, fastener = "M4 socket screw", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-head", shape = "cylinder", at_mm = [0, 11.825, 32.3], axis = [0, 1, 0], dia_mm = 7, length_mm = 4, fastener = "M4 socket screw", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "magnetic-switch", shape = "cylinder", at_mm = [30, 9.325, 27.3], axis = [1, 0, 0], dia_mm = 8, length_mm = 6, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+]
 
 [fixtures.wood-block]
 name = "Example wood support block"
@@ -195,11 +207,13 @@ coating = "TiCN"
 present = true
 verify = false
 dia_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-flute_len_mm = 31.75
+flute_len_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 oal_mm = { value = 66.675, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-shank_mm = 19.05
+shank_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 flutes = 4
 center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
 projection_mm = { "holders.collet-19" = { value = 41.275, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
 cite = "Author-selected demonstration geometry, example value (realistic, not a shop measurement); source video names Niagara HSS TiCN but does not establish these dimensions"
 
@@ -210,11 +224,13 @@ material = "HSS"
 present = true
 verify = false
 dia_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-flute_len_mm = 23.8125
+flute_len_mm = { value = 23.8125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 oal_mm = { value = 57.15, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-shank_mm = 12.7
+shank_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 flutes = 4
 center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
 projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
 cite = "Author-selected demonstration tool, example value (realistic, not a shop measurement); not identified by video cutter colour"
 
@@ -225,11 +241,13 @@ material = "HSS"
 present = true
 verify = false
 dia_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-flute_len_mm = 23.8125
+flute_len_mm = { value = 23.8125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 oal_mm = { value = 57.15, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-shank_mm = 12.7
+shank_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 flutes = 4
 center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
 projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
 cite = "Author-selected demonstration tool geometry, example value (realistic, not a shop measurement)"
 

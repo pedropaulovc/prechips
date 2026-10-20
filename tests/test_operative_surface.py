@@ -14,7 +14,10 @@ from test_cli import SYNTHETIC_KERNEL, traveler
 from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 from test_sheet_ops import Markup, content
+from test_tool_change_touch import bundle as tool_change_bundle
+from test_tool_change_touch import mill_zero, op, paragraphs, zero_rows
 
+from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.model import Features, Inventory, Plan
 from prechips.rules import coordinates, tip_endpoints
@@ -225,6 +228,255 @@ def test_top_zero_after_an_op_is_the_top_that_op_left(tmp_path):
     assert (surface, axis_set, must, mirrored) == pytest.approx(
         (-2.275, -2.275 + paper, -2.275 + paper + jog, -2.275 + paper - jog)
     )
+
+
+@pytest.fixture
+def fresh_paper_top_projection(monkeypatch):
+    """Evaluated D1-style settings whose unnamed incoming lineage has no surface Z.
+
+    Keep the projection branch isolated from native geometry: these are already
+    evaluated zero-check facts, not evidence invented by the presentation layer.
+    """
+    recipe = mill_zero(
+        {
+            "face": "top",
+            "method": "paper",
+            "edge_mm": 0.0,
+            "paper_mm": 0.0508,
+            "tool": "centre/1",
+            "holder": "drill-chuck",
+            "check_jog_mm": 6.35,
+        },
+        retouch_after=[10],
+    )
+    recipe = {"z": recipe["z"], "tool_touches": []}
+    data = tool_change_bundle(
+        "mill",
+        recipe,
+        [
+            op(10, "spot", "hole", "centre/1", holder="drill-chuck"),
+            op(20, "drill", "hole", "drill", holder="drill-chuck"),
+        ],
+        {"top_z": 0.0, "bottom_z": -12.7},
+    )
+    data.plan["dro"]["direction"] = {"x": "right", "y": "away", "z": "up"}
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0001)
+    data.inventory["holders"] = {"drill-chuck": {"kind": "drill_chuck"}}
+    numbers = {
+        "axes": {
+            "z": {
+                "face": "top",
+                "method": "paper",
+                "tool": "centre/1",
+                "holder": "drill-chuck",
+                "edge_mm": 0.0,
+                "paper_mm": 0.0508,
+                "axis_set": 0.0508,
+                "axis_set_status": "computed",
+                "sign": 1,
+                "jog_mm": 6.35,
+                "check_reading": 6.4008,
+                "mirrored_reading": -6.2992,
+            }
+        },
+        "retouch": [
+            {
+                "op": 10,
+                "next_op": 20,
+                "next_tool": "drill",
+                "tool_change": True,
+                "top_z": 0.0,
+                "paper_mm": 0.0508,
+                "axis_set": 0.0508,
+            }
+        ],
+    }
+    sheet = _Traveler(
+        data,
+        [Finding("zero_check", "S1", "pass", numbers, [], "Evaluated fresh paper-top zero.")],
+        {},
+        None,
+    )
+    # The real partition route has unknown operative lineage. Isolate that
+    # condition without coupling the public-output contract to a helper's shape.
+    monkeypatch.setattr(sheet, "datum_z", lambda *args, **kwargs: "unknown")
+    monkeypatch.setattr(sheet, "surface_z", lambda *args, **kwargs: "unknown")
+    tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
+    return sheet, data.plan["setups"][0], numbers, tools
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_fresh_paper_top_keeps_bound_evaluated_zero_without_lineage_debt(
+    fresh_paper_top_projection, detail
+):
+    sheet, setup, numbers, tools = fresh_paper_top_projection
+    sheet.detail = detail
+
+    html = sheet.dro(setup, tools)
+
+    assert sheet.producer_decisions.get("S1", []) == []
+    if detail == "pedantic":
+        assert zero(printed(html), "top") == pytest.approx(
+            (0.0, 0.0508, 0.0508, 6.35, 6.4008, -6.2992)
+        )
+    else:
+        assert "Z0.0000" in printed(html)
+        assert "Z?" not in printed(html)
+    assert numbers["axes"]["z"]["axis_set"] == 0.0508
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("axis_set", None),
+        ("axis_set", "unknown"),
+        ("axis_set_status", "unknown"),
+        ("tool", "drill"),
+        ("tool", "unknown"),
+        ("holder", "another-chuck"),
+        ("holder", "unknown"),
+        ("face", "another-face"),
+        ("method", "touch"),
+        ("edge_mm", "unknown"),
+        ("after_op", 20),
+    ],
+)
+def test_fresh_paper_top_does_not_borrow_missing_or_misbound_zero(
+    fresh_paper_top_projection, field, value
+):
+    sheet, setup, numbers, tools = fresh_paper_top_projection
+    if value is None:
+        del numbers["axes"]["z"][field]
+    else:
+        numbers["axes"]["z"][field] = value
+
+    html = sheet.dro(setup, tools)
+
+    assert zero_rows(html)["Z"][1] == "?"
+    decisions = sheet.producer_decisions["S1"]
+    assert any(
+        (decision.source, decision.status, decision.scope, decision.kind)
+        == ("zero_check", "unknown", "S1:z", "block")
+        and "Axis Set" in decision.text
+        for decision in decisions
+    )
+
+
+def test_fresh_paper_top_retouch_keeps_bound_evaluated_setting(fresh_paper_top_projection):
+    sheet, setup, _, tools = fresh_paper_top_projection
+
+    html = sheet.dro(setup, tools)
+
+    (line,) = [line for line in paragraphs(html) if line.startswith("After op 10")]
+    assert "install T2 drill for op 20" in line
+    assert "touch the top (Z 0.0000) with 0.0508 paper → Axis Set Z 0.0508" in line
+    assert sheet.producer_decisions.get("S1", []) == []
+
+
+@pytest.mark.parametrize(
+    "debt",
+    [
+        "missing-setting",
+        "unknown-setting",
+        "unknown-top",
+        "wrong-source-op",
+        "wrong-next-op",
+        "wrong-next-tool",
+        "wrong-next-holder",
+        "unlisted-existing-source-op",
+        "skipped-next-op",
+    ],
+)
+def test_fresh_paper_top_retouch_does_not_borrow_missing_or_misbound_setting(
+    fresh_paper_top_projection, debt
+):
+    sheet, setup, numbers, tools = fresh_paper_top_projection
+    (record,) = numbers["retouch"]
+    if debt == "missing-setting":
+        del record["axis_set"]
+    elif debt == "unknown-setting":
+        record["axis_set"] = "unknown"
+    elif debt == "unknown-top":
+        record["top_z"] = "unknown"
+    elif debt == "wrong-source-op":
+        record["op"] = 99
+    elif debt == "wrong-next-op":
+        record["next_op"] = 99
+    elif debt == "wrong-next-tool":
+        record["next_tool"] = "centre/1"
+    elif debt in {"unlisted-existing-source-op", "skipped-next-op"}:
+        setup["ops"].append(op(30, "drill", "hole", "drill", holder="drill-chuck"))
+        record["next_op"] = 30
+        if debt == "unlisted-existing-source-op":
+            record["op"] = 20
+    else:
+        setup["ops"][1]["holder"] = "another-chuck"
+
+    html = sheet.dro(setup, tools)
+
+    (line,) = [line for line in paragraphs(html) if line.startswith("After op")]
+    assert "Axis Set Z ?" in line
+    assert "Axis Set Z 0.0508" not in line
+
+
+@pytest.fixture
+def manual_tap_endpoint_projection(monkeypatch):
+    operation = op(30, "hand_tap", "hole", "drill")
+    data = tool_change_bundle("mill", {}, [operation], {"top_z": 0.0})
+    setup = data.plan["setups"][0]
+    setup["id"] = "D1"
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0001)
+    endpoint = {
+        "depth_scale": "manual",
+        "entry_z": 0.0,
+        "tip_z": -26.035,
+        "depth_mm": 26.035,
+        "dro_entry_z": None,
+        "dro_tip_z": None,
+        "dro_depth_mm": None,
+    }
+    sheet = _Traveler(data, [], {}, None)
+    monkeypatch.setattr(sheet, "endpoint", lambda *args: endpoint)
+    return sheet, setup, operation, endpoint
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_manual_tap_prints_checked_hand_depth_not_null_spindle_dro(
+    manual_tap_endpoint_projection, detail
+):
+    sheet, setup, operation, endpoint = manual_tap_endpoint_projection
+    sheet.detail = detail
+
+    parts = sheet.tip(setup, operation)
+
+    assert parts == ["hand depth 26.0350 from touching the top"]
+    assert all(not hasattr(part, "source") for part in parts)
+    assert all(endpoint[key] is None for key in ("dro_entry_z", "dro_tip_z", "dro_depth_mm"))
+    assert sheet.producer_decisions.get("D1", []) == []
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("field", ["entry_z", "tip_z", "depth_mm"])
+@pytest.mark.parametrize("state", ["missing", "unknown"])
+def test_manual_tap_missing_native_endpoint_keeps_typed_depth_debt(
+    manual_tap_endpoint_projection, detail, field, state
+):
+    sheet, setup, operation, endpoint = manual_tap_endpoint_projection
+    sheet.detail = detail
+    if state == "missing":
+        del endpoint[field]
+    else:
+        endpoint[field] = "unknown"
+
+    parts = sheet.tip(setup, operation)
+
+    assert parts[0] == "hand depth not set"
+    (_, debt) = parts
+    assert (debt.source, debt.status, debt.scope, debt.kind) == (
+        "blind_depth", "unknown", "D1:30", "block"
+    )
+    assert "26.035" not in " ".join(parts)
+    assert "Z ?" not in " ".join(parts)
 
 
 @pytest.mark.parametrize("detour", [NOMINAL - 1.0, NOMINAL])

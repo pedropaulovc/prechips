@@ -1853,10 +1853,11 @@ class _Diagram:
         return left <= x <= right and top <= y <= bottom
 
     def _closest_cut(self):
-        """``closest_cut`` dimensioned and keyed ``CUT <mm> FROM <holder> (OP <op>)`` when its
-        middle is this picture's to key (:meth:`_in_tile`); ``keyed_cut`` records that it
-        was. The key names the op whose cut it is (a saw's blade path ``(SAW BLADE)`` when
-        its op has no number); one the kernel did not name names no op."""
+        """Key the owning cut's distance, or the whole mounted ``SAW CYCLE`` distance.
+
+        The canonical ``closest_cut`` annotation still owns the dimension and panel;
+        finite-saw clear moves are not mislabeled as cutting-only clearance.
+        """
         cut = self.spec.get("closest_cut")
         if not cut:
             return
@@ -1876,7 +1877,8 @@ class _Diagram:
                 holder = self._component_label(component)
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
-        label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        scope = "SAW CYCLE" if cut.get("scope") == "machining_trajectory" else "CUT"
+        label = f"{scope} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
         if op not in (None, "", "unknown"):
             label += f" (OP {_plain(op).upper()})"

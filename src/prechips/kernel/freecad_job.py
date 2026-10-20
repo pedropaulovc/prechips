@@ -215,6 +215,7 @@ from render_diagram import (  # noqa: E402
     render_diagram,
     render_inspection,
 )
+from saw_face_credit import certify_saw_faces  # noqa: E402
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
 from thread_material import ThreadMaterialMixin  # noqa: E402
 
@@ -4081,6 +4082,33 @@ class _FiniteSaw:
             "zero": {"status": UNKNOWN, "reasons": [], "selected": UNKNOWN, "touches": []},
         }
 
+        self.saw["fixture_clearance"] = {
+            "source": "finite_occupied_sweeps",
+            "scope": "machining_trajectory",
+            "frame": "setup",
+            "model": self.saw["model"],
+            "binding": self._clearance_binding(setup, op),
+            "status": UNKNOWN,
+            "reasons": [],
+            "scene": [],
+            "sweeps": [],
+            "minimum": UNKNOWN,
+        }
+        self.clearance_finished = False
+
+    @staticmethod
+    def _clearance_binding(setup, op):
+        """Bind native distances to the complete input job, model and operation."""
+        job = setup.owner.job
+        return {
+            "step_sha256": job.get("step_sha256", UNKNOWN),
+            "request_sha256": hashlib.sha256(
+                json.dumps(job, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
+            "setup": setup.setup.get("id", UNKNOWN),
+            "op": setup._subject(op),
+        }
+
     @staticmethod
     def _messages(value, exclude=()):
         if isinstance(value, dict):
@@ -4380,6 +4408,98 @@ class _FiniteSaw:
                     "bbox_mm": [_r(v) for v in _bbox(common)],
                 }
             )
+
+    def _fixture_distance(self, shape, component, index, mode):
+        """Measure this already collision-tested occupied sweep, never its box or stock."""
+        proof = self.saw["fixture_clearance"]
+        row = {
+            "component": component,
+            "move_index": index,
+            "mode": mode,
+            "stage": "pre_cut"
+            if index < self.cut_index
+            else ("cut" if index == self.cut_index else "post_cut"),
+            "tested_fixtures": 0,
+            "minimum": UNKNOWN,
+        }
+        nearest = None
+        for obstacle in self.scene:
+            try:
+                distance, pairs, _ = _distance(shape, obstacle["solid"])
+                if not self._numeric(distance) or distance < 0 or not pairs:
+                    raise ValueError("native distance or nearest points are unresolved")
+                # The proof retains native precision; only the drawing rounds its points.
+                near, far = min(
+                    pairs,
+                    key=lambda pair: (
+                        -pair[1].z,
+                        pair[1].y,
+                        pair[1].x,
+                        -pair[0].z,
+                        pair[0].y,
+                        pair[0].x,
+                    ),
+                )
+                points = [[p.x, p.y, p.z] for p in (near, far)]
+                if not all(self._vector(point) for point in points):
+                    raise ValueError("native nearest points are unresolved")
+                row["tested_fixtures"] += 1
+                if nearest is None or distance < nearest["mm"]:
+                    nearest = {
+                        "mm": distance,
+                        "tag": obstacle["name"],
+                        "role": obstacle["role"],
+                        "from_mm": points[0],
+                        "to_mm": points[1],
+                    }
+            except Exception as exc:
+                proof["reasons"].append(
+                    f"{component} move {index} to {obstacle['name']}: "
+                    f"native fixture distance failed ({_failure_text(exc)})"
+                )
+        if nearest is not None:
+            row["minimum"] = nearest
+        proof["sweeps"].append(row)
+
+    def _finish_fixture_distance(self, assembly_ready, path_ready):
+        """Publish an exact cycle minimum only for a complete modeled scene and cycle."""
+        proof = self.saw["fixture_clearance"]
+        reasons = proof["reasons"]
+        reasons.extend(self.scene_reasons)
+        reasons.extend(getattr(self, "assembly_reasons", []))
+        reasons.extend(getattr(self, "assembly_errors", []))
+        trajectory = self.mounted.get("trajectory", {})
+        if isinstance(trajectory, dict):
+            reasons.extend(self._messages(trajectory.get("reasons")))
+            reasons.extend(self._messages(trajectory.get("errors")))
+        else:
+            reasons.append("finite machining trajectory is unresolved")
+        if not assembly_ready or not path_ready or not self.clearance_finished:
+            reasons.append("complete finite assembly machining sweeps are unresolved")
+        if not self.setup.fixture_ready:
+            reasons.append("primary fixture scene is unresolved")
+        reasons.extend(self.setup.fixture_debts)
+        reasons.extend(self.setup.fixture_gaps)
+        reasons.extend(self.setup.undrawn)
+        if self.setup.fixture_possible:
+            reasons.append("primary fixture has unresolved possible extents")
+        proof["scene"] = [{"tag": c["name"], "role": c["role"]} for c in self.scene]
+        if not self.scene:
+            reasons.append("modeled fixture scene is empty")
+        proof["expected_sweeps"] = len(self.components) * len(self.moves)
+        if len(proof["sweeps"]) != proof["expected_sweeps"] or any(
+            row["tested_fixtures"] != len(self.scene) or not isinstance(row["minimum"], dict)
+            for row in proof["sweeps"]
+        ):
+            reasons.append("native fixture distances do not cover every component and move")
+        proof["reasons"] = list(dict.fromkeys(reasons))
+        if not proof["reasons"]:
+            row = min(proof["sweeps"], key=lambda item: item["minimum"]["mm"])
+            proof["minimum"] = {
+                **row["minimum"],
+                **{key: row[key] for key in ("component", "move_index", "mode", "stage")},
+            }
+            proof["status"] = "complete"
 
     def _engagement(self, section):
         result = self.saw["engagement"]
@@ -4719,6 +4839,7 @@ class _FiniteSaw:
                         self.scene.append(c)
             except (KeyError, TypeError, ValueError, _Unknown) as exc:
                 self.saw["zero"]["reasons"].append(f"calibration fixture is unresolved ({exc})")
+                self.scene_reasons.append(f"calibration fixture geometry is unresolved ({exc})")
             if not self.setup.fixture_ready:
                 self.reasons.append("primary fixture scene is unresolved")
             self.reasons.extend(self.setup.fixture_debts)
@@ -4880,6 +5001,7 @@ class _FiniteSaw:
                             self._collision(
                                 swept, c[0], obstacle, index, mode, self.saw["collisions"]
                             )
+                        self._fixture_distance(swept, c[0], index, mode)
                         if mode == "clear" or c[0].startswith("arbor:"):
                             if index > self.cut_index and len(pieces) == 2:
                                 obstacles = [
@@ -4894,6 +5016,7 @@ class _FiniteSaw:
                                 self._collision(
                                     swept, c[0], obstacle, index, mode, self.saw["collisions"]
                                 )
+                self.clearance_finished = True
                 self.saw["assembly_swept_bounds_mm"] = [
                     min(box[k] for box in sweep_boxes) for k in range(3)
                 ] + [max(box[k] for box in sweep_boxes) for k in range(3, 6)]
@@ -4928,6 +5051,7 @@ class _FiniteSaw:
             self.errors.extend(capture_errors)
         except Exception as exc:
             self.reasons.append(f"finite saw native proof failed ({_failure_text(exc)})")
+        self._finish_fixture_distance(assembly_ready, path_ready)
         try:
             self._zero(assembly_ready)
         except Exception as exc:
@@ -6779,6 +6903,8 @@ class _Setup(ThreadMaterialMixin):
         self.capture_scenes = {}
         self.capture_debts = []
         self.fixture_errors = []
+        self.zero_pickup_facts = {}
+        self.zero_pickup_debts = {}
         self.fixture_possible = []
         self.fixture_possible_shapes = []  # each possible region's own solid, for the picture
         self.jaw_frame_box = None  # a swivelled vise's stock box in its jaw frame
@@ -6973,7 +7099,7 @@ class _Setup(ThreadMaterialMixin):
                 }
             ops = {}
             if self.setup.get("zero_pickups"):
-                facts["zero_pickups"] = self._zero_pickups()
+                facts["zero_pickups"] = self.zero_pickup_facts = self._zero_pickups()
             for op in self.ops:
                 with _timed(op_clocks, self._subject(op)):
                     ops[self._subject(op)] = self._op_unknown(op, frame_reason)
@@ -7015,7 +7141,7 @@ class _Setup(ThreadMaterialMixin):
                 facts["reasons"][key] = self.stock_reason
         if self.setup.get("zero_pickups"):
             self.fixture_errors = list(facts.get("fixture_clashes", []))
-            facts["zero_pickups"] = self._zero_pickups()
+            facts["zero_pickups"] = self.zero_pickup_facts = self._zero_pickups()
         # Lathe chucks grip radially: their thin-wall fact is the run of material under each
         # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
         if (
@@ -7195,7 +7321,7 @@ class _Setup(ThreadMaterialMixin):
                 except Exception as exc:
                     self.capture_debts.append(f"capture obstacle is unresolved ({exc})")
 
-    def _zero_pickups(self):
+    def _zero_pickups(self, stock=None, *, requests=None, position=0):
         import zero_pickup
 
         model_faces = {}
@@ -7213,6 +7339,15 @@ class _Setup(ThreadMaterialMixin):
                 for ref, index in self.owner.mapping.items()
                 if index < len(self.faces)
             }
+        ledger = self.setup.get("preservation_ledger", [])
+
+        def boundary(index):
+            if not isinstance(ledger, list) or not 0 <= index < len(ledger):
+                return UNKNOWN
+            row = ledger[index]
+            subject = row.get("subject") if isinstance(row, dict) else None
+            return subject.rpartition(":")[2] if isinstance(subject, str) else UNKNOWN
+
         reasons = [
             *self.setup.get("zero_pickup_reasons", []),
             *self.fixture_debts,
@@ -7222,7 +7357,7 @@ class _Setup(ThreadMaterialMixin):
         ]
         if self.stock_reason is not None:
             reasons.append(self.stock_reason)
-        if self.arriving_thread_regions:
+        if self.arriving_thread_regions or (position and self.thread_regions):
             reasons.append("exact pickup geometry is unavailable for bounded thread material")
         if not self.fixture_ready:
             reasons.append(self.fixture_reason or "actual fixture scene is unresolved")
@@ -7234,13 +7369,20 @@ class _Setup(ThreadMaterialMixin):
             Part,
             {
                 **self.setup,
+                "zero_pickups": (
+                    self.setup.get("zero_pickups", {}) if requests is None else requests
+                ),
                 "zero_pickup_reasons": list(dict.fromkeys(reasons)),
                 "zero_pickup_errors": [
                     *self.setup.get("zero_pickup_errors", []),
                     *self.fixture_errors,
                 ],
             },
-            None if self.stock_reason is not None or self.matrix is None else self.part,
+            None
+            if self.stock_reason is not None or self.matrix is None
+            else self.part
+            if stock is None
+            else stock,
             [*self.fixture, *self.capture_fixture],
             helpers={
                 "sweep": _FiniteSaw._sweep,
@@ -7249,8 +7391,82 @@ class _Setup(ThreadMaterialMixin):
                 "plane_tol": PLANE_TOL,
                 "hit_mm3": HIT_MM3,
                 "area_tol": AREA_ABS,
+                "arrival": {
+                    "position": position,
+                    "after_op": boundary(position - 1) if position else None,
+                    "before_op": boundary(position),
+                    "stock_in": self.setup.get("stock_in", UNKNOWN),
+                    "frame": self.setup.get("frame", UNKNOWN),
+                    "components": sorted(self.state["components"]),
+                    "workpiece_ids": sorted(self.state.get("finished_names") or ()),
+                    "partition_path": self._partition_path(),
+                },
             },
         )
+
+    def _prove_op_pickup(self, op, stock):
+        """Resolve a conditional recipe before accepting its dependent cut.
+
+        Initial contact is proved once on setup arrival. Explicit later touches
+        use the same helper at their exact authored/native operation boundary.
+        Neither a future boundary nor an unmodeled bench step is a stock snapshot.
+        """
+        key = op.get("zero_pickup_key")
+        if key is None:
+            return None
+        requests = self.setup.get("zero_pickups", {})
+        request = requests.get(key) if isinstance(requests, dict) else None
+        if not isinstance(request, dict) or request.get("model") != "arriving_top_v1":
+            return "its conditional Z recipe has no matching native top-touch request"
+        if any(op.get(field) != request.get(field) for field in ("tool", "holder")):
+            return "its conditional Z recipe does not match the operation tool-holder pair"
+        position = request.get("position", 0)
+        if not isinstance(position, int) or isinstance(position, bool) or position < 0:
+            return "its conditional Z recipe operation position is unknown"
+        if position:
+            from inspection_preservation import _operation_ledger
+
+            try:
+                ledger = _operation_ledger(self)
+                index = next(
+                    index
+                    for index, entry in enumerate(ledger)
+                    if entry["subject"] == self._subject(op)
+                )
+                if index < position:
+                    return "its conditional Z recipe belongs to a future operation boundary"
+                if index == position:
+                    if any(entry["effect"] == "unmodeled" for entry in ledger[:position]):
+                        return "stock at its top touch includes an unmodeled preceding bench step"
+                    for previous in self.ops:
+                        if self._subject(previous) == self._subject(op):
+                            break
+                        before, after, reason = self.cuts.get(
+                            id(previous), (None, None, "prior cut was not derived")
+                        )
+                        if (
+                            before is None
+                            or after is None
+                            or reason is not None
+                            or id(previous) == self.stopped_cut
+                        ):
+                            return "actual stock at its top touch is unresolved"
+                    self.zero_pickup_facts.update(
+                        self._zero_pickups(stock, requests={key: request}, position=position)
+                    )
+            except (ValueError, StopIteration) as exc:
+                return f"its top-touch operation boundary is unresolved ({exc})"
+        proof = self.zero_pickup_facts.get(key, {})
+        if (
+            proof.get("status") != "pass"
+            or proof.get("recipe_id") != request.get("recipe_id")
+            or proof.get("request") != request
+            or proof.get("errors")
+            or proof.get("reasons")
+            or proof.get("collisions")
+        ):
+            return "its conditional Z recipe lacks a passing actual-stock contact and path proof"
+        return None
 
     def _stock_faces(self, member=None):
         """stock_faces_mm: each named feature's horizontal finished faces as held, by outward
@@ -7867,7 +8083,14 @@ class _Setup(ThreadMaterialMixin):
         for op in self.ops:
             self._begin_thread_material_op(op)
             subject = self._subject(op)
+            if stopped is None:
+                dependency = self._prove_op_pickup(op, stock)
+                if dependency is not None:
+                    self.zero_pickup_debts[id(op)] = dependency
+                    stopped = f"{subject}: {dependency}; {where}"
             if stopped is not None:
+                if op.get("zero_pickup_key") is not None:
+                    self.zero_pickup_debts[id(op)] = stopped
                 self.cuts[id(op)] = (None, None, stopped)
                 continue
             before = stock
@@ -7972,6 +8195,10 @@ class _Setup(ThreadMaterialMixin):
                                     }
                                 inverse, _ = _frame_matrix(self.output_specs[ref]["pose"])
                                 self._bounded_named_output(ref, name, inverse.inverse())
+                            if _sawn(op):
+                                credit = certify_saw_faces(self, op, before, stock, records)
+                                if credit:
+                                    self.saws[id(op)]["saw_face_credit"] = credit
         return (None, stopped) if stopped is not None else (stock, None)
 
     def _retained_outputs(self, op, before, after):
@@ -9336,8 +9563,9 @@ class _Setup(ThreadMaterialMixin):
         A retained guide is not a clearing box: neither a nominal wall corridor nor the
         complement of disconnected finished targets describes what its cutter traverses.
         Every complete path must be known, and its whole sweep must preserve finished
-        material and the leave normal to the claimed faces. No guard clips an invalid path
-        into a different, apparently safe cut.
+        material and the leave normal to the claimed faces. A ready axial recipe must
+        enter at the actual intersected before-stock surface in the same operative setup
+        frame. No guard clips an invalid path into a different, apparently safe cut.
         """
         if op.get("do") not in PROFILE_ACTIONS:
             return None, "an explicit guided cut requires a profile action"
@@ -9395,6 +9623,22 @@ class _Setup(ThreadMaterialMixin):
                     self.guided_errors[id(op)] = why
                     return None, why
             removal = _valid(stock.common(swept), "its explicit guided removal")
+            motion = op.get("tool_paths")
+            if isinstance(motion, dict) and not motion.get("reason"):
+                entry = motion.get("entry_z_mm")
+                if not _number(entry) or removal is None:
+                    return None, "its explicit guided axial entry is unknown"
+                # Both are already setup-frame mm, exactly as _tool_moves consumes them.
+                # Only stock the real sweep meets defines this cutting-surface entry;
+                # a remote boss, a nominal target, or approach air cannot replace it.
+                actual_entry = _bbox(removal)[5]
+                if abs(entry - actual_entry) > STOCK_TOL:
+                    why = (
+                        f"its declared axial entry Z {_r(entry)} mm is not the actual guided "
+                        f"cut entry Z {_r(actual_entry)} mm in the operative setup frame"
+                    )
+                    self.guided_errors[id(op)] = why
+                    return None, why
         except Exception as exc:
             return None, f"its explicit guided removal is unknown ({exc})"
         self.designs[id(op)] = swept
@@ -12233,15 +12477,18 @@ class _Setup(ThreadMaterialMixin):
         return png, scene
 
     def _blade_paths(self, solids):
-        """The setup's saw blade paths in setup axes, ``[(op number, path)]`` in op order
-        (the number ``unknown`` when the op carries none): each saw op's kerf slab on its cut
-        plane, across the stock and its holding on the other two axes (the blade passes down
-        through the whole section and on past it)."""
+        """Ordinary saw kerf slabs, ``[(op number, path)]`` in setup axes.
+
+        Mounted saws must consume their native finite occupied-sweep evidence instead;
+        an all-holding plane slab is not their occupied geometry, even as a fallback.
+        """
         boxes = [self.box] + [_bbox(shape) for _, shape in solids]
         bounds = [min(b[i] for b in boxes) - 1.0 for i in range(3)]
         bounds += [max(b[i + 3] for b in boxes) + 1.0 for i in range(3)]
         paths = []
         for op in self.ops:
+            if "mounted_saw" in op or op.get("saw_tool") == "slitting_saw":
+                continue
             plane, kerf = op.get("cut_plane"), _positive(op, "kerf_mm")
             if not (_sawn(op) and kerf is not None and isinstance(plane, dict)):
                 continue
@@ -12689,16 +12936,49 @@ class _Setup(ThreadMaterialMixin):
         solid it may ride on (``undecided``, :meth:`_guide_stops`: whether that contact is
         its stop is unknown), and every op when the holding is not ``drawn`` whole
         (unresolved, a component undrawn, a jaw extent undeclared), since what is not drawn
-        may stand nearer than anything drawn. A saw's ``blades`` paths (:meth:`_blade_paths`)
-        carry no row. ``closest_cut`` is the least of the rows and the blade paths, with
-        both points and the ``op`` it is the cut of: the row's op, else the saw op's
-        (``unknown`` when the op carries no number) marked ``"blade": True``; None when any
-        of them is unknown."""
+        may stand nearer than anything drawn. Ordinary saw ``blades`` paths
+        (:meth:`_blade_paths`) carry no row. Mounted saws instead use the persisted exact
+        finite machining-cycle fixture minimum; missing/incomplete evidence never falls
+        back to a slab. ``closest_cut`` is the least known row or saw distance, with its
+        nearest points and op (saws marked ``"blade": True``); None if any is unknown."""
         rows, closest, known = [], None, True
         for op in self.ops:
-            if _sawn(op):
-                continue
             number = _op_number(op)
+            if _sawn(op):
+                if "mounted_saw" in op or op.get("saw_tool") == "slitting_saw":
+                    proof = self.saws.get(id(op), {}).get("saw", {}).get("fixture_clearance", {})
+                    near = proof.get("minimum")
+                    if (
+                        not drawn
+                        or proof.get("status") != "complete"
+                        or proof.get("reasons") != []
+                        or proof.get("source") != "finite_occupied_sweeps"
+                        or proof.get("scope") != "machining_trajectory"
+                        or proof.get("frame") != "setup"
+                        or proof.get("model") != "finite_disk_v1"
+                        or proof.get("binding") != _FiniteSaw._clearance_binding(self, op)
+                        or not isinstance(near, dict)
+                        or not _FiniteSaw._numeric(near.get("mm"))
+                        or near["mm"] < 0
+                        or not _FiniteSaw._vector(near.get("from_mm"))
+                        or not _FiniteSaw._vector(near.get("to_mm"))
+                        or not isinstance(near.get("tag"), str)
+                        or not isinstance(near.get("component"), str)
+                        or not isinstance(near.get("move_index"), int)
+                        or near.get("stage") not in ("pre_cut", "cut", "post_cut")
+                    ):
+                        known = False
+                    elif closest is None or near["mm"] < closest["mm"]:
+                        closest = {
+                            **near,
+                            "op": number,
+                            "blade": True,
+                            **{
+                                key: proof[key]
+                                for key in ("source", "scope", "frame", "model", "binding")
+                            },
+                        }
+                continue
             try:
                 held, removal = solids, self._taken_off(op)
                 shapes = [] if removal is None else [removal]
@@ -12731,6 +13011,13 @@ class _Setup(ThreadMaterialMixin):
             near = self._nearest([blade], solids)
             if near is not None and (closest is None or near["mm"] < closest["mm"]):
                 closest = {**near, "op": number, "blade": True}
+        if known and closest is not None and closest.get("scope") == "machining_trajectory":
+            closest = {
+                **closest,
+                "mm": _r(closest["mm"]),
+                "from_mm": [_r(v) for v in closest["from_mm"]],
+                "to_mm": [_r(v) for v in closest["to_mm"]],
+            }
         return rows, closest if known else None
 
     def _taken_off(self, op):
@@ -12755,11 +13042,18 @@ class _Setup(ThreadMaterialMixin):
         setup-entry stock (or the joint's mouth when higher) to their tips. Raises
         :class:`_Unknown` when any of them is unknown, when arc tables reach the kernel as
         no checkpoints, or when the op is commanded through none of them."""
+        dependency = self.zero_pickup_debts.get(id(op))
+        if dependency is not None:
+            raise _Unknown(dependency)
         moves, top = [], self.box[5]
         sweep = op.get("tool_paths")
+        if _guided_profile(op) and not isinstance(sweep, dict):
+            raise _Unknown("its explicit guided axial tool paths are unknown")
         if isinstance(sweep, dict):
             if sweep.get("reason"):
                 raise _Unknown(f"its tool paths are unknown ({sweep['reason']})")
+            if _guided_profile(op) and not _number(sweep.get("entry_z_mm")):
+                raise _Unknown("its explicit guided axial entry is unknown")
             moves += [(path["xy_mm"], *path["z_mm"], None) for path in sweep.get("paths", [])]
         else:
             sweep = {}
@@ -14075,10 +14369,11 @@ class _Setup(ThreadMaterialMixin):
         with a bounded op's stock outside its box (:meth:`_checkpoint_stock`) must stay
         within HIT_MM3; each certain hit is an error by row, obstacle and volume.
         """
+        dependency = self.zero_pickup_debts.get(id(op))
         table = op.get("checkpoints")
         if not isinstance(table, dict) or _turned(op) or _sawn(op):
             return
-        if table.get("bounded") and self.protection_reason is None:
+        if table.get("bounded") and self.protection_reason is None and dependency is None:
             self._clip_checkpoints(op, table, facts, frame_reason)
         rows = [row for row in table.get("rows", []) if isinstance(row, dict)]
         facts["checkpoint_count"] = len(rows)
@@ -14087,6 +14382,9 @@ class _Setup(ThreadMaterialMixin):
         job = {"rows": rows, "facts": facts, "errors": [], "why": why, "removed": []}
         job["designed"] = (None, None)
         self.checkpoint_jobs.append(job)
+        if dependency is not None:
+            why.append(dependency)
+            return
         if self.protection_reason is not None:
             why.append(self.protection_reason)
             return
@@ -14185,9 +14483,59 @@ class _Setup(ThreadMaterialMixin):
         if unguarded:
             why.append(f"{unguarded} checkpoint(s) cut outside every window its guard is known in")
 
+    def _requires_checkpoint_contacts(self):
+        """Whether this descendant consumes spatial holding/contact proof for rule A′.
+
+        An explicitly coordinate-free inspection, release or coating stage has no
+        fixture contact to place. Its authored-operation ledger and the host's positive
+        note-only holding marker must agree; missing semantics are not an exemption.
+        Coating remains an unmodeled material effect in inspection preservation. This
+        predicate neither changes stock transport nor removes any later descendants.
+        """
+        if self.setup.get("ops") != []:
+            return True
+        hold = self.setup.get("hold")
+        if (
+            not isinstance(hold, dict)
+            or hold.get("contact_model") != "none"
+            or not hold.keys()
+            <= {
+                "kind",
+                "fixture_kind",
+                "contact_model",
+                "reason",
+                "debts",
+                "gaps",
+                "refused_fields",
+            }
+            or any(hold.get(key, UNKNOWN) != UNKNOWN for key in ("kind", "fixture_kind"))
+            or any(key in hold and hold[key] != [] for key in ("debts", "gaps", "refused_fields"))
+        ):
+            return True
+        ledger, sid = self.setup.get("preservation_ledger"), self.setup.get("id")
+        if not isinstance(ledger, list) or not ledger or not isinstance(sid, str) or sid in ("", UNKNOWN):
+            return True
+        prefix, seen = sid + ":", set()
+        effects = {"inspect": "metadata", "release": "metadata", "coating": "unmodeled"}
+        for entry in ledger:
+            if not isinstance(entry, dict) or entry.keys() != {"subject", "do", "effect"}:
+                return True
+            subject = entry["subject"]
+            if (
+                not isinstance(subject, str)
+                or not subject.startswith(prefix)
+                or len(subject) <= len(prefix)
+                or subject in seen
+                or not isinstance(entry["do"], str)
+                or effects.get(entry["do"]) != entry["effect"]
+            ):
+                return True
+            seen.add(subject)
+        return False
+
     def _finish_checkpoints(self, later):
         """Rule A′ (docs/rules-geometry.md): every printed checkpoint against each ``later``
-        setup whose stock descends from this one, then the checkpoint facts.
+        contact-consuming setup whose stock descends from this one, then the checkpoint facts.
 
         A row's scrap is what it removes past its op's design (:meth:`_designed`): a run-out
         or corner miter. Retained scrap no later setup touches may be cut. Where its scrap
@@ -14195,14 +14543,17 @@ class _Setup(ThreadMaterialMixin):
         a flat face of that setup's fixture component over more than CONTACT_MM2
         (:meth:`_later_contacts`), the setup grips, presses, locates, rests or supports on
         stock the row removes: an error naming the row, the setup, the contact kind and the
-        component. A later setup whose frame, entry stock or holding is unresolved, or with
-        undrawn components, leaves every row unknown; so does, per row, scrap meeting a
-        curved component face, a possible jaw extension or, with undrawn supports below its
-        seat, that seat. ``checkpoint_overshoot_ok`` lists the corner-miter rows proven clear,
-        only when no row of the op is unknown.
+        component. A later contact consumer whose frame, entry stock or holding is unresolved,
+        or with undrawn components, leaves every row unknown; so does, per row, scrap meeting
+        a curved component face, a possible jaw extension or, with undrawn supports below its
+        seat, that seat. Coordinate-free stages require no fixture frame, but their descendants
+        still do. ``checkpoint_overshoot_ok`` lists the corner-miter rows proven clear, only when
+        no row of the op is unknown.
         """
         contacts, blocked = [], []
         for setup in later if self.matrix is not None else []:
+            if not setup._requires_checkpoint_contacts():
+                continue
             sid = str(setup.setup.get("id"))
             undrawn = [*setup.fixture_gaps, *(str(d) for d in (setup.hold or {}).get("debts", []))]
             if setup.matrix is None:
@@ -14640,6 +14991,9 @@ class _Setup(ThreadMaterialMixin):
         return facts
 
     def _op(self, op):
+        dependency = self.zero_pickup_debts.get(id(op))
+        if dependency is not None:
+            return self._op_unknown(op, dependency)
         if isinstance(op.get("manual_thread"), dict) or op.get("do") in {"die_thread", "hand_tap"}:
             reason = (
                 op.get("manual_thread", {}).get("reason")

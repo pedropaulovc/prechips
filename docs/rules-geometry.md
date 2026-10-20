@@ -1521,10 +1521,24 @@ descends from this setup) contacts it: where the scrap still borders that
 setup's entry stock and lies within 0.01 mm in front of a flat face of one of
 its jaws, clamps (press, locate or support), locators, rests, parallels, risers
 or fixture bodies over more than 1e-6 mm², the row is an error naming the later
-setup, the contact and the component. A later setup whose frame, entry stock
-or holding is unresolved, or that has undrawn components, leaves the rows
-`unknown`, as does scrap meeting a curved component face, a possible jaw
-extension or, with undrawn supports, the later seat; unknown never passes.
+setup, the contact and the component. A later contact-consuming setup whose
+frame, entry stock or holding is unresolved, or that has undrawn components,
+leaves the rows `unknown`, as does scrap meeting a curved component face, a
+possible jaw extension or, with undrawn supports, the later seat; unknown
+never passes.
+
+A coordinate-free inspection, release or coating stage does not consume a
+machining-fixture contact merely because it inherits the stock. This exemption
+requires an explicit, identity-valid authored operation ledger, no native
+geometry operations, and positively note-only (or empty) authored holding,
+carried as `hold.contact_model = "none"`. An unresolved fixture reference,
+structured holding request, unknown/missing ledger, material operation or
+undeclared holding component keeps the ordinary contact-proof gates. Filtering
+such a stage never prunes its descendants: every later machining or holding
+consumer is still checked through the actual material lineage. Coating remains
+an unmodeled material effect, not proof that dimensions or surfaces survived;
+the independent inspection-preservation proof retains that debt where relevant.
+
 Fixtures are never stock, so a cutter that meets them stays an accessibility
 hit. An unknown cutter radius, an ambiguous wall side, an unknown printed row or
 a corridor or run-out OCC cannot build makes the cut underivable (named stock
@@ -1683,6 +1697,27 @@ both children through [nested partitions](#registered-finite-saw-partitions).
 Planar-only inputs and `slitting_saw` with `follows` remain unknown and cannot
 establish a physical cut or known routed stock.
 
+`detail.saw.fixture_clearance` measures the same finite occupied component
+sweeps already used by collision checks, against that operation's actual
+modeled primary, capture and installed calibration fixtures. Its scope is
+`machining_trajectory`: every pre-cut clear, cut and post-cut clear move,
+including blade cutting/body annuli and every arbor component. Stock and both
+children are collision obstacles but never fixture-distance candidates. The
+stopped setting approach remains separately discoverable under `saw.zero`;
+an intended calibration contact cannot replace the machining-cycle minimum.
+For every component/move, `sweeps` records its native `distToShape` minimum,
+nearest setup-frame points and fixture identity; `minimum` identifies the
+least of those with `component`, `move_index`, `mode` and `stage`
+(`pre_cut`, `cut`, `post_cut`). Distances and points retain native precision
+in this proof. `binding` names the STEP SHA-256, canonical complete input-job
+SHA-256, setup and operation; `source = "finite_occupied_sweeps"`,
+`model = "finite_disk_v1"` and `frame = "setup"` state the geometry source.
+`status = "complete"` means this modeled distance is complete, not that it
+passes a safety margin. A measured zero remains zero. Missing scene extents,
+incomplete assembly/path or any failed/missing distance leaves `status` and
+`minimum` unknown, with reasons; no bounding-box gap or plane slab substitutes
+for a native minimum.
+
 Geometry, established engagement and mounted body-zero evidence have separate
 statuses. A released capture can error geometry while engagement and zero
 remain independently proved. A geometry pass cannot clear either of their
@@ -1715,7 +1750,12 @@ blade/fixture clearance. A `slitting_saw` receives no nonspindle waiver:
 their matching finite evidence; `saw_teeth` consumes established engagement.
 Legacy planar or axial synthetic inputs do not satisfy these proofs.
 
-No saw cut provides finished-face or surface-finish coverage credit. A raw
+Only a validated registered finite `slitting_saw` `cut_off` can provide causal
+coverage of an explicitly claimed newly created planar target face; its independent
+[`saw_face_credit` certificate](#finite-saw-face-creation-credit) proves that
+bounded geometric fact. Bandsaw and hand-saw cuts still provide no target-face
+coverage. No saw provides surface-finish coverage, dimensional/tolerance
+acceptance or physical-execution certification. A raw
 `slitting_saw` identity, even with verification or dimension debt, prevents
 dedicated-nonspindle-saw and manual-bench waivers. Its zero and M5 findings
 remain independent requirements; mixed setups also assess ordinary operations.
@@ -1958,6 +1998,58 @@ current member protection proof, not merely a declared route or face lookup.
 Finite-saw engagement and mounted body-zero verdicts remain independent of
 the geometry status. These offline checks certify neither dynamic holding
 capacity nor physical execution.
+
+#### Finite-saw face-creation credit
+
+`coverage` consumes only native `saw_face_credit` certificates with model
+`finite_saw_face_credit_v1` for registered `slitting_saw` `cut_off` operations
+naming explicit `workpiece_faces` and publishing their proved named children.
+The existing retained-output contract does not permit `saw_cut` to publish
+children, so it earns no face-creation credit. Ordinary `claimed_indices`,
+feature defaults, blade identity and a geometry pass alone never supply saw coverage.
+The certificate binds its producer and exact current normalized request
+(`subject`, `do`, `saw_tool`, `kerf_mm`, `cut_plane`, `mounted_saw`,
+`workpiece_faces`, `outputs`, including every key present). The host also
+requires complete passing `finite_disk_v1` geometry, the current member's
+protection registration and input partition path, and a unique matching
+member/canonical/global face identity. Repeated or foreign certificate
+indices are refused.
+
+Each credited row names exactly one output carrying that member on the
+declared `below` or `above` side. Its normalized output registration must
+match the request, and its resulting path must extend the current input path
+by `{"split": <setup id>, "output": <name>}`. The row's `output_proof` must
+equal the actual accepted setup output, including its whole-target ownership,
+positive volumes, bounds and material-conservation proof. Native output
+volumes are reported to six decimals; the host allows their aggregate
+rounding discrepancy without relaxing native conservation or face tolerances.
+
+The native witness uses exact trimmed B-rep face areas and extruded material
+columns, not samples or bounding boxes. The entire planar target footprint
+must lie on its child's newly exposed kerf boundary: `below` has outward
+normal `+Z` at the cutting band's lower edge, `above` has outward normal
+`−Z` at its upper edge, within 1e-6 mm. Uncovered new-boundary area and
+preexisting-boundary area may each be no more than
+`max(1e-6, face area × 1e-6)` mm². An outward column of the full cutting-band
+width must have been present before the cut and removed by this cut; an
+inward column of thickness `min(band width, 1e-3)` mm must remain in the
+actual child. Their missing volumes may each be no more than
+`max(1e-6, face area × band width × 1e-6)` mm³. Every numeric witness must be
+finite and nonboolean, with positive area and column volumes.
+Each difference is independently checked against its native common area or
+volume: the two must account for the original measure within the geometric
+tolerance. An empty difference alone is not accepted as full containment.
+
+Findings retain the certificate and per-face acceptance/refusal reasons in
+`numbers.saw_face_credit`; only accepted row indices enter cutting coverage.
+An absent, stale, partial or malformed certificate never becomes an ordinary
+saw claim or hides an uncovered-face error. Refused certificates name their
+operation and useful cause in the coverage error, rather than reporting an
+absent cutting claim. This proves only causal face
+creation by the accepted finite cut. Surface finish, tolerance acceptance,
+engagement, zero, workholding and physical execution remain independent;
+final caliper checks are unchanged.
+
 
 
 ### Jaw placement
@@ -2260,6 +2352,17 @@ unclaimed shoulder shelf. Target or normal-leave penetration is an error, not
 a cut silently clipped to its guard. Missing, empty, malformed or unsupported
 paths remain unknown; no nominal corridor or broad-box fallback replaces them.
 Checkpoint checks use the same claim-normal guard.
+
+These final-depth rows do not certify a complete axial pass schedule. Missing
+or unresolved `tool_paths` keeps whole-tool motion and fixture clearance
+unknown, even when final material is derivable. A ready axial recipe's
+`entry_z_mm` must match the actual cutting-surface entry: the highest arriving
+stock intersected by the complete guided sweep, in the same operative
+setup-frame millimetres used for its tool moves. A remote higher boss, finished
+target height or approach/retract air does not supply that entry. A mismatch
+is an error; an unknown entry remains debt. Existing
+`stock_state.entry_z.<feature>` may declare the intended start surface, but
+does not replace this native consistency check.
 
 An authored `stock_removal_bounds` retains its existing full multipass
 clearing-volume contract, even when the contour also has `sweep_bounds`.
@@ -2664,6 +2767,28 @@ toolpath exists or that every pose along it clears. Neither is a swept-volume
 or search-based reachability proof.
 
 ## `reach`
+
+### Qualified manual-tap reach
+
+A `hand_tap` on a `threaded_hole` explicitly represented as `thread_envelope`
+uses a separate qualified-reach proof. The native bounded-material transition
+must prove the registered cylindrical representation covers the complete
+resolved threaded span and starts at the actual stock entry plane. The host
+matches that evidence to the current feature, member, registration, material
+path and operation, then matches its qualified tip travel, lead, formed depth
+and cutting length to the current selected tap.
+
+Tip travel must form the entire span beyond the qualified lead and remain
+within the tap's cutting length. This keeps the noncutting shank above the
+proved entry plane. Missing or stale evidence remains unknown; a known short
+tap or invalid reach remains an error. Existing measurement debts still apply.
+
+These findings use `qualified_hand_tap_reach_v1`, report
+`evaluation="represented_geometry"` and keep `helical_geometry="unmodeled"`.
+They report the qualified lengths and `shank_reach="outside_stock_entry_plane"`
+only on a pass; they do not invent exact `reach_depth_mm`, `shank_hits` or
+`holder_wall_hits`. This is neither exact helical machining credit nor approval
+of a measured thread. Other operations retain the exact reach checks below.
 
 ### Reach depth and holder walls
 
@@ -3227,12 +3352,15 @@ Numbers: `min_wall_mm`, `thin_wall_floor_mm`, `method` and, when present,
 When thread material is bounded rather than exact, the kernel may instead supply
 `min_wall_bounds_mm = {lower, upper}` with a successful, identified native
 material-wall proof. These are bounds on the minimum loaded wall, not an exact
-`min_wall_mm`. The rule passes only when the lower bound meets the verified
-policy floor, errors when the upper bound is below it, and remains unknown when
-the interval straddles the floor. A named protective method does not turn a
-bounded below-floor result into an exact-wall approval. Missing or unproven bound
-identity, nonfinite or reversed bounds, and an unresolved policy floor remain
-unknown. Existing measurement and unresolved-clamp debts still prevent a pass.
+`min_wall_mm`. The rule passes when the lower bound meets the verified policy
+floor. Otherwise a named protective method (`soft_jaws` / `soft jaws` /
+`mandrel` / `wax`, case-insensitive) permits the bounded holding, including a
+below-floor or straddling interval, without declaring an exact wall thickness.
+Without that protection, an upper bound below the floor errors and an interval
+straddling the floor remains unknown. Missing or unproven bound identity,
+nonfinite or reversed bounds, and an unresolved policy floor remain unknown
+even with a named protective method. Existing measurement and unresolved-clamp
+debts still prevent a pass.
 
 The accepted native identity is `material_wall.model = "bounded_wall_rays_v1"`,
 with `status = "pass"`, `state = "bounded"`,
@@ -3564,8 +3692,9 @@ cut's end points are chosen and rounded the same way. Its plane is measured on
 that whole contact before a section view cuts it: the outline is cut where it
 crosses the section plane and only the kept side is drawn, still keyed at the
 contact's own plane (a contact that is a point or a straight line names no
-plane). `closest_cut` is the least of the setup's `cut_clearances` (below) and,
-on a saw setup, the blade's path. The detail frames the stock, the contacts and that
+plane). `closest_cut` is the least of the setup's `cut_clearances` (below) and
+its saw distances: an ordinary saw's blade path or a mounted saw's complete
+finite machining-cycle fixture minimum. The detail frames the stock, the contacts and that
 distance; it outlines each contact (solid where seen, dashed where hidden),
 keys it with its holding name and the setup coordinate of its plane (a support
 whose solids lie on different planes, such as the rocker's hub stand and rail
@@ -3576,11 +3705,17 @@ each solid with its code, its own name and its plane, led to its own contact,
 and pad keys at several heights name the pads each keys. It dimensions the
 closest cut in amber (`render_scene.closest_cut`: `mm`, the holding `tag`, the
 two end points and the `op` whose cut it is), the same value the CLEARANCE table
-prints for that op, keyed `CUT <mm> mm FROM <holder> (OP <op>)`: never from the
-falling offcut of a saw setup, whose blade path is each saw op's kerf slab on its
-cut plane, across the stock and holding (`blade: true`, its saw op named, else
-keyed `(SAW BLADE)`). A cut whose op is unknown or absent names no op (and its
-consistency check is unknown).
+prints for an ordinary machining op, keyed `CUT <mm> mm FROM <holder> (OP <op>)`.
+An ordinary saw's path is its kerf slab across stock and holding, never its
+falling offcut (`blade: true`, its saw op named, else keyed `(SAW BLADE)`).
+A mounted saw instead consumes the matching `saw.fixture_clearance` evidence
+above, never this broad slab, even when finite evidence is missing. Its label
+is `SAW CYCLE <mm> mm FROM <holder> (OP <op>)`, because clear moves and the
+arbor contribute too; `closest_cut` retains the component, move, stage and
+binding. Incomplete evidence leaves the annotation unknown rather than falling
+back to a plane. Both saw kinds retain the canonical `closest_cut` panel
+annotation/selection ownership and carry no CLEARANCE table row. A cut whose
+op is unknown or absent names no op (and its consistency check is unknown).
 
 ### Cut clearances
 

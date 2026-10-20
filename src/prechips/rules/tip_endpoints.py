@@ -852,19 +852,55 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     return _operative_z(bundle, setup, value, face, done, source, path, None, op=op)
 
 
-def top_reader(bundle, setup):
-    """``top(value, done=0)``: :func:`operative_z` of ``setup``'s stock ``"top"``, the Zs
-    it carries over (:func:`transfer`) found at most once, and each read once, for the
-    setup."""
+def top_reader(bundle, setup, *, native_top=True):
+    """Read a produced/carried top, or an exact-stage native paper-contact proof.
+
+    ``native_top=False`` compiles the explicitly requested command plane only. Its
+    operation's native ``zero_pickup_key`` gate must prove that plane before any
+    material or motion credit; this keeps cold request normalization proof-independent.
+    """
     carried, reads = functools.cache(lambda: _carried(bundle, setup)), {}
 
     def top(value, done=0):
         if not number(value):
             return value
         if (value, done) not in reads:
-            reads[value, done] = _operative_z(
-                bundle, setup, value, "top", done, None, False, carried
+            from prechips.kernel import _top_pickup_specs
+
+            requested = any(
+                position == done
+                and number(
+                    edge := (
+                        source.get("edge_mm")
+                        if "z_face" in source
+                        else mapping(setup.get("stock_state")).get("top_z")
+                    )
+                )
+                and abs(value - edge) <= SAME_Z
+                for _, source, position in _top_pickup_specs(setup)
             )
+            if requested:
+                from .coordinates import UNIT_MM, dro_grid, dro_z
+
+                physical = value
+
+                if native_top:
+                    from .zero_recipe.native import top_pickup_evidence
+
+                    proof = top_pickup_evidence(bundle, setup, done)
+                    plane = mapping(mapping(proof).get("resolved_contact")).get("plane_mm")
+                    physical = (
+                        plane / UNIT_MM[bundle.features["units"]]
+                        if mapping(proof).get("status") == "pass" and number(plane)
+                        else UNKNOWN
+                    )
+                reads[value, done] = (
+                    dro_z(physical, dro_grid(bundle, setup)) if number(physical) else UNKNOWN
+                )
+            else:
+                reads[value, done] = _operative_z(
+                    bundle, setup, value, "top", done, None, False, carried
+                )
         return reads[value, done]
 
     return top

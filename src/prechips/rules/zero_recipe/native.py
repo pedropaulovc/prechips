@@ -117,29 +117,200 @@ def _pickup_proof_complete(request, proof):
     return legs[1]["to_mm"] == path["contact_mm"]
 
 
+def _top_pickup_proof_complete(request, proof):
+    """An actual planar contact land and complete occupied-stack path, not a marker.
+
+    The flat-end projection may overhang the face. Only its finite contact land must
+    be supported; the native path separately proves the whole tool/holder nonintrusion.
+    """
+
+    def vector(value, size):
+        return (
+            isinstance(value, list)
+            and len(value) == size
+            and all(number(item) and math.isfinite(item) for item in value)
+        )
+
+    def same(a, b):
+        return abs(a - b) <= LENGTH_TOLERANCE_MM
+
+    def same_point(a, b):
+        return vector(a, 3) and vector(b, 3) and all(same(x, y) for x, y in zip(a, b, strict=True))
+
+    envelope = mapping(request.get("tool_envelope"))
+    contact, path = (mapping(proof.get(key)) for key in ("resolved_contact", "path"))
+    at, plane, upper = (
+        request.get("at_mm"),
+        contact.get("plane_mm"),
+        proof.get("physical_upper_bound_mm"),
+    )
+    radius, land = contact.get("footprint_radius_mm"), contact.get("land_mm")
+    land_box, patch_box = contact.get("land_bbox_mm"), contact.get("patch_bbox_mm")
+    arrival, stock_box = mapping(proof.get("arrival")), proof.get("stock_bbox_mm")
+    area_fields = ("land_area_mm2", "footprint_area_mm2", "contact_area_mm2", "patch_area_mm2")
+    if not (
+        request.get("tool_kind") == "endmill"
+        and envelope.get("contact_kind") == "flat_end"
+        and envelope.get("nose_radius_mm") == 0
+        and isinstance(request.get("position"), int)
+        and not isinstance(request["position"], bool)
+        and arrival.get("position") == request["position"]
+        and vector(stock_box, 6)
+        and all(stock_box[axis] <= stock_box[axis + 3] for axis in range(3))
+        and vector(at, 2)
+        and all(
+            number(value) and math.isfinite(value)
+            for value in (
+                plane,
+                upper,
+                radius,
+                land,
+                request.get("edge_mm"),
+                request.get("paper_mm"),
+            )
+        )
+        and same(stock_box[5], upper)
+        and contact.get("contact_model") == "flat_end_projection_v1"
+        and contact.get("surface") == request.get("surface")
+        and contact.get("normal") == [0, 0, 1]
+        and same(plane, request["edge_mm"])
+        and same(upper, plane)
+        and number(envelope.get("tip_dia_mm"))
+        and same(2 * radius, envelope["tip_dia_mm"])
+        and radius > 0
+        and number(request.get("contact_land_mm"))
+        and land >= request["contact_land_mm"]
+        and land > 0
+        and vector(land_box, 6)
+        and vector(patch_box, 6)
+        and same_point(contact.get("point_mm"), [*at, plane])
+        and same_point(contact.get("axis_mm"), [*at, plane + request["paper_mm"]])
+        and all(
+            number(contact.get(key)) and math.isfinite(contact[key]) and contact[key] > 0
+            for key in area_fields
+        )
+        and number(contact.get("uncovered_area_mm2"))
+        and math.isfinite(contact["uncovered_area_mm2"])
+        and contact["uncovered_area_mm2"] >= 0
+        and number(contact.get("missing_land_area_mm2"))
+        and math.isfinite(contact["missing_land_area_mm2"])
+        and 0 <= contact["missing_land_area_mm2"] <= 1e-6
+        and isinstance(contact.get("patch_face_indices"), list)
+        and bool(contact["patch_face_indices"])
+        and all(
+            isinstance(index, int) and not isinstance(index, bool) and index >= 0
+            for index in contact["patch_face_indices"]
+        )
+    ):
+        return False
+    area_tol = 1e-6  # Existing native planar/contact area tolerance, not a fit allowance.
+    if not (
+        all(same(land_box[axis], at[axis] - land / 2) for axis in (0, 1))
+        and all(same(land_box[axis + 3], at[axis] + land / 2) for axis in (0, 1))
+        and all(same(box[axis], plane) for box in (land_box, patch_box) for axis in (2, 5))
+        and all(patch_box[axis] <= land_box[axis] + LENGTH_TOLERANCE_MM for axis in (0, 1))
+        and all(patch_box[axis + 3] >= land_box[axis + 3] - LENGTH_TOLERANCE_MM for axis in (0, 1))
+        and math.hypot(land / 2, land / 2) <= radius + LENGTH_TOLERANCE_MM
+        and abs(contact["land_area_mm2"] - land * land) <= area_tol
+        and abs(contact["footprint_area_mm2"] - math.pi * radius * radius) <= area_tol
+        and contact["contact_area_mm2"] + area_tol >= contact["land_area_mm2"]
+        and contact["patch_area_mm2"] + area_tol >= contact["land_area_mm2"]
+        and contact["contact_area_mm2"] + area_tol >= contact["patch_area_mm2"]
+        and contact["footprint_area_mm2"] + area_tol >= contact["contact_area_mm2"]
+        and abs(
+            contact["footprint_area_mm2"]
+            - contact["contact_area_mm2"]
+            - contact["uncovered_area_mm2"]
+        )
+        <= area_tol
+    ):
+        return False
+    legs, obstacles = records(path.get("legs")), records(proof.get("obstacles"))
+    if not (
+        path.get("complete") is True
+        and all(vector(path.get(key), 3) for key in ("start_mm", "contact_mm"))
+        and same_point(path["contact_mm"], contact["axis_mm"])
+        and all(
+            number(path.get(key)) and math.isfinite(path[key])
+            for key in ("retract_height_mm", "stock_top_mm", "jog_mm")
+        )
+        and same(path["stock_top_mm"], upper)
+        and path["jog_mm"] == request.get("check_jog_mm")
+        and same(path["start_mm"][2], path["retract_height_mm"])
+        and all(same(path["start_mm"][axis], at[axis]) for axis in (0, 1))
+        and [mapping(leg).get("kind") for leg in legs] == ["descend", "check_jog", "retract"]
+        and obstacles
+        and all(
+            isinstance(mapping(obstacle).get("name"), str)
+            and vector(mapping(obstacle).get("bbox_mm"), 6)
+            and all(obstacle["bbox_mm"][axis] <= obstacle["bbox_mm"][axis + 3] for axis in range(3))
+            for obstacle in obstacles
+        )
+        and any(
+            obstacle["name"] == "stock" and same(obstacle["bbox_mm"][5], upper)
+            for obstacle in obstacles
+        )
+        and number(request.get("retract_clearance_mm"))
+        and path["start_mm"][2]
+        >= max(obstacle["bbox_mm"][5] for obstacle in obstacles)
+        + request["retract_clearance_mm"]
+        - LENGTH_TOLERANCE_MM
+    ):
+        return False
+    previous = path["start_mm"]
+    for index, leg in enumerate(map(mapping, legs)):
+        components = records(leg.get("components"))
+        if not (
+            leg.get("index") == index
+            and same_point(leg.get("from_mm"), previous)
+            and vector(leg.get("to_mm"), 3)
+            and all(same(leg["to_mm"][axis], at[axis]) for axis in (0, 1))
+            and len(components) == 3
+            and {mapping(component).get("id") for component in components}
+            == {"tip", "shank", "holder"}
+            and all(
+                vector(mapping(component).get("bbox_mm"), 6)
+                and all(
+                    component["bbox_mm"][axis] <= component["bbox_mm"][axis + 3]
+                    for axis in range(3)
+                )
+                for component in components
+            )
+        ):
+            return False
+        previous = leg["to_mm"]
+    return (
+        same_point(legs[0]["to_mm"], path["contact_mm"])
+        and same_point(legs[1]["to_mm"], [*at, path["contact_mm"][2] + path["jog_mm"]])
+        and same_point(legs[2]["to_mm"], path["start_mm"])
+    )
+
+
 def zero_pickup_evidence(bundle, setup, axis, *, normalized=None, facts=None):
     """Match an explicitly requested pickup to this setup's current native recipe.
 
     This accessor never runs geometry. Arithmetic-only recipes return ``None``;
     requested but incomplete, absent or stale proof returns explicit clearance debt.
     """
-    from prechips.kernel import zero_pickup_inputs
+    from prechips.kernel import _registration_inputs, _top_pickup_specs, zero_pickup_inputs
 
-    recipe = mapping(mapping(setup.get("zero")).get(axis))
-    if axis not in ("x", "y") or "at_mm" not in recipe:
+    key = axis
+    tops = {key: source for key, source, _ in _top_pickup_specs(setup)}
+    top = key in tops
+    recipe = tops[key] if top else mapping(mapping(setup.get("zero")).get(axis))
+    if (axis not in ("x", "y") and not top) or "at_mm" not in recipe:
         return None
+    axis = "z" if top else axis
     normalized = zero_pickup_inputs(bundle, setup) if normalized is None else normalized
-    request = mapping(mapping(normalized.get("requests")).get(axis))
+    request = mapping(mapping(normalized.get("requests")).get(key))
     facts = mapping(getattr(bundle, "kernel", None)) if facts is None else facts
     proof = mapping(
-        mapping(mapping(mapping(facts.get("setups")).get(setup["id"])).get("zero_pickups")).get(
-            axis
-        )
+        mapping(mapping(mapping(facts.get("setups")).get(setup["id"])).get("zero_pickups")).get(key)
     )
     errors = list(records(request.get("errors")))
     reasons = list(records(request.get("reasons")))
     matched = (
-        request.get("model") == "transverse_finder_v1"
+        request.get("model") == ("arriving_top_v1" if top else "transverse_finder_v1")
         and request.get("axis") == axis
         and isinstance(request.get("recipe_id"), str)
         and request["recipe_id"] not in ("", UNKNOWN)
@@ -161,11 +332,46 @@ def zero_pickup_evidence(bundle, setup, axis, *, normalized=None, facts=None):
     contact, path, window = (
         mapping(proof.get(key)) if matched else {} for key in ("resolved_contact", "path", "window")
     )
+    arrival_matches = True
+    if top:
+        arrival = mapping(proof.get("arrival"))
+        position, ops = request.get("position"), records(setup.get("ops"))
+        frame = _registration_inputs(
+            setup_frame(bundle, setup), bundle.features.get("units"), require_binding=False
+        )
+        arrival_matches = (
+            isinstance(position, int)
+            and not isinstance(position, bool)
+            and 0 <= position <= len(ops)
+            and isinstance(frame, dict)
+            and arrival.get("frame") == frame
+            and isinstance(setup.get("stock_in"), str)
+            and setup["stock_in"] not in ("", UNKNOWN)
+            and arrival.get("stock_in") == setup["stock_in"]
+            and arrival.get("after_op") == (str(ops[position - 1]["op"]) if position else None)
+            and arrival.get("before_op")
+            == (str(ops[position]["op"]) if position < len(ops) else UNKNOWN)
+            and bool(records(arrival.get("components")))
+            and all(
+                isinstance(name, str) and name not in ("", UNKNOWN)
+                for name in records(arrival.get("components"))
+            )
+            and isinstance(arrival.get("workpiece_ids"), list)
+            and (
+                arrival.get("partition_path") is None
+                or isinstance(arrival.get("partition_path"), list)
+            )
+        )
     complete = (
         matched
         and facts.get("status") == "ok"
+        and arrival_matches
         and proof.get("status") == "pass"
-        and _pickup_proof_complete(request, proof)
+        and (
+            _top_pickup_proof_complete(request, proof)
+            if top
+            else _pickup_proof_complete(request, proof)
+        )
     )
     if not complete and matched and not errors:
         reasons.append("the requested native pickup contact or complete path remains unresolved")
@@ -173,9 +379,10 @@ def zero_pickup_evidence(bundle, setup, axis, *, normalized=None, facts=None):
     return {
         "requested": True,
         "status": status,
-        "model": request.get("model", "transverse_finder_v1"),
+        "model": request.get("model", "arriving_top_v1" if top else "transverse_finder_v1"),
         "setup_id": setup["id"],
         "axis": axis,
+        "key": key,
         "recipe_id": request.get("recipe_id", UNKNOWN),
         "reasons": list(dict.fromkeys([*errors, *reasons])),
         "request": request,
@@ -187,6 +394,14 @@ def zero_pickup_evidence(bundle, setup, axis, *, normalized=None, facts=None):
         "obstacles": records(proof.get("obstacles")) if matched else [],
         "measurement_debts": records(normalized.get("measurement_debts")),
     }
+
+
+def top_pickup_evidence(bundle, setup, done=0, touch=None):
+    """Only a paper pose authored at this exact boundary can establish its top."""
+    from prechips.kernel import _top_pickup_at
+
+    requested = _top_pickup_at(setup, done, touch)
+    return zero_pickup_evidence(bundle, setup, requested[0]) if requested is not None else None
 
 
 def _native_unit(vector):
