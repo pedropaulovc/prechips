@@ -1130,11 +1130,11 @@ def test_the_traveler_sweeps_a_stepped_op_at_each_level_in_its_heading(tmp_path)
     (entry,) = [e for e in row.numbers["operations"] if str(e.get("op")) == "20"]
     levels = entry["z_levels"]["levels"]
     assert len(levels) == 2, levels
-    top, bottom = (f"{z:.3f}" for z in levels)
+    assert levels == [-0.5, -1.0]
     assert "2 depth levels: run the complete path below at each Z in the heading" in printed
-    # Numbers print in their own spans: stripped, a space can stand before the stop.
-    assert f"set Z {top} " in printed and f"down to Z {bottom} " in printed
-    assert f"set Z {bottom} " not in printed
+    # Keep the top-first depth sequence independent of redundant readout zeroes.
+    assert [float(value) for value in re.findall(r"\bset Z (-?[\d.]+)", printed)] == [-0.5]
+    assert [float(value) for value in re.findall(r"\bdown to Z (-?[\d.]+)", printed)] == [-1.0]
 
 
 def test_the_layout_scribes_each_arc_end_from_the_stocks_own_faces(tmp_path):
@@ -1606,7 +1606,10 @@ def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp
     assert row.status == "pass", row.sentence
     assert printed.count("Spindle stopped: bring a flute") == 1
     rough, finish = printed.split("Finish sweep, Z still raised clear:")
-    assert "Rough sweep: unlock Y only, move it +0.300 from the touch reading" in rough
+    (back_off,) = re.findall(
+        r"Rough sweep: unlock Y only, move it ([+-][\d.]+) from the touch reading", rough
+    )
+    assert back_off.startswith("+") and float(back_off) == 0.3
     assert "return it to the touch reading" in finish
     # The touch is written down, never zeroed: the setup's DRO zero stays for its other ops.
     assert "set DRO" not in printed and "reading at the touch here" in printed

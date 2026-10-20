@@ -26,7 +26,7 @@ Inch-to-mm conversions use exactly 25.4 mm/in.
 | Item | Selected nominal | Basis |
 | --- | --- | --- |
 | Quantity | 4 | Video 02:42–02:50; confirmed 06:43 and the later batch operations. |
-| Material | 1018 steel | Video stock marking and narration 03:59. No material condition/certificate established. |
+| Material | 1018 steel; example annealed condition, HB120 | Video stock marking and narration 03:59 establish 1018, not condition or hardness. Annealed/HB120 are author-selected example assumptions, not observations or a material certificate. |
 | Finished length, X | 1 in / 25.4 mm | Video 02:42–02:50; repeatable end facing 12:17–12:52. |
 | Base width, Y | 7/8 in / 22.225 mm | Selected Carr Lane CL-0-TN dimension **C**. |
 | Overall height, Z | 1/2 in / 12.7 mm | Selected Carr Lane CL-0-TN dimension **E**. |
@@ -148,6 +148,20 @@ four **1.025-in** blanks and three **0.125-in** separation kerfs. Each end clean
 removes **0.025 in**. Those are adopted inputs, not measurements of source stock.
 The PM-25MV-BD mill, tooling and installed fixture dimensions are likewise
 illustrative selections. Source-known nominals retain their separate citations.
+
+B0's source-derived illustrative starting band speed is **135 sfm = 270 × 0.50**.
+[LENOX's Guide to Band Sawing](https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf),
+printed p. 21, gives 270 ft/min for 4-in-wide annealed 1008/1018 with a bi-metal
+blade and flood sawing fluid, and a 30–50% reduction for no fluid. The author
+selects 50% and takes no small-section speed increase. The example explicitly
+adopts annealed 1018/HB120 and a bi-metal blade with an HSS cutting edge
+electron-beam welded to a spring-steel back (glossary, printed p. 32), not an
+observed stock condition or identified blade product. The 100–350-sfm machine
+range is unchanged example capability, not a loaded-speed measurement.
+The **14 TPI**, **.889-mm kerf** and **25.4 mm/min descent** remain independent
+illustrative inputs; the chart does not qualify their combination or the whole
+cut as conservative. This is not a product-specific portable-saw recommendation
+or execution approval.
 
 Installed facts use the repository's deliberately nonphysical disclosure:
 

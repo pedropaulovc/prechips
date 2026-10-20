@@ -141,17 +141,25 @@ def test_cross_unit_measured_diameter_expression_identifies_source_units_and_con
 
 
 @pytest.mark.parametrize(
-    "expression,expected",
+    "expression,subject,offset",
     [
-        ("measured D", "measured Ø"),
-        ("measured D +20", "measured Ø + 20.000"),
-        ("measured D/2 -10", "measured Ø/2 − 10.000"),
+        ("measured D", "measured Ø", None),
+        ("measured D +20", "measured Ø +", 20.0),
+        ("measured D/2 -10", "measured Ø/2 −", 10.0),
     ],
 )
-def test_same_unit_digital_measured_expressions_keep_legacy_format(expression, expected):
+def test_same_unit_digital_measured_expressions_preserve_subject_sign_and_value(
+    expression, subject, offset
+):
     bundle = _manual(kind="digital", units="mm")
     sheet = _Traveler(bundle, [], {}, None)
-    assert sheet.reading(expression) == expected
+    printed = sheet.reading(expression)
+    if offset is None:
+        assert printed == subject
+    else:
+        printed_subject, printed_offset = printed.rsplit(" ", 1)
+        assert printed_subject == subject
+        assert float(printed_offset) == offset
 
 
 @pytest.mark.parametrize(

@@ -9,6 +9,7 @@ import pytest
 from test_batch_material_routes import batch
 
 from prechips.findings import Finding
+from prechips.inputs import Bundle
 from prechips.material_routes import MaterialGraph, setup_lineage, stock_ancestry
 from prechips.sheet import _Traveler
 
@@ -52,9 +53,17 @@ def retained_plan():
 
 
 def sheet_for(plan):
-    sheet = _Traveler.__new__(_Traveler)
-    sheet.plan = plan
-    return sheet
+    bundle = Bundle(
+        plan=plan,
+        features={},
+        inventory={},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path(__file__).resolve().parent,
+    )
+    return _Traveler(bundle, [], {}, None)
 
 
 def native_facts():

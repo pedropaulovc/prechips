@@ -462,7 +462,7 @@ def evaluate(bundle):
             "hold.clamp": hold.get("clamp"),
         }
         if handling:
-            note = note_text(hold.get("note")).strip()
+            note = UNKNOWN if unknown_hold else note_text(hold.get("note")).strip()
             required = {"hold.note": None if note in ("none", "not_applicable") else note}
         if scope != "fixture":
             # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.

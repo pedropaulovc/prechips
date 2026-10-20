@@ -292,7 +292,8 @@ def test_compare_lists_no_unknown_fixture_for_a_hand_fed_setup(example):
 
 def test_the_hold_prints_each_declared_feeding_step():
     text = hold_text(hand_fed_bundle())
-    assert "Upper blade guide: 6.000 mm above the top of the work." in text
+    (guide,) = re.findall(r"Upper blade guide: ([\d.]+) mm above the top of the work", text)
+    assert float(guide) == 6.0
     assert "Push aid: push stick." in text
     assert "Start the cut at the -X end of the line" in text
     assert "End of the cut: finish it with the push aid" in text
@@ -325,29 +326,36 @@ def test_the_upper_guide_height_is_positive(guide):
         Plan.model_validate(data)
 
 
-def route_cell(bundle, sid):
-    html = _Traveler(bundle, [], {}, None).header(bundle.plan["setups"])
-    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
-    match = re.search(rf"{sid} part as it arrives from Setup \S+ \S+ (.+?) (?:DRAWING|S\d)", text)
-    return match.group(1) if match else text
+def setup_holding_text(bundle, sid):
+    traveler = _Traveler(bundle, [], {}, None)
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)
+    (holding,) = [block for block in traveler.setup_blocks(setup) if block.key == "holding"]
+    assert holding.setup_id == sid
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", traveler.block_html(holding)))
 
 
-def test_the_route_row_and_the_hold_agree_on_a_hand_fed_setup():
+def test_the_setup_holding_block_and_the_hold_agree_on_a_hand_fed_setup():
     bundle = load_bundle(BUNDLE / "plan.toml")
     setup = bundle.plan["setups"][1]
     steps, _ = _Traveler(bundle, [], {}, None).hold(setup)
     assert "Fed by hand on the saw table" in steps
-    assert route_cell(bundle, "S2") == "fed by hand on the saw table"
+    holding = setup_holding_text(bundle, "S2")
+    assert "Fed by hand on the saw table" in holding
+    assert "no vise or clamp holds the work" in holding
+    assert "Start the cut at the -X end" in holding
+    assert "STOP" not in holding
 
 
-def test_an_unresolved_hand_fed_setup_stops_in_the_route_and_the_hold(example):
+def test_an_unresolved_hand_fed_setup_stops_in_its_holding_block_and_the_hold(example):
     inventory = example / "inventory.toml"
     text = inventory.read_text(encoding="utf-8")
     inventory.write_text(text.replace('saw_modes = ["horizontal", "vertical"]\n', ""), "utf-8")
     bundle = load_bundle(example / "plan.toml")
     steps, _ = _Traveler(bundle, [], {}, None).hold(bundle.plan["setups"][1])
     assert "STOP" in steps and "Fed by hand" not in steps
-    assert route_cell(bundle, "S2").startswith("STOP")
+    holding = setup_holding_text(bundle, "S2")
+    assert "STOP: hand-fed holding not established" in holding
+    assert "Fed by hand" not in holding
 
 
 def scene(bundle, sid=1):
@@ -476,15 +484,13 @@ def test_a_line_running_to_the_blank_enters_and_leaves_its_allowance_outside(fee
     assert [c["face"] for c in crossings] == ["+Y", "+Y"]
     assert [c["xy"][0] for c in crossings] == pytest.approx([first, -first], abs=1e-6)
     steps = _Traveler(bundle, [], {}, None).saw_ends(setup, setup["ops"][0])
-    x = f"{abs(first):.3f}"
-    near, far = ("-" + x, x) if feed_from == "-X" else (x, "-" + x)
-    assert steps == (
-        f"Enter at X {near}, Y 21.295 and leave at X {far}, Y 21.295 on the +Y face (from "
-        "Setup S2 zero): where the cut, 0.450 mm off the scribed line on the waste side, "
-        "meets the +Y face."
-    )
+    assert steps.startswith("Enter at X ") and "and leave at X " in steps
+    assert "on the +Y face (from Setup S2 zero)" in steps
+    (allowance,) = re.findall(r"cut, ([\d.]+) mm off the scribed line on the waste side", steps)
+    assert float(allowance) == 0.45
     # The printed points are the computed crossings, not the line's own ends at X 145.240.
     printed = [[float(x), float(y)] for x, y in re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", steps)]
+    assert printed == [[round(first, 3), 21.295], [round(-first, 3), 21.295]]
     computed = [value for c in crossings for value in c["xy"]]
     assert [value for xy in printed for value in xy] == pytest.approx(computed, abs=5e-4)
     assert all(abs(x) < 145.240 - 2.0 for x, _ in printed)
@@ -516,8 +522,23 @@ def test_op_row_coordinates_name_their_frame_when_the_job_page_prints_global_one
     traveler.setup = s1
     (layout,) = traveler.manual_arc_steps(s1["ops"][0], LAYOUT, True)
     ends = traveler.saw_ends(s2, s2["ops"][0])
-    assert ("Y 808.000 (from Setup S1 zero)" in str(layout)) is tagged
-    assert ("Y 21.295 (from Setup S1 zero)." in str(layout)) is tagged
+    coordinates = re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", str(layout))
+    assert [[float(x), float(y)] for x, y in coordinates] == [
+        [0.0, 808.0],
+        [-145.24, 21.295],
+        [145.24, 21.295],
+    ]
+    centre = re.search(
+        r"about the centre X -?[\d.]+, Y -?[\d.]+( \(from Setup S1 zero\))?", str(layout)
+    )
+    arc_ends = re.search(
+        r"arc ends X -?[\d.]+, Y -?[\d.]+ and X -?[\d.]+, Y -?[\d.]+"
+        r"( \(from Setup S1 zero\))?",
+        str(layout),
+    )
+    assert centre and arc_ends
+    assert bool(centre.group(1)) is tagged
+    assert bool(arc_ends.group(1)) is tagged
     assert ("+Y face (from Setup S2 zero):" in ends) is tagged
     assert ("(from Setup" in str(layout) + ends) is tagged
 

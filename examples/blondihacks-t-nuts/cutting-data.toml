@@ -1,5 +1,5 @@
 # EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
-# Author-selected1018 at120 HB, not a measured hardness or video-derived setting.
+# Author-selected example annealed1018 at120 HB; neither condition nor hardness is a shop measurement or video-derived setting.
 # Controlling numeric bindings are the fixed Handbook/catalogue sources cited per row.
 # No dormant Kc/E/force, plunge or deep-hole factors: this route does not consume them.
 # Milling feeds are derived from selected operation rpm × flutes × chip load;
@@ -60,6 +60,6 @@ cite = "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.
 material_class = "1018/HB120"
 tool_material = "HSS"
 operation = "saw_cut"
-sfm = 300
+sfm = 135
 feed_mm_min = 25.4
-cite = "Author-selected illustrative non-spindle14 TPI bandsaw setting,300 sfm within adopted100–350 sfm bench capability and25.4 mm/min descent. Example value (realistic, not a shop measurement), not an unconditional transplant of coolant/section-dependent Handbook bandsaw tables."
+cite = ["https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p.21:270 ft/min base for4-in-wide annealed1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects50% reduction,135 sfm=270×0.50; no small-section speed increase.", "Same guide, glossary printed p.32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.", "Source-derived illustrative starting band speed within the unchanged example100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The14 TPI pitch, .889-mm kerf and25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."]

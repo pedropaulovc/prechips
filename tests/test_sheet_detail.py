@@ -1507,6 +1507,8 @@ def test_clearance_decisions_render_known_gaps_as_cautions_and_collision_or_unkn
 
     (box,) = sheet.crash_boxes(setup, setup["ops"][0])
     assert box.kind == kind
+    if kind == "block":
+        assert not box.notice_group
     if kind == "caution":
         assert box.status == "warn"
 
@@ -1542,7 +1544,7 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
     )
     finals = [setup for setup in data.plan["setups"] if setup["id"] in ("F1a", "F1b", "F1c", "F1d")]
     assert [setup["id"] for setup in finals] == ["F1a", "F1b", "F1c", "F1d"]
-    _, _, markup = collected_family(data, finals, detail=detail)
+    sheet, _, markup = collected_family(data, finals, detail=detail)
     expected_owners = {
         ("F1a", "nut1"),
         ("F1b", "nut2"),
@@ -1571,6 +1573,22 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
             f"{member}/part:stud_retention",
         }
     for setup_id, member in expected_owners:
+        setup = next(setup for setup in finals if setup["id"] == setup_id)
+        (check,) = sheet.inspection(setup, setup["ops"][0])
+        assert len(check.compact_criteria) == 7
+        assert set(check.subjects) == {
+            f"{member}/base-envelope:width",
+            f"{member}/base-envelope:height",
+            f"{member}/shoulders:width",
+            f"{member}/shoulders:thickness",
+            f"{member}/end-length:length",
+            f"{member}/part:actual_slot_fit",
+            f"{member}/part:stud_retention",
+        }
+        if detail != "pedantic":
+            headings = [criterion.heading for _, _, criterion in check.compact_criteria]
+            assert "end-length" in headings
+            assert "end-length length" not in headings
         owned = [
             node
             for node in operation_nodes(markup)
@@ -1601,6 +1619,24 @@ def test_tnut_final_family_keeps_every_size_method_and_typed_fit_clause(detail):
         ):
             for limit in band:
                 assert_number(limits_text, limit * scale)
+        if detail != "pedantic":
+            flange_methods = {
+                id(method): method
+                for node in owned
+                for method in markup.find("inspection-method", node)
+                if re.search(r"\bboth\b.*?\bflanges\b", content(method), re.IGNORECASE)
+            }
+            (method,) = flange_methods.values()
+            paragraph = method["parent"]
+            while paragraph is not None and paragraph["tag"] != "p":
+                paragraph = paragraph["parent"]
+            assert paragraph is not None
+            local = " ".join(content(paragraph).split())
+            band, _ = sheet.inspection_band("shoulders", "thickness")
+            gauge = setup["ops"][0]["checks"]["shoulders"]["thickness"]
+            assert band in local
+            assert sheet.short_reference(gauge, "gauges") in local
+            assert re.search(r"\bshoulders\b.*?\bthickness\b", local, re.IGNORECASE)
         # Method and criterion jointly express the physical fit procedure.
         # Numeric acceptance bands above must still survive without method prose.
         for relationship in (
@@ -1987,8 +2023,9 @@ def test_compact_saw_stops_before_first_withdrawal_and_holds_capture_through_cal
         assert cursor + release.start() > capture_return.end()
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
 @pytest.mark.parametrize("display_units", ["mm", "in"])
-def test_hobby_facing_table_keeps_all_native_pass_centres_and_clear_return(display_units):
+def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(detail, display_units):
     data = load_bundle(
         Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
     )
@@ -2039,7 +2076,7 @@ def test_hobby_facing_table_keeps_all_native_pass_centres_and_clear_return(displ
             ],
         }
         findings.append(Finding("coordinates", sid, "pass", numbers, [], "Native facing path"))
-    markup = Markup(rendered(data, findings, detail="hobby"))
+    markup = Markup(rendered(data, findings, detail=detail))
     (table,) = markup.find("facing-paths")
     rows = [
         node
@@ -2047,7 +2084,7 @@ def test_hobby_facing_table_keeps_all_native_pass_centres_and_clear_return(displ
         if node["tag"] == "tr" and node["attrs"].get("data-setup-id") in native
     ]
     assert [row["attrs"]["data-setup-id"] for row in rows] == list(native)
-    formatter = _Traveler(data, [], {}, None, detail="hobby")
+    formatter = _Traveler(data, [], {}, None, detail=detail)
     for row, finding in zip(rows, findings, strict=True):
         (path,) = markup.find("facing-path", row)
         assert path["attrs"]["data-op-id"] == "10"
@@ -2065,6 +2102,223 @@ def test_hobby_facing_table_keeps_all_native_pass_centres_and_clear_return(displ
         assert numeric_values(content(path)) == [float(value) for value in expected]
         (cycle,) = markup.find("facing-cycle", table["parent"])
         context = content(cycle)
+        assert_coordinate(context, "Z", float(formatter.readout(profile["dro_to_z"])))
         assert_coordinate(context, "Z", float(formatter.readout(profile["raster"]["lift_z"])))
-        assert re.search(r"\bone.way\b", context, re.IGNORECASE)
         assert re.search(r"\b(?:lift|raise)\b.*\breturn\b", context, re.IGNORECASE)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_hand_tap_unknown_names_bore_surface_without_changing_typed_evidence(detail):
+    from prechips.sheet import _decision_html
+
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    setup["ops"][0]["do"] = "hand_tap"
+    scope = f"{setup['id']}:{setup['ops'][0]['op']}"
+    finding = Finding(
+        "accessibility",
+        scope,
+        "unknown",
+        {},
+        [],
+        "claimed face references are unknown or unmapped.",
+    )
+    data.policy["required"]["accessibility"] = "*"
+    original = deepcopy(finding.to_dict())
+    sheet = _Traveler(data, [finding], build_report(data, [finding]), None, detail=detail)
+    decision = sheet.finding_fact(finding)
+    assert (decision.source, decision.status, decision.scope, decision.kind) == (
+        finding.rule,
+        str(finding.status),
+        finding.subject,
+        "block",
+    )
+    assert re.search(r"\bhand.tap\b.*\bnot checked\b", decision.text, re.IGNORECASE)
+    assert re.search(r"\bbore[- ]surface mapping\b.*\bunverified\b", decision.text, re.IGNORECASE)
+    markup = Markup(_decision_html(decision, setup_id=setup["id"], op_id=setup["ops"][0]["op"]))
+    (notice,) = finding_nodes(markup, finding)
+    assert finding_has_kind(notice, finding, "block")
+    assert finding.to_dict() == original
+
+
+@pytest.mark.parametrize(
+    ("detail", "operation", "rule", "message"),
+    [
+        (
+            "pedantic",
+            "hand_tap",
+            "accessibility",
+            "claimed face references are unknown or unmapped.",
+        ),
+        ("hobby", "drill", "accessibility", "claimed face references are unknown or unmapped."),
+        ("pro", "hand_tap", "reach", "claimed face references are unknown or unmapped."),
+        ("hobby", "hand_tap", "accessibility", "The bore approach remains unresolved."),
+    ],
+)
+def test_hand_tap_mapping_projection_leaves_other_messages_unchanged(
+    detail, operation, rule, message
+):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    setup["ops"][0]["do"] = operation
+    scope = f"{setup['id']}:{setup['ops'][0]['op']}"
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    assert sheet.plain_error(rule, message, scope) == sheet.bench(message)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize(("cut_gap", "tip_gap"), [(0.5, 0.5), (1.57, 0.8)])
+def test_paired_positive_milling_cautions_share_only_compact_notice_with_all_facts(
+    monkeypatch, detail, cut_gap, tip_gap
+):
+    from test_sheet_ops import headroom, near_holding
+
+    from prechips.sheet import _typed_values
+
+    producer, setup = near_holding(cut_gap)
+    producer.detail = detail
+    numbers = headroom(tip_above_jaws=tip_gap, jaw_top_z=-0.5 - tip_gap)
+    producer.records[("headroom", setup["id"])] = numbers
+    boxes = producer.crash_boxes(setup, setup["ops"][0])
+    assert {box.source for box in boxes} == {"cut_clearance", "headroom"}
+    assert all(
+        (box.status, box.kind, box.notice_group) == ("warn", "caution", "milling-clearance")
+        for box in boxes
+    )
+    by_source = {box.source: box for box in boxes}
+    assert_number(str(by_source["cut_clearance"]), cut_gap)
+    assert_number(str(by_source["headroom"]), tip_gap)
+    if detail != "pro":
+        assert re.search(r"\bhand feed\b", str(by_source["cut_clearance"]), re.IGNORECASE)
+        assert re.search(r"\bcheck before plunging\b", str(by_source["headroom"]), re.IGNORECASE)
+
+    # The table producer must opt into the same presentation grouping as op boxes.
+    producer.clearance_rows(setup, numbers, {})
+    table_decisions = producer.producer_decisions[setup["id"]]
+    assert {
+        decision.source
+        for decision in table_decisions
+        if decision.notice_group == "milling-clearance" and decision.kind == "caution"
+    } == {"cut_clearance", "headroom"}
+
+    data = bench_job()
+    owner = data.plan["setups"][0]
+    scope = f"{owner['id']}:{owner['ops'][0]['op']}"
+    decisions = tuple(_typed_values(boxes, scope))
+    assert all(decision.notice_group == "milling-clearance" for decision in decisions)
+    operation_rows = _Traveler.operation_rows
+
+    def with_clearances(self, setup, tools):
+        rows = operation_rows(self, setup, tools)
+        rows[0].decisions = (*rows[0].decisions, *decisions)
+        return rows
+
+    monkeypatch.setattr(_Traveler, "operation_rows", with_clearances)
+    markup = Markup(rendered(data, detail=detail))
+    expected = {
+        (decision.source, decision.status, decision.scope, decision.kind) for decision in decisions
+    }
+    notices = [
+        node
+        for node in decision_nodes(markup)
+        if any(
+            (entry["source"], entry["status"], entry["scope"], entry["kind"]) in expected
+            for entry in decision_evidence(node)
+        )
+    ]
+    assert len(notices) == (2 if detail == "pedantic" else 1)
+    assert {
+        (entry["source"], entry["status"], entry["scope"], entry["kind"])
+        for node in notices
+        for entry in decision_evidence(node)
+    } == expected
+    for box in boxes:
+        assert sum(content(node).count(str(box)) for node in notices) == 1
+    assert all(
+        node["attrs"]["data-setup-id"] == owner["id"]
+        and node["attrs"]["data-op"] == str(owner["ops"][0]["op"])
+        and node["attrs"]["data-decision"] == "caution"
+        for node in notices
+    )
+
+
+def test_milling_notice_group_does_not_merge_other_owners_unrelated_cautions_or_blocks():
+    from prechips.sheet import _Box, _Decision, _decision_groups, _typed_values
+
+    first = _Box(
+        "Locator gap 0.75 mm; hand feed past it",
+        source="cut_clearance",
+        status="warn",
+        kind="caution",
+        notice_group="milling-clearance",
+    )
+    second = _Box(
+        "Tip gap 1.25 mm; check before plunging",
+        source="headroom",
+        status="warn",
+        kind="caution",
+        notice_group="milling-clearance",
+    )
+    paired = tuple(_typed_values([first, second], "S1:60"))
+    other_op = replace(paired[0], scope="S1:70")
+    other_setup = replace(paired[1], scope="S2:60")
+    unrelated = _Decision("reach", "warn", "S1:60", "caution", "Review the holder projection")
+    unknown = _Decision("reach", "unknown", "S1:60", "block", "Holder clearance not computed")
+    collision = _Decision("cut_clearance", "error", "S1:60", "block", "STOP: 0.4 mm collision")
+    decisions = (*paired, other_op, other_setup, unrelated, unknown, collision)
+    compact = _decision_groups(decisions, combine_notices=True)
+    assert _decision_groups(paired) == [[paired[0]], [paired[1]]]
+    assert [group for group in compact if len(group) > 1] == [list(paired)]
+    assert all(
+        [decision] in compact for decision in (other_op, other_setup, unrelated, unknown, collision)
+    )
+    assert {
+        (decision.source, decision.status, decision.scope, decision.kind, decision.text)
+        for group in compact
+        for decision in group
+    } == {
+        (decision.source, decision.status, decision.scope, decision.kind, decision.text)
+        for decision in decisions
+    }
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+def test_local_parallel_and_grip_rows_name_each_source_mm_quantity(detail, display_units):
+    from test_envelope_m5 import measured
+
+    data = datum_sharing_job()
+    data.plan["dro"]["units"] = display_units
+    expected = {}
+    for index, setup in enumerate(data.plan["setups"]):
+        height = (12.7, 9.525, 6.35)[index]
+        grip = (7.62, 5.08, 3.81)[index]
+        reference = f"local-parallels-{index}"
+        data.inventory["fixtures"][reference] = {
+            "kind": "parallels",
+            "height_mm": measured(height),
+        }
+        setup["hold"].update(parallels=reference, grip_mm=grip)
+        setup["presentation_group"] = "Local holding choices"
+        expected[setup["id"]] = (height, grip)
+    markup = Markup(rendered(data, zero_recipe.evaluate(data), detail=detail))
+    (table,) = markup.find("orientation-table")
+    rows = [
+        node
+        for node in descendants(markup, table)
+        if node["tag"] == "tr" and node["attrs"].get("data-setup-id") in expected
+    ]
+    assert {row["attrs"]["data-setup-id"] for row in rows} == set(expected)
+    for row in rows:
+        text = " ".join(content(row).split())
+        quantities = re.search(
+            r"\bParallels\s+(\d+(?:\.\d+)?)\s+mm\b.*?"
+            r"\bgrip\s+(\d+(?:\.\d+)?)\s+mm\b",
+            text,
+            re.IGNORECASE,
+        )
+        assert quantities, text
+        assert tuple(map(float, quantities.groups())) == expected[row["attrs"]["data-setup-id"]]
+    assert not any(
+        "parallels/grip" in content(node).casefold() for node in markup.nodes if node["tag"] == "h2"
+    )

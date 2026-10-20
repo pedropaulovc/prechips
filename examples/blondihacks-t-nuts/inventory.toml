@@ -34,8 +34,8 @@ name = "Bench / powered bandsaw"
 kind = "bench"
 present = true
 verify = false
-blade_speed_sfm = [100, 350]
-note = "Example non-spindle bench capability for B0 and manual bench operations. Blade speed 100–350 sfm is an adopted example capability; B0 selects 300 sfm and 25.4 mm/min descent illustratively, not an unconditional Handbook bandsaw recommendation."
+blade_speed_sfm = [100, 350] # source: example value (realistic, not a shop measurement); basis: author-selected bench capability
+note = "Example non-spindle bench capability for B0 and manual bench operations. Blade speed 100–350 sfm is an adopted example capability, not an actual loaded-speed measurement; B0 selects the source-derived illustrative starting band speed 135 sfm in cutting-data.toml. The independent illustrative 25.4 mm/min descent is not qualified by that source; no whole-cut or product-specific recommendation is claimed."
 cite = "Author-selected demonstration equipment; example value (realistic, not a shop measurement), 2026-10-11"
 
 [fixtures.mill-vise]
@@ -331,9 +331,9 @@ thread = "3/8-16"
 thread_hand = "right"
 sizes = ["3/8-16"]
 dia_mm = { value = 9.5758, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-flute_len_mm = 31.75
+flute_len_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 oal_mm = { value = 74.6125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-shank_mm = 9.6774
+shank_mm = { value = 9.6774, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 lead_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 flutes = 4
 note = "Author-selected example geometry; lead12.7 mm is qualified8 pitches, not inferred from 'taper'. Hand wrench and follower only; no powered rpm/feed or fictitious follower projection. No adopted formal2B class. Tip depth26.035 mm includes12.7 part+12.7 lead+.635 margin; threaded length31.75 and35 mm underpart gap cover it."
@@ -344,7 +344,7 @@ name = "Hand tap wrench"
 kind = "tap_wrench"
 present = true
 verify = false
-range_mm = [5, 12]
+range_mm = [5, 12] # source: example value (realistic, not a shop measurement); basis: author-selected hand-wrench capacity
 fits = "tools.taper-tap"
 note = "Example nominal tap-size capacity5–12 mm, represented by legal range_mm pair; hand drive only."
 cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
@@ -357,7 +357,7 @@ present = true
 verify = false
 kerf_mm = { value = 0.889, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 tpi = { value = 14, cite = "Author-selected example blade pitch, not video identification", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
-note = "Non-spindle bandsaw blade, not the mounted circular slitting saw. Example blade identity/material/pitch and kerf;300 sfm/25.4 mm/min are illustrative route settings."
+note = "Non-spindle bandsaw blade, not the mounted circular slitting saw. Author-adopted example bi-metal construction: an HSS cutting edge electron-beam welded to a spring-steel back (LENOX Guide to Band Sawing, glossary printed p.32, https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf); material='HSS' describes the cutting edge. No actual blade brand/model or video equipment identification is claimed. The 14 TPI pitch and .889-mm kerf remain independent illustrative inputs; B0's 135 sfm is derived in cutting-data.toml, while its 25.4 mm/min descent remains independently illustrative and unqualified by that chart."
 
 [tools.needle-files]
 name = "Needle files"
@@ -429,7 +429,7 @@ kind = "drill_chuck"
 taper = "R8"
 present = true
 verify = false
-range_mm = [0.5, 13]
+range_mm = [0.5, 13] # source: example value (realistic, not a shop measurement); basis: author-selected R8 chuck capacity
 # Maximum shank is the same 13-mm upper chuck capacity, converted to inches;
 # this Number field cannot take a measured wrapper. Demonstration capability:
 # measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
@@ -479,7 +479,7 @@ name = "Calipers"
 kind = "caliper"
 present = true
 verify = false
-range_mm = [0, 152.4]
+range_mm = [0, 152.4] # source: example value (realistic, not a shop measurement); basis: author-selected caliper nominal range
 resolution_mm = { value = 0.0127, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 note = "Author-selected identified demonstration comparator with positive .0005 in resolution; no calibration certificate or completed part reading is claimed."
 cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
@@ -489,13 +489,13 @@ name = "Dial test indicator"
 kind = "dial_test_indicator"
 present = true
 verify = false
-range_mm = [0, 0.8]
+range_mm = [0, 0.8] # source: example value (realistic, not a shop measurement); basis: author-selected indicator nominal range
 resolution_mm = { value = 0.00254, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 note = "Example vise-alignment capability, not a part-thread or dimensional inspection worksheet. Plan alignment target .0254 mm over100 mm is an instruction, not a recorded result."
 cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
 
 [gauges.actual-slot]
-name = "Intended T-slot"
+name = "Recipient T-slot"
 kind = "mating_part"
 present = true
 verify = false
@@ -503,7 +503,7 @@ note = "Disclosed example recipient dimensions, mm: throat12.7, undercut22.86, t
 cite = "Author-selected demonstration recipient; example value (realistic, not a shop measurement); source functional comparison https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"
 
 [gauges.mating-hardware]
-name = "Intended 3/8-16 RH stud/nut"
+name = "Matching 3/8-16 RH stud/nut"
 kind = "mating_hardware"
 present = true
 verify = false

@@ -124,7 +124,7 @@ def test_explicit_missing_chrome_is_not_replaced_by_another_browser(tmp_path: Pa
 def _completed_pagination_dom(pages: int) -> str:
     return (
         '<!DOCTYPE html><html lang="en" class="theme-light paged">'
-        '<head><title>part-x traveler</title></head><body>'
+        "<head><title>part-x traveler</title></head><body>"
         f'<section class="page traveler-page" data-sheet="job" data-pages="{pages}">'
         "Printed job</section></body></html>"
     )
@@ -216,9 +216,7 @@ def test_chrome_prints_to_an_absolute_pdf_path(tmp_path: Path, monkeypatch) -> N
     monkeypatch.chdir(tmp_path)
     html = tmp_path / "traveler.html"
     html.write_text("<title>p traveler</title>", encoding="utf-8")
-    declared = mr.print_traveler_pdf(
-        html, Path("r") / "traveler.pdf", chrome=Path("chrome.exe")
-    )
+    declared = mr.print_traveler_pdf(html, Path("r") / "traveler.pdf", chrome=Path("chrome.exe"))
     assert declared == 5
     assert len(calls) == 1
     seen = calls[0]
@@ -251,9 +249,7 @@ def test_completed_continuous_job_accepts_actual_odd_and_even_counts(
     assert package.pages == expected
     assert all(page.is_file() for page in expected)
     assert package.provenance["pages"] == [str(page) for page in expected]
-    assert [index for kind, index in events if kind == "close-textpage"] == list(
-        range(page_count)
-    )
+    assert [index for kind, index in events if kind == "close-textpage"] == list(range(page_count))
     assert [index for kind, index in events if kind == "close-page"] == list(range(page_count))
     assert events[-1] == ("close-document", None)
 
@@ -444,9 +440,7 @@ def test_pdf_beforeprint_layout_error_overrides_previously_completed_load(
     assert events[-1] == ("close-document", None)
 
 
-@pytest.mark.parametrize(
-    "size", [(595.0, 842.0), (792.0, 612.0)], ids=["a4", "landscape-letter"]
-)
+@pytest.mark.parametrize("size", [(595.0, 842.0), (792.0, 612.0)], ids=["a4", "landscape-letter"])
 def test_traveler_still_requires_actual_letter_portrait_pages(
     tmp_path: Path, monkeypatch, size: tuple[float, float]
 ) -> None:
@@ -473,9 +467,7 @@ def test_completed_dom_does_not_replace_missing_or_empty_pdf_output(
 ) -> None:
     html = tmp_path / "traveler.html"
     html.write_text("<title>part-x traveler</title>", encoding="utf-8")
-    _mock_chrome(
-        tmp_path, monkeypatch, dom=_completed_pagination_dom(6), pdf_bytes=pdf_bytes
-    )
+    _mock_chrome(tmp_path, monkeypatch, dom=_completed_pagination_dom(6), pdf_bytes=pdf_bytes)
 
     with pytest.raises(RuntimeError, match="did not print"):
         mr.print_traveler_pdf(html, tmp_path / "traveler.pdf", chrome=Path("chrome.exe"))
@@ -497,9 +489,7 @@ def test_existing_pdf_keeps_nonletter_odd_page_and_no_html_proof_semantics(
 ) -> None:
     pdf = tmp_path / "external.pdf"
     pdf.write_bytes(b"%PDF-existing")
-    events = _mock_pdfium(
-        monkeypatch, [(595.0, 842.0)], page_texts=["PRINT LAYOUT ERROR"]
-    )
+    events = _mock_pdfium(monkeypatch, [(595.0, 842.0)], page_texts=["PRINT LAYOUT ERROR"])
 
     def no_print(*args, **kwargs):
         pytest.fail("an existing --pdf source must not print HTML")

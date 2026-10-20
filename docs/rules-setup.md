@@ -88,10 +88,10 @@ Only a bench setup containing inspection and/or coating operations, with no
 holding fields other than an optional `hold.note`, uses handling declarations
 instead. It requires a known, nonblank `hold.note` describing the actual
 handling. Missing or blank notes, `"none"` and `"not_applicable"` are errors;
-`"unknown"` remains unresolved.
-There is no fictitious fixture, coolant, deburr limit or machine-Z requirement
-for this scope. The setup sheet prints the handling instructions in HOLD and
-refers to them from the route rather than asking for a nonexistent fixture.
+`hold.note = "unknown"` or a wholly unknown `hold` remains unresolved, not an
+empty declaration. There is no fictitious fixture, coolant, deburr limit or
+machine-Z requirement for this scope. The setup sheet prints the handling
+instructions in HOLD rather than asking for a nonexistent fixture.
 This checks declaration completeness, not chemical safety or inspection
 acceptance.
 
@@ -770,6 +770,9 @@ unknown, not zero clearance. Approach is authored plan debt, not a shop
 measurement. Missing geometry gets one authoring instruction. An unresolved
 tool, fixture or support asks you to add or resolve the owned identity,
 not measure an unowned item's height, point angle or reamer lead.
+An unresolved legacy support or riser retains both its inventory-identity
+instruction and its unresolved bearing-role instruction; resolving one does
+not establish the other.
 
 An existing successful `bundle.kernel.bbox_mm` is transformed from model to
 setup axes; otherwise authored stock or complete feature extents are used.

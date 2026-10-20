@@ -175,7 +175,7 @@ def wall_case(kind, crossing, unresolved_force=False):
         toe = Part.makeBox(4, 2, 1, V(-2, -1 if crossing else 6, 10))
         runner.fixture = [fixture_component("toe", toe)]
         runner.hold = {
-            "kind": "solids", "fixture_kind": "custom", "solids": [], "method": "mandrel",
+            "kind": "solids", "fixture_kind": "custom", "solids": [], "method": "hard_jaws",
             "clamp_debts": [],
             "clamps": [{
                 "name": "toe",
@@ -190,7 +190,7 @@ def wall_case(kind, crossing, unresolved_force=False):
             fixture_component("fixed", Part.makeBox(20, 1, 10, V(-10, -11, 0))),
             fixture_component("moving", Part.makeBox(20, 1, 10, V(-10, 10, 0))),
         ]
-        runner.hold = {"kind": "vise", "method": "mandrel"}
+        runner.hold = {"kind": "vise", "method": "hard_jaws"}
         runner.clamp = {
             "a_axis": 0, "c_axis": 1, "a_lo": -2 if crossing else 6,
             "a_hi": 2 if crossing else 8, "lo": -10, "hi": 10, "seat": 0, "top": 10,
@@ -408,7 +408,7 @@ def _host_wall_finding(native, floor, root):
         "machine": "mill",
         "stock_in": "stock",
         "frame": "model",
-        "hold": {"fixture": "probe", "method": "mandrel"},
+        "hold": {"fixture": "probe", "method": native["hold"]["method"]},
         "ops": [],
     }
     bundle = Bundle(
@@ -450,6 +450,9 @@ def _host_wall_finding(native, floor, root):
 def test_actual_native_wall_interval_reaches_the_host_without_an_exact_minimum(
     safety_native, tmp_path, kind, position, status
 ):
+    # This oracle tests unprotected loading. A mandrel instead permits bounded
+    # holding below/straddling the floor (docs/rules-geometry.md), without making
+    # the wall exact. The fixture solids and native force rays are unchanged.
     native = safety_native["walls"][kind + "-crossing"]
     bounds = native["after"]["min_wall_bounds_mm"]
     floor = {
@@ -458,7 +461,30 @@ def test_actual_native_wall_interval_reaches_the_host_without_an_exact_minimum(
         "above": bounds["upper"] + 0.25,
     }[position]
     finding = _host_wall_finding(native, floor, tmp_path)
+    assert finding.numbers["method"] == "hard_jaws"
     assert finding.status == status
+    assert finding.numbers["min_wall_mm"] == "unknown"
+    assert finding.numbers["min_wall_bounds_mm"] == bounds
+    assert finding.numbers["material_wall"] == native["after"]["material_wall"]
+    assert finding.numbers["material_contact"] == native["after"]["material_contact"]
+
+
+@pytest.mark.parametrize("kind", ["strap", "vise"])
+@pytest.mark.parametrize("position", ["inside", "above"])
+def test_named_protection_accepts_bounded_holding_without_inventing_an_exact_wall(
+    safety_native, tmp_path, kind, position
+):
+    native = safety_native["walls"][kind + "-crossing"]
+    bounds = native["after"]["min_wall_bounds_mm"]
+    floor = (
+        (bounds["lower"] + bounds["upper"]) / 2 if position == "inside" else bounds["upper"] + 0.25
+    )
+    # Protective method text is host policy, not a different geometric proof.
+    # Keep the native interval/contact facts exactly as measured by this batch.
+    protected = {**native, "hold": {**native["hold"], "method": "mandrel"}}
+    finding = _host_wall_finding(protected, floor, tmp_path)
+    assert finding.status == "pass"
+    assert finding.numbers["method"] == "mandrel"
     assert finding.numbers["min_wall_mm"] == "unknown"
     assert finding.numbers["min_wall_bounds_mm"] == bounds
     assert finding.numbers["material_wall"] == native["after"]["material_wall"]

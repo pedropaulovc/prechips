@@ -152,7 +152,13 @@ def test_steady_rest_ring_obstructs_the_ops_it_serves_and_is_drawn(engine, shaft
     assert 0 < served["tool_hits"] < served["sample_count"]
     assert parked["tool_hits"] == parked["holder_hits"] == 0
     setup = result["setups"]["T1"]
-    assert {"name": STEADY, "role": "rest", "exact": True} in setup["render_scene"]["components"]
+    (rest,) = [
+        component
+        for component in setup["render_scene"]["components"]
+        if component["name"] == STEADY
+    ]
+    assert rest["role"] == "rest" and rest["exact"] is True
+    assert rest["bbox_mm"] == pytest.approx([-30.0, -30.0, 25.0, 30.0, 30.0, 35.0], abs=1e-6)
     # Riding the bar is contact, not interpenetration.
     assert setup["fixture_clashes"] == [] and setup["fixture_rendered"] is True
 

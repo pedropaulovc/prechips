@@ -33,7 +33,7 @@ job = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(job)
 V = FreeCAD.Vector
 args = json.loads(os.environ["PROBE_ARGS"])
-setup = job._Setup.__new__(job._Setup)
+setup = job._Setup(None, {"id": "S1", "ops": []})
 """
 
 _SECTION_PROBE = r"""
@@ -58,7 +58,7 @@ left, right = args["heights"]
 setup.part = Part.makeBox(35, 12, 18 - left, V(0, 0, left)).fuse(
     Part.makeBox(65, 12, 18 - right, V(35, 0, right))
 )
-setup.fixture, setup.hold = [], {"clamps": []}
+setup.hold = {"clamps": []}
 identity = job._pose_matrix({"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]})
 setup._add_owned(args["solids"], args["role"], identity, args["owner"])
 components = setup._render_components(args["annotation"])

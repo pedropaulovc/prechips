@@ -384,6 +384,29 @@ def fixture_height(bundle, setup, debts, cite):
         )
         values.append(UNKNOWN)
         verified = False
+        # Classification can reject an unresolved source before returning a layer.
+        # Keep its inventory-identity debt separate from the bearing-role debt;
+        # neither a missing item nor an unknown kind is a height to measure.
+        declared = hold.get(field)
+        sources = declared if isinstance(declared, list) else [declared]
+        for source in sources:
+            reference = source.get("ref") if isinstance(source, dict) else source
+            if not isinstance(reference, str) or reference.strip() in (
+                "",
+                "none",
+                "not_applicable",
+            ):
+                continue
+            source_category, source_ref, source_item = selected_item(bundle, "fixtures", reference)
+            if source_item and source_item.get("kind") != UNKNOWN:
+                continue
+            authoring_entry(
+                debts,
+                f"{source_category}.{source_ref}.resolve",
+                f"resolve: add or select an owned fixture for {source_ref} in inventory "
+                f"and author {path}",
+                f"inventory.{source_category}.{source_ref}",
+            )
     parallels = hold.get("parallels")
     if parallels not in (None, "none", "not_applicable"):
         layers.insert(0, ("parallels", parallels, None))

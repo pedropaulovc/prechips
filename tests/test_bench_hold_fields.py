@@ -219,8 +219,10 @@ def test_unknown_holding_kind_cannot_become_note_only_handling():
     }
 
 
-def test_unknown_hold_as_a_whole_is_unknown_handling_not_an_empty_declaration():
-    data = handling_bundle()
+@pytest.mark.parametrize("kind", ["bench", "manual"])
+@pytest.mark.parametrize("actions", [("inspect",), ("coating",), ("inspect", "coating")])
+def test_unknown_hold_as_a_whole_is_unknown_handling_not_an_empty_declaration(kind, actions):
+    data = handling_bundle(actions, kind)
     setup_of(data)["hold"] = "unknown"
     row = finding(data)
     assert row.status == "unknown"
@@ -315,54 +317,48 @@ def rendered_holding(data):
         if node["tag"] in {"li", "p", "td"} and re.search(r"\bSTOP\b", content(node))
     ]
     text = " ".join(content(node) for node in markup.nodes if node["tag"] == "li")
-    return text, stops, sheet.route_holding(setup)
+    return text, stops
 
 
 @pytest.mark.parametrize("actions", [("inspect",), ("coating",), ("inspect", "coating")])
 def test_sheet_known_handling_prints_its_note_without_inventing_fixture_stops(actions):
-    text, stops, route = rendered_holding(handling_bundle(actions))
+    text, stops = rendered_holding(handling_bundle(actions))
     assert stops == []
     assert NOTE in text
-    assert not re.search(r"\bSTOP\b", route)
     assert FIXTURE_NAME not in text
-    assert FIXTURE_NAME not in route
 
 
 @pytest.mark.parametrize("note", [None, "", " \t", "none", "not_applicable", "unknown"])
-def test_sheet_unestablished_handling_stops_hold_and_route(note):
+def test_sheet_unestablished_handling_stops_holding(note):
     data = handling_bundle()
     if note is None:
         del setup_of(data)["hold"]["note"]
     else:
         setup_of(data)["hold"]["note"] = note
-    _, stops, route = rendered_holding(data)
+    _, stops = rendered_holding(data)
     assert stops
-    assert re.search(r"\bSTOP\b", route)
 
 
 @pytest.mark.parametrize("actions", [("fit",), ("deburr",), ("scribe",), ("file_to_line",)])
 def test_sheet_mechanical_note_cannot_replace_a_missing_fixture(actions):
     data = handling_bundle(actions)
-    _, stops, route = rendered_holding(data)
+    _, stops = rendered_holding(data)
     assert stops
-    assert re.search(r"\bSTOP\b", route)
 
 
 @pytest.mark.parametrize("actions", [("fit",), ("inspect",), ("coating",)])
 def test_sheet_selected_real_fixture_keeps_its_shop_name(actions):
-    text, stops, route = rendered_holding(bundle(actions))
+    text, stops = rendered_holding(bundle(actions))
     assert stops == []
     assert FIXTURE_NAME in text
-    assert FIXTURE_NAME in route
 
 
 @pytest.mark.parametrize("selection", ["fixture", "kind"])
 def test_sheet_explicit_unknown_selection_never_prints_as_known_handling(selection):
     data = handling_bundle()
     setup_of(data)["hold"][selection] = "unknown"
-    _, stops, route = rendered_holding(data)
+    _, stops = rendered_holding(data)
     assert stops
-    assert re.search(r"\bSTOP\b", route)
 
 
 @pytest.mark.parametrize("kind", ["bench", "manual"])

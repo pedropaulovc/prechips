@@ -43,7 +43,7 @@ def test_absent_request_keeps_computed_rounding_and_feed():
     assert row.numbers["rpm"] == 1550
     assert row.numbers["feed_mm_min"] == 155
     assert "rpm_basis" not in row.numbers
-    assert speed == "1550"
+    assert speed == "1550 rpm"
     assert not stop
 
 

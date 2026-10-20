@@ -6,6 +6,8 @@ import json
 import pytest
 from test_cli import run_cli
 
+from prechips.findings import Finding, is_required
+from prechips.inputs import load_bundle
 from prechips.rules.speeds_feeds import nearest50
 from prechips.rules.tip_endpoints import drill_point_mm
 from prechips.rules.zero_recipe.touch import axis_recipe
@@ -266,6 +268,23 @@ def check(tmp_path, *setups):
     return result.returncode, {(f["rule"], f["subject"]): f for f in report["findings"]}
 
 
+def assert_only_final_inspection_debt(tmp_path, findings, setup_ids):
+    for sid in setup_ids:
+        for rule in ("order", "hold_fields"):
+            assert findings[(rule, sid)]["status"] == "pass"
+    bundle = load_bundle(tmp_path / "plan.toml")
+    required_debt = {}
+    for key, row in findings.items():
+        if row["status"] in {"pass", "not_applicable"}:
+            continue
+        finding = Finding(
+            row["rule"], row["subject"], row["status"], row["numbers"], row["cite"], row["message"]
+        )
+        if is_required(finding, bundle.policy, bundle):
+            required_debt[key] = row["status"]
+    assert required_debt == {("inspection", "h1:dia"): "unknown"}
+
+
 def one_setup(*ops):
     return setup("S1", "[10, 20]") + "".join(ops)
 
@@ -277,7 +296,14 @@ def test_release_may_precede_the_next_setups_cuts(tmp_path, freecad_kernel):
     s2 = setup("S2", "[10]", 'stock_in = "S1"\n', align="", top_z=0.0) + face()
     code, findings = check(tmp_path, s1, s2)
     assert findings[("order", "S1")]["status"] == "pass"
-    assert code == 0
+    # The route is valid, but S2's face has no proved-disjoint physical claim
+    # relative to h1. Do not credit S1's earlier reading as its final inspection
+    # (docs/rules-inspection.md, Check timing and scope).
+    inspection = findings[("inspection", "h1:dia")]
+    assert inspection["status"] == "unknown"
+    assert inspection["numbers"]["unresolved_cut_effects"] == ["S2:10"]
+    assert_only_final_inspection_debt(tmp_path, findings, ("S1", "S2"))
+    assert code == 4
 
 
 def test_release_before_a_same_setup_cut_is_an_order_error(tmp_path):
@@ -338,7 +364,13 @@ def test_directed_pocket_and_undirected_point_and_manual_ops_pass(tmp_path, free
     row = findings[("hold_fields", "S1")]
     assert row["status"] == "pass"
     assert row["numbers"]["cut_directions"] == {"10": "climb", "40": "climb"}
-    assert code == 0
+    # Declared directions do not prove that the later pocket leaves the checked
+    # hole unchanged. Preserve that independent final-inspection debt.
+    inspection = findings[("inspection", "h1:dia")]
+    assert inspection["status"] == "unknown"
+    assert inspection["numbers"]["unresolved_cut_effects"] == ["S1:40"]
+    assert_only_final_inspection_debt(tmp_path, findings, ("S1",))
+    assert code == 4
 
 
 def test_drill_before_its_spot_is_an_order_error(tmp_path):

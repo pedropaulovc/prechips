@@ -223,7 +223,7 @@ tap RPM/feed or automatic class certification is supplied.
 
 ## Demonstration stock and registration
 
-The adopted raw 1018/HB120 flat bar is 1 × .625 × 5 inch: model origin
+The adopted example annealed 1018/HB120 flat bar is 1 × .625 × 5 inch: model origin
 [0,-12.7,-1.5875] mm, length axis +X, section axis +Y. The .001-inch-per-inch
 starting-end squareness is an explicitly disclosed example raw-stock input, not a
 completed preparation result or `stock.prepared` claim. B0's .889-mm kerf is
@@ -397,13 +397,23 @@ Do not bundle the copyrighted corpus or fetch it during checks.
 | Adopted PM-25MV-BD R8/1HP/speed ranges and nominal travel/headroom | [Manufacturer manual §2, UCSB mirror](https://microfluidics.cnsi.ucsb.edu/wiki/lib/exe/fetch.php?media=tools:precisionsmillingmachine:pm-25mv_manual.pdf); effective envelope limits are separate measured-example facts, not video mill identification. |
 | 2-inch × .125-inch × ½-inch bore, 36T HSS saw; 80–100 sfm, .0004–.0018 in/tooth, flood guidance | [MariTool301-2.0-.50-.125-36T](https://www.maritool.com/product_info.php?products_id=25574); body, kerf and installation dimensions are separate example facts. |
 | .375-inch body/.200-inch finder contact; generic 750–1500 RPM guidance | [Starrett827A](https://www.starrett.com/products/precision-shop-tools/edge-and-center-finders/827A), [Travers finder guidance](https://solutions.travers.com/how-to-use-a-.200-edge-finder-travers-tool-co); adopted 1000 RPM is not a Starrett speed certificate. |
+| Bi-metal 1008/1018 base 270 ft/min; no fluid −30–50% | [LENOX Guide to Band Sawing](https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf), printed p. 21: 4-in-wide annealed material, bi-metal blade and flood sawing fluid are the base conditions; bi-metal construction is defined in the glossary, printed p. 32. |
 | Conditional corroboration of approximately100-sfm HSS practice | [Practical Machinist1018 discussion](https://www.practicalmachinist.com/forum/threads/1018-speeds-feed-and-removal-amount.120956/); not controlling numerical authority. |
 
 The face/profile/spot/drill/saw rows produce respectively 152.4, 76.2, 30.48,
 182.88 and 58.5216 mm/min at their authored 500/750/1200/1200/160 RPM.
 Mill feed is derived, not overridden by operation feed fields. The nonspindle
-bandsaw's 300-sfm / 25.4-mm/min setting is an illustrative author choice within
-its example blade-speed range, not an unconditional Handbook bandsaw prescription.
+bandsaw selects **135 sfm = 270 × 0.50** from the LENOX row above:
+50% no-fluid reduction, with no small-section speed increase. The example adopts
+annealed 1018 and a bi-metal blade with an HSS cutting edge electron-beam welded
+to a spring-steel back; `material="HSS"` denotes the cutting edge. Neither
+condition nor construction is a video observation or actual stock/blade
+identification; HB120 remains an independent author-selected example hardness.
+The unchanged 100–350-sfm machine capability is illustrative, not a loaded-speed
+measurement. The 14 TPI pitch, .889-mm kerf and **25.4-mm/min descent** remain
+independently illustrative and physically unqualified by this chart. This is not
+a product-specific portable-saw recommendation, whole-cut qualification or
+execution approval; the whole operation is not claimed to be conservative.
 Only consumed policy floors remain: refixture .0254 mm, thin wall 1 mm,
 minimum established saw engagement 3 teeth. No dormant Kc/E, load rating,
 lathe-only stickout/near-jaw, filing-to-shape limit or print-precision override
