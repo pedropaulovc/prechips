@@ -742,7 +742,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -2769,7 +2769,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -4796,7 +4796,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -7985,19 +7985,19 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/blondihacks-t-nuts/cutting-data.toml",
-            "sha256": "3b268dad35466959aa4aafd4d3e103401960737888bc31fdadcd3b0b43df5517"
+            "sha256": "2adc12e605dd7bbe2964ae89f90487e938ee8b67aee7180a1d169ce904f1f07b"
           },
           "features": {
             "path": "examples/blondihacks-t-nuts/features.toml",
-            "sha256": "2836f0791bb26cad0dfcb5472517f62266af35891bdfa2f13b55e08a9f20a079"
+            "sha256": "2162f0c040bb3972fba55bcbc29cd0c88885be0d8e18435f1b9e9d1208a52e1a"
           },
           "inventory": {
             "path": "examples/blondihacks-t-nuts/inventory.toml",
-            "sha256": "1a84c4f5b1ce1b276d44b6bda4ba33596fd530f4c173e306655a66e6e7065e75"
+            "sha256": "5a28b0ec7203365d54d276d70e61f52f9d80b3f61269259bd30be6f78f7d0f38"
           },
           "plan": {
             "path": "examples/blondihacks-t-nuts/plan.toml",
-            "sha256": "3eb481546a44fe363dc1a0ebc3e651b68f31683aa4c20413506ad0f5a12820ea"
+            "sha256": "1e2f72d90e3e04727269377a9c741a549ce8b971278def12b8dcb9d3d6f1c76b"
           },
           "shop_policy": {
             "path": "examples/blondihacks-t-nuts/shop-policy.toml",
@@ -9367,7 +9367,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1a:20",
-                    "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                     "setup": "C1a",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -11399,7 +11399,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1a:20",
-                      "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                       "setup": "C1a",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -13648,7 +13648,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1b:10",
-                    "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                     "setup": "C1b",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -15680,7 +15680,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1b:10",
-                      "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                       "setup": "C1b",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -17929,7 +17929,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C2:10",
-                    "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                     "setup": "C2",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -19965,7 +19965,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C2:10",
-                      "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                       "setup": "C2",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -36715,7 +36715,7 @@
         "deburr_mm": 0.05,
         "fixture": "bench-vise",
         "hold": {
-          "clamp": "Portable powered bandsaw; bed-seat/full-height grip; retain starting-end reference; support scrap independently beyond X103 mm.",
+          "clamp": "Portable powered bandsaw; bed-seat/full-height grip; retain starting-end reference; support scrap independently beyond the far kerf edge.",
           "fixed_jaw": "rear",
           "fixture": "bench-vise",
           "grip_mm": 15.875,
@@ -36727,7 +36727,7 @@
           "supports": [
             {
               "id": "scrap-support",
-              "note": "B0 local coordinates in mm: top Z-1.5875; all support hardware X>=103, beyond kerf.",
+              "note": "B0 top Z-1.5875 mm; nearest support hardware about 4.56 inch from original starting end, beyond far kerf edge 4.510 inch.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37018,6 +37018,12 @@
           "jaw_above_parallels_mm": 15.0,
           "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
+          "note": [
+            {
+              "detail": "pro",
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+            }
+          ],
           "parallels": "parallels-25",
           "parallels_along": "x",
           "parallels_centres_mm": [
@@ -37030,11 +37036,11 @@
               9.7
             ]
           ],
-          "stop": "Bottom on both parallels; front flange at fixed jaw",
+          "stop": "Bottom on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
           "supports": [
             {
               "id": "setting-post",
-              "note": "Boss contact on exposed blade body annulus.",
+              "note": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37057,7 +37063,7 @@
             },
             {
               "id": "capture-fixed-post",
-              "note": "Independent table-anchored post/base; not a hand-held catch.",
+              "note": "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37114,6 +37120,12 @@
           "jaw_above_parallels_mm": 15.0,
           "jaw_center_along_mm": 0.0,
           "jaws_along": "x",
+          "note": [
+            {
+              "detail": "pro",
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+            }
+          ],
           "parallels": "parallels-25",
           "parallels_along": "x",
           "parallels_centres_mm": [
@@ -37126,11 +37138,11 @@
               9.7
             ]
           ],
-          "stop": "Bottom on both parallels; front flange at fixed jaw",
+          "stop": "Bottom on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
           "supports": [
             {
               "id": "setting-post",
-              "note": "Boss contact on exposed blade body annulus.",
+              "note": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37153,7 +37165,7 @@
             },
             {
               "id": "capture-fixed-post",
-              "note": "Independent table-anchored post/base; not a hand-held catch.",
+              "note": "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37203,7 +37215,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 balancer at setup X50..76.035 mm, top Z22.225 mm: not stock/capture; cut-stage retainer/jaw gap .04325 inch, not full-cycle minimum",
+          "clamp": "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 balancer occupied X about 1.97..2.99 inch, top Z.875 inch: not stock/capture or DRO targets. Cutting gaps: arbor flange/retainer rim to front workface .040 inch; lower retainer to moving jaw .043 inch (rounded down). Full-cycle closest approach is the stopped blade-body/setting-post gap through .002-inch paper, not a cutting gap.",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 15.0,
@@ -37211,6 +37223,12 @@
           "jaw_center_along_mm": 34.8,
           "jaw_protection": ".002-in paper at cutting-piece/moving-jaw contact only; none on balancer",
           "jaws_along": "x",
+          "note": [
+            {
+              "detail": "pro",
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+            }
+          ],
           "parallels": "parallels-25",
           "parallels_along": "x",
           "parallels_centres_mm": [
@@ -37223,11 +37241,11 @@
               9.7
             ]
           ],
-          "stop": "Remaining bar after C1b at vise left end; jaws X-16..85.6 mm",
+          "stop": "Remaining bar after C1b at vise left end; approximate jaw occupied X -.63..3.37 inch, not DRO targets",
           "supports": [
             {
               "id": "setting-post",
-              "note": "Boss contact on exposed blade body annulus.",
+              "note": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37250,7 +37268,7 @@
             },
             {
               "id": "capture-fixed-post",
-              "note": "Independent table-anchored post/base; not a hand-held catch.",
+              "note": "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -37273,7 +37291,7 @@
             },
             {
               "id": "borrowed-nut1-balancer",
-              "note": "Actual nut1 blank; local y toward setup-Z. Existing pose gives setup X50..76.035 mm and top Z22.225 mm.",
+              "note": "Actual nut1 blank; local y toward setup-Z. Occupied X about 1.97..2.99 inch, top Z.875 inch; envelope, not DRO targets.",
               "placement": "posed",
               "pose": {
                 "origin_mm": [
@@ -43335,7 +43353,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -45362,7 +45380,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -47389,7 +47407,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -50998,7 +51016,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -53025,7 +53043,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -55052,7 +55070,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -57366,7 +57384,9 @@
         "PLAN.md §3.5 sourced cutting data; saw_cut row sfm = blade linear speed, feed_mm_min = descent feed",
         "inventory machine blade_speed_sfm [min, max], inclusive clamp",
         "cutting-data aliases and rows",
-        "Author-selected illustrative non-spindle14 TPI bandsaw setting,300 sfm within adopted100–350 sfm bench capability and25.4 mm/min descent. Example value (realistic, not a shop measurement), not an unconditional transplant of coolant/section-dependent Handbook bandsaw tables."
+        "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p.21:270 ft/min base for4-in-wide annealed1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects50% reduction,135 sfm=270×0.50; no small-section speed increase.",
+        "Same guide, glossary printed p.32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
+        "Source-derived illustrative starting band speed within the unchanged example100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The14 TPI pitch, .889-mm kerf and25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
       ],
       "message": "Blade speed and descent feed are sourced from the saw_cut row; the blade speed is clamped to the machine's blade-speed range.",
       "numbers": {
@@ -57374,15 +57394,19 @@
         "blade_speed_max_sfm": 350.0,
         "blade_speed_min_sfm": 100.0,
         "blade_speed_range_verify": false,
-        "blade_speed_sfm": 300.0,
-        "cutting_data_row": "Author-selected illustrative non-spindle14 TPI bandsaw setting,300 sfm within adopted100–350 sfm bench capability and25.4 mm/min descent. Example value (realistic, not a shop measurement), not an unconditional transplant of coolant/section-dependent Handbook bandsaw tables.",
+        "blade_speed_sfm": 135.0,
+        "cutting_data_row": [
+          "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p.21:270 ft/min base for4-in-wide annealed1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects50% reduction,135 sfm=270×0.50; no small-section speed increase.",
+          "Same guide, glossary printed p.32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
+          "Source-derived illustrative starting band speed within the unchanged example100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The14 TPI pitch, .889-mm kerf and25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
+        ],
         "feed_mm_min": 25.4,
         "matching_rows": 1,
         "material": "1018 steel",
         "material_class": "1018/HB120",
         "material_verify": false,
         "operation": "saw_cut",
-        "sfm": 300.0,
+        "sfm": 135.0,
         "tool_material": "HSS"
       },
       "rule": "speeds_feeds",
@@ -75593,7 +75617,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -77648,7 +77672,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -84518,7 +84542,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -86573,7 +86597,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -93487,7 +93511,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -95546,7 +95570,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -117318,7 +117342,7 @@
             "from": "-y",
             "holder": "collet-9",
             "jog_mm": 6.35,
-            "method": "Pick before loading.",
+            "method": "Pick exposed fixed-jaw face before loading.",
             "mirrored_reading": -8.89,
             "paper_mm": "not_applicable",
             "radius_mm": 2.54,
@@ -118948,7 +118972,7 @@
             "from": "-y",
             "holder": "collet-9",
             "jog_mm": 6.35,
-            "method": "Pick before loading.",
+            "method": "Pick exposed fixed-jaw face before loading.",
             "mirrored_reading": -8.89,
             "paper_mm": "not_applicable",
             "radius_mm": 2.54,
@@ -125091,23 +125115,23 @@
       "subject": "S1"
     }
   ],
-  "hash": "2c60e6d09eb7de12ff78873cb9ad0868203166b6381c15b5095615297d92bf1e",
+  "hash": "fb50ee86d0dd7c751ed544d0d0fb62de9b268a56a6708038be7244c43134b6db",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
-      "sha256": "3b268dad35466959aa4aafd4d3e103401960737888bc31fdadcd3b0b43df5517"
+      "sha256": "2adc12e605dd7bbe2964ae89f90487e938ee8b67aee7180a1d169ce904f1f07b"
     },
     "features": {
       "path": "examples/blondihacks-t-nuts/features.toml",
-      "sha256": "2836f0791bb26cad0dfcb5472517f62266af35891bdfa2f13b55e08a9f20a079"
+      "sha256": "2162f0c040bb3972fba55bcbc29cd0c88885be0d8e18435f1b9e9d1208a52e1a"
     },
     "inventory": {
       "path": "examples/blondihacks-t-nuts/inventory.toml",
-      "sha256": "1a84c4f5b1ce1b276d44b6bda4ba33596fd530f4c173e306655a66e6e7065e75"
+      "sha256": "5a28b0ec7203365d54d276d70e61f52f9d80b3f61269259bd30be6f78f7d0f38"
     },
     "plan": {
       "path": "examples/blondihacks-t-nuts/plan.toml",
-      "sha256": "3eb481546a44fe363dc1a0ebc3e651b68f31683aa4c20413506ad0f5a12820ea"
+      "sha256": "1e2f72d90e3e04727269377a9c741a549ce8b971278def12b8dcb9d3d6f1c76b"
     },
     "render:B0": {
       "path": "setup-S1.png",
@@ -125131,15 +125155,15 @@
     },
     "render:C1a": {
       "path": "setup-S7.png",
-      "sha256": "05187dfb3df27798eccd056de2ebaac6399722e534ee121be95ee482ba553d16"
+      "sha256": "b069e6577f759207597110f3becad6a6cfab1169703479e2c022fd26d4302531"
     },
     "render:C1b": {
       "path": "setup-S8.png",
-      "sha256": "262c2e1030121ec30e84d6f39fea424fe3df45add2a4838e99d3165f3cb4b988"
+      "sha256": "e6414f33617ddf53f2975baffcb85fc4e13aa34f062d2922a780c6118e9e9a39"
     },
     "render:C2": {
       "path": "setup-S9.png",
-      "sha256": "697d1eab6e2592188ffe403ea74620d8033b121402dc8a86873db78cac1e1978"
+      "sha256": "19f4440ded3cc217c014ea22e5e41cc3486fd54e5f19c0f818e37d7d57d02c11"
     },
     "render:D1a": {
       "path": "setup-S14.png",
@@ -126328,7 +126352,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1a:20",
-            "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
             "setup": "C1a",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -126339,6 +126363,10 @@
             -120.38,
             -1.0,
             10.2108
+          ],
+          "minimum_stages": [
+            "post_cut",
+            "pre_cut"
           ],
           "mm": 0.0508,
           "mode": "clear",
@@ -126817,7 +126845,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -129787,7 +129815,7 @@
           }
         }
       },
-      "sha256": "05187dfb3df27798eccd056de2ebaac6399722e534ee121be95ee482ba553d16"
+      "sha256": "b069e6577f759207597110f3becad6a6cfab1169703479e2c022fd26d4302531"
     },
     "C1b": {
       "fixture": "modeled",
@@ -129796,7 +129824,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1b:10",
-            "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
             "setup": "C1b",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -129807,6 +129835,10 @@
             -120.38,
             -1.0,
             10.2108
+          ],
+          "minimum_stages": [
+            "post_cut",
+            "pre_cut"
           ],
           "mm": 0.0508,
           "mode": "clear",
@@ -130285,7 +130317,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -133241,7 +133273,7 @@
           }
         }
       },
-      "sha256": "262c2e1030121ec30e84d6f39fea424fe3df45add2a4838e99d3165f3cb4b988"
+      "sha256": "e6414f33617ddf53f2975baffcb85fc4e13aa34f062d2922a780c6118e9e9a39"
     },
     "C2": {
       "fixture": "modeled",
@@ -133250,7 +133282,7 @@
         "closest_cut": {
           "binding": {
             "op": "C2:10",
-            "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
             "setup": "C2",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -133261,6 +133293,10 @@
             -120.38,
             -1.0,
             10.2108
+          ],
+          "minimum_stages": [
+            "post_cut",
+            "pre_cut"
           ],
           "mm": 0.0508,
           "mode": "clear",
@@ -133745,7 +133781,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "caf4ac1bfd55204c625a5c71dad0fec5663ce217332ea53e1c21d75d3be0af48",
+                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -136829,7 +136865,7 @@
           }
         }
       },
-      "sha256": "697d1eab6e2592188ffe403ea74620d8033b121402dc8a86873db78cac1e1978"
+      "sha256": "19f4440ded3cc217c014ea22e5e41cc3486fd54e5f19c0f818e37d7d57d02c11"
     },
     "D1a": {
       "fixture": "modeled",
