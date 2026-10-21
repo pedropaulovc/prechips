@@ -43,8 +43,9 @@ def _z(value):
 def _banded_starts(bundle):
     """({feature: [error clause]}, {feature: [unknown clause]}) for contour/form ops whose
     ``z_from`` is the face an earlier op in the setup leaves only within its ``to_z_band``
-    (the last op leaving that Z decides). A band with an unknown end still makes its own
-    ``to_z`` a banded face; whether it holds another start is then unknown."""
+    (the last applicable op leaving that Z decides separately for each selected member).
+    A band with an unknown end still makes its own ``to_z`` a banded face; whether it
+    holds another start is then unknown."""
     errors, unknowns = {}, {}
     for setup in bundle.plan["setups"]:
         ops = setup["ops"]
@@ -52,7 +53,8 @@ def _banded_starts(bundle):
             start = op.get("z_from")
             if not _forms(op) or not number(start):
                 continue
-            maybe = []  # later ops whose partly unknown band may hold the start
+            selected = operation_members(bundle, setup, op)
+            producers = []
             for earlier in reversed(ops[:index]):
                 to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
                 banded = isinstance(band, list) and len(band) == 2
@@ -62,34 +64,43 @@ def _banded_starts(bundle):
                 same = same_length(to_z, start)
                 if not same and not (banded and (not known or min(band) <= start <= max(band))):
                     continue
-                selected = operation_members(bundle, setup, op)
-                prior = operation_members(bundle, setup, earlier)
-                if selected and prior is not None and not set(selected) <= set(prior):
-                    continue
-                if selected is None or prior is None:
-                    maybe.append(
-                        f"{setup['id']} op {earlier['op']} start-face member is unresolved"
-                    )
-                    continue
-                if not banded:
-                    break
-                leader = (
-                    f"{setup['id']} op {op['op']} starts at Z {start:g}, which op {earlier['op']}"
+                producers.append(
+                    (earlier, band, banded, known, same, operation_members(bundle, setup, earlier))
                 )
-                lo, hi = sorted(band) if known else band
-                if same or known:
-                    # Certain whatever the later partly unknown bands hold: if one holds
-                    # the start it is banded there, else this band leaves it.
-                    errors.setdefault(op_feature(op), []).append(
-                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
-                        "that face at a deterministic to_z first"
+            for member in selected or (None,):
+                maybe = []  # later ops whose partly unknown band may hold this member's start
+                member_label = f" member {member}" if selected and len(selected) > 1 else ""
+                for earlier, band, banded, known, same, prior in producers:
+                    if member is not None and prior is not None and member not in prior:
+                        continue
+                    if selected is None or prior is None:
+                        maybe.append(
+                            f"{setup['id']} op {earlier['op']} start-face member"
+                            f"{' ' + str(member) if member_label else ''} is unresolved"
+                        )
+                        continue
+                    if not banded:
+                        break
+                    leader = (
+                        f"{setup['id']} op {op['op']}{member_label} starts at Z {start:g}, "
+                        f"which op {earlier['op']}"
                     )
-                    maybe = []
-                    break
-                # Unknown until known not to hold it: keep scanning the earlier producers.
-                maybe.append(f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it")
-            if maybe:
-                unknowns.setdefault(op_feature(op), []).extend(maybe)
+                    lo, hi = sorted(band) if known else band
+                    if same or known:
+                        # Certain whatever the later partly unknown bands hold: if one holds
+                        # the start it is banded there, else this band leaves it.
+                        errors.setdefault(op_feature(op), []).append(
+                            f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
+                            "that face at a deterministic to_z first"
+                        )
+                        maybe = []
+                        break
+                    # Unknown until known not to hold it: keep scanning this member's producers.
+                    maybe.append(
+                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it"
+                    )
+                if maybe:
+                    unknowns.setdefault(op_feature(op), []).extend(maybe)
     return errors, unknowns
 
 

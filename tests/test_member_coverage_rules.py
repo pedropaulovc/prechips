@@ -220,27 +220,167 @@ def test_unresolved_ream_does_not_demote_known_member_pilots():
     ]
 
 
-def test_indicated_transfer_does_not_borrow_sibling_source(monkeypatch):
-    datum_op = _op("one", feature="datum")
-    finish_op = _op("one")
-    setups = [_setup("datum", datum_op), _setup("sibling", _op("two")), _setup("finish", finish_op)]
-    setups[-1]["zero"] = {"transfer": {"from": "sibling", "indicate": ["A"]}}
-    bundle = _bundle(setups)
-    monkeypatch.setattr(
-        datum_consistency,
-        "operation_members",
-        lambda bundle, setup, op=None: ("two",) if setup["id"] == "sibling" else ("one",),
-    )
-    monkeypatch.setattr(datum_consistency, "operation_material_status", lambda *args, **kw: True)
-    assert not datum_consistency._indicated(
-        setups,
-        (2, setups[2], finish_op),
-        (0, setups[0], datum_op),
+def _indicated_member_bundle(*, disjoint=False):
+    from prechips.kernel import workpiece_inputs
+
+    bundle = _datum_bundle()
+    datum = _setup(
         "datum",
-        "A",
-        bundle=bundle,
-        workpiece_id="one",
+        _op("one", feature="datum", ref="#20"),
+        _op("two", feature="datum", ref="#20", number=20),
+        _op("two", number=30),
     )
+    source = _setup("source")
+    source["stock_in"] = "datum"
+    finish = _setup("finish", _op("one"))
+    finish["stock_in"] = "source"
+    finish["zero"] = {"transfer": {"from": "source", "indicate": ["A"]}}
+    bundle.plan["setups"] = [datum, source, finish]
+    bundle.plan["workpieces"] = {
+        member: {
+            "pose": {
+                "origin": [offset, 0.0, 0.0],
+                "x": [1.0, 0.0, 0.0],
+                "y": [0.0, 1.0, 0.0],
+                "z": [0.0, 0.0, 1.0],
+                "binding": "canonical STEP target placed in batch model coordinates",
+                "cite": "registered target placement",
+            },
+        }
+        for member, offset in (("one", 0.0), ("two", 20.0))
+    }
+    bundle.finished_feature_owners = {"datum": "pair", "face": "pair"}
+    registrations = workpiece_inputs(bundle.plan["workpieces"], bundle.features["units"])
+    if disjoint:
+        datum["ops"].append(
+            {
+                "op": 40,
+                "do": "saw",
+                "outputs": {
+                    member: {
+                        "carries_workpieces": [member],
+                        "pose": bundle.plan["workpieces"][member]["pose"],
+                    }
+                    for member in ("one", "two")
+                },
+            }
+        )
+        source["stock_in"] = "stock_out.two"
+        finish["stock_in"] = "stock_out.one"
+    # Synthetic native records use the real identity/registration/path contract.
+    # Live membership alone is not a containment certificate.
+    bundle.kernel = {
+        "status": "ok",
+        "setups": {
+            setup["id"]: {
+                "workpieces": {
+                    member: {
+                        "workpiece_id": member,
+                        "registration": registrations[member],
+                        "partition_path": (
+                            [{"split": "datum", "output": member}]
+                            if disjoint and setup is not datum
+                            else []
+                        ),
+                        "status": "pass",
+                        "reasons": [],
+                    }
+                    for member in (
+                        ("one", "two")
+                        if not disjoint or setup is datum
+                        else ("two",)
+                        if setup is source
+                        else ("one",)
+                    )
+                },
+            }
+            for setup in bundle.plan["setups"]
+        },
+    }
+    return bundle
+
+
+def test_indicated_transfer_accepts_protected_member_from_live_batch():
+    from prechips.material_routes import MaterialGraph
+
+    bundle = _indicated_member_bundle()
+    assert MaterialGraph(bundle.plan).members("source") == {"one", "two"}
+    assert datum_consistency.operation_members(bundle, bundle.plan["setups"][1]) is None
+    row = next(row for row in datum_consistency.evaluate(bundle) if row.subject == "face")
+    assert row.numbers["tolerance_mm"] < row.numbers["refixture_budget_mm"]
+    assert row.status == "pass"
+    relationships = {item["workpiece_id"]: item for item in row.numbers["relationships"]}
+    assert set(relationships) == {"one", "two"}
+    assert relationships["one"] == {
+        "datum": "A",
+        "datum_feature": "datum",
+        "workpiece_id": "one",
+        "feature_op": "finish:10",
+        "datum_op": "datum:10",
+        "same_setup": False,
+        "indicated_transfer": True,
+        "tolerance_mm": 0.01,
+        "status": "pass",
+    }
+    assert relationships["two"]["same_setup"] is True
+    assert relationships["two"]["datum_op"] == "datum:20"
+    assert relationships["two"]["status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "disjoint",
+        "missing_source",
+        "unresolved_source",
+        "missing_registration",
+        "unresolved_registration",
+        "missing_protection",
+        "failed_protection",
+        "sibling_protection",
+        "stale_registration",
+        "wrong_partition",
+        "before_datum",
+    ],
+)
+def test_indicated_transfer_retains_member_source_and_proof_guards(invalid):
+    bundle = _indicated_member_bundle(disjoint=invalid == "disjoint")
+    datum, source, finish = bundle.plan["setups"]
+    proof = bundle.kernel["setups"]["source"]["workpieces"].get("one")
+    if invalid == "missing_source":
+        finish["zero"]["transfer"]["from"] = "absent"
+    elif invalid == "unresolved_source":
+        source["stock_in"] = "absent"
+        finish["stock_in"] = "datum"
+    elif invalid == "missing_registration":
+        bundle.plan["workpieces"]["one"].pop("pose")
+    elif invalid == "unresolved_registration":
+        bundle.plan["workpieces"]["one"]["pose"]["binding"] = "unknown"
+    elif invalid == "missing_protection":
+        del bundle.kernel["setups"]["source"]["workpieces"]["one"]
+    elif invalid == "failed_protection":
+        proof.update(status="error", reasons=["datum target not contained in source stock"])
+    elif invalid == "sibling_protection":
+        proof["workpiece_id"] = "two"
+    elif invalid == "stale_registration":
+        proof["registration"] = bundle.kernel["setups"]["source"]["workpieces"]["two"][
+            "registration"
+        ]
+    elif invalid == "wrong_partition":
+        proof["partition_path"] = [{"split": "datum", "output": "other"}]
+    elif invalid == "before_datum":
+        source["stock_in"] = "stock"
+        datum["stock_in"] = "source"
+        finish["stock_in"] = "datum"
+        bundle.plan["setups"] = [source, datum, finish]
+    row = next(row for row in datum_consistency.evaluate(bundle) if row.subject == "face")
+    assert row.status == "error"
+    relationships = {item["workpiece_id"]: item for item in row.numbers["relationships"]}
+    assert set(relationships) == {"one", "two"}
+    assert relationships["one"]["indicated_transfer"] is False
+    assert relationships["one"]["status"] == "error"
+    assert relationships["two"]["same_setup"] is True
+    assert relationships["two"]["status"] == "pass"
 
 
 def test_unproved_member_datum_protection_remains_debt(monkeypatch):

@@ -10,6 +10,7 @@ pickup never transfers a sibling's datum or unproved protected material.
 """
 
 from prechips.findings import Finding
+from prechips.material_routes import MaterialGraph
 from prechips.rules._profile import datum_features, requirement_band
 from prechips.rules.resolution import (
     HAND_FINISH,
@@ -97,7 +98,7 @@ def _indicated(
         source_setup = next((item for item in setups if item["id"] == source), None)
         if source_setup is None:
             return False
-        if workpiece_id not in (operation_members(bundle, source_setup) or ()):
+        if workpiece_id not in (MaterialGraph(bundle.plan).members(source) or ()):
             return False
         if (
             operation_material_status(
