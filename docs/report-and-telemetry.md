@@ -856,6 +856,11 @@ writing areas.
 Standalone warning boxes inside an operation row are also complete units: a
 fitting warning keeps its attribute, negation and conclusion together, even when
 an earlier warning in that row has already advanced the page.
+An oversized warning first continues between its authored semicolon-delimited
+clauses, keeping each fitting fact identity, negation and conclusion together.
+Only a clause that itself cannot fit beside mandatory fresh-page context may
+continue at measured word boundaries. Clause markup preserves the exact source
+text and delimiters; repeated labels still cannot satisfy original source progress.
 
 An original note title that cannot fit its continuation body may continue as
 authored source text, in order and at working size. Short titles stay atomic.

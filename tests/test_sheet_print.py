@@ -1142,6 +1142,99 @@ def test_genuinely_oversized_operation_control_keeps_original_words_and_sole_res
         assert _pdf_original_page(run, "OversizeHeadingIdentity") <= occupied[0]
 
 
+def _printed_warning_clauses(tmp_path, detail, clauses):
+    from prechips.sheet import _Box, _cell_line, _fields
+
+    raw = "; ".join(clauses)
+    rendered = _cell_line(_Box(raw))
+    assert '<span class="reading">' in rendered
+    # Mark the producer's output, not hand-authored clause markup. Only repeated
+    # context loses this ink; original Range fragments retain every marked word.
+    warning = _pdf_original(rendered)
+    details = (
+        '<div class="op-feed"><dt>feed</dt><dd>'
+        + warning
+        + '</dd></div><div class="op-target"><dt>target</dt><dd>'
+        + _fields("Record {ClauseResultIdentity}.")
+        + "</dd></div>"
+    )
+    source = _pdf_operation(_pdf_original("ClauseHeadingIdentity controlled cut"), details)
+    html = _sections([(0, source)]).replace("<body>", f'<body data-detail="{detail}">', 1)
+    run = printed_pages(html, tmp_path)
+    destinations = _pdf_writable_labels(tmp_path, scenarios=1)
+    assert len(run) > 1
+    # A repeated full warning, operation heading or destination locator must not
+    # disguise a physical page that consumes no original source.
+    progress = [
+        re.findall(
+            r"ClauseFact\d{3}|ClauseWord\d{4}|ClauseHeadingIdentity|"
+            r"ClauseOversizeStart|ClauseOversizeEnd|SECTION-\d+-START",
+            page,
+        )
+        + re.findall(r"ClauseResultIdentity", destination)
+        for page, destination in zip(run, destinations, strict=True)
+    ]
+    assert all(progress), run
+    # This vocabulary is confined to original warning prose. Filtering out page
+    # furniture lets us compare *all* its words, including the repeated missing-
+    # units explanation and nested numeric readings, in physical reading order.
+    word_pattern = r"[A-Za-z][A-Za-z0-9]*|\d+\.\d+"
+    expected_words = re.findall(word_pattern, raw)
+    vocabulary = set(expected_words)
+    assert [
+        word
+        for word in re.findall(word_pattern, " ".join(run))
+        if word in vocabulary
+    ] == expected_words
+    assert _pdf_original_page(run, "ClauseHeadingIdentity") == 0
+    return run, destinations
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_over_page_warning_keeps_each_numeric_missing_fact_on_one_original_pdf_page(
+    tmp_path, detail
+):
+    missing = "No numeric length with explicit millimetre or inch units is recorded"
+    # Ninety-six complete facts exceed a fresh physical page even in compact
+    # modes, while each individual fact is only a few lines long.
+    clauses = [
+        f"ClauseFact{index:03} body width 12.5 mm (missing): {missing}"
+        for index in range(96)
+    ]
+    run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
+    clause_pages = [_pdf_original_page(run, clause) for clause in clauses]
+    assert clause_pages == sorted(clause_pages)
+    assert len(set(clause_pages)) > 1
+    assert _pdf_original_page(destinations, "ClauseResultIdentity") >= clause_pages[-1]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_individually_over_page_warning_clause_falls_back_without_fracturing_neighbors(
+    tmp_path, detail
+):
+    missing = "No numeric length with explicit millimetre or inch units is recorded"
+    neighbors = [
+        f"ClauseFact{index:03} body width 9.5 mm (missing): {missing}"
+        for index in range(6)
+    ]
+    words = [f"ClauseWord{index:04}" for index in range(700)]
+    oversized = "ClauseOversizeStart " + " ".join(words) + " ClauseOversizeEnd"
+    clauses = [*neighbors[:3], oversized, *neighbors[3:]]
+    run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
+    neighbor_pages = [_pdf_original_page(run, clause) for clause in neighbors]
+    assert neighbor_pages == sorted(neighbor_pages)
+    occupied = [
+        index for index, page in enumerate(run) if re.search(r"ClauseWord\d{4}", page)
+    ]
+    assert len(occupied) > 1
+    assert re.findall(r"ClauseWord\d{4}", " ".join(run)) == words
+    assert _pdf_original_page(run, "ClauseOversizeStart") == occupied[0]
+    assert _pdf_original_page(run, "ClauseOversizeEnd") == occupied[-1]
+    assert neighbor_pages[2] <= occupied[0]
+    assert neighbor_pages[3] >= occupied[-1]
+    assert _pdf_original_page(destinations, "ClauseResultIdentity") >= neighbor_pages[-1]
+
+
 def test_the_clearance_section_never_leaves_its_travel_lines_apart_from_its_table(tmp_path):
     # The mill CLEARANCE section as the sheet writes it, after a filler of every height
     # around a page end: X travel, Y travel and the obstacle table print on one page.
