@@ -553,7 +553,7 @@ ToolTouch = record(
         **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
         "check_jog_mm": Number,
         # Explicit native paper-contact pose and full-stack retract for a staged touch.
-        "at_mm": Vector,
+        "at_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "retract_clearance_mm": Number,
         "mounted_saw": MountedSawTouch,
         # The blade corner a grooving/parting blade's Z touch sets, where the touched

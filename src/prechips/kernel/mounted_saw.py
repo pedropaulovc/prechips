@@ -552,7 +552,10 @@ def prepare(bundle, setup, op):
     if isinstance(bore, list) and isinstance(pilot, list):
         if pilot[1] > bore[0]:
             errors.append("arbor pilot maximum exceeds blade bore minimum")
-        if number(clearance_value) and bore[1] - pilot[0] > clearance_value:
+        if (
+            number(arbor["bore_clearance_max_mm"])
+            and bore[1] - pilot[0] > arbor["bore_clearance_max_mm"]
+        ):
             errors.append("blade bore clearance exceeds arbor qualified maximum")
     if (
         isinstance(thickness_limits, list)

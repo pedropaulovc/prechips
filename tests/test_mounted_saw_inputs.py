@@ -163,6 +163,34 @@ def test_complete_host_recipe_is_deterministic_and_uses_existing_fixture_primiti
     assert kernel._engine_op(op)["mounted_saw"] == op["mounted_saw"]
 
 
+@pytest.mark.parametrize("unit,allowance", [("mm", 0.01), ("in", 0.01 / 25.4)])
+@pytest.mark.parametrize("qualified", [False, True])
+def test_bore_clearance_uses_only_the_qualified_normalized_allowance(
+    tmp_path, unit, allowance, qualified
+):
+    data = saw_bundle(tmp_path)
+    arbor = data.inventory["holders"]["arbor"]["mounted_saw_arbor"]
+    del arbor["bore_clearance_max_mm"]
+    arbor[f"bore_clearance_max_{unit}"] = {
+        "value": allowance,
+        "cite": "synthetic arbor drawing",
+        "verify": not qualified,
+    }
+    recipe = inputs(data)
+    if qualified:
+        assert recipe["arbor"]["bore_clearance_max_mm"] == pytest.approx(0.01)
+        assert recipe["status"] == "error"
+        assert "blade bore clearance exceeds arbor qualified maximum" in recipe["assembly_errors"]
+    else:
+        assert recipe["arbor"]["bore_clearance_max_mm"] == "unknown"
+        assert recipe["status"] == "unknown"
+        assert recipe["assembly_errors"] == []
+        assert "bore_clearance_max needs one fact-local cited or measured allowance" in (
+            recipe["assembly_reasons"]
+        )
+        assert recipe["measurement_debts"]
+
+
 @pytest.mark.parametrize("diameter", [12.69, 12.7, 12.71])
 def test_bore_sized_components_at_body_faces_are_not_flanges(tmp_path, diameter):
     data = saw_bundle(tmp_path)
@@ -483,6 +511,20 @@ def test_legacy_touch_lengths_convert_but_explicit_setup_mm_coordinates_do_not(t
 def test_mounted_saw_structures_are_strict(model, value):
     with pytest.raises(ValidationError):
         model.model_validate(value)
+
+
+@pytest.mark.parametrize("model", [AxisZero, ToolTouch])
+@pytest.mark.parametrize("coordinates", [[], [0], [0, 0, 0], [0, 0, 0, 0]])
+def test_touch_pose_rejects_any_coordinate_count_other_than_two(model, coordinates):
+    with pytest.raises(ValidationError):
+        model.model_validate({"at_mm": coordinates})
+
+
+@pytest.mark.parametrize("model", [AxisZero, ToolTouch])
+def test_touch_pose_preserves_two_coordinates_unknown_and_omission(model):
+    assert model.model_validate({"at_mm": [1.25, -2]}).at_mm == [1.25, -2]
+    assert model.model_validate({"at_mm": "unknown"}).at_mm == "unknown"
+    assert "at_mm" not in model.model_validate({}).model_dump(exclude_unset=True)
 
 
 def test_optional_saw_fields_preserve_authored_unknown_and_omission():

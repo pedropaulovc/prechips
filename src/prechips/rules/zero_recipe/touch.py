@@ -172,10 +172,17 @@ def mounted_saw_axis_recipe(zero, blade, jog_mm, sign=1):
     sense = {"minus_z": 1, "plus_z": -1}.get(side)
     contact = (
         edge + sense * (paper + body / 2) + offset
-        if sense and all(number(v) for v in (edge, paper, body, offset)) and paper >= 0 and body > 0
+        if sense
+        and all(number(v) and math.isfinite(v) for v in (edge, paper, body, offset))
+        and paper >= 0
+        and body > 0
         else UNKNOWN
     )
-    increment = sign * jog_mm if sign in {-1, 1} and number(jog_mm) else UNKNOWN
+    increment = (
+        sign * jog_mm
+        if sign in {-1, 1} and number(jog_mm) and math.isfinite(jog_mm)
+        else UNKNOWN
+    )
     return {
         "axis_set": contact,
         "check_reading": contact + increment if number(contact) and number(increment) else UNKNOWN,
