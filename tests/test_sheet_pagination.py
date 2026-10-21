@@ -1981,3 +1981,142 @@ def test_pedantic_long_later_setup_title_reserves_room_before_source_fitting(
     assert len(layout["controls"]) == 1
     assert layout["controls"][0]["original"] and layout["controls"][0]["fits"]
     assert layout["controls"][0]["page"] in long_pages
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_empty_operation_id_retains_shared_owners_on_tail_and_mixed_pages(printed_sheet, detail):
+    identities = [
+        {"setup_id": f"B2{letter}", "op_id": 40, "workpiece": f"nut{index}"}
+        for index, letter in enumerate("abcd", 1)
+    ]
+
+    def card(key, *, new_page=False):
+        return (
+            f'<div class="family-common" data-physical-ops=\'{json.dumps(identities)}\''
+            + (' style="break-before:page"' if new_page else "")
+            + '><table class="operations"><tbody class="operation" data-setup-id="" '
+            'data-op="40" data-operation-context="Operation 40">'
+            '<tr class="operation-main"><td><div class="op-action">'
+            f'<p data-owner-witness="{key}">{key}: Apply; wipe excess.</p>'
+            "</div></td></tr></tbody></table></div>"
+        )
+
+    source = (
+        '<section class="setup-family" data-setup-title="B2 finishing holds" data-setup-id="" '
+        'data-setup-members=\'["B2a","B2b","B2c","B2d"]\'><h2>B2 finishing holds</h2>'
+        + card("opening")
+        + card("isolated-tail", new_page=True)
+        + card("mixed-tail", new_page=True)
+        + "</section>"
+        + _setup("F1 final hold", "F1", "nut1", '<p data-owner-witness="fresh">Fresh fit.</p>')
+    )
+    _, layout = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const original = node => !node.closest('[data-job-print],.record-continuation');
+          return {
+            witnesses:[...section.querySelectorAll('[data-owner-witness]')].filter(original)
+              .map(node => ({key:node.dataset.ownerWitness, page:pageOf(node),
+                text:node.textContent})),
+            heads:[...section.querySelectorAll('.cont-head')].map(head => ({
+              page:pageOf(head), owners:JSON.parse(head.dataset.pageOwners),
+              continued:head.dataset.ownerContinued === 'true',
+              title:head.querySelector('.cont-title').textContent,
+              range:head.querySelector('.cont-page-owners').textContent
+            }))
+          };
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert [item["key"] for item in layout["witnesses"]] == [
+        "opening",
+        "isolated-tail",
+        "mixed-tail",
+        "fresh",
+    ]
+    assert [item["text"] for item in layout["witnesses"]] == [
+        "opening: Apply; wipe excess.",
+        "isolated-tail: Apply; wipe excess.",
+        "mixed-tail: Apply; wipe excess.",
+        "Fresh fit.",
+    ]
+    positions = {item["key"]: item["page"] for item in layout["witnesses"]}
+    assert positions["opening"] < positions["isolated-tail"] < positions["mixed-tail"]
+    assert positions["mixed-tail"] == positions["fresh"]
+    heads = {head["page"]: head for head in layout["heads"]}
+    for key, setups in (
+        ("isolated-tail", ["B2a", "B2b", "B2c", "B2d"]),
+        ("mixed-tail", ["B2a", "B2b", "B2c", "B2d", "F1"]),
+    ):
+        head = heads[positions[key]]
+        assert [owner["setup"] for owner in head["owners"]] == setups
+        assert head["owners"][:4] == [
+            {"setup": f"B2{letter}", "member": "", "workpiece": f"nut{index}"}
+            for index, letter in enumerate("abcd", 1)
+        ]
+        assert head["continued"] and "B2a (continued)" in head["range"]
+        assert setups[-1] in head["range"]
+        if detail == "pedantic":
+            assert "Setup B2a" in head["title"] and "(continued)" in head["title"]
+            assert "F1 final hold" not in head["title"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("oversized", [False, True], ids=["complete-warning", "oversized-fallback"])
+def test_operation_warning_keeps_negation_with_clause_until_genuinely_oversized(
+    printed_sheet, detail, oversized
+):
+    warning = (
+        "CAUTION: "
+        + _words("Warning", 1500 if oversized else 100)
+        + " Turning and facing tool bit.shank width (missing): "
+        "No numeric length with explicit millimetre or inch units is recorded."
+    )
+    # One warning row contains multiple source boxes. The first can advance this
+    # page, but cannot license breaking the next fitting warning at a word.
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        '<table class="operations"><tbody class="operation" data-setup-id="S1" '
+        'data-op="10" data-operation-context="S1 op 10 turning">'
+        '<tr class="operation-main"><td><div class="op-head"><h3>Step 10</h3></div>'
+        '<div class="op-action"><p>Face the supported end.</p></div></td></tr>'
+        '<tr class="warn"><td>'
+        + "".join(
+            f'<p><span class="box" data-warning-unit="lead-{index}">'
+            f"CAUTION: {_words(f'Lead{index}', 110)}</span></p>"
+            for index in range(4)
+        )
+        + f'<p><span class="box" data-warning-unit="target">{warning}</span></p>'
+        "</td></tr></tbody></table>",
+    )
+    _, layout = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          return [...section.querySelectorAll('[data-warning-unit]')]
+            .filter(node => !node.closest('[data-job-print]')).map(node => {
+              const copy = node.cloneNode(true);
+              copy.querySelectorAll('[data-job-print]').forEach(child => child.remove());
+              const range = document.createRange(); range.selectNodeContents(node);
+              return {key:node.dataset.warningUnit, words:copy.textContent.trim().split(/\s+/),
+                page:pageOf(node), bottom:pageOf({getBoundingClientRect:() => ({
+                  top:range.getBoundingClientRect().bottom - .1})})};
+            });
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    targets = [unit for unit in layout if unit["key"] == "target"]
+    assert targets
+    assert [word for unit in targets for word in unit["words"]] == warning.split()
+    assert all(unit["page"] == unit["bottom"] for unit in layout)
+    for index in range(4):
+        units = [unit for unit in layout if unit["key"] == f"lead-{index}"]
+        assert len(units) == 1
+        assert units[0]["words"] == ["CAUTION:", *_words(f"Lead{index}", 110).split()]
+    if oversized:
+        assert len(targets) > 1
+    else:
+        assert len(targets) == 1

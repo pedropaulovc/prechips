@@ -788,6 +788,9 @@ before source pagination, so final ownership cannot grow the header afterwards.
 Candidate measurement and final ownership use the same visible original text
 and image traversal, including setup title, member and workpiece metadata
 inherited from nested source elements.
+An empty inner operation setup ID does not hide an enclosing shared physical-owner
+list: isolated tails retain that family, and mixed pages begin their range with
+the continued family rather than the next setup.
 These headings do not recompute approval or certify a new state. Moved or split
 operations leave a pointer to the next physical page.
 
@@ -827,6 +830,9 @@ are budgeted. Restored field labels are included in subsequent fragment
 measurements. Original words remain in order; repeated headings, labels and
 warning identities are read-only context, never replacement source or extra
 writing areas.
+Standalone warning boxes inside an operation row are also complete units: a
+fitting warning keeps its attribute, negation and conclusion together, even when
+an earlier warning in that row has already advanced the page.
 
 An original note title that cannot fit its continuation body may continue as
 authored source text, in order and at working size. Short titles stay atomic.
