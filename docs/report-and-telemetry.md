@@ -97,7 +97,9 @@ The native kernel facts and in-memory finding numbers remain unrounded for every
 contact-coverage, collision and clearance decision. `Finding.to_dict()` and report
 scene publication copy the evidence before applying this diagnostic precision;
 the independent example validator uses the same publication contract after its
-own evaluation. Authored inputs, tool dimensions, target coordinates and other
+own evaluation, including independently derived digital and mechanical zero
+evidence. It compares a projected copy without changing the raw derivation or
+its verdict. Authored inputs, tool dimensions, target coordinates and other
 numbers are not rounded by this projection. Published diagnostics are not
 substitutes for raw operands when reproducing a boundary decision. Canonical
 reports and golden comparisons still require exact bytes, not numeric tolerances.

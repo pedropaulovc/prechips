@@ -18,11 +18,13 @@ from test_arriving_top_rule_consumers import (
     proof_bundle,
 )
 from test_kernel_outputs import _inspection_bundle
+from test_validate_examples import validator_test_bundle
 
 from prechips.findings import Finding
 from prechips.native_diagnostics import publish_native_diagnostics
 from prechips.report import build_report, canonical_bytes, render_assets
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
+from prechips.rules.zero_recipe import rule as zero_rule
 from prechips.rules.zero_recipe.native import zero_pickup_evidence
 
 _WITNESS_Y = (2.8148227397287773, 2.814822739728779)
@@ -438,3 +440,50 @@ def test_validator_uses_independent_raw_findings_and_exact_publication(tmp_path,
         owner[leaf[-1]] += 0.000001
         assert corrupted != actual, leaf
         assert canonical_bytes(corrupted) != canonical_bytes(actual), leaf
+
+
+@pytest.mark.parametrize("corruption", [None, "contact_area", "patch_bbox", "axis_set", "status"])
+def test_zero_consumer_compares_publication_after_independent_raw_derivation(
+    tmp_path, corruption
+):
+    validator = runpy.run_path(
+        str(Path(__file__).resolve().parents[1] / "scripts/validate_examples.py")
+    )
+    data, setup = proof_bundle(tmp_path)
+    _, proof = install_selected_patch_proof(data, setup)
+    entries = validator["Entries"](data.inventory)
+    own = validator["zero_inputs"](validator_test_bundle(data), lambda: deepcopy(data.kernel))
+    status, raw = validator["derive_zero"](setup, own, entries)
+    raw_before, kernel_before = deepcopy(raw), deepcopy(own.kernel)
+    raw_contact = raw["axes"]["z"]["pickup_proof"]["resolved_contact"]
+    assert raw_contact["contact_area_mm2"] == proof["resolved_contact"]["contact_area_mm2"]
+    assert raw_contact["contact_area_mm2"] != round(raw_contact["contact_area_mm2"], 6)
+
+    findings = zero_rule.evaluate(data)
+    report = build_report(data, findings, assets={})
+    finding = next(row for row in report["findings"] if row["subject"] == setup["id"])
+    assert finding["status"] == status
+    published_contact = finding["numbers"]["axes"]["z"]["pickup_proof"]["resolved_contact"]
+    assert published_contact["contact_area_mm2"] == round(raw_contact["contact_area_mm2"], 6)
+    # Before the consumer migration this fresh canonical finding was rejected:
+    # the independently derived contact area still has its raw native precision.
+    assert not validator["same_evidence"](finding["numbers"], raw)
+    validator["check_zero"](setup, finding, entries, own)
+
+    if corruption == "contact_area":
+        published_contact["contact_area_mm2"] += 0.01
+    elif corruption == "patch_bbox":
+        published_contact["patch_bbox_mm"][0] += 0.01
+    elif corruption == "axis_set":
+        finding["numbers"]["axes"]["z"]["axis_set"] += 0.01
+    elif corruption == "status":
+        finding["status"] = "error" if status != "error" else "pass"
+    if corruption is not None:
+        with pytest.raises(ValueError):
+            validator["check_zero"](setup, finding, entries, own)
+
+    assert raw == raw_before
+    assert own.kernel == kernel_before
+    after_status, after_raw = validator["derive_zero"](setup, own, entries)
+    assert after_status == status
+    assert after_raw == raw_before
