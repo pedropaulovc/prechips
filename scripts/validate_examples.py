@@ -48,6 +48,7 @@ from prechips.model import (
     Plan,
     tolerance_requirements,
 )
+from prechips.native_diagnostics import publish_native_diagnostics
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
@@ -4070,9 +4071,12 @@ def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
     Electronic jogs, modes, presets and tool touches follow :func:`derive_zero`.
     Mechanical source pickups have no electronic settings and cannot waive their
     unverified physical registration. No report field or verdict is an operand.
+    Derive and classify on raw native facts first; only then project the derived
+    numbers to publication precision for comparison with the published finding.
     """
     if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
         status, numbers = derive_zero(setup, own, entries)
+        numbers = publish_native_diagnostics(numbers)
         sid, reported = setup["id"], finding["numbers"]
         check_readout(reported.get("readout"), own.plan, own.features, sid)
         require(
@@ -4093,6 +4097,7 @@ def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
     if spindle:
         check_spindle_zero(setup, finding, entries.inventory)
     status, numbers = derive_zero(setup, own, entries)
+    numbers = publish_native_diagnostics(numbers)
     sid, reported = setup["id"], finding["numbers"]
     require(
         reported.get("dro") == numbers["dro"],
