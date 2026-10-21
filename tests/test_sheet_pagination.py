@@ -1990,26 +1990,31 @@ def test_empty_operation_id_retains_shared_owners_on_tail_and_mixed_pages(printe
         for index, letter in enumerate("abcd", 1)
     ]
 
-    def card(key, *, new_page=False):
+    def card(key, *, new_page=False, long_source=False):
         return (
             f'<div class="family-common" data-physical-ops=\'{json.dumps(identities)}\''
             + (' style="break-before:page"' if new_page else "")
-            + '><table class="operations"><tbody class="operation" data-setup-id="" '
+            + '><table class="operations"'
+            + (' style="break-before:page"' if new_page else "")
+            + '><tbody class="operation" data-setup-id="" '
             'data-op="40" data-operation-context="Operation 40">'
             '<tr class="operation-main"><td><div class="op-action">'
             f'<p data-owner-witness="{key}">{key}: Apply; wipe excess.</p>'
-            "</div></td></tr></tbody></table></div>"
+            + (f"<p>{_words('SharedOwnerSource', 700)}</p>" if long_source else "")
+            + "</div></td></tr></tbody></table></div>"
         )
 
     source = (
         '<section class="setup-family" data-setup-title="B2 finishing holds" data-setup-id="" '
         'data-setup-members=\'["B2a","B2b","B2c","B2d"]\'><h2>B2 finishing holds</h2>'
-        + card("opening")
+        + card("opening", long_source=True)
         + card("isolated-tail", new_page=True)
         + card("mixed-tail", new_page=True)
         + "</section>"
         + _setup("F1 final hold", "F1", "nut1", '<p data-owner-witness="fresh">Fresh fit.</p>')
     )
+    # Real source overflow makes the paginator visit the nested boundaries.
+    # Also mark the tables: compact modes make family-common display:contents.
     _, layout = printed_sheet(
         source,
         r"""pageOf => {
