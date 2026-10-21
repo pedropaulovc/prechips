@@ -1142,6 +1142,40 @@ def test_genuinely_oversized_operation_control_keeps_original_words_and_sole_res
         assert _pdf_original_page(run, "OversizeHeadingIdentity") <= occupied[0]
 
 
+_WARNING_WORDS = re.compile(r"[A-Za-z][A-Za-z0-9]*|\d+\.\d+")
+
+
+def _pdf_warning_source_pages(run, raw):
+    # The fixture's warning vocabulary is absent from page furniture and result
+    # fields. Repeated .pdf-original copies have no ink. Preserve physical page
+    # boundaries while excluding text interleaved from the other grid column.
+    expected = _WARNING_WORDS.findall(raw)
+    vocabulary = set(expected)
+    pages = [
+        [word for word in _WARNING_WORDS.findall(page) if word in vocabulary] for page in run
+    ]
+    assert [word for page in pages for word in page] == expected
+    return [" ".join(page) for page in pages]
+
+
+def test_warning_pdf_oracle_ignores_adjacent_fields_but_rejects_physical_splits():
+    clause = (
+        "ClauseFact090 body width 12.5 mm (missing): "
+        "No numeric length with explicit millimetre or inch units is recorded"
+    )
+    phrase = " ".join(_WARNING_WORDS.findall(clause))
+    interleaved = clause.replace(" (missing)", " ClauseResultIdentity. (missing)")
+    assert _pdf_original_page(_pdf_warning_source_pages([interleaved], clause), phrase) == 0
+    before, after = clause.split(" numeric", 1)
+    split = _pdf_warning_source_pages([before, "numeric" + after], clause)
+    with pytest.raises(AssertionError):
+        _pdf_original_page(split, phrase)
+    with pytest.raises(AssertionError):
+        _pdf_warning_source_pages([clause, clause], clause)
+    with pytest.raises(AssertionError):
+        _pdf_warning_source_pages([clause.replace("No numeric", "numeric No")], clause)
+
+
 def _printed_warning_clauses(tmp_path, detail, clauses):
     from prechips.sheet import _Box, _cell_line, _fields
 
@@ -1175,17 +1209,9 @@ def _printed_warning_clauses(tmp_path, detail, clauses):
         for page, destination in zip(run, destinations, strict=True)
     ]
     assert all(progress), run
-    # This vocabulary is confined to original warning prose. Filtering out page
-    # furniture lets us compare *all* its words, including the repeated missing-
-    # units explanation and nested numeric readings, in physical reading order.
-    word_pattern = r"[A-Za-z][A-Za-z0-9]*|\d+\.\d+"
-    expected_words = re.findall(word_pattern, raw)
-    vocabulary = set(expected_words)
-    assert [
-        word for word in re.findall(word_pattern, " ".join(run)) if word in vocabulary
-    ] == expected_words
+    source_pages = _pdf_warning_source_pages(run, raw)
     assert _pdf_original_page(run, "ClauseHeadingIdentity") == 0
-    return run, destinations
+    return run, destinations, source_pages
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
@@ -1198,8 +1224,11 @@ def test_over_page_warning_keeps_each_numeric_missing_fact_on_one_original_pdf_p
     clauses = [
         f"ClauseFact{index:03} body width 12.5 mm (missing): {missing}" for index in range(96)
     ]
-    run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
-    clause_pages = [_pdf_original_page(run, clause) for clause in clauses]
+    _, destinations, source_pages = _printed_warning_clauses(tmp_path, detail, clauses)
+    clause_pages = [
+        _pdf_original_page(source_pages, " ".join(_WARNING_WORDS.findall(clause)))
+        for clause in clauses
+    ]
     assert clause_pages == sorted(clause_pages)
     assert len(set(clause_pages)) > 1
     assert _pdf_original_page(destinations, "ClauseResultIdentity") >= clause_pages[-1]
@@ -1216,8 +1245,11 @@ def test_individually_over_page_warning_clause_falls_back_without_fracturing_nei
     words = [f"ClauseWord{index:04}" for index in range(700)]
     oversized = "ClauseOversizeStart " + " ".join(words) + " ClauseOversizeEnd"
     clauses = [*neighbors[:3], oversized, *neighbors[3:]]
-    run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
-    neighbor_pages = [_pdf_original_page(run, clause) for clause in neighbors]
+    run, destinations, source_pages = _printed_warning_clauses(tmp_path, detail, clauses)
+    neighbor_pages = [
+        _pdf_original_page(source_pages, " ".join(_WARNING_WORDS.findall(clause)))
+        for clause in neighbors
+    ]
     assert neighbor_pages == sorted(neighbor_pages)
     occupied = [index for index, page in enumerate(run) if re.search(r"ClauseWord\d{4}", page)]
     assert len(occupied) > 1
