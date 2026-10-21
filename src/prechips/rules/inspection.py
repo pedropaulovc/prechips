@@ -17,6 +17,8 @@ Inspection-plan passes describe a capable declared checkpoint, never an observed
 ``evaluation="inspection_plan"`` and ``part_result="not_recorded"``. Physical results stay
 blank. Registered final checks own exactly one member; typed manual acceptance belongs
 once to that part, not once to each participating feature, and grants no machining credit.
+Manual acceptance must follow all later work affecting its participants, including spot
+cuts; inspect, release and scribe actions do not themselves invalidate the checkpoint.
 The shared target selector is :func:`.resolution.op_check_targets`.
 
 Ordinary unscoped checks retain final-cutter ordering. A scoped shared dimensional check
@@ -1315,7 +1317,7 @@ def _manual_findings(bundle, selected, route, members):
             ]
             changes = []
             for position, (setup, op) in enumerate(route):
-                if op.get("do") in {"inspect", "spot", "release", "scribe"}:
+                if op.get("do") in {"inspect", "release", "scribe"}:
                     continue
                 effects = [
                     _feature_effect(bundle, setup, op, name, member) for name in participants

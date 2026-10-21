@@ -5976,7 +5976,12 @@ def check_coordinates(
 
 
 class SheetText(HTMLParser):
-    """Visible text and its disclosure/owner ancestry; scripts never supply print debt."""
+    """Visible disclosure text; hiding CSS uses ancestry and conservative may-matches.
+
+    Descendant/child selectors and simple :not() predicates retain their actual
+    scope. Unsupported predicates may hide their matching subject, but never make
+    concealed prose count as visible. This is not a full CSS cascade/layout engine.
+    """
 
     VOID = {
         "area",
@@ -5997,36 +6002,147 @@ class SheetText(HTMLParser):
         r"(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))\b", re.I
     )
 
+    @staticmethod
+    def selector_parts(selector):
+        """Split only at top level: commas/spaces inside :not() or attributes stay put."""
+        parts, start, depth, quote = [], 0, 0, None
+        for index, char in enumerate(selector):
+            if quote:
+                if char == quote and (index == 0 or selector[index - 1] != "\\"):
+                    quote = None
+            elif char in "\"'":
+                quote = char
+            elif char in "([":
+                depth += 1
+            elif char in ")]":
+                depth -= 1
+            elif depth == 0 and (char.isspace() or char in ",>+~"):
+                if selector[start:index].strip():
+                    parts.append(selector[start:index].strip())
+                if not char.isspace():
+                    parts.append(char)
+                elif parts and parts[-1] not in {" ", ",", ">", "+", "~"}:
+                    parts.append(" ")
+                start = index + 1
+        if selector[start:].strip():
+            parts.append(selector[start:].strip())
+        return parts
+
+    @classmethod
+    def compound_match(cls, selector, node):
+        """Three-valued match; unsupported predicates cannot prove visibility.
+
+        Keep known tag/class/id/attribute restrictions even when another predicate
+        is unsupported. In particular, do not strip :not() and mistake its argument
+        for the subject, or invert an unresolved predicate into a definite match.
+        """
+        values = []
+        tokens = re.compile(
+            r":not\(([^()]*)\)|"
+            r"\[\s*([\w-]+)(?:\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([\w-]+)))?\s*\]|"
+            r"::?[\w-]+(?:\([^()]*\))?|[.#][\w-]+|[a-z][\w-]*|\*",
+            re.I,
+        )
+        end = 0
+        for match in tokens.finditer(selector):
+            if match.start() != end:
+                # A partial token (e.g. an escaped class name) is not a known
+                # restriction either. Preserve only complete earlier predicates.
+                if values:
+                    values.pop()
+                values.append(None)
+                end = len(selector)
+                break
+            end = match.end()
+            token = match.group()
+            if match.group(1) is not None:
+                arguments = cls.selector_parts(match.group(1))
+                if len(arguments) == 1:
+                    value = cls.compound_match(arguments[0], node)
+                    values.append(None if value is None else not value)
+                else:
+                    values.append(None)
+            elif match.group(2) is not None:
+                key = match.group(2)
+                value = next((v for v in match.groups()[2:] if v is not None), None)
+                values.append(key in node.attrs and (value is None or node.attrs[key] == value))
+            elif token.startswith(":"):
+                values.append(None)
+            elif token.startswith("."):
+                values.append(token[1:] in node.classes)
+            elif token.startswith("#"):
+                values.append(token[1:] == node.attrs.get("id"))
+            else:
+                values.append(token == "*" or token.lower() == node.tag)
+        if end != len(selector):
+            if values:
+                values.pop()
+            values.append(None)
+        if not values:
+            values.append(None)
+        return False if False in values else None if None in values else True
+
+    @classmethod
+    def selector_may_match(cls, selector, node):
+        parts = cls.selector_parts(selector)
+        # Whitespace adjacent to an explicit combinator is not another relationship.
+        parts = [
+            part
+            for index, part in enumerate(parts)
+            if part != " "
+            or (
+                index > 0
+                and index + 1 < len(parts)
+                and parts[index - 1] not in {",", ">", "+", "~"}
+                and parts[index + 1] not in {",", ">", "+", "~"}
+            )
+        ]
+        if not parts:
+            return True
+        if len(parts) % 2 == 0:
+            return True  # Malformed/unsupported syntax cannot establish visibility.
+
+        def matches(index, current):
+            if cls.compound_match(parts[index], current) is False:
+                return False
+            if index == 0:
+                return True
+            relation = parts[index - 1]
+            if relation == ">":
+                return bool(current.ancestors) and matches(index - 2, current.ancestors[-1])
+            if relation == " ":
+                return any(matches(index - 2, parent) for parent in current.ancestors)
+            # Sibling/unsupported relationships need a DOM not supplied by HTMLParser.
+            # Only the rightmost, already matched compound can constrain them.
+            return True
+
+        return matches(len(parts) - 1, node)
+
     def __init__(self, html=""):
         super().__init__()
         self.text, self.nodes, self.stack = [], [], []
         self.hidden_selectors = []
         for sheet in re.findall(r"<style\b[^>]*>(.*?)</style>", html, re.I | re.S):
+            sheet = re.sub(r"/\*.*?\*/", "", sheet, flags=re.S)
             for selectors, declarations in re.findall(r"([^{}]+)\{([^{}]*)\}", sheet):
                 if self.HIDDEN_STYLE.search(declarations):
-                    self.hidden_selectors.extend(
-                        selector.strip() for selector in selectors.split(",")
-                    )
+                    parts = self.selector_parts(selectors)
+                    start = 0
+                    for index in range(len(parts) + 1):
+                        if index == len(parts) or parts[index] == ",":
+                            self.hidden_selectors.append("".join(parts[start:index]))
+                            start = index + 1
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
 
-        def matches(selector):
-            if selector == "*":
-                return True
-            if not re.fullmatch(r"(?:[a-z][\w-]*)?(?:[.#][\w-]+)*", selector, re.I):
-                return False
-            return all(
-                token[1:] in classes
-                if token.startswith(".")
-                else token[1:] == attrs.get("id")
-                if token.startswith("#")
-                else token == tag
-                for token in re.findall(r"^[a-z][\w-]*|[.#][\w-]+", selector, re.I)
-            )
-
         classes = set(attrs.get("class", "").split())
-        css_hidden = any(matches(selector) for selector in self.hidden_selectors)
+        subject = SimpleNamespace(
+            tag=tag, attrs=attrs, classes=classes, ancestors=tuple(self.stack)
+        )
+        css_hidden = any(
+            self.selector_may_match(selector, subject) for selector in self.hidden_selectors
+        )
         hidden = (
             bool(self.stack and self.stack[-1].hidden)
             or tag in self.INVISIBLE

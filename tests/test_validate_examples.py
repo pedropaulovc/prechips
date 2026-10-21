@@ -1068,6 +1068,50 @@ def test_sheet_rejects_hidden_cleared_or_unassociated_disclosures(
         VALIDATOR["check_sheet"](tmp_path, report)
 
 
+@pytest.mark.parametrize(
+    "selector,wrapper,extra_class,visible",
+    [
+        (".pro .decision", '<div class="pro">', "", False),
+        (".pro .decision", '<div class="hobby">', "", True),
+        ("body[data-detail='pro'] .decision", "<div>", "", False),
+        ("body[data-detail='hobby'] .decision", "<div>", "", True),
+        (".pro > .decision", '<div class="pro">', "", False),
+        (".pro > .decision", '<div class="pro"><div>', "", True),
+        (".decision:not(.shown)", "<div>", "", False),
+        (".decision:not(.shown)", "<div>", "shown", True),
+        (".decision:not([data-status='error'])", "<div>", "", False),
+        (".decision:not([data-status='unknown'])", "<div>", "", True),
+        (".unrelated, .pro > .decision", '<div class="pro">', "", False),
+        (".unrelated, .hobby > .decision", '<div class="pro">', "", True),
+        ("/* print debt */ .decision", "<div>", "", False),
+        ("/* print debt */ .unrelated", "<div>", "", True),
+        # Unsupported predicates/relationships retain the subject's known scope,
+        # rather than supplying false visibility or hiding every unrelated node.
+        (".decision:hover", "<div>", "", False),
+        (".unrelated:hover", "<div>", "", True),
+        (".decision:not(:hover)", "<div>", "", False),
+        (".unrelated + .decision", "<div>", "", False),
+        (".decision + .unrelated", "<div>", "", True),
+    ],
+)
+@pytest.mark.parametrize("declaration", ["display: none", "visibility: hidden"])
+def test_sheet_css_disclosure_visibility_respects_selector_scope(
+    tmp_path, selector, wrapper, extra_class, visible, declaration
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path)
+    altered = decision.replace('class="decision ', f'class="decision {extra_class} ')
+    closing = "</div>" * wrapper.count("<div")
+    html = html.replace(
+        decision, f"<style>{selector} {{ {declaration}; }}</style>{wrapper}{altered}{closing}"
+    )
+    path.write_text(html, encoding="utf-8")
+    if visible:
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
 @pytest.mark.parametrize("status", ["unknown", "error"])
 def test_sheet_accepts_scoped_pedantic_legacy_status_boxes(tmp_path, status):
     report, path, html, decision = sheet_disclosure_fixture(
