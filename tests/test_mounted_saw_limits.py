@@ -53,6 +53,52 @@ def test_complete_bounds_support_machine_limits(monkeypatch, rule):
 
 
 @pytest.mark.parametrize("rule", [envelope, headroom, travel])
+@pytest.mark.parametrize("section", ["saw", "zero", "touch"])
+@pytest.mark.parametrize("status", ["error", "unknown", None])
+def test_failed_native_proof_with_numeric_bounds_cannot_pass_machine_limits(
+    monkeypatch, rule, section, status
+):
+    data, evidence = mounted_bundle(monkeypatch)
+    owner = {
+        "saw": evidence,
+        "zero": evidence["zero"],
+        "touch": evidence["zero"]["touches"][0],
+    }[section]
+    owner["status"] = status
+    row = rule.evaluate(data)[0]
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["spindle_saw_debt"]
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom, travel])
+@pytest.mark.parametrize("section", ["saw", "zero", "touch"])
+def test_failed_native_proof_keeps_independently_known_limit_overruns(
+    monkeypatch, rule, section
+):
+    data, evidence = mounted_bundle(monkeypatch)
+    owner = {
+        "saw": evidence,
+        "zero": evidence["zero"],
+        "touch": evidence["zero"]["touches"][0],
+    }[section]
+    owner["status"] = "error"
+    limits = data.inventory["machines"]["mill"]["envelope"]
+    if rule is travel:
+        limits["travel_mm"]["x"] = measured(49)
+    else:
+        limits["spindle_to_table_max_mm"] = measured(141)
+    row = rule.evaluate(data)[0]
+    assert row.status == "error", row.sentence
+    assert row.numbers["spindle_saw_debt"]
+    if rule is travel:
+        assert row.numbers["travel_checks"]["x"]["minimum_required_mm"] == 50
+        assert row.numbers["travel_checks"]["x"]["lower_bound_margin_mm"] == -1
+    else:
+        assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"] == [112, 142]
+        assert row.numbers["stacks"][0]["upper_margin_mm"] == -1
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom, travel])
 @pytest.mark.parametrize("cached", [None, {}, "unknown", {"status": "ok"}])
 def test_absent_native_bounds_stay_unknown_without_launch(monkeypatch, rule, cached):
     data, _ = mounted_bundle(monkeypatch)

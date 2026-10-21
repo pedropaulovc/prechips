@@ -41,6 +41,27 @@ def test_kerf_and_radius_cannot_fill_missing_body_facts(field):
     )
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize(
+    "field", ["edge_mm", "paper_mm", "thickness_mm", "kerf_offset_mm", "jog_mm"]
+)
+def test_body_side_readings_reject_nonfinite_inputs(field, value):
+    zero = {"edge_mm": 10, "paper_mm": 0.05, "blade_side": "minus_z"}
+    blade = {"thickness_mm": 3.05, "kerf_offset_mm": 0}
+    jog = 5
+    if field in zero:
+        zero[field] = value
+    elif field in blade:
+        blade[field] = value
+    else:
+        jog = value
+    readings = mounted_saw_axis_recipe(zero, blade, jog)
+    expected_set = pytest.approx(11.575) if field == "jog_mm" else "unknown"
+    assert readings["axis_set"] == expected_set
+    assert readings["check_reading"] == "unknown"
+    assert readings["mirrored_reading"] == "unknown"
+
+
 def normalized_zero(monkeypatch, *, selected=0, method="mounted_saw_side", state="stopped"):
     data = mixed_zero_bundle()
     setup = data.plan["setups"][0]

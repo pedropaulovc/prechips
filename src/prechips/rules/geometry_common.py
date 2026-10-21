@@ -698,7 +698,7 @@ def _saw_machine_bounds(saw, keys):
     ):
         return saw, [*missing, "selected calibration approach"]
     touch = chosen[0]
-    if zero.get("status") not in ("pass", "error") or touch.get("status") not in ("pass", "error"):
+    if zero.get("status") != "pass" or touch.get("status") != "pass":
         missing.append("selected calibration approach")
     axis = touch.get("axis_xy_mm")
     endpoints = [touch.get(key) for key in ("approach_start_z_mm", "approach_end_z_mm")]
@@ -751,6 +751,8 @@ def finite_saw_evidence(detail, check):
             else ("assembly_swept_bounds_mm", "spindle_nose_bounds_mm")
         )
         evidence, missing = _saw_machine_bounds(saw, keys)
+        if saw.get("status") != "pass":
+            missing.append("successful native saw proof")
         return (
             (UNKNOWN, [f"finite saw {', '.join(missing)} are unresolved"], evidence)
             if missing
