@@ -450,7 +450,11 @@ def test_zero_consumer_compares_publication_after_independent_raw_derivation(
         str(Path(__file__).resolve().parents[1] / "scripts/validate_examples.py")
     )
     data, setup = proof_bundle(tmp_path)
-    _, proof = install_selected_patch_proof(data, setup)
+    # A finite pad with a sub-micron extension gives the installed, consumed
+    # native proof a noncanonical area while preserving complete touch land.
+    _, proof = install_selected_patch_proof(
+        data, setup, selected_bounds=(0, 4.5, 1.0000001, 5.5)
+    )
     entries = validator["Entries"](data.inventory)
     own = validator["zero_inputs"](validator_test_bundle(data), lambda: deepcopy(data.kernel))
     status, raw = validator["derive_zero"](setup, own, entries)
