@@ -1243,8 +1243,7 @@ def _cell_line(line):
             _numeric_html(text)
             if len(clauses) == 1
             else "".join(
-                f'<span class="warning-clause">{_numeric_html(clause)}</span>'
-                for clause in clauses
+                f'<span class="warning-clause">{_numeric_html(clause)}</span>' for clause in clauses
             )
         )
         return f'<span class="box">{body}</span>'
