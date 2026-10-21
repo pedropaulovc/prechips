@@ -770,6 +770,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
     }
   }
   function paginate(section) {
+    // Keep the first/last authored margins inside the measured page. A collapsed
+    // opening heading margin otherwise shifts pageTop below the physical origin.
+    section.style.display = "flow-root";
     // Recompute original/context distinctions at this width, never from a previous pass.
     section.querySelectorAll(".page-context").forEach((context) => {
       context.removeAttribute(CONTEXT_ROLE);
@@ -1037,6 +1040,11 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         });
       }
     });
+    for (const total of section.querySelectorAll(".first-page-count .cont-page-total")) {
+      total.style.fontKerning = "none";
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
+    }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
@@ -1092,10 +1100,10 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       // prefix can fit below that start; compact context before cloning words.
       if (box(el).top >= pageTop + CAP) return null;
       if (el.tagName === "TABLE") {
-        const progress = sourceProgress(el, el.tBodies[0]);
+        const progress = sourceProgress(el, el.tBodies[0], true, !firstPrefixOnly);
         return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
       }
-      for (const point of pointsIn(el)) {
+      for (const point of pointsIn(el, !firstPrefixOnly)) {
         const contents = contentsAt(el, point);
         if (!originalText(contents)) continue;
         if (fits(textBottom(el, contents))) return () => textBottom(el, contents);
@@ -1191,45 +1199,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           order: registerRoute(scope ?? null, owner.setup) };
       });
     }
-    const physicalLabels = [...new Set([...section.querySelectorAll(
-      "[data-setup-id],[data-physical-ops]")].flatMap(
-      (node) => sourcePhysicalOwners(node).map((owner) => owner.setup)))];
-    function reservePageOwners(count) {
-      // Reserve the widest possible endpoint pair before any source fitting.
-      // Filling the actual range after splitting must not change header geometry.
-      if (!physicalLabels.length) return;
-      const slot = document.createElement("span");
-      slot.className = "cont-page-owners";
-      slot.style.cssText = "display:inline-block;white-space:nowrap;vertical-align:bottom";
-      count.append(slot);
-      let widest = "", width = 0;
-      for (const label of physicalLabels) {
-        slot.textContent = label;
-        const measured = slot.getBoundingClientRect().width;
-        if (measured > width) { widest = label; width = measured; }
-      }
-      slot.textContent = " · Setups " + widest + " (continued) → " + widest;
-      const bounds = slot.getBoundingClientRect(), range = document.createRange();
-      range.selectNodeContents(slot);
-      const ink = range.getBoundingClientRect(),
-        above = Math.max(0, bounds.top - ink.top),
-        below = Math.max(0, ink.bottom - bounds.bottom);
-      // Tight working leading can be shorter than the actual glyph envelope.
-      // Keep its measured baseline and reserve that overhang before source fitting,
-      // as for locator ink; a fixed line-box height alone would leave ink outside.
-      slot.style.paddingTop = above + "px";
-      slot.style.paddingBottom = below + "px";
-      slot.style.width = bounds.width + "px";
-      slot.style.height = bounds.height + above + below + "px";
-      slot.textContent = "";
-    }
-    function finishPageOwners() {
-      if (!compactRunning) return;
-      const starts = [section, ...section.querySelectorAll(".cont-head")],
-        owners = starts.map(() => []), seenSetups = new Set(),
-        setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
+    function forEachPhysicalSource(visit) {
       const walker = document.createTreeWalker(section,
-        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT), range = document.createRange();
       while (walker.nextNode()) {
         const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
           ? node.parentElement : node;
@@ -1239,9 +1211,57 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
             || !locatorVisible(element)) continue;
         const sourceOwners = sourcePhysicalOwners(element);
         if (!sourceOwners.length) continue;
-        const range = document.createRange();
         range.selectNode(node);
         if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+        visit(sourceOwners, node, element);
+      }
+    }
+    const physicalSources = [];
+    // Resolve nested metadata from the same visible source nodes used after
+    // pagination, not only from elements carrying an explicit setup ID.
+    forEachPhysicalSource((owners) => physicalSources.push(...owners));
+    const physicalLabels = [...new Set(physicalSources.map((owner) => owner.setup))];
+    function physicalRunningTitle(owner, continued) {
+      const identity = owner?.identity && owner.identity !== "Job" ? owner.identity
+        : owner?.setup ? "Setup " + owner.setup : "";
+      return [title, identity].filter(Boolean).join(" · ") + (continued ? " (continued)" : "");
+    }
+    const physicalTitles = compactRunning ? [] : [...new Set(
+      [null, ...physicalSources].flatMap(
+        (owner) => [false, true].map((continued) => physicalRunningTitle(owner, continued))
+      )
+    )];
+    function reserveRunningSlot(slot, candidates, wrap = false, target = slot) {
+      // Measure in place at the inherited typography, before fitting source.
+      // Totals, owner ranges and wrapped titles retain this envelope when filled.
+      slot.style.display = wrap ? "block" : "inline-block";
+      slot.style.whiteSpace = wrap ? "normal" : "nowrap";
+      slot.style.verticalAlign = "bottom";
+      const range = document.createRange();
+      let width = 0, height = 0, above = 0, below = 0;
+      for (const candidate of candidates) {
+        target.textContent = candidate;
+        const bounds = slot.getBoundingClientRect();
+        range.selectNodeContents(slot);
+        const ink = range.getBoundingClientRect();
+        width = Math.max(width, bounds.width);
+        height = Math.max(height, bounds.height);
+        above = Math.max(above, bounds.top - ink.top);
+        below = Math.max(below, ink.bottom - bounds.bottom);
+      }
+      // Tight working leading can be shorter than the glyph envelope. Preserve
+      // its baseline and reserve the actual overhang, as for recording locators.
+      slot.style.paddingTop = above + "px";
+      slot.style.paddingBottom = below + "px";
+      slot.style.width = wrap ? "100%" : width + "px";
+      slot.style.height = height + above + below + "px";
+      target.textContent = "";
+    }
+    function finishPageOwners() {
+      const starts = [section, ...section.querySelectorAll(".cont-head")],
+        owners = starts.map(() => []), seenSetups = new Set(),
+        setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
+      forEachPhysicalSource((sourceOwners, node, element) => {
         // Retained DOM boundaries, not page-number guesses or interior headings,
         // decide membership. Fragments inherit the original physical metadata.
         const start = starts.findLastIndex((head) => head === element
@@ -1251,7 +1271,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
             owners[start].push(owner);
           }
         }
-      }
+      });
       owners.forEach((entries, index) => {
         entries.sort((left, right) => left.order - right.order);
         const head = starts[index], first = entries[0],
@@ -1267,6 +1287,14 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         head.dataset.ownerRangeStart = first?.setup || "";
         head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
         head.dataset.ownerContinued = String(continued);
+        if (!compactRunning) {
+          const running = head.querySelector(".cont-title");
+          running.querySelector(".cont-physical-title").textContent =
+            physicalRunningTitle(first, continued);
+          if (running.scrollWidth > running.clientWidth + 1
+              || running.scrollHeight > running.clientHeight + 1) throw new Error(
+            "A physical owner title exceeds its measured running-header reservation.");
+        }
         const slot = head.querySelector(".cont-page-owners");
         if (!slot || !first) return;
         const setups = [...new Set(entries.map((entry) => entry.setup))];
@@ -1319,6 +1347,12 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         ? [compactTitle || title, compactTitle ? quantity : ""]
         : [title, setup.identity === "Job" ? "" : setup.identity])
         .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
+      if (!compactRunning) {
+        const identity = document.createElement("span");
+        identity.className = "cont-physical-title";
+        identity.textContent = running.textContent;
+        running.replaceChildren(identity);
+      }
       for (const [key, value] of Object.entries({ setupTitle: setup.title,
         setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
         if (value) head.dataset[key] = value;
@@ -1345,13 +1379,27 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       count.append(" · page " + pages + " of ");
       const total = document.createElement("span");
       total.className = "cont-page-total";
-      total.textContent = "?";
+      total.style.fontKerning = "none";
       count.append(total);
       // The count line is present during every fit/progress measurement. Its final
       // digits cannot change the title wrapping or the preserved working context.
       head.append(running, "\n", count);
       el.before(head);
-      if (compactRunning) reservePageOwners(count);
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
+      if (!compactRunning) {
+        const identity = running.querySelector(".cont-physical-title"),
+          initial = identity.textContent;
+        reserveRunningSlot(running, [...physicalTitles, initial], true, identity);
+        identity.textContent = initial;
+      }
+      if (physicalLabels.length) {
+        const owners = document.createElement("span");
+        owners.className = "cont-page-owners";
+        count.append(owners);
+        reserveRunningSlot(owners, physicalLabels.map(
+          (label) => " · Setups " + label + " (continued) → " + label));
+      }
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
@@ -1463,8 +1511,12 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       }
       return true;
     }
-    function pointsIn(el) {
-      const points = [], atomicContexts = new Map();
+    const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
+      + ".op-note,.steps > li";
+    function pointsIn(el, allowFallback = true) {
+      const points = [], atomicContexts = new Map(),
+        flow = el.closest("table") || el, start = lead(flow),
+        fresh = start === pageStart || start.contains(pageStart) || box(start).top <= pageTop;
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           // A whole canonical view is source, but none of its SVG, title, caption
@@ -1472,11 +1524,16 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           if (node.parentElement?.closest("figure,.checkpoint-results,[" + ADDED + "]")) {
             return NodeFilter.FILTER_REJECT;
           }
+          const unit = node.parentElement?.closest(OPERATION_UNITS);
+          if (unit && el.contains(unit) && atomicContexts.get(unit)) {
+            return NodeFilter.FILTER_REJECT;
+          }
           // An enclosing worksheet row may span many pages. Its nested table
           // advances at complete source groups, never within a row or field.
           const table = node.parentElement?.closest("table");
           if (table && el.contains(table)) return NodeFilter.FILTER_REJECT;
-          return node.nodeType === Node.TEXT_NODE || node.matches("table,figure," + RESULTS)
+          return node.nodeType === Node.TEXT_NODE
+            || node.matches("table,figure," + RESULTS + "," + OPERATION_UNITS)
             ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         }
       });
@@ -1485,6 +1542,18 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         if (node.nodeType === Node.ELEMENT_NODE) {
           const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
           points.push([parent, slot]);
+          if (node.matches(OPERATION_UNITS)) {
+            const before = [parent, slot], after = [parent, slot + 1],
+              prefix = originalText(contentsAt(el, before)),
+              atomic = !allowFallback || !fresh || prefix || fits(sourceBottom(el, after));
+            atomicContexts.set(node, atomic);
+            // Exhaust complete units before words. A non-fitting leading unit
+            // may descend into its steps/paragraphs only at a fresh page start,
+            // after repeated context has been budgeted beside real source.
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+            continue;
+          }
           if (node.tagName === "TABLE") {
             const bodies = [...node.tBodies];
             for (const [index, body] of bodies.entries()) {
@@ -1575,6 +1644,26 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         else range.setEnd(...point);
         contents = range.cloneContents();
       }
+      if (el.matches("tr.operation-main")) {
+        const fields = [...el.querySelectorAll(".op-details > div")];
+        for (const field of contents.querySelectorAll(".op-details > div")) {
+          const index = fields.findIndex((source) => source.className === field.className),
+            source = fields[index];
+          if (!source) continue;
+          if (getComputedStyle(source.parentElement).display === "grid") {
+            // The pedantic detail grid has two slots. A continued field keeps
+            // its source column instead of restarting auto-placement at slot one.
+            field.style.gridColumnStart = source.style.gridColumnStart || String(index % 2 + 1);
+          }
+          if (!tail || !field.querySelector("dd") || field.querySelector("dt")) continue;
+          const original = source.querySelector("dt");
+          if (original) {
+            const label = original.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
+      }
       const boundary = point[0],
         table = boundary.nodeType === Node.ELEMENT_NODE
           && boundary.matches("table,tbody") ? boundary.closest("table") : null;
@@ -1618,14 +1707,14 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
-    function sourceProgress(t, body, relax = true) {
+    function sourceProgress(t, body, relax = true, allowFallback = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
       if (!row || box(row).top >= pageTop + CAP) return null;
       if (t.classList.contains("measurement-actions")) {
         return originalText(row) && fits(prefixBottom(t, row))
           ? { row, point: null, contents: null } : null;
       }
-      for (const point of pointsIn(row)) {
+      for (const point of pointsIn(row, allowFallback)) {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
@@ -1636,7 +1725,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       if (originalText(row) && fits(prefixBottom(t, row))) {
         return { row, point: null, contents: null };
       }
-      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+      return relax && prepareFields(row) ? sourceProgress(t, body, false, allowFallback) : null;
     }
     function progressBottom(t, progress) {
       return prefixBottom(t, progress.row,
@@ -1749,15 +1838,6 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
         el.replaceChildren(first);
         el.after(rest);
-        for (const field of rest.querySelectorAll(".op-details > div")) {
-          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
-          const source = el.querySelector(".op-details > ." + field.className + " > dt");
-          if (source) {
-            const label = source.cloneNode(true);
-            label.setAttribute(ADDED, "");
-            field.prepend(label);
-          }
-        }
         if (rest.classList.contains("inspection-record")) {
           const identity = document.createElement("p");
           identity.className = "record-continuation";
@@ -1778,7 +1858,12 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           || (rest.matches(".stop, .caution") ? rest : null);
         if (warning) {
           const word = /\b(STOP|HOLD|CAUTION)\b/.exec(el.textContent);
-          if (word) warning.prepend(word[1] + " (continued): ");
+          if (word) {
+            const identity = document.createElement("span");
+            identity.setAttribute(ADDED, "");
+            identity.textContent = word[1] + " (continued): ";
+            warning.prepend(identity);
+          }
         }
         return rest;
       }
@@ -1805,16 +1890,22 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       if (number) number.append(" (continued)");
       return row;
     }
-    function operationContext(t, body, progress) {
+    function operationIdentity(body) {
       const sources = operationHeads.get(body.dataset.printOperation);
-      if (!sources?.length || !body.hasAttribute("data-operation-continuation")) return;
-      const full = contextRow(sources[0]), identity = full.cloneNode(true);
+      if (!sources?.length || !body.hasAttribute("data-operation-continuation")) return null;
+      const identity = contextRow(sources[0]);
       identity.querySelector(".op-action")?.remove();
       const number = identity.querySelector(".op-number"),
         heading = identity.querySelector(".op-head h3");
       if (number && heading) heading.replaceChildren(number);
       identity.querySelector(".op-details")?.remove();
       body.prepend(identity);
+      return identity;
+    }
+    function operationContext(t, body, progress, identity) {
+      if (!identity) return;
+      const sources = operationHeads.get(body.dataset.printOperation),
+        full = contextRow(sources[0]);
       const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
       if (!accepted()) {
         identity.remove();
@@ -1959,10 +2050,13 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       t.setAttribute(SPLIT, "");
       t.tHead?.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
         .forEach((row) => row.remove());
+      // Mandatory identity participates in running-context compaction and the
+      // first semantic source admission, not just the later optional copies.
+      const body = t.tBodies[0], identity = operationIdentity(body);
       breakAt(t);
-      const progress = sourceProgress(t, t.tBodies[0]);
+      const progress = sourceProgress(t, body);
       if (!progress) throw new Error("A continuation cannot advance its original source.");
-      operationContext(t, t.tBodies[0], progress);
+      operationContext(t, body, progress, identity);
       tableContext(t, progress);
       fixtureContext(t, progress);
     }
@@ -2026,7 +2120,13 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         return index;
       };
       let j = over();
-      if (j === 0 && (t.matches("table.tools, table.measurement-actions")
+      const first = j === 0 ? [...(t.tBodies[0]?.rows || [])].find(
+        (row) => !row.hasAttribute(ADDED)
+      ) : null, moveMain = first?.matches(".operation-main")
+        && box(first).bottom - box(first).top <= CAP && !fits(prefixBottom(t, first));
+      // Decide whole-main admission before destructive partitioning. Otherwise
+      // pointer recovery can move an already fractured but fresh-page-fitting card.
+      if (j === 0 && (moveMain || t.matches("table.tools, table.measurement-actions")
           || !sourceProgress(t, t.tBodies[0])) && move(t)) j = over();
       if (!t.classList.contains("operations")) {
         const bodies = [...t.tBodies];
@@ -2109,6 +2209,8 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           move(el);
           if (!fits(box(el).bottom)) refuseFigure(el);
         } else if (el.children.length && style.display !== "inline"
+            && ![...el.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
             && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
               + ".caution, .unverified")) {
           // Ordinary flow containers may share a page and fragment between their
@@ -2154,8 +2256,26 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
     }
     walk(section);
     finishPageOwners();
-    section.querySelectorAll(".cont-head").forEach((head) => {
-      head.querySelector(".cont-page-total").textContent = String(pages);
+    const firstCounts = [...section.querySelectorAll(".first-page-count")],
+      firstHead = section.querySelector(".cont-head");
+    if (firstCounts.length > 1 || firstCounts.some((count) =>
+      !count.closest(".job-identity") || count.closest("[" + ADDED + "]")
+      || locatorPage(count).page !== 1
+      || (firstHead && !(count.compareDocumentPosition(firstHead)
+        & Node.DOCUMENT_POSITION_FOLLOWING)))) throw new Error(
+      "A first-page count must be a single original identity on page 1.");
+    section.querySelectorAll(
+      ".cont-head .cont-page-total,.first-page-count .cont-page-total").forEach((total) => {
+      const value = String(pages);
+      if (value.length > locatorPass.digits) throw new Error(
+        "A running page total exceeds its source-bound digit reservation.");
+      total.textContent = value;
+      const bounds = total.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(total);
+      const ink = range.getBoundingClientRect();
+      if (ink.left < bounds.left - .01 || ink.right > bounds.right + .01
+          || ink.top < bounds.top - .01 || ink.bottom > bounds.bottom + .01) throw new Error(
+        "A running page total exceeds its measured reservation.");
     });
     for (const grid of section.querySelectorAll(RESULTS)) {
       const cells = [...grid.querySelectorAll(":scope > .checkpoint-result")];
@@ -2197,6 +2317,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
         copy.replaceWith(image);
       });
       section.replaceChildren(...restored.childNodes);
+      section.style.setProperty("display", source.style.getPropertyValue("display"),
+        source.style.getPropertyPriority("display"));
+      if (!source.hasAttribute("style") && !section.style.cssText) section.removeAttribute("style");
       delete section.dataset.pages;
     }
   }
@@ -2257,9 +2380,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
 })();
 </script></head><body data-detail="hobby">
 <section class="page" data-sheet="job" data-title="JOB" data-part="strap-plate" data-job-title="Strap Plate" data-quantity="?" data-drawing="?" data-revision="">
-<p class="job-identity"><strong>Strap Plate</strong> · qty ? · ? · Hobby · REV NOT CONFIRMED</p>
+<p class="job-identity"><strong>Strap Plate</strong> · qty ? · ? · REV NOT CONFIRMED<span class="cont-count first-page-count"> · page 1 of <span class="cont-page-total"></span></span></p>
 <div class="banner">PLANNED — NOT APPROVED</div>
 <div class="decision stop" data-decision="block" data-source="coverage" data-status="error" data-scope="strap-plate" data-decision-evidence="[{&quot;source&quot;: &quot;coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;strap-plate&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>faces have no cutting op or as-stock claim: #<span class="reading">88</span>/ADVANCED FACE[<span class="reading">3</span>]/, #<span class="reading">152</span>/ADVANCED FACE[<span class="reading">5</span>]/.</p></div><div class="decision stop" data-decision="block" data-source="drawing_revision" data-status="unknown" data-scope="drawing" data-decision-evidence="[{&quot;source&quot;: &quot;drawing_revision&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;drawing&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>Drawing revision not confirmed — match the drawing before execution.</p></div><p>Blocked setups: S1. Resolve their stated prerequisites before execution.</p><p class="job-summary">Drawing material: ? not stated. Stock: profiled blank <span class="reading">60 × 17.838 × 2.5 mm</span> overall, bought already cut to outline, vendor cut tolerance <span class="reading">±0.127 mm</span>. mill. Millimetres unless marked. Speeds / feeds: no cited source — resolve speed/feed STOPs before powered cuts. DRO resolution: mill <span class="reading">0.001 mm</span> (resolution absent/unknown: provisional default grid).</p><p>All edges: ? edge break not on the drawing; plan breaks edges <span class="reading">0 mm</span> max</p><div class="tool-settings"><h2>Tools / settings — RPM / feed (mm/min unless marked); lengths (mm)</h2><table class="settings-key"><colgroup><col style="width:10%"><col style="width:90%"></colgroup><tbody><tr><th scope="row">T1</th><td><span class="tool-setting-entry" data-physical-ops="[&quot;S1:10&quot;]"><span class="reading">8 mm</span> EM endmill; <span class="reading">R8</span> collet hand; <span class="reading">4</span> flutes.</span></td></tr></tbody></table></div>
-<section class="setup-flow" data-setup-title="S1" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-workpiece=""><h2>S1</h2><span class="route-prelude" data-setup-members="[&quot;S1&quot;]">Strap flat; the end mill&#x27;s side cuts the corner chamfer the blank leaves square. Holding remains measurement debt. Stop: ?. ?. Grip mm: ? not set.</span> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="blank_credit" data-status="error" data-scope="end_faces" data-decision-evidence="[{&quot;source&quot;: &quot;blank_credit&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;end_faces&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>each of its <span class="reading">2</span> faces is not held by the cut: end faces length, cut to <span class="reading">60 ±0.127</span>, may measure <span class="reading">59.873-60.127</span>, outside its <span class="reading">59.9-60.1</span> band by <span class="reading">0.027</span> below and <span class="reading">0.027</span> above. Not credited as supplied: cut each refused face with an op, from a blank that leaves machining allowance on it.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;corner_chamfer&quot;]"><b>10.</b> <strong>T1 · corner chamfer:</strong> finish profile <span class="reading">Z → 0</span>; climb</p></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting rpm</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting feed</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="consistency" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>A stated fact cannot be compared: stock state.top z is unknown, stock state.bottom z is unknown, so the authored stock is not compared; the setup picture&#x27;s nearest cut cannot be compared: CLEARANCE rows for ops <span class="reading">10</span> are not computed.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="coordinates" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;coordinates&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="accessibility" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;accessibility&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Fixture solids are not declared for this holding kind. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="engagement" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;engagement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Tool projection is <span class="reading">4.75</span>×D, above <span class="reading">4</span>×D; DOC reduction is unknown without a positive authored axial depth per pass.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="envelope" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;envelope&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="fixture_interference" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;fixture_interference&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding parts clash: holding identity is unknown. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>headroom, travel or jaw-path geometry remains unmeasured or unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;strap_faces&quot;, &quot;top_arc&quot;, &quot;bottom_edge&quot;, &quot;end_faces&quot;, &quot;corner_chamfer&quot;]"><b>90.</b> <strong>strap faces; top arc; bottom edge; end faces; corner chamfer:</strong> inspect</p><div class="route-inspection"><p>no gauge chosen: ? strap faces thickness <span class="reading">2.3–2.7 mm</span></p></div><div class="route-inspection"><p>no gauge chosen: ? top arc <span class="reading">R 79.5–80.5 mm</span></p></div><div class="route-inspection"><p>no gauge chosen: ? bottom edge height <span class="reading">17.6–18.1 mm</span></p></div><div class="route-inspection"><p>no gauge chosen: ? end faces length <span class="reading">59.9–60.1 mm</span></p></div><div class="route-inspection"><p>no gauge chosen: ? corner chamfer width <span class="reading">3.5–4.5 mm</span></p></div><div class="checkpoint-results"><div class="checkpoint-result" data-feature="strap_faces" data-features="[&quot;strap_faces&quot;]" data-requirement="thickness" data-inspection-ids="[&quot;strap_faces:thickness&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="strap_faces thickness"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span></span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="top_arc" data-features="[&quot;top_arc&quot;]" data-requirement="radius" data-inspection-ids="[&quot;top_arc:radius&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="top_arc radius"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span></span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="bottom_edge" data-features="[&quot;bottom_edge&quot;]" data-requirement="height" data-inspection-ids="[&quot;bottom_edge:height&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="bottom_edge height"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span></span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="end_faces" data-features="[&quot;end_faces&quot;]" data-requirement="length" data-inspection-ids="[&quot;end_faces:length&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="end_faces length"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span></span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="corner_chamfer" data-features="[&quot;corner_chamfer&quot;]" data-requirement="width" data-inspection-ids="[&quot;corner_chamfer:width&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="corner_chamfer width"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span></span><span class="writing-blank" aria-hidden="true"></span></span></div></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="inspection" data-status="unknown" data-scope="bottom_edge:height" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;bottom_edge:height&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;corner_chamfer:width&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;end_faces:length&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;strap_faces:thickness&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;top_arc:radius&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><p>explicit inspection method is unknown.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1041" data-page-context="Setup S1"><p class="stock-fixture-caption">Stock: the stock blank; fixture: ?</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1041" width="1600" height="1041" role="img" aria-label="Setup S1 — SETUP S1  /  ISOMETRIC VIEW"><title>Setup S1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1041" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: fixture not drawn: Fixture solids are not declared for this holding kind.</p></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="stock_diameter" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;stock_diameter&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>selected collet/chuck identity is unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="thin_wall_under_clamp" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;thin_wall_under_clamp&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;vise&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding identity is unknown. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="travel" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;travel&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>declared operation travel remains unmeasured or unresolved. measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected cutter diameter, micrometer, mm; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="zero_check" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: holding not chosen — do not run.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:zero" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:zero&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: no zero recipe — touch, Axis Set and jog checks not planned.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:readout-mode" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:readout-mode&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: establish ABS mode before setting the datum.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="cut_clearance" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;cut_clearance&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>holding beside the cut: not computed — check at the machine</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref">?</span>; Y travel <span class="measurement-ref">?</span>; tool stickout and headroom.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>mill maximum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — <span class="reading">R8</span> collet holder gauge length <span class="measurement-ref">?</span>; insertion length <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref">?</span>; minimum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span>; Z usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — DRO readout step <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — S1 T1 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref">?</span>; overall length <span class="measurement-ref">?</span></p></div></div> </section>
+<section class="setup-flow" data-setup-title="S1" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-workpiece=""><h2>S1</h2><span class="route-prelude" data-setup-members="[&quot;S1&quot;]">Strap flat; the end mill&#x27;s side cuts the corner chamfer the blank leaves square. Holding remains measurement debt. Stop: ?. ?. Grip mm: ? not set.</span> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="blank_credit" data-status="error" data-scope="end_faces" data-decision-evidence="[{&quot;source&quot;: &quot;blank_credit&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;end_faces&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>each of its <span class="reading">2</span> faces is not held by the cut: end faces length, cut to <span class="reading">60 ±0.127</span>, may measure <span class="reading">59.873-60.127</span>, outside its <span class="reading">59.9-60.1</span> band by <span class="reading">0.027</span> below and <span class="reading">0.027</span> above. Not credited as supplied: cut each refused face with an op, from a blank that leaves machining allowance on it.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;corner_chamfer&quot;]"><b>10.</b> <strong>T1 · corner chamfer:</strong> finish profile <span class="reading">Z → 0</span>; climb</p></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting rpm</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting feed</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="consistency" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>A stated fact cannot be compared: stock state.top z is unknown, stock state.bottom z is unknown, so the authored stock is not compared; the setup picture&#x27;s nearest cut cannot be compared: CLEARANCE rows for ops <span class="reading">10</span> are not computed.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="coordinates" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;coordinates&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="accessibility" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;accessibility&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Fixture solids are not declared for this holding kind. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="engagement" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;engagement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Tool projection is <span class="reading">4.75</span>×D, above <span class="reading">4</span>×D; DOC reduction is unknown without a positive authored axial depth per pass.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="envelope" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;envelope&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="fixture_interference" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;fixture_interference&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding parts clash: holding identity is unknown. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>headroom, travel or jaw-path geometry remains unmeasured or unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;strap_faces&quot;, &quot;top_arc&quot;, &quot;bottom_edge&quot;, &quot;end_faces&quot;, &quot;corner_chamfer&quot;]"><b>90.</b> <strong>strap faces; top arc; bottom edge; end faces; corner chamfer:</strong> inspect</p><div class="route-inspection"><p><span class="inspection-criterion" data-inspection-ids="[&quot;strap_faces:thickness&quot;]">no gauge chosen: ? strap faces thickness <span class="reading">2.3–2.7 mm</span></span></p></div><div class="route-inspection"><p><span class="inspection-criterion" data-inspection-ids="[&quot;top_arc:radius&quot;]">no gauge chosen: ? top arc <span class="reading">R 79.5–80.5 mm</span></span></p></div><div class="route-inspection"><p><span class="inspection-criterion" data-inspection-ids="[&quot;bottom_edge:height&quot;]">no gauge chosen: ? bottom edge height <span class="reading">17.6–18.1 mm</span></span></p></div><div class="route-inspection"><p><span class="inspection-criterion" data-inspection-ids="[&quot;end_faces:length&quot;]">no gauge chosen: ? end faces length <span class="reading">59.9–60.1 mm</span></span></p></div><div class="route-inspection"><p><span class="inspection-criterion" data-inspection-ids="[&quot;corner_chamfer:width&quot;]">no gauge chosen: ? corner chamfer width <span class="reading">3.5–4.5 mm</span></span></p></div><div class="checkpoint-results"><div class="checkpoint-result" data-feature="strap_faces" data-features="[&quot;strap_faces&quot;]" data-requirement="thickness" data-inspection-ids="[&quot;strap_faces:thickness&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="strap_faces thickness"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span> — strap faces thickness</span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="top_arc" data-features="[&quot;top_arc&quot;]" data-requirement="radius" data-inspection-ids="[&quot;top_arc:radius&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="top_arc radius"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span> — top arc R</span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="bottom_edge" data-features="[&quot;bottom_edge&quot;]" data-requirement="height" data-inspection-ids="[&quot;bottom_edge:height&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="bottom_edge height"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span> — bottom edge height</span><span class="writing-blank" aria-hidden="true"></span></span></div><div class="checkpoint-result" data-feature="end_faces" data-features="[&quot;end_faces&quot;]" data-requirement="length" data-inspection-ids="[&quot;end_faces:length&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="end_faces length"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span> — end faces length</span><span class="writing-blank" aria-hidden="true"></span></span></div></div><div class="checkpoint-results"><div class="checkpoint-result" data-feature="corner_chamfer" data-features="[&quot;corner_chamfer&quot;]" data-requirement="width" data-inspection-ids="[&quot;corner_chamfer:width&quot;]" data-setup-id="S1" data-op-id="90" data-workpiece="" data-member="" data-shared-check="" data-covered-workpieces="[]" data-record-title="corner_chamfer width"><span class="result-field"><span class="field-label">S1 op <span class="reading">90</span> — corner chamfer width</span><span class="writing-blank" aria-hidden="true"></span></span></div></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="inspection" data-status="unknown" data-scope="bottom_edge:height" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;bottom_edge:height&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;corner_chamfer:width&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;end_faces:length&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;strap_faces:thickness&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;top_arc:radius&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="90" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 90, &quot;workpiece&quot;: null}]"><p>explicit inspection method is unknown.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1041" data-page-context="Setup S1"><p class="stock-fixture-caption">Stock: the stock blank; fixture: ?</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1041" width="1600" height="1041" role="img" aria-label="Setup S1 — SETUP S1  /  ISOMETRIC VIEW"><title>Setup S1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1041" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: fixture not drawn: Fixture solids are not declared for this holding kind.</p></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="stock_diameter" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;stock_diameter&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>selected collet/chuck identity is unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="thin_wall_under_clamp" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;thin_wall_under_clamp&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;vise&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding identity is unknown. Refused kernel facts: mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="travel" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;travel&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>declared operation travel remains unmeasured or unresolved. measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected cutter diameter, micrometer, mm; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="zero_check" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: holding not chosen — do not run.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:zero" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:zero&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: no zero recipe — touch, Axis Set and jog checks not planned.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:readout-mode" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:readout-mode&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: establish ABS mode before setting the datum.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="cut_clearance" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;cut_clearance&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>holding beside the cut: not computed — check at the machine</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref">?</span>; Y travel <span class="measurement-ref">?</span>; tool stickout and headroom.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>mill maximum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — <span class="reading">R8</span> collet holder gauge length <span class="measurement-ref">?</span>; insertion length <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref">?</span>; minimum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span>; Z usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — DRO readout step <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — S1 T1 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref">?</span>; overall length <span class="measurement-ref">?</span></p></div></div> </section>
 
 </section></body></html>
