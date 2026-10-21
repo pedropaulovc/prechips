@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from prechips.native_diagnostics import publish_native_diagnostics
+
 if TYPE_CHECKING:
     from prechips.inputs import Bundle
 
@@ -39,12 +41,13 @@ class Finding:
         object.__setattr__(self, "status", Status(self.status))
 
     def to_dict(self) -> dict[str, Any]:
+        """Publish detached evidence; safety consumers keep the raw ``numbers``."""
         return {
             "rule": self.rule,
             "subject": self.subject,
             "status": str(self.status),
-            "numbers": self.numbers,
-            "cite": self.cite,
+            "numbers": publish_native_diagnostics(self.numbers),
+            "cite": list(self.cite),
             "message": self.sentence,
         }
 

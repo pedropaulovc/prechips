@@ -81,6 +81,27 @@ Canonical bytes are UTF-8 JSON with sorted keys, two-space indentation,
 of that same canonical serialization after removing only the root `hash` member,
 including the final LF.
 
+Selected native diagnostics use the existing six-decimal native output precision:
+`1e-6` mm for coordinates, `1e-6` mm² for areas and `1e-6` mm³ for volumes, with
+positive zero. This removes platform-dependent floating-point last bits from
+diagnostic evidence, not from safety operands. The publication boundary covers:
+
+- Finite mounted-saw fixture-clearance `minimum` and `sweeps[].minimum`
+  `from_mm`/`to_mm` witness coordinates. Scalar `mm` distances, minimum selection
+  and stopped-setting classifications retain native precision.
+- Requested native pickup `path.legs[].components[].swept_volume_mm3`.
+- Flat-end arriving-top `resolved_contact.patch_bbox_mm`,
+  `contact_area_mm2`, `uncovered_area_mm2` and `patch_area_mm2`.
+
+The native kernel facts and in-memory finding numbers remain unrounded for every
+contact-coverage, collision and clearance decision. `Finding.to_dict()` and report
+scene publication copy the evidence before applying this diagnostic precision;
+the independent example validator uses the same publication contract after its
+own evaluation. Authored inputs, tool dimensions, target coordinates and other
+numbers are not rounded by this projection. Published diagnostics are not
+substitutes for raw operands when reproducing a boundary decision. Canonical
+reports and golden comparisons still require exact bytes, not numeric tolerances.
+
 Every operative TOML/STEP asset read by the run has its exact file-byte SHA-256.
 Input keys include `plan`, `features`, `inventory`, `shop_policy`, `cutting_data`
 and referenced assets such as `step`. Paths are root-relative POSIX labels.
@@ -130,8 +151,8 @@ report hash and stales approval, just as an edited TOML does.
 `fixture` is `"modeled"` only when the kernel reports `fixture_rendered = true`:
 the fixture is placed, every drawn component is exact and there are no fixture
 debts. Otherwise it is `"unresolved"`. `scene` contains the kernel's
-`render_scene` object verbatim, or `{}` if none was returned. Its fixture facts
-include:
+`render_scene` object with the [diagnostic publication precision](#canonical-bytes-and-input-binding)
+above, or `{}` if none was returned. Its fixture facts include:
 
 | Field | Meaning |
 | --- | --- |
