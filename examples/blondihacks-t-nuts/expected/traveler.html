@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="prechips-version" content="0.2.0">
-<meta name="prechips-report" content="a7801e67576a8603c648e9c00c88bedb87320f0b2f0dee02eff4df628e26fc9c">
+<meta name="prechips-report" content="61ab52d998f51f269e08b47c7813f14d4a567c8d0a3f93b4aa0b46503c9277fd">
 <meta name="prechips-detail" content="hobby">
 <title>blondihacks-t-nuts traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
  * theme: existing monochrome print · enrichment: existing kernel diagrams
@@ -1186,7 +1186,14 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
     });
     function sourcePhysicalOwners(element) {
       if (element.closest(PAGE_REFERENCE)) return [];
-      const source = element.closest("[data-setup-id],[data-physical-ops]");
+      // Shared operation cards intentionally carry an empty setup ID on their
+      // inner tbody. That sentinel is not an owner and must not hide the enclosing
+      // authored physical-operation list. Nonempty IDs and explicit lists still
+      // take precedence at their nearest source boundary.
+      let source = element.closest("[data-setup-id],[data-physical-ops]");
+      while (source && !source.hasAttribute("data-physical-ops") && !source.dataset.setupId) {
+        source = source.parentElement?.closest("[data-setup-id],[data-physical-ops]");
+      }
       if (!source) return [];
       const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
         owners = source.hasAttribute("data-physical-ops")
@@ -1512,7 +1519,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       return true;
     }
     const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
-      + ".op-note,.steps > li";
+      + ".op-note,.steps > li,.box,.stop,.caution,.unverified";
     function pointsIn(el, allowFallback = true) {
       const points = [], atomicContexts = new Map(),
         flow = el.closest("table") || el, start = lead(flow),
@@ -1696,13 +1703,14 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
     }
     function originalText(contents) {
       // Retained whole figures and over-page original context advance source;
-      // short repeatable identities and recording marks never do so alone.
+      // short repeatable identities, detail labels and recording marks cannot do so alone.
       const copy = contents.cloneNode(true),
         identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
       if (copy.matches?.(identityOnly
         + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        + ".fixed-locator-reference, .op-number, .op-details dt, "
+        + identityOnly + ", [" + ADDED + "]")
         .forEach((node) => node.remove());
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);

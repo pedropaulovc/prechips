@@ -15356,7 +15356,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-magic-tube/plan.toml",
-            "sha256": "71fe235bfb8f1533028cf63c6f6e3dd5948dafcd2df24e79a2c199788dc03f5c"
+            "sha256": "044514c220223a3ad59aff9d67f3d8a3b005ab0432a4cd82294b2d90b7d8670d"
           },
           "shop_policy": {
             "path": "examples/blondihacks-magic-tube/shop-policy.toml",
@@ -24894,7 +24894,7 @@
         "deburr_mm": "unknown",
         "fixture": "four-jaw",
         "hold": {
-          "clamp": "Clamp the sound round bar in the fixtures.four-jaw; remove the key and turn the chuck by hand to establish complete tool and jaw clearance.",
+          "clamp": "Clamp the sound round bar in fixtures.four-jaw; remove the key and turn the chuck by hand to establish complete tool and jaw clearance.",
           "fixed_jaw": "not_applicable",
           "fixture": "four-jaw",
           "grip_mm": "unknown",
@@ -57447,7 +57447,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "42cc04f81edfb2171e9e2a895e160c051a86efc4cdbc3acc2de106b3bbaa7be3",
+  "hash": "6a6e67fd9b275d3daf71ede5531d01285dc84b9d732a3007e97cd7bb57f85987",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57463,7 +57463,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-magic-tube/plan.toml",
-      "sha256": "71fe235bfb8f1533028cf63c6f6e3dd5948dafcd2df24e79a2c199788dc03f5c"
+      "sha256": "044514c220223a3ad59aff9d67f3d8a3b005ab0432a4cd82294b2d90b7d8670d"
     },
     "shop_policy": {
       "path": "examples/blondihacks-magic-tube/shop-policy.toml",
