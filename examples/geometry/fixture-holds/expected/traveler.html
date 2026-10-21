@@ -1519,7 +1519,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       return true;
     }
     const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
-      + ".op-note,.steps > li,.box,.stop,.caution,.unverified";
+      + ".op-note,.steps > li,.box,.warning-clause,.stop,.caution,.unverified";
     function pointsIn(el, allowFallback = true) {
       const points = [], atomicContexts = new Map(),
         flow = el.closest("table") || el, start = lead(flow),
@@ -1554,9 +1554,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
               prefix = originalText(contentsAt(el, before)),
               atomic = !allowFallback || !fresh || prefix || fits(sourceBottom(el, after));
             atomicContexts.set(node, atomic);
-            // Exhaust complete units before words. A non-fitting leading unit
-            // may descend into its steps/paragraphs only at a fresh page start,
-            // after repeated context has been budgeted beside real source.
+            // Exhaust complete units before words, including each fact clause
+            // inside an oversized warning. Only an oversized leading unit may
+            // descend at a fresh start after repeated context is budgeted.
             if (prefix) points.push(before);
             if (atomic) points.push(after);
             continue;

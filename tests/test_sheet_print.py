@@ -1151,9 +1151,7 @@ def _pdf_warning_source_pages(run, raw):
     # boundaries while excluding text interleaved from the other grid column.
     expected = _WARNING_WORDS.findall(raw)
     vocabulary = set(expected)
-    pages = [
-        [word for word in _WARNING_WORDS.findall(page) if word in vocabulary] for page in run
-    ]
+    pages = [[word for word in _WARNING_WORDS.findall(page) if word in vocabulary] for page in run]
     assert [word for page in pages for word in page] == expected
     return [" ".join(page) for page in pages]
 
