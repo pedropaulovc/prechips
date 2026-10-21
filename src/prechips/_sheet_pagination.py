@@ -1424,13 +1424,14 @@ JOB_PRINT_JS = r"""(() => {
     }
     function originalText(contents) {
       // Retained whole figures and over-page original context advance source;
-      // short repeatable identities and recording marks never do so alone.
+      // short repeatable identities, detail labels and recording marks cannot do so alone.
       const copy = contents.cloneNode(true),
         identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
       if (copy.matches?.(identityOnly
         + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        + ".fixed-locator-reference, .op-number, .op-details dt, "
+        + identityOnly + ", [" + ADDED + "]")
         .forEach((node) => node.remove());
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
