@@ -87,16 +87,19 @@ _IDENTITY = {
 }
 
 
-def _registered_start_chain(priors):
-    setup = _setup([*priors, {**_FORM, "workpiece_faces": {"one": ["#1"]}}])
+def _registered_start_chain(priors, selected=("one",), registered=("one", "two")):
+    form = dict(_FORM)
+    if selected is not None:
+        form["workpiece_faces"] = {member: ["#1"] for member in selected}
+    setup = _setup([*priors, form])
     setup["stock_in"] = "stock"
     bundle = _bundle([setup], {"dome": dict(_DOME)})
     bundle.plan["workpieces"] = {
         name: {
-            "pose": {**_IDENTITY, "origin": [x, 0.0, 0.0]},
+            "pose": {**_IDENTITY, "origin": [index * 20.0, 0.0, 0.0]},
             "cite": "synthetic registered start-face regression",
         }
-        for name, x in (("one", 0.0), ("two", 20.0))
+        for index, name in enumerate(registered)
     }
     return next(row for row in op_chain.evaluate(bundle) if row.subject == "dome")
 
@@ -155,6 +158,186 @@ def test_registered_unknown_member_does_not_hide_a_known_start_band_error():
     assert control.status == row.status == "error"
     assert row.numbers["banded_starts"] == control.numbers["banded_starts"]
     assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "producers, expected",
+    [
+        ([(("one",), True), (("two",), False)], [("one", 10)]),
+        ([(("one",), False), (("two",), True)], [("two", 11)]),
+        ([(("one", "two"), True), (("two",), False)], [("one", 10)]),
+        ([(("one", "two"), True), (("one",), False)], [("two", 10)]),
+        (
+            [(("one",), True), (("two",), True), (("one",), False)],
+            [("two", 11)],
+        ),
+        (
+            [(("one", "two"), True), (("one",), False), (("two",), False)],
+            [],
+        ),
+        ([(("one", "two"), False), (("one",), True)], [("one", 11)]),
+        ([(("one", "two"), False), (("three",), True)], []),
+        (
+            [(("one",), True), (("two",), False), (("three",), False)],
+            [("one", 10)],
+        ),
+        (
+            [(("one",), True), (("two",), False), (("three",), True)],
+            [("one", 10)],
+        ),
+        (
+            [(("one", "two"), True), (("one",), False), (("two",), True)],
+            [("two", 12)],
+        ),
+        (
+            [(("one", "two"), True), (("one", "two"), False), (("one", "two"), True)],
+            [("one", 12), ("two", 12)],
+        ),
+    ],
+    ids=[
+        "later-deterministic-sibling",
+        "later-banded-sibling",
+        "overlapping-band-fix-two-only",
+        "overlapping-band-fix-one-only",
+        "independent-bands-fix-one-only",
+        "independently-deterministic",
+        "latest-subset-band-wins",
+        "disjoint-band-irrelevant",
+        "disjoint-deterministic-cannot-fix",
+        "disjoint-band-cannot-replace",
+        "latest-applicable-band-on-two",
+        "latest-overlapping-band-wins",
+    ],
+)
+def test_registered_multi_member_starts_use_each_members_latest_producer(producers, expected):
+    priors = [
+        {
+            **_PART,
+            "op": 10 + index,
+            "workpiece_faces": {member: ["#1"] for member in members},
+            **({"to_z_band": [1.5, 2.0]} if banded else {}),
+        }
+        for index, (members, banded) in enumerate(producers)
+    ]
+    row = _registered_start_chain(
+        priors, selected=("one", "two"), registered=("one", "two", "three")
+    )
+    assert row.status == ("error" if expected else "not_applicable"), row.sentence
+    assert row.numbers.get("banded_starts", []) == [
+        f"S3 op 20 member {member} starts at Z 1.75, which op {ordinal} "
+        "leaves anywhere in 1.5 to 2; an op must leave "
+        "that face at a deterministic to_z first"
+        for member, ordinal in expected
+    ]
+    assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"to_z": 1.75, "to_z_band": [1.5, 2.0]},
+        {"to_z": 2.0, "to_z_band": [1.5, 2.0]},
+        {"to_z": 1.75, "to_z_band": [1.5, "unknown"]},
+    ],
+    ids=["same-Z", "containing-band", "unknown-band-at-same-Z"],
+)
+def test_registered_subset_band_is_not_hidden_by_a_later_sibling_face(target):
+    row = _registered_start_chain(
+        [
+            {**_PART, **target, "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 15, "workpiece_faces": {"two": ["#1"]}},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert len(row.numbers["banded_starts"]) == 1
+    assert "member one starts at Z 1.75, which op 10" in row.numbers["banded_starts"][0]
+    assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {},
+        {"workpiece_faces": {"missing": ["#1"]}},
+        {"workpiece_faces": {"one": "unknown"}},
+    ],
+    ids=["unqualified", "nonlive-member", "unknown-faces"],
+)
+def test_registered_multi_member_unresolved_producer_cannot_prove_deterministic_starts(claims):
+    row = _registered_start_chain(
+        [
+            {**_PART, "workpiece_faces": {"one": ["#1"], "two": ["#1"]}},
+            {**_PART, "op": 15, **claims},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"] == [
+        "S3 op 15 start-face member one is unresolved",
+        "S3 op 15 start-face member two is unresolved",
+    ]
+    assert "banded_starts" not in row.numbers
+
+
+def test_registered_multi_member_unknown_producer_preserves_other_members_known_error():
+    row = _registered_start_chain(
+        [
+            {**_PART, "to_z_band": [1.5, 2.0], "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 12, "workpiece_faces": {"two": ["#1"]}},
+            {**_PART, "op": 15},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert row.numbers["banded_starts"] == [
+        "S3 op 20 member one starts at Z 1.75, which op 10 leaves anywhere in 1.5 to 2; "
+        "an op must leave that face at a deterministic to_z first"
+    ]
+    assert row.numbers["unknown_starts"] == ["S3 op 15 start-face member two is unresolved"]
+
+
+def test_registered_multi_member_potential_band_keeps_debt_on_only_its_selected_member():
+    row = _registered_start_chain(
+        [
+            {**_PART, "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 12, "to_z_band": [1.5, 2.0], "workpiece_faces": {"two": ["#1"]}},
+            {
+                **_PART,
+                "op": 15,
+                "to_z": 2.25,
+                "to_z_band": [2.0, "unknown"],
+                "workpiece_faces": {"one": ["#1"]},
+            },
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert row.numbers["banded_starts"] == [
+        "S3 op 20 member two starts at Z 1.75, which op 12 leaves anywhere in 1.5 to 2; "
+        "an op must leave that face at a deterministic to_z first"
+    ]
+    assert row.numbers["unknown_starts"] == [
+        "S3 op 20 member one starts at Z 1.75, which op 15 leaves anywhere in 2 to an unknown Z, "
+        "which may hold it"
+    ]
+
+
+@pytest.mark.parametrize("selected", [None, ("missing",)], ids=["unqualified", "nonlive-member"])
+def test_registered_unresolved_form_members_cannot_turn_a_band_into_a_known_result(selected):
+    row = _registered_start_chain(
+        [
+            {
+                **_PART,
+                "to_z_band": [1.5, 2.0],
+                "workpiece_faces": {"one": ["#1"], "two": ["#1"]},
+            }
+        ],
+        selected=selected,
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"] == ["S3 op 10 start-face member is unresolved"]
+    assert "banded_starts" not in row.numbers
 
 
 def _lathe(ops, features, tools, units="mm", zero=None):

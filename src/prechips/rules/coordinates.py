@@ -3440,8 +3440,28 @@ def filing_cap(bundle):
     return cap if known else UNKNOWN
 
 
+def _recut_summary(recut):
+    """Waive the shared cap only when every selected member has a proved later recut."""
+    if not isinstance(recut, dict):
+        return recut
+    if any(next_cut is None for next_cut in recut.values()):
+        return None
+    if UNKNOWN in recut.values():
+        return UNKNOWN
+    return " and ".join(dict.fromkeys(recut.values())) or None
+
+
 def _filed(stock, cap, label, recut):
-    """(errors, debts): an unresolved recut makes cap overage conditional, not a pass."""
+    """(errors, debts): each member retains its own filing cap and unresolved recut."""
+    if isinstance(recut, dict):
+        errors, debts = [], []
+        for member, next_cut in recut.items():
+            more, unknown = _filed(stock, cap, f"{label} workpiece {member}", next_cut)
+            errors.extend(more)
+            debts.extend(unknown)
+        return errors, debts
+    if recut and recut != UNKNOWN:
+        return [], []
     if not number(cap):
         return [], [
             f"{label} leaves up to {stock:.3f} for the file and the shop policy sets no "
@@ -3475,14 +3495,13 @@ def _stairs(tables, allowance, cap, label, recut=None):
     stock = allowance + max(table["stair_cusp_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if recut and recut != UNKNOWN:
-        return errors, debts
     more, debts = _filed(stock, cap, f"{label} stairs", recut)
     return errors + more, debts
 
 
 def _leaves(cap, recut):
     """Who takes a rough's leftover stock: a later rough (``recut_by``) or the file (cap)."""
+    recut = _recut_summary(recut)
     return {"recut_by": recut} if recut and recut != UNKNOWN else {"stock_cap_mm": cap}
 
 
@@ -3616,10 +3635,9 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
     stock = max(table["stock_left_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if not recut or recut == UNKNOWN:
-        more, unknown = _filed(stock, cap, f"{label} chain drill", recut)
-        errors.extend(more)
-        debts.extend(unknown)
+    more, unknown = _filed(stock, cap, f"{label} chain drill", recut)
+    errors.extend(more)
+    debts.extend(unknown)
     return errors, debts
 
 
@@ -4165,46 +4183,66 @@ _NEEDS = {
 }
 
 
-def _recut_by(bundle, op, lineage=None):
-    """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
-    again before any file reaches them, else None: then ``op``'s leftover stock is not the
-    file's. The last such op hands the faces to the file, so it names the leftover's taker:
-    an op between them may claim the faces from the other side (a half-depth rough from
-    the opposite face), and the face claim does not compare depth. A claim without
-    ``faces`` is the whole feature. Given ``lineage`` (a filing's workpiece setups), work on
-    another stock branch neither recuts nor files the faces."""
-    from .resolution import operation_material_status, registered_workpieces
+def _recut_by(bundle, op, lineage=None, *, per_member=False):
+    """Later manual-arc cuts taking each selected member's stock before its first filing.
+
+    Each recut must cover that member's original face claim. A partial-member recut
+    cannot waive another member's filing cap. The default summary names all proved
+    recuts, or returns None/UNKNOWN if any member still reaches filing/unresolved work;
+    ``per_member`` retains mixed known and unresolved results for the residual checks.
+    Given ``lineage``, another stock branch neither recuts nor files the faces.
+    """
+    from .resolution import operation_material_status, operation_members, registered_workpieces
 
     producer = next(
         (setup for setup in bundle.plan["setups"] if any(cut is op for cut in setup["ops"])),
         None,
     )
-    name, faces = op.get("feature"), op.get("faces")
-    passed, last = False, None
-    for setup in bundle.plan["setups"]:
-        if lineage is not None and setup["id"] not in lineage:
-            continue
-        for other in setup["ops"]:
-            if other is op:
-                passed = True
+    registered = registered_workpieces(bundle)
+    members = operation_members(bundle, producer, op) if registered else (None,)
+    if members is None:
+        return UNKNOWN
+    name = op.get("feature")
+
+    def later_recut(member):
+        faces = mapping(op.get("workpiece_faces")).get(member, op.get("faces"))
+        passed, last = False, None
+        for setup in bundle.plan["setups"]:
+            if lineage is not None and setup["id"] not in lineage:
                 continue
-            if not passed or other.get("feature") != name:
-                continue
-            if registered_workpieces(bundle):
-                material = operation_material_status(
-                    bundle, setup, producer, name, op=other, producer_op=op
-                )
-                if material is False:
+            for other in setup["ops"]:
+                if other is op:
+                    passed = True
                     continue
-                if material is None:
-                    return UNKNOWN
-            if other.get("do") in HAND_FINISH:
-                return last
-            later = other.get("faces")
-            covers = later is None or (faces is not None and set(faces) <= set(later))
-            if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
-                last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
-    return last
+                if not passed or other.get("feature") != name:
+                    continue
+                if registered:
+                    selected = operation_members(bundle, setup, other)
+                    if selected is not None and member not in selected:
+                        continue
+                    material = operation_material_status(
+                        bundle,
+                        setup,
+                        producer,
+                        name,
+                        op=other,
+                        producer_op=op,
+                        workpiece_id=member,
+                    )
+                    if material is False:
+                        continue
+                    if material is None:
+                        return UNKNOWN
+                if other.get("do") in HAND_FINISH:
+                    return last
+                later = mapping(other.get("workpiece_faces")).get(member, other.get("faces"))
+                covers = later is None or (faces is not None and set(faces) <= set(later))
+                if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
+                    last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
+        return last
+
+    recuts = {member: later_recut(member) for member in members}
+    return recuts if per_member and len(recuts) > 1 else _recut_summary(recuts)
 
 
 def _manual_preconditions(op, stage, arcs, lines, label):
@@ -4265,7 +4303,7 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if errors or debts:
         return errors, debts
     cap = filing_cap(bundle)
-    recut = _recut_by(bundle, op)
+    recut = _recut_by(bundle, op, per_member=True)
     if method == "stairs":
         errors, debts = _stairs([*arcs, *lines], allowance, cap, label, recut)
     elif method == "chain_drill":
@@ -4273,8 +4311,18 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
         drill = drill / scale if number(drill) else UNKNOWN
         errors, debts = _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
     if method in ROUGH_METHODS:
-        if recut == UNKNOWN:
-            debts.append(f"{label}: whether a later rough recuts its stock is unresolved")
+        unresolved = (
+            [member for member, next_cut in recut.items() if next_cut == UNKNOWN]
+            if isinstance(recut, dict)
+            else [None]
+            if recut == UNKNOWN
+            else []
+        )
+        for member in unresolved:
+            selected = f" workpiece {member}" if member is not None else ""
+            debts.append(
+                f"{label}{selected}: whether a later rough recuts its stock is unresolved"
+            )
         return errors, debts
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
