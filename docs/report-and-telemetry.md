@@ -753,6 +753,8 @@ renderer does not insert automatic blank backs or force each setup onto a
 front side. It does not add sign-off pages. Choose single- or double-sided
 printing for your shop, and inspect the complete preview before printing.
 Without scripts, measured pagination and continuation context are unavailable.
+The measured job flow contains opening and closing source margins within its
+physical page bounds; an opening heading cannot shift the measurement origin.
 
 Before each print pass, the script restores original text and wrappers while
 retaining loaded image elements, including SVG images. It does not reload
@@ -778,9 +780,16 @@ approval status as a read-only reminder. In compact modes, running-header identi
 is the human job title only; setup/operation ownership stays beside resumed work
 under its local continued heading. Compact modes retain the example-only warning
 in running context; the first page retains the drawing/revision and full warning.
-Pedantic repeats the full identity and drawing/revision. These headings do not
-recompute approval or certify a new state. Moved or split operations leave a
-pointer to the next physical page.
+Pedantic retains the full part/drawing/revision identity and the first retained
+setup's identity. Every mode reports the setup range actually represented by
+original source on that physical page, including a shared-page transition to a
+new setup. Pedantic owner-title candidates and all owner-range slots are measured
+before source pagination, so final ownership cannot grow the header afterwards.
+Candidate measurement and final ownership use the same visible original text
+and image traversal, including setup title, member and workpiece metadata
+inherited from nested source elements.
+These headings do not recompute approval or certify a new state. Moved or split
+operations leave a pointer to the next physical page.
 
 A continuation retains its applicable original operation, table or worksheet
 title and units when these fit beside original content advancing onto the page.
@@ -807,6 +816,17 @@ measures the composed row and every retained whole cell. An overflowing trial
 leaves continuation behavior unchanged. Each cell keeps its original content,
 whitespace, order and column. Writing fields and controls are neither copied
 nor treated as whole-cell completion candidates.
+
+An operation's complete main row moves before splitting when it needs a fresh
+page. If the row itself is over-page, continuations prefer complete headings,
+actions, labelled setting/warning fields and numbered steps, including their
+recording destinations. Pedantic setting fields keep their original grid
+columns. A genuinely oversized individual unit may continue at measured word
+boundaries only after the mandatory operation identity and fresh-page context
+are budgeted. Restored field labels are included in subsequent fragment
+measurements. Original words remain in order; repeated headings, labels and
+warning identities are read-only context, never replacement source or extra
+writing areas.
 
 An original note title that cannot fit its continuation body may continue as
 authored source text, in order and at working size. Short titles stay atomic.

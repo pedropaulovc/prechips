@@ -491,6 +491,9 @@ JOB_PRINT_JS = r"""(() => {
     }
   }
   function paginate(section) {
+    // Keep the first/last authored margins inside the measured page. A collapsed
+    // opening heading margin otherwise shifts pageTop below the physical origin.
+    section.style.display = "flow-root";
     // Recompute original/context distinctions at this width, never from a previous pass.
     section.querySelectorAll(".page-context").forEach((context) => {
       context.removeAttribute(CONTEXT_ROLE);
@@ -818,10 +821,10 @@ JOB_PRINT_JS = r"""(() => {
       // prefix can fit below that start; compact context before cloning words.
       if (box(el).top >= pageTop + CAP) return null;
       if (el.tagName === "TABLE") {
-        const progress = sourceProgress(el, el.tBodies[0]);
+        const progress = sourceProgress(el, el.tBodies[0], true, !firstPrefixOnly);
         return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
       }
-      for (const point of pointsIn(el)) {
+      for (const point of pointsIn(el, !firstPrefixOnly)) {
         const contents = contentsAt(el, point);
         if (!originalText(contents)) continue;
         if (fits(textBottom(el, contents))) return () => textBottom(el, contents);
@@ -917,19 +920,48 @@ JOB_PRINT_JS = r"""(() => {
           order: registerRoute(scope ?? null, owner.setup) };
       });
     }
-    const physicalLabels = [...new Set([...section.querySelectorAll(
-      "[data-setup-id],[data-physical-ops]")].flatMap(
-      (node) => sourcePhysicalOwners(node).map((owner) => owner.setup)))];
-    function reserveRunningSlot(slot, candidates) {
+    function forEachPhysicalSource(visit) {
+      const walker = document.createTreeWalker(section,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT), range = document.createRange();
+      while (walker.nextNode()) {
+        const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
+          ? node.parentElement : node;
+        if (node.nodeType === Node.TEXT_NODE ? !node.textContent.trim()
+            : !element.matches("img,svg")) continue;
+        if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
+            || !locatorVisible(element)) continue;
+        const sourceOwners = sourcePhysicalOwners(element);
+        if (!sourceOwners.length) continue;
+        range.selectNode(node);
+        if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+        visit(sourceOwners, node, element);
+      }
+    }
+    const physicalSources = [];
+    // Resolve nested metadata from the same visible source nodes used after
+    // pagination, not only from elements carrying an explicit setup ID.
+    forEachPhysicalSource((owners) => physicalSources.push(...owners));
+    const physicalLabels = [...new Set(physicalSources.map((owner) => owner.setup))];
+    function physicalRunningTitle(owner, continued) {
+      const identity = owner?.identity && owner.identity !== "Job" ? owner.identity
+        : owner?.setup ? "Setup " + owner.setup : "";
+      return [title, identity].filter(Boolean).join(" · ") + (continued ? " (continued)" : "");
+    }
+    const physicalTitles = compactRunning ? [] : [...new Set(
+      [null, ...physicalSources].flatMap(
+        (owner) => [false, true].map((continued) => physicalRunningTitle(owner, continued))
+      )
+    )];
+    function reserveRunningSlot(slot, candidates, wrap = false, target = slot) {
       // Measure in place at the inherited typography, before fitting source.
-      // Both deferred totals and owner ranges retain this envelope when filled.
-      slot.style.display = "inline-block";
-      slot.style.whiteSpace = "nowrap";
+      // Totals, owner ranges and wrapped titles retain this envelope when filled.
+      slot.style.display = wrap ? "block" : "inline-block";
+      slot.style.whiteSpace = wrap ? "normal" : "nowrap";
       slot.style.verticalAlign = "bottom";
       const range = document.createRange();
       let width = 0, height = 0, above = 0, below = 0;
       for (const candidate of candidates) {
-        slot.textContent = candidate;
+        target.textContent = candidate;
         const bounds = slot.getBoundingClientRect();
         range.selectNodeContents(slot);
         const ink = range.getBoundingClientRect();
@@ -942,29 +974,15 @@ JOB_PRINT_JS = r"""(() => {
       // its baseline and reserve the actual overhang, as for recording locators.
       slot.style.paddingTop = above + "px";
       slot.style.paddingBottom = below + "px";
-      slot.style.width = width + "px";
+      slot.style.width = wrap ? "100%" : width + "px";
       slot.style.height = height + above + below + "px";
-      slot.textContent = "";
+      target.textContent = "";
     }
     function finishPageOwners() {
-      if (!compactRunning) return;
       const starts = [section, ...section.querySelectorAll(".cont-head")],
         owners = starts.map(() => []), seenSetups = new Set(),
         setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
-      const walker = document.createTreeWalker(section,
-        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-      while (walker.nextNode()) {
-        const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
-          ? node.parentElement : node;
-        if (node.nodeType === Node.TEXT_NODE ? !node.textContent.trim()
-            : !element.matches("img,svg")) continue;
-        if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
-            || !locatorVisible(element)) continue;
-        const sourceOwners = sourcePhysicalOwners(element);
-        if (!sourceOwners.length) continue;
-        const range = document.createRange();
-        range.selectNode(node);
-        if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+      forEachPhysicalSource((sourceOwners, node, element) => {
         // Retained DOM boundaries, not page-number guesses or interior headings,
         // decide membership. Fragments inherit the original physical metadata.
         const start = starts.findLastIndex((head) => head === element
@@ -974,7 +992,7 @@ JOB_PRINT_JS = r"""(() => {
             owners[start].push(owner);
           }
         }
-      }
+      });
       owners.forEach((entries, index) => {
         entries.sort((left, right) => left.order - right.order);
         const head = starts[index], first = entries[0],
@@ -990,6 +1008,14 @@ JOB_PRINT_JS = r"""(() => {
         head.dataset.ownerRangeStart = first?.setup || "";
         head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
         head.dataset.ownerContinued = String(continued);
+        if (!compactRunning) {
+          const running = head.querySelector(".cont-title");
+          running.querySelector(".cont-physical-title").textContent =
+            physicalRunningTitle(first, continued);
+          if (running.scrollWidth > running.clientWidth + 1
+              || running.scrollHeight > running.clientHeight + 1) throw new Error(
+            "A physical owner title exceeds its measured running-header reservation.");
+        }
         const slot = head.querySelector(".cont-page-owners");
         if (!slot || !first) return;
         const setups = [...new Set(entries.map((entry) => entry.setup))];
@@ -1042,6 +1068,12 @@ JOB_PRINT_JS = r"""(() => {
         ? [compactTitle || title, compactTitle ? quantity : ""]
         : [title, setup.identity === "Job" ? "" : setup.identity])
         .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
+      if (!compactRunning) {
+        const identity = document.createElement("span");
+        identity.className = "cont-physical-title";
+        identity.textContent = running.textContent;
+        running.replaceChildren(identity);
+      }
       for (const [key, value] of Object.entries({ setupTitle: setup.title,
         setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
         if (value) head.dataset[key] = value;
@@ -1076,7 +1108,13 @@ JOB_PRINT_JS = r"""(() => {
       el.before(head);
       reserveRunningSlot(total, Array.from({ length: 10 },
         (_, digit) => String(digit).repeat(locatorPass.digits)));
-      if (compactRunning && physicalLabels.length) {
+      if (!compactRunning) {
+        const identity = running.querySelector(".cont-physical-title"),
+          initial = identity.textContent;
+        reserveRunningSlot(running, [...physicalTitles, initial], true, identity);
+        identity.textContent = initial;
+      }
+      if (physicalLabels.length) {
         const owners = document.createElement("span");
         owners.className = "cont-page-owners";
         count.append(owners);
@@ -1194,8 +1232,12 @@ JOB_PRINT_JS = r"""(() => {
       }
       return true;
     }
-    function pointsIn(el) {
-      const points = [], atomicContexts = new Map();
+    const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
+      + ".op-note,.steps > li";
+    function pointsIn(el, allowFallback = true) {
+      const points = [], atomicContexts = new Map(),
+        flow = el.closest("table") || el, start = lead(flow),
+        fresh = start === pageStart || start.contains(pageStart) || box(start).top <= pageTop;
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           // A whole canonical view is source, but none of its SVG, title, caption
@@ -1203,11 +1245,16 @@ JOB_PRINT_JS = r"""(() => {
           if (node.parentElement?.closest("figure,.checkpoint-results,[" + ADDED + "]")) {
             return NodeFilter.FILTER_REJECT;
           }
+          const unit = node.parentElement?.closest(OPERATION_UNITS);
+          if (unit && el.contains(unit) && atomicContexts.get(unit)) {
+            return NodeFilter.FILTER_REJECT;
+          }
           // An enclosing worksheet row may span many pages. Its nested table
           // advances at complete source groups, never within a row or field.
           const table = node.parentElement?.closest("table");
           if (table && el.contains(table)) return NodeFilter.FILTER_REJECT;
-          return node.nodeType === Node.TEXT_NODE || node.matches("table,figure," + RESULTS)
+          return node.nodeType === Node.TEXT_NODE
+            || node.matches("table,figure," + RESULTS + "," + OPERATION_UNITS)
             ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         }
       });
@@ -1216,6 +1263,18 @@ JOB_PRINT_JS = r"""(() => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
           points.push([parent, slot]);
+          if (node.matches(OPERATION_UNITS)) {
+            const before = [parent, slot], after = [parent, slot + 1],
+              prefix = originalText(contentsAt(el, before)),
+              atomic = !allowFallback || !fresh || prefix || fits(sourceBottom(el, after));
+            atomicContexts.set(node, atomic);
+            // Exhaust complete units before words. A non-fitting leading unit
+            // may descend into its steps/paragraphs only at a fresh page start,
+            // after repeated context has been budgeted beside real source.
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+            continue;
+          }
           if (node.tagName === "TABLE") {
             const bodies = [...node.tBodies];
             for (const [index, body] of bodies.entries()) {
@@ -1306,6 +1365,26 @@ JOB_PRINT_JS = r"""(() => {
         else range.setEnd(...point);
         contents = range.cloneContents();
       }
+      if (el.matches("tr.operation-main")) {
+        const fields = [...el.querySelectorAll(".op-details > div")];
+        for (const field of contents.querySelectorAll(".op-details > div")) {
+          const index = fields.findIndex((source) => source.className === field.className),
+            source = fields[index];
+          if (!source) continue;
+          if (getComputedStyle(source.parentElement).display === "grid") {
+            // The pedantic detail grid has two slots. A continued field keeps
+            // its source column instead of restarting auto-placement at slot one.
+            field.style.gridColumnStart = source.style.gridColumnStart || String(index % 2 + 1);
+          }
+          if (!tail || !field.querySelector("dd") || field.querySelector("dt")) continue;
+          const original = source.querySelector("dt");
+          if (original) {
+            const label = original.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
+      }
       const boundary = point[0],
         table = boundary.nodeType === Node.ELEMENT_NODE
           && boundary.matches("table,tbody") ? boundary.closest("table") : null;
@@ -1349,14 +1428,14 @@ JOB_PRINT_JS = r"""(() => {
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
-    function sourceProgress(t, body, relax = true) {
+    function sourceProgress(t, body, relax = true, allowFallback = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
       if (!row || box(row).top >= pageTop + CAP) return null;
       if (t.classList.contains("measurement-actions")) {
         return originalText(row) && fits(prefixBottom(t, row))
           ? { row, point: null, contents: null } : null;
       }
-      for (const point of pointsIn(row)) {
+      for (const point of pointsIn(row, allowFallback)) {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
@@ -1367,7 +1446,7 @@ JOB_PRINT_JS = r"""(() => {
       if (originalText(row) && fits(prefixBottom(t, row))) {
         return { row, point: null, contents: null };
       }
-      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+      return relax && prepareFields(row) ? sourceProgress(t, body, false, allowFallback) : null;
     }
     function progressBottom(t, progress) {
       return prefixBottom(t, progress.row,
@@ -1480,15 +1559,6 @@ JOB_PRINT_JS = r"""(() => {
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
         el.replaceChildren(first);
         el.after(rest);
-        for (const field of rest.querySelectorAll(".op-details > div")) {
-          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
-          const source = el.querySelector(".op-details > ." + field.className + " > dt");
-          if (source) {
-            const label = source.cloneNode(true);
-            label.setAttribute(ADDED, "");
-            field.prepend(label);
-          }
-        }
         if (rest.classList.contains("inspection-record")) {
           const identity = document.createElement("p");
           identity.className = "record-continuation";
@@ -1509,7 +1579,12 @@ JOB_PRINT_JS = r"""(() => {
           || (rest.matches(".stop, .caution") ? rest : null);
         if (warning) {
           const word = /\b(STOP|HOLD|CAUTION)\b/.exec(el.textContent);
-          if (word) warning.prepend(word[1] + " (continued): ");
+          if (word) {
+            const identity = document.createElement("span");
+            identity.setAttribute(ADDED, "");
+            identity.textContent = word[1] + " (continued): ";
+            warning.prepend(identity);
+          }
         }
         return rest;
       }
@@ -1536,16 +1611,22 @@ JOB_PRINT_JS = r"""(() => {
       if (number) number.append(" (continued)");
       return row;
     }
-    function operationContext(t, body, progress) {
+    function operationIdentity(body) {
       const sources = operationHeads.get(body.dataset.printOperation);
-      if (!sources?.length || !body.hasAttribute("data-operation-continuation")) return;
-      const full = contextRow(sources[0]), identity = full.cloneNode(true);
+      if (!sources?.length || !body.hasAttribute("data-operation-continuation")) return null;
+      const identity = contextRow(sources[0]);
       identity.querySelector(".op-action")?.remove();
       const number = identity.querySelector(".op-number"),
         heading = identity.querySelector(".op-head h3");
       if (number && heading) heading.replaceChildren(number);
       identity.querySelector(".op-details")?.remove();
       body.prepend(identity);
+      return identity;
+    }
+    function operationContext(t, body, progress, identity) {
+      if (!identity) return;
+      const sources = operationHeads.get(body.dataset.printOperation),
+        full = contextRow(sources[0]);
       const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
       if (!accepted()) {
         identity.remove();
@@ -1690,10 +1771,13 @@ JOB_PRINT_JS = r"""(() => {
       t.setAttribute(SPLIT, "");
       t.tHead?.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
         .forEach((row) => row.remove());
+      // Mandatory identity participates in running-context compaction and the
+      // first semantic source admission, not just the later optional copies.
+      const body = t.tBodies[0], identity = operationIdentity(body);
       breakAt(t);
-      const progress = sourceProgress(t, t.tBodies[0]);
+      const progress = sourceProgress(t, body);
       if (!progress) throw new Error("A continuation cannot advance its original source.");
-      operationContext(t, t.tBodies[0], progress);
+      operationContext(t, body, progress, identity);
       tableContext(t, progress);
       fixtureContext(t, progress);
     }
@@ -1757,7 +1841,13 @@ JOB_PRINT_JS = r"""(() => {
         return index;
       };
       let j = over();
-      if (j === 0 && (t.matches("table.tools, table.measurement-actions")
+      const first = j === 0 ? [...(t.tBodies[0]?.rows || [])].find(
+        (row) => !row.hasAttribute(ADDED)
+      ) : null, moveMain = first?.matches(".operation-main")
+        && box(first).bottom - box(first).top <= CAP && !fits(prefixBottom(t, first));
+      // Decide whole-main admission before destructive partitioning. Otherwise
+      // pointer recovery can move an already fractured but fresh-page-fitting card.
+      if (j === 0 && (moveMain || t.matches("table.tools, table.measurement-actions")
           || !sourceProgress(t, t.tBodies[0])) && move(t)) j = over();
       if (!t.classList.contains("operations")) {
         const bodies = [...t.tBodies];
@@ -1948,6 +2038,9 @@ JOB_PRINT_JS = r"""(() => {
         copy.replaceWith(image);
       });
       section.replaceChildren(...restored.childNodes);
+      section.style.setProperty("display", source.style.getPropertyValue("display"),
+        source.style.getPropertyPriority("display"));
+      if (!source.hasAttribute("style") && !section.style.cssText) section.removeAttribute("style");
       delete section.dataset.pages;
     }
   }
