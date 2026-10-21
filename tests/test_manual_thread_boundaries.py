@@ -122,8 +122,7 @@ def endpoint_report(bundle):
 
 def validate_endpoints(bundle, findings):
     return VALIDATOR["check_endpoints"](
-        bundle.plan,
-        bundle.features,
+        bundle,
         findings,
         VALIDATOR["Entries"](bundle.inventory),
     )

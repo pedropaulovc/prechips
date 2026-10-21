@@ -101,10 +101,10 @@ def test_tool_kind_alone_or_contour_method_alone_does_not_change_action(method, 
 
 
 def check_speed_oracle(data, row):
-    from test_validate_examples import VALIDATOR
+    from test_validate_examples import VALIDATOR, validator_test_bundle
 
     entries = VALIDATOR["Entries"](data.inventory)
-    depths = VALIDATOR["check_endpoints"](data.plan, data.features, {}, entries)
+    depths = VALIDATOR["check_endpoints"](validator_test_bundle(data), {}, entries)
     setup = data.plan["setups"][0]
     VALIDATOR["check_speeds"](
         data.plan,
