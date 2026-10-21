@@ -907,7 +907,14 @@ JOB_PRINT_JS = r"""(() => {
     });
     function sourcePhysicalOwners(element) {
       if (element.closest(PAGE_REFERENCE)) return [];
-      const source = element.closest("[data-setup-id],[data-physical-ops]");
+      // Shared operation cards intentionally carry an empty setup ID on their
+      // inner tbody. That sentinel is not an owner and must not hide the enclosing
+      // authored physical-operation list. Nonempty IDs and explicit lists still
+      // take precedence at their nearest source boundary.
+      let source = element.closest("[data-setup-id],[data-physical-ops]");
+      while (source && !source.hasAttribute("data-physical-ops") && !source.dataset.setupId) {
+        source = source.parentElement?.closest("[data-setup-id],[data-physical-ops]");
+      }
       if (!source) return [];
       const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
         owners = source.hasAttribute("data-physical-ops")
@@ -1233,7 +1240,7 @@ JOB_PRINT_JS = r"""(() => {
       return true;
     }
     const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
-      + ".op-note,.steps > li";
+      + ".op-note,.steps > li,.box,.stop,.caution,.unverified";
     function pointsIn(el, allowFallback = true) {
       const points = [], atomicContexts = new Map(),
         flow = el.closest("table") || el, start = lead(flow),
