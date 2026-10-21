@@ -72,9 +72,7 @@ def test_failed_native_proof_with_numeric_bounds_cannot_pass_machine_limits(
 
 @pytest.mark.parametrize("rule", [envelope, headroom, travel])
 @pytest.mark.parametrize("section", ["saw", "zero", "touch"])
-def test_failed_native_proof_keeps_independently_known_limit_overruns(
-    monkeypatch, rule, section
-):
+def test_failed_native_proof_keeps_independently_known_limit_overruns(monkeypatch, rule, section):
     data, evidence = mounted_bundle(monkeypatch)
     owner = {
         "saw": evidence,

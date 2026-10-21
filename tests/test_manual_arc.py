@@ -1587,9 +1587,7 @@ def test_registered_recuts_keep_each_members_last_covering_face_producer(tmp_pat
 
 
 @pytest.mark.parametrize("cusp", [0.1, 0.4], ids=["within-cap", "over-cap"])
-def test_registered_partial_recut_keeps_member_debt_beside_other_members_filing_cap(
-    tmp_path, cusp
-):
+def test_registered_partial_recut_keeps_member_debt_beside_other_members_filing_cap(tmp_path, cusp):
     coarse = op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
     fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
     bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))

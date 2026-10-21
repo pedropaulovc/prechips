@@ -1992,7 +1992,7 @@ def test_empty_operation_id_retains_shared_owners_on_tail_and_mixed_pages(printe
 
     def card(key, *, new_page=False, long_source=False):
         return (
-            f'<div class="family-common" data-physical-ops=\'{json.dumps(identities)}\''
+            f"<div class=\"family-common\" data-physical-ops='{json.dumps(identities)}'"
             + (' style="break-before:page"' if new_page else "")
             + '><table class="operations"'
             + (' style="break-before:page"' if new_page else "")

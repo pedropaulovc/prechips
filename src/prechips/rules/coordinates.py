@@ -4320,9 +4320,7 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
         )
         for member in unresolved:
             selected = f" workpiece {member}" if member is not None else ""
-            debts.append(
-                f"{label}{selected}: whether a later rough recuts its stock is unresolved"
-            )
+            debts.append(f"{label}{selected}: whether a later rough recuts its stock is unresolved")
         return errors, debts
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))

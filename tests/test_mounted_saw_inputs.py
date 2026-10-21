@@ -185,8 +185,9 @@ def test_bore_clearance_uses_only_the_qualified_normalized_allowance(
         assert recipe["arbor"]["bore_clearance_max_mm"] == "unknown"
         assert recipe["status"] == "unknown"
         assert recipe["assembly_errors"] == []
-        assert "bore_clearance_max needs one fact-local cited or measured allowance" in (
-            recipe["assembly_reasons"]
+        assert (
+            "bore_clearance_max needs one fact-local cited or measured allowance"
+            in (recipe["assembly_reasons"])
         )
         assert recipe["measurement_debts"]
 

@@ -179,9 +179,7 @@ def mounted_saw_axis_recipe(zero, blade, jog_mm, sign=1):
         else UNKNOWN
     )
     increment = (
-        sign * jog_mm
-        if sign in {-1, 1} and number(jog_mm) and math.isfinite(jog_mm)
-        else UNKNOWN
+        sign * jog_mm if sign in {-1, 1} and number(jog_mm) and math.isfinite(jog_mm) else UNKNOWN
     )
     return {
         "axis_set": contact,
