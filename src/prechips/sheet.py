@@ -1231,7 +1231,23 @@ def _p(text, css=""):
 
 def _cell_line(line):
     if isinstance(line, _Box):
-        return f'<span class="box">{_numeric_html(line)}</span>'
+        # Split raw text before escaping: entity terminators in generated HTML
+        # are not source delimiters. Retain every delimiter and whitespace run.
+        text, clauses, start = str(line), [], 0
+        for delimiter in re.finditer(r";\s*(?=[^;\s])", text):
+            if re.search(r"[^;\s]", text[start : delimiter.start()]):
+                clauses.append(text[start : delimiter.end()])
+                start = delimiter.end()
+        clauses.append(text[start:])
+        body = (
+            _numeric_html(text)
+            if len(clauses) == 1
+            else "".join(
+                f'<span class="warning-clause">{_numeric_html(clause)}</span>'
+                for clause in clauses
+            )
+        )
+        return f'<span class="box">{body}</span>'
     if isinstance(line, _FixtureFeature):
         return f'<span class="fixture-feature">{_numeric_html(line)}</span>'
     if isinstance(line, _Unverified):

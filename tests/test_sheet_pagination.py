@@ -2125,3 +2125,136 @@ def test_operation_warning_keeps_negation_with_clause_until_genuinely_oversized(
         assert len(targets) > 1
     else:
         assert len(targets) == 1
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("CAUTION: A < B & C > D; \t\nNo numeric length is recorded.", 2),
+        ("CAUTION: literal &amp; remains source; no <em>markup</em>.", 3),
+        ("CAUTION: A;; \t; B; \n", 2),
+        ("; \t; ", 0),
+        ("CAUTION: one complete warning.", 0),
+    ],
+)
+def test_warning_clauses_preserve_raw_source_and_nonwarning_prose(text, expected):
+    from test_sheet_ops import Markup, content
+
+    from prechips.sheet import _Box, _cell_line, _numeric_html
+
+    printed = Markup(_cell_line(_Box(text)))
+    (box,) = printed.find("box")
+    clauses = printed.find("warning-clause", box)
+    assert content(box) == text
+    assert len(clauses) == expected
+    assert all(re.search(r"[^;\s]", content(clause)) for clause in clauses)
+    assert not any(node["tag"] in {"em", "script"} for node in printed.nodes)
+    assert _cell_line(text) == _numeric_html(text)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("kind", ["fitting-box", "multiple-facts", "oversized-clause"])
+def test_produced_warning_clauses_keep_original_fact_identity_and_negation(
+    printed_sheet, detail, kind
+):
+    from prechips.sheet import _Box, _cell_line
+
+    fact_count = 3 if kind == "fitting-box" else 48
+    facts = [
+        f"Clause{index:03} tool shank at 0.35 mm (missing): "
+        "No numeric length with explicit millimetre or inch units is recorded"
+        for index in range(fact_count)
+    ]
+    if kind == "oversized-clause":
+        facts.insert(1, "ClauseLong " + _words("ClauseLongWord", 1200) + " ClauseLongEnd")
+    warning = "CAUTION: " + "; \t\n".join(facts) + ". "
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        f"<p>{_positioned_words('BeforeWarning', 480)}</p>"
+        '<table class="operations"><tbody class="operation" data-setup-id="S1" '
+        'data-op="10" data-operation-context="S1 op 10 turning">'
+        '<tr class="operation-main"><td><div class="op-head"><h3>'
+        '<span class="op-number">Op 10</span> ClauseHeading cut</h3></div></td></tr>'
+        '<tr class="warn"><td>'
+        + _cell_line(_Box(warning))
+        + "</td></tr><tr><td>"
+        + _writing_field("Clause result")
+        + "</td></tr></tbody></table>",
+    )
+    _, layout = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const original = node => !node.closest('[data-job-print],.record-continuation');
+          const sourceText = node => {
+            const copy = node.cloneNode(true);
+            copy.querySelectorAll('[data-job-print],.record-continuation')
+              .forEach(child => child.remove());
+            return copy.textContent;
+          };
+          const clauses = [...section.querySelectorAll('.warning-clause')].filter(original);
+          const starts = [section, ...section.querySelectorAll('.cont-head')]
+            .map(node => node.getBoundingClientRect().top);
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          const progress = starts.map(() => false);
+          const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+          const range = document.createRange();
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!node.textContent.trim() || !original(node.parentElement)) continue;
+            range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              const page = starts.findLastIndex(top => top <= rect.top + .1);
+              if (page >= 0) progress[page] = true;
+            }
+          }
+          return {
+            warning:[...section.querySelectorAll('.warn .box')].filter(original)
+              .map(sourceText).join(''),
+            fragments:clauses.map(node => {
+              const text = sourceText(node);
+              range.selectNodeContents(node);
+              const rect = range.getBoundingClientRect(), page = pageOf(node);
+              return {key:text.match(/ClauseLong|Clause\d{3}/)?.[0], text, page,
+                fits:rect.top >= starts[page] - .1 && rect.bottom <= starts[page] + cap + .1};
+            }),
+            controls:[...section.querySelectorAll('.writing-blank')].map(node => {
+              const rect = node.getBoundingClientRect(), page = pageOf(node);
+              return {original:original(node), page,
+                fits:rect.top >= starts[page] - .1 && rect.bottom <= starts[page] + cap + .1};
+            }),
+            progress
+          };
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert layout["warning"] == warning
+    fragments = layout["fragments"]
+    assert all(fragment["fits"] and fragment["text"].strip() for fragment in fragments)
+    assert all(layout["progress"])
+    for index in range(fact_count):
+        matching = [part for part in fragments if part["key"] == f"Clause{index:03}"]
+        assert len(matching) == 1
+        assert (
+            "No numeric length with explicit millimetre or inch units is recorded"
+            in matching[0]["text"]
+        )
+    long_parts = [part for part in fragments if part["key"] == "ClauseLong"]
+    if kind == "oversized-clause":
+        assert len(long_parts) > 1
+        assert len({part["page"] for part in long_parts}) > 1
+        assert re.findall(r"ClauseLongWord\d{4}", "".join(part["text"] for part in long_parts)) == [
+            f"ClauseLongWord{index:04}" for index in range(1200)
+        ]
+    else:
+        assert not long_parts
+    warning_pages = {fragment["page"] for fragment in fragments}
+    if kind == "fitting-box":
+        assert len(warning_pages) == 1
+    else:
+        assert len(warning_pages) > 1
+    (control,) = layout["controls"]
+    assert control["original"] and control["fits"]
+    assert control["page"] >= max(warning_pages)
