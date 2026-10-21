@@ -1272,8 +1272,8 @@ rehearsal remains pending. Intermediate CLI/PDF observations in
 [examples](../examples/README.md) are not final pagination acceptance.
 
 The developer tool `scripts/machinist_review.py` prints the HTML to Letter with
-headless Chrome or Edge, including duplex padding, and asks a reviewer from the
-other model family to inspect every page: no questions and nothing the operator
+headless Chrome or Edge, using the measured continuous job pagination, and asks
+a reviewer from the other model family to inspect every page: no questions and nothing the operator
 does not need. It compares speeds, feeds, depths of cut, tap drills and reamer
 allowances with local Machinery's Handbook pages supplied by `--handbook` or
 `PRECHIPS_HANDBOOK_DIR`. Page selections are in
