@@ -20,6 +20,7 @@ import math
 import re
 import sys
 import tomllib
+from dataclasses import replace
 from datetime import date
 from fractions import Fraction
 from html.parser import HTMLParser
@@ -28,7 +29,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.inputs import BadInput, blank_supplies, load_bundle, operative_definitions
+from prechips.inputs import BadInput, Bundle, blank_supplies, load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
 from prechips.material_routes import (
@@ -2196,18 +2197,14 @@ def check_prepared_blank(
     return sorted(set(missing))
 
 
-def zero_inputs(plan: dict, features: dict, inventory: dict, policy: dict, kernel):
-    """The validator's own inputs a zero's surfaces are read from: the plan, manifest,
-    inventory and policy, with its own kernel run's facts (``kernel``,
-    :func:`independent_kernel`). No report value enters them."""
-    return SimpleNamespace(
-        plan=plan,
-        features=features,
-        inventory=inventory,
-        policy=policy,
-        feature_definitions=operative_definitions(plan, features),
-        kernel=kernel(),
-    )
+def zero_inputs(bundle: Bundle, kernel) -> Bundle:
+    """Keep the complete authored bundle with the validator's own native facts.
+
+    Source paths/hashes bind finished-solid ownership, member registrations and
+    native pickup identities; a partial namespace cannot preserve that contract.
+    No report value supplies inputs or kernel evidence.
+    """
+    return replace(bundle, kernel=kernel())
 
 
 def checker_row(own, evaluate, subject: str, status: str, numbers: dict) -> tuple:
@@ -2287,6 +2284,62 @@ def zero_readings(axis: str, recipe: dict, sign, scale, contact, stand_off, lath
     if not (numeric(shown) and numeric(step)):
         return {**dict.fromkeys(ZERO_READINGS, "unknown"), "axis_set": shown}
     return {"axis_set": shown, "check_reading": shown + step, "mirrored_reading": shown - step}
+
+
+def midpoint_zero_readings(axis, recipe, sign, lathe, setup, entries):
+    """Qualify an instruction to find two contacts, then set their measured midpoint.
+
+    The unchanged finder's opposite radius corrections cancel; neither contact is
+    an authored measurement. A single native pickup point cannot prove this method.
+    """
+    tool = entries.record(recipe.get("tool"), "spindle")
+    kind = tool.get("kind", "unknown")
+    field = "tip" if any(key in tool for key in ("tip", "tip_mm", "tip_in")) else "dia"
+    diameter = tool_length_mm(recipe.get("tool"), field, entries, "spindle")
+    error = (
+        axis not in {"x", "y"}
+        or lathe
+        or recipe.get("from") not in (None, "unknown")
+        or kind not in {"edge_finder", "unknown"}
+        or numeric(diameter)
+        and (not math.isfinite(diameter) or diameter <= 0)
+    )
+    center, jog = recipe.get("edge_mm"), recipe.get("check_jog_mm")
+    known = all(numeric(value) and math.isfinite(value) for value in (center, jog))
+    unknown = (
+        not known
+        or sign not in (-1, 1)
+        or kind == "unknown"
+        or not numeric(diameter)
+        or not entries.verified(recipe.get("tool"), "spindle")
+        or "at_mm" in recipe
+        or table_of(setup.get("hold")).get("jaws_angle_deg", 0.0) != 0.0
+    )
+    finder_type = tool.get("finder_type", "unknown")
+    unknown |= finder_type == "unknown"
+    if finder_type != "electronic":
+        finder_band = tool.get("rpm_range", "unknown")
+        machine_bands = spindle_bands(machine_record(setup, entries))
+        bands_known = (
+            isinstance(finder_band, list)
+            and len(finder_band) == 2
+            and all(numeric(value) and math.isfinite(value) for value in finder_band)
+            and machine_bands != "unknown"
+        )
+        unknown |= not bands_known
+        if bands_known:
+            error |= not any(
+                max(finder_band[0], low) <= min(finder_band[1], high) for low, high in machine_bands
+            )
+    status = "error" if error else "unknown" if unknown else "pass"
+    if status != "pass":
+        return status, dict.fromkeys(ZERO_READINGS, "unknown")
+    increment = sign * jog
+    return status, {
+        "axis_set": center,
+        "check_reading": center + increment,
+        "mirrored_reading": center - increment,
+    }
 
 
 # A carried plane's normal, and the axis of a plunge or turn bounding what a cut takes of
@@ -3748,7 +3801,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         credited, carried = [], False
         if axis == "z" or method == "trial_cut_measure":
             radius = "not_applicable"
-        elif approach == "indicated":
+        elif approach == "indicated" and method != "opposed_edge_midpoint":
             radius = 0
         else:
             # A finder's tip, else its body, diameter halved, as the spindle slot selects it
@@ -3756,6 +3809,10 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             reference = recipe.get("tool")
             tip = tool_length_mm(reference, "tip", entries, "spindle")
             diameter = tip if numeric(tip) else tool_length_mm(reference, "dia", entries, "spindle")
+            if method == "opposed_edge_midpoint" and any(
+                key in entries.record(reference, "spindle") for key in ("tip", "tip_mm", "tip_in")
+            ):
+                diameter = tip
             radius = diameter / 2 if numeric(diameter) else "unknown"
         if axis == "z":
             if recipe.get("face") == "top":
@@ -3774,6 +3831,12 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             contact = edge + (-1 if approach == f"-{axis}" else 1) * radius
         scale = {True: 1, False: 2}.get(radius_mode, "unknown") if axis == "x" and lathe else 1
         values = zero_readings(axis, recipe, sign, scale, contact, stand_off, lathe, gauge_ok)
+        if method == "opposed_edge_midpoint":
+            midpoint_status, values = midpoint_zero_readings(
+                axis, recipe, sign, lathe, setup, entries
+            )
+            bad |= midpoint_status == "error"
+            unknown |= midpoint_status == "unknown"
         if axis == "z":
             settle("zero", z_touch, face, values, "axis_set", edge, carried, stand_off, authored)
         row = {key: value for key, value in recipe.items() if key != "retouch_after"}
@@ -4487,9 +4550,7 @@ def check_printed_endpoint(row: dict, where: str, grid: tuple, planned: dict):
     return printed_tip
 
 
-def check_endpoints(
-    plan: dict, features: dict, findings: dict, entries: Entries, kernel=None
-) -> dict:
+def check_endpoints(bundle: Bundle, findings: dict, entries: Entries, kernel=None) -> dict:
     """Hold every ``blind_depth`` endpoint row to the plan, from its entry surface on,
     and the endpoint it prints to the setup's DRO grid (:func:`check_printed_endpoint`).
     The rows are exactly the plan's hole ops on the feature (a centre's, its
@@ -4509,15 +4570,10 @@ def check_endpoints(
     it stays unknown; authored bounds need none. No report value supplies either input.
     An op whose DRO Z a carried touch set reads its endpoint off that touch's typed
     setting, from this validator's own zero rows (:func:`zero_rows`)."""
+    plan, features = bundle.plan, bundle.features
     setups = {setup["id"]: setup for setup in plan["setups"]}
-    definitions = operative_definitions(plan, features)
-    stock = SimpleNamespace(
-        plan=plan,
-        features=features,
-        inventory=entries.inventory,
-        feature_definitions=definitions,
-        kernel=kernel() if kernel is not None else None,
-    )
+    definitions = bundle.feature_definitions
+    stock = replace(bundle, kernel=kernel() if kernel is not None else None)
     units = features.get("units")
     depths, readings = {}, {}
 
@@ -5702,9 +5758,11 @@ def coordinate_place(context: SimpleNamespace, setup: dict, frame, row: dict, lo
     return model, local
 
 
-def coordinates_use_grid(setup, definitions, frames, numbers, lathe):
-    """Independently identify authored or emitted targets that require a DRO grid."""
+def coordinates_use_grid(setup, definitions, frames, numbers, lathe, inventory):
+    """Identify authored or emitted DRO targets, including unproven mounted-saw paths."""
     for op in setup["ops"]:
+        if spindle_saw(inventory, setup, op):
+            return True
         if (
             any(key in op for key in ("to_z", "z_from", "z_to"))
             or op.get("contour") == "unknown"
@@ -5774,7 +5832,7 @@ def check_coordinates(
     lathe = machine_kind(setup, entries) == "lathe"
     grid = dro_grid(setup, features, entries, plan)
     grid_trusted = dro_grid_trusted(setup, features, entries, plan)
-    uses_grid = coordinates_use_grid(setup, definitions, context.frames, numbers, lathe)
+    uses_grid = coordinates_use_grid(setup, definitions, context.frames, numbers, lathe, inventory)
     if table_of(plan.get("dro")).get("kind", "digital") != "digital":
         if uses_grid:
             check_readout(numbers.get("readout"), plan, features, sid)
@@ -6011,8 +6069,10 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
     """Every unknown/error has visible debt in its own physical or legacy print scope.
 
     Decision metadata binds visible prose to findings; it cannot replace that prose.
-    A grouped decision must retain both its original evidence identities and each
-    setup/op owner. Legacy boxes use their visible topic and local setup/op labels.
+    Explicit failed comparisons and outstanding requirements can supply visible debt
+    without a status keyword. Grouped feature/requirement identities bind through
+    their evidence; setup/op findings also retain each physical owner. Legacy boxes
+    use their visible topic and local setup/op labels.
     """
     unknown_words = re.compile(
         r"\?|\b(?:unknown|unmapped|unverified|unresolved|unsupported|missing|uncertain|"
@@ -6022,7 +6082,12 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
     error_words = re.compile(
         r"✗|\b(?:stop|error|fail\w*|cannot|not\b|no\b|outside|exceed\w*|"
         r"mismatch\w*|must|required|needs?|invalid|unsafe|collid\w*|intersect\w*|"
-        r"missing|disagree\w*|clash\w*|hits|insufficient|away)\b",
+        r"missing|disagree\w*|clash\w*|hits|insufficient|away|smaller\s+than)\b",
+        re.I,
+    )
+    outstanding_requirement = re.compile(
+        r"\b(?:needs?\s+(?!(?:no|not|nothing)\b)[a-z0-9]"
+        r"|must\s+be\s+known\b)",
         re.I,
     )
     cleared_words = re.compile(
@@ -6082,7 +6147,15 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
             and row.get("status") == finding["status"]
             and row.get("scope") == finding["subject"]
             and row.get("kind") in kinds
-            and owners(node, finding["subject"])
+            and (
+                finding["rule"] in FEATURE_RULES
+                or (
+                    finding["rule"] == "inspection"
+                    and not finding["subject"].rsplit(":", 1)[-1].isdigit()
+                    and inspection_identity(finding) is not None
+                )
+                or owners(node, finding["subject"])
+            )
             for row in evidence
         )
 
@@ -6298,9 +6371,18 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
         require(
             any(
                 not node.hidden
-                and words.search(" ".join(node.text))
                 and not cleared_words.search(" ".join(node.text))
-                and (modern(node, finding) or legacy(node, finding))
+                and (
+                    (
+                        words.search(" ".join(node.text))
+                        and (modern(node, finding) or legacy(node, finding))
+                    )
+                    or (
+                        finding["status"] == "unknown"
+                        and outstanding_requirement.search(" ".join(node.text))
+                        and modern(node, finding)
+                    )
+                )
                 for node in parser.nodes
             ),
             f"sheet hides {finding['status']} disclosure for "
@@ -6934,7 +7016,8 @@ def check_stickout(
     and whose kernel facts it cites; neither derived, it stays unknown. The held diameter
     is the plan's trusted one (:func:`held_stock`), the selected support the plan's hold
     read through the inventory (``stickout.support_state``), and the verdict the one
-    those inputs decide, never a report field."""
+    those inputs decide, never a report field. An absent ratio or citation leaves the
+    unsupported limit unknown; it does not make other machine families applicable."""
     row = finding["numbers"]
     held = held_stock(setup, plan)
     diameter = finished_exposed_diameter(setup, features, plan)
@@ -6961,12 +7044,18 @@ def check_stickout(
     near(row["held_diameter_mm"], held, "stick-out held diameter evidence")
     near(row["diameter_mm"], diameter, "stick-out finished exposed diameter")
     near(row["stickout_mm"], length, "stick-out declared length")
-    limit_ratio = policy["numbers"]["stickout_ld_max"]
+    policy_numbers = policy.get("numbers")
+    policy_numbers = policy_numbers if isinstance(policy_numbers, dict) else {}
+    limit_ratio = policy_numbers.get("stickout_ld_max", "unknown")
     near(row["stickout_ld_max"], limit_ratio, "stick-out shop ratio")
-    citation = policy["numbers_cite"]["stickout_ld_max"]
+    policy_cites = policy.get("numbers_cite")
+    policy_cites = policy_cites if isinstance(policy_cites, dict) else {}
+    citation = policy_cites.get("stickout_ld_max")
     citations = citation if isinstance(citation, list) else [citation]
     cited = any(isinstance(c, str) and c.strip() and c != "unknown" for c in citations)
-    verified = policy["numbers_verify"]["stickout_ld_max"] is False
+    policy_verify = policy.get("numbers_verify")
+    policy_verify = policy_verify if isinstance(policy_verify, dict) else {}
+    verified = policy_verify.get("stickout_ld_max", False) is False
     known_limit = numeric(limit_ratio) and limit_ratio > 0 and cited and verified
     limit = diameter * limit_ratio if known_limit and numeric(diameter) else "unknown"
     near(row["unsupported_limit_mm"], limit, "stick-out unsupported limit")
@@ -7144,6 +7233,14 @@ def check_fixture_semantics(
     findings: dict,
 ) -> list:
     """Independent authored-input arithmetic shared by consumer and standalone examples."""
+    bundle = replace(
+        load_bundle(plan_path),
+        plan=plan,
+        features=features,
+        inventory=inventory,
+        policy=policy,
+        cutting_data=cutting,
+    )
     entries = Entries(inventory)
     check_construction(plan, features, findings["construction", plan["part"]])
     check_frames(features, plan)
@@ -7155,9 +7252,9 @@ def check_fixture_semantics(
     check_joint_declarations(plan, features, findings, kernel)
     missing = check_references(plan, features, entries, findings)
     missing += check_prepared_blank(plan, features, inventory, findings, kernel)
-    depths = check_endpoints(plan, features, findings, entries, kernel)
-    definitions = operative_definitions(plan, features)
-    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
+    depths = check_endpoints(bundle, findings, entries, kernel)
+    definitions = bundle.feature_definitions
+    own = functools.cache(lambda: zero_inputs(bundle, kernel))
     for setup in plan["setups"]:
         if manual_bench(inventory, setup) is None and manual_thread_facts(inventory, setup) is None:
             if not saw_setup(inventory, setup):

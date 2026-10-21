@@ -81,6 +81,7 @@ def validator_uses_grid(data, numbers):
         data.features["frames"],
         numbers,
         machine["kind"] == "lathe",
+        data.inventory,
     )
 
 
@@ -170,6 +171,118 @@ def test_verifying_the_consumed_grid_changes_only_debt_not_the_printed_coordinat
         for key, value in provisional.numbers.items()
         if key not in {"dro_grid_debt", "measurements"}
     }
+
+
+@pytest.mark.parametrize("known_trajectory", [False, True], ids=["unknown-path", "known-path"])
+@pytest.mark.parametrize(
+    ("resolution", "status", "step", "start", "end"),
+    [
+        pytest.param(
+            None,
+            "missing",
+            0.001,
+            [1.002, 2.002, 3.002],
+            [4.007, 2.002, 3.002],
+            id="missing-grid",
+        ),
+        pytest.param(
+            "unknown",
+            "missing",
+            0.001,
+            [1.002, 2.002, 3.002],
+            [4.007, 2.002, 3.002],
+            id="unknown-grid",
+        ),
+        pytest.param(
+            fact(status="assumed"),
+            "assumed",
+            0.005,
+            [1.0, 2.0, 3.0],
+            [4.005, 2.0, 3.0],
+            id="assumed-grid",
+        ),
+        pytest.param(
+            fact(),
+            "measured",
+            0.005,
+            [1.0, 2.0, 3.0],
+            [4.005, 2.0, 3.0],
+            id="measured-grid",
+        ),
+    ],
+)
+def test_mounted_saw_consumes_grid_even_without_proven_or_emitted_trajectory(
+    tmp_path, known_trajectory, resolution, status, step, start, end
+):
+    data = bundle(tmp_path, resolution)
+    data.inventory["machines"]["saw"]["kind"] = "mill"
+    data.inventory["tools"] = {"blade": {"kind": "slitting_saw"}}
+    setup = data.plan["setups"][0]
+    op = setup["ops"][0]
+    op.update(tool="blade", cut_plane={"axis": "z", "value": 3.002})
+    op["saw_trajectory"] = (
+        {
+            "start_mm": [1.002, 2.002, 3.002],
+            "moves": [{"to_mm": [4.007, 2.002, 3.002], "mode": "cut"}],
+        }
+        if known_trajectory
+        else "unknown"
+    )
+
+    row = coordinates.evaluate(data)[0]
+    assert row.status == "unknown", row.sentence
+    assert all(row.numbers[key] == [] for key in TABLES)
+    assert row.numbers["dro_grid"] == {"step": step, "decimals": 3}
+    (operation,) = row.numbers["operations"]
+    path = operation["mounted_saw_trajectory"]
+    assert path["status"] == "unknown"
+    assert path["coordinate_reference"] == "spindle_xy_cutting_midplane_z"
+    if known_trajectory:
+        assert path["start_mm"] == [1.002, 2.002, 3.002]
+        assert path["moves"] == [{"to_mm": [4.007, 2.002, 3.002], "mode": "cut"}]
+        assert path["dro_start"] == start
+        assert path["dro_moves"] == [{"to": end, "mode": "cut"}]
+    else:
+        assert path["start_mm"] == "unknown"
+        assert path["moves"] == "unknown"
+        assert path["dro_start"] == ["unknown"] * 3
+        assert path["dro_moves"] == []
+    if status == "measured":
+        assert "dro_grid_debt" not in row.numbers
+        assert "measurements" not in row.numbers
+        assert measurement_checklist([row]) == []
+    else:
+        assert_grid_debt(row, status)
+
+    # Independently authored report: no engine numbers are an expected-value oracle.
+    # Omitting the emitted path cannot erase the authored mounted saw's grid use.
+    finding = {
+        "status": "unknown",
+        "cite": [],
+        "numbers": {
+            "dro_grid": {"step": step, "decimals": 3},
+            "operations": [{"op": 10, "do": "saw_cut"}],
+        },
+    }
+    if status != "measured":
+        finding["numbers"]["dro_grid_debt"] = True
+    entries = VALIDATOR["Entries"](data.inventory)
+
+    def check():
+        VALIDATOR["check_coordinates"](
+            setup, data.features, finding, data.plan, entries, data.inventory, None
+        )
+
+    check()
+    if status != "measured":
+        del finding["numbers"]["dro_grid_debt"]
+        with pytest.raises(ValueError, match="grid debt"):
+            check()
+        finding["numbers"]["dro_grid_debt"] = True
+    finding["numbers"]["dro_grid"] = deepcopy(NOT_USED)
+    with pytest.raises(ValueError, match="DRO grid step"):
+        check()
+    assert data.kernel is None
 
 
 @pytest.mark.parametrize("field", ["to_z", "z_from", "z_to"])

@@ -22,6 +22,7 @@ from test_handwheel_readout import (
 )
 from test_lathe_zero import lathe
 from test_tool_change_touch import carried_native_datum_bundle
+from test_validate_examples import validator_test_bundle
 
 from prechips.inputs import Bundle, load_bundle
 from prechips.measurements import measurement_checklist
@@ -39,10 +40,7 @@ def validator():
 
 def _inputs(validator, data):
     return validator["zero_inputs"](
-        data.plan,
-        data.features,
-        data.inventory,
-        data.policy,
+        validator_test_bundle(data),
         kernel=lambda: deepcopy(data.kernel),
     )
 

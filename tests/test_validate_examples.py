@@ -38,10 +38,11 @@ from test_tool_change_touch import (
     carry_with_through_drill,
     measured_native_retouch_bundle,
 )
+from test_zero_opposed_midpoint import midpoint_bundle
 
 from prechips.findings import Finding
-from prechips.inputs import load_bundle
-from prechips.kernel import run_geometry
+from prechips.inputs import Bundle, load_bundle
+from prechips.kernel import run_geometry, zero_pickup_inputs
 from prechips.model import Inventory
 from prechips.rules import (
     RULES,
@@ -57,6 +58,7 @@ from prechips.rules import (
     tool_resolves,
 )
 from prechips.rules._bench import manual_bench
+from prechips.rules.geometry_common import provenance
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM, inch_sizes, setup_items
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 from prechips.rules.zero_recipe import native as zero_recipe_native
@@ -65,6 +67,247 @@ from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
+
+
+def validator_test_bundle(data):
+    """Keep loaded provenance intact; wrap only source-free synthetic test inputs."""
+    if isinstance(data, Bundle):
+        return data
+    assert isinstance(data, SimpleNamespace)
+    assert not any(hasattr(data, name) for name in ("paths", "hashes", "root"))
+    assert not data.features.get("solids"), "Source solids require a loaded Bundle"
+    return Bundle(
+        plan=data.plan,
+        features=data.features,
+        inventory=data.inventory,
+        policy=getattr(data, "policy", {}),
+        cutting_data=getattr(data, "cutting_data", {}),
+        paths={},
+        hashes={},
+        root=ROOT,
+        kernel=getattr(data, "kernel", None),
+    )
+
+
+@pytest.mark.parametrize("setup_id", ["C1a", "E1a", "E1b"])
+@pytest.mark.parametrize("mismatch", ["setup", "request"])
+def test_zero_inputs_keeps_canonical_source_and_rejects_misbound_native_proof(setup_id, mismatch):
+    """A registered member cannot borrow another setup's or request's native result."""
+    bundle = load_bundle(ROOT / "examples" / "blondihacks-t-nuts" / "plan.toml")
+    setup = next(item for item in bundle.plan["setups"] if item["id"] == setup_id)
+    assert bundle.finished_feature_owners["retained-saw-end"] == "canonical-nut"
+    assert set(bundle.workpiece_registrations) == {"nut1", "nut2", "nut3", "nut4"}
+    own = VALIDATOR["zero_inputs"](bundle, lambda: {"status": "ok", "setups": {}})
+    assert own.finished_feature_owners["retained-saw-end"] == "canonical-nut"
+    requests = zero_pickup_inputs(own, setup)["requests"]
+    assert requests
+    citations = provenance(own, "zero_check", setup, setup["ops"][0], "retained-saw-end")
+    assert f"kernel: STEP SHA-256 {bundle.hashes['step']}; FreeCAD B-rep measurements" in citations
+    for citation in bundle.features["features"]["retained-saw-end"]["cite"]:
+        assert citation in citations
+    for key, request in requests.items():
+        # Explicit test-owned native failure: matching matters even for collision errors.
+        proof = {
+            "model": request["model"],
+            "setup_id": setup_id,
+            "axis": request["axis"],
+            "recipe_id": request["recipe_id"],
+            "request": copy.deepcopy(request),
+            "status": "error",
+            "errors": ["test fixture: finder collides with this member's clamp"],
+        }
+        own.kernel["setups"][setup_id] = {"zero_pickups": {key: proof}}
+        current = zero_recipe_native.zero_pickup_evidence(own, setup, key)
+        assert current["status"] == "error"
+        assert proof["errors"][0] in current["reasons"]
+        if mismatch == "setup":
+            proof["setup_id"] = "another-member-setup"
+        else:
+            # Keep the recipe digest unchanged: full request binding must also match.
+            proof["request"]["at_mm"][0] += 1.0
+        rejected = zero_recipe_native.zero_pickup_evidence(own, setup, key)
+        assert "no matching native proof for the current pickup recipe" in rejected["reasons"]
+        assert proof["errors"][0] not in rejected["reasons"]
+        assert rejected["proof"] == {}
+        assert rejected["resolved_contact"] == {}
+
+
+def test_zero_inputs_recomputes_cached_tnut_ownership_and_rejects_pre_move_proof():
+    bundle = load_bundle(ROOT / "examples" / "blondihacks-t-nuts" / "plan.toml")
+    original_definitions = bundle.feature_definitions
+    original_owners = bundle.finished_feature_owners
+    original_registrations = bundle.workpiece_registrations
+    setup = next(item for item in bundle.plan["setups"] if item["id"] == "E1a")
+    original_pickups = zero_pickup_inputs(bundle, setup)
+    plan, features = copy.deepcopy(bundle.plan), copy.deepcopy(bundle.features)
+    plan["workpieces"]["nut1"]["pose"]["origin"][0] += 1.0
+    features["features"]["test-source-alias"] = copy.deepcopy(
+        features["features"]["retained-saw-end"]
+    )
+    changed = replace(bundle, plan=plan, features=features)
+    own = VALIDATOR["zero_inputs"](changed, lambda: {"status": "ok", "setups": {}})
+    assert "test-source-alias" not in original_definitions
+    assert "test-source-alias" not in original_owners
+    assert own.feature_definitions["test-source-alias"] == features["features"]["test-source-alias"]
+    assert own.finished_feature_owners["test-source-alias"] == "canonical-nut"
+    assert own.workpiece_registrations != original_registrations
+    changed_setup = next(item for item in plan["setups"] if item["id"] == "E1a")
+    changed_pickups = zero_pickup_inputs(own, changed_setup)
+    assert changed_pickups["requests"]
+    for key, request in original_pickups["requests"].items():
+        assert changed_pickups["requests"][key]["recipe_id"] != request["recipe_id"]
+        own.kernel["setups"]["E1a"] = {
+            "zero_pickups": {
+                key: {
+                    "model": request["model"],
+                    "setup_id": "E1a",
+                    "axis": request["axis"],
+                    "recipe_id": request["recipe_id"],
+                    "request": copy.deepcopy(request),
+                    "status": "error",
+                    "errors": ["test fixture: collision at the old member pose"],
+                }
+            }
+        }
+        rejected = zero_recipe_native.zero_pickup_evidence(own, changed_setup, key)
+        assert "no matching native proof for the current pickup recipe" in rejected["reasons"]
+        assert "test fixture: collision at the old member pose" not in rejected["reasons"]
+        assert rejected["proof"] == {}
+
+
+def test_zero_inputs_rejects_report_native_plane_against_independent_geometry():
+    """The report's usable datum cannot override an independently misbound native face."""
+    # Both the primary pickup and later drill retouch need usable native land.
+    # The oblique datum-only fixture cannot certify land after the spotting plunge.
+    data = carried_rectangular_source_plane_bundle(source_grid=0.001)
+    source = validator_test_bundle(data)
+    setup = source.plan["setups"][-1]
+    forged = zero_recipe_rule.evaluate(source)[-1].to_dict()
+    assert forged["status"] == "pass"
+    assert forged["numbers"]["axes"]["z"]["axis_set"] == 21.005
+    face = setup["zero"]["z"]["face"]
+    (ref,) = source.feature_definitions[face]["faces"]
+    independent = copy.deepcopy(source.kernel)
+    # The rectangular fixture resolves its flat native box through mapping[ref],
+    # not features[face]. Rebind both to a declared cylindrical native face so the
+    # receiving-plane check consumes genuinely different geometry.
+    wrong_face = next(item for item in independent["faces"] if item["kind"] == "Cylinder")
+    wrong_index = wrong_face["index"]
+    assert wrong_index > 0
+    assert source.kernel["mapping"][ref] != wrong_index
+    assert wrong_face["kind"] == "Cylinder"
+    assert wrong_face["bbox_mm"][2] < wrong_face["bbox_mm"][5]
+    independent["mapping"][ref] = wrong_index
+    independent["features"][face] = [wrong_index]
+    own = VALIDATOR["zero_inputs"](source, lambda: independent)
+    honest = zero_recipe_rule.evaluate(own)[-1].to_dict()
+    assert honest["status"] == "unknown"
+    assert honest["numbers"]["axes"]["z"]["axis_set"] == "unknown"
+    entries = VALIDATOR["Entries"](source.inventory)
+    VALIDATOR["check_zero"](setup, honest, entries, own)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+    # Downgrading the verdict alone cannot launder the report's numeric datum evidence.
+    forged["status"] = honest["status"]
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize("axis", ["x", "y"])
+@pytest.mark.parametrize("diameter", [0.1, 0.2, 0.5])
+def test_zero_oracle_accepts_opposed_midpoint_without_a_finder_radius_offset(axis, diameter):
+    data = midpoint_bundle(axis, center=12.5, jog=-2.5)
+    data.inventory["tools"]["finder"]["tip_in"] = diameter
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe_rule.evaluate(data)[0].to_dict()
+    assert finding["status"] == "pass"
+    row = finding["numbers"]["axes"][axis]
+    assert [row[key] for key in ("axis_set", "check_reading", "mirrored_reading")] == [
+        12.5,
+        10.0,
+        15.0,
+    ]
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    for field in ("axis_set", "check_reading", "mirrored_reading"):
+        forged = copy.deepcopy(finding)
+        forged["numbers"]["axes"][axis][field] += diameter * 25.4 / 2
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize("axis", ["x", "y"])
+@pytest.mark.parametrize(
+    ("debt", "verdict"),
+    [
+        ("center", "unknown"),
+        ("jog", "unknown"),
+        ("finder-size", "unknown"),
+        ("finder-rpm", "unknown"),
+        ("finder-type", "unknown"),
+        ("finder-verification", "unknown"),
+        ("single-contact", "unknown"),
+        ("swivel", "unknown"),
+        ("wrong-axis", "error"),
+        ("lathe", "error"),
+        ("from", "error"),
+        ("wrong-tool", "error"),
+    ],
+)
+def test_zero_oracle_independently_refuses_unready_opposed_midpoint(axis, debt, verdict):
+    data = midpoint_bundle(axis, center=12.5, jog=-2.5)
+    setup = data.plan["setups"][0]
+    recipe = setup["zero"][axis]
+    finder = data.inventory["tools"]["finder"]
+    if debt == "center":
+        recipe["edge_mm"] = "unknown"
+    elif debt == "jog":
+        recipe["check_jog_mm"] = "unknown"
+    elif debt == "finder-size":
+        finder["tip_in"] = "unknown"
+    elif debt == "finder-rpm":
+        finder["rpm_range"] = "unknown"
+    elif debt == "finder-type":
+        finder["finder_type"] = "unknown"
+    elif debt == "finder-verification":
+        finder["verify"] = True
+    elif debt == "single-contact":
+        recipe["at_mm"] = [5, 8]
+    elif debt == "swivel":
+        data.inventory.setdefault("fixtures", {})["vise"] = {"kind": "vise"}
+        setup["hold"] = {"fixture": "vise", "jaws_angle_deg": 30.0}
+    elif debt == "wrong-axis":
+        axis = "z"
+        setup["zero"][axis]["method"] = "opposed_edge_midpoint"
+    elif debt == "lathe":
+        setup["machine"] = "lathe"
+    elif debt == "from":
+        recipe["from"] = f"-{axis}"
+    elif debt == "wrong-tool":
+        recipe["tool"] = "mill"
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe_rule.evaluate(data)[0].to_dict()
+    assert finding["status"] == verdict
+    row = finding["numbers"]["axes"][axis]
+    assert all(
+        row[field] == "unknown" for field in ("axis_set", "check_reading", "mirrored_reading")
+    )
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    forged = copy.deepcopy(finding)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+    # An unchanged adverse verdict cannot launder numeric midpoint settings either.
+    for field in ("axis_set", "check_reading", "mirrored_reading"):
+        forged = copy.deepcopy(finding)
+        forged["numbers"]["axes"][axis][field] = 12.5
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+def test_validator_test_bundle_rejects_source_solids_without_real_provenance():
+    synthetic = SimpleNamespace(features={"solids": {"part": "#15/MANIFOLD_SOLID_BREP[1]/"}})
+    with pytest.raises(AssertionError, match="Source solids require a loaded Bundle"):
+        validator_test_bundle(synthetic)
 
 
 @pytest.mark.parametrize(
@@ -531,12 +774,13 @@ def test_mounted_zero_normalizes_authored_inch_contact_before_body_compensation(
     assert row["z_axis_set"] == pytest.approx(expected / 25.4)
 
 
-def sheet_disclosure_fixture(tmp_path, *, status="unknown", detail="pro", grouped=True):
+def sheet_disclosure_fixture(
+    tmp_path, *, status="unknown", detail="pro", grouped=True, rule="accessibility", prose=None
+):
     """Small real HTML contract, with visible debt separate from identity metadata."""
     subjects = ["D1a:30", "D1b:30"] if grouped else ["D1a:30"]
     findings = [
-        {"rule": "accessibility", "subject": subject, "status": status, "numbers": {}}
-        for subject in subjects
+        {"rule": rule, "subject": subject, "status": status, "numbers": {}} for subject in subjects
     ]
     report = {"hash": "synthetic-bound-report", "findings": findings}
     kind = "block" if status == "error" else "caution"
@@ -548,14 +792,15 @@ def sheet_disclosure_fixture(tmp_path, *, status="unknown", detail="pro", groupe
         {"setup_id": subject.split(":")[0], "op_id": 30, "workpiece": f"nut{index + 1}"}
         for index, subject in enumerate(subjects)
     ]
-    prose = (
-        "Tool or holder collides with the part; STOP."
-        if status == "error"
-        else ("Claimed face references are unknown or unmapped.")
-    )
+    if prose is None:
+        prose = (
+            "Tool or holder collides with the part; STOP."
+            if status == "error"
+            else ("Claimed face references are unknown or unmapped.")
+        )
     decision = (
         f'<div class="decision {"stop" if status == "error" else "caution"}" '
-        f'data-decision="{kind}" data-source="accessibility" data-status="{status}" '
+        f'data-decision="{kind}" data-source="{rule}" data-status="{status}" '
         f'data-scope="D1a:30" data-decision-evidence="{escape(json.dumps(evidence))}" '
         f'data-physical-ops="{escape(json.dumps(owners))}"><p>{prose}</p></div>'
     )
@@ -584,12 +829,176 @@ def test_sheet_accepts_visible_semantic_grouped_disclosure_without_status_glyphs
     VALIDATOR["check_sheet"](tmp_path, report)
 
 
-@pytest.mark.parametrize("status", ["unknown", "error"])
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "a claimed internal corner is smaller than the selected cutter radius.",
+        "The 0.997 mm corner radius is smaller\nthan the 4 mm cutter radius.",
+    ],
+)
+def test_sheet_accepts_owned_visible_failure_comparison(tmp_path, detail, prose):
+    report, _, _, _ = sheet_disclosure_fixture(
+        tmp_path,
+        detail=detail,
+        status="error",
+        rule="internal_corner_radius",
+        prose=prose,
+    )
+    VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "We need a measured holder envelope before releasing this operation.",
+        "This pickup needs a repeatable contact measurement.",
+        "The supported contact height must be known before machining.",
+    ],
+)
+@pytest.mark.parametrize(
+    "mutation", ["none", "neutral", "empty", "clear", "hidden", "script", "wrong_owner"]
+)
+def test_sheet_outstanding_obligations_require_visible_owned_modern_debt(
+    tmp_path, detail, prose, mutation
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, detail=detail, prose=prose)
+    VALIDATOR["check_sheet"](tmp_path, report)
+    if mutation == "none":
+        return
+    if mutation in {"neutral", "empty", "clear"}:
+        replacement = {
+            "neutral": "The selected holder envelope is 4 mm.",
+            "empty": "",
+            "clear": "All clear; the contact height must be known.",
+        }[mutation]
+        altered = decision.replace(f"<p>{prose}</p>", f"<p>{replacement}</p>")
+    elif mutation == "hidden":
+        altered = f"<div hidden>{decision}</div>"
+    elif mutation == "script":
+        altered = f'<script type="text/plain">{decision}</script>'
+    else:
+        altered = decision.replace(
+            "&quot;setup_id&quot;: &quot;D1b&quot;",
+            "&quot;setup_id&quot;: &quot;D1c&quot;",
+        )
+    path.write_text(html.replace(decision, altered), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "rule,subject,numbers",
+    [
+        ("sizing", "back-face", {}),
+        ("op_chain", "back-face", {}),
+        ("blind_depth", "back-face", {}),
+        ("datum_consistency", "back-face", {}),
+        ("inspection", "nut1/back-face:length", {}),
+        (
+            "inspection",
+            "nut1/back-face:length",
+            {
+                "identity": {
+                    "feature_owner": "back-face",
+                    "requirement": "length",
+                    "workpiece": "nut1",
+                }
+            },
+        ),
+    ],
+)
+@pytest.mark.parametrize("mutation", ["none", "source", "status", "scope", "kind"])
+def test_sheet_grouped_secondary_nonphysical_debt_keeps_exact_evidence(
+    tmp_path, rule, subject, numbers, mutation
+):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path)
+    original_evidence = [
+        {"source": "accessibility", "status": "unknown", "scope": scope, "kind": "caution"}
+        for scope in ("D1a:30", "D1b:30")
+    ]
+    report["findings"][1].update(rule=rule, subject=subject, numbers=numbers)
+    evidence = copy.deepcopy(original_evidence)
+    evidence[1].update(source=rule, scope=subject)
+    grouped = decision.replace(escape(json.dumps(original_evidence)), escape(json.dumps(evidence)))
+    # Only D1a/D1b physical owners exist; neither is this feature/inspection identity.
+    # The primary attributes still describe accessibility:D1a:30, not the secondary.
+    path.write_text(html.replace(decision, grouped), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+    if mutation == "none":
+        return
+    evidence[1][mutation] = {
+        "source": "finish_coverage",
+        "status": "pass",
+        "scope": "nut2/front-face:length",
+        "kind": "info",
+    }[mutation]
+    altered = decision.replace(escape(json.dumps(original_evidence)), escape(json.dumps(evidence)))
+    path.write_text(html.replace(decision, altered), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize("rule", ["accessibility", "inspection"])
+def test_sheet_grouped_secondary_physical_op_cannot_bypass_owner_gate(tmp_path, rule):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path)
+    original_evidence = [
+        {"source": "accessibility", "status": "unknown", "scope": scope, "kind": "caution"}
+        for scope in ("D1a:30", "D1b:30")
+    ]
+    report["findings"][1].update(rule=rule, subject="S1:10")
+    if rule == "inspection":
+        report["findings"][1]["numbers"] = {
+            "identity": {
+                "feature_owner": "back-face",
+                "requirement": "length",
+                "workpiece": "nut1",
+            }
+        }
+    evidence = copy.deepcopy(original_evidence)
+    evidence[1].update(source=rule, scope="S1:10")
+    owners = [
+        {"setup_id": "D1a", "op_id": 30, "workpiece": "nut1"},
+        {"setup_id": "S1", "op_id": 10, "workpiece": "nut2"},
+    ]
+    original_owners = [
+        {"setup_id": sid, "op_id": 30, "workpiece": f"nut{index + 1}"}
+        for index, sid in enumerate(("D1a", "D1b"))
+    ]
+    grouped = decision.replace(
+        escape(json.dumps(original_evidence)), escape(json.dumps(evidence))
+    ).replace(escape(json.dumps(original_owners)), escape(json.dumps(owners)))
+    path.write_text(html.replace(decision, grouped), encoding="utf-8")
+    VALIDATOR["check_sheet"](tmp_path, report)
+    altered = grouped.replace(
+        "&quot;setup_id&quot;: &quot;S1&quot;",
+        "&quot;setup_id&quot;: &quot;S2&quot;",
+    )
+    path.write_text(html.replace(decision, altered), encoding="utf-8")
+    with pytest.raises(ValueError, match="sheet hides"):
+        VALIDATOR["check_sheet"](tmp_path, report)
+
+
+@pytest.mark.parametrize(
+    "status,rule,prose",
+    [
+        pytest.param("unknown", "accessibility", None, id="unknown"),
+        pytest.param("error", "accessibility", None, id="error"),
+        pytest.param(
+            "error",
+            "internal_corner_radius",
+            "The corner radius is smaller than the selected cutter radius.",
+            id="failure-comparison",
+        ),
+    ],
+)
 @pytest.mark.parametrize(
     "mutation",
     [
         "empty",
         "clear",
+        "neutral",
         "script",
         "hidden",
         "aria",
@@ -602,16 +1011,21 @@ def test_sheet_accepts_visible_semantic_grouped_disclosure_without_status_glyphs
         "cleared_status",
     ],
 )
-def test_sheet_rejects_hidden_cleared_or_unassociated_disclosures(tmp_path, status, mutation):
-    report, path, html, decision = sheet_disclosure_fixture(tmp_path, status=status)
+def test_sheet_rejects_hidden_cleared_or_unassociated_disclosures(
+    tmp_path, status, rule, prose, mutation
+):
+    report, path, html, decision = sheet_disclosure_fixture(
+        tmp_path, status=status, rule=rule, prose=prose
+    )
     VALIDATOR["check_sheet"](tmp_path, report)
-    if mutation in {"empty", "clear"}:
+    if mutation in {"empty", "clear", "neutral"}:
         start, end = decision.index("<p>"), decision.index("</p>")
-        altered = (
-            decision[:start]
-            + ("" if mutation == "empty" else "<p>All clear; proceed.</p>")
-            + decision[end + 4 :]
-        )
+        replacement = {
+            "empty": "",
+            "clear": "<p>All clear; proceed.</p>",
+            "neutral": "<p>The selected cutter radius is 4 mm.</p>",
+        }[mutation]
+        altered = decision[:start] + replacement + decision[end + 4 :]
     elif mutation == "script":
         altered = f'<script type="text/plain">{decision}</script>'
     elif mutation in {"hidden", "aria", "inline_css", "class_css"}:
@@ -627,7 +1041,7 @@ def test_sheet_rejects_hidden_cleared_or_unassociated_disclosures(tmp_path, stat
             escape(
                 json.dumps(
                     {
-                        "source": "accessibility",
+                        "source": rule,
                         "status": status,
                         "scope": "D1b:30",
                         "kind": "block" if status == "error" else "caution",
@@ -1602,17 +2016,15 @@ def zero_case(part, setup_id):
     plan's setup, its expected ``zero_check`` finding and the validator's own inputs
     (plan, manifest, inventory, policy and its own kernel run)."""
     folder = ROOT / "examples" / part
-    plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
-    features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
-    inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
-    policy = tomllib.loads((folder / plan["paths"]["policy"]).read_text(encoding="utf-8"))
+    bundle = load_bundle(folder / "plan.toml")
+    plan, inventory = bundle.plan, bundle.inventory
     report = json.loads((folder / "expected" / "report.json").read_bytes())
     setup = next(s for s in plan["setups"] if s["id"] == setup_id)
     finding = next(
         f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
     )
     kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
-    own = VALIDATOR["zero_inputs"](plan, features, inventory, policy, kernel)
+    own = VALIDATOR["zero_inputs"](bundle, kernel)
     return setup, finding, VALIDATOR["Entries"](inventory), own
 
 
@@ -1946,6 +2358,72 @@ def test_stickout_reads_a_machine_selected_by_its_category_as_that_machine(freec
                 VALIDATOR["check_stickout"](*args, {**finding, "status": forged}, kernel)
 
 
+@pytest.mark.parametrize("kind", ["bandsaw", "lathe", "unknown"])
+@pytest.mark.parametrize(
+    "policy_case",
+    [
+        "cited_limit",
+        "missing_ratio",
+        "missing_citation",
+        "missing_verification",
+        "unverified",
+        "missing_tables",
+    ],
+)
+def test_stickout_optional_policy_preserves_machine_applicability(shaft_bundle, kind, policy_case):
+    bundle = copy.deepcopy(shaft_bundle)
+    setup = next(item for item in bundle.plan["setups"] if item["id"] == "S1")
+    setup["machine"] = "validator-test-machine"
+    bundle.inventory["machines"]["validator-test-machine"] = {"kind": kind}
+    setup["hold"]["support"] = "none"
+    setup["hold"].pop("supports", None)
+    policy = bundle.policy
+    policy["numbers"]["stickout_ld_max"] = 4.0
+    policy["numbers_cite"]["stickout_ld_max"] = "Test-owned unsupported L/D limit"
+    policy["numbers_verify"]["stickout_ld_max"] = False
+    if policy_case == "missing_tables":
+        for table in ("numbers", "numbers_cite", "numbers_verify"):
+            policy.pop(table)
+    elif policy_case.startswith("missing_"):
+        table = {
+            "missing_ratio": "numbers",
+            "missing_citation": "numbers_cite",
+            "missing_verification": "numbers_verify",
+        }[policy_case]
+        policy[table].pop("stickout_ld_max")
+    elif policy_case == "unverified":
+        policy["numbers_verify"]["stickout_ld_max"] = True
+    finding = next(
+        item.to_dict() for item in stickout.evaluate(bundle) if item.subject == setup["id"]
+    )
+    expected = (
+        "not_applicable"
+        if kind == "bandsaw"
+        else "error"
+        if kind == "lathe" and policy_case in {"cited_limit", "missing_verification"}
+        else "unknown"
+    )
+    assert finding["status"] == expected
+    if policy_case in {"missing_ratio", "missing_tables"}:
+        assert finding["numbers"]["stickout_ld_max"] == "unknown"
+    if policy_case in {"missing_ratio", "missing_citation", "unverified", "missing_tables"}:
+        assert finding["numbers"]["unsupported_limit_mm"] == "unknown"
+    args = (setup, bundle.plan, bundle.features, bundle.inventory, policy)
+
+    def kernel():
+        return bundle.kernel
+
+    VALIDATOR["check_stickout"](*args, finding, kernel)
+    for forged in {"pass", "unknown", "error", "not_applicable"} - {expected}:
+        with pytest.raises(ValueError, match="stick-out verdict"):
+            VALIDATOR["check_stickout"](*args, {**finding, "status": forged}, kernel)
+    if policy_case in {"missing_ratio", "missing_tables"}:
+        forged = copy.deepcopy(finding)
+        forged["numbers"]["stickout_ld_max"] = 4.0
+        with pytest.raises(ValueError, match="stick-out shop ratio"):
+            VALIDATOR["check_stickout"](*args, forged, kernel)
+
+
 @pytest.fixture(scope="module")
 def shaft_bundle(tmp_path_factory, freecad_kernel):
     """Native shaft stock for numeric stick-out tests, not proof of the shipped inputs."""
@@ -2150,13 +2628,13 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
     expected_tip = {"tap": 5.0, "ream": -13.675, "drill": -13.5}[action]
     assert row["tip_z"] == pytest.approx(expected_tip)
     entries = VALIDATOR["Entries"](bundle.inventory)
-    VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
+    VALIDATOR["check_endpoints"](validator_test_bundle(bundle), findings, entries)
     field = {"tap": "flute_len_mm", "ream": "lead_mm", "drill": "point_mm"}[action]
     row[field] += 1.0
     if action != "tap":
         row["tip_z"] -= 1.0
     with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(bundle), findings, entries)
 
 
 # The pivot-shaft centre as the engine reports it: prepared, contradicted (plan or tool),
@@ -2194,7 +2672,7 @@ def centre_findings(tmp_path, where=None, key=None, value=None):
     (row,) = finding["numbers"]["endpoints"]
     return (
         row,
-        lambda: VALIDATOR["check_endpoints"](bundle.plan, bundle.features, findings, entries),
+        lambda: VALIDATOR["check_endpoints"](validator_test_bundle(bundle), findings, entries),
         finding,
     )
 
@@ -2263,7 +2741,7 @@ def test_endpoint_oracle_takes_a_blind_hole_entry_from_the_plan(corruption):
     data = drill_bundle(depth_mm=40.0)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
     entries = VALIDATOR["Entries"](data.inventory)
-    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
     (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
     if corruption == "surface":
         # The whole hole moved 1 mm into the part, its depth unchanged: self-consistent.
@@ -2273,7 +2751,7 @@ def test_endpoint_oracle_takes_a_blind_hole_entry_from_the_plan(corruption):
         # The right Z, credited to a surface the plan never leaves there.
         row["entry_from"] = "S1 op 10 to_z"
     with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
 
 
 def printed_endpoint(data):
@@ -2283,7 +2761,7 @@ def printed_endpoint(data):
     (row,) = findings["blind_depth", "hole"]["numbers"]["endpoints"]
 
     def check():
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
 
     check()
     return row, check
@@ -2317,8 +2795,8 @@ def faced_endpoint_bundle(tmp_path):
 
 def test_endpoint_oracle_uses_inventory_for_authored_face_coverage_without_a_kernel(tmp_path):
     # The island is far outside the face, but proving that still needs the cutter radius.
-    # Keep the four-argument oracle call in printed_endpoint: omitted inventory used to
-    # derive an unknown printed entry, not a signature error. No native evidence is needed.
+    # Keep the kernel-free oracle call in printed_endpoint: omitted inventory used to
+    # derive an unknown printed entry. No native evidence is needed.
     row, check = printed_endpoint(faced_endpoint_bundle(tmp_path))
     assert row["entry_z"] == -2.27825
     assert row["dro_entry_z"] == -2.27
@@ -2379,18 +2857,18 @@ def test_endpoint_oracle_needs_independent_native_evidence_for_a_face_without_bo
 
     def check():
         return VALIDATOR["check_endpoints"](
-            data.plan, data.features, findings, entries, lambda: independent
+            validator_test_bundle(data), findings, entries, lambda: independent
         )
 
     check()
     if available:
         # Even a report with complete numeric endpoints cannot supply missing native facts.
         with pytest.raises(ValueError, match="printed entry Z.*unknown"):
-            VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+            VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
         independent["mapping"].clear()
     else:
         # An unavailable kernel leaves the native surface unknown, never a known entry.
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
         row["dro_entry_z"] = -2.27
     with pytest.raises(ValueError, match="printed entry Z.*unknown"):
         check()
@@ -2567,9 +3045,7 @@ def test_native_face_coverage_oracle_uses_only_matched_boxes(tmp_path, monkeypat
             op["stock_removal_bounds"].update(x=[-30.0, 30.0], y=[-30.0, 30.0])
             if case == "oblique-keep-out":
                 op["contour"]["keep_out"] = [{"at": [0.0, 0.0], "dia_mm": 2.0}]
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     trap_native_coverage(monkeypatch, forged_whole=case != "unbounded-own")
     assert (
         VALIDATOR["surface_cut_coverage"](
@@ -2599,13 +3075,13 @@ def test_endpoint_native_coverage_rejects_old_disc_credit_with_its_own_kernel(
         return copy.deepcopy(independent)
 
     trap_native_coverage(monkeypatch)
-    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries, kernel)
+    VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries, kernel)
     assert calls == [True]
     # The report's kernel remains whole. Only the oracle's own native face grows
     # outside the cut; the incidental disc still lies wholly within it.
     independent["faces"][0]["bbox_mm"][3] = 40.0
     with pytest.raises(ValueError, match="printed entry Z"):
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries, kernel)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries, kernel)
 
 
 @pytest.mark.parametrize("candidate", ["local-source", "cross-feature", "unbounded-cross-feature"])
@@ -2641,9 +3117,7 @@ def test_native_entry_producer_ignores_authored_disc_and_containment(
         setup, source = consumer, f"{consumer['id']} stock_state.top_z"
     else:
         setup, source = producer, f"{producer['id']} op {op['op']} to_z"
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     trap_native_coverage(monkeypatch, forged_whole=True)
     monkeypatch.setitem(
         VALIDATOR["entry_producer"].__globals__,
@@ -2682,7 +3156,7 @@ def test_endpoint_native_coverage_missing_match_rejects_numeric_stops_and_pass(
 
     def check(report):
         return VALIDATOR["check_endpoints"](
-            data.plan, data.features, report, entries, lambda: copy.deepcopy(independent)
+            validator_test_bundle(data), report, entries, lambda: copy.deepcopy(independent)
         )
 
     check(unknown)
@@ -2719,8 +3193,7 @@ def test_local_native_entry_rejects_a_real_checker_whole_claim_with_own_partial_
     trap_native_coverage(monkeypatch, forged_whole=True)
     with pytest.raises(ValueError, match="printed entry Z.*unknown"):
         VALIDATOR["check_endpoints"](
-            data.plan,
-            data.features,
+            validator_test_bundle(data),
             findings,
             VALIDATOR["Entries"](data.inventory),
             lambda: copy.deepcopy(independent),
@@ -2733,9 +3206,7 @@ def test_native_entry_producer_skips_list_feature_inspection(tmp_path, monkeypat
     del consumer["stock_state"]["top_feature"]
     face_op = producer["ops"][0]
     producer["ops"].append({"op": 20, "do": "inspect", "feature": ["target", "hole"]})
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     trap_native_coverage(monkeypatch)
     assert VALIDATOR["entry_producer"](
         own,
@@ -2764,9 +3235,7 @@ def test_native_entry_producer_keeps_an_earlier_plane_past_an_unrelated_other_de
     if not overlap:
         later["stock_removal_bounds"].update(x=[30.0, 40.0], y=[30.0, 40.0])
     producer["ops"].append(later)
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     trap_native_coverage(monkeypatch, forged_whole=True)
     result = VALIDATOR["entry_producer"](
         own,
@@ -2803,9 +3272,7 @@ def test_carried_native_plane_coverage_cannot_fall_back_to_checker_credit(monkey
         "y": [-2.0, 2.0],
         "z": [20.0, 22.0],
     }
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     if coverage in {"empty-bounds", "unknown-bounds"}:
         own.feature_definitions[face]["bounds"] = {} if coverage == "empty-bounds" else "unknown"
     elif coverage == "partial":
@@ -2928,14 +3395,14 @@ def test_endpoint_oracle_keeps_declared_stops_without_certifying_untrusted_grid(
     (after,) = finding["numbers"]["endpoints"]
     assert {key: value for key, value in after.items() if key != "dro_grid_debt"} == before
     entries = VALIDATOR["Entries"](data.inventory)
-    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
     finding["status"] = "pass"
     with pytest.raises(ValueError, match="endpoint verdict"):
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
     finding["status"] = "unknown"
     after["dro_tip_z"] -= 1.0
     with pytest.raises(ValueError, match="printed tip Z"):
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
 
 
 def test_centre_oracle_holds_the_printed_quill_endpoint(tmp_path):
@@ -2960,7 +3427,7 @@ def speed_finding(data):
         for f in [*endpoint_findings(data), *speeds_feeds.evaluate(data)]
     }
     entries = VALIDATOR["Entries"](data.inventory)
-    depths = VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    depths = VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
     setup = data.plan["setups"][0]
     finding = findings["speeds_feeds", "S1:10"]
 
@@ -3822,13 +4289,13 @@ def test_endpoint_verdict_is_the_one_its_ops_tools_and_depth_guard_decide(hole, 
     finding = findings["blind_depth", "hole"]
     native = {"through": "pass", "over_guard": "error", "no_guard": "unknown"}[hole]
     assert finding["status"] == native
-    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
     if forged == "no_row":
         finding["numbers"]["endpoints"].clear()  # nothing left to place the tip
     else:
         finding["status"] = forged
     with pytest.raises(ValueError):
-        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+        VALIDATOR["check_endpoints"](validator_test_bundle(data), findings, entries)
 
 
 @pytest.mark.parametrize(("where", "key", "value"), CENTRE_CASES)
@@ -3974,9 +4441,7 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
     finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert finding["status"] == verdict
     entries = VALIDATOR["Entries"](data.inventory)
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
     forged = copy.deepcopy(finding)
     forged["status"] = "unknown" if verdict != "unknown" else "pass"
@@ -4038,7 +4503,7 @@ def test_endpoint_zero_oracle_keeps_only_the_primary_contact_without_native_full
     data.kernel["setups"][source["id"]]["revolved"][name]["radii_mm"] = [inner, 1.0]
     # Primary native identity is available; the first plunge leaves no certified
     # 0.5 mm square. Neither abundant extrema nor a nominal bore establishes it.
-    own.kernel = copy.deepcopy(data.kernel)
+    own = replace(own, kernel=copy.deepcopy(data.kernel))
     primary = VALIDATOR["carried_source_plane"](own, entries, setup, name, 0)
     later = VALIDATOR["carried_source_plane"](own, entries, setup, name, 1)
     assert primary["physical"] == pytest.approx(21.01)
@@ -4147,9 +4612,7 @@ def half_step_source_plane(depth=0.25, shift=0.0):
 
 def zero_oracle(data):
     """The validator's zero inputs, entries and receiving setup for ``data``."""
-    own = VALIDATOR["zero_inputs"](
-        data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
-    )
+    own = VALIDATOR["zero_inputs"](validator_test_bundle(data), lambda: copy.deepcopy(data.kernel))
     return data.plan["setups"][-1], VALIDATOR["Entries"](data.inventory), own
 
 
@@ -4418,19 +4881,19 @@ def test_endpoint_oracle_never_recovers_unknown_current_touch_from_an_original_l
     expected = "error" if contradiction else "unknown"
     findings["blind_depth", "hole"]["status"] = expected
     VALIDATOR["check_endpoints"](
-        data.plan, data.features, findings, entries, lambda: copy.deepcopy(own.kernel)
+        validator_test_bundle(data), findings, entries, lambda: copy.deepcopy(own.kernel)
     )
     forged = copy.deepcopy(findings)
     forged["blind_depth", "hole"]["numbers"]["endpoints"][-1]["dro_entry_z"] = 21.01
     with pytest.raises(ValueError, match="printed entry Z.*unknown"):
         VALIDATOR["check_endpoints"](
-            data.plan, data.features, forged, entries, lambda: copy.deepcopy(own.kernel)
+            validator_test_bundle(data), forged, entries, lambda: copy.deepcopy(own.kernel)
         )
     forged = copy.deepcopy(findings)
     forged["blind_depth", "hole"]["status"] = "pass"
     with pytest.raises(ValueError, match=rf"endpoint verdict pass is not the {expected}"):
         VALIDATOR["check_endpoints"](
-            data.plan, data.features, forged, entries, lambda: copy.deepcopy(own.kernel)
+            validator_test_bundle(data), forged, entries, lambda: copy.deepcopy(own.kernel)
         )
 
 
@@ -4498,7 +4961,7 @@ def test_endpoint_oracle_retains_numeric_current_touch_when_own_plane_survives(c
         lambda *args, **kwargs: pytest.fail("endpoint oracle delegated native survival"),
     )
     VALIDATOR["check_endpoints"](
-        data.plan, data.features, findings, entries, lambda: copy.deepcopy(own.kernel)
+        validator_test_bundle(data), findings, entries, lambda: copy.deepcopy(own.kernel)
     )
 
 
@@ -4851,7 +5314,7 @@ def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting(thickness):
 
     def check(report):
         VALIDATOR["check_endpoints"](
-            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+            validator_test_bundle(data), report, entries, lambda: copy.deepcopy(data.kernel)
         )
 
     check(findings)
@@ -4941,7 +5404,7 @@ def test_endpoint_oracle_requires_its_own_carried_datum_before_passing(land, end
 
     def check(report):
         return VALIDATOR["check_endpoints"](
-            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+            validator_test_bundle(data), report, entries, lambda: copy.deepcopy(data.kernel)
         )
 
     depths = check(findings)
@@ -4962,8 +5425,7 @@ def test_endpoint_oracle_accepts_only_the_nominal_or_unknown_carried_entry(edge,
     setup["stock_state"]["entry_z"]["hole"] = entry
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
     VALIDATOR["check_endpoints"](
-        data.plan,
-        data.features,
+        validator_test_bundle(data),
         findings,
         VALIDATOR["Entries"](data.inventory),
         lambda: copy.deepcopy(data.kernel),
@@ -5001,7 +5463,7 @@ def test_carried_inch_contact_uses_the_printed_grid_line_without_rounding_a_lowe
         for row in findings["blind_depth", "hole"]["numbers"]["endpoints"]
     )
     VALIDATOR["check_endpoints"](
-        data.plan, data.features, findings, entries, lambda: copy.deepcopy(data.kernel)
+        validator_test_bundle(data), findings, entries, lambda: copy.deepcopy(data.kernel)
     )
 
 
@@ -5024,7 +5486,7 @@ def test_endpoint_oracle_uses_its_own_physical_native_entry_tolerance(units, sid
 
     def check():
         VALIDATOR["check_endpoints"](
-            data.plan, data.features, findings, entries, lambda: copy.deepcopy(data.kernel)
+            validator_test_bundle(data), findings, entries, lambda: copy.deepcopy(data.kernel)
         )
 
     if inside:
@@ -5047,7 +5509,7 @@ def test_endpoint_oracle_rejects_an_as_cut_entry_and_a_self_consistent_double_sh
 
     def check(report):
         VALIDATOR["check_endpoints"](
-            data.plan, data.features, report, entries, lambda: copy.deepcopy(data.kernel)
+            validator_test_bundle(data), report, entries, lambda: copy.deepcopy(data.kernel)
         )
 
     with pytest.raises(ValueError, match=r"Bad input: S9 stock_state\.entry_z\.hole"):
