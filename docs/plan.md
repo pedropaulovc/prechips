@@ -1785,6 +1785,9 @@ unless the procedure explicitly obtains one.
 | `retract_clearance_mm` | Positive clearance above the occupied scene for that posed top touch |
 | `check_jog_mm` | Signed Z jog from the paper-contact Axis Set, before retracting |
 
+`at_mm` accepts exactly two coordinates, `[X, Y]`; a three-coordinate pose is
+invalid input.
+
 The posed top-touch fields follow manifest units despite their `_mm` names and
 convert once to native mm. `after_op` and `before_ops`, when both present, must
 identify the same boundary. The native proof uses the actual material at that
@@ -3032,6 +3035,8 @@ For plane Z `E`, paper thickness `p`, body thickness `B` and signed kerf offset
 `C`, lower body side on a +Z plane sets cutting-midplane DRO to
 `E + p + B/2 + C`; upper body side on a −Z plane sets
 `E − p − B/2 + C`. Never substitute kerf width or blade radius for body thickness.
+Nonfinite inputs or computed values leave Axis Set and check-jog readings
+unknown; they do not produce numeric setting instructions.
 Ordinary and mounted-saw settings do not transfer without the appropriate
 touch; ordinary X/Y/Z evidence remains required where used.
 

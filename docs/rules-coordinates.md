@@ -955,6 +955,11 @@ conditional debt until ownership establishes whether that stock reaches
 the file. Known gouges and break-out crossings remain errors regardless
 of recut uncertainty.
 
+For registered stock, the filing cap is checked independently for every
+originally selected member. A partial recut waives only the members it resolves,
+not their siblings. Unresolved ownership remains debt alongside any independently
+proved member cap error.
+
 Rough methods on a finish stage are errors; `file_to_line` finishes them.
 Finish methods cannot be clipped by `stock_removal_bounds` and stay unknown
 when bounded. Straight joins support only `stairs` and `chain_drill`; other

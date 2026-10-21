@@ -729,6 +729,9 @@ do not force an unnecessary lift or descent; exact component sweeps still test
 every stock, fixture and capture obstacle, including those outside that column.
 Unknown or incomplete selected-approach evidence cannot provide a range pass,
 but an already-proved excess remains an error despite other missing evidence.
+A range pass also requires successful native saw geometry and selected
+calibration-approach proofs. Numeric bounds from a failed proof cannot establish
+a pass; a known measured-limit overrun still errors.
 The local calibration collision proof covers the authored stock, fixture and
 capture scene, not the machine table or whole machine. A clear approach from
 below is therefore not automatically reachable: `envelope` must also admit its
@@ -936,7 +939,9 @@ Every feature finishing-cut/datum-cut pair is evaluated:
 1. Cuts in the same setup pass.
 2. An indicated transfer passes only if it names the feature/datum and its
    source is at or after the datum finishing setup and before the current
-   feature setup.
+   feature setup. For registered stock, the source may hold several live members,
+   but credit requires the selected member's causal route and matched native
+   protection; a sibling's evidence cannot establish the transfer.
 3. Otherwise tolerance is compared with the measured `refixture_budget_mm`.
    Tolerance below the budget is an error. Unknown/unverified budget,
    tolerance or unresolved cuts leave the comparison unknown.

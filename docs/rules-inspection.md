@@ -58,6 +58,10 @@ Known disjoint faces do not invalidate it; unresolved overlap remains debt.
 Names such as `all-surfaces` have no wildcard meaning. Manual acceptance uses
 the same physical-face relation for its participating features.
 
+A later `spot` on a participating feature or overlapping physical faces
+invalidates manual acceptance for the affected member, even though spotting is
+excluded from ordinary dimensional finishing-cut selection.
+
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
 exported on another feature does not establish ownership. An `inspect` op naming

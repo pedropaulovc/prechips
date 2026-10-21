@@ -181,6 +181,10 @@ retaining-thread constraints. The optional `arbor` identity alone is
 insufficient. Known nonpositive dimensions or incompatible taper error;
 missing or unverified facts remain debt.
 
+An excessive bore-to-pilot clearance is an error only when the clearance
+allowance itself has qualified cited or measured evidence. An unqualified
+allowance leaves that comparison unknown, even when its numeric value is exceeded.
+
 Physical consumers require matching
 [finite native evidence](rules-geometry.md#saw-cut-off), not planar kerf or an
 axial cutter surrogate. Recognition, including an unverified raw

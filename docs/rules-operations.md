@@ -119,6 +119,10 @@ an earlier band known to contain the start records an error even when a
 later unknown band may also contain it. The explicit-unknown kind/action
 precedence above still determines the finding's status.
 
+For registered workpieces, this scan selects the latest applicable Z producer
+for each affected member independently. A deterministic cut on one member cannot
+replace another member's banded producer; unresolved membership remains debt.
+
 Resolve missing prerequisite operations in the authored route, select the
 specified measured tap drill, or add the actual deterministic face cut that
 the later table requires. An acceptable dimensional band alone does not
