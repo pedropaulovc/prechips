@@ -742,7 +742,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -2769,7 +2769,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -4796,7 +4796,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -7985,7 +7985,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/blondihacks-t-nuts/cutting-data.toml",
-            "sha256": "2adc12e605dd7bbe2964ae89f90487e938ee8b67aee7180a1d169ce904f1f07b"
+            "sha256": "123c2883d2db47007c688ee2df063e7876e45c2a17de47ff71ed92125270d1c9"
           },
           "features": {
             "path": "examples/blondihacks-t-nuts/features.toml",
@@ -7997,7 +7997,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-t-nuts/plan.toml",
-            "sha256": "1e2f72d90e3e04727269377a9c741a549ce8b971278def12b8dcb9d3d6f1c76b"
+            "sha256": "e1597626c11251774273f26afe7698750f1ef6d07c40d2ba4c720a7f37178b52"
           },
           "shop_policy": {
             "path": "examples/blondihacks-t-nuts/shop-policy.toml",
@@ -9367,7 +9367,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1a:20",
-                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                     "setup": "C1a",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -11399,7 +11399,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1a:20",
-                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                       "setup": "C1a",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -13648,7 +13648,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1b:10",
-                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                     "setup": "C1b",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -15680,7 +15680,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1b:10",
-                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                       "setup": "C1b",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -17929,7 +17929,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C2:10",
-                    "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                     "setup": "C2",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -19965,7 +19965,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C2:10",
-                      "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                       "setup": "C2",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -22983,29 +22983,26 @@
             "closed": false,
             "entries": [
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   -12.7
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   0.0
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   12.7
                 ]
               }
@@ -23053,13 +23050,28 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 12.7
+              "step_mm": 12.7,
+              "sweep_bounds": {
+                "x": [
+                  -2.54,
+                  113.665
+                ],
+                "y": [
+                  -12.7,
+                  12.7
+                ],
+                "z": [
+                  -1.5875,
+                  0.0
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cut_order": "conventional",
             "cutter_centre": [
               [
                 [
-                  -22.225,
+                  -24.765,
                   -12.7
                 ],
                 [
@@ -23069,7 +23081,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   0.0
                 ],
                 [
@@ -23079,7 +23091,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   12.7
                 ],
                 [
@@ -23097,13 +23109,13 @@
             "op": 10,
             "raster": {
               "area_ends": [
-                -12.7,
+                -15.239999999999998,
                 100.965
               ],
               "clearance_mm": 9.525,
               "cycle": "one_way",
               "ends": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "entry_pass": "not_applicable",
@@ -23166,29 +23178,26 @@
             "closed": false,
             "entries": [
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -110.49,
+                  -113.03,
                   -14.2875
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -110.49,
+                  -113.03,
                   -7.14248
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -110.49,
+                  -113.03,
                   0.0
                 ]
               }
@@ -23236,13 +23245,28 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 12.7
+              "step_mm": 12.7,
+              "sweep_bounds": {
+                "x": [
+                  0.0,
+                  116.205
+                ],
+                "y": [
+                  -12.7,
+                  -11.1125
+                ],
+                "z": [
+                  0.0,
+                  14.2875
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cut_order": "conventional",
             "cutter_centre": [
               [
                 [
-                  -110.49,
+                  -113.03,
                   -14.2875
                 ],
                 [
@@ -23252,7 +23276,7 @@
               ],
               [
                 [
-                  -110.49,
+                  -113.03,
                   -7.14248
                 ],
                 [
@@ -23262,7 +23286,7 @@
               ],
               [
                 [
-                  -110.49,
+                  -113.03,
                   0.0
                 ],
                 [
@@ -23280,13 +23304,13 @@
             "op": 10,
             "raster": {
               "area_ends": [
-                -100.965,
+                -103.505,
                 12.7
               ],
               "clearance_mm": 9.525,
               "cycle": "one_way",
               "ends": [
-                -110.49,
+                -113.03,
                 22.225
               ],
               "entry_pass": "not_applicable",
@@ -23349,29 +23373,26 @@
             "closed": false,
             "entries": [
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   -14.2875
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   -7.14248
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   0.0
                 ]
               }
@@ -23419,13 +23440,28 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 12.7
+              "step_mm": 12.7,
+              "sweep_bounds": {
+                "x": [
+                  -2.54,
+                  113.665
+                ],
+                "y": [
+                  11.1125,
+                  12.7
+                ],
+                "z": [
+                  0.0,
+                  14.2875
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cut_order": "conventional",
             "cutter_centre": [
               [
                 [
-                  -22.225,
+                  -24.765,
                   -14.2875
                 ],
                 [
@@ -23435,7 +23471,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   -7.14248
                 ],
                 [
@@ -23445,7 +23481,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   0.0
                 ],
                 [
@@ -23463,13 +23499,13 @@
             "op": 10,
             "raster": {
               "area_ends": [
-                -12.7,
+                -15.239999999999998,
                 100.965
               ],
               "clearance_mm": 9.525,
               "cycle": "one_way",
               "ends": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "entry_pass": "not_applicable",
@@ -23532,29 +23568,26 @@
             "closed": false,
             "entries": [
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   -11.1125
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   0.0
                 ]
               },
               {
-                "air": false,
-                "contact": "tangent",
+                "air": true,
                 "pass": true,
                 "xy": [
-                  -22.225,
+                  -24.765,
                   11.1125
                 ]
               }
@@ -23602,13 +23635,28 @@
           {
             "contour": {
               "method": "linear_table",
-              "step_mm": 12.7
+              "step_mm": 12.7,
+              "sweep_bounds": {
+                "x": [
+                  -2.54,
+                  113.665
+                ],
+                "y": [
+                  -11.1125,
+                  11.1125
+                ],
+                "z": [
+                  12.7,
+                  14.2875
+                ]
+              },
+              "sweep_frame": "model"
             },
             "cut_order": "conventional",
             "cutter_centre": [
               [
                 [
-                  -22.225,
+                  -24.765,
                   -11.1125
                 ],
                 [
@@ -23618,7 +23666,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   0.0
                 ],
                 [
@@ -23628,7 +23676,7 @@
               ],
               [
                 [
-                  -22.225,
+                  -24.765,
                   11.1125
                 ],
                 [
@@ -23646,13 +23694,13 @@
             "op": 10,
             "raster": {
               "area_ends": [
-                -12.7,
+                -15.239999999999998,
                 100.965
               ],
               "clearance_mm": 9.525,
               "cycle": "one_way",
               "ends": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "entry_pass": "not_applicable",
@@ -36345,9 +36393,9 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "minimum_required_mm": 132.715,
+            "minimum_required_mm": 135.255,
             "part_mm": 113.665,
-            "required_mm": 132.715,
+            "required_mm": 135.255,
             "travel_mm": 500.0
           },
           "y": {
@@ -36427,9 +36475,9 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "minimum_required_mm": 132.715,
+            "minimum_required_mm": 135.255,
             "part_mm": 113.665,
-            "required_mm": 132.715,
+            "required_mm": 135.255,
             "travel_mm": 500.0
           },
           "y": {
@@ -36509,9 +36557,9 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "minimum_required_mm": 132.715,
+            "minimum_required_mm": 135.255,
             "part_mm": 113.665,
-            "required_mm": 132.715,
+            "required_mm": 135.255,
             "travel_mm": 500.0
           },
           "y": {
@@ -36591,9 +36639,9 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "minimum_required_mm": 132.715,
+            "minimum_required_mm": 135.255,
             "part_mm": 113.665,
-            "required_mm": 132.715,
+            "required_mm": 135.255,
             "travel_mm": 500.0
           },
           "y": {
@@ -37021,7 +37069,7 @@
           "note": [
             {
               "detail": "pro",
-              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60."
             }
           ],
           "parallels": "parallels-25",
@@ -37036,7 +37084,7 @@
               9.7
             ]
           ],
-          "stop": "Bottom on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
+          "stop": "Original starting end on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
           "supports": [
             {
               "id": "setting-post",
@@ -37123,7 +37171,7 @@
           "note": [
             {
               "detail": "pro",
-              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60."
             }
           ],
           "parallels": "parallels-25",
@@ -37138,7 +37186,7 @@
               9.7
             ]
           ],
-          "stop": "Bottom on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
+          "stop": "Original starting end on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw",
           "supports": [
             {
               "id": "setting-post",
@@ -37215,7 +37263,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 balancer occupied X about 1.97..2.99 inch, top Z.875 inch: not stock/capture or DRO targets. Cutting gaps: arbor flange/retainer rim to front workface .040 inch; lower retainer to moving jaw .043 inch (rounded down). Full-cycle closest approach is the stopped blade-body/setting-post gap through .002-inch paper, not a cutting gap.",
+          "clamp": "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 balancer occupied X about 1.97..2.99 inch, top Z.875 inch; not stock or capture. Cutting gaps: arbor flange/retainer rim to front workface .040 inch; lower retainer to moving jaw .043 inch (rounded down). Full-cycle closest approach is the stopped blade-body/setting-post gap through .002-inch paper, not a cutting gap.",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 15.0,
@@ -37226,7 +37274,7 @@
           "note": [
             {
               "detail": "pro",
-              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating."
+              "text": "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60."
             }
           ],
           "parallels": "parallels-25",
@@ -37241,7 +37289,7 @@
               9.7
             ]
           ],
-          "stop": "Remaining bar after C1b at vise left end; approximate jaw occupied X -.63..3.37 inch, not DRO targets",
+          "stop": "Remaining bar after C1b at vise left end; approximate jaw occupied X -.63..3.37 inch",
           "supports": [
             {
               "id": "setting-post",
@@ -37659,7 +37707,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Finished bottom down; fixed-jaw contact on flange sides, 5-mm grip. Parallels 35 mm high; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
+          "clamp": "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 5.0,
@@ -37740,7 +37788,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Finished bottom down; fixed-jaw contact on flange sides, 5-mm grip. Parallels 35 mm high; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
+          "clamp": "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 5.0,
@@ -37821,7 +37869,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Finished bottom down; fixed-jaw contact on flange sides, 5-mm grip. Parallels 35 mm high; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
+          "clamp": "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 5.0,
@@ -37902,7 +37950,7 @@
             "limit_mm": 0.0254,
             "over_mm": 100.0
           },
-          "clamp": "Finished bottom down; fixed-jaw contact on flange sides, 5-mm grip. Parallels 35 mm high; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
+          "clamp": "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": 5.0,
@@ -43353,7 +43401,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -45380,7 +45428,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -47407,7 +47455,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -51016,7 +51064,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -53043,7 +53091,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -55070,7 +55118,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -57384,9 +57432,9 @@
         "PLAN.md §3.5 sourced cutting data; saw_cut row sfm = blade linear speed, feed_mm_min = descent feed",
         "inventory machine blade_speed_sfm [min, max], inclusive clamp",
         "cutting-data aliases and rows",
-        "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p.21:270 ft/min base for4-in-wide annealed1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects50% reduction,135 sfm=270×0.50; no small-section speed increase.",
-        "Same guide, glossary printed p.32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
-        "Source-derived illustrative starting band speed within the unchanged example100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The14 TPI pitch, .889-mm kerf and25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
+        "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p. 21: 270 ft/min base for 4-in-wide annealed 1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects 50% reduction, 135 sfm = 270 × 0.50; no small-section speed increase.",
+        "Same guide, glossary printed p. 32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed 1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
+        "Source-derived illustrative starting band speed within the unchanged example 100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The 14 TPI pitch, .889-mm kerf and 25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
       ],
       "message": "Blade speed and descent feed are sourced from the saw_cut row; the blade speed is clamped to the machine's blade-speed range.",
       "numbers": {
@@ -57396,9 +57444,9 @@
         "blade_speed_range_verify": false,
         "blade_speed_sfm": 135.0,
         "cutting_data_row": [
-          "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p.21:270 ft/min base for4-in-wide annealed1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects50% reduction,135 sfm=270×0.50; no small-section speed increase.",
-          "Same guide, glossary printed p.32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
-          "Source-derived illustrative starting band speed within the unchanged example100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The14 TPI pitch, .889-mm kerf and25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
+          "https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf — LENOX Guide to Band Sawing, printed p. 21: 270 ft/min base for 4-in-wide annealed 1008/1018 with a bi-metal blade and flood sawing fluid; No fluid: Chart Speed -30–50%. Author selects 50% reduction, 135 sfm = 270 × 0.50; no small-section speed increase.",
+          "Same guide, glossary printed p. 32: bi-metal has a high speed steel edge electron-beam welded to a spring-steel back. Example adopts annealed 1018/HB120 and this bi-metal construction; tool_material='HSS' describes the cutting edge, not an observed blade identity.",
+          "Source-derived illustrative starting band speed within the unchanged example 100–350 sfm capability; not a shop measurement, video identification or product-specific portable-saw recommendation. The 14 TPI pitch, .889-mm kerf and 25.4 mm/min descent remain independent illustrative inputs, not qualified by this chart; no whole-cut conservative or execution-ready claim."
         ],
         "feed_mm_min": 25.4,
         "matching_rows": 1,
@@ -57767,14 +57815,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[C1a].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification."
+        "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "action": "cut_off",
         "chip_load_mm_per_tooth": 0.01016,
         "computed_rpm": 150,
-        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification.",
+        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification.",
         "diameter_in": 2.0,
         "feed_mm_min": 58.52160000000001,
         "flutes": 36,
@@ -57804,14 +57852,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[C1b].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification."
+        "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "action": "cut_off",
         "chip_load_mm_per_tooth": 0.01016,
         "computed_rpm": 150,
-        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification.",
+        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification.",
         "diameter_in": 2.0,
         "feed_mm_min": 58.52160000000001,
         "flutes": 36,
@@ -57841,14 +57889,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[C2].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification."
+        "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "action": "cut_off",
         "chip_load_mm_per_tooth": 0.01016,
         "computed_rpm": 150,
-        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification.",
+        "cutting_data_row": "https://www.maritool.com/product_info.php?products_id=25574 — 301-2.0-.50-.125-36T, HSS, 80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects an 80-sfm target and .0004 in/tooth; rounded selection 160 rpm gives about 83.78 sfm with the 2-inch saw, within the cited range; 160 rpm × 36T yields 58.5216 mm/min. Example tool/route selection, not video identification.",
         "diameter_in": 2.0,
         "feed_mm_min": 58.52160000000001,
         "flutes": 36,
@@ -57878,13 +57926,13 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1a].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0127,
         "computed_rpm": 2500.0,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation.",
         "diameter_in": 0.10937500000000001,
         "feed_mm_min": 30.48,
         "flutes": 2,
@@ -57913,14 +57961,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1a].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "axial_feed_mm_rev": 0.1524,
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 1200,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence.",
         "diameter_in": 0.3125,
         "feed_direction": "axial",
         "feed_mm_min": 182.88,
@@ -57962,13 +58010,13 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1b].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0127,
         "computed_rpm": 2500.0,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation.",
         "diameter_in": 0.10937500000000001,
         "feed_mm_min": 30.48,
         "flutes": 2,
@@ -57997,14 +58045,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1b].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "axial_feed_mm_rev": 0.1524,
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 1200,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence.",
         "diameter_in": 0.3125,
         "feed_direction": "axial",
         "feed_mm_min": 182.88,
@@ -58046,13 +58094,13 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1c].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0127,
         "computed_rpm": 2500.0,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation.",
         "diameter_in": 0.10937500000000001,
         "feed_mm_min": 30.48,
         "flutes": 2,
@@ -58081,14 +58129,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1c].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "axial_feed_mm_rev": 0.1524,
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 1200,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence.",
         "diameter_in": 0.3125,
         "feed_direction": "axial",
         "feed_mm_min": 182.88,
@@ -58130,13 +58178,13 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1d].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0127,
         "computed_rpm": 2500.0,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; under 1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by 2 flutes = .0005 in/tooth; 1200 rpm yields 30.48 mm/min; example selection, not shop observation.",
         "diameter_in": 0.10937500000000001,
         "feed_mm_min": 30.48,
         "flutes": 2,
@@ -58165,14 +58213,14 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[D1d].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence."
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence."
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "axial_feed_mm_rev": 0.1524,
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 1200,
-        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence.",
+        "cutting_data_row": "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and 1382.md, printed 1060/1061: HSS 1018 drilling 100 sfm; 1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by 2 flutes = .003 in/tooth; 1200 rpm yields 182.88 mm/min; example selection, not video evidence.",
         "diameter_in": 0.3125,
         "feed_direction": "axial",
         "feed_mm_min": 182.88,
@@ -58214,16 +58262,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[E1a].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -58256,16 +58304,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[E1b].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -58298,16 +58346,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[E1c].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -58340,16 +58388,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[E1d].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -58430,16 +58478,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[Q1].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 550,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
         ],
         "diameter_in": 0.7500000000000001,
         "feed_mm_min": 152.4,
@@ -58484,16 +58532,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[Q2].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 550,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
         ],
         "diameter_in": 0.7500000000000001,
         "feed_mm_min": 152.4,
@@ -58538,16 +58586,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[Q3].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 550,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
         ],
         "diameter_in": 0.7500000000000001,
         "feed_mm_min": 152.4,
@@ -58592,16 +58640,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[Q4].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0762,
         "computed_rpm": 550,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; author adopts 120 HB as example selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 3/4 in HSS .003 in/tooth; selected 500 rpm gives 98.175 sfm and 152.4 mm/min"
         ],
         "diameter_in": 0.7500000000000001,
         "feed_mm_min": 152.4,
@@ -58646,16 +58694,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[S1].ops[10].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -58688,16 +58736,16 @@
         "inventory machine spindle range",
         "cutting-data aliases and rows",
         "plan.setups[S1].ops[20].rpm: authored request takes precedence without rounding or clamping",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+        "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
       ],
       "message": "Authored RPM request: Checked against spindle limits and sourced starting data; not a safety certification.",
       "numbers": {
         "chip_load_mm_per_tooth": 0.0254,
         "computed_rpm": 850,
         "cutting_data_row": [
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection",
-          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table 11, printed 1045: HSS 1018 at 100–125 HB, 110 sfm; example 120 HB selection",
+          "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table 15a, printed 1054: 1/2 in HSS .001 in/tooth at cited .250 in DOC; selected 750 rpm gives 98.175 sfm and 76.2 mm/min"
         ],
         "diameter_in": 0.5,
         "feed_mm_min": 76.2,
@@ -69740,7 +69788,7 @@
             "op": 10,
             "printed_xy_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -69759,7 +69807,7 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -69777,11 +69825,11 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "located_span_mm": 132.715,
-            "lower_bound_margin_mm": 367.28499999999997,
-            "margin_mm": 367.28499999999997,
-            "minimum_required_mm": 132.715,
-            "required_mm": 132.715,
+            "located_span_mm": 135.255,
+            "lower_bound_margin_mm": 364.745,
+            "margin_mm": 364.745,
+            "minimum_required_mm": 135.255,
+            "required_mm": 135.255,
             "required_verified": true,
             "travel_mm": 500.0,
             "travel_verified": true
@@ -69873,7 +69921,7 @@
             "op": 10,
             "printed_xy_bounds_mm": {
               "x": [
-                -110.49,
+                -113.03,
                 22.225
               ],
               "y": [
@@ -69892,7 +69940,7 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -110.49,
+                -113.03,
                 22.225
               ],
               "y": [
@@ -69910,11 +69958,11 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "located_span_mm": 132.715,
-            "lower_bound_margin_mm": 367.28499999999997,
-            "margin_mm": 367.28499999999997,
-            "minimum_required_mm": 132.715,
-            "required_mm": 132.715,
+            "located_span_mm": 135.255,
+            "lower_bound_margin_mm": 364.745,
+            "margin_mm": 364.745,
+            "minimum_required_mm": 135.255,
+            "required_mm": 135.255,
             "required_verified": true,
             "travel_mm": 500.0,
             "travel_verified": true
@@ -70006,7 +70054,7 @@
             "op": 10,
             "printed_xy_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -70025,7 +70073,7 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -70043,11 +70091,11 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "located_span_mm": 132.715,
-            "lower_bound_margin_mm": 367.28499999999997,
-            "margin_mm": 367.28499999999997,
-            "minimum_required_mm": 132.715,
-            "required_mm": 132.715,
+            "located_span_mm": 135.255,
+            "lower_bound_margin_mm": 364.745,
+            "margin_mm": 364.745,
+            "minimum_required_mm": 135.255,
+            "required_mm": 135.255,
             "required_verified": true,
             "travel_mm": 500.0,
             "travel_verified": true
@@ -70139,7 +70187,7 @@
             "op": 10,
             "printed_xy_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -70158,7 +70206,7 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -22.225,
+                -24.765,
                 110.49
               ],
               "y": [
@@ -70176,11 +70224,11 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
-            "located_span_mm": 132.715,
-            "lower_bound_margin_mm": 367.28499999999997,
-            "margin_mm": 367.28499999999997,
-            "minimum_required_mm": 132.715,
-            "required_mm": 132.715,
+            "located_span_mm": 135.255,
+            "lower_bound_margin_mm": 364.745,
+            "margin_mm": 364.745,
+            "minimum_required_mm": 135.255,
+            "required_mm": 135.255,
             "required_verified": true,
             "travel_mm": 500.0,
             "travel_verified": true
@@ -74102,7 +74150,7 @@
                   "stock_top_mm": 113.66500000000002
                 },
                 "reasons": [],
-                "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -74127,9 +74175,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+                  "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                  "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -74190,7 +74238,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -74215,9 +74263,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -75334,7 +75382,7 @@
                   "stock_top_mm": 113.66500000000002
                 },
                 "reasons": [],
-                "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -75359,9 +75407,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+                  "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                  "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -75422,7 +75470,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -75447,9 +75495,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -75617,7 +75665,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -77672,7 +77720,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -80609,7 +80657,7 @@
                 "stock_top_mm": 113.66500000000002
               },
               "reasons": [],
-              "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -80634,9 +80682,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -80697,7 +80745,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+            "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -80722,9 +80770,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "76d558193f42bb278a2966306e76a8608260dc117040a1f91b73d190656d65c9",
+              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
               "retract_clearance_mm": 12.7,
-              "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+              "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -81781,7 +81829,7 @@
                 "stock_top_mm": 113.66500000000002
               },
               "reasons": [],
-              "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -81806,9 +81854,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -81869,7 +81917,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+            "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -81894,9 +81942,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "f6151b5bc642a5c0df298c74d0a64310403b19d810a8be6b57c6551fed08a050",
+              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
               "retract_clearance_mm": 12.7,
-              "scene_id": "bbed9c229e42fed67055ef23f6e7ece9e0a66dbccf7285e2175500f73ace850d",
+              "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -83027,7 +83075,7 @@
                   "stock_top_mm": 84.45500000000001
                 },
                 "reasons": [],
-                "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -83052,9 +83100,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+                  "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                  "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -83115,7 +83163,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -83140,9 +83188,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -84259,7 +84307,7 @@
                   "stock_top_mm": 84.45500000000001
                 },
                 "reasons": [],
-                "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -84284,9 +84332,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+                  "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                  "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -84347,7 +84395,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -84372,9 +84420,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -84542,7 +84590,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -86597,7 +86645,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -89534,7 +89582,7 @@
                 "stock_top_mm": 84.45500000000001
               },
               "reasons": [],
-              "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -89559,9 +89607,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -89622,7 +89670,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+            "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -89647,9 +89695,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "33974ad24c90c2f737d5463cc3020c10056ff26becc1e7d4ab1d22cee9dbfc83",
+              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
               "retract_clearance_mm": 12.7,
-              "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+              "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -90706,7 +90754,7 @@
                 "stock_top_mm": 84.45500000000001
               },
               "reasons": [],
-              "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -90731,9 +90779,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -90794,7 +90842,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+            "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -90819,9 +90867,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "1f7fa72f876a5a068ab5ad43cd29e01cdbdbcefccc120fa1a74425f96be5889f",
+              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
               "retract_clearance_mm": 12.7,
-              "scene_id": "c05693c7acd7b9bf2618dad1a25e2525cbb597af67062799edbbb1c131e8b09a",
+              "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -91974,7 +92022,7 @@
                   "stock_top_mm": 55.245000000000005
                 },
                 "reasons": [],
-                "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -91999,9 +92047,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+                  "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                  "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -92062,7 +92110,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -92087,9 +92135,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -93228,7 +93276,7 @@
                   "stock_top_mm": 55.245000000000005
                 },
                 "reasons": [],
-                "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -93253,9 +93301,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+                  "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                  "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -93316,7 +93364,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -93341,9 +93389,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -93511,7 +93559,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -95570,7 +95618,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -98533,7 +98581,7 @@
                 "stock_top_mm": 55.245000000000005
               },
               "reasons": [],
-              "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -98558,9 +98606,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -98621,7 +98669,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+            "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -98646,9 +98694,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "4ce20cbb7695708a9161aad5d5ecdb1ed25fb3ac723d69a1bde07eb3473b0f73",
+              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
               "retract_clearance_mm": 12.7,
-              "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+              "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -99727,7 +99775,7 @@
                 "stock_top_mm": 55.245000000000005
               },
               "reasons": [],
-              "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -99752,9 +99800,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -99815,7 +99863,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+            "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -99840,9 +99888,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "712f5d57844945b95a0f73b3eb29a2d08092a4477826a093338764b2e8d30a52",
+              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
               "retract_clearance_mm": 12.7,
-              "scene_id": "fa3e4d2fdd6919bbf1fe6b48bc729d7e88290b5562e64c103a3f7f0f57ca2b31",
+              "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -101387,7 +101435,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -101412,9 +101460,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+                  "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                  "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -101475,7 +101523,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -101500,9 +101548,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -102318,7 +102366,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -102337,9 +102385,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+                  "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                  "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -102422,7 +102470,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
               "request": {
                 "at_mm": [
                   0.0,
@@ -102441,9 +102489,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -103269,7 +103317,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -103294,9 +103342,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -103357,7 +103405,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+            "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -103382,9 +103430,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "68cd90ba6a61306059a38d321057108097a16b9efad85cbafc9f67e77174c061",
+              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
               "retract_clearance_mm": 12.7,
-              "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+              "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -104114,7 +104162,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
               "request": {
                 "at_mm": [
                   0.0,
@@ -104133,9 +104181,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -104218,7 +104266,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+            "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
             "request": {
               "at_mm": [
                 0.0,
@@ -104237,9 +104285,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "cb49e181514a0afebf2f92cb6d6832b5327bda347c3263155eadc93e1c83ddfa",
+              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
               "retract_clearance_mm": 12.7,
-              "scene_id": "ee9a432bcd8407774aee8c742fdc7df448fc4c23538db75599c91510e95f3bc6",
+              "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -105119,7 +105167,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -105144,9 +105192,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+                  "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                  "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -105207,7 +105255,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -105232,9 +105280,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -106054,7 +106102,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -106073,9 +106121,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+                  "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                  "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -106158,7 +106206,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
               "request": {
                 "at_mm": [
                   0.0,
@@ -106177,9 +106225,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -107005,7 +107053,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -107030,9 +107078,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -107093,7 +107141,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+            "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -107118,9 +107166,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "9a1e736c535ef3ec7df4722c511d0fdaf09976fb1a86687484b4bebaa8acb834",
+              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
               "retract_clearance_mm": 12.7,
-              "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+              "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -107854,7 +107902,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
               "request": {
                 "at_mm": [
                   0.0,
@@ -107873,9 +107921,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -107958,7 +108006,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+            "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
             "request": {
               "at_mm": [
                 0.0,
@@ -107977,9 +108025,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "744421034f3add2c2a3c7ce0b1ff9c241e8c4de18ea30f56bdd00d9031e9f910",
+              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
               "retract_clearance_mm": 12.7,
-              "scene_id": "078e33d9c279ed537f36e0c5ed5df3e6df43b4903178baa2918a439c85c9eaac",
+              "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -108859,7 +108907,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -108884,9 +108932,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+                  "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                  "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -108947,7 +108995,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -108972,9 +109020,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -109798,7 +109846,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -109817,9 +109865,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+                  "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                  "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -109902,7 +109950,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
               "request": {
                 "at_mm": [
                   0.0,
@@ -109921,9 +109969,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -110749,7 +110797,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -110774,9 +110822,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -110837,7 +110885,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+            "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -110862,9 +110910,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "80ac2e1824450d1c104292c555325714531d8d777a4b0f4c1b73b5384cf0028a",
+              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
               "retract_clearance_mm": 12.7,
-              "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+              "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -111602,7 +111650,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
               "request": {
                 "at_mm": [
                   0.0,
@@ -111621,9 +111669,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -111706,7 +111754,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+            "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
             "request": {
               "at_mm": [
                 0.0,
@@ -111725,9 +111773,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "c0e2d75cf6166706b788e6aadd4cff802fd99b210e261a5347aae1cde36d61cd",
+              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
               "retract_clearance_mm": 12.7,
-              "scene_id": "f3f6239cc3ef08ad39a34a94d4fcf30a065de3830bf298d7856df0ccfb7db9e8",
+              "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -112607,7 +112655,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -112632,9 +112680,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+                  "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                  "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -112695,7 +112743,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -112720,9 +112768,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -113546,7 +113594,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -113565,9 +113613,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+                  "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                  "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -113650,7 +113698,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
               "request": {
                 "at_mm": [
                   0.0,
@@ -113669,9 +113717,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -114497,7 +114545,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -114522,9 +114570,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -114585,7 +114633,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+            "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -114610,9 +114658,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "d60fb24fecfcaf40351c76d36c130c9c5bd9b6c0656c753b872a6bf11a3614a5",
+              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
               "retract_clearance_mm": 12.7,
-              "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+              "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -115350,7 +115398,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
               "request": {
                 "at_mm": [
                   0.0,
@@ -115369,9 +115417,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -115454,7 +115502,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+            "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
             "request": {
               "at_mm": [
                 0.0,
@@ -115473,9 +115521,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "060474f42fca1bfd8452d573b37667f227c2fe47a0b7ef1e825594113abbedc4",
+              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
               "retract_clearance_mm": 12.7,
-              "scene_id": "63c4b8c92e6a01d049c3f861446a11c72d37787c7d1457f42e62acc040e59bf0",
+              "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -117902,7 +117950,7 @@
                 },
                 "physical_upper_bound_mm": 1.5874999999999986,
                 "reasons": [],
-                "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
                 "request": {
                   "at_mm": [
                     -44.1325,
@@ -117921,9 +117969,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+                  "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "8815e988fd9cfa31058aa3f07b0346c02df76def95412abf34bfaba45d6a4b4e",
+                  "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -118005,7 +118053,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
               "request": {
                 "at_mm": [
                   -44.1325,
@@ -118024,9 +118072,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "8815e988fd9cfa31058aa3f07b0346c02df76def95412abf34bfaba45d6a4b4e",
+                "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -118654,7 +118702,7 @@
               },
               "physical_upper_bound_mm": 1.5874999999999986,
               "reasons": [],
-              "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
               "request": {
                 "at_mm": [
                   -44.1325,
@@ -118673,9 +118721,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "8815e988fd9cfa31058aa3f07b0346c02df76def95412abf34bfaba45d6a4b4e",
+                "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -118757,7 +118805,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+            "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
             "request": {
               "at_mm": [
                 -44.1325,
@@ -118776,9 +118824,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "2659a96a3715711fc8630661ca54eb54acf07e1c8a71dd222ca5362b8c19265f",
+              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
               "retract_clearance_mm": 12.7,
-              "scene_id": "8815e988fd9cfa31058aa3f07b0346c02df76def95412abf34bfaba45d6a4b4e",
+              "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -119510,7 +119558,7 @@
                 },
                 "physical_upper_bound_mm": 1.5875000000000112,
                 "reasons": [],
-                "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -119529,9 +119577,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+                  "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "67220877970dbd70be6312d9b2f4a699e6f202cb68df6e0a5aa4c070a9a00fa1",
+                  "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -119613,7 +119661,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -119632,9 +119680,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "67220877970dbd70be6312d9b2f4a699e6f202cb68df6e0a5aa4c070a9a00fa1",
+                "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -120240,7 +120288,7 @@
               },
               "physical_upper_bound_mm": 1.5875000000000112,
               "reasons": [],
-              "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -120259,9 +120307,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "67220877970dbd70be6312d9b2f4a699e6f202cb68df6e0a5aa4c070a9a00fa1",
+                "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -120343,7 +120391,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+            "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
             "request": {
               "at_mm": [
                 44.1325,
@@ -120362,9 +120410,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "e5697a0b2cd0068f6d9ab487810656688c3ad66606a68a0f158c3b7c873be55c",
+              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
               "retract_clearance_mm": 12.7,
-              "scene_id": "67220877970dbd70be6312d9b2f4a699e6f202cb68df6e0a5aa4c070a9a00fa1",
+              "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -121105,7 +121153,7 @@
                 },
                 "physical_upper_bound_mm": 1.5875000000000004,
                 "reasons": [],
-                "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -121124,9 +121172,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+                  "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "ded1d329ab7c074190bf08ff110fbab03aa62fe24d3f5fadda2353d161288e15",
+                  "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -121208,7 +121256,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -121227,9 +121275,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ded1d329ab7c074190bf08ff110fbab03aa62fe24d3f5fadda2353d161288e15",
+                "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -121835,7 +121883,7 @@
               },
               "physical_upper_bound_mm": 1.5875000000000004,
               "reasons": [],
-              "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -121854,9 +121902,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ded1d329ab7c074190bf08ff110fbab03aa62fe24d3f5fadda2353d161288e15",
+                "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -121938,7 +121986,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+            "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
             "request": {
               "at_mm": [
                 44.1325,
@@ -121957,9 +122005,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "690efa4aa8cd93fbf45b027d78b3db813b927c50967a6c0c6ac7f823288d44d2",
+              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
               "retract_clearance_mm": 12.7,
-              "scene_id": "ded1d329ab7c074190bf08ff110fbab03aa62fe24d3f5fadda2353d161288e15",
+              "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -122700,7 +122748,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -122719,9 +122767,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+                  "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                  "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -122805,7 +122853,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -122824,9 +122872,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -123448,7 +123496,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
                 "request": {
                   "after_op": 10,
                   "at_mm": [
@@ -123471,9 +123519,9 @@
                   "paper_mm": 0.0508,
                   "position": 1,
                   "reasons": [],
-                  "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+                  "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                  "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -123557,7 +123605,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
               "request": {
                 "after_op": 10,
                 "at_mm": [
@@ -123580,9 +123628,9 @@
                 "paper_mm": 0.0508,
                 "position": 1,
                 "reasons": [],
-                "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -124181,7 +124229,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
               "request": {
                 "after_op": 10,
                 "at_mm": [
@@ -124204,9 +124252,9 @@
                 "paper_mm": 0.0508,
                 "position": 1,
                 "reasons": [],
-                "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -124290,7 +124338,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+            "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
             "request": {
               "after_op": 10,
               "at_mm": [
@@ -124313,9 +124361,9 @@
               "paper_mm": 0.0508,
               "position": 1,
               "reasons": [],
-              "recipe_id": "0b96015786111cd5c315db2ac50c586376b38facc5dcb1d94ed121002db74e2c",
+              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
               "retract_clearance_mm": 12.7,
-              "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+              "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -124905,7 +124953,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -124924,9 +124972,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -125010,7 +125058,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+            "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
             "request": {
               "at_mm": [
                 44.1325,
@@ -125029,9 +125077,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "20a753f45864d1b9dbda2a457e242620162d99542ae133d3a34b9316f92c67e4",
+              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
               "retract_clearance_mm": 12.7,
-              "scene_id": "a424516b7515b443548b4f44aa85ed58a0a90241458abdc4201bab1416373647",
+              "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -125115,11 +125163,11 @@
       "subject": "S1"
     }
   ],
-  "hash": "fb50ee86d0dd7c751ed544d0d0fb62de9b268a56a6708038be7244c43134b6db",
+  "hash": "a7801e67576a8603c648e9c00c88bedb87320f0b2f0dee02eff4df628e26fc9c",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
-      "sha256": "2adc12e605dd7bbe2964ae89f90487e938ee8b67aee7180a1d169ce904f1f07b"
+      "sha256": "123c2883d2db47007c688ee2df063e7876e45c2a17de47ff71ed92125270d1c9"
     },
     "features": {
       "path": "examples/blondihacks-t-nuts/features.toml",
@@ -125131,7 +125179,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-t-nuts/plan.toml",
-      "sha256": "1e2f72d90e3e04727269377a9c741a549ce8b971278def12b8dcb9d3d6f1c76b"
+      "sha256": "e1597626c11251774273f26afe7698750f1ef6d07c40d2ba4c720a7f37178b52"
     },
     "render:B0": {
       "path": "setup-S1.png",
@@ -125199,19 +125247,19 @@
     },
     "render:Q1": {
       "path": "setup-S2.png",
-      "sha256": "ef5224521b323d2b4c6a1d9002c7a5c8312649898aa97dbd59b825c242a94793"
+      "sha256": "b3833b21a4a751c270e27a772d4780d4e02df983c6e3fd3a4cdd350e26ff328f"
     },
     "render:Q2": {
       "path": "setup-S3.png",
-      "sha256": "c93a915e8944a8ea37f14dd88f192c7eee037f25e1aa271e69819cac875566d1"
+      "sha256": "a5ad072e7e21f6e405311f161b09e5d2fe59e07b214d610fac18e6251fdffcee"
     },
     "render:Q3": {
       "path": "setup-S4.png",
-      "sha256": "f941cd3d4092a07b4a7814de32372c8f0a3d9cf6c7587d111fddd2a63b7e48e9"
+      "sha256": "644157663e290e0f8b15abef8ae577e95146be11774bee5fe4927f3a1298debb"
     },
     "render:Q4": {
       "path": "setup-S5.png",
-      "sha256": "0c364b5e076198dedad799028b645d8772b43f329627001ab0e1bd9766965c26"
+      "sha256": "d57a4922b623b34fa9cd93c2df642d8aebb5e879fa0fcce23b619a7e4480fb60"
     },
     "render:S1": {
       "path": "setup-S6.png",
@@ -126352,7 +126400,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1a:20",
-            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
             "setup": "C1a",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -126845,7 +126893,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -129824,7 +129872,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1b:10",
-            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
             "setup": "C1b",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -130317,7 +130365,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -133282,7 +133330,7 @@
         "closest_cut": {
           "binding": {
             "op": "C2:10",
-            "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
             "setup": "C2",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -133781,7 +133829,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "e03c6ccea21f544453cc22ae02c3a2a347e5dd44f11468d9b2a52550d693b597",
+                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -139417,7 +139465,7 @@
           }
         }
       },
-      "sha256": "ef5224521b323d2b4c6a1d9002c7a5c8312649898aa97dbd59b825c242a94793"
+      "sha256": "b3833b21a4a751c270e27a772d4780d4e02df983c6e3fd3a4cdd350e26ff328f"
     },
     "Q2": {
       "fixture": "modeled",
@@ -139751,7 +139799,7 @@
           }
         }
       },
-      "sha256": "c93a915e8944a8ea37f14dd88f192c7eee037f25e1aa271e69819cac875566d1"
+      "sha256": "a5ad072e7e21f6e405311f161b09e5d2fe59e07b214d610fac18e6251fdffcee"
     },
     "Q3": {
       "fixture": "modeled",
@@ -140063,7 +140111,7 @@
           }
         }
       },
-      "sha256": "f941cd3d4092a07b4a7814de32372c8f0a3d9cf6c7587d111fddd2a63b7e48e9"
+      "sha256": "644157663e290e0f8b15abef8ae577e95146be11774bee5fe4927f3a1298debb"
     },
     "Q4": {
       "fixture": "modeled",
@@ -140375,7 +140423,7 @@
           }
         }
       },
-      "sha256": "0c364b5e076198dedad799028b645d8772b43f329627001ab0e1bd9766965c26"
+      "sha256": "d57a4922b623b34fa9cd93c2df642d8aebb5e879fa0fcce23b619a7e4480fb60"
     },
     "S1": {
       "fixture": "modeled",
