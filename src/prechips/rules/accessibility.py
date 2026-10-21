@@ -28,11 +28,11 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     SAW_OPS,
     claim_refs,
+    face_mapping,
     identity,
     known_refs,
     number,
     operations,
-    record,
 )
 
 _CHECKPOINT_KEYS = (
@@ -152,11 +152,15 @@ def _carried(bundle, facts, op, unreached):
     ):
         return numbers, "unknown", "its claimed-face samples beyond its box are unresolved"
     refs = {
-        face.get("index"): face.get("ref")
+        face.get("index"): (
+            f"{face['workpiece_id']}:{face.get('canonical_ref', face.get('ref'))}"
+            if face.get("workpiece_id")
+            else face.get("ref")
+        )
         for face in facts.get("faces") or []
         if isinstance(face, dict) and isinstance(face.get("ref"), str)
     }
-    mapping = record(facts.get("mapping"))
+    mapping = face_mapping(bundle, facts)
     ops = operations(bundle)
     position = next(k for k, (_, other) in enumerate(ops) if other is op)
     later = [
@@ -172,7 +176,7 @@ def _carried(bundle, facts, op, unreached):
         for subject, other_setup, other, takes in later:
             claims = op_claims(bundle, facts, other_setup, other)[0]
             if claims is None:
-                named = claim_refs(bundle, other)
+                named = claim_refs(bundle, other, other_setup)
                 open_claim = open_claim or not known_refs(named)
                 open_claim = open_claim or any(mapping.get(name) == index for name in named)
             elif index in claims:
@@ -207,6 +211,10 @@ def evaluate(bundle):
     for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "accessibility", required, fixture=True, turning=turning
     ):
+        if op.get("do") in SAW_OPS:
+            # The shared finite result is not an axial sample/hit record.
+            rows.append(blocked)
+            continue
         turned = inputs.get("approach") == TURNING
         minimum = detail.get("min_hits", {})
         certain = {

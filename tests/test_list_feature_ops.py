@@ -7,11 +7,10 @@ with a traceback. Each bundle here gains such an op in every setup.
 
 import json
 import re
-import shutil
 from dataclasses import replace
 
 import pytest
-from test_cli import ROOT, SYNTHETIC_KERNEL, run_cli
+from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, run_cli
 from test_tooling_hole import ROUTE, bundle_plan, rows, with_states
 
 from prechips.inputs import load_bundle
@@ -65,8 +64,7 @@ def test_a_list_inspect_leaves_the_tooling_hole_rows_unchanged(tmp_path):
 
 @pytest.mark.parametrize("example", EXAMPLE_PLANS, ids=str)
 def test_no_rule_raises_on_a_list_inspect_in_every_setup(tmp_path, example):
-    shutil.copytree(ROOT / "examples", tmp_path / "examples")
-    plan = tmp_path / "examples" / example
+    plan = copy_examples(tmp_path) / example
     names = finished(load_bundle(plan))
     if names is None:
         pytest.skip("the bundle has fewer than two finished features to list")

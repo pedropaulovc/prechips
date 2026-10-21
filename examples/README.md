@@ -17,6 +17,8 @@ clearance proof, approved route or first article.
 
 ### T-nuts
 
+**EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT**
+
 [`blondihacks-t-nuts/`](blondihacks-t-nuts/README.md) is an authored plan for
 four 1018-steel T-nuts, inspired by the
 [Blondihacks video](https://www.youtube.com/watch?v=TL0OsfFkBL8). Its geometry
@@ -25,27 +27,40 @@ combines the video's 1 in length, 1/4 in flange and 3/8-16 thread with selected
 stem width (0.495 in), base width (0.875 in) and total height (0.5 in).
 This is an **adapted catalog-based design**, not an exact video reconstruction
 or a commercial-part replica. The bundle README owns dimension-by-dimension
-provenance and remaining measurement debt.
+provenance, authored demonstration acceptance and the physical-use boundary.
 
 The plan, inventory, shop policy and cutting data are local to this bundle;
 the manifest binds the adjacent authored STEP by digest and actual face
 identities. It is not a harmonic-analyzer consumer export. Catalog dimensions
 are design inputs, not evidence that the machine slots, stock, tools or fixtures
-were measured. Unlike the shared demonstration inventory below, this example
-does not invent measured values to clear missing shop facts. Its printable
-setup sheets remain **PLANNED**, with unresolved measurement and tooling debt.
-Sources are cited offline; generating or validating the bundle does not fetch
-the video or vendor page, and downloaded media is not part of the repository.
+were measured. The current **29-setup, four-member demonstration** supplies
+explicitly disclosed example commissioning values, including installed
+tool/holder/fixture dimensions, rather than claiming missing video facts were
+recovered. Five **author-selected ±0.002-in size bands** and final-only per-nut
+inspections are example design decisions, not source tolerances. The provenance
+ledger owns the exact dimensions, citations and measurement-marker convention.
+Its sheets remain **PLANNED**, with initially blank inspection results.
+Sources are cited offline; generation and validation do not fetch the video,
+vendor pages or reference corpus, and downloaded media is not in the repository.
 
-Generate its report and sheets with:
+The bundle [README](blondihacks-t-nuts/README.md) and
+[provenance ledger](blondihacks-t-nuts/geometry-provenance.md) own B0's source-backed
+example band-speed choice, adopted stock/blade conditions and applicability limits.
+
+Generate the report and sheets with **hobby** detail by default, or select a
+presentation explicitly:
 
 ```sh
 uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --detail pro --out out/tnut-detail-pro
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --detail hobby --out out/tnut-detail-hobby
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --detail pedantic --out out/tnut-detail-pedantic
 ```
 
-The expected exit is **4**: required shop and measurement facts remain unknown.
-This is a standalone planned example, not an exit-0 demonstration-measurement
-fixture or one of the consumer-export targets below.
+The current expected checker exit is **0** for the disclosed demonstration
+inputs, independently of detail. This is not evidence of physical measurements,
+completed inspection, safe execution or release approval. It is a standalone
+authored example, not one of the consumer-export targets below.
 
 `scripts/validate_examples.py` validates its strict input schemas, local paths,
 adjacent STEP binding, authored face identities, feature/finding coverage,
@@ -93,7 +108,7 @@ the source-complete route remains **PLANNED/HOLD**, not an approved process.
 Local inputs and frozen outputs use the same standalone validation lane as the
 other video examples. No video, catalog or article fetch is needed at runtime.
 
-### Frozen standalone output evidence
+### Historical frozen standalone evidence — 2026-10-19
 
 The coordinated 2026-10-19 regeneration captured the actual CLI child exit,
 not a shell wrapper's status. Each standalone route produced report and
@@ -114,10 +129,14 @@ The frozen `expected/report.json` file SHA-256 values are:
 | `blondihacks-brass-ring` | `4fbdc4627ad2df69d04ac5b0db99b8a3be0afc5370ae8581a89cf7908317e887` |
 | `blondihacks-magic-tube` | `5ad097ceb0cf92339e43c8fde53921471ae8ca00feb38b3e570bbd91b412fb4e` |
 
-These are generated-output integrity and repeatability records, not source
-measurements, full-suite or full-validator acceptance, independent blind
-approval, physical paper rehearsal or first-article machining evidence.
-Finding counts and hashes change when operative inputs or the engine change;
+These are historical generated-output integrity and repeatability records, not
+source measurements, full-suite or full-validator acceptance, independent blind
+approval, physical paper rehearsal or first-article machining evidence. In
+particular, the T-nut row records the earlier unknown-input route, **not** the
+current complete demonstration. Its exit and hash must not be relabeled as a
+new run. Frozen artifacts require coordinated regeneration against current
+inputs and the default hobby presentation before current-tree comparison.
+Finding counts and hashes change with operative inputs or engine changes;
 the bundle READMEs continue to own the source and adaptation provenance.
 
 ## Consumer bundles and shared shop inputs

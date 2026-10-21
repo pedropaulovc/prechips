@@ -1,232 +1,363 @@
-# Video-only shop inventory. Shown/named identities are not physical measurements.
-# Source: https://www.youtube.com/watch?v=TL0OsfFkBL8 (Blondihacks, 2020-05-02).
-# No affiliate-list additions, Pedro-shop inheritance, or invented machine ratings.
-# present = true means seen/used in this source, not available in the reader's shop.
-stock = "unknown"
+# EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
+# Fixed demonstration commissioning inputs; not observed shop measurements.
+# Added equipment identities are example selections, not identifications of video equipment.
+# Source nominals and installed example facts are distinguished locally below.
+# Bare capability fields retain legal schema shape: example value (realistic, not a shop measurement).
+# by="example value (realistic, not a shop measurement)"; instrument="example fixture (no physical measurement)".
+# Raw stock is declared once in plan.toml; no duplicate stock inventory is implied.
 
-[machines.video-mill]
-name = "Precision Matthews mill"
+[machines.pm-25mv-bd]
+name = "PM-25MV-BD mill"
 kind = "mill"
 make = "Precision Matthews"
 control = "manual with DRO"
 operation_mode = "manual"
 present = true
 verify = false
-note = "PM logo and Precision Matthews DRO visible; exact mill model, travels, spindle limits, power and measured DRO resolution are not established. Do not substitute another example's PM-30MV."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s"]
-[machines.video-mill.spindle]
-rpm_min = "unknown"
-rpm_max = "unknown"
-hp = "unknown"
-taper = "unknown"
-rotation = "unknown"
-[machines.video-mill.envelope]
-travel_mm = { x = "unknown", y = "unknown", z = "unknown" }
-spindle_to_table_max_mm = "unknown"
+resolution_in = { value = 0.0001, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Example selection, not video model identification. Catalogue R8/1 HP/50–1250 and 100–2500 rpm; nominal travels 20.5/7/13 in and 12 in maximum nose/table are not the effective installed envelope below. DRO ABS inches, radius mode off, tool-relative X+ right/Y+ away/Z+ up; selected .0001 in resolution is an example installed fact, not a video observation."
+cite = "https://microfluidics.cnsi.ucsb.edu/wiki/lib/exe/fetch.php?media=tools:precisionsmillingmachine:pm-25mv_manual.pdf (§2)"
+[machines.pm-25mv-bd.spindle]
+taper = "R8"
+hp = 1
+rpm_min = 50
+rpm_max = 2500
+ranges_rpm = [[50, 1250], [100, 2500]]
+rotation = { value = "cw", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+[machines.pm-25mv-bd.envelope]
+travel_mm = { x = { value = 500, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, y = { value = 170, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z = { value = 320, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+spindle_to_table_min_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+spindle_to_table_max_mm = { value = 300, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
-[machines.video-bench]
-name = "Bench"
+[machines.bench-bandsaw]
+name = "Bench / powered bandsaw"
 kind = "bench"
 present = true
 verify = false
-note = "Source bench station with vise: portable powered band-saw cutoff, hand finishing and chemical finishing. No separate stationary saw or extra shop capability is inferred."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s"]
+blade_speed_sfm = [100, 350] # source: example value (realistic, not a shop measurement); basis: author-selected bench capability
+note = "Example non-spindle bench capability for B0 and manual bench operations. Blade speed 100–350 sfm is an adopted example capability, not an actual loaded-speed measurement; B0 selects the source-derived illustrative starting band speed 135 sfm in cutting-data.toml. The independent illustrative 25.4 mm/min descent is not qualified by that source; no whole-cut or product-specific recommendation is claimed."
+cite = "Author-selected demonstration equipment; example value (realistic, not a shop measurement), 2026-10-11"
 
 [fixtures.mill-vise]
-name = "Mill vise"
+name = "4-inch mill vise"
 kind = "vise"
 present = true
 verify = false
-jaw_height_mm = "unknown"
-jaw_width_mm = "unknown"
-jaw_depth_mm = "unknown"
-opening_mm = "unknown"
-note = "Precision Tool label visible at 05:24. Jaw engagement, pose, alignment and dimensions have not been measured."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"
+bed_height_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_height_mm = { value = 40, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_width_mm = { value = 101.6, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_depth_mm = { value = 20, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+opening_mm = { value = 100, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Example installed geometry: jaws along X, fixed jaw rear. Align using gauges.dti; setup-specific seating, stop and grip are in plan.toml. No force rating is claimed."
 
 [fixtures.bench-vise]
 name = "Bench vise"
 kind = "vise"
 present = true
 verify = false
-jaw_height_mm = "unknown"
-jaw_width_mm = "unknown"
-opening_mm = "unknown"
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s"]
+bed_height_mm = { value = 35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_height_mm = { value = 25, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_width_mm = { value = 125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+jaw_depth_mm = { value = 10, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+opening_mm = { value = 125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
-[fixtures.parallels]
-name = "Parallels"
+[fixtures.parallels-25]
+name = "25 mm parallels"
 kind = "parallels"
 present = true
 verify = false
-height_mm = "unknown"
-width_mm = "unknown"
-length_mm = "unknown"
-note = "Height is selected in the video for shoulder clearance and grip, but no measured height/stack is available."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=414s"]
+height_mm = { value = 25, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+length_mm = { value = 150, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+
+[fixtures.parallels-30]
+name = "30 mm parallels"
+kind = "parallels"
+present = true
+verify = false
+height_mm = { value = 30, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+length_mm = { value = 150, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+
+[fixtures.parallels-35]
+name = "35 mm parallels"
+kind = "parallels"
+present = true
+verify = false
+height_mm = { value = 35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+length_mm = { value = 150, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+width_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.round-bar]
-name = "Round bar"
+name = "Moving-jaw round bar"
 kind = "round_bar"
 present = true
 verify = false
-dia_mm = "unknown"
-length_mm = "unknown"
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s"
+dia_mm = { value = 6.35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+length_mm = { value = 150, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [fixtures.end-stop]
-name = "End stop"
+name = "Magnetic rod stop"
 kind = "stop"
+shop_made = false
 present = true
 verify = false
-length_mm = "unknown"
-dia_mm = "unknown"
-note = "Shown stop arrangement only; position, attachment and retention are not measured."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s"
-
-[fixtures.balancing-piece]
-name = "Balancing T-nut"
-kind = "block"
-present = true
-verify = false
-width_mm = "unknown"
-length_mm = "unknown"
-height_mm = "unknown"
-note = "A previously separated nut balances the opposite jaw end in the final upright cut. The paper is on the workpiece being cut, not this balancing piece; source description, not a qualified retention fixture."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s"
+dia_mm = { value = 6.35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+length_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "AUTHOR'S CHOICE: pre-made illustrative rod-stop assembly, not hardware identified in the video. Retain the declared Ø6.35 × 50 mm rod: local zero end contacts retained canonical #304 at setup X+12.7; local +Z points setup +X, local +X points setup +Y and local +Y points setup +Z under the unchanged stop pose [12.7,0,-9.525]. Rod occupies setup X12.7..62.7, Y±3.175, Z-12.7..-6.35, leaving the upper pickup at Y-5.08/Z-2.54 exposed. An integral socket/cantilever joins a switchable magnetic foot seated flat on the steel fixed-jaw top Z-7.7 in both E1 and D1; foot occupies X30..50/Y12..30/Z-7.7..7.3, inside both declared fixed-jaw spans. The Ø6.40 socket bore is .025 mm above the seated rod axis; its lower wall and the occupied M4 screw tip contact the rod without interpenetration. All external screw and switch envelopes are included. Before loading, seat the foot flush, switch ON and secure the rod with the socket screw; recheck retained-end contact after tightening the vise. Gentle positioning contact only: the vise carries cutting loads. These example dimensions and geometric contacts do not certify magnetic holding force or physical shop readiness."
+solids = [
+  { name = "rod", shape = "cylinder", at_mm = [0, 0, 0], axis = [0, 0, 1], dia_mm = 6.35, length_mm = 50, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "rod-socket", shape = "box", at_mm = [-5, -5, 27.3], size_mm = [10, 13, 10], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "cantilever", shape = "box", at_mm = [0, 1.825, 27.3], size_mm = [12, 10, 10], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "magnetic-foot", shape = "box", at_mm = [12, 1.825, 17.3], size_mm = [18, 15, 20], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "rod-bore", shape = "cylinder", at_mm = [0, 0.025, 26.3], axis = [0, 0, 1], dia_mm = 6.4, length_mm = 12, void = true, cuts = ["rod-socket", "cantilever"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-bore", shape = "cylinder", at_mm = [0, 3.175, 32.3], axis = [0, 1, 0], dia_mm = 4, length_mm = 8.65, void = true, cuts = ["rod-socket", "cantilever"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-shank", shape = "cylinder", at_mm = [0, 3.175, 32.3], axis = [0, 1, 0], dia_mm = 4, length_mm = 8.65, fastener = "M4 socket screw", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "M4-socket-screw-head", shape = "cylinder", at_mm = [0, 11.825, 32.3], axis = [0, 1, 0], dia_mm = 7, length_mm = 4, fastener = "M4 socket screw", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "magnetic-switch", shape = "cylinder", at_mm = [30, 9.325, 27.3], axis = [1, 0, 0], dia_mm = 8, length_mm = 6, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+]
 
 [fixtures.wood-block]
-name = "Wood block"
+name = "Wood support block"
 kind = "block"
 present = true
 verify = false
-width_mm = "unknown"
-length_mm = "unknown"
-height_mm = "unknown"
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s"
+length_mm = { value = 100, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+width_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+height_mm = { value = 50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
-[tools.initial-stock-saw]
-name = "Band-saw blade"
-kind = "bandsaw"
+[fixtures.b0-scrap-support]
+name = "Scrap pedestal"
+kind = "custom"
+shop_made = false
 present = true
 verify = false
-kerf_mm = "unknown"
-tpi = "unknown"
-note = "Frame 02:45 shows a portable powered band saw cutting stock held in the bench vise. Make/model, blade tooth pitch, kerf and safe engagement are not established; not a hand hacksaw."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s"
+note = "Pre-made example support; local coordinates equal bench-raw setup coordinates under identity placement. Top Z−1.5875, table Z−36.5875. All support stays X≥103 beyond the band kerf. Stop saw before retrieving scrap."
+solids = [{ name = "pedestal", shape = "box", at_mm = [103, -12.7, -36.5875], size_mm = [10, 25.4, 35], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
+
+[fixtures.saw-setting-post]
+name = "Pre-made saw setting post"
+kind = "custom"
+shop_made = false
+present = true
+verify = false
+note = "Pre-made illustrative fixture, supplied before this job; not hardware identified in the video. Fixture-local stem and boss dimensions are declared below. Plan places origin at [−119.38,0,−75] once; boss top becomes setup Z10.16. Lower body side touches stopped through .0508 mm paper, arbor axis [−139.7,0]; contact radius20.32 is outside flange and inside root."
+solids = [
+  { name = "stem", shape = "cylinder", at_mm = [0, 0, 0], axis = [0, 0, 1], dia_mm = 12, length_mm = 83.16, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "boss", shape = "box", at_mm = [-1, -1, 83.16], size_mm = [2, 2, 2], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+]
+
+[fixtures.capture-post]
+name = "Pre-made anchored capture post/base"
+kind = "custom"
+shop_made = false
+present = true
+verify = false
+note = "AUTHOR'S CHOICE: pre-made illustrative slotted capture post/base, not hardware identified in the source video. Identity placed support in upright setup coordinates, independently table mounted. Post and base are one pre-made assembly. The 6.5 mm wide through-slot has round-end centres at setup Z60.6225 and119.0425: all three collar screw centres Z60.6225/89.8325/119.0425 fit with .25 mm radial clearance around the occupied M6 screw. Slot bounds Z57.3725..122.2925 leave the post joined above and below; it cuts only post, not base or occupied bolts. Collar front land bears at Y40; rear strap bears at Y50. M8 base bolts: authored18 N·m tightening target, not a verified force rating. Complete occupied bolt-head envelopes included."
+solids = [
+  { name = "post", shape = "box", at_mm = [-20, 40, -75], size_mm = [40, 10, 225], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-screw-slot-web", shape = "box", at_mm = [-3.25, 39, 60.6225], size_mm = [6.5, 12, 58.42], void = true, cuts = ["post"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-screw-slot-lower-end", shape = "cylinder", at_mm = [0, 39, 60.6225], axis = [0, 1, 0], dia_mm = 6.5, length_mm = 12, void = true, cuts = ["post"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-screw-slot-upper-end", shape = "cylinder", at_mm = [0, 39, 119.0425], axis = [0, 1, 0], dia_mm = 6.5, length_mm = 12, void = true, cuts = ["post"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "base", shape = "box", at_mm = [-30, 30, -75], size_mm = [60, 30, 10], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "left-M8-head", shape = "cylinder", at_mm = [-24, 45, -65], axis = [0, 0, 1], dia_mm = 12, length_mm = 12, fastener = "M8", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "right-M8-head", shape = "cylinder", at_mm = [24, 45, -65], axis = [0, 0, 1], dia_mm = 12, length_mm = 12, fastener = "M8", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+]
+
+[fixtures.capture-head]
+name = "Upper capture head"
+kind = "custom"
+shop_made = false
+present = true
+verify = false
+note = "AUTHOR'S CHOICE: pre-made illustrative slotted-post through-clamp, not source-video hardware. Fixture-local head/hardware; pose origin[0,0,zc] in each saw setup. The rail's through-window clears post X−20..20 by .25 mm per side, open to the rear; the front land seats against post Y40 and the separate 4 mm rear strap against post Y50. Both widened arms remain joined to the U-shaped rail; the rear strap closes across their Y50 ends. The integral 12 mm tall front boss keeps the rail connected above/below its real Ø6.5 screw bore and provides the Ø10 head bearing seat at Y20. The occupied collar screw remains at X0/Z33 and extends Y20..60: original Y20..56 material retained, plus length for rear strap Y50..54, M6 nut Y54..59 and1 mm protrusion. The post's independent slot clears that screw; all collar voids target only their named rail/boss/strap/nut, never occupied hardware or another owner. Nut bore is the nominal M6 thread envelope, not modeled helices or thread-fit evidence. Tightening loads head→front boss/rail→post front and screw→nut→rear strap→post rear; post/base remain independently table anchored. Left pad and separately posed moving pad retain upper flange contact Y1..5/Zzc+12..24. Pad and collar M6 screws: authored8 N·m targets; anchored M8 base18 N·m. Keep clamped through cut, stop, withdrawal and full return; only then release/retrieve. Geometry describes the assembled nominal contact/load path, not a native anchorage proof or dynamic clamp-capacity certification."
+solids = [
+  { name = "left-pad", shape = "box", at_mm = [-28, 1, 12], size_mm = [16.8875, 4, 12], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "left-arm", shape = "box", at_mm = [-28, 1, 24], size_mm = [5, 24, 12], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "right-arm", shape = "box", at_mm = [23, 1, 24], size_mm = [5, 24, 12], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "rear-rail-collar", shape = "box", at_mm = [-28, 20, 30], size_mm = [56, 30, 6], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-post-clearance", shape = "box", at_mm = [-20.25, 40, 29], size_mm = [40.5, 11, 8], void = true, cuts = ["rear-rail-collar"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-front-screw-boss", shape = "box", at_mm = [-6, 20, 27], size_mm = [12, 20, 12], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-front-screw-clearance", shape = "cylinder", at_mm = [0, 19, 33], axis = [0, 1, 0], dia_mm = 6.5, length_mm = 22, void = true, cuts = ["rear-rail-collar", "collar-front-screw-boss"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-rear-clamping-strap", shape = "box", at_mm = [-28, 50, 27], size_mm = [56, 4, 12], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-rear-screw-clearance", shape = "cylinder", at_mm = [0, 49, 33], axis = [0, 1, 0], dia_mm = 6.5, length_mm = 6, void = true, cuts = ["collar-rear-clamping-strap"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "right-screw-housing", shape = "box", at_mm = [20, 0, 12], size_mm = [8, 6, 18], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "moving-M6-screw", shape = "cylinder", at_mm = [20, 3, 18], axis = [1, 0, 0], dia_mm = 6, length_mm = 18, fastener = "M6", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "moving-screw-handle-envelope", shape = "cylinder", at_mm = [38, 3, 18], axis = [1, 0, 0], dia_mm = 10, length_mm = 6, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-M6-screw", shape = "cylinder", at_mm = [0, 20, 33], axis = [0, 1, 0], dia_mm = 6, length_mm = 40, fastener = "M6", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-screw-head-envelope", shape = "cylinder", at_mm = [0, 14, 33], axis = [0, 1, 0], dia_mm = 10, length_mm = 6, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-M6-nut-envelope", shape = "cylinder", at_mm = [0, 54, 33], axis = [0, 1, 0], dia_mm = 12, length_mm = 5, fastener = "M6", supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+  { name = "collar-nut-thread-envelope", shape = "cylinder", at_mm = [0, 53, 33], axis = [0, 1, 0], dia_mm = 6, length_mm = 7, void = true, cuts = ["collar-M6-nut-envelope"], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
+]
+
+[fixtures.capture-moving-pad]
+name = "Capture moving pad"
+kind = "custom"
+shop_made = false
+present = true
+verify = false
+note = "Local+Z points setup+X, press acts−X. Plan origin[11.1125,3,zc+18], localX[0,1,0], localZ[1,0,0] gives occupied setup box[11.1125,1,zc+12]..[20,5,zc+24]. Separate moving clamp, not a cloned balancing blank."
+solids = [{ name = "moving-pad", shape = "box", at_mm = [-2, -6, 0], size_mm = [4, 12, 8.8875], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
 
 [tools.roughing-endmill]
-name = "Niagara squaring mill"
+name = "3/4 in HSS TiCN squarer"
 kind = "endmill"
-make = "Niagara"
 material = "HSS"
 coating = "TiCN"
 present = true
 verify = false
-dia_mm = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-flutes = "unknown"
-center_cutting = "unknown"
-note = "Black Niagara HSS TiCN cutter named at 03:23 for stock squaring. It is distinct from the gold-coloured shoulder rougher shown at 07:44. No diameter, flute count or reach measurement supplied."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s"
+dia_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 66.675, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 4
+center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
+projection_mm = { "holders.collet-19" = { value = 41.275, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+cite = "Author-selected demonstration geometry, example value (realistic, not a shop measurement); source video names Niagara HSS TiCN but does not establish these dimensions"
 
 [tools.shoulder-rougher]
-name = "Shoulder roughing mill"
+name = "1/2 in HSS shoulder rougher"
 kind = "endmill"
+material = "HSS"
 present = true
 verify = false
-material = "unknown"
-coating = "unknown"
-dia_mm = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-flutes = "unknown"
-center_cutting = "unknown"
-note = "Gold-coloured roughing end mill held beside the finishing mill at 07:44 and used on the shoulders. Colour does not establish coating, make or tool material; distinct from the black Niagara squaring cutter."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s"]
+dia_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 23.8125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 57.15, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 4
+center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
+projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+cite = "Author-selected demonstration tool, example value (realistic, not a shop measurement); not identified by video cutter colour"
 
 [tools.finishing-endmill]
-name = "Finishing end mill"
+name = "1/2 in HSS finisher"
 kind = "endmill"
+material = "HSS"
 present = true
 verify = false
-material = "unknown"
-dia_mm = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-flutes = "unknown"
-center_cutting = "unknown"
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s"]
+dia_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 23.8125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 57.15, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 4
+center_cutting = true
+nose_radius_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected sharp, flat-ended demonstration endmill; nose_radius_mm=0 explicitly qualifies the end geometry under the existing tool vocabulary. Dimensions and qualification are illustrative installed facts, not observed shop measurements or a native contact/clearance result."
+projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+cite = "Author-selected demonstration tool geometry, example value (realistic, not a shop measurement)"
 
 [tools.edge-finder]
-name = "Edge finder"
+name = "Starrett 827A mechanical edge finder"
 kind = "edge_finder"
+make = "Starrett"
+material = "HSS"
 present = true
 verify = false
-finder_type = "unknown"
-dia_mm = "unknown"
-rpm_range = "unknown"
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=437s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"]
+finder_type = "mechanical"
+dia_mm = { value = 5.08, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+finder_tip_length_mm = { value = 6.35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 76.2, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 9.525, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+rpm_range = [750, 1500]
+projection_mm = { "holders.collet-9" = { value = 50.8, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+note = "Catalogue .375 in body/.200 in contact; the corresponding qualified example tip/shank diameters, tip length/OAL/projection are separate installed demonstration facts, not observed shop measurements. Travers general mechanical-finder guidance750–1500 rpm supports selected1000 rpm; not a Starrett speed certificate."
+cite = ["https://www.starrett.com/products/precision-shop-tools/edge-and-center-finders/827A", "https://solutions.travers.com/how-to-use-a-.200-edge-finder-travers-tool-co"]
 
 [tools.slitting-saw]
-name = "Slitting saw"
+name = "MariTool 301-2.0-.50-.125-36T HSS saw"
 kind = "slitting_saw"
+make = "MariTool"
+sku = "301-2.0-.50-.125-36T"
+material = "HSS"
 present = true
 verify = false
-material = "unknown"
-dia_mm = "unknown"
-kerf_mm = "unknown"
-tpi = "unknown"
-oal_mm = "unknown"
-note = "Not a bandsaw blade. Blade diameter, kerf, teeth, arbor dimensions and assembly projection are not source measurements."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s"
+dia_mm = { value = 50.8, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+root_dia_mm = { value = 48, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+thickness_mm = { value = 3.048, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+kerf_mm = { value = 3.175, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+bore_dia_limits_mm = { value = [12.700, 12.710], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+kerf_offset_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 36
+tooth_spacing = "uniform"
+projection_mm = { "holders.saw-arbor" = { value = 45, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+note = "Catalogue2 in OD/.125 in width/.5 in bore/36T HSS,80–100 sfm,.0004–.0018 in/tooth and flood/high-pressure coolant. Body .120 in and actual kerf .125 in are distinct installed example facts. Projection is body midplane to holder gauge plane, positive toward spindle, not cutter-tip projection."
+cite = "https://www.maritool.com/product_info.php?products_id=25574"
 
 [tools.centre-drill]
-name = "Centre drill"
+name = "#3 HSS centre drill"
 kind = "center_drill"
+material = "HSS"
 present = true
 verify = false
-material = "unknown"
-dia_mm = "unknown"
-pilot_len_mm = "unknown"
-point_angle = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
+dia_mm = { value = 2.778125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+pilot_len_mm = { value = 2.778125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 2.778125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+point_angle = { value = 118, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 6.35, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 50.8, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 2
+projection_mm = { "holders.drill-chuck" = { value = 25.4, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+note = "#3 catalogue geometry:1/4 in body,7/64 in pilot and pilot length,2 in OAL. The corresponding installed dimensions are qualified demonstration values, not physical measurements.118° pilot point is an authored example choice, not a Handbook or video measurement."
+cite = "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1194.md, Table6, printed873; installed example value (realistic, not a shop measurement)"
 
 [tools.tap-drill]
-name = "Tap drill"
+name = "5/16 in HSS jobber drill"
 kind = "drill"
+material = "HSS"
 present = true
 verify = false
-material = "unknown"
-dia_mm = "unknown"
-point_angle = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-note = "No letter/number/diameter is stated clearly in the source; do not infer a handbook tap drill as video evidence."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s"
+dia_mm = { value = 7.9375, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 80.9625, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+point_angle = { value = 118, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 7.9375, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 114.3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 2
+projection_mm = { "holders.drill-chuck" = { value = 92.075, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } }
+note = "Commercial3/8-16 tap drill5/16 in. Jobber LOC3-3/16 in/OAL4-1/2 in are catalogue nominals; corresponding installed diameter/length/shank facts are disclosed demonstration values, not physical measurements.118° point is an authored example choice, not video identification."
+cite = ["C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/2254.md, Table3, printed1933", "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1182.md, printed861"]
 
 [tools.taper-tap]
-name = "3/8-16 taper tap"
+name = "3/8-16 RH HSS taper tap"
 kind = "tap"
+material = "HSS"
 present = true
 verify = false
+thread = "3/8-16"
+thread_hand = "right"
 sizes = ["3/8-16"]
-dia_mm = "unknown"
-flute_len_mm = "unknown"
-oal_mm = "unknown"
-material = "unknown"
-note = "Thread form/class and tap geometry are not separately established. The nominal thread identity is source evidence, not a measured tap diameter."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
+dia_mm = { value = 9.5758, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flute_len_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+oal_mm = { value = 74.6125, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+shank_mm = { value = 9.6774, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+lead_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+flutes = 4
+note = "Author-selected example geometry; lead12.7 mm is qualified8 pitches, not inferred from 'taper'. Hand wrench and follower only; no powered rpm/feed or fictitious follower projection. No adopted formal2B class. Tip depth26.035 mm includes12.7 part+12.7 lead+.635 margin; threaded length31.75 and35 mm underpart gap cover it."
+cite = "Source nominal3/8-16: https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s; remaining tool geometry example value (realistic, not a shop measurement)"
 
-[tools.noga-deburrer]
-name = "Noga deburrer"
-kind = "deburring_tool"
+[tools.tap-wrench]
+name = "Hand tap wrench"
+kind = "tap_wrench"
 present = true
 verify = false
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s"
+range_mm = [5, 12] # source: example value (realistic, not a shop measurement); basis: author-selected hand-wrench capacity
+fits = "tools.taper-tap"
+note = "Example nominal tap-size capacity5–12 mm, represented by legal range_mm pair; hand drive only."
+cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
+
+[tools.initial-stock-saw]
+name = "14 TPI HSS bandsaw"
+kind = "bandsaw"
+material = "HSS"
+present = true
+verify = false
+kerf_mm = { value = 0.889, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+tpi = { value = 14, cite = "Author-selected example blade pitch, not video identification", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Non-spindle bandsaw blade, not the mounted circular slitting saw. Author-adopted example bi-metal construction: an HSS cutting edge electron-beam welded to a spring-steel back (LENOX Guide to Band Sawing, glossary printed p.32, https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf); material='HSS' describes the cutting edge. No actual blade brand/model or video equipment identification is claimed. The 14 TPI pitch and .889-mm kerf remain independent illustrative inputs; B0's 135 sfm is derived in cutting-data.toml, while its 25.4 mm/min descent remains independently illustrative and unqualified by that chart."
 
 [tools.needle-files]
 name = "Needle files"
@@ -234,6 +365,13 @@ kind = "files"
 present = true
 verify = false
 cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"
+
+[tools.noga-deburrer]
+name = "Noga deburrer"
+kind = "deburring_tool"
+present = true
+verify = false
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s"
 
 [tools.punch]
 name = "Punch"
@@ -243,106 +381,171 @@ verify = false
 cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
 
 [tools.layout-marker]
-name = "Sharpie"
+name = "Layout marker"
 kind = "marker"
 present = true
 verify = false
 cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"
 
-[holders.milling-holder]
-name = "Mill cutter holder"
-kind = "unknown"
-present = true
-verify = true
-gauge_dia_mm = "unknown"
-gauge_len_mm = "unknown"
-note = "Visible assembly only; do not infer collet standard or measured cutter projection."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"
-
-[holders.saw-arbor]
-name = "Saw arbor"
-kind = "arbor"
+[holders.collet-19]
+name = "R8 3/4 in collet"
+kind = "collet"
+taper = "R8"
 present = true
 verify = false
-gauge_dia_mm = "unknown"
-gauge_len_mm = "unknown"
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s"
+capacity_mm = 19.05
+gauge_dia_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+gauge_len_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+grip_mm = { value = 25.4, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
+
+[holders.collet-12]
+name = "R8 1/2 in collet"
+kind = "collet"
+taper = "R8"
+present = true
+verify = false
+capacity_mm = 12.7
+gauge_dia_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+gauge_len_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+grip_mm = { value = 22.225, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
+
+[holders.collet-9]
+name = "R8 3/8 in finder collet"
+kind = "collet"
+taper = "R8"
+present = true
+verify = false
+capacity_mm = 9.525
+gauge_dia_mm = { value = 31.75, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+gauge_len_mm = { value = 3, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+grip_mm = { value = 25.4, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+cite = "Author-selected R8 interface and nominal capacity, example value (realistic, not a shop measurement)"
 
 [holders.drill-chuck]
-name = "Drill chuck"
+name = "R8 drill chuck"
 kind = "drill_chuck"
+taper = "R8"
 present = true
 verify = false
-gauge_dia_mm = "unknown"
-gauge_len_mm = "unknown"
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
+range_mm = [0.5, 13] # source: example value (realistic, not a shop measurement); basis: author-selected R8 chuck capacity
+# Maximum shank is the same 13-mm upper chuck capacity, converted to inches;
+# this Number field cannot take a measured wrapper. Demonstration capability:
+# measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
+max_shank_in = 0.5118110236220472
+gauge_dia_mm = { value = 50.8, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+gauge_len_mm = { value = 76.2, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+grip_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+cite = "Author-selected R8 chuck/capacity, example value (realistic, not a shop measurement); tool projections are independent installed pair facts"
+
+[holders.saw-arbor]
+name = "R8 saw arbor; upper flange/lower retainer Ø0.750 in"
+kind = "arbor"
+taper = "R8"
+present = true
+verify = false
+gauge_dia_mm = { value = 32, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+gauge_len_mm = { value = 20, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Complete external rotational envelope through spindle nose. Component z is relative to gauge plane,+Z spindleward; intentional own-assembly overlaps. Both19.05-mm flanges contact blade body sides at z−46.524/−43.476, extending beyond bore12.710 and remaining inside root48. The12.69-mm pilot passes through the bore; the12.7-mm stem meets the upper body plane within the bore, not on the flat annulus. Circumscribed lower retainer included. Author-selected example assembly, not video arbor identification."
+[holders.saw-arbor.mounted_saw_arbor]
+pilot_dia_limits_mm = { value = [12.685, 12.695], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+bore_clearance_max_mm = { value = 0.030, cite = "Author-qualified example maximum diametral bore clearance, example value (realistic, not a shop measurement)", verify = false }
+blade_thickness_limits_mm = { value = [3.040, 3.056], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+envelope_state = "complete"
+cutting_rotation = { value = "cw", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+retaining_side = "minus_z"
+retaining_thread_hand = "right"
+components = [
+  { id = "holder", dia_mm = { value = 32, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_min_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_max_mm = { value = 20, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } },
+  { id = "stem", dia_mm = { value = 12.7, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_min_mm = { value = -43.476, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_max_mm = { value = 0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } },
+  { id = "upper-flange", dia_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_min_mm = { value = -43.476, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_max_mm = { value = -35.476, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } },
+  { id = "pilot", dia_mm = { value = 12.69, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_min_mm = { value = -50, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_max_mm = { value = -43.476, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } },
+  { id = "lower-flange-retainer", dia_mm = { value = 19.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_min_mm = { value = -56.524, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }, z_max_mm = { value = -46.524, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } } },
+]
 
 [holders.tap-follower]
-name = "Tap follower"
+name = "3/8-16 follower"
 kind = "tap_follower"
 present = true
 verify = false
-gauge_dia_mm = "unknown"
-gauge_len_mm = "unknown"
-note = "Maintains tap alignment; does not mean powered tapping."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
+fits = "tools.taper-tap"
+sizes = ["3/8-16"]
+note = "Guides selected3/8-16 RH tap, does not grip or drive. fits is the legal exact tap inventory identity, not an unsupported list of thread designations. No spindle projection or powered tapping capability is claimed."
+cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
 
 [gauges.calipers]
-name = "Dial calipers"
+name = "Calipers"
 kind = "caliper"
 present = true
 verify = false
-range_mm = "unknown"
-resolution_mm = "unknown"
-note = "No calibration, readable resolution or measurement log is available."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"]
+range_mm = [0, 152.4] # source: example value (realistic, not a shop measurement); basis: author-selected caliper nominal range
+resolution_mm = { value = 0.0127, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Author-selected identified demonstration comparator with positive .0005 in resolution; no calibration certificate or completed part reading is claimed."
+cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
 
-[gauges.mating-hardware]
-name = "3/8-16 rod and nut"
-kind = "mating_hardware"
+[gauges.dti]
+name = "Dial test indicator"
+kind = "dial_test_indicator"
 present = true
 verify = false
-note = "Functional comparison only, not certified GO/NO-GO thread gauges. Distinguish from misleading near-fit M10 x 1.5."
-cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s"
+range_mm = [0, 0.8] # source: example value (realistic, not a shop measurement); basis: author-selected indicator nominal range
+resolution_mm = { value = 0.00254, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+note = "Example vise-alignment capability, not a part-thread or dimensional inspection worksheet. Plan alignment target .0254 mm over100 mm is an instruction, not a recorded result."
+cite = "Author-selected example identity/range/resolution; example value (realistic, not a shop measurement)"
 
 [gauges.actual-slot]
-name = "Table T-slot"
+name = "Recipient T-slot"
 kind = "mating_part"
 present = true
 verify = false
-width_mm = "unknown"
-height_mm = "unknown"
-note = "Throat width, undercut width, undercut depth and top clearance are not transcribed numerical measurements."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"]
+note = "Disclosed example recipient dimensions, mm: throat12.7, undercut22.86, total depth13.97, lip depth6.985; derived undercut height6.985. Not identified as the PM-25 table and not a numeric fit certification. No load rating or numerical recess/overlap requirement."
+cite = "Author-selected demonstration recipient; example value (realistic, not a shop measurement); source functional comparison https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"
 
-[consumables.cutting-fluid]
-name = "Cutting fluid"
-products = "unknown"
+[gauges.mating-hardware]
+name = "Matching 3/8-16 RH stud/nut"
+kind = "mating_hardware"
+present = true
+verify = false
+thread = "3/8-16"
+thread_hand = "right"
+note = "Identified demonstration comparator, not certified formal-class GO/NO-GO gauges. No adopted formal class, minor-dia or minimum-thread-count acceptance."
+cite = "Author-selected comparator identity, example value (realistic, not a shop measurement); source nominal https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s"
+
+# Plain consumable schema has only name/products: product disclosures carry example
+# provenance without fabricated measured wrappers, kind fields or source fields.
+[consumables.cutting-oil]
+name = "Cutting oil"
+products = ["Cutting oil; author-selected example product, not video identification"]
+
+[consumables.flood-fluid]
+name = "5% semi-synthetic flood"
+products = ["Water-miscible semi-synthetic flood fluid at5% in water; author-selected example product/concentration, not video identification"]
+
+[consumables.paper-shim]
+name = ".002 in paper shim"
+products = ["Paper .0508 mm thick; example value (realistic, not a shop measurement), 2026-10-11; contact shim thickness is authored in plan zero recipes"]
 
 [consumables.acetone]
 name = "Acetone"
-products = ["Acetone; grade and supplier unspecified in source"]
+products = ["Acetone; author-selected example cleaning supply"]
+
+[consumables.detergent]
+name = "Detergent"
+products = ["Detergent for final cleaning after degreasing; author-selected example supply; JAX directions https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 
 [consumables.jax-blackener]
-name = "JAX Metal Blackener"
-products = ["JAX Metal Blackener; exact formulation/SDS not established"]
+name = "JAX Iron/Steel/Nickel Blackener"
+products = ["JAX Iron/Steel/Nickel Blackener, supplied neat; follow directions https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf and2024-10-04 SDS https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf; ventilation/splash protection/chemical-compatible gloves/segregated waste; no universal dwell or coating thickness invented"]
 
 [consumables.rinse-water]
-name = "Rinse water"
-products = ["Water rinse shown at 15:55"]
+name = "Fresh water"
+products = ["Fresh clean water for post-blackening rinse; author-selected example supply per JAX directions"]
 
 [consumables.paper-towel]
-name = "Paper towel"
-products = ["Paper towel; unspecified product"]
-
-[consumables.steel-wool]
-name = "#000 steel wool"
-products = ["#000 steel wool named at 16:00"]
+name = "Paper towels"
+products = ["Clean paper towels for drying after rinse; author-selected example supply"]
 
 [consumables.oil]
-name = "Oil"
-products = "unknown"
-
-[consumables.paper-shim]
-name = "Paper shim on the cutting workpiece"
-products = ["Paper; thickness not measured"]
+name = "ISO-VG32 light machine oil"
+products = ["ISO-VG32 light machine oil after rinse/dry; author-selected example product, not video identification"]

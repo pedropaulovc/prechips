@@ -8,7 +8,8 @@ The installed `prechips` command has five noninteractive verbs. Each bundle comm
 
 ```text
 prechips [--json] [--verbose] traveler PLAN [--inventory TOML] [--policy TOML]
-    [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
+    [--cutting-data TOML] [--out DIR] [--approval TOML] [--detail {pro,hobby,pedantic}]
+    [--json] [--verbose]
 prechips [--json] [--verbose] check PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
 prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--measure [--plan TOML ...]] [--json] [--verbose]
@@ -34,6 +35,7 @@ The parser requires one verb. Unknown options, missing arguments and invalid com
 | `--inventory` | Yes | Yes | Yes | Yes | No |
 | `--policy`, `--cutting-data`, `--out` | Yes | Yes | No | Yes | No |
 | `--approval` | Yes | Yes | No | No | No |
+| `--detail` | Yes | No | No | No | No |
 | `--measure`, repeatable `--plan` | No | No | Yes | No | No |
 
 ## Bundle paths and overrides
@@ -57,10 +59,15 @@ For `compare`, a shared override applies to every candidate. Without an override
 ## `traveler`
 
 ```text
-prechips traveler PLAN [bundle options] [--approval TOML] [--json] [--verbose]
+prechips traveler PLAN [bundle options] [--approval TOML] [--detail {pro,hobby,pedantic}] [--json] [--verbose]
 ```
 
 Evaluate the bundle and write the report plus printable setup-sheet HTML. The command does not create a PDF or print on a device.
+
+`--detail` selects printed instruction detail: `pro`, `hobby` (the default) or
+`pedantic`. It changes presentation only; rules, findings, report identity and
+approval requirements stay unchanged. See [traveler detail modes](../report-and-telemetry.md#traveler-detail-modes)
+for content and inspection-record ownership.
 
 | Result | Behavior |
 | --- | --- |

@@ -11,7 +11,13 @@ A dividing head carries the work on its axis: the stock top above the table
 is any declared parallels/supports plus the head's ``centre_height`` plus stock
 ``top_z`` minus the posed axis origin height (``hold.pose.origin_mm`` z); the
 head's bed and jaw heights and the supported stock height do not enter it.
-Saw-only setups have no spindle stack and are not applicable.
+Hand-saw-only setups have no spindle stack. Mounted disks require complete native
+assembly and spindle-nose bounds, translated from setup Z using the same supported
+stock/fixture stack as envelope; no axial insertion allowance is invented for them.
+
+Explicitly posed auxiliary supports are native obstacles, not underpart stack
+layers. Legacy support references still contribute their declared heights;
+malformed placements and unresolved legacy heights never become zero.
 
 A lathe setup's envelope is its swing and length: the stock and chuck body
 diameters against swing over the bed, the stock against swing over the cross
@@ -27,13 +33,13 @@ otherwise stays unknown.  Manual bench fit/inspection setups (``rules._bench``) 
 spindle stack or travel.
 """
 
-from fractions import Fraction
-
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
-from prechips.rules._envelope import entry_stock
+from prechips.rules._envelope import _band, entry_stock, fixture_height, stock_extents
+from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import printed_xy
+from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
@@ -61,23 +67,6 @@ def _numeric(value):
 
 def _sum(*values):
     return sum(values) if all(_numeric(value) for value in values) else _UNKNOWN
-
-
-def _height(item, orientation=None):
-    if not item:
-        return _UNKNOWN
-    height = length_mm(item, "height")
-    if _numeric(height):
-        return height
-    # Blocks have three different dimensions: use only the authored orientation.
-    if isinstance(orientation, str) and orientation.endswith(" in height"):
-        try:
-            selected = float(Fraction(orientation.removesuffix(" in height")))
-        except (ValueError, ZeroDivisionError):
-            return _UNKNOWN
-        if selected in item.get("size_in", []):
-            return selected * 25.4
-    return _UNKNOWN
 
 
 def _mapping(value):
@@ -265,19 +254,20 @@ def evaluate(bundle):
         parallels_ref = hold.get("parallels")
         parallels = resolve(bundle, "fixtures", parallels_ref) or {}
         parallel_height = (
-            0 if parallels_ref in (None, "none", "not_applicable") else _height(parallels)
+            0 if parallels_ref in (None, "none", "not_applicable") else support_height(parallels)
         )
-        support_ref = hold.get("supports", hold.get("riser"))
-        support = resolve(bundle, "fixtures", support_ref) or {}
-        support_height = (
-            0
-            if support_ref in (None, "none", "not_applicable")
-            else _height(support, hold.get("support_orientation"))
-        )
+        layers, support_issues = bearing_layers(bundle, hold)
+        support_heights, support_unverified = [], bool(support_issues)
+        for _, reference, orientation in layers:
+            item = resolve(bundle, "fixtures", reference) or {}
+            height = support_height(item, orientation)
+            support_heights.append(height)
+            support_unverified |= uncertain(item)
+            if item and not _numeric(height):
+                _length(bundle, item, "height", "fixtures", reference, consumed)
+        bearing_height = _UNKNOWN if support_issues else _sum(*support_heights)
         if parallels and not _numeric(parallel_height):
             _length(bundle, parallels, "height", "fixtures", parallels_ref, consumed)
-        if support and not _numeric(support_height):
-            _length(bundle, support, "height", "fixtures", support_ref, consumed)
         # The legacy riser declaration selects a 1-in block; without an explicit
         # orientation preserve the unknown rather than inventing a stack height.
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
@@ -305,7 +295,7 @@ def evaluate(bundle):
             "parallels_mm": parallel_height
             if parallels_ref not in (None, "none", "not_applicable")
             else "not_applicable",
-            "support_blocks_mm": support_height,
+            "support_blocks_mm": bearing_height,
             "stock_top_z": top,
             "stock_bottom_z": state.get("bottom_z", _UNKNOWN),
             "retained_rail_bottom_z": bottom,
@@ -328,7 +318,7 @@ def evaluate(bundle):
             centre = _length(bundle, fixture, "centre_height", "workholding", fixture_ref, consumed)
             axis_z = _head_axis_z(_mapping(hold.get("pose")))
             offset = top - axis_z if _numeric(top) and _numeric(axis_z) else _UNKNOWN
-            work_top = _sum(parallel_height, support_height, centre, offset)
+            work_top = _sum(parallel_height, bearing_height, centre, offset)
             numbers.update(
                 {
                     "head_centre_height_mm": centre,
@@ -337,11 +327,12 @@ def evaluate(bundle):
                 }
             )
         else:
-            work_top = _sum(bed, parallel_height, support_height, stock_height)
+            work_top = _sum(bed, parallel_height, bearing_height, stock_height)
         unknown = (
             not fixture
             or not machine
-            or any(uncertain(item) for item in (fixture, parallels, support) if item)
+            or any(uncertain(item) for item in (fixture, parallels) if item)
+            or support_unverified
         )
         unknown |= not _numeric(work_top if head else stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
@@ -350,6 +341,60 @@ def evaluate(bundle):
         if _numeric(stock_height) and stock_height <= 0:
             errors.append("supported stock height is not positive")
         nominal_stacks, oals, gauges, conflicts = [], [], [], []
+        saw_debts = []
+        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        if spindle_saws:
+            fixture_z, fixture_verified = fixture_height(bundle, setup, debts, cite)
+            extents, extent_cite = stock_extents(bundle, setup)
+            cite.extend(extent_cite)
+            height = extents.get("z", _UNKNOWN)
+            for op in spindle_saws:
+                status, reasons, evidence, inputs = _mounted_saw_bounds(
+                    bundle, setup, op, "headroom"
+                )
+                if status != "pass":
+                    saw_debts.extend(
+                        reasons
+                        or [
+                            SLITTING_SAW_MODEL_REASON
+                            if slitting_saw(bundle, op)
+                            else UNRESOLVED_SAW_MODEL_REASON
+                        ]
+                    )
+                if status == "error":
+                    errors.extend(f"op {op['op']}: {reason}" for reason in reasons)
+                nose = evidence.get("spindle_nose_bounds_mm")
+                table_band = (
+                    [fixture_z + height - top + value for value in (nose[2], nose[5])]
+                    if _ordered_bounds(nose)
+                    and all(_numeric(value) for value in (fixture_z, height, top))
+                    else _UNKNOWN
+                )
+                verified = fixture_verified and _band(table_band)
+                stack = table_band[1] if _band(table_band) else _UNKNOWN
+                margin = (
+                    spindle["value"] - stack
+                    if _numeric(spindle["value"]) and _numeric(stack)
+                    else _UNKNOWN
+                )
+                unknown |= status != "pass" or not verified or not spindle["verified"]
+                numbers["stacks"].append(
+                    {
+                        "op": op["op"],
+                        "mounted_saw": inputs,
+                        "assembly_swept_bounds_mm": evidence.get(
+                            "assembly_swept_bounds_mm", _UNKNOWN
+                        ),
+                        "spindle_nose_table_band_mm": table_band,
+                        "sum_mm": stack,
+                        "margin_mm": margin,
+                        "verify": not (verified and spindle["verified"] and status == "pass"),
+                    }
+                )
+                if verified and spindle["verified"] and _numeric(margin) and margin < 0:
+                    errors.append(f"op {op['op']} exceeds spindle clearance by {-margin:g} mm")
+                if _numeric(stack):
+                    nominal_stacks.append(stack)
         for op in setup["ops"]:
             if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
@@ -378,9 +423,11 @@ def evaluate(bundle):
                 if _numeric(spindle["value"]) and _numeric(stack)
                 else _UNKNOWN
             )
-            verified = not any(
-                uncertain(item) for item in (fixture, parallels, support, tool, holder) if item
-            ) and bool(tool and holder and fixture)
+            verified = (
+                not support_unverified
+                and not any(uncertain(item) for item in (fixture, parallels, tool, holder) if item)
+                and bool(tool and holder and fixture)
+            )
             numbers["stacks"].append(
                 {
                     "op": op["op"],
@@ -410,7 +457,7 @@ def evaluate(bundle):
             numbers["tool_oal_mm"] = max(oals)
         if gauges and len(gauges) == len(numbers["stacks"]):
             numbers["holder_gauge_len_mm"] = max(gauges)
-        support_stack = _sum(parallel_height, support_height)
+        support_stack = _sum(parallel_height, bearing_height)
         # The vise jaw rises from the supported stock bottom; a head's chuck jaws do not.
         jaw_top_z = (
             "not_applicable"
@@ -481,17 +528,8 @@ def evaluate(bundle):
         from .guided_sweep import unmodelled
 
         swept = unmodelled(bundle, setup, "headroom")
-        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
-        saw_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_saws
-            )
-        )
+        saw_debt = "; ".join(dict.fromkeys(saw_debts))
         if spindle_saws:
-            unknown = True
             numbers["spindle_saw_ops"] = [op["op"] for op in spindle_saws]
             numbers["spindle_saw_debt"] = saw_debt
         if swept:
@@ -513,7 +551,7 @@ def evaluate(bundle):
                     )
                     + conflicts
                     + swept
-                    + ([saw_debt] if spindle_saws else [])
+                    + ([saw_debt] if saw_debt else [])
                 )
                 if unknown or swept
                 else "measured spindle stack and setup-entry stock travels fit"

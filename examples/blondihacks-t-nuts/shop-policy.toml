@@ -1,7 +1,7 @@
-# Standalone example policy; not the unrelated illustrative Pedro-shop policy.
-# Required baseline rules follow the shipped example convention. Unknown shop
-# numbers remain debt: the video gives no measured shop acceptance limits.
-revision = 1
+# EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
+# Author-selected demonstration policy, not a video shop policy or measured result.
+# Retain exactly the seven required rule families; no presentation-level waiver.
+revision = 2
 
 [required]
 tool_resolves = "*"
@@ -13,28 +13,16 @@ coordinates = "*"
 zero_check = "*"
 
 [numbers]
-refixture_budget_mm = "unknown"
-thin_wall_floor_mm = "unknown"
-stickout_ld_max = "unknown"
-fixture_make_decimals = "unknown"
-near_jaw_mm = "unknown"
-max_filing_stock_mm = "unknown"
-saw_min_teeth_in_work = "unknown"
+refixture_budget_mm = 0.0254
+thin_wall_floor_mm = 1
+saw_min_teeth_in_work = 3
 
 [numbers_cite]
-refixture_budget_mm = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
-thin_wall_floor_mm = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
-stickout_ld_max = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
-fixture_make_decimals = "No shop-made fixture drawing or setting precision published in the source video"
-near_jaw_mm = "No numerical jaw clearance established by the source video"
-max_filing_stock_mm = "Hand deburring only; no numerical filing allowance established by the source video"
-saw_min_teeth_in_work = "Blade pitch and measured engagement not established by the source video"
+refixture_budget_mm = "Author-selected .001 in demonstration refixture budget; example value (realistic, not a shop measurement), 2026-10-11; not sourced as a video tolerance"
+thin_wall_floor_mm = "Author-selected1 mm demonstration thin-wall floor; example value (realistic, not a shop measurement), 2026-10-11; not a force or stiffness certification"
+saw_min_teeth_in_work = "Author-selected conservative minimum3 teeth in established engagement; example value (realistic, not a shop measurement), 2026-10-11. Mounted circular-saw engine computes guaranteed phase-minimum advancing-rim engagement and separately discloses entry/exit; linear bandsaw TPI uses the existing section proxy."
 
 [numbers_verify]
-refixture_budget_mm = true
-thin_wall_floor_mm = true
-stickout_ld_max = true
-fixture_make_decimals = true
-near_jaw_mm = true
-max_filing_stock_mm = true
-saw_min_teeth_in_work = true
+refixture_budget_mm = false
+thin_wall_floor_mm = false
+saw_min_teeth_in_work = false

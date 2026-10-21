@@ -6,14 +6,19 @@ from itertools import pairwise, product
 
 from prechips.rules.zero_recipe.touch import FILL_MARGIN_MM, TOUCH_LAND_MM, TURNED, _position
 
-from ...material_routes import feature_material_status, setup_lineage
+from ...material_routes import setup_lineage
 from ..resolution import (
     HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MANUAL,
+    SAW_OPS,
     UNKNOWN,
+    canonical_face_mapping,
     known_refs,
     number,
+    operation_material_status,
+    operation_members,
+    registered_workpieces,
     setup_frame,
 )
 from ..tip_endpoints import (
@@ -100,7 +105,7 @@ def _rectangle(bundle, setup, target):
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     if footprint is None or kernel.get("status") != "ok" or len(refs) != 1 or scale is None:
         return None
-    index = mapping(kernel.get("mapping")).get(refs[0])
+    index = canonical_face_mapping(bundle, kernel, setup).get(refs[0])
     faces = [mapping(f) for f in records(kernel.get("faces"))]
     face = next((f for f in faces if index is not None and f.get("index") == index), {})
     box = face.get("bbox_mm")
@@ -285,6 +290,8 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
         return "pass", None
     if face not in mapping(bundle.feature_definitions):
         return "error", f"names x_face {face}, no plan feature"
+    if registered_workpieces(bundle) and operation_members(bundle, setup) is None:
+        return UNKNOWN, f"touches {face} without a uniquely selected arriving workpiece"
     lineage = setup_lineage(bundle.plan, setup["id"])
     earlier = [
         (other["id"], op)
@@ -299,9 +306,20 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
         names = _features(op)
         where = f"{owner} op {op.get('op')}"
         if names is None:
+            if (
+                registered_workpieces(bundle)
+                and op.get("do") in SAW_OPS | {"part_off"}
+                and isinstance(op.get("outputs"), dict)
+                and op["outputs"]
+            ):
+                # A proved retained partition preserves its actual descendant target.
+                # It is neither a diameter producer nor an unnamed speculative cut.
+                material = operation_material_status(bundle, setup, owner, face)
+                if material is not None:
+                    continue
             return UNKNOWN, f"touches {face} after {where}, which names no feature"
         if face in names:
-            material = feature_material_status(bundle.plan, setup["id"], owner, face, bundle)
+            material = operation_material_status(bundle, setup, owner, face, producer_op=op)
             if material is None:
                 return UNKNOWN, f"touches {face}, whose survival after partition is unresolved"
             if material is False:
@@ -312,7 +330,7 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
     faces = mapping(bundle.feature_definitions.get(face)).get("faces", UNKNOWN)
     as_is = mapping(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     if known_refs(faces) and isinstance(as_is, list) and set(faces) <= set(as_is):
-        material = feature_material_status(bundle.plan, setup["id"], "stock", face, bundle)
+        material = operation_material_status(bundle, setup, "stock", face)
         if material is True:
             return "pass", None
         if material is None:

@@ -6,6 +6,7 @@ from itertools import product
 from prechips.measurements import angle_fact, length_fact, measurement_entry
 from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules import tip_endpoints
+from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
 from prechips.rules.resolution import (
     EXPORTED_FRAMES,
@@ -355,6 +356,7 @@ def stock_extents(bundle, setup):
 
 
 def fixture_height(bundle, setup, debts, cite):
+    """Primary fixture bed plus declared bearing layers, never posed auxiliaries."""
     hold = record(setup.get("hold"))
     category, identity, fixture = selected_item(bundle, "workholding", hold.get("fixture", UNKNOWN))
     if not fixture or fixture.get("kind") == UNKNOWN:
@@ -370,10 +372,45 @@ def fixture_height(bundle, setup, debts, cite):
         field = "bed_height" if fixture.get("kind") == "vise" else "height"
         height = fact(fixture, field, category, identity, debts, cite)
         values, verified = [height["value"]], height["verified"]
-    for field in ("parallels", "supports", "riser"):
-        reference = hold.get(field)
-        if reference in (None, "none", "not_applicable"):
-            continue  # Known absence of an optional support is not a zero measurement.
+    layers, issues = bearing_layers(bundle, hold)
+    for field in dict.fromkeys(field for field, _ in issues):
+        reasons = "; ".join(reason for source, reason in issues if source == field)
+        path = f"plan.setups.{setup['id']}.hold.{field}"
+        authoring_entry(
+            debts,
+            path + ".bearing_layer",
+            f"resolve: {reasons}; author {path}'s bearing role explicitly",
+            path,
+        )
+        values.append(UNKNOWN)
+        verified = False
+        # Classification can reject an unresolved source before returning a layer.
+        # Keep its inventory-identity debt separate from the bearing-role debt;
+        # neither a missing item nor an unknown kind is a height to measure.
+        declared = hold.get(field)
+        sources = declared if isinstance(declared, list) else [declared]
+        for source in sources:
+            reference = source.get("ref") if isinstance(source, dict) else source
+            if not isinstance(reference, str) or reference.strip() in (
+                "",
+                "none",
+                "not_applicable",
+            ):
+                continue
+            source_category, source_ref, source_item = selected_item(bundle, "fixtures", reference)
+            if source_item and source_item.get("kind") != UNKNOWN:
+                continue
+            authoring_entry(
+                debts,
+                f"{source_category}.{source_ref}.resolve",
+                f"resolve: add or select an owned fixture for {source_ref} in inventory "
+                f"and author {path}",
+                f"inventory.{source_category}.{source_ref}",
+            )
+    parallels = hold.get("parallels")
+    if parallels not in (None, "none", "not_applicable"):
+        layers.insert(0, ("parallels", parallels, None))
+    for field, reference, orientation in layers:
         category, reference, support = selected_item(bundle, "fixtures", reference)
         if not support or support.get("kind") == UNKNOWN:
             authoring_entry(
@@ -387,7 +424,12 @@ def fixture_height(bundle, setup, debts, cite):
             verified = False
             continue
         value = fact(support, "height", category, reference, debts, cite)
-        values.append(value["value"])
+        nominal = value["value"]
+        if not number(nominal) and orientation is not None:
+            # An oriented nominal block size is useful evidence, not a fabricated
+            # fact-local measurement: the refused height above retains its debt.
+            nominal = support_height(support, orientation)
+        values.append(nominal)
         verified &= value["verified"]
     return sum(values) if all(number(v) for v in values) else UNKNOWN, verified
 

@@ -1141,12 +1141,22 @@
       ],
       "message": "hub_faces length: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "hub_faces",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           7.0565,
           7.1065
         ],
-        "requirement": "length"
+        "part_result": "not_recorded",
+        "requirement": "length",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1160,9 +1170,19 @@
       ],
       "message": "hub_od coaxiality_dia: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "hub_od",
+          "requirement": "coaxiality_dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 0.5,
-        "requirement": "coaxiality_dia"
+        "part_result": "not_recorded",
+        "requirement": "coaxiality_dia",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1176,12 +1196,22 @@
       ],
       "message": "hub_od dia: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "hub_od",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           9.69,
           10.71
         ],
-        "requirement": "dia"
+        "part_result": "not_recorded",
+        "requirement": "dia",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1195,12 +1225,22 @@
       ],
       "message": "pivot_bore dia: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "pivot_bore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           6.5,
           6.53
         ],
-        "requirement": "dia"
+        "part_result": "not_recorded",
+        "requirement": "dia",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1214,9 +1254,19 @@
       ],
       "message": "pivot_bore finish_ra: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "pivot_bore",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 1.6,
-        "requirement": "finish_ra"
+        "part_result": "not_recorded",
+        "requirement": "finish_ra",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1230,12 +1280,22 @@
       ],
       "message": "profile_outer bottom_arc_len: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "profile_outer",
+          "requirement": "bottom_arc_len",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           266.19,
           267.21
         ],
-        "requirement": "bottom_arc_len"
+        "part_result": "not_recorded",
+        "requirement": "bottom_arc_len",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1249,12 +1309,22 @@
       ],
       "message": "profile_outer bottom_radius: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "profile_outer",
+          "requirement": "bottom_radius",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           815.49,
           816.51
         ],
-        "requirement": "bottom_radius"
+        "part_result": "not_recorded",
+        "requirement": "bottom_radius",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1268,12 +1338,22 @@
       ],
       "message": "rod_hole dia: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "rod_hole",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           1.994,
           2.094
         ],
-        "requirement": "dia"
+        "part_result": "not_recorded",
+        "requirement": "dia",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1287,9 +1367,19 @@
       ],
       "message": "rod_hole position_dia: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "rod_hole",
+          "requirement": "position_dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 0.2,
-        "requirement": "position_dia"
+        "part_result": "not_recorded",
+        "requirement": "position_dia",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1303,7 +1393,17 @@
       ],
       "message": "strap_datum_b: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "strap_datum_b",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -1317,12 +1417,22 @@
       ],
       "message": "strap_faces thickness: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "strap_faces",
+          "requirement": "thickness",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           1.99,
           3.01
         ],
-        "requirement": "thickness"
+        "part_result": "not_recorded",
+        "requirement": "thickness",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1336,12 +1446,22 @@
       ],
       "message": "tip_land_neg_x land_angle_deg: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "tip_land_neg_x",
+          "requirement": "land_angle_deg",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           89.0,
           91.0
         ],
+        "part_result": "not_recorded",
         "requirement": "land_angle_deg",
+        "shared_check_id": null,
         "tilt_across_length": 5.08
       },
       "rule": "inspection",
@@ -1356,12 +1476,22 @@
       ],
       "message": "tip_land_neg_x tip_land: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "tip_land_neg_x",
+          "requirement": "tip_land",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.08,
           6.1
         ],
-        "requirement": "tip_land"
+        "part_result": "not_recorded",
+        "requirement": "tip_land",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1375,12 +1505,22 @@
       ],
       "message": "tip_land_pos_x land_angle_deg: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "tip_land_pos_x",
+          "requirement": "land_angle_deg",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           89.0,
           91.0
         ],
+        "part_result": "not_recorded",
         "requirement": "land_angle_deg",
+        "shared_check_id": null,
         "tilt_across_length": 5.08
       },
       "rule": "inspection",
@@ -1395,12 +1535,22 @@
       ],
       "message": "tip_land_pos_x tip_land: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "tip_land_pos_x",
+          "requirement": "tip_land",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.08,
           6.1
         ],
-        "requirement": "tip_land"
+        "part_result": "not_recorded",
+        "requirement": "tip_land",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1414,12 +1564,22 @@
       ],
       "message": "top_edge arc_len: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "arc_len",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           291.59,
           292.61
         ],
-        "requirement": "arc_len"
+        "part_result": "not_recorded",
+        "requirement": "arc_len",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1433,12 +1593,22 @@
       ],
       "message": "top_edge height_above_pivot: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "height_above_pivot",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           8.0,
           8.5
         ],
-        "requirement": "height_above_pivot"
+        "part_result": "not_recorded",
+        "requirement": "height_above_pivot",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -1452,12 +1622,22 @@
       ],
       "message": "top_edge radius: no requirement-keyed inspection check.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "radius",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           799.49,
           800.51
         ],
-        "requirement": "radius"
+        "part_result": "not_recorded",
+        "requirement": "radius",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "error",
@@ -2874,7 +3054,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "412e1e6e8df55d2a154a835b3870d535345972ade82f7ce56f4e1945548b6a39",
+  "hash": "23199cdf0e2cc6ad31f45ad125bfca4ad0735a849df091e5916421af5e402252",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2894,11 +3074,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "17ff2c052f98bb318423dff21c45d9dc1e5626e8f9223071ac0ae496e036b9e4"
+      "sha256": "11f759181590415b9af29d616609cf4e236569e6b4a3729d082b5271fccb3954"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "d8ad7ee495196f944e92a3ffca2afafd06fba06099fa09fbdbd45dd990dca6e5"
+      "sha256": "4412b20d68f8f11e26012334d33e51a1bdd2ae263b6a61e5a9518343d9d6ff4e"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2924,7 +3104,7 @@
         "fixture_kind": null,
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1041,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2936,9 +3116,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1041,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2952,7 +3135,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "17ff2c052f98bb318423dff21c45d9dc1e5626e8f9223071ac0ae496e036b9e4"
+      "sha256": "11f759181590415b9af29d616609cf4e236569e6b4a3729d082b5271fccb3954"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3007,7 +3190,7 @@
         "fixture_kind": "hand_fed",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1931,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -3019,16 +3202,22 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 951,
+            "id": "setup",
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 951
           }
         ],
         "render_debts": [],
@@ -3114,7 +3303,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "d8ad7ee495196f944e92a3ffca2afafd06fba06099fa09fbdbd45dd990dca6e5"
+      "sha256": "4412b20d68f8f11e26012334d33e51a1bdd2ae263b6a61e5a9518343d9d6ff4e"
     }
   },
   "rules_version": "m5-rev12",

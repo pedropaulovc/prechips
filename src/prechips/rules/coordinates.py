@@ -50,6 +50,7 @@ from .resolution import (
     resolve,
     rough_leave,
     setup_frame,
+    spindle_saw,
     uncertain,
 )
 from .tip_endpoints import (
@@ -2158,12 +2159,14 @@ def _boundary(feature, frame, frames):
 
 
 def _sweep_area(feature, op, frame, frames):
-    """Setup-XY corners of the area a ``linear_table`` sweeps, or None: ``contour.
-    sweep_bounds`` in ``sweep_frame``, else a face op's or side-milling profile's
-    (:func:`_rastered`) setup-frame ``stock_removal_bounds``, else the feature's own
-    bounds."""
+    """Setup-XY corners of the area a ``linear_table`` sweeps, or None: an explicitly
+    authored ``contour.sweep_bounds`` must resolve in ``sweep_frame``. Only when that
+    key is absent may a face or side-milling profile use ``stock_removal_bounds``,
+    then the feature's bounds."""
     contour = mapping(op.get("contour"))
-    if isinstance(contour.get("sweep_bounds"), dict):
+    if "sweep_bounds" in contour:
+        if not isinstance(contour["sweep_bounds"], dict):
+            return None
         envelope = {
             **feature,
             "bounds": contour["sweep_bounds"],
@@ -2945,34 +2948,89 @@ def _band(value):
 # A printed row's id (:func:`row_id`) is its table's name, ``FRAGMENT_FORMAT`` for a piece
 # of a clipped table, then ``ROW_FORMAT``: the kernel names the rows of each piece it clips
 # (:func:`checkpoints`) with these same formats.
-ROW_FORMAT = {"arc_table": " row {}", "line_table": "[{}]"}
+ROW_FORMAT = {"arc_table": " row {}", "line_table": "[{}]", "linear_table": " point {}"}
 FRAGMENT_FORMAT = " fragment {}"
 
 
 def _table_name(subject, kind, table):
-    name = f"{subject} {table.get('stage')} " + (
-        "arc" if kind == "arc_table" else f"line {table.get('side')}"
-    )
+    if kind == "linear_table":
+        label = f"linear path {table['path_index'] + 1} final depth"
+    else:
+        label = "arc" if kind == "arc_table" else f"line {table.get('side')}"
+    name = f"{subject} {table.get('stage')} {label}"
     if "fragment" in table:
         name += FRAGMENT_FORMAT.format(table["fragment"][0])
     return name
 
 
 def row_id(subject, kind, table, index):
-    """A printed row's id: ``S1:40 rough arc row 3`` (``arc_table``) or ``S1:40 rough line
-    +X[0]`` (``line_table``); a piece of a clipped table adds ``fragment k``."""
+    """A printed row's id: arc ``row i``, join ``[i]``, or linear final-depth ``point i``.
+    A piece of a clipped table adds ``fragment k`` to its table name."""
     return _table_name(subject, kind, table) + ROW_FORMAT[kind].format(index)
 
 
+def _linear_checkpoints(subject, numbers, op):
+    """Canonical linear material paths at their actual printed final depth.
+
+    Profile ``cutter_centre`` is already ordered and rounded by coordinates; it is not
+    regenerated from a feature box or confused with tool-envelope rapids. As for an
+    arc/join material table, its final tip is independent of the native-entry-dependent
+    axial schedule. The separate tool paths retain unknown start/level evidence.
+    """
+    result = []
+    for profile_index, profile in enumerate(numbers.get("profiles", [])):
+        if (
+            profile.get("op") != op
+            or mapping(profile.get("contour")).get("method") != "linear_table"
+        ):
+            continue
+        points = profile.get("cutter_centre")
+        if isinstance(points, list) and points:
+            # A raster has independent passes; an outline is one complete polyline.
+            nested = isinstance(points[0], list) and points[0] and isinstance(points[0][0], list)
+            paths = points if nested else [points]
+        else:
+            paths = [[UNKNOWN]]
+        tip = profile.get("dro_to_z", UNKNOWN)
+        for path_index, path in enumerate(paths):
+            if not isinstance(path, list) or not path:
+                path = [UNKNOWN]
+            table = {**profile, "path_index": path_index}
+            result.append(
+                {
+                    "name": _table_name(subject, "linear_table", table),
+                    "kind": "linear_table",
+                    "rows": [
+                        (row_id(subject, "linear_table", table, index), xy, tip, False)
+                        for index, xy in enumerate(path)
+                    ],
+                    "bounded": False,
+                    "cutter_side": profile.get("cutter_side", UNKNOWN),
+                    "directed": profile.get("cut_order") in _CUT_SENSE,
+                    "stepped": False,
+                    "method": "linear_table",
+                    "chain_geometry": None,
+                    "stage": profile.get("stage"),
+                    "profile_index": profile_index,
+                    "path_index": path_index,
+                    "material_scope": "final_depth",
+                }
+            )
+    return result
+
+
 def checkpoints(subject, numbers, op):
-    """Each printed cutter-centre table of op ``op``'s arc_table output, in cutting order.
+    """Each printed cutter-centre arc/join table and linear profile path, in cutting order.
 
     A table is its ``name`` and ``kind`` (:func:`row_id`), its ``rows`` of (row id,
     printed setup XY ``dro_xy``, printed tip Z ``dro_tip_z``, corner overshoot?) in plan
     units, whether the kernel must clip it at its op's stock_removal_bounds (``bounded``),
     the side of its travel its cutter clears from (``cutter_side``) and whether its rows
     are single-axis stair steps (``stepped``: keyed at its ends and miters, not every
-    step). What the DRO shows is what the kernel clips and checks.
+    step). Linear profiles use a distinct ``linear_table`` kind and stable final-depth
+    row identities. Their ``material_scope="final_depth"`` matches arc/join tables:
+    the actual printed final tip defines material removal, never rapid/lift moves or a
+    claim that the separate axial pass schedule is known.
     """
     result = []
     for kind in ("arc_table", "line_table"):
@@ -3012,7 +3070,7 @@ def checkpoints(subject, numbers, op):
                     "exact_arc": table.get("exact_arc"),
                 }
             )
-    return result
+    return result + _linear_checkpoints(subject, numbers, op)
 
 
 def _clip_facts(bundle, subject):
@@ -3382,17 +3440,38 @@ def filing_cap(bundle):
     return cap if known else UNKNOWN
 
 
-def _filed(stock, cap, label):
-    """(errors, debts) for a rough method leaving up to ``stock`` for the file."""
+def _recut_summary(recut):
+    """Waive the shared cap only when every selected member has a proved later recut."""
+    if not isinstance(recut, dict):
+        return recut
+    if any(next_cut is None for next_cut in recut.values()):
+        return None
+    if UNKNOWN in recut.values():
+        return UNKNOWN
+    return " and ".join(dict.fromkeys(recut.values())) or None
+
+
+def _filed(stock, cap, label, recut):
+    """(errors, debts): each member retains its own filing cap and unresolved recut."""
+    if isinstance(recut, dict):
+        errors, debts = [], []
+        for member, next_cut in recut.items():
+            more, unknown = _filed(stock, cap, f"{label} workpiece {member}", next_cut)
+            errors.extend(more)
+            debts.extend(unknown)
+        return errors, debts
+    if recut and recut != UNKNOWN:
+        return [], []
     if not number(cap):
         return [], [
             f"{label} leaves up to {stock:.3f} for the file and the shop policy sets no "
             "max_filing_stock_mm"
         ]
     if stock > cap + _WALL_TOL:
-        return [
-            f"{label} leaves up to {stock:.3f} for the file, more than the shop's {cap:g} cap"
-        ], []
+        overage = f"{label} leaves up to {stock:.3f} for the file, more than the shop's {cap:g} cap"
+        if recut == UNKNOWN:
+            return [], [f"{overage}, if no later rough recuts it"]
+        return [overage], []
     return [], []
 
 
@@ -3416,15 +3495,14 @@ def _stairs(tables, allowance, cap, label, recut=None):
     stock = allowance + max(table["stair_cusp_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if recut:
-        return errors, debts
-    more, debts = _filed(stock, cap, f"{label} stairs")
+    more, debts = _filed(stock, cap, f"{label} stairs", recut)
     return errors + more, debts
 
 
 def _leaves(cap, recut):
     """Who takes a rough's leftover stock: a later rough (``recut_by``) or the file (cap)."""
-    return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
+    recut = _recut_summary(recut)
+    return {"recut_by": recut} if recut and recut != UNKNOWN else {"stock_cap_mm": cap}
 
 
 def _holes(arc, walls, drill, allowance, label, scale):
@@ -3557,10 +3635,9 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
     stock = max(table["stock_left_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if not recut:
-        more, unknown = _filed(stock, cap, f"{label} chain drill")
-        errors.extend(more)
-        debts.extend(unknown)
+    more, unknown = _filed(stock, cap, f"{label} chain drill", recut)
+    errors.extend(more)
+    debts.extend(unknown)
     return errors, debts
 
 
@@ -4106,32 +4183,66 @@ _NEEDS = {
 }
 
 
-def _recut_by(bundle, op, lineage=None):
-    """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
-    again before any file reaches them, else None: then ``op``'s leftover stock is not the
-    file's. The last such op hands the faces to the file, so it names the leftover's taker:
-    an op between them may claim the faces from the other side (a half-depth rough from
-    the opposite face), and the face claim does not compare depth. A claim without
-    ``faces`` is the whole feature. Given ``lineage`` (a filing's workpiece setups), work on
-    another stock branch neither recuts nor files the faces."""
-    name, faces = op.get("feature"), op.get("faces")
-    passed, last = False, None
-    for setup in bundle.plan["setups"]:
-        if lineage is not None and setup["id"] not in lineage:
-            continue
-        for other in setup["ops"]:
-            if other is op:
-                passed = True
+def _recut_by(bundle, op, lineage=None, *, per_member=False):
+    """Later manual-arc cuts taking each selected member's stock before its first filing.
+
+    Each recut must cover that member's original face claim. A partial-member recut
+    cannot waive another member's filing cap. The default summary names all proved
+    recuts, or returns None/UNKNOWN if any member still reaches filing/unresolved work;
+    ``per_member`` retains mixed known and unresolved results for the residual checks.
+    Given ``lineage``, another stock branch neither recuts nor files the faces.
+    """
+    from .resolution import operation_material_status, operation_members, registered_workpieces
+
+    producer = next(
+        (setup for setup in bundle.plan["setups"] if any(cut is op for cut in setup["ops"])),
+        None,
+    )
+    registered = registered_workpieces(bundle)
+    members = operation_members(bundle, producer, op) if registered else (None,)
+    if members is None:
+        return UNKNOWN
+    name = op.get("feature")
+
+    def later_recut(member):
+        faces = mapping(op.get("workpiece_faces")).get(member, op.get("faces"))
+        passed, last = False, None
+        for setup in bundle.plan["setups"]:
+            if lineage is not None and setup["id"] not in lineage:
                 continue
-            if not passed or other.get("feature") != name:
-                continue
-            if other.get("do") in HAND_FINISH:
-                return last
-            later = other.get("faces")
-            covers = later is None or (faces is not None and set(faces) <= set(later))
-            if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
-                last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
-    return last
+            for other in setup["ops"]:
+                if other is op:
+                    passed = True
+                    continue
+                if not passed or other.get("feature") != name:
+                    continue
+                if registered:
+                    selected = operation_members(bundle, setup, other)
+                    if selected is not None and member not in selected:
+                        continue
+                    material = operation_material_status(
+                        bundle,
+                        setup,
+                        producer,
+                        name,
+                        op=other,
+                        producer_op=op,
+                        workpiece_id=member,
+                    )
+                    if material is False:
+                        continue
+                    if material is None:
+                        return UNKNOWN
+                if other.get("do") in HAND_FINISH:
+                    return last
+                later = mapping(other.get("workpiece_faces")).get(member, other.get("faces"))
+                covers = later is None or (faces is not None and set(faces) <= set(later))
+                if mapping(other.get("contour")).get("method") in ARC_METHODS and covers:
+                    last = f"{setup['id']} op {other.get('op', UNKNOWN)}"
+        return last
+
+    recuts = {member: later_recut(member) for member in members}
+    return recuts if per_member and len(recuts) > 1 else _recut_summary(recuts)
 
 
 def _manual_preconditions(op, stage, arcs, lines, label):
@@ -4192,13 +4303,25 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if errors or debts:
         return errors, debts
     cap = filing_cap(bundle)
-    recut = _recut_by(bundle, op)
+    recut = _recut_by(bundle, op, per_member=True)
     if method == "stairs":
-        return _stairs([*arcs, *lines], allowance, cap, label, recut)
-    if method == "chain_drill":
+        errors, debts = _stairs([*arcs, *lines], allowance, cap, label, recut)
+    elif method == "chain_drill":
         drill = arc["cutter_radius_mm"]
         drill = drill / scale if number(drill) else UNKNOWN
-        return _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
+        errors, debts = _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
+    if method in ROUGH_METHODS:
+        unresolved = (
+            [member for member, next_cut in recut.items() if next_cut == UNKNOWN]
+            if isinstance(recut, dict)
+            else [None]
+            if recut == UNKNOWN
+            else []
+        )
+        for member in unresolved:
+            selected = f" workpiece {member}" if member is not None else ""
+            debts.append(f"{label}{selected}: whether a later rough recuts its stock is unresolved")
+        return errors, debts
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
     table = rotary_table(bundle, setup)
@@ -4288,7 +4411,7 @@ def evaluate(bundle, *, pre_kernel=False):
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
-        top = top_reader(bundle, setup)
+        top = top_reader(bundle, setup, native_top=not pre_kernel)
         states, cleared, plan_debts = stock_states(bundle, setup), [], []
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}
@@ -4298,9 +4421,72 @@ def evaluate(bundle, *, pre_kernel=False):
             readings = blade_readings(bundle, setup)
         blade_unknown = False
         allowed_errors = []  # blade targets forming their face outside the op's to_z_band
+        saw_errors = []
         for done, (entry, (op, before, _)) in enumerate(
             zip(numbers["operations"], states, strict=True)
         ):
+            if spindle_saw(bundle, setup, op) and not pre_kernel:
+                from .geometry_common import finite_saw_evidence, mounted_saw_inputs
+                from .zero_recipe.tool_setting import mounted_saw_settings
+
+                mounted = mounted_saw_inputs(bundle, setup, op)
+                trajectory = mapping(mounted.get("trajectory"))
+                detail = mapping(
+                    mapping(mapping(getattr(bundle, "kernel", None)).get("ops")).get(
+                        f"{setup['id']}:{op['op']}"
+                    )
+                )
+                saw_status, saw_reasons, saw_proof = finite_saw_evidence(detail, "geometry")
+                setting = mounted_saw_settings(bundle, setup).get(str(op["op"]), {})
+                scale = {"mm": 1.0, "in": 25.4}.get(units)
+
+                def saw_dro(point, scale=scale, grid=grid):
+                    if not (
+                        scale
+                        and isinstance(point, list)
+                        and len(point) == 3
+                        and all(number(value) for value in point)
+                    ):
+                        return [UNKNOWN] * 3
+                    return dro_point([value / scale for value in point], grid)
+
+                moves = trajectory.get("moves")
+                path = {
+                    "coordinate_reference": "spindle_xy_cutting_midplane_z",
+                    "start_mm": trajectory.get("start_mm", UNKNOWN),
+                    "moves": moves if isinstance(moves, list) else UNKNOWN,
+                    "dro_start": saw_dro(trajectory.get("start_mm")),
+                    "dro_moves": [
+                        {
+                            "to": saw_dro(mapping(move).get("to_mm")),
+                            "mode": mapping(move).get("mode"),
+                        }
+                        for move in moves
+                    ]
+                    if isinstance(moves, list)
+                    else [],
+                    "status": saw_status,
+                    "proof": saw_proof,
+                    "setting": setting,
+                }
+                entry["mounted_saw_trajectory"] = path
+                grid_consumed = True
+                reasons = [*saw_reasons, *setting.get("reasons", [])]
+                if saw_status == "error" or setting.get("status") == "error":
+                    saw_errors.extend(
+                        reasons or [f"op {op['op']} mounted-saw trajectory/zero error"]
+                    )
+                elif (
+                    saw_status != "pass"
+                    or setting.get("status") != "pass"
+                    or not isinstance(moves, list)
+                    or not moves
+                    or UNKNOWN in path["dro_start"]
+                    or any(UNKNOWN in move["to"] for move in path["dro_moves"])
+                ):
+                    plan_debts.extend(
+                        reasons or [f"op {op['op']} mounted trajectory or zero proof unknown"]
+                    )
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)
@@ -4773,6 +4959,7 @@ def evaluate(bundle, *, pre_kernel=False):
             or grid_errors
             or band_errors
             or allowed_errors
+            or saw_errors
             or leave_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven or arc_debts or plan_debts
@@ -4818,6 +5005,9 @@ def evaluate(bundle, *, pre_kernel=False):
         if allowed_errors:
             numbers["blade_band_errors"] = allowed_errors
             sentence += " Blade target band error: " + "; ".join(allowed_errors) + "."
+        if saw_errors:
+            numbers["mounted_saw_errors"] = saw_errors
+            sentence += " Mounted saw trajectory/zero error: " + "; ".join(saw_errors) + "."
         if unproven:
             sentence += " Moves between rows are unproven: " + "; ".join(unproven) + "."
         if arc_errors:

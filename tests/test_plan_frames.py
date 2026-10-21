@@ -2,12 +2,12 @@
 
 import dataclasses
 import hashlib
-import shutil
 import tomllib
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from test_cli import copy_examples
 from test_envelope_m5 import measured
 
 from prechips import kernel
@@ -174,7 +174,7 @@ def test_incomplete_or_invalid_plan_frame_is_rejected(tmp_path, old, new, locati
 
 
 def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station(tmp_path):
-    examples = Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
+    examples = copy_examples(tmp_path)
     plan = examples / "pivot-shaft" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
     head, t3 = text.split("[frames.T3]\n", 1)

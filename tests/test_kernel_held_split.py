@@ -260,6 +260,9 @@ def test_inspection_stock_follows_authored_route_order_not_operation_numbers(eng
                     "role": "inspection",
                     "label": view["title"],
                     "view_ordinal": ordinal,
+                    "id": f"inspection:{ordinal}",
+                    "selection_group": f"inspection:{ordinal}",
+                    "annotations": [],
                 }
                 assert 0 < panel["height_px"] <= 1792
                 cursor += panel["height_px"]

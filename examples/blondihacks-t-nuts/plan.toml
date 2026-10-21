@@ -1,18 +1,21 @@
-# Catalog-based Blondihacks T-nuts example: video process, four-piece batch.
-# Selected catalog nominal section plus video nominal length/flange; see README.
-# PLANNED/HOLD, not an exact replica or a released manufacturing drawing.
-# Editorial safeguards are identified in the printed operation/holding notes.
+# EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
+# Complete authored four-nut demonstration, not a reconstruction of a measured shop.
+# Fixed source/acceptance/commissioning ledger: geometry-provenance.md.
+# All bare commissioning fields below use the existing legal Number/Vector shape.
+# Their adjacent source comments disclose this exact AGENTS marker, not a shop result:
+# measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
 part = "blondihacks-t-nuts"
 features = "features.toml"
 step = "t-nut.STEP"
 construction = "one_piece"
+purpose = "demonstration"
 quantity = 4
 quantity_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=403s"]
 
 [drawing]
 number = "BH-TN-EXAMPLE"
 revision = "catalog-design-1"
-cite = ["geometry-provenance.md: locally authored catalog-based example design; not an original video drawing or release approval", "https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts"]
+cite = ["geometry-provenance.md: authored demonstration acceptance; not a released video drawing or first-article approval", "https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts"]
 
 [paths]
 inventory = "inventory.toml"
@@ -22,817 +25,1102 @@ step = "t-nut.STEP"
 
 [stock]
 material = "1018 steel"
-material_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=239s"
-form = "unknown"
-section_mm = "unknown"
-length_mm = "unknown"
-origin_mm = "unknown"
+material_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=239s", "geometry-provenance.md: HB120 is an adopted demonstration material selection, not a video hardness measurement"]
+form = "flat_bar"
+# example value (realistic, not a shop measurement); example fixture (no physical measurement).
+section_mm = [25.4, 15.875]
+length_mm = 127.0
+origin_mm = [0.0, -12.7, -1.5875]
 axis = [1.0, 0.0, 0.0]
 section_axis = [0.0, 1.0, 0.0]
-on_hand = "unknown"
+on_hand = true
 as_is_faces = []
-prerequisite = "HOLD: measure the recipient T-slot, confirm 3/8-16 hardware and approve the fit targets before sizing stock. Allocate one bar for four nominal 1 inch nuts, actual separation kerfs and end cleanup; raw section, length and blade kerf remain unrecorded."
-note = "Process the batch bar once through B0-C2; repeat E1 onward on each of the four separated nuts. Establish the cut-line spacing and retention from the actual stock and tooling."
-cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"]
+note = "Author-adopted example annealed 1018 at HB120; neither condition nor hardness is a shop measurement or established by the video. Raw starting-end squareness .001 inch per inch is an example input, not a preparation inspection. E1d removes nut4's starting end."
+cite = ["geometry-provenance.md#demonstration-stock-and-registration: example value (realistic, not a shop measurement); example fixture (no physical measurement)", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s"]
 
 [dro]
-controller = "Precision Matthews DRO shown; exact model unknown"
-manual = "unknown"
+controller = "Example PM-25MV-BD three-axis DRO"
+manual = "Example ABS Axis Set assigns the current coordinate; Preset stores a destination, not a datum"
 mode = "abs"
 units = "in"
-radius_mode = "unknown"
+radius_mode = false
+procedure = "Tool-relative X+ right, Y+ away, Z+ up; table motion is opposite. Clear vertically before the positive check jog without changing the axis under test."
+cite = "geometry-provenance.md: example value (realistic, not a shop measurement); adopted DRO identity and direction convention, not video identification"
 [dro.direction]
-x = "unknown"
-y = "unknown"
-z = "unknown"
+x = "right"
+y = "away"
+z = "up"
 
-# Nominal design frames are authored route conventions, not measured machine
-# pickups. Actual stock placement, zeros, tool stacks and clearance remain debt.
+# Batch preparation uses a +12.7-mm X datum; released-member frames stay canonical.
+[frames.bench-raw]
+origin = [12.7, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+cite = "geometry-provenance.md#batch-datum-correction: AUTHOR'S CHOICE B0 local X datum; raw batch starts at model X0 and setup X-12.7"
+[frames.batch-bottom-up]
+origin = [12.7, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"
+cite = ["geometry-provenance.md#batch-datum-correction: AUTHOR'S CHOICE Q1 batch frame, distinct from released-member bottom-up", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s"]
 [frames.bottom-up]
 origin = [0.0, 0.0, 0.0]
 x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "Bar length X; first long reference bottom face up at nominal Z0. HOLD: measure the incoming stock envelope and establish the physical pickup before cutting; both remain unmeasured."
-cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s", "geometry-provenance.md"]
-
+cite = ["geometry-provenance.md", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s", "AUTHOR'S CHOICE"]
 [frames.side-one-up]
-origin = [0.0, -11.1125, 0.0]
+origin = [12.7, -11.1125, 0.0]
 x = [-1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, -1.0, 0.0]
 binding = "nominal"
-note = "Adjacent long face up at the nominal base-width boundary; first machined face against the fixed jaw. Establish the actual pickup before cutting."
-cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN C=7/8 inch)", "geometry-provenance.md"]
-
+cite = ["geometry-provenance.md", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s", "AUTHOR'S CHOICE"]
 [frames.side-two-up]
-origin = [0.0, 11.1125, 0.0]
+origin = [12.7, 11.1125, 0.0]
 x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, 1.0, 0.0]
 binding = "nominal"
-note = "Opposite long face up at the nominal base-width boundary. Re-pick the actual stock after turning; the physical pickup remains unmeasured."
-cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN C=7/8 inch)", "geometry-provenance.md"]
-
+cite = ["geometry-provenance.md", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "AUTHOR'S CHOICE"]
 [frames.top-up]
-origin = [0.0, 0.0, 12.7]
+origin = [12.7, 0.0, 12.7]
 x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Finished bottom down, length X, transverse centerline Y0; nominal 12.7-mm top at Z0. Part bottom is nominal Z-12.7 mm and the 6.35-mm shoulder shelf is nominal Z-6.35 mm. Establish the actual physical pickup before cutting."
-cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=403s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)", "geometry-provenance.md"]
-
+cite = ["geometry-provenance.md", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=403s", "AUTHOR'S CHOICE"]
 [frames.end-up]
-origin = [-12.7, 0.0, 0.0]
+origin = [0.0, 0.0, 0.0]
 x = [0.0, 1.0, 0.0]
 y = [0.0, 0.0, 1.0]
 z = [1.0, 0.0, 0.0]
 binding = "nominal"
-note = "Stand the bar upright with its length along machine Z. The horizontal slitting disk cuts off the top piece; the lower remainder stays clamped. Establish the actual batch-bar seat and cut-line height; the origin marks only the nominal finished-part end."
-cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=665s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=690s", "geometry-provenance.md"]
+cite = ["geometry-provenance.md", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=665s", "AUTHOR'S CHOICE"]
+[frames.top-up-reversed]
+origin = [0.0, 0.0, 12.7]
+x = [-1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+cite = "geometry-provenance.md: AUTHOR'S CHOICE; canonical #304 retained end at setup X+12.7, #320 free end at X-12.7"
 
-# B0: source slot/hardware survey and rough bar cutoff.
+# Canonical STEP is centred X[-12.7,+12.7]; translations include that half-length.
+[workpieces.nut1]
+pose = { origin = [100.33, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md#demonstration-stock-and-registration: AUTHOR'S CHOICE target registration" }
+cite = "geometry-provenance.md: nut1 finished target, not a duplicated canonical origin"
+[workpieces.nut2]
+pose = { origin = [71.12, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md#demonstration-stock-and-registration: AUTHOR'S CHOICE target registration" }
+cite = "geometry-provenance.md: nut2 finished target"
+[workpieces.nut3]
+pose = { origin = [41.91, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md#demonstration-stock-and-registration: AUTHOR'S CHOICE target registration" }
+cite = "geometry-provenance.md: nut3 finished target"
+[workpieces.nut4]
+pose = { origin = [13.335, 0.0, 0.0], x = [-1.0, 0.0, 0.0], y = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md#demonstration-stock-and-registration: AUTHOR'S CHOICE Rz180 target registration" }
+cite = "geometry-provenance.md: nut4 reverses canonical Y sides; its retained #304 end is the upper saw face"
+
+# B0: bare hold/pose numbers are disclosed example fixture values, not observations.
 [[setups]]
 id = "B0"
-machine = "video-bench"
+machine = "bench-bandsaw"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "bench-raw"
 stock_in = "stock"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Once for the four-piece batch. Complete and record the recipient-slot/hardware survey before loading stock. HOLD until fit targets and a safe raw-bar cutoff length are approved."
-[setups.hold]
-fixture = "bench-vise"
-stop = "unknown"
-grip_mm = "unknown"
-clamp = "Clamp the raw bar in the bench vise for the initial cutoff; retain the kept bar and arrange the offcut safely."
-note = "BEFORE LOADING: use calipers to measure and record the actual slot throat width and wide undercut width. Measure undercut depth using the source's backstop against the underside of the slot lip; identify the reference surfaces. Check the intended rod with a matching 3/8-16 nut, not the misleading M10 x 1.5 near-fit. Establish approved nut targets/clearances so it will slide, pull up under the lips and stay below the table. Then establish safe blade engagement, raw-bar cutoff length and offcut support. HOLD while any prerequisite is unknown."
+coolant = "none"
+picture_panels = []
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 18.465, parallels = "none", stop = "Retained cut face 20 mm beyond jaw end", grip_mm = 15.875, jaw_above_parallels_mm = 25.0, clamp = "Portable powered bandsaw; bed-seat/full-height grip; retain starting-end reference; support scrap independently beyond the far kerf edge.", supports = [{ placement = "posed", id = "scrap-support", ref = "b0-scrap-support", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "B0 top Z-1.5875 mm; nearest support hardware about 4.56 inch from original starting end, beyond far kerf edge 4.510 inch." }] }
 [[setups.ops]]
 op = 20
 do = "cut_off"
 feature = "base-envelope"
 tool = "initial-stock-saw"
-cut_plane = { axis = "x", value = "unknown", keep = "below" }
-note = "Use the portable band saw to cut one raw bar for four nominal 1 inch nuts, actual separation kerfs and cleanup. Retain the stock and support the offcut. Establish the safe blade engagement and cutoff length first."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s"
+cut_plane = { axis = "x", value = 101.4095, keep = "below" }
+feed_mm_min = 25.4
+note = [{ text = "Measure from the original starting end; keep the full kerf on the scrap side. Stop saw before scrap retrieval.", detail = "pro" }, { text = "Retain the 113.665-mm batch bar; scrap length 12.446 mm.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s", "geometry-provenance.md: AUTHOR'S CHOICE cutoff allocation; example annealed 1018 and bi-metal HSS-edge/spring-steel-back blade. LENOX Guide to Band Sawing https://www.sawcalc.com/images/lenox-guide-to-band-sawing.pdf, printed pp. 21/32: author selects 135 sfm = 270 x 0.50 for no fluid, no small-section increase; 14 TPI, .889-mm kerf and 25.4-mm/min descent remain independently illustrative, not qualified by this chart"]
 
-# Q1-Q4: the video's optional four-long-face squaring route, retained in full.
+# Q1-Q4: local bare hold/zero numbers are example fixture settings, not shop observations.
 [[setups]]
 id = "Q1"
-machine = "video-mill"
-frame = "bottom-up"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "batch-bottom-up"
 stock_in = "B0"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Skim the first long face on the whole bar. Complete all four long-face squaring setups Q1-Q4 before cutting the shoulders in S1. Do not face the ends yet."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-align = "unknown"
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Hold the raw bar securely in the vise for a cleanup skim."
-note = "HOLD: establish actual jaw contact and raw-stock position; measure cutter projection and check jaw clearance before spindle start. These remain unmeasured. No gloves near a rotating spindle."
-[setups.zero.x]
-edge = "accessible raw bar end"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible raw long edge"
-edge_mm = "unknown"
-from = "-y"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "roughing-endmill"
-check_jog_mm = "unknown"
-retouch_after = []
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 1.5875, bottom_z = -14.2875, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+# Batching cite: geometry-provenance.md#cutting-data-sources, A3 PDF16/printed7.
+# The job-wide 1000-rpm finder choice is already disclosed in inventory.toml tools.edge-finder.note.
+note = [{ text = "Original 1-inch face up, .625 vertical.", detail = "pro" }, { text = "Mark this reference face; finish related faces before resetting the batch. Edge-finding throughout: 1000 rpm.", detail = "hobby" }, { text = "Keep the quill retracted and lock the unused axis for a milling pass; no gloves near a rotating spindle.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -9.0], [44.1325, 9.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target; A3 PDF24/printed15: indicate, tighten and recheck" }, clamp = "Fixed-jaw contact." }
+zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "raw front edge", edge_mm = -12.7, from = "-y", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
 feature = "base-envelope"
-faces = ["#88/ADVANCED_FACE[3]/"]
+workpiece_faces = { nut1 = ["#88/ADVANCED_FACE[3]/"], nut2 = ["#88/ADVANCED_FACE[3]/"], nut3 = ["#88/ADVANCED_FACE[3]/"], nut4 = ["#88/ADVANCED_FACE[3]/"] }
 tool = "roughing-endmill"
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-19"
+stock_removal_bounds = { x = [-12.7, 100.965], y = [-12.7, 12.7], z = [0.0, 1.5875] }
+contour = { method = "linear_table", step_mm = 12.7, sweep_frame = "model", sweep_bounds = { x = [-2.54, 113.665], y = [-12.7, 12.7], z = [-1.5875, 0.0] } }
 to_z = 0.0
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 500.0
+doc_mm = 1.5875
+approach_mm = 2.54
 direction = "conventional"
-note = "Skim the first long face flat and mark it as the reference. Set actual cleanup depth and safe cutting data for the measured tool and mill; do not copy a sample pass."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s"
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE example pass depth"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "With spindle stopped, use the needle files to remove seating burrs before the next hold. The early deburring tool is unidentified; no edge-break size is specified."
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=234s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"]
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }, { text = "Stop the spindle before hand filing.", detail = "pedantic" }]
+note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=234s"
 
 [[setups]]
 id = "Q2"
-machine = "video-mill"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "side-one-up"
 stock_in = "Q1"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Turn the whole bar: first machined face against the fixed jaw; adjacent long face up."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-jaw_bar = "round-bar"
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Before loading, establish the fixed-jaw Y0 pickup. Then place the first machined face against that jaw, use the round bar at the moving jaw, and seat and clamp the bar."
-note = "HOLD: round-bar diameter/length, seating, vise alignment, engagement and cutter clearance are unmeasured. Establish secure round-bar contact before cutting."
-[setups.zero.x]
-edge = "accessible bar end after turning"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible fixed-jaw face, before loading"
-edge_mm = 0.0
-from = "-y"
-method = "Edge-find the fixed-jaw face before loading the bar and set Y0. Seat the first machined face on that same reference; do not try to touch a face hidden by the loaded jaw."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "roughing-endmill"
-check_jog_mm = "unknown"
-retouch_after = []
+coolant = "flood-fluid"
+picture_panels = ["setup"]
+stock_state = { top_z = 1.5875, bottom_z = -23.8125, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Adjacent narrow face up; 1-inch vertical.", detail = "pro" }, { text = "Setup X span -100.965..12.7 mm.", detail = "pedantic" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = -44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[-44.1325, -11.0], [-44.1325, -3.3]], jaw_bar = "round-bar", stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 reference at fixed jaw." }
+zero = { x = { edge = "accessible right reference end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick exposed fixed-jaw face before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [-44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
 feature = "base-envelope"
-faces = ["#130/ADVANCED_FACE[4]/"]
+workpiece_faces = { nut1 = ["#130/ADVANCED_FACE[4]/"], nut2 = ["#130/ADVANCED_FACE[4]/"], nut3 = ["#130/ADVANCED_FACE[4]/"], nut4 = ["#57/ADVANCED_FACE[2]/"] }
 tool = "roughing-endmill"
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-19"
+stock_removal_bounds = { x = [-100.965, 12.7], y = [-14.2875, 0.0], z = [0.0, 1.5875] }
+contour = { method = "linear_table", step_mm = 12.7, sweep_frame = "model", sweep_bounds = { x = [0.0, 116.205], y = [-12.7, -11.1125], z = [0.0, 14.2875] } }
 to_z = 0.0
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 500.0
+doc_mm = 1.5875
+approach_mm = 2.54
 direction = "conventional"
-note = "Face the adjacent long side square to the first reference. Establish cleanup from the actual bar; the squareness tolerance remains unknown."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s"
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "Spindle stopped: use the needle files to remove only seating burrs; retain the reference corner."
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
 [[setups]]
 id = "Q3"
-machine = "video-mill"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "side-two-up"
 stock_in = "Q2"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Whole bar: seat the machined right-angle corner against the lower/rear vise references; face the opposite long side to nominal base width 22.225 mm (7/8 inch). Acceptance band and actual slot fit remain pending."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Before loading, establish the fixed-jaw Y0 pickup. Then seat the previously machined 90-degree corner at the lower fixed-jaw side and clamp."
-note = "HOLD: establish actual seating, jaw engagement, clearance and approved acceptance limits. Nominal base width is 22.225 mm; actual slot-fit clearance remains unmeasured."
-[setups.zero.x]
-edge = "accessible bar end"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible fixed-jaw face, before loading"
-edge_mm = 0.0
-from = "-y"
-method = "Establish Y0 on the accessible fixed-jaw face before loading, then seat the reference corner on it. Do not attempt a pickup through the jaw."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "roughing-endmill"
-check_jog_mm = "unknown"
-retouch_after = []
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 1.5875, bottom_z = -22.225, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Opposite narrow face up; width .875 inch.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[44.1325, -11.0], [44.1325, -3.3]], stop = "Bar centred", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Machined right-angle corner down/against fixed jaw." }
+zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "fixed jaw", edge_mm = 0.0, from = "-y", method = "Pick exposed fixed-jaw face before loading.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, -7.1425], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
 feature = "base-envelope"
-faces = ["#57/ADVANCED_FACE[2]/"]
+workpiece_faces = { nut1 = ["#57/ADVANCED_FACE[2]/"], nut2 = ["#57/ADVANCED_FACE[2]/"], nut3 = ["#57/ADVANCED_FACE[2]/"], nut4 = ["#130/ADVANCED_FACE[4]/"] }
 tool = "roughing-endmill"
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-19"
+stock_removal_bounds = { x = [-12.7, 100.965], y = [-14.2875, 0.0], z = [0.0, 1.5875] }
+contour = { method = "linear_table", step_mm = 12.7, sweep_frame = "model", sweep_bounds = { x = [-2.54, 113.665], y = [11.1125, 12.7], z = [0.0, 14.2875] } }
 to_z = 0.0
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 500.0
+doc_mm = 1.5875
+approach_mm = 2.54
 direction = "conventional"
-note = "Face the third long surface; measure the developing width with calipers. HOLD: establish the actual pass depth from verified tool and material data and machine limits before cutting."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s"
-[[setups.ops]]
-op = 20
-do = "inspect"
-feature = "base-envelope"
-checks = { width = "calipers" }
-inspection_methods = { width = "Measure across the two long base sides at several positions after clearing burrs; record readings and compare only with the approved slot-fit drawing, whose limits remain pending." }
-note = "Record the base width. HOLD for approved width limits and measured clearance in the actual slot; nominal width alone is not an acceptance band."
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 30
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "Spindle stopped: use the needle files to remove seating burrs before turning onto parallels."
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
 [[setups]]
 id = "Q4"
-machine = "video-mill"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "top-up"
 stock_in = "Q3"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Whole bar: fourth long face up, on parallels. Check rigidity before the larger cuts."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-parallels = "parallels"
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Seat the squared corner and support the bar on parallels; clamp securely."
-note = "HOLD: measure parallel height and grip, and check cutter/jaw clearance before cutting; these remain unmeasured. Nominal overall height is 12.7 mm. Keep the head close and the quill mostly retracted and locked for each pass; lock the unused axis on heavy cuts. No gloves at a rotating spindle."
-[setups.zero.x]
-edge = "accessible bar end"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible machined base edge"
-edge_mm = "unknown"
-from = "-y"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "roughing-endmill"
-check_jog_mm = "unknown"
-retouch_after = []
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 1.5875, bottom_z = -12.7, entry_z = { base-envelope = 1.5875 }, note = "Authored facing start is the current unfinished upper face at Z+1.5875 relative to finished-face Z0, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Opposite wide face up; height .500 inch.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-30", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 10.0, jaw_above_parallels_mm = 10.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Q1 face down." }
+zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both opposed base edges", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed base faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "roughing-endmill", holder = "collet-19", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "face"
 feature = "base-envelope"
-faces = ["#223/ADVANCED_FACE[7]/"]
+workpiece_faces = { nut1 = ["#223/ADVANCED_FACE[7]/"], nut2 = ["#223/ADVANCED_FACE[7]/"], nut3 = ["#223/ADVANCED_FACE[7]/"], nut4 = ["#223/ADVANCED_FACE[7]/"] }
 tool = "roughing-endmill"
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-19"
+stock_removal_bounds = { x = [-12.7, 100.965], y = [-11.1125, 11.1125], z = [0.0, 1.5875] }
+contour = { method = "linear_table", step_mm = 12.7, sweep_frame = "model", sweep_bounds = { x = [-2.54, 113.665], y = [-11.1125, 11.1125], z = [12.7, 14.2875] } }
 to_z = 0.0
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 500.0
+doc_mm = 1.5875
+approach_mm = 2.54
 direction = "conventional"
-note = "Face the fourth long surface to nominal overall height 12.7 mm (1/2 inch). Measure the actual section and establish a safe pass size; raw cleanup depth and acceptance limits remain unknown."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=352s"
-[[setups.ops]]
-op = 20
-do = "inspect"
-feature = "base-envelope"
-checks = { height = "calipers", width = "calipers" }
-inspection_methods = { height = "Measure bottom-to-top thickness along the whole bar; record actual readings against the selected 12.7-mm nominal. Confirm the actual slot will leave the nut below the table before release.", width = "Recheck base width against selected 22.225-mm nominal; confirm actual slot undercut clearance and approved acceptance limits." }
-note = "Record physical measurements. HOLD for approved fit clearances and acceptance bands; nominal dimensions alone do not release the bar."
+note = [{ text = "Face .0625; no end facing.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=352s", "geometry-provenance.md: AUTHOR'S CHOICE example removal bounds"]
 [[setups.ops]]
 op = 30
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "Spindle stopped: clear seating burrs before setting the shoulder grip; no numerical edge break is specified."
+note = [{ text = "Deburr seating edges; preserve references.", detail = "pro" }]
 
-# S1: both shoulders along the whole batch bar in one hold.
 [[setups]]
 id = "S1"
-machine = "video-mill"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "top-up"
 stock_in = "Q4"
-coolant = "cutting-fluid"
-deburr_mm = "unknown"
-note = "Batch bar once: establish transverse centerline with both long edges and the DRO half function. Rough both shoulders symmetrically, then finish both with the second cutter."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-parallels = "parallels"
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Select parallel height so enough stock projects above the jaws for both shoulders while preserving positive jaw engagement; seat and clamp."
-note = "HOLD before spindle start: measure actual grip, shoulder depth, cutter/flute reach, holder projection and jaw clearance throughout both passes. No gloves near a rotating spindle."
-[setups.zero.x]
-edge = "accessible end of batch bar"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "both opposite finished long base edges"
-edge_mm = 0.0
-from = "unknown"
-method = "Find both long edges with the same edge finder and use the DRO half function to return to their midpoint; set Y0 there. Exact finder compensation and controller procedure must be established before release."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "shoulder-rougher"
-check_jog_mm = "unknown"
-retouch_after = []
-[[setups.zero.tool_touches]]
-tool = "finishing-endmill"
-z_face = "rough-cut shoulder floor"
-method = "touch"
-edge_mm = -6.35
-paper_mm = 0.0
-after_op = 10
-before_ops = [20]
+coolant = "cutting-oil"
+picture_panels = ["setup"]
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { shoulders = 0.0 }, note = "Authored shoulder start surface is Q4's finished top at S1 Z0, picked up with the rougher's declared top-face touch. This is a recipe datum, not a future measurement or native carry/clearance proof." }
+note = [{ text = "Top-up; finish section before separation.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.1325, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[44.1325, -8.0], [44.1325, 8.0]], stop = "Bar centred", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target; A3 PDF24/printed15" }, clamp = "Finished bottom on both parallels; preserve lower grip." }
+zero = { x = { edge = "left starting end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both opposed base edges", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed base faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "shoulder-rougher", holder = "collet-12", at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] }, tool_touches = [{ tool = "finishing-endmill", holder = "collet-12", z_face = "top", method = "paper", edge_mm = 0.0, paper_mm = 0.0508, at_mm = [44.1325, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, after_op = 10, before_ops = [20] }] }
 [[setups.ops]]
 op = 10
 do = "rough_profile"
 feature = "shoulders"
+workpiece_faces = { nut1 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut2 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut3 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut4 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"] }
 tool = "shoulder-rougher"
-faces = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"]
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-12"
+contour = { method = "linear_table", sweep_frame = "model", sweep_bounds = { x = [0.0, 113.665], y = [-6.2865, 6.2865], z = [6.35, 12.7] } }
 to_z = -6.35
 stock_to_leave_mm = 0.254
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 750.0
+doc_mm = 3.175
+approach_mm = 2.54
 direction = "conventional"
-note = "Rough both shoulder walls with separate conventional straight passes, leaving 0.010 inch (0.254 mm) on the WALLS only. Cut the shelf floors to this operation's Z target. Nominal stem width is 12.573 mm; derive positions from the measured cutter, not a demonstrated cutter-center setting."
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=407s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=500s"]
+note = [{ text = "Rough/finish: +X at -Y, -X at +Y; cross beyond ends, never across stem/shelves. Preserve ends; walls-only allowance.", detail = "pro" }, { text = "Rough Z-.125 then -.250 at centre Y+/-.5075; floors Z-.250.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=407s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=500s", "geometry-provenance.md: AUTHOR'S CHOICE selected cutter and derived centres"]
 [[setups.ops]]
 op = 20
 do = "profile"
 feature = "shoulders"
+workpiece_faces = { nut1 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut2 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut3 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut4 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"] }
 tool = "finishing-endmill"
-holder = "milling-holder"
-stock_removal_bounds = "unknown"
+holder = "collet-12"
+contour = { method = "linear_table", sweep_frame = "model", sweep_bounds = { x = [0.0, 113.665], y = [-6.2865, 6.2865], z = [6.35, 12.7] } }
 to_z = -6.35
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 750.0
+doc_mm = 6.35
+ae_mm = 0.254
+approach_mm = 2.54
 direction = "conventional"
-note = "Touch the finishing cutter directly on the rough-cut shoulder floor and use the Axis Set value in the DRO ZERO tool-touch row; do not add paper to this touch. Finish both walls to nominal stem width 12.573 mm without lowering the shelf floors. Nominal cutter-center Y = +/-(12.573/2 + measured cutter diameter/2) mm. HOLD until the tool and clearance are measured."
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=583s"]
-[[setups.ops]]
-op = 30
-do = "inspect"
-feature = "shoulders"
-checks = { thickness = "calipers", width = "calipers" }
-inspection_methods = { thickness = "Measure bottom-to-shelf thickness on both shoulders at both bar ends; record against nominal target 6.35 mm (0.250 inch), with acceptance limits pending.", width = "Measure the finished stem across both long walls at several stations; record against selected catalog nominal 12.573 mm (0.495 inch), then prove actual slot-throat clearance before release." }
-note = "Record flange thickness and stem width before committing the batch to separation."
+note = [{ text = "Finish walls; floors unchanged.", detail = "pro" }, { text = "After roughing, touch the surviving stem top with the finisher through .002-inch paper: Axis Set Z+.002; +.250 jog reads +.252. Finish walls at centre Y+/-.4975 and Z-.250.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=583s", "geometry-provenance.md#physical-input-completion: AUTHOR'S CHOICE derived cutter centres and surviving-top finisher touch"]
 [[setups.ops]]
 op = 40
 do = "deburr"
 feature = "shoulders"
 tool = "needle-files"
-note = "Stop spindle; remove handling/seating burrs without rounding the locating shoulder surfaces. Final edge finishing follows after drilling."
+note = [{ text = "Deburr seating edges; preserve bearing shelves.", detail = "pro" }]
 
-# C1/C2: slitting-saw batch separation, including the distinct last-piece hold.
+# C1a/C1b/C2: setup-local fixture poses; bare values are disclosed example fixture settings.
+# Every clear leg is explicit; capture remains clamped until final return to calibration.
 [[setups]]
-id = "C1"
-machine = "video-mill"
+id = "C1a"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "end-up"
 stock_in = "S1"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Stand the profiled batch bar upright and mark the four blank lengths. Separate accessible pieces from the top with the horizontal slitting saw, retaining the lower bar securely for the following cuts."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-grip_mm = "unknown"
-clamp = "Stand the profiled bar on end and grip its lower portion securely in the vise; keep the horizontal cut above the jaws."
-note = "HOLD: establish the actual upright grip, safe support of the upper cut-off, and full disk/arbor/jaw clearance. Never catch the top piece or reach toward a running saw; stop fully before retrieval."
-[setups.zero.x]
-edge = "accessible transverse edge of the upright bar"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible front/rear reference of the upright bar"
-edge_mm = "unknown"
-from = "unknown"
-method = "Re-pick the upright bar after reholding; establish safe cross-feed and arbor clearance from actual stock."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "slitting-saw"
-check_jog_mm = "unknown"
-retouch_after = []
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 113.665, bottom_z = 0.0 }
+note = [{ text = "Upright; carry lower remainder forward.", detail = "pro" }, { text = "Install the true arbor/blade pair with spindle stopped; teeth CW from above, lower right-hand retainer tightens under this cutting sense (A3 PDF18/printed9). Capture torques are tightening targets, not holding-force certification.", detail = "pedantic" }]
+hold = { note = [{ text = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60.", detail = "pro" }], fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Original starting end on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating." }] }
+zero = { procedure = "Before installing saw, physically position finder by eye along the front face within +/-.300 inch in X of its centre; do not use the unset X readout. Mechanically find front Y first, then left stem X.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 111.125], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
 [[setups.ops]]
 op = 10
 do = "scribe"
 feature = "end-length"
 tool = "layout-marker"
-note = "Mark the separation lines with the Sharpie layout method after measuring actual blade kerf and required end cleanup. Four finished lengths are nominally 1 inch each; no numerical raw cut pitch is established."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"
+note = [{ text = "Scribe tabled centres: four 1.025-inch blanks; three .125-inch kerfs.", detail = "pro" }, { text = "Kerf centres Z3.3875, 2.2375, 1.0875 inch.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s", "geometry-provenance.md: AUTHOR'S CHOICE exact four-piece allocation"]
 [[setups.ops]]
 op = 20
 do = "cut_off"
 feature = "end-length"
+workpiece_faces = { nut1 = ["#304/ADVANCED_FACE[10]/"] }
 tool = "slitting-saw"
 holder = "saw-arbor"
-cut_plane = { axis = "z", value = "unknown", keep = "below" }
-rpm = "unknown"
-feed_mm_min = "unknown"
-approach_mm = "unknown"
-note = "Feed the horizontal slitting saw across the upright bar at the approved separation line. The upper cut-off becomes a nut; the lower remainder stays clamped. Repeat only after stopping, retrieving the piece safely and rechecking retention and clearance."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s"
+cut_plane = { axis = "z", value = 86.0425, keep = "below" }
+rpm = 160.0
+feed_mm_min = 58.5216
+approach_mm = 2.54
+direction = "conventional"
+saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 86.0425], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 104.0425], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
+saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 86.0425], mode = "clear" }, { to_mm = [-37.1475, -10.541, 86.0425], mode = "clear" }, { to_mm = [37.1475, -10.541, 86.0425], mode = "cut" }, { to_mm = [37.1475, -60.325, 86.0425], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
+outputs = { nut1_blank = { side = "above", carries_workpieces = ["nut1"], pose = { origin = [-100.33, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut1 registration" }, cite = "geometry-provenance.md: upper Z87.630..113.665 retained nut1 blank" }, bar_a = { side = "below", carries_workpieces = ["nut2", "nut3", "nut4"], pose = { origin = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: lower remainder retains batch coordinates" }, cite = "geometry-provenance.md: lower Z0..84.455" } }
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh lower-body touch: boss Z+.400 + .002 paper + .120 body/2 = cutting-midplane Z+.462. Calibration X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z3.3875 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, withdraw Y-2.375 -> Z5.125; return X-5.500 -> Y0 -> Z+.462, then release/retrieve nut1.", detail = "pedantic" }, { text = "Entry/exit tooth engagement transitions are not certified by the established-engagement minimum.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s", "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE example finite route and independent capture"]
 
 [[setups]]
-id = "C2"
-machine = "video-mill"
+id = "C1b"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
 frame = "end-up"
-stock_in = "C1"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Final separation: clamp the SHORT UPRIGHT remainder at the vise end for saw clearance. A previously separated nut balances the opposite jaw end; paper goes with the workpiece being cut so that piece clamps more tightly."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-stop = "unknown"
-support = "balancing-piece"
-grip_mm = "unknown"
-jaw_protection = "Paper is between the cutting workpiece and jaw, not on the balancing nut; thickness/contact unmeasured."
-clamp = "Grip the short upright remainder at the vise end. Place an already-separated nut at the opposite jaw end; add paper with the piece being cut so it is held slightly tighter."
-note = "HOLD: do not run until work and offcut retention, balanced jaw contact and complete saw/arbor/jaw clearance are established. Do not catch the cut-off; stop fully before retrieving it."
-[setups.zero.x]
-edge = "accessible transverse reference of the short upright remainder"
-edge_mm = "unknown"
-from = "-x"
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "accessible front/rear reference after reholding upright"
-edge_mm = "unknown"
-from = "unknown"
-method = "Re-establish the upright bar references after moving to the vise end."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "slitting-saw"
-check_jog_mm = "unknown"
-retouch_after = []
+stock_in = "stock_out.bar_a"
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 84.455, bottom_z = 0.0 }
+note = [{ text = "Upright; carry lower remainder forward.", detail = "pro" }, { text = "Capture torques are tightening targets, not holding-force certification.", detail = "pedantic" }]
+hold = { note = [{ text = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60.", detail = "pro" }], fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Original starting end on both parallels; broad flat flange face toward moving/front jaw, stem toward fixed/rear jaw", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example alignment target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating." }] }
+zero = { procedure = "Before installing saw, physically position finder by eye along the front face within +/-.300 inch in X of its centre; do not use the unset X readout. Mechanically find front Y first, then left stem X.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 81.915], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
 [[setups.ops]]
 op = 10
 do = "cut_off"
 feature = "end-length"
+workpiece_faces = { nut2 = ["#304/ADVANCED_FACE[10]/"] }
 tool = "slitting-saw"
 holder = "saw-arbor"
-cut_plane = { axis = "z", value = "unknown", keep = "below" }
-rpm = "unknown"
-feed_mm_min = "unknown"
-approach_mm = "unknown"
-note = "Complete the final saw separation only with the approved retained hold and clearance. Stop the spindle fully before removing pieces or changing the saw. For stopped-spindle drawbar removal, place a wood block below the cutter rather than grasping its edges. No gloves at a rotating spindle."
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s"]
+cut_plane = { axis = "z", value = 56.8325, keep = "below" }
+rpm = 160.0
+feed_mm_min = 58.5216
+approach_mm = 2.54
+direction = "conventional"
+saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 56.8325], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 74.8325], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
+saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 56.8325], mode = "clear" }, { to_mm = [-37.1475, -10.541, 56.8325], mode = "clear" }, { to_mm = [37.1475, -10.541, 56.8325], mode = "cut" }, { to_mm = [37.1475, -60.325, 56.8325], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
+outputs = { nut2_blank = { side = "above", carries_workpieces = ["nut2"], pose = { origin = [-71.12, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut2 registration" }, cite = "geometry-provenance.md: upper Z58.420..84.455 retained nut2 blank" }, bar_b = { side = "below", carries_workpieces = ["nut3", "nut4"], pose = { origin = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: lower remainder retains batch coordinates" }, cite = "geometry-provenance.md: lower Z0..55.245" } }
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh body-side setting Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z2.2375 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, then Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; then release/retrieve nut2.", detail = "pedantic" }]
+note_cite = "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE complete second physical cycle"
 
-# E1/D1: repeat on each separated nut, using the source end stop.
 [[setups]]
-id = "E1"
-machine = "video-mill"
-frame = "top-up"
-stock_in = "C2"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Repeat for all four nuts. Put the nut at the left vise end and side-mill only the end projecting beyond both jaws and supports. Seat the opposite clean saw-cut end against the rod stop from the right; retain suitably square saw-cut faces."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-parallels = "parallels"
-stop_fixture = "end-stop"
-stop = "Rod stop from the right locates the opposite retained end; keep the left cutting end free."
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Clamp at the left vise end with the end to be milled overhanging BOTH jaws and any support. Seat the opposite end against the stop."
-note = "HOLD: establish the overhang and full-depth cutter clearance past both jaws and supports. Stop attachment, grip and seating remain unmeasured. No gloves near a rotating spindle."
-[setups.zero.x]
-edge = "free left end, clear of the stop"
-edge_mm = "unknown"
-from = "-x"
-method = "Pick up the accessible free end, not the retained end blocked by the stop. Establish its actual coordinate and cleanup allowance before cutting."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "both long stem sides"
-edge_mm = 0.0
-from = "unknown"
-method = "Use opposed edge pickup and DRO half function to establish the transverse centerline if it was lost during reholding."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "finishing-endmill"
-check_jog_mm = "unknown"
-retouch_after = []
+id = "C2"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "end-up"
+stock_in = "stock_out.bar_b"
+coolant = "flood-fluid"
+picture_panels = ["setup"]
+stock_state = { top_z = 55.245, bottom_z = 0.0 }
+note = [{ text = "Upright final cut; return nut1 before E1.", detail = "pro" }, { text = "Capture torques are tightening targets, not holding-force certification. The native full-cycle closest approach includes setting and clear moves; native checks, not the picture, establish modeled clearance.", detail = "pedantic" }]
+hold = { note = [{ text = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus. Independent table-anchored capture post/base, not hand-held. Occupied-envelope figures below are not DRO targets or strength ratings. Capture footprint in mm: post X-20..20/Y40..50; base X-30..30/Y30..60.", detail = "pro" }], fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 34.8, parallels = "parallels-25", parallels_along = "x", parallels_centres_mm = [[5.0, 3.0], [5.0, 9.7]], stop = "Remaining bar after C1b at vise left end; approximate jaw occupied X -.63..3.37 inch", grip_mm = 15.0, jaw_above_parallels_mm = 15.0, jaw_protection = ".002-in paper at cutting-piece/moving-jaw contact only; none on balancer", align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Independent table-anchored capture: full-width upper flange 12-24 mm above cut; M6 pad/collar 8 N m; M8 base 18 N m; seat on both parallels; nut1 balancer occupied X about 1.97..2.99 inch, top Z.875 inch; not stock or capture. Cutting gaps: arbor flange/retainer rim to front workface .040 inch; lower retainer to moving jaw .043 inch (rounded down). Full-cycle closest approach is the stopped blade-body/setting-post gap through .002-inch paper, not a cutting gap.", supports = [{ placement = "posed", id = "setting-post", ref = "saw-setting-post", pose = { origin_mm = [-119.38, 0.0, -75.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Boss top +.400 inch above upright parallel/support Z0; contact exposed blade body annulus." }, { placement = "posed", id = "capture-fixed-post", ref = "capture-post", pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "Independent table-anchored post/base, not hand-held: occupied XY footprint in mm, post X-20..20/Y40..50; base X-30..30/Y30..60. Not DRO targets or a strength rating." }, { placement = "posed", id = "borrowed-nut1-balancer", stock_ref = "stock_out.nut1_blank", pose = { origin_mm = [62.7, 0.0, 11.1125], x = [1.0, 0.0, 0.0], z = [0.0, 1.0, 0.0] }, note = "Actual nut1 blank; local y toward setup-Z. Occupied X about 1.97..2.99 inch, top Z.875 inch; envelope, not DRO targets." }] }
+zero = { procedure = "Before installing saw, physically position finder by eye along the front face within +/-.300 inch in X of its centre; do not use the unset X readout. Mechanically find front Y first, then left stem X.", y = { edge = "front flange datum", face = "stock:-y", edge_mm = 0.0, from = "-y", tool = "edge-finder", holder = "collet-9", at_mm = [0.0, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, x = { edge = "left stem plane", face = "stock:-x", edge_mm = -6.2865, from = "-x", tool = "edge-finder", holder = "collet-9", at_mm = [10.541, 52.705], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, z = { face = "fixture:saw-setting-post/boss:+z", method = "mounted_saw_side", edge_mm = 10.16, paper_mm = 0.0508, tool = "slitting-saw", holder = "saw-arbor", check_jog_mm = 6.35, retouch_after = [], mounted_saw = { blade_side = "minus_z", axis_xy_mm = [-139.7, 0.0], point_mm = [-119.38, 0.0, 10.16], spindle_state = "stopped" } } }
+[[setups.ops]]
+op = 10
+do = "cut_off"
+feature = "end-length"
+workpiece_faces = { nut3 = ["#304/ADVANCED_FACE[10]/"], nut4 = ["#304/ADVANCED_FACE[10]/"] }
+tool = "slitting-saw"
+holder = "saw-arbor"
+cut_plane = { axis = "z", value = 27.6225, keep = "below" }
+rpm = 160.0
+feed_mm_min = 58.5216
+approach_mm = 2.54
+direction = "conventional"
+saw_capture = { fixture = "capture-head", pose = { origin_mm = [0.0, 0.0, 27.6225], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, moving_clamp = "capture-moving-pad", moving_clamp_pose = { origin_mm = [11.1125, 3.0, 45.6225], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, state = "clamped" }
+saw_trajectory = { start_mm = [-139.7, 0.0, 11.7348], moves = [{ to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 130.175], mode = "clear" }, { to_mm = [-53.34, -10.541, 27.6225], mode = "clear" }, { to_mm = [-37.1475, -10.541, 27.6225], mode = "clear" }, { to_mm = [37.1475, -10.541, 27.6225], mode = "cut" }, { to_mm = [37.1475, -60.325, 27.6225], mode = "clear" }, { to_mm = [37.1475, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, -60.325, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 130.175], mode = "clear" }, { to_mm = [-139.7, 0.0, 11.7348], mode = "clear" }] }
+outputs = { nut3_blank = { side = "above", carries_workpieces = ["nut3"], pose = { origin = [-41.91, 0.0, 0.0], x = [1.0, 0.0, 0.0], y = [0.0, 1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: inverse nut3 registration" }, cite = "geometry-provenance.md: upper Z29.210..55.245" }, nut4_blank = { side = "below", carries_workpieces = ["nut4"], pose = { origin = [13.335, 0.0, 0.0], x = [-1.0, 0.0, 0.0], y = [0.0, -1.0, 0.0], z = [0.0, 0.0, 1.0], binding = "nominal", cite = "geometry-provenance.md: nut4 Rz180 registration is self-inverse" }, cite = "geometry-provenance.md: lower Z0..26.035 retained nut4 blank" } }
+note = [{ text = "No direct descent between cuts; reposition capture after retrieval.", detail = "pro" }, { text = "Fresh body-side Z+.462 at X-5.500/Y0. Single-axis Z5.125 -> Y-.415 -> X-2.100 -> Z1.0875 -> X-1.4625; cut +X to +1.4625. Capture clamped; stop fully, then Y-2.375 -> Z5.125 -> X-5.500 -> Y0 -> Z+.462; then release/retrieve.", detail = "pedantic" }, { text = "For stopped-spindle drawbar removal support the cutter with fixtures.wood-block rather than grasping its edges; no gloves at a rotating spindle.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s", "geometry-provenance.md#finite-saw-and-native-pickup-design: AUTHOR'S CHOICE complete final physical cycle"]
+
+# E1: each retained output is consumed exactly once. Bare holds/zeros are example
+# fixture settings; exact numbered operation choices cite the demonstration ledger.
+[[setups]]
+id = "E1a"
+presentation_group = "E1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "stock_out.nut1_blank"
+coolant = "flood-fluid"
+picture_panels = ["setup"]
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in" }
+zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
 [[setups.ops]]
 op = 10
 do = "profile"
 feature = "end-length"
+faces = ["#320/ADVANCED_FACE[11]/"]
 tool = "finishing-endmill"
-holder = "milling-holder"
+holder = "collet-12"
+stock_removal_bounds = { x = [-13.335, -12.7], y = [-11.43, 11.43], z = [-12.7, 0.0] }
+contour = { method = "linear_table", step_mm = 12.7, open_side = "-x" }
 to_z = -12.7
-rpm = "unknown"
-feed_mm_min = "unknown"
-doc_mm = "unknown"
-approach_mm = "unknown"
+rpm = 750.0
+doc_mm = 12.7
+ae_mm = 0.635
+approach_mm = 2.54
 direction = "conventional"
-note = "Side-mill the free overhanging end to nominal finished length 25.4 mm, keeping the opposite end against the repeatable stop. Verify cutter clearance beyond jaws/supports to this operation's full Z target depth. Repeat the setting on all four; acceptance limits remain pending."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s"
-[[setups.ops]]
-op = 20
-do = "inspect"
-feature = "end-length"
-checks = { length = "calipers" }
-inspection_methods = { length = "Measure end-to-end length on every nut after removing seating burrs; record all four readings and compare with the approved drawing once its acceptance limits exist." }
-note = "Confirm equal nominal lengths; the acceptance band remains unknown."
+note = [{ text = "Free end only.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
 
 [[setups]]
-id = "D1"
-machine = "video-mill"
-frame = "top-up"
-stock_in = "E1"
-coolant = "cutting-fluid"
-deburr_mm = "unknown"
-note = "Repeat centre drill, tapping drill and hand tap on each of the FOUR nuts. Retain the end-stop repeatability and transverse midpoint; center the hole in the finished length."
-[setups.stock_state]
-top_z = "unknown"
-bottom_z = "unknown"
-[setups.hold]
-fixture = "mill-vise"
-jaws_along = "x"
-fixed_jaw = "rear"
-parallels = "parallels"
-stop_fixture = "end-stop"
-stop = "Seat each finished nut to the same repeatable stop."
-grip_mm = "unknown"
-jaw_above_parallels_mm = "unknown"
-clamp = "Seat and clamp the nut for centre drilling, through drilling and guided hand tapping."
-note = "HOLD: establish tap-drill diameter, drilling depth including point, complete under-work breakout clearance, tap/follower reach and engagement. Do not drill into parallels/vise. No gloves near a rotating spindle; stop the spindle for manual tapping."
-[setups.zero.x]
-edge = "free left finished end, opposite the stop"
-edge_mm = -12.7
-from = "-x"
-method = "Edge-find the accessible finished left end and compensate the finder; its selected nominal coordinate is X-12.7 mm. Locate the centered hole at X0, nominally half the 25.4 mm finished length. Verify actual length and pickup before use; do not touch through the stop."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.y]
-edge = "both opposed long stem sides"
-edge_mm = 0.0
-from = "unknown"
-method = "Use the same edge finder on both sides and the DRO half function; set the midpoint Y0. Verify direction and finder compensation."
-tool = "edge-finder"
-check_jog_mm = "unknown"
-[setups.zero.z]
-face = "top"
-method = "unknown"
-tool = "centre-drill"
-check_jog_mm = "unknown"
-retouch_after = [10, 20]
+id = "E1b"
+presentation_group = "E1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "stock_out.nut2_blank"
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in" }
+zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
+[[setups.ops]]
+op = 10
+do = "profile"
+feature = "end-length"
+faces = ["#320/ADVANCED_FACE[11]/"]
+tool = "finishing-endmill"
+holder = "collet-12"
+stock_removal_bounds = { x = [-13.335, -12.7], y = [-11.43, 11.43], z = [-12.7, 0.0] }
+contour = { method = "linear_table", step_mm = 12.7, open_side = "-x" }
+to_z = -12.7
+rpm = 750.0
+doc_mm = 12.7
+ae_mm = 0.635
+approach_mm = 2.54
+direction = "conventional"
+note = [{ text = "Free end only.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
+
+[[setups]]
+id = "E1c"
+presentation_group = "E1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "stock_out.nut3_blank"
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in" }
+zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
+[[setups.ops]]
+op = 10
+do = "profile"
+feature = "end-length"
+faces = ["#320/ADVANCED_FACE[11]/"]
+tool = "finishing-endmill"
+holder = "collet-12"
+stock_removal_bounds = { x = [-13.335, -12.7], y = [-11.43, 11.43], z = [-12.7, 0.0] }
+contour = { method = "linear_table", step_mm = 12.7, open_side = "-x" }
+to_z = -12.7
+rpm = 750.0
+doc_mm = 12.7
+ae_mm = 0.635
+approach_mm = 2.54
+direction = "conventional"
+note = [{ text = "Free end only.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
+
+[[setups]]
+id = "E1d"
+presentation_group = "E1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "stock_out.nut4_blank"
+coolant = "flood-fluid"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { end-length = 0.0 }, note = "Authored full-height end-milling start is the finished upper face at Z0 in this released-member frame, referenced by the declared fresh top-face touch. This recipe datum does not certify native stock carry, lift clearance or air entry." }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }, { text = "Keep the same retained-end reference for equal-length batching.", detail = "hobby" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 44.45, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[68.65, -8.0], [68.65, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down; fixed-jaw contact on flange sides; supported length 19.05 mm. Jaw/parallel near ends X-.250 in, clear of free-end finish cut X-.500 in" }
+zero = { x = { edge = "exposed upper retained saw end above stop", face = "retained-saw-end", edge_mm = 12.7, from = "+x", tool = "edge-finder", holder = "collet-9", at_mm = [-5.08, -2.54], approach_mm = 2.54, retract_clearance_mm = 12.7, check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "finishing-endmill", holder = "collet-12", at_mm = [0.0, 0.0], retract_clearance_mm = 12.7, check_jog_mm = 6.35, retouch_after = [] } }
+[[setups.ops]]
+op = 10
+do = "profile"
+feature = "end-length"
+faces = ["#320/ADVANCED_FACE[11]/"]
+tool = "finishing-endmill"
+holder = "collet-12"
+stock_removal_bounds = { x = [-13.335, -12.7], y = [-11.43, 11.43], z = [-12.7, 0.0] }
+contour = { method = "linear_table", step_mm = 12.7, open_side = "-x" }
+to_z = -12.7
+rpm = 750.0
+doc_mm = 12.7
+ae_mm = 0.635
+approach_mm = 2.54
+direction = "conventional"
+note = [{ text = "Free end only.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md: AUTHOR'S CHOICE .025-inch end allowance and selected .500-inch tool"]
+
+# D1: one physical drilling/tapping sequence per member, no powered hand-tap data.
+[[setups]]
+id = "D1a"
+presentation_group = "D1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "E1a"
+coolant = "cutting-oil"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
+zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
 [[setups.ops]]
 op = 10
 do = "spot"
 feature = "threaded-hole"
 tool = "centre-drill"
 holder = "drill-chuck"
-depth_mm = "unknown"
-rpm = "unknown"
-feed_mm_min = "unknown"
-approach_mm = "unknown"
-note = "At the X/Y midpoint start the hole with the centre drill. HOLD: its size, pilot length and safe depth remain unknown."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
+depth_mm = 1.524
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Spot X0/Y0 to tip Z-.060.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE spot depth"]
 [[setups.ops]]
 op = 20
 do = "drill"
 feature = "threaded-hole"
 tool = "tap-drill"
 holder = "drill-chuck"
-depth_mm = "unknown"
-exit_mm = "unknown"
-rpm = "unknown"
-feed_mm_min = "unknown"
-approach_mm = "unknown"
-note = "Re-touch for the drill and drill the 3/8-16 tapping hole through with an approved point-inclusive breakthrough depth and clear space below. HOLD: tap-drill diameter remains unknown; establish it before drilling."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s"
+depth_mm = 15.621
+exit_mm = 2.921
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
 [[setups.ops]]
 op = 30
 do = "hand_tap"
 feature = "threaded-hole"
 tool = "taper-tap"
 holder = "tap-follower"
-depth_mm = "unknown"
-rpm = "unknown"
-feed_mm_min = "unknown"
-approach_mm = "unknown"
-note = "With the spindle STOPPED, tap 3/8-16 by hand using the spring-loaded follower and cutting fluid. Confirm follower travel and complete taper-lead breakthrough clearance. Do not power tap."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
-[[setups.ops]]
-op = 40
-do = "inspect"
-feature = "threaded-hole"
-checks = { thread = "mating-hardware" }
-inspection_methods = { thread = "Before staking, clean chips out and check the actual 3/8-16 rod enters correctly by hand. Record thread behavior; this is not a certified thread-class or GO/NO-GO inspection." }
-note = "Do not substitute M10 x 1.5 or use force to overcome an incorrect thread."
+depth_mm = 26.035
+approach_mm = 2.54
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
 
-# B1: final hand edge finishing and bottom-thread retention.
 [[setups]]
-id = "B1"
-machine = "video-bench"
-stock_in = "D1"
-coolant = "unknown"
-deburr_mm = "unknown"
-note = "Repeat for each of FOUR nuts with all powered tooling stopped. Hand deburr, then stake only the bottom/final thread and prove stud retention."
-[setups.hold]
-fixture = "bench-vise"
-stop = "unknown"
-grip_mm = "unknown"
-clamp = "Support the nut in the vise for the punch operation as shown, with the bottom thread accessible."
-note = "Support the part against the punch load without damaging the bearing shoulders or distorting the usable upper threads. Exact support and punch deformation remain unspecified."
+id = "D1b"
+presentation_group = "D1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "E1b"
+coolant = "cutting-oil"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
+zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
+[[setups.ops]]
+op = 10
+do = "spot"
+feature = "threaded-hole"
+tool = "centre-drill"
+holder = "drill-chuck"
+depth_mm = 1.524
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Spot X0/Y0 to tip Z-.060.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE spot depth"]
+[[setups.ops]]
+op = 20
+do = "drill"
+feature = "threaded-hole"
+tool = "tap-drill"
+holder = "drill-chuck"
+depth_mm = 15.621
+exit_mm = 2.921
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
+[[setups.ops]]
+op = 30
+do = "hand_tap"
+feature = "threaded-hole"
+tool = "taper-tap"
+holder = "tap-follower"
+depth_mm = 26.035
+approach_mm = 2.54
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
+
+[[setups]]
+id = "D1c"
+presentation_group = "D1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "E1c"
+coolant = "cutting-oil"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
+zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
+[[setups.ops]]
+op = 10
+do = "spot"
+feature = "threaded-hole"
+tool = "centre-drill"
+holder = "drill-chuck"
+depth_mm = 1.524
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Spot X0/Y0 to tip Z-.060.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE spot depth"]
+[[setups.ops]]
+op = 20
+do = "drill"
+feature = "threaded-hole"
+tool = "tap-drill"
+holder = "drill-chuck"
+depth_mm = 15.621
+exit_mm = 2.921
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
+[[setups.ops]]
+op = 30
+do = "hand_tap"
+feature = "threaded-hole"
+tool = "taper-tap"
+holder = "tap-follower"
+depth_mm = 26.035
+approach_mm = 2.54
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
+
+[[setups]]
+id = "D1d"
+presentation_group = "D1"
+machine = "pm-25mv-bd"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "top-up-reversed"
+stock_in = "E1d"
+coolant = "cutting-oil"
+picture_panels = []
+stock_state = { top_z = 0.0, bottom_z = -12.7, entry_z = { threaded-hole = 0.0 }, local_thickness = { threaded-hole = 12.7 }, local_thickness_cite = { threaded-hole = "geometry-provenance.md#physical-input-completion: nominal .500-inch finished section at the centered hole; AUTHOR'S CHOICE example value, not a shop measurement" } }
+note = [{ text = "Stem up; finished bottom on parallels.", detail = "pro" }]
+hold = { fixture = "mill-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "parallels-35", parallels_along = "x", parallels_centres_mm = [[0.0, -8.0], [0.0, 8.0]], stop_fixture = "end-stop", stop_face = "retained-saw-end", stop_pose = { origin_mm = [12.7, 0.0, -9.525], x = [0.0, 1.0, 0.0], z = [1.0, 0.0, 0.0] }, stop = "Magnetic foot flush on clean steel fixed-jaw top: ON, secure rod screw; locate retained saw end gently; recheck after vise tightening", grip_mm = 5.0, jaw_above_parallels_mm = 5.0, align = { indicator = "dti", face = "fixed jaw", over_mm = 100.0, limit_mm = 0.0254, cite = "AUTHOR'S CHOICE example target" }, clamp = "Finished bottom down, fixed-jaw contact; hole and 35-mm underpart space clear between parallels" }
+zero = { x = { edge = "finished left end", edge_mm = -12.7, from = "-x", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, y = { edge = "both actual stem sides", edge_mm = 0.0, method = "opposed_edge_midpoint", procedure = "Find both actual opposed stem faces with the same finder; compensate both contacts, move to their actual midpoint and Axis Set Y0. Clear vertically, then +.250-inch jog must read +.250.", tool = "edge-finder", holder = "collet-9", check_jog_mm = 6.35 }, z = { face = "top", method = "paper", paper_mm = 0.0508, tool = "centre-drill", holder = "drill-chuck", check_jog_mm = 6.35, retouch_after = [10] } }
+[[setups.ops]]
+op = 10
+do = "spot"
+feature = "threaded-hole"
+tool = "centre-drill"
+holder = "drill-chuck"
+depth_mm = 1.524
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Spot X0/Y0 to tip Z-.060.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s", "geometry-provenance.md#cutting-data-sources: AUTHOR'S CHOICE spot depth"]
+[[setups.ops]]
+op = 20
+do = "drill"
+feature = "threaded-hole"
+tool = "tap-drill"
+holder = "drill-chuck"
+depth_mm = 15.621
+exit_mm = 2.921
+rpm = 1200.0
+approach_mm = 2.54
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
+[[setups.ops]]
+op = 30
+do = "hand_tap"
+feature = "threaded-hole"
+tool = "taper-tap"
+holder = "tap-follower"
+depth_mm = 26.035
+approach_mm = 2.54
+note = [{ text = "Spindle stopped; hand-wrench tap. Follower guides only; no power tapping.", detail = "pro" }, { text = "Tip depth 1.025 below top = .500 part + .500 qualified lead + .025 margin; 1.250-inch threaded length. Lead is the qualified .500-inch value, not inferred from the word taper. The material model bounds the unmodeled helical region; final stud fit is a separate manual check.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "geometry-provenance.md: AUTHOR'S CHOICE bounded manual tap and installed lead example facts"]
+
+# B1: explicit manual reholding; no thread metrology or separate retention result.
+# Bare vise settings are example fixture values, not physical shop measurements.
+[[setups]]
+id = "B1a"
+presentation_group = "B1"
+machine = "bench-bandsaw"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "bottom-up"
+stock_in = "D1a"
+coolant = "none"
+picture_panels = []
+note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "threaded-hole"
 tool = "noga-deburrer"
-note = "Use the Noga hand tool to remove burrs at both hole mouths, preserving usable threads. No numerical countersink or edge-break size is specified."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s"
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = "Use the needle files to hand-file the small outside edges and remove sharp handling burrs on every nut; preserve the flat shoulder bearing surfaces. No chamfer dimension is specified."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
 [[setups.ops]]
 op = 30
 do = "fit"
 feature = "threaded-hole"
 tool = "punch"
-note = "Support the nut, bottom up, and lightly punch the final bottom thread at a few points so the rod cannot pass through onto the table. Preserve the upper entry threads. Punch displacement and useful engagement are unspecified; prove retention on every nut."
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
-[[setups.ops]]
-op = 40
-do = "inspect"
-feature = "threaded-hole"
-checks = { dia = "unknown", position_dia = "unknown", thread = "mating-hardware" }
-missing_requirements = { bottom_thread_retention = "mating-hardware" }
-inspection_methods = { dia = "unknown", position_dia = "unknown", thread = "After staking, check the intended 3/8-16 rod enters correctly from the top by hand and stops at the bottom; this is a functional comparison, not certified thread-class or diameter inspection.", bottom_thread_retention = "Thread the intended 3/8-16 rod into the nut by hand from the top; verify useful engagement remains and that it stops at the bottom deformation rather than continuing through. Record the result for each of four nuts. Do not force it through the staked thread." }
-note = "HOLD any nut whose stud passes through, whose upper threads are damaged, or whose useful engagement has not been established."
 
-# B2: source optional chemical finish, kept as explicit route operations.
 [[setups]]
-id = "B2"
-machine = "video-bench"
-stock_in = "B1"
-note = "Optional appearance/corrosion finish for the four-piece batch. Perform only after hand finishing and retention checks in B1; not near operating machinery."
-[setups.hold]
-note = "HOLD: confirm the actual JAX product label/SDS, chemical-compatible container, ventilation, splash protection, solvent/fire precautions and waste handling before starting. Chemical gloves belong only in this stopped-machine chemical task, never near a rotating spindle. Establish a complete chemical-safety procedure before starting."
+id = "B1b"
+presentation_group = "B1"
+machine = "bench-bandsaw"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "bottom-up"
+stock_in = "D1b"
+coolant = "none"
+picture_panels = []
+note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
+[[setups.ops]]
+op = 10
+do = "deburr"
+feature = "threaded-hole"
+tool = "noga-deburrer"
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 20
+do = "deburr"
+feature = "all-surfaces"
+tool = "needle-files"
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 30
+do = "fit"
+feature = "threaded-hole"
+tool = "punch"
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
+note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
+
+[[setups]]
+id = "B1c"
+presentation_group = "B1"
+machine = "bench-bandsaw"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "bottom-up"
+stock_in = "D1c"
+coolant = "none"
+picture_panels = []
+note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
+[[setups.ops]]
+op = 10
+do = "deburr"
+feature = "threaded-hole"
+tool = "noga-deburrer"
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 20
+do = "deburr"
+feature = "all-surfaces"
+tool = "needle-files"
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 30
+do = "fit"
+feature = "threaded-hole"
+tool = "punch"
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
+note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
+
+[[setups]]
+id = "B1d"
+presentation_group = "B1"
+machine = "bench-bandsaw"
+deburr_mm = 0.05
+deburr_cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example maximum incidental edge break; not a video dimension"
+frame = "bottom-up"
+stock_in = "D1d"
+coolant = "none"
+picture_panels = []
+note = [{ text = "Hand deburr, then bottom-up staking. Preserve the upper entry and bearing faces; stake only the last bottom thread.", detail = "pedantic" }]
+hold = { fixture = "bench-vise", jaws_along = "x", fixed_jaw = "rear", jaw_center_along_mm = 0.0, parallels = "none", stop = "Centred; staking bottom flush with jaw tops, NOT bed", grip_on = "outer flange side flats", grip_mm = 6.35, jaw_above_parallels_mm = 12.7, clamp = "Rehold for deburring; stake bottom-up, full-height grip; stem 12.3 mm above bed." }
+[[setups.ops]]
+op = 10
+do = "deburr"
+feature = "threaded-hole"
+tool = "noga-deburrer"
+note = [{ text = "Deburr both mouths; preserve top entry threads; no countersink.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s: hand deburring process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 20
+do = "deburr"
+feature = "all-surfaces"
+tool = "needle-files"
+note = [{ text = "Deburr exterior/handling edges; preserve bearing faces.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s: hand filing process", "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE example 0.05-mm maximum"]
+[[setups.ops]]
+op = 30
+do = "fit"
+feature = "threaded-hole"
+tool = "punch"
+note = [{ text = "Stake last bottom thread only.", detail = "pro" }]
+note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
+
+# B2: mandatory finish on each member; same four operations, no optional rework loop.
+[[setups]]
+id = "B2a"
+presentation_group = "B2"
+machine = "bench-bandsaw"
+stock_in = "B1a"
+picture_panels = []
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "coating"
 feature = "all-surfaces"
-process = "acetone"
-note = "Clean all four nuts thoroughly with acetone and let them dry. Keep solvent away from ignition and operating machinery; follow the actual product instructions."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s"
+process = ["acetone", "detergent"]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = "Immerse the clean nuts in JAX Metal Blackener only after confirming its formulation and actual label/SDS instructions. The demonstrated immersion is about 30 seconds; it does not override the product instructions. Bath concentration and temperature remain unknown."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=946s"
+note = [{ text = "Neat per directions/SDS.", detail = "pro" }]
+note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = "Rinse to stop the reaction, dry, and buff off loose black residue. Optional: scuff with #000 steel wool and repeat the clean/dip/rinse cycle. HOLD: resolve coating-thickness and finish requirements before release."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s"
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = "HOLD: establish the oil product and viscosity before use. Apply a light coat of oil and wipe off excess and loose residue."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s"
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
 
 [[setups]]
-id = "F1"
-machine = "video-bench"
-stock_in = "B2"
-note = "Check every nut in the ACTUAL recipient table for sliding fit, below-table clearance, shoulder support and stud retention. Establish safe clamping separately; nominal dimensions alone do not prove fit or strength."
-[setups.hold]
-note = "Mill stopped: use the actual table slot and intended stud/workpiece. Do not use a nut that rocks, jams, stands proud, lacks shoulder support or lets the stud reach the table bottom."
+id = "B2b"
+presentation_group = "B2"
+machine = "bench-bandsaw"
+stock_in = "B1b"
+picture_panels = []
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "coating"
+feature = "all-surfaces"
+process = ["acetone", "detergent"]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 20
+do = "coating"
+feature = "all-surfaces"
+process = "jax-blackener"
+note = [{ text = "Neat per directions/SDS.", detail = "pro" }]
+note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
+[[setups.ops]]
+op = 30
+do = "coating"
+feature = "all-surfaces"
+process = ["rinse-water", "paper-towel"]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 40
+do = "coating"
+feature = "all-surfaces"
+process = "oil"
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
+
+[[setups]]
+id = "B2c"
+presentation_group = "B2"
+machine = "bench-bandsaw"
+stock_in = "B1c"
+picture_panels = []
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "coating"
+feature = "all-surfaces"
+process = ["acetone", "detergent"]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 20
+do = "coating"
+feature = "all-surfaces"
+process = "jax-blackener"
+note = [{ text = "Neat per directions/SDS.", detail = "pro" }]
+note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
+[[setups.ops]]
+op = 30
+do = "coating"
+feature = "all-surfaces"
+process = ["rinse-water", "paper-towel"]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 40
+do = "coating"
+feature = "all-surfaces"
+process = "oil"
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
+
+[[setups]]
+id = "B2d"
+presentation_group = "B2"
+machine = "bench-bandsaw"
+stock_in = "B1d"
+picture_panels = []
+note = [{ text = "Mandatory blackening after hand finishing; no separate finish sign-off.", detail = "pedantic" }]
+hold = { note = [{ text = "Stable compatible tray; solvents/chemicals away from machinery/ignition. Ventilate; splash protection, chemical-compatible gloves; segregate chemical waste.", detail = "pro" }, { text = "Powered tools stopped; retain member identity throughout; support securely with suitable nonreactive handling equipment.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "coating"
+feature = "all-surfaces"
+process = ["acetone", "detergent"]
+note = [{ text = "Degrease → clean per directions.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 20
+do = "coating"
+feature = "all-surfaces"
+process = "jax-blackener"
+note = [{ text = "Neat per directions/SDS.", detail = "pro" }]
+note_cite = ["https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf", "https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf"]
+[[setups.ops]]
+op = 30
+do = "coating"
+feature = "all-surfaces"
+process = ["rinse-water", "paper-towel"]
+note = [{ text = "Rinse → dry; remove loose residue.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s", "https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf"]
+[[setups.ops]]
+op = 40
+do = "coating"
+feature = "all-surfaces"
+process = "oil"
+note = [{ text = "Apply; wipe excess.", detail = "pro" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s", "geometry-provenance.md: ISO-VG32 is an adopted example product, not video identification"]
+
+# F1: one final physical checkpoint/result per nut; no shared final approval.
+[[setups]]
+id = "F1a"
+presentation_group = "F1"
+machine = "bench-bandsaw"
+stock_in = "B2a"
+picture_panels = []
+hold = { note = [{ text = "Support by hand; no clamp load or forcing a wedged nut. Keep fingers clear of pinch points.", detail = "hobby" }, { text = "Powered tools stopped; bench support for calipers and intended slot/stud comparison.", detail = "pedantic" }] }
 [[setups.ops]]
 op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
-missing_requirements = { actual_slot_fit = "actual-slot", below_table_top = "actual-slot", shoulder_bearing = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { actual_slot_fit = "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.", below_table_top = "Verify the nut's top stays below the table surface so the intended workpiece rests on the table, not the nut. Record the check for every nut.", shoulder_bearing = "Confirm the flange shoulders engage and pull up under the slot lips rather than wedging or bottoming; establish the actual contact before using a clamp.", stud_retention = "With the intended hardware, check the rod stops at the staked bottom thread and tightening the upper nut does not turn it through onto the table. Confirm useful engagement without forcing the deformation." }
-note = "HOLD until the actual slot/hardware checks and approved dimensional requirements are complete. Functional checks do not establish a certified load rating or physical machining acceptance."
-note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"
+inspect_workpieces = ["nut1"]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
+
+[[setups]]
+id = "F1b"
+presentation_group = "F1"
+machine = "bench-bandsaw"
+stock_in = "B2b"
+picture_panels = []
+hold = { note = [{ text = "Support by hand; no clamp load or forcing a wedged nut. Keep fingers clear of pinch points.", detail = "hobby" }, { text = "Powered tools stopped; bench support for calipers and intended slot/stud comparison.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "inspect"
+feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
+inspect_workpieces = ["nut2"]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
+
+[[setups]]
+id = "F1c"
+presentation_group = "F1"
+machine = "bench-bandsaw"
+stock_in = "B2c"
+picture_panels = []
+hold = { note = [{ text = "Support by hand; no clamp load or forcing a wedged nut. Keep fingers clear of pinch points.", detail = "hobby" }, { text = "Powered tools stopped; bench support for calipers and intended slot/stud comparison.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "inspect"
+feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
+inspect_workpieces = ["nut3"]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
+
+[[setups]]
+id = "F1d"
+presentation_group = "F1"
+machine = "bench-bandsaw"
+stock_in = "B2d"
+picture_panels = []
+hold = { note = [{ text = "Support by hand; no clamp load or forcing a wedged nut. Keep fingers clear of pinch points.", detail = "hobby" }, { text = "Powered tools stopped; bench support for calipers and intended slot/stud comparison.", detail = "pedantic" }] }
+[[setups.ops]]
+op = 10
+do = "inspect"
+feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
+inspect_workpieces = ["nut4"]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { shoulders = { thickness = "BOTH flanges: bottom to shelf, each." }, actual_slot_fit = "Hand-slide, then pull up.", stud_retention = "Hand-insert stud from top; do not force through." }
+note = [{ text = "Uniform black/oiled; no loose residue or obstructed fit/threads. One overall result/nut.", detail = "pro" }, { text = "Manual fit establishes neither load rating nor thread class.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]

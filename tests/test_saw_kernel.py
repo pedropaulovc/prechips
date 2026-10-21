@@ -230,7 +230,9 @@ def test_multiple_saws_use_successive_stock_and_keep_fixture_render(saw_engine, 
     assert result["ops"]["S2:10"]["stock_volume_after_mm3"] == pytest.approx(512.0)
     assert result["setups"]["S3"]["stock_bbox_mm"] == [0, 0, 0, 8, 8, 8]
     scene = result["setups"]["S1"]["render_scene"]
-    assert scene["components"] == [{"name": "bed", "role": "fixture", "exact": True}]
+    (bed,) = scene["components"]
+    assert bed["name"] == "bed" and bed["role"] == "fixture" and bed["exact"] is True
+    assert bed["bbox_mm"] == pytest.approx([0, 0, -2, 10, 10, 0])
     assert scene["debts"] == []
     assert result["setups"]["S1"]["fixture_rendered"] is True
     assert result["setups"]["S1"]["stock_volume_mm3"] == pytest.approx(1000.0)

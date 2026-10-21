@@ -69,6 +69,8 @@ The loader hashes the exact files it reads. A content or formatting edit changes
 
 `Bundle.features` retains the original manifest. `Bundle.feature_definitions` adds resolved plan joint/process features for rule evaluation. Transient preparation does not earn finished drawing coverage, and synthetic preparation labels cannot masquerade as exported STEP faces. `Bundle` freezes attribute assignment but not nested dictionaries. The application treats operative contents as unchanged once loaded; geometry is a non-operative memo for that state.
 
+`rules.resolution.operations()` returns an eager list. When filtering by workpiece, its direct membership checks share one invocation-local material graph and read each operation's current claims. The graph is discarded on return: another call sees in-place changes to nested routes or claims, without bundle-wide or global caching. Nested explicit-ownership checks retain their own resolution path.
+
 Measurement trust is fact-local. A parent item's identity or measurement record does not qualify every child dimension. Where a consumer requires a measurement, it needs that fact's complete measured record and no local verification refusal; bare nominal facts are usable only where that consumer permits them. Missing, assumed, illustrative and explicitly unknown facts remain debt. The [inventory reference](../inventory.md) owns the field-level contract; the [example provenance](../../examples/README.md) distinguishes demonstration metadata from actual shop observations.
 
 ## Native boundary and cache
@@ -78,6 +80,8 @@ The project Python environment uses Pydantic, Rich and OpenTelemetry. FreeCAD ru
 The host builds requests from explicit supported inputs and records refused facts as measurement debt. Discovery is authoritative for `FREECAD_CMD`, then checks the per-user FreeCAD 1.1 path and `PATH`. An unavailable explicit override does not fall through to another installation. See [environment settings](../reference/cli.md#output-safety-and-environment).
 
 Before native evaluation, the host checks STEP identity again. Absent/mismatching assets cannot become successful geometry facts. Multiple candidates can share one batch; identical jobs can share results. A bundle's memo, including an unavailable result, is reused for that bundle instance.
+
+Each native setup snapshots its placed source faces once and retains their count before appending synthetic process surfaces. The source face indices and count stay fixed while in-process stock and temporary fixture coordinates change. Ownership and collision lookups reuse that count rather than repeatedly enumerating the finished B-rep; synthetic surfaces remain outside the finished-source inventory.
 
 Disk cache keys include the operative job recipe, native engine source digest and executable identity. Absolute STEP paths are excluded from the recipe where content digests identify them. The engine digest covers the explicit `ENGINE_SOURCES` list, including transitive native helpers. Host-only input preparation is represented by the request it produces. Only successful `status = "ok"` results are stored/reused; cache I/O failure does not change machining findings. Editing a native engine source can invalidate cache entries even when it only changes formatting.
 

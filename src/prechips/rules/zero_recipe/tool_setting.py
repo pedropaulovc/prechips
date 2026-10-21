@@ -40,7 +40,10 @@ from ..resolution import (
     SAW_OPS,
     UNKNOWN,
     identity,
+    member_protection_status,
     number,
+    operation_members,
+    registered_workpieces,
     resolve,
     saw_setup,
     spindle_saw,
@@ -57,6 +60,128 @@ from ..tip_endpoints import (
 )
 
 
+def mounted_saw_settings(bundle, setup):
+    """One independently proved mounted setting per op, using host-selected pair touches.
+
+    Selection and reinstall invalidation belong to the host. Neither an ordinary
+    touch nor a blade's model marker can stand in for the native contact/approach proof.
+    """
+    from ..geometry_common import finite_saw_evidence, mounted_saw_inputs
+    from .touch import mounted_saw_axis_recipe
+
+    facts = mapping(getattr(bundle, "kernel", None))
+    result = {}
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    directions = mapping(mapping(bundle.plan.get("dro")).get("direction"))
+    sign = 1 if directions.get("z") == "up" else -1 if directions.get("z") == "down" else UNKNOWN
+    for op in records(setup.get("ops")):
+        if not spindle_saw(bundle, setup, op):
+            continue
+        mounted = mounted_saw_inputs(bundle, setup, op)
+        zero = mapping(mounted.get("zero"))
+        touches = records(zero.get("touches"))
+        selected = zero.get("selected")
+        touch = (
+            mapping(touches[selected])
+            if isinstance(selected, int)
+            and not isinstance(selected, bool)
+            and 0 <= selected < len(touches)
+            else {}
+        )
+        status, reasons, proof = finite_saw_evidence(
+            mapping(mapping(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
+            if facts.get("status") == "ok"
+            else {},
+            "zero",
+        )
+        reasons = [*reasons, *records(zero.get("reasons"))]
+        errors = list(records(zero.get("errors")))
+        boundary = (
+            0
+            if touch.get("kind") == "axis" and "after_op" not in touch
+            else _boundary(records(setup.get("ops")), touch)
+        )
+        if boundary == UNKNOWN:
+            reasons.append("mounted-saw touch operation boundary is unresolved")
+        elif touch and boundary != touch.get("position"):
+            reasons.append("mounted-saw touch does not match its authored operation boundary")
+        contact = mapping(touch.get("mounted_saw"))
+        if contact.get("spindle_state") == "running":
+            errors.append("mounted-saw body-side touch requires the spindle stopped")
+        if touch and touch.get("method") != "mounted_saw_side":
+            reasons.append("only method mounted_saw_side establishes a mounted setting")
+        if not touch:
+            reasons.append("no current matching mounted tool-holder touch before this op")
+        if contact.get("spindle_state") != "stopped":
+            reasons.append("stopped-spindle touch evidence is unknown")
+        if number(touch.get("paper_mm")) and touch["paper_mm"] < 0:
+            errors.append("mounted-saw touch paper thickness must be nonnegative")
+        native_zero = mapping(proof.get("zero"))
+        native_touches = records(native_zero.get("touches"))
+        native_touch = next(
+            (mapping(item) for item in native_touches if mapping(item).get("index") == selected),
+            {},
+        )
+        blade = mapping(mounted.get("blade"))
+        echoed = {
+            "blade_side": contact.get("blade_side"),
+            "spindle_state": contact.get("spindle_state"),
+            "point_mm": contact.get("point_mm"),
+            "axis_xy_mm": contact.get("axis_xy_mm"),
+            "paper_mm": touch.get("paper_mm"),
+            "plane_z_mm": touch.get("edge_mm"),
+            "body_thickness_mm": blade.get("thickness_mm"),
+            "kerf_offset_mm": blade.get("kerf_offset_mm"),
+        }
+        if native_zero.get("selected") != selected or any(
+            native_touch.get(key) != value for key, value in echoed.items()
+        ):
+            reasons.append("native mounted contact proof does not match the selected touch facts")
+        zero_values = {
+            **contact,
+            "edge_mm": touch.get("edge_mm"),
+            "paper_mm": touch.get("paper_mm"),
+        }
+        values = mounted_saw_axis_recipe(zero_values, mapping(mounted.get("blade")), 0, sign)
+        if not number(values["axis_set"]):
+            reasons.append("body thickness, kerf offset or body-side setting facts are unknown")
+        native_set = native_touch.get("cutting_midplane_z_mm")
+        if (
+            number(native_set)
+            and number(values["axis_set"])
+            and not math.isclose(native_set, values["axis_set"], rel_tol=0, abs_tol=1e-6)
+        ):
+            errors.append(
+                "native mounted cutting-midplane setting disagrees with body-side arithmetic"
+            )
+        if errors:
+            status = "error"
+        elif status != "error" and reasons:
+            status = UNKNOWN
+        row = {
+            **touch,
+            "status": status,
+            "reasons": list(dict.fromkeys([*errors, *reasons])),
+            "proof": proof,
+            "selected": selected,
+            "axis_set_mm": values["axis_set"],
+            "z_axis_set": values["axis_set"] / scale
+            if status == "pass" and number(values["axis_set"]) and scale
+            else UNKNOWN,
+            "tool_setting_state": "mounted_saw_side",
+            "mounted_saw_setting": {
+                "edge_mm": touch.get("edge_mm", UNKNOWN),
+                "paper_mm": touch.get("paper_mm", UNKNOWN),
+                "blade_side": contact.get("blade_side", UNKNOWN),
+                "body_thickness_mm": blade.get("thickness_mm", UNKNOWN),
+                "kerf_offset_mm": blade.get("kerf_offset_mm", UNKNOWN),
+                "axis_set_mm": values["axis_set"] if status == "pass" else UNKNOWN,
+            },
+        }
+        result[str(op["op"])] = row
+    return result
+
+
 def same_tool(bundle, first, second):
     """Whether two tool references name one spindle tool (:func:`identity`): ``turner`` on a
     touch and ``tools.turner`` on an op are one tool. None (no tool) is never a tool."""
@@ -67,7 +192,7 @@ def same_tool(bundle, first, second):
     )
 
 
-def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
+def tool_changes(bundle, setup, zero, lathe, x_scale, touches, *, mounted=None):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
     The DRO reads the tool that last set it: the zero, a tool touch or a listed retouch
@@ -112,18 +237,38 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
     paper = recipe.get("paper_mm", UNKNOWN)
     face = recipe.get("face", recipe.get("feature"))
-    start = _position(ops, {"after_op": recipe.get("after_op")}) or 0
+    start = (
+        _boundary(ops, recipe)
+        if recipe.get("method") == "mounted_saw_side"
+        else _position(ops, {"after_op": recipe.get("after_op")}) or 0
+    )
     tops = _tops(bundle, setup, states)
     grid = dro_grid(bundle, setup)
     # A top pickup touches the top as the ops through its after_op left it.
-    zero_z = tops[start][0] if face == "top" else recipe.get("edge_mm", UNKNOWN)
-    if unsupported_touch(recipe.get("tool")):
+    zero_z = (
+        tops[start][0] if face == "top" and start != UNKNOWN else recipe.get("edge_mm", UNKNOWN)
+    )
+    if unsupported_touch(recipe.get("tool")) or recipe.get("method") == "mounted_saw_side":
         zero_z = UNKNOWN
     # Keep ordinary tool-change evidence in mixed setups, but never certify the disk.
     placed = {}
-    unknown = bool(spindle_ops)
+    unknown = (
+        any(row["status"] != "pass" for row in mounted.values())
+        if mounted is not None
+        else bool(spindle_ops)
+    )
+    unknown |= start == UNKNOWN
+    mounted_index = int(recipe.get("method") == "mounted_saw_side")
     for touch in touches:
-        placed.setdefault(_position(ops, touch), []).append(touch)
+        touch_index = None
+        if touch.get("method") == "mounted_saw_side":
+            touch_index = mounted_index
+            mounted_index += 1
+        position = _position(ops, touch)
+        if touch.get("method") == "mounted_saw_side":
+            position = _boundary(ops, touch)
+            unknown |= position == UNKNOWN
+        placed.setdefault(position, []).append((touch, touch_index))
     listed = {str(n) for n in records(recipe.get("retouch_after"))}
     z_events, x_events, derived, missing = [], [], [], []
     # The Z touch the DRO reads (its tool, face and edge), per cutting op.
@@ -131,6 +276,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     # Ops before the zero's after_op run before any tool set the Z DRO; with no zero
     # recipe no tool set it at all (the missing zero is reported, not a tool change).
     set_z = None
+    mounted_setter = None
     set_x, x_gauge = (None, None)
     if lathe and x_recipe:
         set_x, x_gauge = x_recipe.get("tool", UNKNOWN), x_recipe.get("gauge")
@@ -168,8 +314,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
 
     for index, (op, _, _) in enumerate(states):
         if index == start and recipe:
+            mounted_setter = (0, recipe) if recipe.get("method") == "mounted_saw_side" else None
             set_z = (
-                UNKNOWN if unsupported_touch(recipe.get("tool")) else recipe.get("tool", UNKNOWN)
+                UNKNOWN
+                if unsupported_touch(recipe.get("tool"))
+                or recipe.get("method") == "mounted_saw_side"
+                else recipe.get("tool", UNKNOWN)
             )
             z_by = {
                 **recipe,
@@ -178,16 +328,20 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 "edge_mm": zero_z,
                 "from": recipe.get("from", UNKNOWN),
             }
-            if recipe.get("method") not in MEASURED and not unsupported_touch(recipe.get("tool")):
+            if recipe.get("method") not in MEASURED | {
+                "mounted_saw_side"
+            } and not unsupported_touch(recipe.get("tool")):
                 z_event(index, face or UNKNOWN, zero_z, paper, "zero", z_by)
-        for touch in placed.get(index, []):
-            if unsupported_touch(touch.get("tool")):
-                unknown, pending, spindle = True, None, UNKNOWN
+        for touch, touch_index in placed.get(index, []):
+            if unsupported_touch(touch.get("tool")) or touch.get("method") == "mounted_saw_side":
+                mounted_setter = (touch_index, touch) if touch_index is not None else None
+                pending, spindle = None, UNKNOWN
                 set_z = None if set_z is None else UNKNOWN
                 set_x = None if set_x is None else UNKNOWN
                 z_by = None
                 continue
             if touch.get("z_face"):
+                mounted_setter = None
                 set_z, z_by = touch.get("tool", UNKNOWN), touch
                 if touch.get("method") != "measure_then_set":
                     z_event(
@@ -201,7 +355,19 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             if lathe:
                 set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
         if spindle_saw(bundle, setup, op):
-            unknown, pending, spindle = True, None, UNKNOWN
+            setting = mapping((mounted or {}).get(str(op.get("op"))))
+            setter_index, setter = mounted_setter if mounted_setter is not None else (None, {})
+            current = (
+                setter_index is not None
+                and setting.get("selected") == setter_index
+                and same_tool(bundle, setter.get("tool"), op.get("tool"))
+                and setter.get("holder") not in (None, UNKNOWN)
+                and op.get("holder") not in (None, UNKNOWN)
+                and identity(bundle, setter["holder"], "holders")
+                == identity(bundle, op["holder"], "holders")
+            )
+            unknown |= setting.get("status") != "pass" or not current
+            pending, spindle = None, UNKNOWN
             set_z = None if set_z is None else UNKNOWN
             set_x = None if set_x is None else UNKNOWN
             z_by = None
@@ -211,6 +377,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             lathe and approach(bundle, setup, op) == "axial"
         )
         if cuts and tool in (None, UNKNOWN):
+            mounted_setter = None
             # Whether an unknown tool takes the DRO over from its setter is unknown.
             if pending:
                 served[str(pending["after_op"])] = {
@@ -294,6 +461,7 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
             set_z = tool if "z" in changed else set_z
             set_x = tool if "x" in changed else set_x
         if cutting:
+            mounted_setter = None
             readings[str(op["op"])] = z_by if same_tool(bundle, set_z, tool) else None
             spindle = tool
         if str(op.get("op")) in listed:
@@ -401,7 +569,7 @@ def reads_unknown(bundle, setup, op, readings=None):
     if done == UNKNOWN:
         return True
     credited = []
-    stands = face_stands(bundle, setup, face, edge, done, credited=credited)
+    stands = face_stands(bundle, setup, face, edge, done, credited=credited, touch=touch)
     return (stands is not None and not number(stands)) or (
         bool(credited) and _credited_side(bundle, setup, touch, face, edge) != 1
     )
@@ -538,6 +706,8 @@ def face_stands(
     credited=None,
     carried=None,
     errors=None,
+    *,
+    touch=None,
 ):
     """Where ``face`` physically stands once ``setup``'s first ``done`` ops have run.
 
@@ -556,6 +726,50 @@ def face_stands(
     never metadata on the input dicts.
     """
     from ..coordinates import formed_z
+
+    native_face = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
+    if face == "top" and native_face is None:
+        from prechips.kernel import _TOP_COMMAND_INPUTS, _top_pickup_at
+
+        if _TOP_COMMAND_INPUTS.get():
+            requested = _top_pickup_at(setup, done, touch)
+            if requested is not None:
+                key, recipe, _ = requested
+                command = (
+                    mapping(setup.get("stock_state")).get("top_z")
+                    if key == "z" and done == 0
+                    else recipe.get("edge_mm")
+                )
+                if number(command) and carried is not None:
+                    carried.append({"native_edge_mm": command, "requested_top": True})
+                return command if number(command) else UNKNOWN
+        from ..coordinates import UNIT_MM
+        from .native import top_pickup_evidence
+
+        proof = top_pickup_evidence(bundle, setup, done, touch)
+        if proof is not None:
+            if proof["status"] != "pass":
+                if debts is not None:
+                    debts.extend(proof["reasons"])
+                if proof["status"] == "error" and errors is not None:
+                    errors.extend(proof["reasons"])
+                return UNKNOWN
+            plane = mapping(proof.get("resolved_contact")).get("plane_mm")
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            if not number(plane) or scale is None:
+                if debts is not None:
+                    debts.append("native top contact has no physical plane in known units")
+                return UNKNOWN
+            stands = plane / scale
+            if carried is not None:
+                carried.append({"native_edge_mm": stands, "pickup_proof": proof})
+            return stands
+    if registered_workpieces(bundle) and native_face in bundle.feature_definitions:
+        members = operation_members(bundle, setup)
+        if not members or member_protection_status(bundle, setup, members[0]) is not True:
+            if debts is not None:
+                debts.append(f"{native_face} has no uniquely selected native-protected member")
+            return UNKNOWN
 
     if not number(edge):
         # An unknown top can itself be missing its footprint; retain that input debt.
@@ -649,7 +863,17 @@ def _face_checker(bundle, setup, errors, unknowns):
             return edge, [], False
         debts, credited, carried, contradictions = [], [], [], []
         stands = face_stands(
-            bundle, setup, face, edge, done, source, debts, credited, carried, contradictions
+            bundle,
+            setup,
+            face,
+            edge,
+            done,
+            source,
+            debts,
+            credited,
+            carried,
+            contradictions,
+            touch=touch,
         )
         if contradictions:
             errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)
@@ -678,6 +902,7 @@ def _face_checker(bundle, setup, errors, unknowns):
                         credited,
                         carried,
                         contradictions,
+                        touch=touch,
                     )
                     if contradictions:
                         errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)

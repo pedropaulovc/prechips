@@ -6,16 +6,19 @@ A carried row (``setting_residual_mm``) prints the setting the report computed, 
 import copy
 import dataclasses
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from test_tool_change_touch import (
     DECK,
     FACE,
+    axis_set_value,
     bundle,
+    dro_paragraphs,
+    exact_number,
     mill_zero,
     op,
-    paragraphs,
     sheet_text,
     zero_rows,
 )
@@ -54,7 +57,7 @@ def with_rows(data, *updates):
 
 
 def axis_set_lines(html):
-    return [line for line in paragraphs(html) if "Axis Set Z" in line]
+    return [line for line in dro_paragraphs(html) if "Axis Set Z" in line]
 
 
 def test_all_example_travelers_keep_native_face_refs_out_of_printed_text():
@@ -119,7 +122,7 @@ def test_a_credited_z_zero_tells_the_operator_to_touch_outside_the_footprint(dia
     )
     contact, axis_set = zero_rows(sheet.dro(setup, TOOLS))["Z"]
     assert f"touch the face outside Ø{printed} mm" in contact, contact
-    assert axis_set == "10.050"
+    assert exact_number(axis_set) == Decimal("10.05")
     assert not re.search(r"Ø(11\.569|11\.570|1\.000|1234\.56)\b", contact), contact
 
 
@@ -172,8 +175,10 @@ def test_a_derived_touch_prints_the_constraint_after_its_axis_set():
         bundle("mill", mill_zero(DECK), OPS),
         (("derived_touches", 0), {"credited_faces": [FACE], "touch_exclusion_dia_mm": 11.5701}),
     )
-    (line,) = [line for line in paragraphs(sheet.dro(setup, TOOLS)) if "install" in line]
-    assert "Axis Set Z 10.050; touch the face outside Ø11.571 mm." in line, line
+    (line,) = [line for line in dro_paragraphs(sheet.dro(setup, TOOLS)) if "install" in line]
+    assert axis_set_value(line, "Z") == Decimal("10.05")
+    assert "touch the face outside Ø11.571 mm." in line, line
+    assert line.index("Axis Set Z") < line.index("touch the face outside")
     assert not re.search(r"#\d+/ADVANCED_FACE", line), line
 
 
@@ -197,12 +202,15 @@ def test_a_listed_retouch_prints_the_constraint_and_an_unconstrained_one_does_no
     sheet, setup = with_rows(
         data, (row, {"credited_faces": [FACE], "touch_exclusion_dia_mm": 11.57})
     )
-    lines = paragraphs(sheet.dro(setup, MILL_TOOLS))
+    lines = dro_paragraphs(sheet.dro(setup, MILL_TOOLS))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (second,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
-    assert "Axis Set Z 0.050; touch the face outside Ø11.57 mm." in first, first
+    assert axis_set_value(first, "Z") == Decimal("0.05")
+    assert "touch the face outside Ø11.57 mm." in first, first
+    assert first.index("Axis Set Z") < first.index("touch the face outside")
     assert not re.search(r"#\d+/ADVANCED_FACE", first), first
-    assert "Axis Set Z 0.050." in second and "outside" not in second, second
+    assert axis_set_value(second, "Z") == Decimal("0.05")
+    assert "outside" not in second, second
 
 
 def test_a_retouch_with_an_unknown_exclusion_is_not_folded_into_a_numeric_one():
@@ -214,11 +222,15 @@ def test_a_retouch_with_an_unknown_exclusion_is_not_folded_into_a_numeric_one():
         (("retouch", listed.index(10)), {"touch_exclusion_dia_mm": 11.57}),
         (("retouch", listed.index(20)), {"touch_exclusion_dia_mm": "unknown"}),
     )
-    lines = paragraphs(sheet.dro(setup, MILL_TOOLS))
+    lines = dro_paragraphs(sheet.dro(setup, MILL_TOOLS))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (second,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
-    assert "Axis Set Z 0.050; touch the face outside Ø11.57 mm." in first, first
-    assert f"Axis Set Z 0.050; {UNKNOWN_NOTE}." in second, second
+    assert axis_set_value(first, "Z") == Decimal("0.05")
+    assert "touch the face outside Ø11.57 mm." in first, first
+    assert axis_set_value(second, "Z") == Decimal("0.05")
+    assert UNKNOWN_NOTE in second, second
+    assert first.index("Axis Set Z") < first.index("touch the face outside")
+    assert second.index("Axis Set Z") < second.index(UNKNOWN_NOTE)
     assert "11.57" not in second
 
 
@@ -253,7 +265,7 @@ def test_a_carried_z_zero_prints_the_report_setting_and_the_physical_surface(
     }
     sheet, setup = with_rows(data, (("axes", "z"), row))
     contact, printed = zero_rows(sheet.dro(setup, TOOLS))["Z"]
-    assert printed == f"{axis_set:.3f}", (contact, printed)
+    assert exact_number(printed) == Decimal(str(axis_set)), (contact, printed)
     assert "surface at 21.0055" in contact, contact
     assert "21.006" not in contact and "21.01" not in contact, contact
 
@@ -284,7 +296,7 @@ def test_a_carried_tool_touch_prints_the_report_setting_exactly(kind, touch, axi
     path = ("tool_touches",) if kind == "tool_touches" else ("derived_touches", 0)
     sheet, setup = with_rows(data, (path, row))
     lines = axis_set_lines(sheet.dro(setup, TOOLS))
-    (line,) = [line for line in lines if f"Axis Set Z {axis_set:.3f}." in line]
+    (line,) = [line for line in lines if axis_set_value(line, "Z") == Decimal(str(axis_set))]
     assert "(Z 21.0055)" in line, line
     assert "21.006" not in line, line
 
@@ -301,10 +313,12 @@ def test_a_carried_listed_retouch_prints_the_report_setting_exactly(touch, axis_
         "setting_residual_mm": residual,
     }
     sheet, setup = with_rows(data, (("retouch", listed.index(10)), row))
-    lines = paragraphs(sheet.dro(setup, MILL_TOOLS))
+    lines = dro_paragraphs(sheet.dro(setup, MILL_TOOLS))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
-    paper = f"{touch['paper_mm']:.3f}"
-    assert f"(Z 21.0055) with {paper} paper → Axis Set Z {axis_set:.3f}." in first, first
+    assert "(Z 21.0055)" in first, first
+    (paper,) = re.findall(r"\bwith ([+−-]?\d+(?:\.\d+)?) paper\b", first)
+    assert exact_number(paper) == Decimal(str(touch["paper_mm"]))
+    assert axis_set_value(first, "Z") == Decimal(str(axis_set))
     assert "21.006" not in first, first
 
 
@@ -365,8 +379,14 @@ def test_non_grid_carried_touch_operations_consume_checked_typed_axis_set():
     contact, printed = zero_rows(sheet.dro(setup, TOOLS))["Z"]
     assert printed == "21.005"
     assert "surface at 21.0075" in contact
-    assert sheet.tip(setup, spot) == ["Z 21.005 → 19.005", "depth 2.000"]
+    spot_target, spot_depth = sheet.tip(setup, spot)
+    assert spot_target == "Z 21.005 → 19.005"
+    assert spot_depth.startswith("depth ")
+    assert exact_number(spot_depth.removeprefix("depth ")) == Decimal("2")
     assert sheet.tip(setup, drill) == ["Z 21.005 → 10.505", "breaks through at 11.005"]
-    assert sheet.tip_note(setup, drill) == (
-        "Break through: the full diameter runs at least 0.500 past the exit face."
+    note = sheet.tip_note(setup, drill)
+    (breakthrough,) = re.findall(
+        r"\bfull diameter\b.*?\bat least (-?\d+(?:\.\d+)?)(?!\d|\.\d) past the exit face\b",
+        note,
     )
+    assert exact_number(breakthrough) == Decimal("0.5")

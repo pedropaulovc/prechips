@@ -21,7 +21,7 @@ def pytest_sessionstart(session):
         return
     try:
         import pypdfium2 as pdfium
-        from test_sheet_print import machinist_review
+        from test_sheet_print import _sections, machinist_review
 
         review = machinist_review()
         chrome = review.find_chrome()
@@ -29,17 +29,24 @@ def pytest_sessionstart(session):
             source = Path(directory) / "preflight.html"
             pdf = Path(directory) / "preflight.pdf"
             source.write_text(
-                '<!doctype html><html><head><meta charset="utf-8"></head>'
-                "<body><p>Prechips print preflight.</p></body></html>",
+                _sections([(0, "<p>Prechips print preflight.</p>")]),
                 encoding="utf-8",
             )
-            review.print_traveler_pdf(source, pdf, chrome=chrome, timeout_s=30)
+            declared_pages = review.print_traveler_pdf(source, pdf, chrome=chrome, timeout_s=30)
             with pdfium.PdfDocument(str(pdf)) as document:
                 if not len(document):
                     raise ValueError("Print preflight PDF has no pages")
+                if len(document) != declared_pages:
+                    raise RuntimeError("Print preflight PDF count disagrees with pagination")
                 page = document[0]
                 try:
                     page.get_size()
+                    textpage = page.get_textpage()
+                    try:
+                        if "PRINT LAYOUT ERROR" in textpage.get_text_range():
+                            raise ValueError("Print preflight PDF reports a pagination error")
+                    finally:
+                        textpage.close()
                 finally:
                     page.close()
     except (ImportError, OSError, subprocess.SubprocessError, RuntimeError, ValueError) as exc:

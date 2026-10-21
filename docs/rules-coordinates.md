@@ -936,8 +936,8 @@ Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
 drill, cusp, band and stock values are converted, never mixed.
 
-A rough stage's `stock_left_mm` goes to `file_to_line`
-([implementation](../src/prechips/rules/manual_arc.py)). It must not exceed
+A rough stage's `stock_left_mm` that reaches `file_to_line`
+([implementation](../src/prechips/rules/manual_arc.py)) must not exceed
 policy `numbers.max_filing_stock_mm` (`stock_cap_mm`), or the result is an
 error. The cap is unknown, never zero or a pass, if absent, negative, uncited
 or not marked `numbers_verify.max_filing_stock_mm = false`.
@@ -947,6 +947,18 @@ recuts the claimed faces before filing, the rough leaves stock to the last
 such op (`recut_by`) instead of the cap. That last op hands the faces to the
 file. The claim test does not compare depth: an intervening op may cut the
 same faces from the other side.
+
+Unresolved registered recut ownership remains `arc_debts` and `unknown`,
+never a pass or a known `recut_by` producer. Arc, join and profile metadata
+retain `stock_cap_mm` and the measured residual; an over-cap comparison is
+conditional debt until ownership establishes whether that stock reaches
+the file. Known gouges and break-out crossings remain errors regardless
+of recut uncertainty.
+
+For registered stock, the filing cap is checked independently for every
+originally selected member. A partial recut waives only the members it resolves,
+not their siblings. Unresolved ownership remains debt alongside any independently
+proved member cap error.
 
 Rough methods on a finish stage are errors; `file_to_line` finishes them.
 Finish methods cannot be clipped by `stock_removal_bounds` and stay unknown
@@ -976,6 +988,29 @@ placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
 entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
 raster with no known lift Z keeps status unknown.
 
+For a profile with explicit `contour.sweep_bounds` and no broad
+`stock_removal_bounds`, these complete printed `linear_table` paths also
+govern native stock removal. No nominal wall corridor fills the gaps between
+separate finished members, and the checker does not credit an unprinted pass.
+The whole sweep must preserve finished material and the leave normal to its
+claimed planar faces; see [explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
+
+An explicitly authored `sweep_bounds` must resolve; an unknown or malformed
+guide never falls back to a nominal feature box. Canonical checkpoints give
+linear profiles their own `linear_table` kind and `linear path N final depth
+point i` row identities, not straight-join `line_table` identities. They use
+the actual printed profile `dro_to_z` in both cold and warm requests, with
+`material_scope = "final_depth"`, just as arc/join tables model material at
+their printed final tip. The native arriving stock supplies the upper sweep
+extent. Complete closed outlines and independent raster passes stay intact;
+rapid returns and lift moves are not substituted for cutting paths.
+
+This material model does not establish an unknown start height or axial pass
+schedule. Those remain separate coordinate/tool-path debts. Multiple axial
+levels do not duplicate the final-depth checkpoint identities or the drawn
+outline, and an unresolved final tip or any unresolved cutting path keeps
+the complete native checkpoint request unknown.
+
 #### Safe-side raster and outline rounding
 
 Every raster value sits on the DRO grid on the safe side:
@@ -992,8 +1027,10 @@ The raster record carries `run_axis`, `area_ends`, pass `ends`,
 `entry_pass`. The setup sheet prints pass ends and directs a lift to raster
 lift Z after every pass.
 
-An end, or the open-side entry pass, is described as in air only when it
-stands a cutter radius outside setup-entry kernel `stock_bbox_mm`. That box
+An end, or the open-side entry pass, is described as in air only when the
+finite circular cutter clears setup-entry kernel `stock_bbox_mm` by the
+positive stock tolerance. This includes diagonal clearance beyond a box
+corner; mere boundary tangency is not positive air clearance. That box
 holds every op's stock. The note identifies the end by its role in printed
 feed direction, such as "each pass enters from air at -X" or "leaves into air
 at +X". `stock_removal_bounds` states what the op may remove, not where stock
@@ -1197,7 +1234,8 @@ groove wall or turned shoulder does.
 An op is known to leave no Z face only in these cases:
 
 - A manual or transfer step cuts nothing.
-- A saw locates its face by `cut_plane`, never a DRO Z.
+- A nonspindle saw locates its face by `cut_plane`, never a DRO Z.
+  A mounted slitting saw uses its proved cutting-midplane Z setting.
 - Off the turning approach, only facing or pocketing leaves a Z face.
   A hole's `to_z` is its tip; a milled wall's is its foot.
 - A turning op sampled by the kernel at numeric `to_z`, or over its
@@ -1454,14 +1492,25 @@ passes. Rotary-table and chain-drill tables are not end-mill paths.
 | `op` | Operation number |
 | `levels` | DRO Z at each depth, top first; one level for a single-depth op. It is `unknown` if coordinates could not compute levels or depth, never a fabricated single level at the op's depth. |
 | `from_z` | Level 1's start Z |
-| `entries` | Places the cutter goes down, in printed path order: `xy`, `air`, and `pass` for a raster pass |
+| `entries` | Places the cutter goes down, in printed path order: `xy`, positive-clearance `air`, and `pass` for a raster pass; exact boundary contact also carries `contact = "tangent"` |
 | `raster` | Whether the path is a raster |
 | `closed` | Whether one piece ends where it starts |
 
-An entry is in `air` only when the cutter stands a radius plus the kernel's 1e-3
-mm tolerance outside the setup-entry `stock_bbox_mm` in X or Y; anything else
-plunges into material, level `k` from level `k-1`'s Z, which the same path cut
-at that spot. A raster, a path in several pieces or an open path in several
+An entry is in `air` only when the finite circular cutter clears the actual
+setup-entry `stock_bbox_mm` by the kernel's 1e-3 mm positive margin. The distance
+is to the nearest point of the box in XY, so a cutter beyond a corner can be
+clear even when its own XY bounding box overlaps the stock box.
+
+Exact tangency is different: `air` stays false, but `contact = "tangent"`
+records no positive stock intrusion, using only the existing 1e-6 mm physical
+equality tolerance for native-coordinate serialization. The cutter lowers at
+the stock edge without a material-cutting plunge feed; it is not described as
+clear of the stock. This does not relax the positive air margin. Unknown,
+malformed or nonfinite geometry, positive intrusion beyond that equality
+tolerance, and an otherwise unproven entry retain the plunge requirement.
+
+A cutting plunge reaches level `k` from level `k-1`'s Z, which the same path
+cut at that spot. A raster, a path in several pieces or an open path in several
 levels returns to an entry (an unknown level count claims no return between levels):
 `raise_z` is `approach_mm` above the current top on
 the DRO grid (a raster's lift), and `raise_clear` is true only when the stock box
@@ -1563,6 +1612,10 @@ reading corner, kernel side or blade width leaves `corner_dro_z` unknown with it
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an
 unknown Z for every later read (`formed_z` unknown), never at its nominal `to_z`.
+
+Mounted-saw trajectory or body-side setting errors instead use
+`mounted_saw_errors` and the “Mounted saw trajectory/zero error” diagnostic;
+they remain errors and retain `mounted_saw_trajectory` evidence.
 
 #### Dome roughing and finishing order
 
@@ -1725,10 +1778,20 @@ Native-face details also have four operation-rule extensions:
 
 ### Applicability
 
-A dedicated saw setup (all nonmanual ops are `saw_cut` / `cut_off`, at least one
-saw) is `not_applicable`: its setting is an authored blade-centre `cut_plane`,
-not a spindle XYZ zero. A mixed setup still checks its other machining zero
-recipes; an unknown action cannot establish the saw-only exemption.
+A dedicated nonspindle saw setup (all nonmanual ops are `saw_cut` /
+`cut_off`, at least one saw, no confirmed or possible spindle saw) is
+`not_applicable`: its setting is `cut_plane`, not a spindle XYZ zero.
+An unknown action cannot establish that exemption. A mounted slitting saw
+requires the [mounted body-side setting](plan.md#mounted-saw-z-setting).
+`zero_check` consumes its independent native `saw.zero` evidence, not the
+geometry or engagement status. It proves stopped-spindle contact on the
+exposed flat annulus and a clear axial approach. Missing evidence stays
+unknown; a running touch or wrong body/plane side errors.
+
+Body thickness and signed kerf offset determine the setting, never blade
+radius or kerf width. New/reinstalled tool-holder pairs need matching touches.
+Mixed setups preserve ordinary X/Y/Z recipes and known-error precedence;
+ordinary touch evidence cannot be transferred to a mounted saw or vice versa.
 
 A setup satisfying the [manual-bench predicate](#manual-bench-applicability)
 is also `not_applicable`: it has no DRO zero to set. This is the same
@@ -2131,6 +2194,59 @@ reads such a producer (`axes.z`, `tool_touches`, `derived_touches`, `retouch`)
 lists the raw STEP refs credited in `credited_faces`, absent when none. The
 report JSON retains those proof refs for validation; the operator traveler names
 the face and any required contact constraint, without raw native entity IDs.
+
+### Explicit actual-stock top contact
+
+A paper Z zero with `face = "top"`, an explicit tool-axis `at_mm = [X, Y]`
+and no named `stock_state.top_feature` requests native proof on the actual
+arriving stock. A paper `ToolTouch` with `z_face = "top"` can request the same
+proof at its own explicit `after_op` / `before_ops` boundary by declaring its
+own `at_mm` and `retract_clearance_mm`. These coordinates and lengths follow
+manifest units despite their `_mm` names. A later touch never inherits the
+initial touch's pose or surviving contact land.
+
+The selected end mill needs an explicitly qualified flat end (measured nose
+radius zero), cutting diameter and length, shank, verified tool-holder
+projection and complete holder envelope. The native model requires an actual
++Z planar patch at the requested height. A 0.5 mm square centred at the
+authored tool-axis point must lie inside both that patch and the flat-end
+projection. The cutter disk may overhang the face; its entire circumference
+need not fit. The finite land must lie wholly inside one connected positive-area
+component of the actual disk/top contact. Coplanar fragments connect through
+positive-area overlap or a shared boundary segment, not an isolated touch point
+or proximity. The native check uses the face common for area and the B-rep
+section for shared edges and points; the selected patch is their actual fused
+area, with overlap counted once. Other separate contact components may exist;
+their area cannot repair a missing land on the selected component.
+The report's selected patch bounds and area describe that component, while
+total contact and uncovered areas account for the complete disk. No enclosing
+box or union of disconnected areas substitutes for the selected land. This is
+the qualified flat-end projection model, not a claim about individual flute
+phase or the cutter's exact cutting-edge B-rep.
+
+The complete occupied tip, shank and holder must clear actual stock and
+fixtures during descent from above the occupied scene, the signed check jog
+**from the paper-contact Axis Set**, and retract. The native result separately
+retains the actual stock's upper bound; an enclosing box by itself proves
+neither a planar zero surface nor a touchable land. Negative check jogs that
+intrude into stock are errors, not clearance.
+
+The setup sheet prints the selected tool-axis XY, the proved safe start and
+retract height, paper-contact height, Axis Set and signed check jog in that
+physical order. A staged touch stays beside its declared tool change. A
+missing or failed requested proof leaves a STOP; native recipe hashes, model
+names and face identifiers stay in the report rather than the operator steps.
+
+Proof is bound to the exact current recipe, selected tool and holder,
+normalized frame, stock route and raw operation boundary. Each dependent
+operation is gated on that same proof before native material or motion
+credit. Cold coordinate normalization may compile the declared command
+plane under this gate; it does not establish that plane as physical evidence.
+The rule consumes only the matching actual native plane afterward. A missing
+pose, unknown qualification, unsupported bench effect, incomplete path or
+absent/stale proof stays unknown. Known contradictions and collisions remain
+errors even when other facts are unknown. A named native top keeps the
+existing face-identity and survival rules below.
 
 ### Carried native faces
 

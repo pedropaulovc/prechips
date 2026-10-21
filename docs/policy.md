@@ -31,15 +31,36 @@ selector.
 | --- | --- |
 | `"*"` | All subjects for the named rule |
 | `"setups"` | Bare setup IDs, not operation subjects |
-| `"holes"` | Manifest kinds `hole`, `counterbore` and `thread` |
-| `"toleranced_features"` | Inspection's tolerance selection, including unknown requirement identities or lists |
-| Exact subject or list | Exact finding subjects such as `feature:requirement` and `setup:op`; a feature selector also matches that feature's requirement subjects |
+| `"holes"` | Feature kinds `hole`, `counterbore`, `thread` and `threaded_hole`; manual relationships with a participating hole feature |
+| `"toleranced_features"` | Inspection's tolerance selection, including unknown requirement identities or lists; a manual relationship is selected when a participant meets that selection |
+| Exact subject list | Only the listed finding subjects, including any member or shared-check qualification |
+| Exact subject, feature or relationship | An exact finding subject; a feature also selects its dimensional/member/shared checks and participating manual relationships; a relationship key selects its per-member checks |
+| Known setup ID | Its bare setup finding and operation findings; structured `setup_id` takes precedence over the display subject |
 
 Tolerance selection includes modeled tolerance dimension keys (including groove
 width/depth) and every authored two-element numeric-or-unknown requirement band.
 Ordinary three-component `at`, `thru` and `process` do not alone make a
 toleranced feature. Arbitrary selector strings are not schema errors. An
 unmatched selector produces unknown coverage rather than selecting everything.
+
+Inspection ownership comes from the finding's structured identity, not from
+splitting its displayed subject. For example, `base` selects
+`S1:30/base:width`, and `end-length` selects `nut1/end-length:length`.
+A relationship such as `stud_retention` selects its per-nut manual checks;
+selecting one of its participating features selects those checks too.
+The `"toleranced_features"` selector uses the participants' declared
+dimensional requirements. A manual contract does not invent a numeric
+tolerance.
+
+Missing or unknown inspection ownership cannot establish that a finding is
+outside a feature selection. Such findings remain readiness debt; unresolved
+ownership is not positive evidence that a required feature was checked.
+
+A named setup selector such as `"S2"` also selects legacy operation subjects
+that exactly match an authored operation, such as `S2:10`. This does not decode
+member or acceptance subjects, and an explicit list such as `["S2"]` still
+selects only the bare subject. Missing or unresolved setup identity cannot
+provide coverage; unresolved structured inspection ownership remains debt.
 
 ## Gate and always-required checks
 

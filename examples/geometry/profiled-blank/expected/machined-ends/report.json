@@ -1169,13 +1169,29 @@
       ],
       "message": "bottom_edge height: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "bottom_edge",
+          "requirement": "height",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           17.6,
           18.1
         ],
+        "method": null,
         "op": "S1:90",
-        "requirement": "height"
+        "op_id": 90,
+        "part_result": "not_recorded",
+        "requirement": "height",
+        "selection_status": "pass",
+        "setup_id": "S1",
+        "shared_check_id": null,
+        "subject": "bottom_edge:height"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1189,13 +1205,29 @@
       ],
       "message": "corner_chamfer width: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "corner_chamfer",
+          "requirement": "width",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           3.5,
           4.5
         ],
+        "method": null,
         "op": "S1:90",
-        "requirement": "width"
+        "op_id": 90,
+        "part_result": "not_recorded",
+        "requirement": "width",
+        "selection_status": "pass",
+        "setup_id": "S1",
+        "shared_check_id": null,
+        "subject": "corner_chamfer:width"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1209,13 +1241,29 @@
       ],
       "message": "end_faces length: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "end_faces",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           59.9,
           60.1
         ],
+        "method": null,
         "op": "S1:90",
-        "requirement": "length"
+        "op_id": 90,
+        "part_result": "not_recorded",
+        "requirement": "length",
+        "selection_status": "pass",
+        "setup_id": "S1",
+        "shared_check_id": null,
+        "subject": "end_faces:length"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1229,13 +1277,29 @@
       ],
       "message": "strap_faces thickness: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "strap_faces",
+          "requirement": "thickness",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           2.3,
           2.7
         ],
+        "method": null,
         "op": "S1:90",
-        "requirement": "thickness"
+        "op_id": 90,
+        "part_result": "not_recorded",
+        "requirement": "thickness",
+        "selection_status": "pass",
+        "setup_id": "S1",
+        "shared_check_id": null,
+        "subject": "strap_faces:thickness"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -1249,13 +1313,29 @@
       ],
       "message": "top_arc radius: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "top_arc",
+          "requirement": "radius",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           79.5,
           80.5
         ],
+        "method": null,
         "op": "S1:90",
-        "requirement": "radius"
+        "op_id": 90,
+        "part_result": "not_recorded",
+        "requirement": "radius",
+        "selection_status": "pass",
+        "setup_id": "S1",
+        "shared_check_id": null,
+        "subject": "top_arc:radius"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -2235,7 +2315,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "81f826139ac0311065502640c06943ea62828fe660cb56aaac102453156a1156",
+  "hash": "315c913812e4482d72f4354b40f2ed2c182d1b7ce8e9c8953b586b968478df83",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2255,7 +2335,7 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "1d00d5781839194d278996b21acc281efb68255922c2412da452d2cddf298329"
+      "sha256": "3358bf876588f674fdeff4b34339e45003705d40039fb440d1c993b7af2631d4"
     },
     "shop_policy": {
       "path": "examples/geometry/profiled-blank/shop-policy.toml",
@@ -2296,7 +2376,7 @@
         "fixture_kind": null,
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1514,
+        "height_px": 1041,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2308,9 +2388,12 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1041,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2325,7 +2408,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "1d00d5781839194d278996b21acc281efb68255922c2412da452d2cddf298329"
+      "sha256": "3358bf876588f674fdeff4b34339e45003705d40039fb440d1c993b7af2631d4"
     }
   },
   "rules_version": "m5-rev12",

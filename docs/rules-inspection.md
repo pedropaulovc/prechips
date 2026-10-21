@@ -47,6 +47,21 @@ entry is an error, while literal `"unknown"` is an unresolved method. An entire
 named gauge's missing-item error belongs to `tool_resolves`; inspection reports
 its capability as unknown.
 
+For registered workpieces, unresolved cut ownership is not proof that the cut
+belongs to another member. It remains a possible later cut for each live member;
+an earlier check cannot pass final-ordering on that basis. A later capable check
+on the explicitly selected member can establish its own final checkpoint.
+Finishing work under another feature label also counts when its resolved
+physical face claims overlap any inspected face of that member. A partial
+overlap can invalidate a check without proving complete machining ownership.
+Known disjoint faces do not invalidate it; unresolved overlap remains debt.
+Names such as `all-surfaces` have no wildcard meaning. Manual acceptance uses
+the same physical-face relation for its participating features.
+
+A later `spot` on a participating feature or overlapping physical faces
+invalidates manual acceptance for the affected member, even though spotting is
+excluded from ordinary dimensional finishing-cut selection.
+
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
 exported on another feature does not establish ownership. An `inspect` op naming
@@ -74,6 +89,42 @@ Place that unresolved check at its authored process point. The shaft's S3:15
 check is after cutting the scribe-to-face target but before S3:20 doming:
 measure the cut face while recutting is still possible, then follow the
 existing forward instruction to verify the cylinder end after doming.
+
+#### Shared dimensions and later bench work
+
+`inspect_workpieces` names the registered members an inspection checks. A
+single-member final check without `inspection_scope` uses that member's own
+feature requirements. One inspect operation can measure several feature-owned
+dimensions and check manual fit relationships at one physical checkpoint;
+combining the paper record does not merge requirements or replace numerical
+limits with a fit test. The result remains an inspection plan, not a recorded
+measurement or approval.
+
+A shared dimensional check needs explicit `inspection_scope.after` and `before`
+operation boundaries. Earlier dimensional credit also needs native proof that
+the original supporting surfaces survive through each member's actual later
+material route. The operation ledger includes bench work as well as machine
+cuts. `fit`, `deburr` and `coating` are potentially shape-changing actions, not
+proof of unchanged size. An unsupported effect leaves preservation unknown,
+even if the nominal solid is unchanged or the operation names another feature.
+Only `inspect`, `release` and `scribe` are non-material metadata.
+
+Native proof must bind the current ordered operations, member registration,
+partition path and requirement-specific supports. A later producer label cannot
+erase an earlier unmodeled effect. A manual relationship check, an instruction
+to preserve flats, or a native no-op snapshot does not supply a bounded material
+effect. When that proof is unavailable, put the required size measurements at a
+truthful final inspection after the relevant bench work instead of claiming
+that an early measurement survived it.
+
+Shared coverage does not suppress an authored per-member check: its selected
+gauge, capability, identity and final-cutter order are still evaluated. When every
+covered member has a passing later check for the exact same feature and
+requirement, unknown preservation on the early shared check becomes
+`not_applicable`, not a pass. Evidence keeps the original preservation debt and
+identifies the replacing final checks. An uncovered member keeps that debt;
+unknown shared scope or gauge capability, bad timing, an incapable gauge, and
+proved destruction remain unresolved or errors even with capable final checks.
 
 ### Gauge kinds and datum methods
 

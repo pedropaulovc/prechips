@@ -326,7 +326,15 @@ def test_setup_png_refuses_clipped_annotations(failure):
     width, height, _ = _decode_png(png)
     assert width == 1600
     assert panels == [
-        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S1  /  LATHE VIEW"}
+        {
+            "top_px": 0,
+            "height_px": height,
+            "role": "setup",
+            "label": "SETUP S1  /  LATHE VIEW",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        }
     ]
     assert height / width * 7.5 <= 8.4
     if failure == "clipping":
@@ -495,9 +503,13 @@ def test_public_wide_stock_and_stickout_rows_preserve_glyphs_and_projection(stic
     assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
     assert width == 1600
     stock_label = f"STOCK X {stock[3] - stock[0]:g} mm"
-    stickout_caption = f"STICKOUT {stickout:.3f} MM"
     (stock_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stock_label.upper()]
-    (stickout_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stickout_caption]
+    (stickout_text,) = [
+        box
+        for box in diagram.canvas.text_boxes
+        if (match := re.fullmatch(r"STICKOUT (\d+(?:\.\d+)?) MM", box[0]))
+        and float(match[1]) == stickout
+    ]
     assert stock_text[2] - stickout_text[4] >= 4
     diagram.canvas.assert_text_layout(min_scale=5)
     for box, colour in ((stock_text, _INK), (stickout_text, render_module._BLUE)):
@@ -723,7 +735,15 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
     assert width == 1600
     assert 0 < height <= 1792
     assert panels == [
-        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S3  /  LATHE VIEW"}
+        {
+            "top_px": 0,
+            "height_px": height,
+            "role": "setup",
+            "label": "SETUP S3  /  LATHE VIEW",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        }
     ]
     diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert observed_png == png
@@ -1559,13 +1579,88 @@ def _vise_spec(size, touching=True):
     return meshes, spec
 
 
+def _assert_main_footer_entries(diagram):
+    """Check full painted body cells and real sample gutters, independent of packing."""
+    colors = {
+        "stock": (160, 174, 184),
+        "fixture": (120, 98, 76),
+        "tool": (24, 91, 58),
+        "nominal": (35, 83, 147),
+        "removal": (252, 235, 190),
+        "context": (85, 93, 100),
+    }
+    first_panel = diagram.print_panels[0]
+    footer_boxes = [
+        box
+        for box in diagram.canvas.text_boxes
+        if diagram.footer_top < box[2] < first_panel["height_px"]
+    ]
+    painted = []
+    for column_index, (sample_x, entries) in enumerate(diagram.footer_columns):
+        next_left = (
+            diagram.footer_columns[column_index + 1][0]
+            if column_index + 1 < len(diagram.footer_columns)
+            else 960
+            if diagram.footer_note_rows
+            else diagram.canvas.width - 32
+        )
+        previous_bottom = diagram.footer_top
+        for semantic_label, kind, lines in entries:
+            painted.append((semantic_label, kind))
+            assert " ".join(lines) == semantic_label
+            cells = []
+            for line in lines:
+                matches = [
+                    box
+                    for box in footer_boxes
+                    if box[0] == line and box[1] == sample_x + 32 and box[2] >= previous_bottom
+                ]
+                assert matches, (semantic_label, line)
+                cell = min(matches, key=lambda box: box[2])
+                assert cell[3] + 4 <= next_left
+                assert cell[4] - cell[2] >= 35
+                assert cell[4] <= first_panel["height_px"]
+                assert any(
+                    _pixel(diagram.canvas, x, y) != _WHITE
+                    for y in range(cell[2], cell[4])
+                    for x in range(cell[1], cell[3])
+                )
+                cells.append(cell)
+                previous_bottom = cell[4]
+            assert cells
+            first = cells[0]
+            sample_pixels = {
+                _pixel(diagram.canvas, x, y)
+                for y in range(first[2], first[4])
+                for x in range(sample_x, first[1] - 4)
+            }
+            if kind in colors:
+                assert colors[kind] in sample_pixels, semantic_label
+            assert {
+                _pixel(diagram.canvas, x, y)
+                for y in range(first[2], first[4])
+                for x in range(first[1] - 4, first[1])
+            } == {_WHITE}
+            for _, left, top, _, bottom in cells[1:]:
+                assert {
+                    _pixel(diagram.canvas, x, y)
+                    for y in range(top, bottom)
+                    for x in range(sample_x, left)
+                } == {_WHITE}
+    assert painted == diagram.legend_entries[: len(painted)]
+    assert diagram.footer_legend_rows == (diagram.legend_ends[len(painted) - 1] if painted else 0)
+    diagram.canvas.assert_text_layout(min_scale=5)
+
+
 def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     stock = [0, 0, 0, 18, 26.2, 34.2]
     spec = {
         "setup_id": "S1",
         "view": "isometric",
         "stock_box": stock,
-        "legend": ["retained", "removed", "holding", "tool"],
+        "zero_mm": [0, 0, 0],
+        "datums": [],
+        "legend": ["retained", "removed", "holding", "tool", "context"],
         "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
         "nominal_render_outline_mm": [
             [[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]
@@ -1574,24 +1669,59 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     diagram, _ = _composed_diagram([], spec)
     axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
     assert [box[0] for box in axes_words] == ["VIEW", "NORMAL"]
+    first_sample = min(x for x, _ in diagram.footer_columns)
     for _, _, top, right, bottom in axes_words:
-        assert right + 32 < 350
+        assert right + 32 <= first_sample
         assert {
             _pixel(diagram.canvas, x, y)
-            for y in range(top - 4, bottom + 4)
-            for x in range(right + 4, 346)
+            for y in range(top, bottom)
+            for x in range(right + 4, first_sample)
         } == {_WHITE}
-    for kind, color in (("tool", (24, 91, 58)), ("nominal", (35, 83, 147))):
-        index = next(i for i, (_, entry) in enumerate(diagram.legend_rows) if entry == kind)
-        y = diagram.footer_top + 88 + index * 45
-        samples = {
-            _pixel(diagram.canvas, x, row) for row in range(y, y + 35) for x in range(350, 375)
-        }
-        assert color in samples
+    _assert_main_footer_entries(diagram)
+    assert [
+        (label, kind) for _, entries in diagram.footer_columns for label, kind, _ in entries
+    ] == diagram.legend_entries
+    assert diagram.legend_entries == [
+        ("RETAINED AFTER SETUP", "stock"),
+        ("REMOVED THIS SETUP", "removal"),
+        ("WORKHOLDING", "fixture"),
+        ("TOOL / APPROACH", "tool"),
+        ("MACHINE OUTLINE", "context"),
+        ("FINISHED OUTLINE, THIS SETUP", "nominal"),
+    ]
     width, height, pixels = _decode_png(diagram.canvas.png())
     assert pixels == diagram.canvas.rgb
     assert width == 1600 and height / width * 7.5 <= 8.4
     diagram.canvas.assert_text_layout(min_scale=5)
+
+
+def test_no_notes_main_compacts_by_translation_without_shrinking_the_work():
+    # Synthetic raster/layout evidence only; native scenes are regenerated separately.
+    meshes, spec = _vise_spec(150)
+    spec["datums"] = []
+    diagram, _ = _composed_diagram(meshes, spec)
+    main = diagram.print_panels[0]
+    assert diagram.canvas.width == 1600
+    assert main["height_px"] <= 1050
+    assert not diagram.note_lines
+    assert not diagram.footer_details
+    left, top, right, bottom = diagram.viewport
+    assert (right - left, bottom - top) == (720, 360)
+    assert top < 380
+    assert diagram.camera == _FRONT
+    legacy = RenderCanvas(diagram.meshes, diagram.camera, (440, 380, 1160, 740), height=1200)
+    assert diagram.canvas.scale == legacy.scale
+    assert diagram.canvas._world_centre == legacy._world_centre
+    for point in _corners(spec["stock_box"]):
+        old_x, old_y = legacy.project(point)
+        x, y = diagram.canvas.project(point)
+        assert x == pytest.approx(old_x)
+        assert y - old_y == pytest.approx(top - 380)
+        assert left <= x <= right and top <= y <= bottom
+    _assert_main_footer_entries(diagram)
+    assert [
+        (label, kind) for _, entries in diagram.footer_columns for label, kind, _ in entries
+    ] == diagram.legend_entries
 
 
 @pytest.mark.parametrize("radius", [5.1, 3.25])
@@ -1816,7 +1946,7 @@ def pure_native_outline_render():
 
 
 def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
-    """Exercise the real spec producer with no FreeCAD imports or geometry."""
+    """Real spec producer for explicit mill arrival: no holding, threads or workpieces."""
     face = SimpleNamespace(Edges=edges)
     solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
     monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
@@ -1831,12 +1961,17 @@ def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
         fixture_debts=[],
         fixture_gaps=[],
         fixture=[],
+        capture_fixture=[],
         fixture_possible=[],
+        fixture_possible_shapes=[],
+        jaw_frame_box=None,
         jaws=None,
-        owner=SimpleNamespace(features={}),
+        owner=SimpleNamespace(features={}, workpieces={}),
         ops=[{"subject": "S1:20"}],
         finished=solid,
+        finished_face_count=len(solid.Faces),
         faces=[face],
+        thread_regions=[],
         _rest_render=lambda debts: [],
         _expects_parallels=lambda: False,
         _render_tool=lambda annotation, lathe, rests: (None, None),
@@ -2593,9 +2728,9 @@ def test_a_long_legend_keeps_the_stock_dimension_above_the_actual_footer():
     spec["legend"] = [f"SOURCE NOTE {index}" for index in range(12)]
     diagram, _ = _composed_diagram(meshes, spec)
     assert len(diagram.legend_rows) > len(baseline.legend_rows)
-    assert diagram.canvas.height - diagram.footer_top > (
-        baseline.canvas.height - baseline.footer_top
-    )
+    _assert_main_footer_entries(diagram)
+    printed = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert sorted(map(int, re.findall(r"\bSOURCE NOTE (\d+)\b", printed))) == list(range(12))
     assert diagram.dimensions.keys() == baseline.dimensions.keys()
     for label, (start, end) in diagram.dimensions.items():
         assert start[1] == end[1] < diagram.footer_top - 36
@@ -2643,6 +2778,23 @@ def test_setup_text_footer_continues_in_complete_readable_owned_bands(overflow, 
         + ["holding_detail"] * len(diagram.holding_details)
         + ["guide_axis"] * len(diagram.guide_details)
     )
+    setup_panels = panels[: 1 + len(diagram.footer_details)]
+    assert [
+        (panel["id"], panel["selection_group"], panel["annotations"]) for panel in setup_panels
+    ] == [("setup", "setup", [])] + [
+        (f"setup:{ordinal}", "setup", []) for ordinal in range(1, len(setup_panels))
+    ]
+    other_panels = panels[len(setup_panels) :]
+    assert other_panels
+    assert all(panel["selection_group"] == panel["id"] for panel in other_panels)
+    assert all(panel["annotations"] == [] for panel in other_panels)
+    assert len({panel["id"] for panel in panels}) == len(panels)
+    # Adding KEY/SETUP NOTES bands never renumbers or changes another selectable view.
+    assert [(panel["id"], panel["selection_group"]) for panel in other_panels] == [
+        (panel["id"], panel["selection_group"])
+        for panel in baseline.print_panels
+        if panel["selection_group"] != "setup"
+    ]
     # No geometry, dimension, leader or detached sketch is refitted by footer text.
     assert diagram.footer_top == baseline.footer_top
     assert diagram.viewport == baseline.viewport
@@ -2702,24 +2854,22 @@ def test_setup_text_footer_continues_in_complete_readable_owned_bands(overflow, 
     assert numbered["K"] == (list(range(1, 61)) if overflow != "notes" else [])
     note_rows = 0
     footer_panels = panels[1 : 1 + len(diagram.footer_details)]
-    owners = [(panels[0], diagram.footer_top, 88)] + [
-        (panel, detail.footer_top, detail.text_top)
+    _assert_main_footer_entries(diagram)
+    owners = [(panels[0], diagram.footer_top)] + [
+        (panel, detail.footer_top)
         for panel, detail in zip(footer_panels, diagram.footer_details, strict=True)
     ]
-    for panel, footer_top, text_top in owners:
-        for _, left, top, right, bottom in diagram.canvas.text_boxes:
-            if (
-                left == 380
-                and panel["top_px"] + footer_top < top
-                and bottom <= panel["top_px"] + panel["height_px"]
+    for panel, footer_top in owners:
+        for label, left, top, right, bottom in diagram.canvas.text_boxes:
+            if not (
+                panel["top_px"] + footer_top < top < bottom <= panel["top_px"] + panel["height_px"]
             ):
+                continue
+            if left == 960 and label in diagram.note_lines:
+                note_rows += 1
+                assert right <= 1568
+            elif panel is not panels[0] and left == 380:
                 assert right + 56 <= 960
-        note_rows += sum(
-            left == 960
-            and panel["top_px"] + footer_top + text_top <= top
-            and bottom <= panel["top_px"] + panel["height_px"]
-            for _, left, top, _, bottom in diagram.canvas.text_boxes
-        )
     assert note_rows == len(baseline.note_lines) + (120 if overflow != "key" else 0)
     # Every ordinary multi-row note remains whole at the chosen band boundaries.
     assert diagram.footer_note_rows in {0, *diagram.note_ends}
@@ -2777,6 +2927,7 @@ def test_one_overlong_footer_entry_continues_with_its_explicit_source_entry_iden
         cursor += panel["height_px"]
     assert cursor == height
     diagram.canvas.assert_text_layout(min_scale=5)
+    _assert_main_footer_entries(diagram)
     for _, left, top, right, bottom in diagram.canvas.text_boxes:
         assert (
             sum(
@@ -2786,7 +2937,7 @@ def test_one_overlong_footer_entry_continues_with_its_explicit_source_entry_iden
             == 1
         )
         if left == 380 and any(
-            panel["role"] == "setup"
+            panel in diagram.print_panels[1 : 1 + len(diagram.footer_details)]
             and panel["top_px"] <= top < bottom <= panel["top_px"] + panel["height_px"]
             for panel in diagram.print_panels
         ):
@@ -2820,6 +2971,11 @@ def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(mon
     assert diagram.print_panels == panels
     text = " ".join(box[0] for box in diagram.canvas.text_boxes)
     assert "CUT 0 MM FROM FIXED JAW" in text, text
+    assert [
+        (panel["id"], panel["selection_group"])
+        for panel in panels
+        if "closest_cut" in panel["annotations"]
+    ] == [("setup", "setup")]
 
 
 @pytest.mark.parametrize(
@@ -2843,6 +2999,9 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
                 "height_px": detail.canvas.height,
                 "role": "holding_detail",
                 "label": detail._title(),
+                "id": "holding_detail:1",
+                "selection_group": "holding_detail:1",
+                "annotations": [],
             }
         )
         top += detail.canvas.height
@@ -2877,13 +3036,15 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
     detail.canvas.assert_text_layout(min_scale=5)
 
 
-def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_owners():
+@pytest.mark.parametrize("finite_saw", [False, True], ids=["cut", "finite-saw-cycle"])
+def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_owners(finite_saw):
     meshes, spec = _vise_spec(12)
     spec["closest_cut"] = {
         "mm": 1.25,
         "tag": "fixed_jaw",
         "from_mm": [1.25, 3, 5],
         "to_mm": [0, 3, 5],
+        **({"scope": "machining_trajectory"} if finite_saw else {}),
     }
     supplied = json.dumps(spec, sort_keys=True)
     png, debts, panels = render_diagram(meshes, spec)
@@ -2894,7 +3055,7 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
     (detail,) = _holding_details(meshes, spec, main)
     contacts = {callout.label for callout in detail.callouts if callout.colour == _CONTACT}
     assert contacts == {"FIXED JAW CONTACT AT X 0", "MOVING JAW CONTACT AT X 12"}
-    cut = "CUT 1.25 mm FROM FIXED JAW"
+    cut = f"{'SAW CYCLE' if finite_saw else 'CUT'} 1.25 mm FROM FIXED JAW"
     assert cut in {callout.label for callout in detail.callouts}
     (path,) = [path for label, path in detail.leaders if label == cut]
     ends = [detail.canvas.project(spec["closest_cut"][key]) for key in ("from_mm", "to_mm")]
@@ -2908,7 +3069,14 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
         "height_px": detail.canvas.height,
         "role": "holding_detail",
         "label": detail._title(),
+        "id": "holding_detail:1",
+        "selection_group": "holding_detail:1",
+        "annotations": ["closest_cut"],
     }
+    assert panels[0]["annotations"] == []
+    assert [
+        panel["selection_group"] for panel in panels if "closest_cut" in panel["annotations"]
+    ] == ["holding_detail:1"]
     assert band["top_px"] + band["height_px"] == height
     diagram, observed_png = _compose_diagram(main, [detail])
     assert observed_png == png
@@ -2921,26 +3089,36 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
 
 
 @pytest.mark.parametrize(
-    ("decimals", "cut", "plane"), [(3, "6.655", "12.000"), (4, "6.6547", "12.0000")]
+    ("decimals", "clearance", "cut", "plane"),
+    [
+        (3, 6.6547, "6.655", "12"),
+        (4, 6.6547, "6.6547", "12"),
+        (0, 10, "10", "12"),
+        (0, 0.0001, "0", "12"),
+        (5, 1.35, "1.35", "12"),
+        (5, 8.8125, "8.8125", "12"),
+        (5, 0.0508, "0.0508", "12"),
+    ],
 )
 def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them(
-    decimals, cut, plane
+    decimals, clearance, cut, plane
 ):
-    # The kernel measures the jaw tops 6.6547 below the cut; the setup's tables print that
-    # at its DRO decimals, and so must the picture: never 6.65 beside a table's 6.655.
+    # Pictures retain the table's rounded numeric value, without fractional zero
+    # padding; a zero-place setting must not trim the integer zero from 10.
     meshes, spec = _vise_spec(12)
     spec["decimals"] = decimals
-    spec["jaw_front_z_mm"] = -6.6547
+    spec["jaw_front_z_mm"] = -clearance
     spec["closest_cut"] = {
-        "mm": 6.6547,
+        "mm": clearance,
         "tag": "fixed_jaw",
         "from_mm": [0, 6, 10],
-        "to_mm": [0, 6, 10 - 6.6547],
+        "to_mm": [0, 6, 10 - clearance],
     }
     main, _ = _main_diagram(meshes, spec)
     (detail,) = _holding_details(meshes, spec, main)
     text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
-    assert f"JAW FRONT Z -{cut} MM" in text, text
+    front = "0" if cut == "0" else f"-{cut}"
+    assert f"JAW FRONT Z {front} MM" in text, text
     assert f"CUT {cut} MM FROM" in text, text
     assert f"CONTACT AT X {plane}" in text, text
 
@@ -3299,10 +3477,14 @@ def test_picture_contact_coordinates_print_on_the_setup_dro_grid_and_clearances_
         ({"op": "40"}, "CUT 6.653 mm FROM FIXED JAW (OP 40)"),
         ({"op": "10", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (OP 10)"),
         ({"op": "unknown", "blade": True}, "CUT 6.653 mm FROM FIXED JAW (SAW BLADE)"),
+        (
+            {"op": "10", "blade": True, "scope": "machining_trajectory"},
+            "SAW CYCLE 6.653 mm FROM FIXED JAW (OP 10)",
+        ),
         ({"op": "unknown"}, "CUT 6.653 mm FROM FIXED JAW"),
         ({}, "CUT 6.653 mm FROM FIXED JAW"),
     ],
-    ids=["op", "saw-op", "blade", "unknown-op", "no-op"],
+    ids=["op", "saw-op", "blade", "finite-saw-cycle", "unknown-op", "no-op"],
 )
 def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(named, label):
     # Rocker RK-B6: S4's least cut is op 40's, a bench file's; a reader checking op 27's
@@ -3320,17 +3502,145 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
     main = _Diagram(meshes, spec)
     main.render()
     (detail,) = _holding_details(meshes, spec, main)
-    cuts = [label for label, _ in detail.leaders if label.startswith("CUT ")]
+    cuts = [label for label, _ in detail.leaders if label.startswith(("CUT ", "SAW CYCLE "))]
     assert cuts == [label], cuts
     detail.canvas.assert_text_layout(min_scale=3)
+
+
+@pytest.mark.parametrize(
+    "stage,minimum_stages,phase",
+    [
+        ("pre_cut", ["pre_cut"], "PRE-CUT"),
+        ("cut", ["cut"], "CUT"),
+        ("post_cut", ["post_cut"], "POST-CUT"),
+        ("pre_cut", ["pre_cut", "cut"], "PRE-CUT/CUT"),
+        ("pre_cut", ["pre_cut", "post_cut"], "PRE/POST-CUT"),
+        ("pre_cut", ["post_cut", "pre_cut"], "PRE/POST-CUT"),
+        ("cut", ["post_cut", "cut"], "CUT/POST-CUT"),
+        ("pre_cut", ["post_cut", "pre_cut", "cut"], "PRE/CUT/POST"),
+        ("pre_cut", ["unknown"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "unknown"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "cut", "unknown"], "CYCLE"),
+    ],
+)
+def test_native_saw_phase_never_infers_stopped_calibration_from_a_clear_move(
+    stage, minimum_stages, phase
+):
+    meshes, spec = _vise_spec(12)
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "cut" if stage == "cut" else "clear",
+        "stage": stage,
+        "minimum_stages": minimum_stages,
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if " mm FROM FIXED JAW" in label]
+    assert len(labels) == 1
+    phase_label = labels[0].split(" mm FROM ", 1)[0].rsplit(" ", 1)[0]
+    assert phase_label.removeprefix("SAW ").removesuffix(" MINIMUM") == phase
+    assert "FROM FIXED JAW" in labels[0]
+    assert not any(
+        "STOPPED" in callout.label or "PAPER" in callout.label for callout in detail.callouts
+    )
+
+
+def test_verified_stopped_setting_prints_source_paper_without_replacing_the_canonical_distance():
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 2
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "op": "10",
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "clear",
+        "stage": "pre_cut",
+        "stopped_setting_touch": {"touch_index": 0, "paper_mm": 0.0508},
+    }
+    supplied = json.dumps(spec, sort_keys=True)
+    _, debts, panels = render_diagram(meshes, spec)
+    assert debts == []
+    assert json.dumps(spec, sort_keys=True) == supplied
+    assert sum("closest_cut" in panel["annotations"] for panel in panels) == 1
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if "STOPPED BODY" in label]
+    assert len(labels) == 1
+    assert "SETTING" in labels[0] and "0.0508 mm PAPER" in labels[0]
+    assert "AT FIXED JAW" in labels[0] and "(OP 10)" in labels[0]
+    assert "FROM" not in labels[0] and "SAW CYCLE" not in labels[0]
+
+
+@pytest.mark.parametrize("decimals,distance", [(2, "0.05"), (3, "0.051"), (4, "0.0508")])
+@pytest.mark.parametrize(
+    "witness_owner",
+    [None, ("10", "fixed_jaw"), ("20", "calibration-pad")],
+)
+def test_cycle_minimum_names_an_included_stopped_setting_only_from_an_explicit_witness(
+    witness_owner, decimals, distance
+):
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = decimals
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "op": "10",
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "clear",
+        "stage": "pre_cut",
+        "minimum_stages": ["pre_cut", "post_cut"],
+    }
+    if witness_owner is not None:
+        op, tag = witness_owner
+        spec["closest_cut"]["included_stopped_setting_touch"] = {
+            "touch_index": 0,
+            "paper_mm": 0.0508,
+            "mm": 0.0508,
+            "tag": tag,
+            "op": op,
+        }
+    _, debts, panels = render_diagram(meshes, spec)
+    assert debts == []
+    assert sum("closest_cut" in panel["annotations"] for panel in panels) == 1
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if " mm FROM FIXED JAW" in label]
+    assert len(labels) == 1
+    assert f"{distance} mm FROM FIXED JAW (OP 10)" in labels[0]
+    assert labels[0].count(" mm") == 1
+    if witness_owner is None:
+        assert "PRE/POST-CUT" in labels[0]
+        assert "INCLUDES" not in labels[0] and "STOPPED" not in labels[0]
+    else:
+        assert "CYCLE" in labels[0]
+        assert "INCLUDES STOPPED BODY/PAPER SETTING" in labels[0]
+        if witness_owner[0] != "10":
+            assert "AT CALIBRATION PAD, OP 20" in labels[0]
 
 
 @pytest.mark.parametrize(
     ("zero_x", "fixed", "moving"),
     [
         (-0.0025, "0.005", "12.005"),
-        (0.0025, "-0.005", "12.000"),
-        (-0.0074999999, "0.010", "12.010"),
+        (0.0025, "-0.005", "12"),
+        (-0.0074999999, "0.01", "12.01"),
     ],
 )
 def test_a_contact_half_a_dro_step_off_rounds_as_the_fixture_tables_set_it(zero_x, fixed, moving):
@@ -3362,17 +3672,24 @@ def test_keys_too_many_for_their_lanes_move_the_footer_down_never_across_it():
             for index in range(30)
         ],
     }
-    fixed = _Diagram([], spec)
+    meshes = [_block(spec["stock_box"], (160, 175, 185), "part")]
+    fixed = _Diagram(meshes, spec)
     fixed.grows_to_fit = True
     fixed.render()
-    assert fixed.lane_overflow > 0  # the 1000 px picture cannot hold them
+    assert fixed.lane_overflow > 0  # the unextended compact lanes cannot hold them
 
-    diagram, png = _main_diagram([], spec)
+    diagram, png = _main_diagram(meshes, spec)
+    assert diagram.extra > fixed.extra
+    assert diagram.canvas.height > fixed.canvas.height
+    assert diagram.lane_overflow <= 0
     keys = [box for box in diagram.canvas.text_boxes if box[0].startswith("DATUM F")]
     assert len(keys) == 30
     assert all(bottom + 4 <= diagram.footer_top for *_, bottom in keys), diagram.footer_top
     assert all(bottom - top >= 21 for _, _, top, _, bottom in keys)
-    assert _decode_png(render_diagram([], spec)[0])[:2] == _decode_png(png)[:2]
+    # Both paths now see actual stock; only the public path settles missing-solid debt.
+    public_png, debts, _ = render_diagram(meshes, spec)
+    assert debts == []
+    assert _decode_png(public_png)[:2] == _decode_png(png)[:2]
 
 
 def _lane_pressure_scene(count):
@@ -3392,12 +3709,10 @@ def _lane_pressure_scene(count):
 
 
 @pytest.mark.parametrize("count", [42, 44])
-def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_budget(
-    count, monkeypatch
-):
+def test_main_lane_pressure_grows_without_refitting_or_omitting_content(count, monkeypatch):
     meshes, spec = _lane_pressure_scene(count)
     # Unique tokens expose every source word through actual painted output, including
-    # the complete logical note that cannot fit beside the axes in the rescued band.
+    # a complete logical note continued when lane growth leaves too little footer room.
     spec["notes"] = [" ".join(f"N{index:03d}" for index in range(1, 61))]
     supplied = json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True)
     attempts = []
@@ -3413,14 +3728,12 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
     width, height, pixels = _decode_png(png)
     assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
     assert width == 1600
-    assert attempts[0].extra == 0 and attempts[0].lane_overflow > 308
+    assert attempts[0].extra == 0 and attempts[0].lane_overflow > 0
     assert diagram.lane_overflow <= 0
-    assert diagram.axes_height < 424
-    maximum = 1792 - (diagram.footer_top - diagram.extra) - diagram.axes_height
-    assert 308 < diagram.extra <= maximum
-    assert sum(attempt.extra == maximum for attempt in attempts) <= 1
-    if math.ceil(attempts[0].lane_overflow) > maximum:
-        assert diagram.extra == maximum
+    assert diagram.extra > 0
+    assert diagram.footer_top > attempts[0].footer_top
+    assert diagram.print_panels[0]["height_px"] <= 1792
+    assert len({attempt.extra for attempt in attempts}) == len(attempts)
     assert diagram.camera == _FRONT
     assert diagram.viewport == attempts[0].viewport
     assert diagram.canvas.scale == attempts[0].canvas.scale
@@ -3449,10 +3762,12 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
     axes = [
         box
         for box in diagram.canvas.text_boxes
-        if box[1] < 350 and diagram.footer_top < box[2] < first_band["height_px"]
+        if box[0] in {"SETUP", "AXES", "X", "Y", "Z", "Z TOWARD"}
+        and diagram.footer_top < box[2] < first_band["height_px"]
     ]
-    assert {"SETUP AXES", "X", "Y", "Z", "Z TOWARD"} <= {box[0] for box in axes}
+    assert {"SETUP", "AXES", "X", "Y", "Z", "Z TOWARD"} <= {box[0] for box in axes}
     assert max(box[4] for box in axes) + 16 <= first_band["height_px"]
+    _assert_main_footer_entries(diagram)
     diagram.canvas.assert_text_layout(min_scale=5)
     cursor = 0
     for panel in diagram.print_panels:
@@ -3477,7 +3792,7 @@ def test_main_lane_pressure_reclaims_measured_axes_and_repacks_once_at_the_real_
 
 
 def test_main_lane_actual_maximum_overflow_refuses_once_without_composing(monkeypatch):
-    meshes, spec = _lane_pressure_scene(60)
+    meshes, spec = _lane_pressure_scene(96)
     attempts, composed = [], []
     render, compose = _Diagram.render, render_module._compose_diagram
 
@@ -3495,14 +3810,15 @@ def test_main_lane_actual_maximum_overflow_refuses_once_without_composing(monkey
     with pytest.raises(ValueError, match="complete setup panel") as failure:
         render_diagram(meshes, spec)
     last = attempts[-1]
-    maximum = 1792 - (last.footer_top - last.extra) - last.axes_height
+    message = str(failure.value)
+    maximum = int(re.search(r"\bmax_extra_px=(\d+)", message).group(1))
     assert last.extra == maximum
     assert last.lane_overflow > 0
     assert sum(attempt.extra == maximum for attempt in attempts) == 1
     assert not composed
-    message = str(failure.value)
+    assert last.canvas.height <= 1792
     assert "owner=_Diagram, role=setup" in message
-    assert "setup_id='LANE60', view='plan'" in message
+    assert "setup_id='LANE96', view='plan'" in message
     assert f"attempted_extra_px={last.extra}" in message
     assert f"max_extra_px={maximum}" in message
     assert f"axes_min_px={last._axes_minimum()}" in message
@@ -3661,7 +3977,10 @@ def test_a_named_void_at_numbered_positions_is_keyed_by_their_badges_not_leaders
     assert " ".join(lines).count("PAD SLOTS AT L1-L3, R1") == 1, lines
 
 
-def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once():
+@pytest.mark.parametrize("with_clearance", [False, True])
+def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once(
+    with_clearance,
+):
     # A 300 x 12 mm bar seen from above: its holding heights cannot show in the plan, and
     # one band across the whole length would draw the bar hardly larger than the plan.
     stock = [0, 0, 10, 300, 12, 18]
@@ -3697,10 +4016,18 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
         ],
         "contacts": contacts,
     }
+    if with_clearance:
+        spec["closest_cut"] = {
+            "mm": 6.0,
+            "tag": "fx:rail-shim-ru",
+            "from_mm": [274, 2, 18],
+            "to_mm": [274, 2, 12],
+        }
     main, _ = _main_diagram(meshes, spec)
     details = _holding_details(meshes, spec, main)
 
     assert len(details) == 2
+    assert [detail.keyed_cut for detail in details] == [False, with_clearance]
     drawn = _stock_short_side(main.canvas, stock)
     keyed = []
     for detail in details:
@@ -3718,6 +4045,18 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
     assert [p["label"] for p in panels if p["role"] == "holding_detail"] == [
         detail._title() for detail in details
     ]
+    assert [(panel["id"], panel["selection_group"]) for panel in panels] == [
+        ("setup", "setup"),
+        ("holding_detail:1", "holding_detail:1"),
+        ("holding_detail:2", "holding_detail:2"),
+    ]
+    assert [panel["annotations"] for panel in panels] == [
+        [],
+        [],
+        ["closest_cut"] if with_clearance else [],
+    ]
+    if with_clearance:
+        assert any(callout.label.startswith("CUT 6 mm FROM ") for callout in details[1].callouts)
     diagram, observed_png = _compose_diagram(main, details)
     assert observed_png == png
     assert diagram.print_panels == panels
@@ -3871,6 +4210,9 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
             "role": "inspection",
             "label": view["title"],
             "view_ordinal": ordinal,
+            "id": f"inspection:{ordinal}",
+            "selection_group": f"inspection:{ordinal}",
+            "annotations": [],
         }
         assert 0 < c.height <= 1792
         assert pixels[cursor * width * 3 : (cursor + c.height) * width * 3] == c.rgb
@@ -3938,6 +4280,9 @@ def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_th
             "role": "inspection",
             "label": title,
             "view_ordinal": 1,
+            "id": "inspection:1",
+            "selection_group": "inspection:1",
+            "annotations": [],
         }
     ]
 
@@ -4022,6 +4367,13 @@ def test_two_operations_that_need_full_width_keep_complete_separate_annotation_b
     assert observed_png == png
     assert panels == diagram.print_panels
     assert len(diagram.annotation_details) == 2
+    assert [panel["id"] for panel in panels] == ["setup", "path_detail:1", "path_detail:2"]
+    assert [panel["selection_group"] for panel in panels] == [
+        "setup",
+        "path_detail:1",
+        "path_detail:2",
+    ]
+    assert all(panel["annotations"] == [] for panel in panels)
     width, height, pixels = _decode_png(png)
     cursor = panels[0]["height_px"]
     for op, owner, panel in zip(("90", "10"), diagram.annotation_details, panels[1:], strict=True):

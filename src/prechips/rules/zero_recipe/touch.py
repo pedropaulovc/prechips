@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 from ...material_routes import producer_setup, setup_lineage
 from ...measurements import length_keys
 from ..geometry_common import TURNING_BLADE_KINDS
-from ..resolution import UNKNOWN, length_mm, number, resolve, setup_frame, uncertain
+from ..resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    resolve,
+    setup_frame,
+    setup_member_geometry,
+    uncertain,
+)
 from ..speeds_feeds import spindle_ranges
 from ..tip_endpoints import mapping, records
 
@@ -128,6 +137,60 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
     }
 
 
+def _opposed_midpoint_recipe(center_mm, jog_mm, sign=1):
+    """Set the authored center only after moving to two actual opposed contacts' mean.
+
+    C− and C+ are readings taken with the same unchanged finder, before resetting
+    this axis. Their equal and opposite radius corrections cancel. These symbols
+    are instructions for a future setup, never recorded contact measurements.
+    """
+    known = all(
+        number(value) and math.isfinite(value) for value in (center_mm, jog_mm)
+    ) and sign in {-1, 1}
+    increment = sign * jog_mm if known else UNKNOWN
+    return {
+        "axis_set": center_mm if known else UNKNOWN,
+        "check_reading": center_mm + increment if known else UNKNOWN,
+        "mirrored_reading": center_mm - increment if known else UNKNOWN,
+        "sign": sign,
+        "actual_contact_readings": ["C−", "C+"],
+        "midpoint_move": "(C− + C+)/2",
+        "axis_set_at": "measured_opposed_midpoint",
+        "part_result": "not_recorded",
+    }
+
+
+def mounted_saw_axis_recipe(zero, blade, jog_mm, sign=1):
+    """Cutting-midplane Axis Set from a stopped, flat body-side pickup, in mm.
+
+    Physical contact/approach proof is a separate native obligation. In particular a
+    numeric plane does not establish contact, and kerf and radius never set this offset.
+    """
+    side = zero.get("blade_side")
+    edge, paper = zero.get("edge_mm"), zero.get("paper_mm")
+    body, offset = blade.get("thickness_mm"), blade.get("kerf_offset_mm")
+    sense = {"minus_z": 1, "plus_z": -1}.get(side)
+    contact = (
+        edge + sense * (paper + body / 2) + offset
+        if sense
+        and all(number(v) and math.isfinite(v) for v in (edge, paper, body, offset))
+        and paper >= 0
+        and body > 0
+        else UNKNOWN
+    )
+    increment = (
+        sign * jog_mm if sign in {-1, 1} and number(jog_mm) and math.isfinite(jog_mm) else UNKNOWN
+    )
+    return {
+        "axis_set": contact,
+        "check_reading": contact + increment if number(contact) and number(increment) else UNKNOWN,
+        "mirrored_reading": contact - increment
+        if number(contact) and number(increment)
+        else UNKNOWN,
+        "sign": sign,
+    }
+
+
 def measured(scale):
     """The bench expression a measured trial-cut diameter is set as on this display."""
     return {2: "D", 1: "D/2"}.get(scale, UNKNOWN)
@@ -202,7 +265,7 @@ def face_normal_z(bundle, setup, face, edge):
         return UNKNOWN
     if setup_frame(bundle, setup).get("binding", UNKNOWN) == UNKNOWN:
         return UNKNOWN
-    revolved = mapping(mapping(mapping(kernel.get("setups")).get(setup["id"])).get("revolved"))
+    revolved = setup_member_geometry(bundle, setup, "revolved", kernel)
     ends = [
         end
         for end in records(mapping(revolved.get(face)).get("end_faces"))

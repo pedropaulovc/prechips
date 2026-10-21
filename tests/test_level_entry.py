@@ -12,9 +12,10 @@ from test_contour_grid import SLAB, outline
 from test_headroom import coordinate_bundle
 from test_sheet_ops import SPOT, T4, Markup, content, reach_records, shop
 
+from prechips.findings import Finding
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
-from prechips.rules.level_entry import level_paths
+from prechips.rules.level_entry import in_air, level_paths
 from prechips.sheet import _Traveler
 
 GRID = (0.001, 3)
@@ -22,6 +23,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 # A sheet line that tells the operator to feed a cutter down at a number: the level
 # statement's "plunge … at F mm/min" or the op row's "plunge F mm/min".
 PLUNGE_AT = re.compile(r"plunge[^;]*? at \d+ mm/min|plunge \d+ mm/min")
+NUMBER = r"-?\d+(?:\.\d+)?"
 
 
 def open_path(
@@ -32,12 +34,16 @@ def open_path(
     operation=None,
     line=None,
     profiles=None,
+    stock_bbox=...,
+    tool_dia=6.0,
+    units="mm",
 ):
     """``level_paths`` for one open two-level line (0,-5) → (0,5) inside a 20 mm stock box
     whose top is ``box_top``, with the setup's stock top at Z0. ``operation`` replaces the
     op's coordinates entry (its depth levels), ``line`` its join table; ``center_cutting``
-    None leaves it undeclared."""
-    tool = {"kind": "endmill", "dia_mm": 6.0, "material": "HSS"}
+    None leaves it undeclared. Optional stock, diameter and plan-unit overrides exercise
+    entry geometry without replacing the native setup-entry stock evidence."""
+    tool = {"kind": "endmill", "dia_mm": tool_dia, "material": "HSS"}
     if center_cutting is not None:
         tool["center_cutting"] = center_cutting
     bundle = SimpleNamespace(
@@ -60,7 +66,13 @@ def open_path(
         },
         kernel={
             "status": "ok",
-            "setups": {"S1": {"stock_bbox_mm": [-10.0, -10.0, -10.0, 10.0, 10.0, box_top]}},
+            "setups": {
+                "S1": {
+                    "stock_bbox_mm": [-10.0, -10.0, -10.0, 10.0, 10.0, box_top]
+                    if stock_bbox is ...
+                    else stock_bbox
+                }
+            },
         },
     )
     op = {"op": 20, "tool": "em", "approach_mm": approach}
@@ -75,7 +87,258 @@ def open_path(
     def top(z, done):
         return coordinates.dro_z(z, GRID)
 
-    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, "mm", coordinates.dro_z, top)
+    return level_paths(bundle, {"id": "S1"}, numbers, states, GRID, units, coordinates.dro_z, top)
+
+
+@pytest.mark.parametrize("scale", [1.0, 25.4], ids=["mm", "inch"])
+def test_finite_disk_clears_a_stock_corner_without_clearing_either_infinite_slab(scale):
+    box = [-12.7, -11.1125, -12.7, 100.965, 11.1125, 0.0]
+    point_mm = [-19.05, -12.6365]
+    radius = 6.35
+    # Independent oracle: the nearest corner forms a right triangle with legs 6.35
+    # and 1.524 mm. Neither axis alone separates the disk from the infinite slabs.
+    assert 6.35 <= radius and 1.524 <= radius
+    assert 6.35**2 + 1.524**2 > (radius + 0.001) ** 2
+    point = [value / scale for value in point_mm]
+    assert in_air(box, point, radius, scale) is True
+    [record], debts = open_path(
+        box_top=0.0,
+        stock_bbox=box,
+        tool_dia=2 * radius,
+        units="mm" if scale == 1.0 else "in",
+        line={"op": 20, "dro_xy": [point, [0.0, 0.0]]},
+        plunge=False,
+        center_cutting=False,
+    )
+    assert record["entries"] == [{"xy": point, "air": True, "pass": False}]
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("clearance", [0.000999, 0.001001])
+@pytest.mark.parametrize("corner", [False, True], ids=["side", "corner"])
+def test_entry_air_retains_the_full_millimetre_stock_margin(clearance, corner):
+    box = [0.0, 0.0, -10.0, 20.0, 20.0, 1.0]
+    # A 3-4-5 triangle makes the diagonal clearance known independently of the
+    # implementation's closest-point calculation, including below the air margin.
+    distance = 5.0 + clearance
+    point = [-0.6 * distance, -0.8 * distance] if corner else [-distance, 10.0]
+    expected_air = clearance > 0.001
+    assert in_air(box, point, 5.0, 1.0) is expected_air
+    [record], debts = open_path(
+        box_top=1.0,
+        stock_bbox=box,
+        tool_dia=10.0,
+        line={"op": 20, "dro_xy": [point, [10.0, 10.0]]},
+        plunge=False,
+    )
+    [entry] = record["entries"]
+    assert entry["air"] is expected_air
+    assert "contact" not in entry
+    if expected_air:
+        assert "plunge_mm_rev" not in record and debts == []
+    else:
+        assert record["plunge_mm_rev"] == "unknown"
+        assert any("plunge feed is unknown" in debt for debt in debts)
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "radius"),
+    [
+        ([-12.7, -11.1125, -12.7, 100.965, 11.1125, 0.0], [-22.225, 0.0], 9.525),
+        ([-100.965, -11.1125, -12.7, 12.7, 11.1125, 0.0], [-110.49, 0.0], 9.525),
+        ([0.0, 0.0, -10.0, 20.0, 20.0, 0.0], [-3.0, -4.0], 5.0),
+    ],
+    ids=["Q-side", "Q2-side", "3-4-5-corner"],
+)
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_tangent_entry_is_contact_not_air_and_needs_no_invented_plunge_feed(
+    box, point, radius, units
+):
+    # Radius and native box stay mm; only printed XY is converted, exactly once.
+    xy = [value / 25.4 for value in point] if units == "in" else point
+    assert in_air(box, xy, radius, 25.4 if units == "in" else 1.0) is False
+    [record], debts = open_path(
+        box_top=0.0,
+        stock_bbox=box,
+        tool_dia=radius * 2,
+        units=units,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [xy, [0.0, 0.0]]},
+    )
+    assert record["entries"] == [{"xy": xy, "air": False, "pass": False, "contact": "tangent"}]
+    assert record["levels"] == [-1.0, -2.0]
+    assert "lowered" not in record
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("clearance", [-0.0000005, 0.0, 0.0000005])
+def test_tangent_equality_tolerance_is_not_a_stock_air_margin(clearance):
+    point = [-13.0 - clearance, 0.0]
+    [record], debts = open_path(
+        box_top=1.0,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [point, [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["air"] is False
+    assert record["entries"][0]["contact"] == "tangent"
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize("intrusion", [0.000002, 0.1, 3.0])
+@pytest.mark.parametrize("center_cutting", [True, False, None])
+def test_positive_stock_intrusion_still_needs_a_sourced_centre_cutting_plunge(
+    intrusion, center_cutting
+):
+    point = [-13.0 + intrusion, 0.0]
+    line = {"op": 20, "dro_xy": [point, [0.0, 5.0]]}
+    [record], debts = open_path(box_top=1.0, plunge=False, center_cutting=center_cutting, line=line)
+    assert record["entries"] == [{"xy": point, "air": False, "pass": False}]
+    assert record["plunge_mm_rev"] == "unknown"
+    assert any("plunge feed is unknown" in debt for debt in debts)
+    [record], debts = open_path(box_top=1.0, center_cutting=center_cutting, line=line)
+    if center_cutting is True:
+        assert record["plunge_mm_rev"] == 0.05 and debts == []
+    else:
+        assert record["plunge_mm_rev"] == "unknown"
+        assert any("plunge feed is unknown" in debt for debt in debts)
+
+
+@pytest.mark.parametrize("approach", ["unknown", 0.0], ids=["unknown-raise", "low-raise"])
+def test_tangent_entry_does_not_waive_the_return_height_debt(approach):
+    [record], debts = open_path(
+        box_top=1.0,
+        approach=approach,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [[-13.0, 0.0], [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["contact"] == "tangent"
+    assert record["entries"][0]["air"] is False
+    assert record["levels"] == [-1.0, -2.0]
+    assert record["raise_clear"] in ("unknown", False)
+    assert "plunge_mm_rev" not in record
+    assert len(debts) == 1 and "returns to its entry" in debts[0]
+
+
+def test_tangent_entry_does_not_invent_an_axial_depth_schedule():
+    [record], debts = open_path(
+        box_top=1.0,
+        plunge=False,
+        center_cutting=False,
+        operation={
+            "op": 20,
+            "dro_to_z": -8.0,
+            "z_levels": {"levels": "unknown", "dro_start_z": "unknown"},
+        },
+        line={"op": 20, "dro_xy": [[-13.0, 0.0], [0.0, 5.0]]},
+    )
+    assert record["entries"][0]["contact"] == "tangent"
+    assert record["entries"][0]["air"] is False
+    assert record["levels"] == record["from_z"] == "unknown"
+    assert "lowered" not in record and "raise_clear" not in record
+    assert "plunge_mm_rev" not in record and debts == []
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "radius", "scale"),
+    [
+        (None, [-13.0, 0.0], 3.0, 1.0),
+        ([], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0] * 5, [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, "unknown", 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([10.0, -10.0, -10.0, -10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, 2.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, float("inf"), 10.0, 1.0], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, float("nan")], [-13.0, 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], None, 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [float("nan"), 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-float("inf"), 0.0], 3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], None, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], -3.0, 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("inf"), 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("nan"), 1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, None),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, 0.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, -1.0),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 3.0, float("inf")),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-1e308, 0.0], 3.0, 25.4),
+    ],
+    ids=[
+        "missing-stock",
+        "empty-stock",
+        "short-stock",
+        "unknown-bound",
+        "reversed-x",
+        "reversed-z",
+        "infinite-bound",
+        "nan-stock-top",
+        "missing-xy",
+        "short-xy",
+        "nan-xy",
+        "infinite-xy",
+        "missing-radius",
+        "negative-radius",
+        "infinite-radius",
+        "nan-radius",
+        "missing-scale",
+        "zero-scale",
+        "negative-scale",
+        "infinite-scale",
+        "finite-input-conversion-overflow",
+    ],
+)
+def test_invalid_entry_geometry_never_proves_air(box, point, radius, scale):
+    assert in_air(box, point, radius, scale) is False
+
+
+@pytest.mark.parametrize(
+    ("box", "point", "diameter", "units"),
+    [
+        (None, [-13.0, 0.0], 6.0, "mm"),
+        ([], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0], [-13.0, 0.0], 6.0, "mm"),
+        ([10.0, -10.0, -10.0, -10.0, 10.0, 1.0], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, float("nan")], [-13.0, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [None, 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [float("inf"), 0.0], 6.0, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], None, "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], float("nan"), "mm"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-13.0, 0.0], 6.0, "unknown"),
+        ([-10.0, -10.0, -10.0, 10.0, 10.0, 1.0], [-1e308, 0.0], 6.0, "in"),
+    ],
+    ids=[
+        "missing-stock",
+        "empty-stock",
+        "short-stock",
+        "reversed-stock",
+        "nonfinite-stock",
+        "missing-coordinate",
+        "nonfinite-coordinate",
+        "missing-diameter",
+        "nonfinite-diameter",
+        "unknown-units",
+        "finite-input-conversion-overflow",
+    ],
+)
+def test_unproven_entry_geometry_never_claims_contact_or_waives_plunge_debt(
+    box, point, diameter, units
+):
+    [record], debts = open_path(
+        box_top=1.0,
+        stock_bbox=box,
+        tool_dia=diameter,
+        units=units,
+        plunge=False,
+        center_cutting=False,
+        line={"op": 20, "dro_xy": [point, [0.0, 5.0]]},
+    )
+    [entry] = record["entries"]
+    assert entry["air"] is False and "contact" not in entry
+    assert record["plunge_mm_rev"] == "unknown"
+    assert any("plunge feed is unknown" in debt for debt in debts)
 
 
 def test_an_open_path_returns_over_the_stock_only_when_the_stock_box_proves_it():
@@ -192,10 +455,12 @@ def level_text(record, plunge_mm_min=None):
     )
     bundle.feature_definitions = {}
     paths = {"level_paths": [record]}
-    findings = [SimpleNamespace(rule="coordinates", subject="S1", numbers=paths)]
+    findings = [Finding("coordinates", "S1", "pass", paths, [], "Synthetic level-entry record.")]
     if plunge_mm_min is not None:
         feeds = {"plunge_mm_min": plunge_mm_min}
-        findings.append(SimpleNamespace(rule="speeds_feeds", subject="S1:20", numbers=feeds))
+        findings.append(
+            Finding("speeds_feeds", "S1:20", "pass", feeds, [], "Synthetic plunge feed.")
+        )
     sheet = _Traveler(bundle, findings, {}, None)
     return page_text(sheet.level_entries({"id": "S1"}, {"op": 20}, []))
 
@@ -211,7 +476,10 @@ def test_a_level_the_stock_box_puts_at_or_above_its_top_is_lowered_to_never_plun
     assert record["lowered"] == "top"
     text = level_text(record)
     assert "plunge" not in text, text
-    assert "lower to Z -2.000, the top of the stock this op meets" in text, text
+    lowered = re.search(rf"lower to Z ({NUMBER})", text)
+    assert lowered and float(lowered[1]) == -2.0, text
+    ownership = text[lowered.end() :].split(";")[0]
+    assert re.search(r"\btop\b", ownership) and re.search(r"\bstock\b", ownership), text
 
 
 def test_a_level_at_its_own_start_z_inside_the_stock_box_still_plunges():
@@ -224,7 +492,11 @@ def test_a_level_at_its_own_start_z_inside_the_stock_box_still_plunges():
     assert record["plunge_mm_rev"] == 0.05
     text = level_text(record, plunge_mm_min=45.0)
     # Fed down to the level, never "plunge Z -2.000 → -2.000" nor lowered to it.
-    assert "Enter at X 0.000, Y -5.000: plunge to Z -2.000 at 45 mm/min." in text, text
+    entry = re.search(
+        rf"Enter at X ({NUMBER}), Y ({NUMBER}): plunge to Z ({NUMBER}) at ({NUMBER}) mm/min",
+        text,
+    )
+    assert entry and tuple(map(float, entry.groups())) == (0.0, -5.0, -2.0, 45.0), text
     assert "lower to" not in text and "→" not in text, text
     [record], debts = open_path(box_top=1.0, plunge=False, operation=operation)
     assert "lowered" not in record and record["plunge_mm_rev"] == "unknown"
@@ -251,13 +523,26 @@ def test_a_feature_entry_z_at_its_depth_does_not_prove_the_entry_clear(
     [record] = row.numbers["level_paths"]
     assert record["levels"] == [-1.0] and record["from_z"] == -1.0
     assert "lowered" not in record
-    text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    assert "lower to Z -1.000" not in text, text
+    html = _Traveler(bundle, findings, {}, None).render()
+    text = page_text(html)
+    assert all(
+        float(match[1]) != -1.0 for match in re.finditer(rf"\blower to Z ({NUMBER})", text)
+    ), text
+    entry = entry_text(html)
+    assert "lower to" not in entry, entry
     if center_cutting:
-        assert re.search(r"Enter at X -8\.300, Y -5\.300: plunge to Z -1\.000 at \d+ mm/min", text)
+        plunge = re.search(
+            rf"Enter at X ({NUMBER}), Y ({NUMBER}): plunge to Z ({NUMBER}) at ({NUMBER}) mm/min",
+            entry,
+        )
+        assert plunge, entry
+        assert tuple(map(float, plunge.groups()[:3])) == (-8.3, -5.3, -1.0)
+        [feed] = [f for f in findings if f.rule == "speeds_feeds" and f.subject == "S1:20"]
+        assert float(plunge[4]) == pytest.approx(feed.numbers["plunge_mm_min"], abs=0.5)
+        assert "STOP" not in entry
     else:
         assert "op 20 plunges into the stock but its plunge feed is unknown" in row.sentence
-        assert "STOP: plunge feed not set" in text
+        assert "STOP: plunge feed not set" in entry
 
 
 def scratch_outline(tmp_path, plunge=True):
@@ -286,6 +571,17 @@ def page_text(html):
     )
 
 
+def entry_text(html):
+    """The single entry instruction, not unrelated setup STOPs or coordinate cells."""
+    markup = Markup(html)
+    [entry] = [
+        content(node)
+        for node in markup.find("contour-context")
+        if "Enter at " in content(node) or "Get down " in content(node)
+    ]
+    return entry
+
+
 def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_path):
     bundle = scratch_outline(tmp_path)
     [row] = [f for f in coordinates.evaluate(bundle) if f.subject == "S1"]
@@ -300,7 +596,8 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
         if node["attrs"]["data-page-context"].startswith("S1 op 20 —")
     ]
     [heading] = markup.find("page-context", owner)
-    assert re.search(r"Z (-1\.000), (-2\.000)(?: ·|$)", content(heading))
+    depths = re.search(rf"\bZ ({NUMBER}), ({NUMBER})(?: ·|$)", content(heading))
+    assert depths and tuple(map(float, depths.groups())) == (-1.0, -2.0)
     [entry] = [
         content(node)
         for node in markup.nodes
@@ -308,9 +605,12 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
     ]
     assert "2 depth levels, top first" in entry
     assert "whole path" in entry and "each" in entry
-    assert "X -8.300, Y -5.300: plunge from the level above" in entry
-    assert "level 1 from Z 0.000" in entry
-    assert "Between levels, stay at X -8.300, Y -5.300" in entry
+    start = re.search(rf"X ({NUMBER}), Y ({NUMBER}): plunge from the level above", entry)
+    assert start and tuple(map(float, start.groups())) == (-8.3, -5.3), entry
+    initial_z = re.search(rf"level 1 from Z ({NUMBER})", entry)
+    assert initial_z and float(initial_z[1]) == 0.0, entry
+    returned = re.search(rf"Between levels, stay at X ({NUMBER}), Y ({NUMBER})", entry)
+    assert returned and tuple(map(float, returned.groups())) == (-8.3, -5.3), entry
     assert "the path ends where it starts" in entry
 
 
@@ -359,13 +659,20 @@ def test_only_a_centre_cutting_end_mill_is_told_to_plunge_into_the_stock(
     rows = {(f.rule, f.subject): f for f in findings}
     assert rows[("coordinates", "S1")].status == status, rows[("coordinates", "S1")].sentence
     assert rows[("speeds_feeds", "S1:20")].status == "pass"
-    text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    entry = re.search(r"Enter at X -8\.300, Y -5\.300: [^;]*?mm/min\.|Enter at [^;]*?STOP", text)
-    assert entry, text
+    html = _Traveler(bundle, findings, {}, None).render()
+    text = " ".join(page_text(html).split())
+    entry = entry_text(html)
+    start = re.search(rf"Enter at X ({NUMBER}), Y ({NUMBER}):", entry)
+    assert start and tuple(map(float, start.groups())) == (-8.3, -5.3), entry
     if center_cutting is True:
-        assert PLUNGE_AT.search(entry[0]) and "STOP" not in entry[0]
+        assert PLUNGE_AT.search(entry) and "STOP" not in entry
+        plunge = re.search(rf"plunge Z ({NUMBER}) → ({NUMBER}) at ({NUMBER}) mm/min", entry)
+        assert plunge and tuple(map(float, plunge.groups()[:2])) == (0.0, -1.0), entry
+        assert float(plunge[3]) == pytest.approx(
+            rows[("speeds_feeds", "S1:20")].numbers["plunge_mm_min"], abs=0.5
+        )
     else:
-        assert PLUNGE_AT.findall(text) == [] and "STOP" in entry[0]
+        assert PLUNGE_AT.findall(text) == [] and "STOP" in entry
         assert rows[("speeds_feeds", "S1:20")].numbers["plunge_mm_min"] == "unknown"
 
 
@@ -380,7 +687,12 @@ def test_an_unknown_level_plan_prints_its_warning_never_a_full_depth_plunge(tmp_
     [record] = row.numbers["level_paths"]
     assert record["levels"] == "unknown"
     text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    assert not re.search(r"(plunge|lower to) Z [^;]*?-8\.000", text), text
+    for instruction in re.finditer(
+        rf"(?:plunge(?: to)?|lower to) Z ({NUMBER})(?: → ({NUMBER}))?", text
+    ):
+        assert -8.0 not in [float(value) for value in instruction.groups() if value is not None], (
+            text
+        )
     assert "Depth levels not computed" in text
 
 
@@ -440,7 +752,7 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
     [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "stock under the holder at Z 4.475" in obstacle, obstacle
     assert "holder face" in obstacle and "not in shop list" not in obstacle, obstacle
-    assert value == "19.750"
+    assert float(value) == 19.75
     sheet.records[("headroom", "S1")] = numbers
     markup = Markup(sheet.clearance(setup, T4))
     [table] = markup.find("clearance")
@@ -452,11 +764,11 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
     assert cells[:2] == ["60", "T4"]
     assert "holder face" in cells[2] and "stock under the holder" in cells[2], cells
     assert re.findall(r"\bZ (-?\d+\.\d+)", cells[2]) == ["4.475"], cells
-    assert cells[3] == "19.750", cells
+    assert float(cells[3]) == 19.75, cells
     # The holder face over the stock top: that top prints Z 0.000, not 0.005.
     records[("reach", "S1:60")]["clearances"] = []
     [(_, _, obstacle, _, _)] = sheet.clearance_rows(setup, numbers, T4)
-    assert "(Z 0.000)" in obstacle, obstacle
+    assert [float(z) for z in re.findall(rf"\bZ ({NUMBER})", obstacle)] == [0.0], obstacle
     markup = Markup(sheet.clearance(setup, T4))
     [table] = markup.find("clearance")
     obstacles = [
@@ -464,7 +776,7 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
         for node in markup.nodes
         if node["tag"] == "td" and node["parent"]["parent"]["parent"] is table
     ]
-    assert re.findall(r"\bZ (-?\d+\.\d+)", obstacles[2]) == ["0.000"], obstacles
+    assert [float(z) for z in re.findall(rf"\bZ ({NUMBER})", obstacles[2])] == [0.0], obstacles
 
 
 @pytest.mark.parametrize(

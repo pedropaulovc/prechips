@@ -1,6 +1,7 @@
 """Physical mill stack arithmetic, independent of authored reference outputs."""
 
 import math
+import re
 from copy import deepcopy
 from types import SimpleNamespace
 
@@ -714,50 +715,60 @@ def test_contour_allowances_produce_actual_rough_and_finish_targets(
             )
     if action != "profile":
         return
+    assert [profile["stage"] for profile in numbers["profiles"]] == ["rough", "finish"]
     markup = Markup(html)
-    blocks = [
-        block
-        for block in markup.find("contour")
-        if block["attrs"].get("data-page-context", "").startswith("S1 op 20 —")
-    ]
-    assert len(blocks) == 1
-    displayed = {}
-    for table in markup.find("coords", within=blocks[0]):
-        contexts = markup.find("table-context", within=table)
-        assert len(contexts) == 1
-        description = content(contexts[0])
-        stage = next(stage for stage in ("rough", "finish") if f"stage: {stage}" in description)
-        assert stage not in displayed
-        displayed[stage] = table
-    assert set(displayed) == {"rough", "finish"}
-    for stage, allowance in (("rough", 0.3), ("finish", 0.0)):
-        table = displayed[stage]
-        thead = next(
-            node for node in markup.nodes if node["tag"] == "thead" and node["parent"] is table
-        )
-        heading_rows = [
-            node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is thead
+    paths = []
+    for path in markup.find("route-path"):
+        owner = path["parent"]
+        while owner is not None and "data-op" not in owner["attrs"]:
+            owner = owner["parent"]
+        if owner is not None and (
+            owner["attrs"].get("data-setup-id"),
+            owner["attrs"]["data-op"],
+        ) == ("S1", "20"):
+            paths.append(path)
+    [path] = paths
+    # Compact mode prints one ordered centre chain per stage, not a table.
+    # Keep the actual S1/op20 owner and expand only explicitly unchanged axes.
+    number = r"-?\d+(?:\.\d+)?(?!\d|\.\d)"
+    point = rf"[XY]{number}(?:/[XY]{number})?"
+    chains = []
+    for node in markup.nodes:
+        if node["tag"] != "p":
+            continue
+        owner = node["parent"]
+        while owner is not None and owner is not path:
+            owner = owner["parent"]
+        if owner is not path:
+            continue
+        description = content(node)
+        label = re.match(r"Centre:\s*", description)
+        if label is None:
+            continue
+        chain = description[label.end() :].strip().removesuffix(".")
+        assert re.fullmatch(rf"{point}(?:\s*→\s*{point})+", chain), chain
+        chains.append(chain)
+    assert len(chains) == 2
+    for (stage, allowance), chain in zip((("rough", 0.3), ("finish", 0.0)), chains, strict=True):
+        position = {}
+        printed = []
+        for step in chain.split("→"):
+            changes = re.findall(rf"([XY])({number})", step)
+            assert len(changes) == len({axis for axis, _ in changes})
+            position.update((axis, float(value)) for axis, value in changes)
+            assert set(position) == {"X", "Y"}
+            printed.append([position["X"], position["Y"]])
+        # Independent rectangular cutter-centre oracle, including the closing return.
+        expected = [
+            [-8.0 - allowance, -5.0 - allowance],
+            [18.0 + allowance, -5.0 - allowance],
+            [18.0 + allowance, 11.0 + allowance],
+            [-8.0 - allowance, 11.0 + allowance],
+            [-8.0 - allowance, -5.0 - allowance],
         ]
-        headings = [
-            content(node)
-            for node in markup.nodes
-            if node["tag"] == "th" and node["parent"] is heading_rows[-1]
-        ]
-        body = next(
-            node for node in markup.nodes if node["tag"] == "tbody" and node["parent"] is table
-        )
-        first_row = next(
-            node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is body
-        )
-        values = [
-            content(node)
-            for node in markup.nodes
-            if node["tag"] == "td" and node["parent"] is first_row
-        ]
-        cells = dict(zip(headings, values, strict=True))
-        assert [float(cells["X"]), float(cells["Y"])] == pytest.approx(
-            [28.0 + allowance, 8.0] if method == "stairs" else [-8.0 - allowance, -5.0 - allowance]
-        )
+        assert len(printed) == len(expected), stage
+        for actual, target in zip(printed, expected, strict=True):
+            assert actual == pytest.approx(target), stage
 
 
 @pytest.mark.parametrize("corruption", ["missing", "inconsistent"])

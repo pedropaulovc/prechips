@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status, setup_lineage
+from prechips.material_routes import setup_lineage
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
 from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
@@ -37,6 +37,7 @@ from prechips.rules.resolution import (
     identity,
     length_mm,
     number,
+    operation_material_status,
     record,
     resolve,
     setup_frame,
@@ -403,18 +404,19 @@ def _rough(bundle, op, name):
     found, unresolved = [], False
     lines = set()
     target = _workpiece(bundle, op)
-    material = {
-        setup["id"]: feature_material_status(bundle.plan, target, setup["id"], name, bundle)
+    lineage = {
+        setup["id"]
         for setup in bundle.plan["setups"]
+        if operation_material_status(bundle, target, setup, name, op=op) is True
     }
-    lineage = {sid for sid, status in material.items() if status is True}
     for sid, other in _earlier(bundle, op):
         relevant = other.get("feature") == name or (
             other.get("do") in SAW_OPS and other.get("follows") in lines
         )
-        if not relevant or material[sid] is False:
+        material = operation_material_status(bundle, target, sid, name, op=op, producer_op=other)
+        if not relevant or material is False:
             continue
-        if material[sid] is None:
+        if material is None:
             unresolved = True
             if _full_line(other):
                 lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
@@ -445,7 +447,9 @@ def _layout_op(bundle, op, name):
     target = _workpiece(bundle, op)
     for sid, other in _earlier(bundle, op):
         if other.get("feature") == name and _full_line(other):
-            material = feature_material_status(bundle.plan, target, sid, name, bundle)
+            material = operation_material_status(
+                bundle, target, sid, name, op=op, producer_op=other
+            )
             if material is not False:
                 found = UNKNOWN if material is None else f"{sid}:{other.get('op', UNKNOWN)}"
     return found
@@ -460,10 +464,12 @@ def _sized_before(bundle, op, bore):
         for other in setup["ops"]:
             passed |= other is op
             if other.get("feature") == bore and other.get("do") in _CENTRE_FORMS:
-                material = feature_material_status(bundle.plan, target, setup["id"], bore, bundle)
+                material = operation_material_status(
+                    bundle, target, setup, bore, op=op, producer_op=other
+                )
                 if passed and setup["id"] != target:
-                    material = feature_material_status(
-                        bundle.plan, setup["id"], target, bore, bundle
+                    material = operation_material_status(
+                        bundle, setup, target, bore, op=other, producer_op=op
                     )
                 if material is None:
                     unresolved = True

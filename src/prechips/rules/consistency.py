@@ -95,15 +95,16 @@ import unicodedata
 
 from prechips.clamp_labels import clamp_labels
 from prechips.findings import Finding
+from prechips.model import note_text
 from prechips.rules.level_entry import STOCK_TOL_MM
 from prechips.rules.resolution import (
     MANUAL,
     UNKNOWN,
     identity,
     number,
+    op_check_targets,
     op_entries,
     op_entry,
-    op_features,
     record,
     resolve,
     tool_numbers,
@@ -558,17 +559,19 @@ def _kernel_stock(bundle, setup, scale):
     return 1, found, unchecked
 
 
-def _no_go(op):
+def _no_go(bundle, setup, op):
     """Inspection text that sends a NO-GO plug through an op checked by GO / NO-GO plugs."""
     # (requirement, NO-GO size) -> the features that pair gauges, each read with its own
     # (feature-scoped, else flat) method.
     pairs = {}
-    for name in op_features(op) or [None]:
-        entries = op_entries(op, "go_no_go")
-        for req in dict.fromkeys(r for scope, r, _ in entries if scope in (None, name)):
-            pair = op_entry(op, "go_no_go", name, req)
-            if isinstance(pair, dict) and "no_go" in pair:
-                pairs.setdefault((req, pair["no_go"]), []).append(name)
+    for target in op_check_targets(bundle, setup, op):
+        if target["kind"] != "dimensional":
+            continue
+        name = target["identity"]["feature_owner"]
+        req = target["identity"]["requirement"]
+        pair = op_entry(op, "go_no_go", name, req)
+        if isinstance(pair, dict) and "no_go" in pair:
+            pairs.setdefault((req, pair["no_go"]), []).append(name)
     # A hold's pair counts unless the op's own pair already gauges that feature's requirement.
     for hold in op.get("process_holds") or []:
         pair = record(record(hold).get("go_no_go"))
@@ -586,7 +589,9 @@ def _no_go(op):
     if len(pairs) == 1:
         (key,) = pairs
         sources += [
-            (key, t) for field in ("inspection_note", "note") for t in _texts(op.get(field))
+            (key, t)
+            for field in ("inspection_note", "note")
+            for t in _texts(note_text(op.get(field)) if field == "note" else op.get(field))
         ]
     found = []
     for (req, no_go), text in sources:
@@ -880,9 +885,8 @@ def _picture_cut(bundle, setup):
     cannot certify their printed agreement. A saw's blade path carries no row, so the cut
     it names restates none."""
     from prechips.kernel import run_geometry
-    from prechips.kernel.render_diagram import _dro
+    from prechips.kernel.render_diagram import _dro, operative_text
     from prechips.rules.coordinates import dro_grid, dro_grid_debt
-    from prechips.sheet import _number
 
     facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
     scene = record(facts.get("render_scene"))
@@ -925,7 +929,7 @@ def _picture_cut(bundle, setup):
     if row is None or not number(row.get("mm")):
         state = "has no CLEARANCE row" if row is None else "CLEARANCE row is not computed"
         return 1, [], [f"the setup picture prints {said}, but op {op} {state}"]
-    value = _number(row["mm"], decimals)
+    value = operative_text(row["mm"], decimals)
     if row.get("tag") == cut.get("tag") and value == _dro(cut["mm"], decimals):
         return 1, [], []
     given = f"op {op}'s cut as {value} beside the {_holder(row.get('tag'))}"
@@ -969,15 +973,19 @@ def evaluate(bundle):
 
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     frames = set(record(bundle.plan.get("frames")))
-    traveler = _Traveler(bundle, [], {}, None)
+    traveler = _Traveler(bundle, [], {}, None, detail="pedantic")
     result = []
     for setup in bundle.plan.get("setups", []):
         sid = setup["id"]
         hold = record(setup.get("hold"))
         setup_texts = (
-            [t for key in _HOLD_TEXTS for t in _texts(hold.get(key))]
+            [
+                t
+                for key in _HOLD_TEXTS
+                for t in _texts(note_text(hold.get(key)) if key == "note" else hold.get(key))
+            ]
             + [t for clamp in hold.get("clamps") or [] for t in _texts(record(clamp).get("note"))]
-            + _texts(setup.get("note"))
+            + _texts(note_text(setup.get("note")))
             + _texts(record(setup.get("stock_state")).get("note"))
             + _zero_texts(setup.get("zero"))
         )
@@ -1035,12 +1043,14 @@ def evaluate(bundle):
         result.append(finding)
         for op in setup.get("ops", []):
             texts = [
-                t for key in ("note", "inspection_note", "layout") for t in _texts(op.get(key))
+                t
+                for key in ("note", "inspection_note", "layout")
+                for t in _texts(note_text(op.get(key)) if key == "note" else op.get(key))
             ] + [t for _, _, v in op_entries(op, "inspection_methods") for t in _texts(v)]
             checks = [
                 _tool_claims(bundle, setup, texts, frames),
                 _restated_jaw_heights(hold, texts),
-                _no_go(op),
+                _no_go(bundle, setup, op),
             ]
             if any(c or fs or us for c, fs, us in checks):
                 result.append(

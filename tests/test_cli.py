@@ -84,8 +84,12 @@ def run_cli(*args, env=None, setup=""):
     )
 
 
-def copy_examples(tmp_path):
-    return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
+def copy_examples(tmp_path, *, mode="inputs"):
+    """Copy independent inputs, or include golden artifacts with ``with-expected``."""
+    if mode not in {"inputs", "with-expected"}:
+        raise ValueError(f"Unknown example copy mode: {mode!r}")
+    ignore = shutil.ignore_patterns("expected") if mode == "inputs" else None
+    return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples", ignore=ignore))
 
 
 # The rocker's prep: [stock.prepared] and the process faces and frames only P1-P5 use.
@@ -202,23 +206,32 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
             assert "usage" in (installed.stdout + installed.stderr).lower()
 
     reports = []
-    travelers = []
-    for name, entry in [("console", console), ("module", module)]:
-        out = tmp_path / name
-        result = invoke(entry, "traveler", plan, "--out", out)
-        assert result.returncode == 4, result.stderr
-        report_bytes = (out / "report.json").read_bytes()
-        report = json.loads(report_bytes)
-        assert report["hash"] == report_hash(report)
-        assert report["expected_exit"] == 4
-        assert report["verification"] == "planned"
-        assert any(row["status"] == "unknown" for row in report["findings"])
-        html = (out / "traveler.html").read_text(encoding="utf-8")
-        assert html.strip()
-        reports.append(report_bytes)
-        travelers.append(html)
-    assert reports[0] == reports[1]
-    assert travelers[0] == travelers[1]
+    travelers = {}
+    for detail in (None, "pro", "hobby", "pedantic"):
+        selected = detail or "hobby"
+        rendered = []
+        for name, entry in [("console", console), ("module", module)]:
+            out = tmp_path / f"{name}-{detail or 'default'}"
+            args = ["traveler", plan, "--out", out]
+            if detail is not None:
+                args.extend(["--detail", detail])
+            result = invoke(entry, *args)
+            assert result.returncode == 4, result.stderr
+            report_bytes = (out / "report.json").read_bytes()
+            report = json.loads(report_bytes)
+            assert report["hash"] == report_hash(report)
+            assert report["expected_exit"] == 4
+            assert report["verification"] == "planned"
+            assert any(row["status"] == "unknown" for row in report["findings"])
+            html = (out / "traveler.html").read_text(encoding="utf-8")
+            assert re.search(rf'<body\b[^>]*\bdata-detail="{selected}"', html)
+            assert f'<meta name="prechips-detail" content="{selected}">' in html
+            reports.append(report_bytes)
+            rendered.append(html)
+        assert rendered[0] == rendered[1]
+        travelers[detail] = rendered[0]
+    assert len(set(reports)) == 1
+    assert travelers[None] == travelers["hobby"]
 
 
 @pytest.mark.parametrize(
@@ -292,11 +305,22 @@ def test_approval_evidence_warnings_agree_with_traveler_status(verb, evidence, r
     assert ("first-article evidence" in result.stderr) is not recorded
     assert ("unresolved shop-required checks" in result.stderr) is recorded
     if verb == "traveler":
-        html = (out / "traveler.html").read_text(encoding="utf-8")
-        assert "PLANNED" in html
-        assert "CHECKED —" not in html
-        assert ("no first article is recorded" in html) is not recorded
-        assert ("a first article is recorded for this plan" in html) is recorded
+        from test_sheet_ops import Markup, content
+
+        markup = Markup((out / "traveler.html").read_text(encoding="utf-8"))
+        (banner,) = markup.find("banner")
+        assert "PLANNED — NOT APPROVED" in content(banner)
+        assert "CHECKED" not in content(banner)
+        warnings = [
+            node for node in markup.find("decision") if node["attrs"]["data-source"] == "approval"
+        ]
+        assert len(warnings) == 1
+        (warning,) = warnings
+        assert warning["attrs"]["data-status"] == "warn"
+        assert warning["attrs"]["data-decision"] == "caution"
+        assert warning["attrs"]["data-scope"] == "approval"
+        assert ("first-article evidence" in content(warning)) is not recorded
+        assert ("unresolved shop-required checks" in content(warning)) is recorded
 
 
 @pytest.mark.parametrize(

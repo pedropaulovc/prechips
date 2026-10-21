@@ -26,7 +26,7 @@ Package sources (each traveler is one package, named after its part):
 - ``--traveler DIR_OR_HTML``: ``traveler.html`` is printed to a Letter PDF with
   headless Chrome or Edge (``PRECHIPS_CHROME``, then the standard Windows
   install paths, then ``PATH``) under a virtual-time budget so the inline
-  duplex-padding script runs, then every page is rasterized at 300 dpi.
+  continuous-job paginator runs, then every page is rasterized at 300 dpi.
 - ``--pdf FILE``: an already printed traveler.
 - ``--png FILE`` (repeat): pre-rendered pages forming one package.
 - ``--bundle PLAN``: ``uv run prechips traveler PLAN`` into a temp out dir
@@ -114,7 +114,7 @@ GATING_KEYS = ("blockers", "clutter", "clarity")
 CHROME_ENV = "PRECHIPS_CHROME"
 PRINT_DPI = 300
 LETTER_PT = (612.0, 792.0)
-# Virtual time lets the traveler's load handler paginate and pad before printing.
+# Virtual time lets the traveler's load handler finish measured pagination before printing.
 VIRTUAL_TIME_BUDGET_MS = 15_000
 # traveler exits: 0 ready, 2 rule stop, 4 kernel unknown; all still write a traveler.
 TRAVELER_EXITS = (0, 2, 4)
@@ -333,12 +333,48 @@ def traveler_meta(html: Path) -> tuple[str, str | None]:
     return _safe_name(title or html.parent.name), parser.report_hash
 
 
+class _PrintedPagination(HTMLParser):
+    """Read completion evidence from Chrome's rendered DOM, not the HTML source."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.roots: list[dict[str, str | None]] = []
+        self.jobs: list[dict[str, str | None]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "html":
+            self.roots.append(values)
+        elif (
+            tag == "section"
+            and "page" in (values.get("class") or "").split()
+            and "data-sheet" in values
+        ):
+            self.jobs.append(values)
+
+    def page_count(self) -> int:
+        if len(self.roots) != 1 or len(self.jobs) != 1:
+            raise RuntimeError("Traveler pagination requires one completed continuous job.")
+        root, job = self.roots[0], self.jobs[0]
+        classes = (root.get("class") or "").split()
+        count = job.get("data-pages") or ""
+        if (
+            "paged" not in classes
+            or "print-measuring" in classes
+            or "data-pagination-error" in root
+            or job.get("data-sheet") != "job"
+            or re.fullmatch(r"[1-9][0-9]*", count) is None
+        ):
+            raise RuntimeError("Traveler pagination did not complete with a declared page count.")
+        return int(count)
+
+
 # ---------------------------------------------------------------------------
 # Printing and rasterizing
 
 
-def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float = 300.0) -> None:
-    """Print traveler.html to a Letter PDF with the duplex script allowed to run."""
+def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float = 300.0) -> int:
+    """Print a Letter PDF and return its completed continuous-job page declaration."""
     pdf.parent.mkdir(parents=True, exist_ok=True)
     pdf.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="machrev-chrome-", ignore_cleanup_errors=True) as prof:
@@ -352,6 +388,7 @@ def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float 
             f"--user-data-dir={prof}",
             "--no-pdf-header-footer",
             "--run-all-compositor-stages-before-draw",
+            "--dump-dom",
             f"--virtual-time-budget={VIRTUAL_TIME_BUDGET_MS}",
             # Chrome may resolve a relative output path against its own directory.
             f"--print-to-pdf={pdf.resolve()}",
@@ -370,6 +407,9 @@ def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float 
             f"{chrome.name} did not print {html} (exit {proc.returncode}): "
             f"{proc.stderr.strip()[-800:]}"
         )
+    pagination = _PrintedPagination()
+    pagination.feed(proc.stdout)
+    return pagination.page_count()
 
 
 def rasterize_pdf(pdf: Path, pages_dir: Path, *, require_letter: bool = False) -> list[Path]:
@@ -394,6 +434,15 @@ def rasterize_pdf(pdf: Path, pages_dir: Path, *, require_letter: bool = False) -
                             f"{pdf}: page {index + 1} is {size[0]:.0f}x{size[1]:.0f} pt, "
                             "not Letter portrait"
                         )
+                    if require_letter:
+                        textpage = page.get_textpage()
+                        try:
+                            if "PRINT LAYOUT ERROR" in textpage.get_text_range():
+                                raise RuntimeError(
+                                    f"{pdf}: page {index + 1} reports a print pagination error"
+                                )
+                        finally:
+                            textpage.close()
                     image = pages_dir / f"page-{index + 1}.png"
                     page.render(scale=PRINT_DPI / 72.0).to_pil().save(
                         image, dpi=(PRINT_DPI, PRINT_DPI)
@@ -483,12 +532,11 @@ def prepare_package(
             name, report_hash = traveler_meta(html)
             report_dir = claim(name)
         pdf = report_dir / "traveler.pdf"
-        print_traveler_pdf(html, pdf, chrome=chrome)
+        declared_pages = print_traveler_pdf(html, pdf, chrome=chrome)
         pages = rasterize_pdf(pdf, report_dir / "pages", require_letter=True)
-        if len(pages) % 2:
+        if len(pages) != declared_pages:
             raise RuntimeError(
-                f"{pdf} printed {len(pages)} pages; the duplex-padding script pads every "
-                "sheet to an even count, so it did not run before printing"
+                f"{pdf} printed {len(pages)} pages; continuous pagination declared {declared_pages}"
             )
         provenance.update(
             traveler_html=str(html),

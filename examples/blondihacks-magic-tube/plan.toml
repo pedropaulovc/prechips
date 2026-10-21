@@ -117,7 +117,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "unknown"
 stickout_mm = "unknown"
-clamp = "Clamp the sound round bar in the four-jaw chuck; remove the key and turn the chuck by hand to establish complete tool and jaw clearance."
+clamp = "Clamp the sound round bar in fixtures.four-jaw; remove the key and turn the chuck by hand to establish complete tool and jaw clearance."
 note = "HOLD until engagement, stock projection, jaw position and tool centre height are established. No gloves near a rotating spindle. Keep hands and loose items clear."
 [setups.zero.x]
 dial_setting = "unknown"

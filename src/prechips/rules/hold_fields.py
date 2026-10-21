@@ -12,8 +12,8 @@ it runs along is the vise's ``jaws_along``, or the plate face's run (:func:`alig
 import math
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status, setup_lineage
-from prechips.model import HAND_FEEDING
+from prechips.material_routes import setup_lineage
+from prechips.model import HAND_FEEDING, note_text
 from prechips.rules._bench import BENCH_KINDS, manual_bench, unfixtured_handling
 from prechips.rules.level_entry import stock_box
 from prechips.rules.resolution import (
@@ -27,6 +27,7 @@ from prechips.rules.resolution import (
     known_refs,
     number,
     op_feature,
+    operation_material_status,
     owns_feature,
     record,
     resolve,
@@ -211,9 +212,7 @@ def stop_face(bundle, setup, name):
                 continue
             cut = f"{other['id']} op {op['op']}"
             if other["id"] in earlier:
-                material = feature_material_status(
-                    bundle.plan, setup["id"], other["id"], name, bundle
-                )
+                material = operation_material_status(bundle, setup, other, name, producer_op=op)
                 if material is False:
                     later.append(cut)
                 else:
@@ -226,11 +225,7 @@ def stop_face(bundle, setup, name):
     as_is = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     settled = known_refs(faces) and isinstance(as_is, list)
     supplied = settled and set(faces) <= set(as_is)
-    material = (
-        feature_material_status(bundle.plan, setup["id"], "stock", name, bundle)
-        if supplied
-        else False
-    )
+    material = operation_material_status(bundle, setup, "stock", name) if supplied else False
     supplied = supplied and material is True
     if material is None:
         pending.append("stock as-is face survival after partition is unresolved")
@@ -467,9 +462,7 @@ def evaluate(bundle):
             "hold.clamp": hold.get("clamp"),
         }
         if handling:
-            note = hold.get("note")
-            if isinstance(note, str):
-                note = note.strip()
+            note = UNKNOWN if unknown_hold else note_text(hold.get("note")).strip()
             required = {"hold.note": None if note in ("none", "not_applicable") else note}
         if scope != "fixture":
             # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.

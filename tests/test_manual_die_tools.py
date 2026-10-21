@@ -1,5 +1,6 @@
 """A stopped-spindle die route selects real hand tooling, not a spindle stack."""
 
+import json
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -241,6 +242,72 @@ def tap_bundle(die_bundle):
     return die_bundle
 
 
+@pytest.fixture
+def manual_fit_tap(tap_bundle):
+    feature = tap_bundle.features["features"]["stud"]
+    feature.pop("thread_class")
+    feature["requirements"] = []
+    tap_bundle.inventory["tools"]["taps"]["members"]["quarter"].pop("thread_class")
+    tap_bundle.features["acceptance"] = {
+        "stud_retention": {
+            "features": ["stud"],
+            "contract": {
+                "kind": "manual",
+                "gauge_kind": "mating_hardware",
+                "accept": ["The intended stud enters by hand and cannot leave the bottom."],
+                "cite": "synthetic authored functional acceptance",
+            },
+        }
+    }
+    return tap_bundle
+
+
+def test_hand_tap_both_absent_unrequired_classes_use_explicit_manual_fit(manual_fit_tap):
+    row = assembly(manual_fit_tap)
+    assert row.status == "pass"
+    assert row.numbers["thread_class"]["adoption"] == "not_adopted"
+    assert row.numbers["thread_class"]["required"] == "unknown"
+    assert row.numbers["thread_class"]["tap"] == "unknown"
+
+
+def test_hand_tap_class_omission_without_functional_contract_stays_unknown(manual_fit_tap):
+    manual_fit_tap.features["acceptance"].clear()
+    assert assembly(manual_fit_tap).status == "unknown"
+
+
+@pytest.mark.parametrize("owner", ["feature", "tool"])
+@pytest.mark.parametrize("value", ["unknown", "2B"])
+def test_hand_tap_manual_fit_preserves_unknown_and_one_sided_class(manual_fit_tap, owner, value):
+    item = (
+        manual_fit_tap.features["features"]["stud"]
+        if owner == "feature"
+        else manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"]
+    )
+    item["thread_class"] = value
+    row = assembly(manual_fit_tap)
+    assert row.status == "unknown"
+    assert "adoption" not in row.numbers["thread_class"]
+
+
+def test_hand_tap_manual_fit_does_not_waive_wrong_known_class(manual_fit_tap):
+    manual_fit_tap.features["features"]["stud"]["thread_class"] = "2B"
+    manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"]["thread_class"] = "3B"
+    assert assembly(manual_fit_tap).status == "error"
+
+
+@pytest.mark.parametrize("field,value", [("thread", "1/4-28 UNF"), ("thread_hand", "left")])
+def test_hand_tap_manual_fit_preserves_wrong_designation_and_hand(manual_fit_tap, field, value):
+    manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"][field] = value
+    assert assembly(manual_fit_tap).status == "error"
+
+
+def test_die_class_omission_is_not_a_hand_tap_waiver(die_bundle):
+    die_bundle.features["features"]["stud"].pop("thread_class")
+    die_bundle.features["features"]["stud"]["requirements"] = []
+    member(die_bundle).pop("thread_class")
+    assert assembly(die_bundle).status == "unknown"
+
+
 @pytest.mark.parametrize(
     "example,expected",
     [
@@ -253,7 +320,10 @@ def tap_bundle(die_bundle):
         ),
         (
             "blondihacks-t-nuts",
-            [("D1", "hand_tap", "tap", ("tap follower",), "3/8-16")],
+            [
+                (sid, "hand_tap", "tap", ("follower",), "3/8-16")
+                for sid in ("D1a", "D1b", "D1c", "D1d")
+            ],
         ),
     ],
 )
@@ -263,45 +333,34 @@ def test_public_tool_pull_lists_hand_threads_with_their_actual_holders(example, 
     for setup_id, action, tool_role, holder_roles, thread in expected:
         setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == setup_id)
         op = next(op for op in setup["ops"] if op["do"] == action)
-        (page,) = [
-            page
-            for page in markup.find("page")
-            if page["attrs"]["data-sheet"] == f"SETUP {setup_id} sheet 1"
-        ]
-        (table,) = markup.find("tools", page)
-        rows = []
-        for row in markup.nodes:
-            if (
-                row["tag"] == "tr"
-                and row["parent"]["tag"] == "tbody"
-                and row["parent"]["parent"] is table
-            ):
-                rows.append(
-                    [
-                        content(cell).strip()
-                        for cell in markup.nodes
-                        if cell["tag"] == "td" and cell["parent"] is row
-                    ]
-                )
-        (pulled,) = [row for row in rows if str(op["op"]) in row[4].split(", ")]
-        assert re.fullmatch(r"T[1-9]\d*", pulled[0])
-        assert thread in pulled[1]
-        assert re.search(rf"\b{tool_role}\b", pulled[1], re.IGNORECASE)
-        for role in holder_roles:
-            assert role in pulled[3].casefold()
-        (operation,) = [
+        # The compact route owns instructions by physical setup/op, not by sheet
+        # number. Repeated member operations may share a semantic owner.
+        operations = [
             node
-            for node in markup.find("operation", page)
-            if node["attrs"]["data-op"] == str(op["op"])
+            for node in markup.nodes
+            if any(
+                isinstance(owner, dict)
+                and owner.get("setup_id") == setup_id
+                and str(owner.get("op_id")) == str(op["op"])
+                for owner in json.loads(node["attrs"].get("data-physical-ops", "[]"))
+            )
+            and markup.find("route-operation", node)
         ]
-        (tool_field,) = markup.find("op-tool", operation)
-        (tool_value,) = [
-            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is tool_field
+        assert operations, f"No hand-thread instruction for {setup_id}:{op['op']}"
+        settings = [
+            node
+            for node in markup.find("tool-setting-entry")
+            if f"{setup_id}:{op['op']}" in json.loads(node["attrs"]["data-physical-ops"])
         ]
-        assert " ".join(content(tool_value).split()) == pulled[0]
-        # These source selections have no measured physical dimensions. A nominal
-        # thread designation must not become a tool OD, projection or measurement debt.
-        assert not re.search(r"\d|Ø|projection", pulled[2], re.IGNORECASE)
+        # A numbered tool can be described in the job settings key; unnumbered
+        # hand tooling is described at the operation itself. Both are public.
+        visible = " ".join(content(node) for node in operations + settings)
+        assert resolve(bundle, "tools", op["tool"])["name"] in visible
+        assert resolve(bundle, "holders", op["holder"])["name"] in visible
+        assert thread in visible
+        assert re.search(rf"\b{tool_role}\b", visible, re.IGNORECASE)
+        for role in holder_roles:
+            assert role in visible.casefold()
 
 
 @pytest.mark.parametrize("fixture_name", ["die_bundle", "tap_bundle"])

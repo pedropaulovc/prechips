@@ -85,26 +85,38 @@ def append_op(path, body):
     return f"{last['id']}:{number}"
 
 
-def operation(html, setup, op):
-    """Find an operation by its setup and ledger identity, not its column layout."""
-    markup = Markup(html)
-    pages = [
+def job_section(markup):
+    (job,) = [
         node
         for node in markup.nodes
-        if node["attrs"].get("data-sheet", "").startswith(f"SETUP {setup} sheet ")
+        if node["tag"] == "section" and node["attrs"].get("data-sheet") == "job"
     ]
-    (node,) = [
+    return job
+
+
+def operation(html, setup, op):
+    """Find the default hobby instruction and results at their physical operation owner."""
+    markup = Markup(html)
+    (body,) = [node for node in markup.nodes if node["tag"] == "body"]
+    assert body["attrs"]["data-detail"] == "hobby"
+    job = job_section(markup)
+    (section,) = [
         node
-        for page in pages
-        for node in markup.find("operation", page)
-        if node["attrs"]["data-op"] == str(op)
+        for node in [*markup.find("setup-flow", job), *markup.find("setup-family", job)]
+        if setup in json.loads(node["attrs"]["data-setup-members"])
+    ]
+    owner = {"setup_id": setup, "op_id": int(op), "workpiece": None}
+    (node,) = [
+        instruction["parent"]
+        for instruction in markup.find("route-operation", section)
+        if owner in json.loads(instruction["parent"]["attrs"]["data-physical-ops"])
     ]
     return markup, node
 
 
 def op_markup(plan, setup, op):
-    """One operation as the whole rendered traveler prints it on its setup's pages: the
-    document rendered in process on a synthetic kernel with the inspection findings,
+    """One operation as the default hobby traveler prints it at its physical owner:
+    rendered in process on a synthetic kernel with the inspection findings,
     not a CLI subprocess running every rule."""
     bundle = synthetic_kernel(load_bundle(plan))
     findings = list(evaluate("inspection", bundle).values())
@@ -118,6 +130,25 @@ def inspection_record(markup, operation, features, requirement):
         if node["attrs"]["data-requirement"] == requirement
         and set(json.loads(node["attrs"]["data-features"])) == set(features)
     ]
+    return record
+
+
+def checkpoint_result(markup, operation, setup, op, features, requirement):
+    """The physical result association, separate from its shared printed criteria."""
+    (record,) = [
+        node
+        for node in markup.find("checkpoint-result", operation)
+        if node["attrs"]["data-requirement"] == requirement
+        and set(json.loads(node["attrs"]["data-features"])) == set(features)
+    ]
+    assert record["attrs"]["data-setup-id"] == setup
+    assert record["attrs"]["data-op-id"] == str(op)
+    assert record["attrs"]["data-workpiece"] == ""
+    assert record["attrs"]["data-shared-check"] == ""
+    assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+    assert set(json.loads(record["attrs"]["data-inspection-ids"])) == {
+        f"{feature}:{requirement}" for feature in features
+    }
     return record
 
 
@@ -248,11 +279,13 @@ def test_an_outside_coating_names_the_service_and_what_it_applies(tmp_path):
     inventory.write_text(inventory.read_text(encoding="utf-8") + service, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     markup, node = operation(html, *subject.split(":"))
-    tool = content(markup.find("op-tool", node)[0])
-    assert "coating" in content(markup.find("op-action", node)[0])
+    (instruction,) = markup.find("route-operation", node)
+    assert json.loads(instruction["attrs"]["data-features"]) == ["pivot_bearing"]
+    words = content(instruction)
+    assert "coating" in words
     # The machinist must see what is sent out and to whom, not the item kind.
-    assert "outside" in tool
-    assert "test-oxide-line" in tool and "hot black oxide, matte" in tool
+    assert "outside" in words
+    assert "test-oxide-line" in words and "hot black oxide, matte" in words
 
 
 def test_only_a_coating_op_names_a_process(tmp_path):
@@ -334,12 +367,18 @@ def test_one_inspect_op_reads_a_limit_the_drawing_gives_two_features(tmp_path):
         assert (row.status, row.numbers["op"]) == ("pass", f"{sid}:{op}")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     markup, node = operation(html, sid, op)
-    feature = content(markup.find("op-feature", node)[0])
+    (instruction,) = markup.find("route-operation", node)
+    assert set(json.loads(instruction["attrs"]["data-features"])) == set(SHOULDER)
+    feature = content(instruction)
     assert "shoulder north face" in feature and "shoulder thrust" in feature
-    record = inspection_record(markup, node, SHOULDER, "length")
-    assert content(record).count("0.99–2.01") == 1
-    assert len(markup.find("inspection-record", node)) == 1
+    (criterion,) = markup.find("route-inspection", node)
+    bands = re.findall(r"(?<![\d.])(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)(?!\d)", content(criterion))
+    assert [[float(value) for value in band] for band in bands] == [[0.99, 2.01]]
+    record = checkpoint_result(markup, node, sid, op, SHOULDER, "length")
+    assert len(markup.find("checkpoint-result", node)) == 1
     assert len(markup.find("result-field", record)) == 1
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank).strip() == ""
 
 
 @pytest.mark.parametrize("action", ["face", "deburr"])
@@ -432,7 +471,7 @@ def printed_process_hold(plan, sid, op):
     setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)
     sheet = _Traveler(bundle, list(findings.values()), {}, None)
     numbers, _, _ = sheet.tool_table(setup)
-    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
+    rows, _ = sheet.operations(setup, numbers)
     markup = Markup(rows)
     (operation,) = [
         node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)
@@ -592,7 +631,7 @@ def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path
     reference = bundle.feature_definitions[authored["feature"]][authored["requirement"]]
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     markup, op_node = operation(html, sid, op)
-    job = next(node for node in markup.nodes if node["attrs"].get("data-sheet") == "job page")
+    job = job_section(markup)
     job_rows = []
     for node in markup.nodes:
         if node["tag"] != "tr" or authored["reason"] not in content(node):
@@ -609,13 +648,14 @@ def test_process_holds_reach_the_job_page_apart_from_the_drawing_limits(tmp_path
     assert authored["reason"] in content(cells[4])
     assert content(job).count(authored["reason"]) == 1
     assert authored["reason"] not in content(op_node)
-    # The separate job summary and the owning operation retain the same authored hold.
+    # The job summary and owning operation retain the same authored hold, not a result.
     (message,) = [
         node
-        for node in markup.find("inspection-message", op_node)
-        if "PROCESS HOLD" in content(node)
+        for node in markup.nodes
+        if node["parent"] is op_node and node["tag"] == "p" and "PROCESS HOLD" in content(node)
     ]
     assert not markup.find("result-field", message)
+    assert not markup.find("writing-blank", message)
     for reading, drawing in (
         (content(cells[1]), content(cells[3])),
         (content(message), content(message)),
@@ -819,10 +859,19 @@ def test_the_traveler_prints_which_pin_enters_and_which_does_not(tmp_path):
     )
     rewrite(plan, ("op", sid, op), "go_no_go", "{ dia = { go = 2.0, no_go = 2.09 } }")
     markup, node = op_markup(plan, sid, op)
-    record = inspection_record(markup, node, ["rod_hole"], "dia")
-    requirement = content(markup.find("inspection-requirement", record)[0])
-    assert "Ø 2.00–2.09" in requirement
-    assert "GO 2.000 enters" in requirement and "NO-GO 2.090 does not" in requirement
+    record = checkpoint_result(markup, node, sid, op, ["rod_hole"], "dia")
+    (criterion,) = markup.find("route-inspection", node)
+    requirement = content(criterion)
+    (drawing_band,) = re.findall(r"Ø\s*(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)", requirement)
+    assert [float(value) for value in drawing_band] == [2.0, 2.09]
+    (pair,) = re.findall(
+        r"\bGO\s+(\d+(?:\.\d+)?)\s+enters,\s+NO-GO\s+(\d+(?:\.\d+)?)\s+does not\b",
+        requirement,
+    )
+    assert [float(value) for value in pair] == [2.0, 2.09]
+    assert len(markup.find("result-field", record)) == 1
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank).strip() == ""
 
 
 @pytest.mark.parametrize("declared", ["unknown", {"dia": "unknown"}])  # whole op, one requirement
@@ -865,7 +914,7 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
     setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == sid)
     sheet = _Traveler(bundle, list(findings.values()), {}, None)
     numbers, _, _ = sheet.tool_table(setup)
-    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
+    rows, _ = sheet.operations(setup, numbers)
     markup = Markup(rows)
     (node,) = [node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)]
     record = inspection_record(markup, node, ["rod_hole"], "dia")

@@ -1,4 +1,4 @@
-"""The printed Zs that link one setup's sheet to the next agree on the printed grid."""
+"""Pedantic transfer audits reconstruct printed Z shifts independently on the printed grid."""
 
 import json
 import math
@@ -37,8 +37,11 @@ _NUMBER = r"-?\d+(?:\.\d+)?"
 IDLE = "[[setups.ops]]\nop=90\ndo='deburr'\nfeature='target'\n"
 
 
-def _within(node, parent):
+def _within(node, parent, setup_id=None):
     while node is not None:
+        owner = node["attrs"].get("data-setup-id")
+        if setup_id is not None and owner not in (None, "", setup_id):
+            return False
         if node is parent:
             return True
         node = node["parent"]
@@ -53,16 +56,17 @@ def _reading_z(node):
 
 
 def _sheets(page):
-    """Each setup's parsed consumer-visible records, across all its sheets."""
+    """Each setup's physical records, independent of job-page pagination."""
     markup = Markup(page)
     sheets = {}
-    for section in markup.find("page"):
-        label = section["attrs"].get("data-sheet", "")
-        match = re.fullmatch(r"SETUP (\S+) sheet \d+", label)
-        if match:
-            sheets.setdefault(match[1], []).extend(
-                node for node in markup.nodes if _within(node, section)
-            )
+    for section in markup.nodes:
+        if section["tag"] != "section" or not (
+            {"setup-flow", "setup-family"} & set(section["attrs"].get("class", "").split())
+        ):
+            continue
+        for setup_id in json.loads(section["attrs"]["data-setup-members"]):
+            assert setup_id not in sheets, setup_id
+            sheets[setup_id] = [node for node in markup.nodes if _within(node, section, setup_id)]
     return sheets
 
 
@@ -226,7 +230,9 @@ def _check(bundle, sheets, setup, before, sign, offset):
 def test_each_transfer_prints_one_shift_and_its_zero_touches_the_printed_top(pilot):
     bundle = load_bundle(ROOT / "examples" / pilot)
     findings = coordinates.evaluate(bundle) + zero_recipe_rule.evaluate(bundle)
-    sheets = _sheets(render_traveler(bundle, findings, {}))
+    # The exhaustive arriving-surface/transfer audit is intentionally pedantic;
+    # compact travelers retain operative datums, not the stock-state audit table.
+    sheets = _sheets(render_traveler(bundle, findings, {}, detail="pedantic"))
     setups = {setup["id"]: setup for setup in bundle.plan["setups"]}
     linked = 0
     for setup in bundle.plan["setups"]:
@@ -279,7 +285,7 @@ def test_a_finer_sheets_zs_carry_onto_a_coarser_dro_by_one_shift_or_none(
 ):
     bundle = _turned_over(tmp_path, top, bottom, offset)
     findings = coordinates.evaluate(bundle) + zero_recipe_rule.evaluate(bundle)
-    sheets = _sheets(render_traveler(bundle, findings, {}))
+    sheets = _sheets(render_traveler(bundle, findings, {}, detail="pedantic"))
     first, second = bundle.plan["setups"]
     assert _arrival(sheets[second["id"]]) == arriving
     if linked:

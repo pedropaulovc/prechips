@@ -25,11 +25,18 @@ drawn pin in the cut bore. The hole earns no drawing coverage or finishing credi
 """
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status, setup_lineage
+from prechips.material_routes import setup_lineage
 from prechips.measurements import record_trusted
 from prechips.process_features import label, makers, process_of
 from prechips.rules._envelope import measurement_item
-from prechips.rules.resolution import UNKNOWN, number, op_features, record, same_length
+from prechips.rules.resolution import (
+    UNKNOWN,
+    number,
+    op_features,
+    operation_material_status,
+    record,
+    same_length,
+)
 
 _CITE = "PLAN.md §4.1 plan.process_features tooling_hole: locating holes in the work's waste"
 _SCALE = {"mm": 1.0, "in": 25.4}
@@ -248,7 +255,7 @@ def _evaluate(bundle, setup, name, ops, pins, state, detail):
             (
                 other,
                 op,
-                feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle),
+                operation_material_status(bundle, setup, other, name, producer_op=op),
             )
             for other, op in candidates
         ]

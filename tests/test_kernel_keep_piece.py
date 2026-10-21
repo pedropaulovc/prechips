@@ -230,38 +230,38 @@ owner = SimpleNamespace(multisolid=False, features={
     "west_top": [0], "east_top": [1], "both_tops": [0, 1], "bridge": [2], "gap": [3],
 })
 owner._declared = lambda: owner.features
-fake = SimpleNamespace(owner=owner, faces=faces, state={"components": set()})
-fake._finished_shares = lambda pieces, kept: engine._Setup._finished_shares(fake, pieces, kept)
+setup = engine._Setup(owner, {"id": "S1", "ops": []})
+setup.faces = faces
 out = {}
 for stock_name, stock in {
     "split": Part.makeCompound([west, east]),
     "overlap": Part.makeCompound([west, west.copy()]),
 }.items():
     for feature in owner.features:
-        kept, record = engine._Setup._kept(fake, feature, stock, "S1:10")
+        kept, record = setup._kept(feature, stock, "S1:10")
         out[stock_name + ":" + feature] = {
             "shape": None if kept is None else [round(v, 6) for v in engine._bbox(kept)],
             **record,
         }
 # Built-up guard: each received component owns one cube's finished material.
 scrap = Part.makeBox(5, 5, 5, V(40, 0, 0))
-built = SimpleNamespace(
-    owner=SimpleNamespace(
+built = engine._Setup(
+    SimpleNamespace(
         multisolid=False,
         features=owner.features,
         _declared=owner._declared,
         protected={"left": west, "right": east},
     ),
-    faces=faces,
-    state={"components": {"left", "right"}},
-    _placed=lambda shape: shape,
+    {"id": "S1", "ops": []},
 )
-built._finished_shares = lambda pieces, kept: engine._Setup._finished_shares(built, pieces, kept)
+built.faces = faces
+built.state["components"] = {"left", "right"}
+built.matrix = FreeCAD.Matrix()
 for stock_name, stock in {
     "component": Part.makeCompound([west, east]),
     "scrap": Part.makeCompound([west, scrap]),
 }.items():
-    kept, record = engine._Setup._kept(built, "west_top", stock, "S1:10")
+    kept, record = built._kept("west_top", stock, "S1:10")
     out["built:" + stock_name] = {"shape": None if kept is None else 1, **record}
 with open(target, "w", encoding="utf-8") as stream:
     json.dump(out, stream)

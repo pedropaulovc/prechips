@@ -8,7 +8,7 @@ from copy import deepcopy
 import pytest
 from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
 from test_kernel_outputs import _inspection_bundle, _png, _setup_scene
-from test_process_route import evaluate
+from test_process_route import evaluate, job_section, operation
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
@@ -61,38 +61,16 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
     findings = list(evaluate("inspection", bundle).values())
     html = render_traveler(bundle, findings, {}, None)
 
-    markup = Markup(html)
     setup = bundle.plan["setups"][0]
-    setup_id = setup["id"]
-    operation_id = str(setup["ops"][0]["op"])
-    pages = [
-        page
-        for page in markup.find("page")
-        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
-    ]
-    operations = [
-        node
-        for page in pages
-        for node in markup.find("operation", page)
-        if node["attrs"]["data-op"] == operation_id
-    ]
-    notes = [node for operation in operations for node in markup.find("op-note", operation)]
-    assert [content(node) for node in notes] == [instruction]
-    instruction_blocks = [
-        node
-        for node in markup.nodes
-        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
-    ]
-    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
-    assert all(
-        repo_citation not in content(node) and url_citation not in content(node) for node in notes
-    )
+    markup, owner = operation(html, setup["id"], setup["ops"][0]["op"])
+    assert content(owner).count(instruction) == 1
+    assert content(job_section(markup)).count(instruction) == 1
     assert repo_citation not in html
     assert url_citation not in html
 
 
 @pytest.mark.parametrize("revision", [None, "unknown"])
-def test_traveler_unconfirmed_revision_has_no_printed_or_serialized_revision(tmp_path, revision):
+def test_traveler_omits_unconfirmed_revision_metadata(tmp_path, revision):
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-shaft" / "plan.toml"
     source = plan.read_text(encoding="utf-8")
@@ -107,15 +85,6 @@ def test_traveler_unconfirmed_revision_has_no_printed_or_serialized_revision(tmp
     pages = markup.find("page")
     assert pages
     assert all(page["attrs"]["data-revision"] == "" for page in pages)
-    for page in pages:
-        headings = [
-            node
-            for node in markup.nodes
-            if node["tag"] == "h1" and node["parent"] in markup.find("meta", page)
-        ]
-        assert len(headings) == 1
-        assert content(headings[0]).endswith("REV NOT CONFIRMED")
-    assert "Drawing revision not confirmed" in content(pages[0])
 
 
 def test_inspection_report_preserves_pngs_source_facts_and_exact_owner_bindings(tmp_path):

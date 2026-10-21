@@ -101,6 +101,48 @@ def test_text_restating_the_chucking_is_an_error_whatever_the_transfer_says(
     assert "same chucking" in found and "keep_clamped" in found and "drop" in found
 
 
+@pytest.mark.parametrize("owner", ["setup", "hold", "operation"])
+def test_hidden_authored_note_claims_still_reach_consistency(owner):
+    from prechips.model import note_text
+
+    note = [
+        {"text": "Use the selected cutter.", "detail": "pro"},
+        {"text": "Use T1 (2-flute) for this cut.", "detail": "pedantic"},
+    ]
+    setup = {"ops": [dict(FACE)]}
+    target = setup if owner == "setup" else setup.setdefault("hold", {})
+    if owner == "operation":
+        target = setup["ops"][0]
+    target["note"] = note
+    data = bundle([setup])
+    subject = "S1:10" if owner == "operation" else "S1"
+    assert "2-flute" not in note_text(note, detail="pro")
+    assert "4 flutes" in errors(data)[subject]
+    assert target["note"] is note
+
+
+@pytest.mark.parametrize("owner", ["setup", "hold", "operation"])
+def test_reference_discovery_reads_every_authored_note_segment(owner):
+    from prechips.rules.resolution import setup_named_references
+
+    note = [
+        {"text": "Use tools.em4.", "detail": "pro"},
+        {"text": "Prepare gauges.hidden-calipers.", "detail": "pedantic"},
+    ]
+    setup = {"ops": [dict(FACE)]}
+    target = setup if owner == "setup" else setup.setdefault("hold", {})
+    if owner == "operation":
+        target = setup["ops"][0]
+    target["note"] = note
+    data = bundle([setup])
+    references = setup_named_references(data, data.plan["setups"][0])
+    assert references == {
+        "tools.em4": ["Setup S1"],
+        "gauges.hidden-calipers": ["Setup S1"],
+    }
+    assert target["note"] is note
+
+
 @pytest.mark.parametrize(
     "note",
     [
@@ -316,7 +358,8 @@ def test_an_unknown_rail_leaves_the_jaw_tops_and_the_work_top_height_unknown(rai
     if rail == "unknown":
         assert derived is None and work_top(data) == UNSET
     else:
-        assert derived == pytest.approx(-21.0 + 13.1953) and work_top(data) == "8.330"
+        assert derived == pytest.approx(-21.0 + 13.1953)
+        assert float(work_top(data)) == pytest.approx(8.33)
 
 
 @pytest.mark.parametrize(
@@ -714,6 +757,15 @@ def gauged(method):
 )
 def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(method):
     assert "NO-GO" in errors(bundle([{"ops": [gauged(method)]}]))["S1:34"]
+
+
+def test_hidden_operation_note_cannot_pass_a_no_go_plug():
+    op = gauged("Offer the NO-GO gently; it must not enter.")
+    op["note"] = [
+        {"text": "Clean the inspection faces.", "detail": "pro"},
+        {"text": "Push the NO-GO plug through the hole.", "detail": "pedantic"},
+    ]
+    assert "NO-GO" in errors(bundle([{"ops": [op]}]))["S1:34"]
 
 
 @pytest.mark.parametrize(
@@ -1192,10 +1244,22 @@ def test_a_picture_cut_printed_as_its_op_s_row_passes(cut, op, resolution):
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 
-def test_a_half_way_value_prints_one_way_on_both_surfaces():
+@pytest.mark.parametrize(
+    ("value", "resolution"),
+    [(2.8045, None), (4.2875, 0.00001), (-8.8125, 0.00001), (10, 1), (0, 0.001)],
+)
+def test_a_half_way_value_prints_one_way_on_both_surfaces(value, resolution):
+    from prechips.kernel.render_diagram import _dro
+    from prechips.rules.coordinates import dro_grid
+    from prechips.sheet import _Traveler
+
     # One clearance, 2.8045: the picture and the table both round the written decimal
     # half up (2.805), not the binary float (2.804), so they restate one value.
-    row = rows(pictured((2.8045, COLLAR, {"op": "27"}), ("27", 2.8045, COLLAR)))["S1"]
+    data = pictured((value, COLLAR, {"op": "27"}), ("27", value, COLLAR), resolution=resolution)
+    decimals = dro_grid(data, data.plan["setups"][0])[1]
+    traveler = _Traveler(data, [], {}, None)
+    assert traveler.operative(value, decimals) == _dro(value, decimals)
+    row = rows(data)["S1"]
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 

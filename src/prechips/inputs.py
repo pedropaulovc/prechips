@@ -67,6 +67,13 @@ class Bundle:
         """Source STEP ownership, independent of native import order and containment."""
         return _finished_feature_owners(self.features, self.paths.get("step"))
 
+    @cached_property
+    def workpiece_registrations(self) -> dict[str, dict] | None:
+        """Authored canonical-to-batch poses, never replacement source ownership."""
+        from prechips.material_routes import workpiece_registrations
+
+        return workpiece_registrations(self.plan)
+
 
 def _finished_feature_owners(features: dict, path: Path | None) -> dict[str, str | None]:
     from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
@@ -127,6 +134,68 @@ def _selector_owner(features: dict, owners: dict, name: str, where: str) -> str 
     return owner
 
 
+def _workpiece_faces(bundle: Bundle) -> None:
+    """Bind qualified claims to immutable canonical STEP refs, before native execution."""
+    from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
+
+    registrations = bundle.workpiece_registrations
+    claims = [
+        (setup, op)
+        for setup in bundle.plan["setups"]
+        for op in setup["ops"]
+        if isinstance(op.get("workpiece_faces"), dict)
+    ]
+    if registrations is None and not claims:
+        return
+    if registrations is not None and not bundle.features.get("solids"):
+        raise BadInput("Registered workpieces require features.solids source identities.")
+    path = bundle.paths.get("step")
+    if path is None:
+        raise BadInput("Qualified workpiece faces require the exact source STEP bytes.")
+    try:
+        source = StepFile(path.read_bytes().decode("latin-1"))
+        owned_faces = {
+            face
+            for ref in bundle.features.get("solids", {}).values()
+            for face in source.solid_faces(ref)
+        }
+        for setup, op in claims:
+            for member, refs in op["workpiece_faces"].items():
+                for ref in refs:
+                    source.resolve(ref)
+                    if ref not in owned_faces:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: workpiece_faces.{member} face "
+                            f"{ref!r} is outside canonical finished solids."
+                        )
+    except (OSError, StepError, FaceRefError) as exc:
+        raise BadInput(f"Cannot bind qualified workpiece faces to the source STEP: {exc}") from exc
+
+
+def _placed_supports(plan: dict, inventory: dict) -> None:
+    """Known posed inventory sources must resolve; incomplete geometry remains debt."""
+    from prechips.rules.resolution import select
+
+    for setup in plan["setups"]:
+        hold = setup.get("hold")
+        supports = hold.get("supports") if isinstance(hold, dict) else None
+        for entry in supports if isinstance(supports, list) else []:
+            if (
+                not isinstance(entry, dict)
+                or entry.get("placement") != "posed"
+                or "ref" not in entry
+            ):
+                continue
+            category, _, item = select(inventory, entry["ref"], "workholding")
+            if category in {"workholding", "fixtures"} and item == "unknown":
+                continue
+            if category not in {"workholding", "fixtures"} or not isinstance(item, dict):
+                raise BadInput(
+                    f"{setup['id']}: posed support {entry['id']!r} ref {entry['ref']!r} "
+                    "must name an inventory fixture or workholding item."
+                )
+
+
 def operative_definitions(plan: dict, features: dict) -> dict[str, dict]:
     """The exported manifest plus resolved plan joint and process features."""
     from prechips import joint_features, process_features
@@ -166,18 +235,45 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
         )
 
 
-def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict) -> None:
+def _inspection_tables(
+    where: str, op: dict, names: list[str], definitions: dict, acceptance: dict | None = None
+) -> None:
     """An op's ``checks``, ``go_no_go`` and ``inspection_methods``: requirement-keyed, or on
     a multi-feature inspect op scoped to one listed feature (``{ <feature> = { <requirement>
     = ... } }``). A scoped requirement is one its feature exports, a requirement is flat or
     scoped in one table, never both, and a GO / NO-GO pair or scoped method has a checks gauge
-    for every feature it applies to."""
+    for every feature it applies to. Typed part relationships are flat, never cloned under
+    their participating features."""
     from prechips.rules.resolution import INSPECTION_TABLES, op_entries, op_entry
 
     exported = {name: set(_exported(definitions[name])) for name in names}
     every = set().union(*exported.values())
+    relationships = acceptance or {}
     for table in INSPECTION_TABLES:
         for key, value in (op.get(table) if isinstance(op.get(table), dict) else {}).items():
+            if key in relationships:
+                if op.get("do") != "inspect":
+                    raise BadInput(
+                        f"{where}: manual acceptance checks belong to inspect operations."
+                    )
+                targets = op.get("inspect_workpieces")
+                if isinstance(targets, list) and len(targets) > 1:
+                    raise BadInput(
+                        f"{where} {table}.{key}: manual acceptance requires one workpiece, "
+                        "not a shared inspection."
+                    )
+                participants = set(relationships[key]["features"])
+                if not participants <= set(names):
+                    raise BadInput(
+                        f"{where} {table}.{key}: the op must list every acceptance participant "
+                        f"({', '.join(sorted(participants))})."
+                    )
+                if table == "go_no_go" or isinstance(value, dict):
+                    raise BadInput(
+                        f"{where} {table}.{key}: a manual acceptance relationship is a flat "
+                        "checks or inspection_methods entry, "
+                        "not a feature scope or GO / NO-GO pair."
+                    )
             # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
             scoping = isinstance(value, dict) and not (
                 table == "go_no_go" and {"go", "no_go"} & set(value)
@@ -207,7 +303,12 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
         entries = op_entries(op, table)
         flat = {requirement for scope, requirement, _ in entries if scope is None}
         for scope, requirement, _ in entries:
-            if scope is None and table == "checks" and requirement not in every:
+            if (
+                scope is None
+                and table == "checks"
+                and requirement not in every
+                and requirement not in relationships
+            ):
                 raise BadInput(
                     f"{where} checks.{requirement} is not in the exported requirements; use "
                     "missing_requirements for an absent requirement."
@@ -238,6 +339,104 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
                     f"{where} go_no_go.{requirement} names no checks gauge; a GO / NO-GO pair "
                     "needs its checks entry."
                 )
+
+
+def _inspection_scopes(plan: dict, features: dict) -> None:
+    """Bind declared shared inspection boundaries; native code proves later preservation."""
+    from prechips.material_routes import MaterialGraph, setup_lineage
+    from prechips.rules.resolution import op_features
+
+    selected = [
+        (setup, op)
+        for setup in plan["setups"]
+        for op in setup["ops"]
+        if {"inspect_workpieces", "inspection_scope"} & op.keys()
+    ]
+    if not selected:
+        return
+    graph = MaterialGraph(plan)
+    registered = graph.registrations
+    operations = {
+        f"{setup['id']}:{op['op']}": (position, setup, op)
+        for position, (setup, op) in enumerate(
+            (setup, op) for setup in plan["setups"] for op in setup["ops"]
+        )
+    }
+
+    def material(setup: dict) -> tuple:
+        return tuple((atom.root, atom.path) for atom in graph.nodes[setup["id"]])
+
+    def partition_before(position: int, sid: str) -> bool:
+        return any(
+            index < position
+            and entry_setup["id"] == sid
+            and isinstance(entry_op.get("outputs"), dict)
+            for index, entry_setup, entry_op in operations.values()
+        )
+
+    for setup, op in selected:
+        subject = f"{setup['id']}:{op['op']}"
+        targets = op.get("inspect_workpieces", "unknown")
+        scope = op.get("inspection_scope", "unknown")
+        if isinstance(targets, list):
+            if registered is None or not set(targets) <= registered.keys():
+                raise BadInput(f"{subject}: inspect_workpieces must name registered workpieces.")
+            live = graph.members(setup["id"])
+            if live is not None and not set(targets) <= live:
+                raise BadInput(f"{subject}: inspect_workpieces must name live incoming workpieces.")
+            if len(targets) > 1 and (
+                "inspection_scope" not in op
+                or isinstance(scope, dict)
+                and not {"after", "before"} <= scope.keys()
+            ):
+                raise BadInput(f"{subject}: a shared inspection requires a complete scope.")
+            if "inspection_scope" in op and live is not None and set(targets) != live:
+                raise BadInput(
+                    f"{subject}: scoped inspect_workpieces must include "
+                    "complete descendant membership."
+                )
+        if any(name not in features["features"] for name in op_features(op)):
+            raise BadInput(f"{subject}: scoped inspection must check registered finished features.")
+        if not isinstance(scope, dict):
+            continue
+        position = operations[subject][0]
+        incoming = material(setup)
+        for name in ("after", "before"):
+            reference = scope.get(name, "unknown")
+            if reference == "unknown":
+                continue
+            if reference not in operations:
+                raise BadInput(
+                    f"{subject}: inspection_scope.{name} names no operation: {reference!r}."
+                )
+            boundary_position, boundary_setup, boundary_op = operations[reference]
+            if not (
+                boundary_position < position if name == "after" else position < boundary_position
+            ):
+                raise BadInput(
+                    f"{subject}: inspection scope order must be after < inspect < before."
+                )
+            upstream, downstream = (
+                (boundary_setup, setup) if name == "after" else (setup, boundary_setup)
+            )
+            if (
+                len(incoming) != 1
+                or material(boundary_setup) != incoming
+                or upstream["id"] not in setup_lineage(plan, downstream["id"])
+                or name == "after"
+                and isinstance(boundary_op.get("outputs"), dict)
+                or partition_before(boundary_position, boundary_setup["id"])
+            ):
+                raise BadInput(
+                    f"{subject}: inspection scope boundaries must share the same incoming "
+                    "material lineage."
+                )
+        # A setup descriptor is its incoming state. An earlier split in that setup
+        # cannot be hidden by comparing the descriptor to itself.
+        if partition_before(position, setup["id"]):
+            raise BadInput(
+                f"{subject}: inspection follows a partition without a receiving material."
+            )
 
 
 _AREA_FORM = 'hold.area = { ref = "<consumables adhesive_tape id>", on = "<fixture solid>" }'
@@ -449,7 +648,7 @@ def load_bundle(
             for name, output in (
                 op["outputs"] if isinstance(op.get("outputs"), dict) else {}
             ).items():
-                if output["carries"] not in features["features"]:
+                if "carries" in output and output["carries"] not in features["features"]:
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: output {name!r} carries must name an "
                         "exported finished feature, not a transient preparation feature."
@@ -487,7 +686,11 @@ def load_bundle(
                 )
             preparing = [name for name in names if process_features.process_of(definitions[name])]
             if preparing:
-                authored = [key for key in ("faces", "checks", "missing_requirements") if key in op]
+                authored = [
+                    key
+                    for key in ("faces", "workpiece_faces", "checks", "missing_requirements")
+                    if key in op
+                ]
                 if authored or len(names) != 1:
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: plan.process_features.{preparing[0]} is "
@@ -496,8 +699,13 @@ def load_bundle(
                         + (f" (remove {', '.join(authored)})." if authored else ".")
                     )
             label = "/".join(names)
-            exported = {item for name in names for item in _exported(definitions[name])}
-            _inspection_tables(f"{setup['id']}:{op['op']}: {label}", op, names, definitions)
+            acceptance = features.get("acceptance", {})
+            exported = {
+                item for name in names for item in _exported(definitions[name])
+            } | acceptance.keys()
+            _inspection_tables(
+                f"{setup['id']}:{op['op']}: {label}", op, names, definitions, acceptance
+            )
             missing = op.get("missing_requirements")
             if isinstance(missing, dict):
                 for requirement in missing:
@@ -532,6 +740,7 @@ def load_bundle(
                 f"{setup['id']}: frame {frame!r} is neither exported in the manifest "
                 "nor declared in plan.frames."
             )
+    _inspection_scopes(plan, features)
     exported_frames = features["frames"] if isinstance(features["frames"], dict) else {}
     shadowed = sorted(set(planned_frames) & set(exported_frames))
     if shadowed:
@@ -603,6 +812,7 @@ def load_bundle(
     _blank_assets(plan, plan_path.parent, root, paths, hashes)
     _area_holds(plan, resolved["inventory"])
     _hand_fed_holds(plan, resolved["inventory"])
+    _placed_supports(plan, resolved["inventory"])
     step_digest = features.get("step_sha256", "unknown")
     if step_digest != "unknown":
         if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):
@@ -622,6 +832,7 @@ def load_bundle(
     # Seed the cached operative mapping already resolved above; it is built once.
     bundle.__dict__["feature_definitions"] = definitions
     owners = bundle.finished_feature_owners
+    _workpiece_faces(bundle)
     for setup in setups:
         for op in setup["ops"]:
             outputs = op.get("outputs")
@@ -629,6 +840,8 @@ def load_bundle(
                 continue
             if not features.get("solids"):
                 raise BadInput("Named retained outputs require features.solids source identities.")
+            if all("carries_workpieces" in entry for entry in outputs.values()):
+                continue
             carried = [
                 _selector_owner(features, owners, entry["carries"], f"{setup['id']}:{op['op']}")
                 for entry in outputs.values()

@@ -220,3 +220,118 @@ def test_skin_and_band_judgements_are_exact_and_never_waive_material(tmp_path, f
     assert transient["outside_input"] == pytest.approx(0.0, abs=1e-9)
     assert transient["band_left"] == pytest.approx(0.0, abs=1e-9)
     assert transient["unremoved_split_refused"]
+
+
+_COMPOUND_GUARD_PROBE = r"""
+import importlib.util, json, os, sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out, step = sys.argv[sys.argv.index("--") + 1:]
+spec = importlib.util.spec_from_file_location("kernel_under_test", os.environ["KERNEL_SOURCE"])
+job = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(job)
+native_offset = job._offset
+calls = []
+
+def traced_offset(shape, leave, join=0, fill=False):
+    calls.append(len(shape.Solids))
+    return native_offset(shape, leave, join, fill)
+
+job._offset = traced_offset
+
+def guarded(shape):
+    runner = object.__new__(job._Setup)
+    runner.protected = shape
+    runner.protection_reason = None
+    runner.guards = {}
+    guard, why = runner._guard(.254)
+    if guard is None:
+        return {"reason": why, "calls": list(calls)}
+    return {
+        "reason": why,
+        "calls": list(calls),
+        "valid": guard.isValid(),
+        "count": len(guard.Solids),
+        "volume": guard.Volume,
+        "missing": shape.cut(guard).Volume,
+        "boxes": sorted(list(job._bbox(solid)) for solid in guard.Solids),
+    }
+
+control = guarded(Part.makeBox(10, 10, 10))
+canonical = Part.Shape()
+canonical.read(step)
+members = []
+# Independent placement arithmetic: canonical-to-model registration, then S1's
+# top-up setup origin (12.7, 0, 12.7). Nut4 alone reverses canonical X/Y.
+for x, reversed_xy in [(100.33, False), (71.12, False), (41.91, False), (13.335, True)]:
+    member = canonical.copy()
+    if reversed_xy:
+        member.rotate(V(0, 0, 0), V(0, 0, 1), 180)
+    member.translate(V(x - 12.7, 0, -12.7))
+    members.append(member)
+result = {"control": control}
+for name, protected in [
+    ("compound", Part.makeCompound(members)),
+    ("multifuse", members[0].multiFuse(members[1:])),
+]:
+    calls.clear()
+    result[name] = guarded(protected)
+
+# Offsets meeting across a narrow gap must not slip through as an overlapping
+# compound with an inflated volume and a misleading preserved solid count.
+calls.clear()
+result["merged"] = guarded(Part.makeCompound([
+    Part.makeBox(10, 10, 10),
+    Part.makeBox(10, 10, 10, V(10.3, 0, 0)),
+]))
+
+def failed_member(shape, leave, join=0, fill=False):
+    if job._bbox(shape)[0] > 70:
+        raise RuntimeError("one member cannot be offset")
+    return native_offset(shape, leave, join, fill)
+
+job._offset = failed_member
+result["failed_member"] = guarded(Part.makeCompound(members))
+with open(out, "w", encoding="utf-8") as handle:
+    json.dump(result, handle)
+"""
+
+
+def test_rough_guard_offsets_each_registered_target_and_keeps_every_leave(tmp_path, freecad_kernel):
+    script = tmp_path / "compound_guard.py"
+    script.write_text(_COMPOUND_GUARD_PROBE, encoding="utf-8")
+    report = tmp_path / "compound_guard.json"
+    source = Path(kernel.__file__).with_name("freecad_job.py")
+    tnut = Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/t-nut.STEP"
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(report), str(tnut)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+        env={**os.environ, "KERNEL_SOURCE": str(source)},
+    )
+    assert report.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    result = json.loads(report.read_text(encoding="utf-8"))
+    control = result["control"]
+    assert control["reason"] is None and control["valid"] and control["count"] == 1
+    assert control["volume"] == pytest.approx(1158.549131921742, abs=1e-6)
+    # Direct one-solid OCC offsets of the frozen STEP gave 5342.81961007829 mm^3
+    # each in the standalone investigation, not a checker-derived expectation.
+    expected_boxes = [
+        [x - 12.954, -11.3665, -12.954, x + 12.954, 11.3665, 0.254]
+        for x in (0.635, 29.21, 58.42, 87.63)
+    ]
+    for name in ("compound", "multifuse"):
+        guard = result[name]
+        assert guard["reason"] is None and guard["valid"], guard
+        assert guard["calls"] == [1, 1, 1, 1]
+        assert guard["count"] == 4
+        assert guard["volume"] == pytest.approx(21371.27844031316, abs=1e-4)
+        assert guard["missing"] == pytest.approx(0, abs=1e-9)
+        for actual, expected in zip(guard["boxes"], expected_boxes, strict=True):
+            assert actual == pytest.approx(expected, abs=1e-6)
+    assert result["merged"]["reason"] is not None
+    assert "not a valid finite enclosing solid" in result["merged"]["reason"]
+    assert "one member cannot be offset" in result["failed_member"]["reason"]
+    assert "volume" not in result["failed_member"]

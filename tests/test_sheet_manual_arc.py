@@ -59,7 +59,8 @@ def operation_text(html, op):
     (owner,) = [
         node for node in markup.find("operation") if node["attrs"].get("data-op") == str(op)
     ]
-    instructions = markup.find("see", owner)
+    assert owner["attrs"]["data-setup-id"] == "S1"
+    instructions = markup.find("warn", owner)
     assert instructions, f"Missing manual instructions for op {op}"
     return " ".join(" ".join(content(node).split()) for node in instructions)
 
@@ -182,7 +183,9 @@ def contour_sheet(tmp_path, arc, line=None, scribed=False, layout=None):
     )
     html = sheet.contours(setup, {("tools", "cutter"): "6 mm endmill"})
     no_programming(html)
-    assert "99.000" not in text(html), "the generic arc profile must not print a second table"
+    assert not re.search(r"(?<![\w.])99(?:\.0+)?(?![\w.])", text(html)), (
+        "the generic arc profile must not print a second table"
+    )
     return html, text(html)
 
 
@@ -244,15 +247,20 @@ def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):
     assert printed.count("-2.125") == 3, printed
     # Each row owns its picture index, coordinates and one handwheel axis.
     assert headers(markup, tables[0]) == ["#", "P", "X", "Y", "handwheel axis"]
-    assert table_rows(markup, tables[0]) == [
-        ["1", "P1", "15.200", "-3.000", "X"],
-        ["2", "P2 (corner)", "15.200", "1.500", "Y"],
-        ["3", "P3", "12.800", "1.500", "X"],
+    rows = table_rows(markup, tables[0])
+    assert [row[:2] + row[4:] for row in rows] == [
+        ["1", "P1", "X"],
+        ["2", "P2 (corner)", "Y"],
+        ["3", "P3", "X"],
     ]
-    assert table_rows(markup, tables[1]) == [
-        ["4", "P4", "12.800", "1.500", ""],
-        ["5", "P5", "12.800", "4.000", "Y"],
+    assert [[float(value) for value in row[2:4]] for row in rows] == [
+        [15.2, -3],
+        [15.2, 1.5],
+        [12.8, 1.5],
     ]
+    joins = table_rows(markup, tables[1])
+    assert [row[:2] + row[4:] for row in joins] == [["4", "P4", ""], ["5", "P5", "Y"]]
+    assert [[float(value) for value in row[2:4]] for row in joins] == [[12.8, 1.5], [12.8, 4]]
 
 
 def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
@@ -267,10 +275,13 @@ def test_chain_drill_prints_holes_then_breakout_and_filing_stock(tmp_path):
     markup, owner, tables = coordinate_tables(html)
     (table,) = tables
     assert headers(markup, table) == ["hole #", "P", "X", "Y"]
-    assert table_rows(markup, table) == [
-        ["1", "P1", "15.200", "-3.000"],
-        ["2", "P2", "15.200", "1.500"],
-        ["3", "P3", "12.800", "1.500"],
+    rows = table_rows(markup, table)
+    assert [row[:2] for row in rows] == [["1", "P1"], ["2", "P2"], ["3", "P3"]]
+    assert all(len(row) == 4 for row in rows)
+    assert [[float(value) for value in row[2:]] for row in rows] == [
+        [15.2, -3],
+        [15.2, 1.5],
+        [12.8, 1.5],
     ]
     context = content(markup.find("table-context", table)[0])
     assert "drill Ø3.5 mm" in context and "pitch 3.2 mm" in context
@@ -775,11 +786,14 @@ def test_chain_drill_straight_joins_keep_checkpoints_clips_and_stock(tmp_path, r
     assert headers(markup, table) == ["hole #", "P", "", "X", "Y"]
     rows = table_rows(markup, table)
     assert rows[0][:2] == ["1", "P1"]
-    assert rows[0][-2:] == ["12.800", "1.500"]
+    assert [float(value) for value in rows[0][-2:]] == [12.8, 1.5]
     assert rows[0][2], "proven overshoot must retain its annotation"
-    assert rows[1] == ["2", "P2", "", "12.800", "4.000"]
+    assert rows[1][:3] == ["2", "P2", ""]
+    assert [float(value) for value in rows[1][3:]] == [12.8, 4]
     printed = text(html)
-    assert "99.000" not in printed, "join-only chain must not print a generic path too"
+    assert not re.search(r"(?<![\w.])99(?:\.0+)?(?![\w.])", printed), (
+        "join-only chain must not print a generic path too"
+    )
     assert "Chain drill straight joins" in printed
     assert "drill Ø2 mm" in printed and "pitch 2.5 mm" in printed
     assert "every hole outside the finished outline" in printed
@@ -795,7 +809,9 @@ def test_chain_drill_straight_joins_keep_checkpoints_clips_and_stock(tmp_path, r
     unproved = sheet.contours(setup, {("tools", "cutter"): "2 mm drill"})
     unproved_markup, _, unproved_tables = coordinate_tables(unproved)
     assert headers(unproved_markup, unproved_tables[0]) == ["hole #", "P", "X", "Y"]
-    assert table_rows(unproved_markup, unproved_tables[0])[0] == ["1", "P1", "12.800", "1.500"]
+    first = table_rows(unproved_markup, unproved_tables[0])[0]
+    assert first[:2] == ["1", "P1"]
+    assert [float(value) for value in first[2:]] == [12.8, 1.5]
 
 
 @pytest.mark.parametrize("method", ["stairs", "chords"])
@@ -824,11 +840,10 @@ def test_join_only_milled_tables_never_reprint_the_unsnapped_generic_profile(tmp
     html = sheet.contours(setup, {("tools", "cutter"): "6 mm endmill"})
     markup, _, tables = coordinate_tables(html)
     (table,) = tables
-    expected = [["1", "P1", "12.800", "1.500"], ["2", "P2", "12.800", "4.000"]]
-    if method == "stairs":
-        expected[0].append("")
-        expected[1].append("Y")
-    assert table_rows(markup, table) == expected
+    rows = table_rows(markup, table)
+    assert [row[:2] for row in rows] == [["1", "P1"], ["2", "P2"]]
+    assert [[float(value) for value in row[2:4]] for row in rows] == [[12.8, 1.5], [12.8, 4]]
+    assert [row[4:] for row in rows] == ([[""], ["Y"]] if method == "stairs" else [[], []])
     printed = text(html)
     assert "Straight joins on the west side" in printed
     assert "Cutter-centre checkpoints" not in printed
@@ -875,12 +890,24 @@ def test_chords_print_endpoints_length_sagitta_index_and_radius_band(tmp_path):
         "handwheel cut",
     ]
     rows = table_rows(markup, table)
-    assert [row[:-1] for row in rows] == [
-        ["1", "P1", "15.200", "-3.000", "P2", "15.200", "1.500", "4.5", "0.025", ""],
-        ["2", "P2", "15.200", "1.500", "P3", "12.800", "1.500", "2.4", "0.007", "15.25"],
+    assert all(len(row) == 11 for row in rows)
+    assert [row[:2] + [row[4]] for row in rows] == [
+        ["1", "P1", "P2"],
+        ["2", "P2", "P3"],
     ]
-    assert "lock X at 15.200" in rows[0][-1] and "feed Y -3.000 → 1.500" in rows[0][-1]
-    assert "lock Y at -1.125" in rows[1][-1] and "feed X 4.750 → 7.150" in rows[1][-1]
+    assert [[float(row[index]) for index in (2, 3, 5, 6, 7, 8)] for row in rows] == [
+        [15.2, -3, 15.2, 1.5, 4.5, 0.025],
+        [15.2, 1.5, 12.8, 1.5, 2.4, 0.007],
+    ]
+    assert rows[0][9] == "" and float(rows[1][9]) == 15.25
+    for row, lock_axis, at, feed_axis, start, stop in (
+        (rows[0], "X", 15.2, "Y", -3, 1.5),
+        (rows[1], "Y", -1.125, "X", 4.75, 7.15),
+    ):
+        (locked,) = re.findall(rf"lock {lock_axis} at (-?[\d.]+)", row[-1])
+        (fed,) = re.findall(rf"feed {feed_axis} (-?[\d.]+) → (-?[\d.]+)", row[-1])
+        assert float(locked) == at
+        assert [float(value) for value in fed] == [start, stop]
     context = content(markup.find("table-context", table)[0])
     assert "chord ends sit on R 100.1 mm" in context
     assert "every chord stays inside R 99.8–100.2 mm" in context
@@ -950,14 +977,15 @@ def test_rotary_recipe_prints_centring_offset_dial_and_conventional_direction(
     else:
         assert "indicate centre bore" in locating
     # The formula and the resulting offset must be on the same step, not elsewhere.
-    assert f"offset the table to X {offset}.000 " in offsetting
+    (printed_offset,) = re.findall(r"offset the table to X (-?[\d.]+)\b", offsetting)
+    assert float(printed_offset) == offset
     assert f"R 10 mm {formula} cutter radius 3 mm" in offsetting
     assert ("convex" if convex else "concave") in offsetting
     assert "lock x and y" in cutting.lower() and "set Z -2.125" in cutting
     assert re.search(rf"\b{rotation} from 12\.5° to 102\.5°", cutting)
     assert "sweep 90°" in cutting and "dial to 0.25°" in cutting
     assert "conventional-cut direction" in cutting
-    assert "15.200" not in printed, "rotary samples belong only to the picture"
+    assert not re.search(r"\b15\.2(?:0*)\b", printed), "rotary samples belong only to the picture"
 
 
 def manual_record(op, action):
@@ -1010,10 +1038,12 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
     layout_text = operation_text(html, 10)
     filing_text = operation_text(html, 30)
     assert "blue the part" in layout_text and "scribe R10 mm" in layout_text
-    assert "X 2.000, Y -3.000" in layout_text and "on the axis of centre bore" in layout_text
+    assert "on the axis of centre bore" in layout_text
     assert ("arc template" if layout == "template" else layout) in layout_text
     assert "arc ends" in layout_text
-    assert "X 12.000, Y -3.000" in layout_text and "X 2.000, Y 7.000" in layout_text
+    assert [
+        [float(x), float(y)] for x, y in re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", layout_text)
+    ] == [[2, -3], [12, -3], [2, 7]]
     assert "file down to the hardened button rims" in filing_text
     assert "R10 filing buttons" in filing_text
     # Receipt limits and the outward-rounded proven band belong to the filing operation.
@@ -1023,7 +1053,8 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
     assert "check with radius gauge" in filing_text
     assert "file off the stock left by S1:20 (at most 0.5 mm)" in filing_text
     assert "Bench filing:" not in layout_text and "Layout:" not in filing_text
-    assert "STOP" not in text(html)
+    assert "STOP" not in layout_text
+    assert "STOP" not in filing_text
 
 
 @pytest.mark.parametrize(

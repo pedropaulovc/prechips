@@ -138,6 +138,9 @@ def _inspection_scene(first_height=512, second_height=512):
                 "role": "inspection",
                 "label": "ON V-BLOCKS",
                 "view_ordinal": 1,
+                "id": "inspection:1",
+                "selection_group": "inspection:1",
+                "annotations": [],
                 "top_px": 0,
                 "height_px": first_height,
             },
@@ -145,6 +148,9 @@ def _inspection_scene(first_height=512, second_height=512):
                 "role": "inspection",
                 "label": "END READING",
                 "view_ordinal": 2,
+                "id": "inspection:2",
+                "selection_group": "inspection:2",
+                "annotations": [],
                 "top_px": first_height,
                 "height_px": second_height,
             },
@@ -160,6 +166,9 @@ def _setup_scene():
             {
                 "role": "setup",
                 "label": "Synthetic output-lifecycle image",
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": [],
                 "top_px": 0,
                 "height_px": 1,
             }
@@ -420,6 +429,9 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
                                 {
                                     "role": "setup",
                                     "label": "Synthetic output-lifecycle image",
+                                    "id": "setup",
+                                    "selection_group": "setup",
+                                    "annotations": [],
                                     "top_px": 0,
                                     "height_px": 1,
                                 }

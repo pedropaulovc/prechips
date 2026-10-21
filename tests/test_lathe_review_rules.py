@@ -2,6 +2,7 @@
 
 import dataclasses
 import re
+from decimal import Decimal
 from html import unescape
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,11 @@ from prechips.inputs import Bundle
 from prechips.rules import coordinates, op_chain
 from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
+
+
+def _numbers(value):
+    """Compare printed values without treating insignificant zeroes as a contract."""
+    return tuple(Decimal(token) for token in re.findall(r"-?\d+(?:\.\d+)?", str(value)))
 
 
 def _setup(ops, setup_id="S3"):
@@ -79,6 +85,259 @@ _IDENTITY = {
     "z": [0.0, 0.0, 1.0],
     "binding": "nominal",
 }
+
+
+def _registered_start_chain(priors, selected=("one",), registered=("one", "two")):
+    form = dict(_FORM)
+    if selected is not None:
+        form["workpiece_faces"] = {member: ["#1"] for member in selected}
+    setup = _setup([*priors, form])
+    setup["stock_in"] = "stock"
+    bundle = _bundle([setup], {"dome": dict(_DOME)})
+    bundle.plan["workpieces"] = {
+        name: {
+            "pose": {**_IDENTITY, "origin": [index * 20.0, 0.0, 0.0]},
+            "cite": "synthetic registered start-face regression",
+        }
+        for index, name in enumerate(registered)
+    }
+    return next(row for row in op_chain.evaluate(bundle) if row.subject == "dome")
+
+
+@pytest.mark.parametrize(
+    "irrelevant",
+    [
+        {"op": 15, "do": "inspect", "feature": "dome"},
+        {"op": 15, "do": "face", "feature": "dome", "to_z": "unknown"},
+        {"op": 15, "do": "face", "feature": "dome", "to_z": 3.0},
+        {
+            "op": 15,
+            "do": "cut_to_fit",
+            "feature": "dome",
+            "to_z": 3.0,
+            "to_z_band": [2.5, 3.5],
+        },
+        {**_PART, "op": 15, "workpiece_faces": {"two": ["#1"]}},
+    ],
+    ids=["no-Z", "unknown-Z", "different-Z", "different-band", "different-member"],
+)
+def test_registered_start_ignores_producers_without_relevant_z_or_member(irrelevant):
+    face = {**_PART, "workpiece_faces": {"one": ["#1"]}}
+    control = _registered_start_chain([face])
+    assert control.status == "not_applicable"
+    row = _registered_start_chain([face, irrelevant])
+    assert row.status == control.status
+    assert "unknown_starts" not in row.numbers
+    assert "banded_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"to_z": 1.75},
+        {"to_z": 2.25, "to_z_band": [1.5, 2.5]},
+        {"to_z": 2.25, "to_z_band": [2.0, "unknown"]},
+    ],
+    ids=["same-Z", "containing-band", "potential-band"],
+)
+def test_registered_relevant_start_producer_keeps_unknown_member_debt(target):
+    face = {**_PART, "workpiece_faces": {"one": ["#1"]}}
+    row = _registered_start_chain(
+        [face, {"op": 15, "do": "cut_to_fit", "feature": "dome", **target}]
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"]
+    assert "banded_starts" not in row.numbers
+
+
+def test_registered_unknown_member_does_not_hide_a_known_start_band_error():
+    banded = {**_PART, "to_z_band": [1.5, 2.0], "workpiece_faces": {"one": ["#1"]}}
+    later = {**_PART, "op": 15, "to_z": 2.25, "to_z_band": [2.0, "unknown"]}
+    control = _registered_start_chain([banded])
+    row = _registered_start_chain([banded, later])
+    assert control.status == row.status == "error"
+    assert row.numbers["banded_starts"] == control.numbers["banded_starts"]
+    assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "producers, expected",
+    [
+        ([(("one",), True), (("two",), False)], [("one", 10)]),
+        ([(("one",), False), (("two",), True)], [("two", 11)]),
+        ([(("one", "two"), True), (("two",), False)], [("one", 10)]),
+        ([(("one", "two"), True), (("one",), False)], [("two", 10)]),
+        (
+            [(("one",), True), (("two",), True), (("one",), False)],
+            [("two", 11)],
+        ),
+        (
+            [(("one", "two"), True), (("one",), False), (("two",), False)],
+            [],
+        ),
+        ([(("one", "two"), False), (("one",), True)], [("one", 11)]),
+        ([(("one", "two"), False), (("three",), True)], []),
+        (
+            [(("one",), True), (("two",), False), (("three",), False)],
+            [("one", 10)],
+        ),
+        (
+            [(("one",), True), (("two",), False), (("three",), True)],
+            [("one", 10)],
+        ),
+        (
+            [(("one", "two"), True), (("one",), False), (("two",), True)],
+            [("two", 12)],
+        ),
+        (
+            [(("one", "two"), True), (("one", "two"), False), (("one", "two"), True)],
+            [("one", 12), ("two", 12)],
+        ),
+    ],
+    ids=[
+        "later-deterministic-sibling",
+        "later-banded-sibling",
+        "overlapping-band-fix-two-only",
+        "overlapping-band-fix-one-only",
+        "independent-bands-fix-one-only",
+        "independently-deterministic",
+        "latest-subset-band-wins",
+        "disjoint-band-irrelevant",
+        "disjoint-deterministic-cannot-fix",
+        "disjoint-band-cannot-replace",
+        "latest-applicable-band-on-two",
+        "latest-overlapping-band-wins",
+    ],
+)
+def test_registered_multi_member_starts_use_each_members_latest_producer(producers, expected):
+    priors = [
+        {
+            **_PART,
+            "op": 10 + index,
+            "workpiece_faces": {member: ["#1"] for member in members},
+            **({"to_z_band": [1.5, 2.0]} if banded else {}),
+        }
+        for index, (members, banded) in enumerate(producers)
+    ]
+    row = _registered_start_chain(
+        priors, selected=("one", "two"), registered=("one", "two", "three")
+    )
+    assert row.status == ("error" if expected else "not_applicable"), row.sentence
+    assert row.numbers.get("banded_starts", []) == [
+        f"S3 op 20 member {member} starts at Z 1.75, which op {ordinal} "
+        "leaves anywhere in 1.5 to 2; an op must leave "
+        "that face at a deterministic to_z first"
+        for member, ordinal in expected
+    ]
+    assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"to_z": 1.75, "to_z_band": [1.5, 2.0]},
+        {"to_z": 2.0, "to_z_band": [1.5, 2.0]},
+        {"to_z": 1.75, "to_z_band": [1.5, "unknown"]},
+    ],
+    ids=["same-Z", "containing-band", "unknown-band-at-same-Z"],
+)
+def test_registered_subset_band_is_not_hidden_by_a_later_sibling_face(target):
+    row = _registered_start_chain(
+        [
+            {**_PART, **target, "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 15, "workpiece_faces": {"two": ["#1"]}},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert len(row.numbers["banded_starts"]) == 1
+    assert "member one starts at Z 1.75, which op 10" in row.numbers["banded_starts"][0]
+    assert "unknown_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {},
+        {"workpiece_faces": {"missing": ["#1"]}},
+        {"workpiece_faces": {"one": "unknown"}},
+    ],
+    ids=["unqualified", "nonlive-member", "unknown-faces"],
+)
+def test_registered_multi_member_unresolved_producer_cannot_prove_deterministic_starts(claims):
+    row = _registered_start_chain(
+        [
+            {**_PART, "workpiece_faces": {"one": ["#1"], "two": ["#1"]}},
+            {**_PART, "op": 15, **claims},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"] == [
+        "S3 op 15 start-face member one is unresolved",
+        "S3 op 15 start-face member two is unresolved",
+    ]
+    assert "banded_starts" not in row.numbers
+
+
+def test_registered_multi_member_unknown_producer_preserves_other_members_known_error():
+    row = _registered_start_chain(
+        [
+            {**_PART, "to_z_band": [1.5, 2.0], "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 12, "workpiece_faces": {"two": ["#1"]}},
+            {**_PART, "op": 15},
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert row.numbers["banded_starts"] == [
+        "S3 op 20 member one starts at Z 1.75, which op 10 leaves anywhere in 1.5 to 2; "
+        "an op must leave that face at a deterministic to_z first"
+    ]
+    assert row.numbers["unknown_starts"] == ["S3 op 15 start-face member two is unresolved"]
+
+
+def test_registered_multi_member_potential_band_keeps_debt_on_only_its_selected_member():
+    row = _registered_start_chain(
+        [
+            {**_PART, "workpiece_faces": {"one": ["#1"]}},
+            {**_PART, "op": 12, "to_z_band": [1.5, 2.0], "workpiece_faces": {"two": ["#1"]}},
+            {
+                **_PART,
+                "op": 15,
+                "to_z": 2.25,
+                "to_z_band": [2.0, "unknown"],
+                "workpiece_faces": {"one": ["#1"]},
+            },
+        ],
+        selected=("one", "two"),
+    )
+    assert row.status == "error", row.sentence
+    assert row.numbers["banded_starts"] == [
+        "S3 op 20 member two starts at Z 1.75, which op 12 leaves anywhere in 1.5 to 2; "
+        "an op must leave that face at a deterministic to_z first"
+    ]
+    assert row.numbers["unknown_starts"] == [
+        "S3 op 20 member one starts at Z 1.75, which op 15 leaves anywhere in 2 to an unknown Z, "
+        "which may hold it"
+    ]
+
+
+@pytest.mark.parametrize("selected", [None, ("missing",)], ids=["unqualified", "nonlive-member"])
+def test_registered_unresolved_form_members_cannot_turn_a_band_into_a_known_result(selected):
+    row = _registered_start_chain(
+        [
+            {
+                **_PART,
+                "to_z_band": [1.5, 2.0],
+                "workpiece_faces": {"one": ["#1"], "two": ["#1"]},
+            }
+        ],
+        selected=selected,
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"] == ["S3 op 10 start-face member is unresolved"]
+    assert "banded_starts" not in row.numbers
 
 
 def _lathe(ops, features, tools, units="mm", zero=None):
@@ -235,7 +494,8 @@ def test_a_relief_row_prints_its_band_and_groove_extent_once(checks, z_to, band,
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("coordinates", "S1")] = coordinates.evaluate(bundle)[0].numbers
     printed = sheet.relief_plunges(setup, op)
-    assert any(line.startswith("to Ø 5.700") or "each to Ø 5.700" in line for line in printed)
+    (size,) = [line for line in printed if re.match(r"(?:each )?to Ø ", line)]
+    assert _numbers(size)[0] == Decimal("5.700"), printed
     assert any("(5.57" in line for line in printed) is band, printed
     assert any(line.startswith("groove Z") for line in printed) is groove, printed
 
@@ -254,7 +514,8 @@ def test_a_half_way_travel_rounds_up_on_a_coarser_dro(dia, radial):
     sheet.records[("coordinates", "S1")] = {"x_display": "diameter"}
     sheet.records[("reach", "S1:10")] = {"reach_depth_mm": dia / 2}
     (line,) = sheet.plunge_x(setup, op)
-    assert line.endswith(f"→ 0.00 ({radial} radial)"), line
+    assert line.startswith("X ") and "→" in line and line.endswith(" radial)"), line
+    assert _numbers(line) == (Decimal(str(dia)), Decimal(0), Decimal(radial)), line
 
 
 _DOME = {"kind": "dome", "frame": "model", "height": [0.7, 2.3], "sphere_radius": 4.1102}
@@ -486,10 +747,13 @@ def test_millimetre_start_and_engagement_facts_print_in_inch_dro_coordinates():
     engage = {"declared_z_mm": 50.8, "engage_z_mm": 52.0}
     numbers = {"window_poses": [start], "rest_engagement": [engage], "feed_z": -1}
     sheet, setup, op = _sheet("in", 0.0254, numbers, 2.0, 0.5)
-    assert sheet.posed_start(setup, op) == (
-        "START Z 2.000: 0.050 CLEAR OF dead centre — start no further out than Z 2.050"
-    )
-    assert sheet.rest_steps(setup, op)[0] == ["follow rest on: Z 2.000"]
+    start = sheet.posed_start(setup, op)
+    assert start.startswith("START Z ") and "CLEAR OF dead centre" in start, start
+    assert "start no further out than Z " in start, start
+    assert _numbers(start) == (Decimal("2.000"), Decimal("0.050"), Decimal("2.050"))
+    (engagement,) = sheet.rest_steps(setup, op)[0]
+    assert engagement.startswith("follow rest on: Z ")
+    assert _numbers(engagement) == (Decimal("2.000"),)
 
 
 def test_the_jaw_clearance_is_the_tools_own_chuck_side_extent_not_the_z_its_op_names():
@@ -499,8 +763,13 @@ def test_the_jaw_clearance_is_the_tools_own_chuck_side_extent_not_the_z_its_op_n
     setup["hold"]["pose"] = {"origin_mm": [0.0, 0.0, -2.0], "z": [0.0, 0.0, 1.0]}
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(2.10)}
-    assert "2.10 mm" in [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
-    assert sheet.crash_boxes(setup, op) == ["JAWS Z -2.00: 2.10 clear — hand feed to a stop"]
+    readings = [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
+    assert any(
+        value.endswith(" mm") and _numbers(value) == (Decimal("2.10"),) for value in readings
+    )
+    (warning,) = sheet.crash_boxes(setup, op)
+    assert warning.startswith("JAWS Z ") and "clear — hand feed to a stop" in warning
+    assert _numbers(warning) == (Decimal("-2.00"), Decimal("2.10"))
 
 
 def _dome_tables(compensation=0.4):
@@ -528,7 +797,10 @@ def test_a_tool_fed_to_its_tip_table_stands_where_the_table_puts_it_not_on_the_d
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     sheet.records[("coordinates", "S1")] = _dome_tables()
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(8.10)}
-    assert "8.10 mm" in [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
+    readings = [content(node) for node in Markup(sheet.clearance(setup)).find("reading")]
+    assert any(
+        value.endswith(" mm") and _numbers(value) == (Decimal("8.10"),) for value in readings
+    )
     # A shank standing 1.6 below the nose at every pose goes with it: Z-1.496, so 6.50.
     sheet.records[("accessibility", "S1:10")]["tool_z_mm"] = [-1.746, 62.475]
     assert sheet.lathe_approaches(setup) == {"10": pytest.approx(6.50)}
@@ -573,9 +845,10 @@ def test_a_tool_the_kernel_could_not_pose_whole_has_an_unknown_jaw_clearance(ext
     sheet.records[("headroom", "S1")] = {"stock_od_mm": 10.0}
     assert sheet.lathe_approaches(setup) == {"10": "unknown"}
     assert "closest tool approach not computed — check at the machine" in sheet.clearance(setup)
-    assert sheet.crash_boxes(setup, op) == [
-        "JAWS Z -8.00: tool clearance not computed — hand feed to a stop"
-    ]
+    (warning,) = sheet.crash_boxes(setup, op)
+    assert warning.startswith("JAWS Z ")
+    assert "tool clearance not computed — hand feed to a stop" in warning
+    assert _numbers(warning) == (Decimal("-8.00"),)
 
 
 def test_a_follow_rest_z_is_printed_on_the_clear_side_of_the_dro_grid():
@@ -640,16 +913,25 @@ def test_a_follow_rest_on_the_turned_diameter_is_backed_off_before_every_return(
     found = [end.find(words) for words in _PASS_END]
     assert -1 not in found and found == sorted(found), end
     # The sequence prints once, full width; the coordinate cell keeps only the Z.
-    assert cells == (["follow rest on: Z 152.00"] if engage else [])
-    assert ("at Z 152.00: stop the feed, then the spindle; set the follow-rest jaws" in line) is (
-        engage
+    assert len(cells) == int(engage)
+    if engage:
+        assert cells[0].startswith("follow rest on: Z ")
+        assert _numbers(cells[0]) == (Decimal("152.00"),)
+    engagement = re.search(
+        r"at Z (-?\d+(?:\.\d+)?): stop the feed, then the spindle; set the follow-rest jaws",
+        line,
     )
+    assert (engagement is not None) is engage
+    if engage:
+        assert Decimal(engagement[1]) == Decimal("152.00")
 
 
 def test_a_follow_rest_riding_the_uncut_stock_is_not_released_for_the_return():
     # Leading jaws return over the diameter just cut, smaller than their setting.
     cells, lines = _rest_steps("uncut")
-    assert cells == ["follow rest on: Z 152.00"]
+    (engagement,) = cells
+    assert engagement.startswith("follow rest on: Z ")
+    assert _numbers(engagement) == (Decimal("152.00"),)
     assert not any("back the follow-rest jaws off" in line for line in lines)
     assert any("on the uncut stock ahead of the tool" in line for line in lines)
 
@@ -703,12 +985,13 @@ def test_an_inch_relief_is_plunged_in_millimetres_and_printed_in_inches():
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("coordinates", "S1")] = finding.numbers
     printed = sheet.relief_plunges(setup, op)
-    assert printed[:2] == [
-        "plunge 1 chuck-side corner Z 0.000",
-        "plunge 2 chuck-side corner Z 0.016",
-    ]
+    assert len(printed) >= 2
+    for line, index, z in zip(printed[:2], (1, 2), ("0.000", "0.016"), strict=True):
+        assert re.match(r"plunge \d+ chuck-side corner Z ", line), printed
+        assert _numbers(line) == (Decimal(index), Decimal(z)), printed
     # The groove is the row's own Z window, printed there in inches.
-    assert "Z 0.000 → 0.079" in sheet.tip(setup, op)
+    (window,) = [line for line in sheet.tip(setup, op) if line.startswith("Z ") and "→" in line]
+    assert _numbers(window) == (Decimal("0.000"), Decimal("0.079")), window
     assert not any(line.startswith("groove Z") for line in printed), printed
 
 
@@ -771,6 +1054,21 @@ def test_an_unknown_later_band_does_not_hide_a_known_band_holding_the_start():
     assert "which op 10 leaves anywhere in 1.5 to 2;" in row.sentence
 
 
+def _operation_texts(markup, css, setup_id):
+    """Read original operation ownership, including explicitly shared instructions."""
+    from test_sheet_detail import operation_owner, operation_owners
+
+    texts = {}
+    for node in markup.find(css):
+        owner = operation_owner(node)
+        if owner is None:
+            continue
+        for identity in operation_owners(owner):
+            if identity["setup_id"] == setup_id:
+                texts.setdefault(str(identity["op_id"]), []).append(content(node))
+    return texts
+
+
 def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before_the_cut(
     tmp_path,
 ):
@@ -798,10 +1096,8 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     ]
     page = render_traveler(bundle, clear, {})
     markup = Markup(page)
-    [setup_page] = [
-        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
-    ]
-    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
+    notes = _operation_texts(markup, "see", "S1")
+    targets = _operation_texts(markup, "route-operation", "S1")
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
     order = [
         "stop the feed, then the spindle",
@@ -811,18 +1107,19 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
         "then resume the feed",
     ]
     for number in (10, 30):
-        owner = operations[str(number)]
-        [step] = [
-            content(node)
-            for node in markup.find("see", owner)
-            if "set the follow-rest jaws" in content(node)
-        ]
-        assert "at Z 152.00:" in step
+        [step] = [text for text in notes[str(number)] if "set the follow-rest jaws" in text]
+        (z,) = re.findall(r"at Z (-?\d+(?:\.\d+)?):", step)
+        assert Decimal(z) == Decimal("152.00"), step
         found = [step.find(words) for words in order]
         assert -1 not in found and found == sorted(found), step
-        [target] = markup.find("op-target", owner)
-        assert content(target).count("follow rest on: Z 152.00") == 1
-    assert sum("set the follow-rest jaws" in content(node) for node in markup.find("see")) == 2
+        [target] = targets[str(number)]
+        (z,) = re.findall(r"follow rest on: Z (-?\d+(?:\.\d+)?)", target)
+        assert Decimal(z) == Decimal("152.00"), target
+    assert {
+        number
+        for number, texts in notes.items()
+        if any("set the follow-rest jaws" in text for text in texts)
+    } == {"10", "30"}
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
@@ -859,20 +1156,14 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
         for op, z in ((10, 152.0), (30, 151.0))
     ]
     markup = Markup(render_traveler(bundle, findings, {}))
-    [setup_page] = [
-        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
-    ]
-    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
+    notes = _operation_texts(markup, "see", "S1")
     for op, z, side in (
         (10, 152.0, "on the diameter just turned"),
         (30, 151.0, "on the uncut stock ahead of the tool"),
     ):
-        [step] = [
-            content(node)
-            for node in markup.find("see", operations[str(op)])
-            if "set the follow-rest jaws" in content(node)
-        ]
-        assert f"at Z {z:.2f}:" in step
+        [step] = [text for text in notes[str(op)] if "set the follow-rest jaws" in text]
+        (printed_z,) = re.findall(r"at Z (-?\d+(?:\.\d+)?):", step)
+        assert Decimal(printed_z) == Decimal(str(z)), step
         assert side in step, step
 
 
@@ -1022,18 +1313,20 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
 
 
 @pytest.mark.parametrize(
-    ("do", "extra", "depth", "expected"),
+    ("do", "extra", "depth", "expected_values"),
     [
         # The shaft's S3 op 10: the blade plunges a Ø6.4 bearing to the axis.
-        ("cut_to_fit", {"to_dia": 0.0}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
-        ("part_off", {}, 3.2, "X 6.40 → 0.00 (3.20 radial)"),
+        ("cut_to_fit", {"to_dia": 0.0}, 3.2, ("6.40", "0.00", "3.20")),
+        ("part_off", {}, 3.2, ("6.40", "0.00", "3.20")),
         # Parted to a diameter (a sleeve left on an arbor): X stops there.
-        ("part_off", {"to_dia": 2.0}, 2.2, "X 6.40 → 2.00 (2.20 radial)"),
+        ("part_off", {"to_dia": 2.0}, 2.2, ("6.40", "2.00", "2.20")),
         # The plunge is unmeasured: the endpoint still prints, the start does not.
-        ("cut_to_fit", {"to_dia": 0.0}, "unknown", "X → 0.00 (radial plunge unknown)"),
+        ("cut_to_fit", {"to_dia": 0.0}, "unknown", ("0.00",)),
     ],
 )
-def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(do, extra, depth, expected):
+def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(
+    do, extra, depth, expected_values
+):
     touch = {"tool": "blade", "z_face": "shoulder", "edge_mm": 0.0, "paper_mm": 0.0}
     bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
     op = bundle.plan["setups"][0]["ops"][0]
@@ -1041,7 +1334,10 @@ def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(do, extr
     _, _, sheet, setup = _traveler(bundle)
     sheet.records[("reach", "S1:40")] = {"reach_depth_mm": depth}
     parts = sheet.tip(setup, op)
-    assert expected in parts, parts
+    (plunge,) = [str(part) for part in parts if str(part).startswith("X ")]
+    assert "→" in plunge and "radial" in plunge, parts
+    assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
+    assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
 
 
 def test_a_parting_row_with_an_unknown_endpoint_stops():
@@ -1054,26 +1350,31 @@ def test_a_parting_row_with_an_unknown_endpoint_stops():
 
 
 @pytest.mark.parametrize(
-    ("radius_mode", "depth", "expected"),
+    ("radius_mode", "depth", "expected_values"),
     [
         # A radius display reads half of both ends: Ø2.0 is X1.00, the Ø6.4 start X3.20.
-        (True, 2.2, "X 3.20 → 1.00 (2.20 radial)"),
-        (True, "unknown", "X → 1.00 (radial plunge unknown)"),
+        (True, 2.2, ("3.20", "1.00", "2.20")),
+        (True, "unknown", ("1.00",)),
         # Not knowing the display, X1.00 and X2.00 are each wrong on one of them.
         ("unknown", 2.2, None),
         ("unknown", "unknown", None),
         (None, 2.2, None),
     ],
 )
-def test_a_parting_row_prints_its_x_only_on_a_known_dro_display(radius_mode, depth, expected):
+def test_a_parting_row_prints_its_x_only_on_a_known_dro_display(
+    radius_mode, depth, expected_values
+):
     bundle = _on_display(_parted(_FACE_TOUCH, [{"z_mm": 0.0, "normal_z": 1}], -1), radius_mode)
     op = bundle.plan["setups"][0]["ops"][0]
     op.update(to_dia=2.0)
     _, _, sheet, setup = _traveler(bundle)
     sheet.records[("reach", "S1:40")] = {"reach_depth_mm": depth}
     parts = [str(part) for part in sheet.tip(setup, op)]
-    if expected:
-        assert expected in parts, parts
+    if expected_values is not None:
+        (plunge,) = [part for part in parts if part.startswith("X ")]
+        assert "→" in plunge and "radial" in plunge, parts
+        assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
+        assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
         return
     assert not any(part.startswith("X") for part in parts), parts
     assert any(part.startswith("STOP") and "radius or diameter" in part for part in parts), parts

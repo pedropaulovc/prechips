@@ -16,8 +16,9 @@ from html import unescape
 
 import pytest
 
+from prechips.findings import exit_code
 from prechips.inputs import load_bundle
-from prechips.kernel import build_job
+from prechips.kernel import build_job, workpiece_inputs
 from prechips.rules import coordinates, manual_arc
 from prechips.sheet import _Traveler
 
@@ -1464,6 +1465,331 @@ def test_filing_stock_over_the_cap_is_an_error_unless_a_later_rough_recuts_it(tm
     assert second["stock_left_mm"] <= second["stock_cap_mm"] == CAP
 
 
+def registered_recut_bundle(plan):
+    """Synthetic two-member stock with current native protection for qualified roughs."""
+    bundle = load_bundle(plan)
+    bundle.plan["workpieces"] = {
+        name: {
+            "pose": {
+                "origin": [x, 0.0, 0.0],
+                "x": [1.0, 0.0, 0.0],
+                "y": [0.0, 1.0, 0.0],
+                "z": [0.0, 0.0, 1.0],
+                "binding": "synthetic registered arc",
+                "cite": "synthetic recut regression",
+            }
+        }
+        for name, x in (("one", 0.0), ("two", 60.0))
+    }
+    setup = bundle.plan["setups"][0]
+    setup["stock_in"] = "stock"
+    for cut in setup["ops"]:
+        cut["workpiece_faces"] = {"one": ["#1"]}
+    registrations = workpiece_inputs(bundle.plan["workpieces"], "mm")
+    bundle = dataclasses.replace(
+        bundle,
+        kernel={
+            "status": "ok",
+            "setups": {
+                "S1": {
+                    "workpieces": {
+                        name: {
+                            "workpiece_id": name,
+                            "registration": registration,
+                            "partition_path": [],
+                            "status": "pass",
+                            "reasons": [],
+                        }
+                        for name, registration in registrations.items()
+                    }
+                }
+            },
+        },
+    )
+    bundle.__dict__["finished_feature_owners"] = {
+        name: "canonical:solid" for name in bundle.feature_definitions
+    }
+    return bundle
+
+
+@pytest.mark.parametrize("method", ["stairs", "chain_drill"])
+@pytest.mark.parametrize("recut_both", [False, True], ids=["partial-recut", "complete-recut"])
+def test_registered_recut_must_cover_every_original_member_before_filing(
+    tmp_path, method, recut_both
+):
+    coarse = (
+        op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+        if method == "stairs"
+        else CHAIN
+    )
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))
+    setup = bundle.plan["setups"][0]
+    producer, later = setup["ops"]
+    producer["workpiece_faces"] = {"one": ["#1"], "two": ["#1"]}
+    if recut_both:
+        later["workpiece_faces"]["two"] = ["#1"]
+    setup["ops"].append(
+        {
+            "op": 40,
+            "do": "file_to_line",
+            "feature": "target",
+            "workpiece_faces": {"two": ["#1"]},
+        }
+    )
+
+    row = joined_chain_finding(bundle)
+    assert row.status == ("pass" if recut_both else "error"), row.sentence
+    if recut_both:
+        assert coordinates._recut_by(bundle, producer) == "S1 op 30"
+        assert arcs(row, 20)[0]["recut_by"] == "S1 op 30"
+    else:
+        assert coordinates._recut_by(bundle, producer) is None
+        assert coordinates._recut_by(bundle, producer, per_member=True) == {
+            "one": "S1 op 30",
+            "two": None,
+        }
+        assert "workpiece two" in errors(row)
+        assert "more than the shop's 0.5 cap" in errors(row)
+        assert "if no later rough recuts it" not in errors(row)
+
+
+@pytest.mark.parametrize("overlap", [False, True], ids=["disjoint-face", "same-face"])
+def test_registered_recuts_keep_each_members_last_covering_face_producer(tmp_path, overlap):
+    coarse = op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+    fine = "".join(
+        op(number, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+        for number in (30, 40, 50, 70)
+    )
+    bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))
+    setup = bundle.plan["setups"][0]
+    producer, first, second, latest, after_filing = setup["ops"]
+    producer["workpiece_faces"] = {"one": ["#1"], "two": ["#1"]}
+    first["workpiece_faces"] = {"one": ["#1"]}
+    second["workpiece_faces"] = {"two": ["#1"]}
+    latest["workpiece_faces"] = {"one": ["#1" if overlap else "#2"]}
+    setup["ops"].insert(
+        -1,
+        {
+            "op": 60,
+            "do": "file_to_line",
+            "feature": "target",
+            "workpiece_faces": {"one": ["#1"]},
+        },
+    )
+    assert after_filing["op"] == 70
+    expected = "S1 op 50" if overlap else "S1 op 30"
+    assert coordinates._recut_by(bundle, producer, per_member=True) == {
+        "one": expected,
+        "two": "S1 op 40",
+    }
+    assert coordinates._recut_by(bundle, producer) == f"{expected} and S1 op 40"
+
+
+@pytest.mark.parametrize("cusp", [0.1, 0.4], ids=["within-cap", "over-cap"])
+def test_registered_partial_recut_keeps_member_debt_beside_other_members_filing_cap(tmp_path, cusp):
+    coarse = op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))
+    setup = bundle.plan["setups"][0]
+    producer, _ = setup["ops"]
+    producer["workpiece_faces"] = {"one": ["#1"], "two": ["#1"]}
+    bundle.kernel["setups"]["S1"]["workpieces"]["one"]["status"] = "unknown"
+    setup["ops"].append(
+        {
+            "op": 40,
+            "do": "file_to_line",
+            "feature": "target",
+            "workpiece_faces": {"two": ["#1"]},
+        }
+    )
+    assert coordinates._recut_by(bundle, producer, per_member=True) == {
+        "one": "unknown",
+        "two": None,
+    }
+    table = {"method": "stairs", "line_clear_mm": 0.1, "stair_cusp_mm": cusp}
+    cap_errors, cap_debts = coordinates._manual(
+        bundle, setup, producer, "rough", 0.2, [table], [], [], "op 20 rough", 1.0
+    )
+    assert bool(cap_errors) is (cusp == 0.4)
+    assert all("workpiece two" in error for error in cap_errors)
+    assert any("workpiece one" in debt and "unresolved" in debt for debt in cap_debts)
+    if cusp == 0.4:
+        assert any(
+            "workpiece one" in debt and "if no later rough recuts it" in debt for debt in cap_debts
+        )
+    assert table["stock_left_mm"] == pytest.approx(0.2 + cusp)
+    assert table["stock_cap_mm"] == CAP and "recut_by" not in table
+
+
+@pytest.mark.parametrize("method,cap", [("stairs", CAP), ("chain_drill", 2.0)])
+def test_unknown_registered_recut_keeps_debt_and_filing_metadata(tmp_path, method, cap):
+    first = (
+        op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.25 }", allowance=0.2)
+        if method == "stairs"
+        else CHAIN
+    )
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    bundle = registered_recut_bundle(
+        scratch(
+            tmp_path,
+            first + fine,
+            policy=POLICY.replace(f"max_filing_stock_mm = {CAP}", f"max_filing_stock_mm = {cap}"),
+        )
+    )
+    producer, later = bundle.plan["setups"][0]["ops"]
+    known = joined_chain_finding(bundle)
+    assert known.status == "pass", known.sentence
+    assert arcs(known, 20)[0]["recut_by"] == "S1 op 30"
+    del later["workpiece_faces"]
+    assert coordinates._recut_by(bundle, producer) == "unknown"
+    row = joined_chain_finding(bundle)
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["arc_debts"] and not row.numbers.get("arc_errors")
+    tables = arcs(row, 20)
+    if method == "chain_drill":
+        tables += [profile for profile in row.numbers["profiles"] if profile["op"] == 20]
+    assert tables
+    for table in tables:
+        assert table["stock_left_mm"] <= table["stock_cap_mm"] == cap
+        assert "recut_by" not in table
+
+
+@pytest.mark.parametrize("method", ["stairs", "chain_drill"])
+def test_unknown_registered_recut_keeps_over_cap_stock_unknown_until_ownership_resolves(
+    tmp_path, method
+):
+    coarse = (
+        op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+        if method == "stairs"
+        else CHAIN
+    )
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))
+    setup = bundle.plan["setups"][0]
+    producer, later = setup["ops"]
+    assert joined_chain_finding(bundle).status == "pass"
+    del later["workpiece_faces"]
+    row = joined_chain_finding(bundle)
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["arc_debts"] and not row.numbers.get("arc_errors")
+    assert "more than the shop's 0.5 cap" in debts(row)
+    assert "if no later rough recuts it" in debts(row)
+    assert exit_code([row], {"required": {"coordinates": "*"}}, bundle) == 4
+    tables = arcs(row, 20)
+    if method == "chain_drill":
+        tables += [profile for profile in row.numbers["profiles"] if profile["op"] == 20]
+    assert tables
+    for table in tables:
+        assert table["stock_left_mm"] > table["stock_cap_mm"] == CAP
+        assert "recut_by" not in table
+    later["workpiece_faces"] = {"one": ["#1"]}
+    resolved = joined_chain_finding(bundle)
+    assert resolved.status == "pass", resolved.sentence
+    assert arcs(resolved, 20)[0]["recut_by"] == "S1 op 30"
+    setup["ops"] = [producer]
+    unrecut = joined_chain_finding(bundle)
+    assert unrecut.status == "error", unrecut.sentence
+    assert "more than the shop's 0.5 cap" in errors(unrecut)
+
+
+@pytest.mark.parametrize("cusp", [0.1, 0.4], ids=["within-cap", "over-cap"])
+def test_unknown_registered_recut_does_not_hide_a_stair_gouge(tmp_path, cusp):
+    bundle = registered_recut_bundle(
+        scratch(
+            tmp_path,
+            op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+            + op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2),
+        )
+    )
+    setup = bundle.plan["setups"][0]
+    producer, later = setup["ops"]
+    del later["workpiece_faces"]
+    table = {"method": "stairs", "line_clear_mm": 0.1, "stair_cusp_mm": cusp}
+    args = (bundle, setup, producer, "rough", 0.2, [table], [], [], "op 20 rough", 1.0)
+    safe_errors, safe_debts = coordinates._manual(*args)
+    assert safe_errors == [] and safe_debts
+    table["line_clear_mm"] = -0.1
+    gouge_errors, gouge_debts = coordinates._manual(*args)
+    assert gouge_errors and gouge_debts == safe_debts
+    assert "past the line" in " ".join(gouge_errors)
+    assert table["stock_cap_mm"] == CAP and "recut_by" not in table
+    assert table["stock_left_mm"] == pytest.approx(0.2 + cusp)
+
+
+@pytest.mark.parametrize("cap", [CAP, 0.325], ids=["within-cap", "over-cap"])
+@pytest.mark.parametrize("qualified", [False, True], ids=["unknown-recut", "known-recut"])
+def test_registered_recut_does_not_hide_chain_breakout_crossings(tmp_path, qualified, cap):
+    fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
+    for pitch, expected in ((1.5, "pass" if qualified else "unknown"), (8.0, "error")):
+        plan = scratch(
+            tmp_path / str(pitch),
+            op(
+                20,
+                "rough_profile",
+                f"{{ method = 'chain_drill', pitch_mm = {pitch} }}",
+                tool="drill",
+                allowance=0.1,
+            )
+            + fine,
+            policy=POLICY.replace(f"max_filing_stock_mm = {CAP}", f"max_filing_stock_mm = {cap}"),
+        )
+        change(plan.with_name("inventory.toml"), "dia_mm = 3.0", "dia_mm = 0.5")
+        bundle = registered_recut_bundle(plan)
+        if not qualified:
+            del bundle.plan["setups"][0]["ops"][1]["workpiece_faces"]
+        row = joined_chain_finding(bundle)
+        assert row.status == expected, row.sentence
+        assert bool(row.numbers.get("arc_debts")) is (not qualified)
+        if pitch == 8.0:
+            assert "break-out" in errors(row) and "past the line" in errors(row)
+            profile = next(profile for profile in row.numbers["profiles"] if profile["op"] == 20)
+            if not qualified:
+                assert profile["stock_cap_mm"] == cap and "recut_by" not in profile
+
+
+def test_unknown_registered_recut_keeps_join_and_separate_profile_cap_metadata(tmp_path):
+    bundle = registered_recut_bundle(joined_chain_plan(tmp_path))
+    setup = bundle.plan["setups"][0]
+    later = {**setup["ops"][0], "op": 30, "workpiece_faces": {"one": ["#1"]}}
+    setup["ops"].append(later)
+    control = joined_chain_finding(bundle)
+    assert control.status == "pass", control.sentence
+    assert joined_chain_lines(control)
+    assert all(table["recut_by"] == "S1 op 30" for table in joined_chain_lines(control))
+    del later["workpiece_faces"]
+    row = joined_chain_finding(bundle)
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["arc_debts"] and not row.numbers.get("arc_errors")
+    profile = next(profile for profile in row.numbers["profiles"] if profile["op"] == 20)
+    joins = joined_chain_lines(row)
+    assert joins
+    for table in (*arcs(row, 20), *joins, profile):
+        assert table["stock_left_mm"] <= table["stock_cap_mm"] == 1.0
+        assert "recut_by" not in table
+
+
+def test_filing_keeps_registered_rough_ownership_debt(tmp_path):
+    bundle = registered_recut_bundle(
+        scratch(
+            tmp_path,
+            op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
+            + op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2),
+        )
+    )
+    setup = bundle.plan["setups"][0]
+    filing = {
+        "op": 40,
+        "do": "file_to_line",
+        "feature": "target",
+        "workpiece_faces": {"one": ["#1"]},
+    }
+    setup["ops"].append(filing)
+    assert manual_arc._rough(bundle, filing, "target") == "S1 op 30"
+    del setup["ops"][1]["workpiece_faces"]
+    assert manual_arc._rough(bundle, filing, "target") == "unknown"
+
+
 def test_leftover_goes_to_the_rough_that_hands_the_faces_to_the_file(tmp_path):
     # Two coarse roughs (one from each face of a part, say), then a fine one: the file
     # meets what the fine rough leaves, so it takes both coarse leftovers.
@@ -2258,12 +2584,17 @@ def test_every_unknown_manual_arc_input_stops_its_op_on_the_traveler(
     setup = bundle.plan["setups"][0]
     sheet = _Traveler(bundle, [row], {}, None)
     sheet.setup = setup
-    table, _, _, stops = sheet.operations(setup, {}, {"notes": 2, "contours": None})
+    table, decisions = sheet.operations(setup, {})
     printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", table)).split())
-    # The op's own manual instruction carries the STOP, and the setup's STOP list names it.
+    # The op's own instruction carries the STOP and its typed blocker names the same op.
     step = printed[printed.index("Layout:" if number == 10 else "Bench filing:") :]
     assert "STOP" in step, step
-    assert str(number) in [op for ops in stops.values() for op in ops], stops
+    assert any(
+        decision.kind == "block"
+        and decision.scope == f"S1:{number}"
+        and "manual arc not proven" in decision.text
+        for decision in decisions
+    ), decisions
 
 
 @pytest.mark.parametrize(("layout", "status"), [("'dividers'", "pass"), ("'chalk'", "unknown")])

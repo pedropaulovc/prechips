@@ -25,6 +25,7 @@ ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 
 def bare(precision):
     sheet = _Traveler.__new__(_Traveler)
+    sheet.detail = "pedantic"
     sheet.precision = lambda feature, dimension: precision
     return sheet
 
@@ -73,6 +74,39 @@ class Markup(HTMLParser):
 
 def content(node):
     return "".join(node["text"])
+
+
+def setup_flow(markup, setup_id):
+    """The rendered physical setup owner, independent of its print pagination."""
+    (owner,) = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "section"
+        and setup_id in json.loads(node["attrs"].get("data-setup-members", "[]"))
+    ]
+    return owner
+
+
+def operation_instruction(markup, setup_id, op_id):
+    """Read a canonical instruction with its physical operation identity intact."""
+    owners = [
+        node
+        for node in markup.find("operation")
+        if node["attrs"].get("data-setup-id") == setup_id
+        and node["attrs"].get("data-op") == str(op_id)
+    ]
+    for instruction in markup.find("route-operation"):
+        owner = instruction["parent"]
+        while owner is not None and "data-physical-ops" not in owner["attrs"]:
+            owner = owner["parent"]
+        assert owner is not None
+        if any(
+            identity["setup_id"] == setup_id and str(identity["op_id"]) == str(op_id)
+            for identity in json.loads(owner["attrs"]["data-physical-ops"])
+        ):
+            owners.append(owner)
+    assert len(owners) == 1, (setup_id, op_id, owners)
+    return owners[0]
 
 
 @pytest.mark.parametrize(
@@ -153,14 +187,10 @@ def test_blank_line_paragraphs_print_as_numbered_steps():
     assert sheet.steps("One paragraph.") == "One paragraph."
 
 
-def shop(records, kind="mill"):
-    """A bare sheet over ``records`` printing millimetres at three decimals, with no kernel
-    result."""
-    sheet = bare(3)
-    sheet.records = records
-    sheet.report = {}
-    sheet.bundle = Bundle(
-        features={"units": "mm"},
+def shop(records, kind="mill", *, detail="pedantic"):
+    """A real sheet over synthetic rule records, with no native-kernel result."""
+    bundle = Bundle(
+        features={"units": "mm", "features": {}},
         inventory={},
         plan={"dro": {"kind": "digital", "units": "mm"}, "setups": []},
         policy={},
@@ -169,15 +199,261 @@ def shop(records, kind="mill"):
         hashes={},
         root=Path("."),
     )
-    sheet.findings = []
-    sheet.plan = sheet.bundle.plan
+    sheet = _Traveler(bundle, [], {}, None, detail=detail)
+    sheet.precision = lambda feature, dimension: 3
+    sheet.records = records
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
-    sheet.operative = lambda v: (
-        f"{v:.3f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "?"
+    sheet.operative = lambda v, places=3: (
+        f"{v:.{places}f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "?"
     )
     return sheet
+
+
+def native_top_touch_sheet(*, detail="pedantic", units="mm", display_units=None, jog=0.0508):
+    """An already adjudicated native path, with manifest lengths still in setup units."""
+    scale = 25.4 if units == "in" else 1.0
+    proof = {
+        "status": "pass",
+        "setup_id": "S1",
+        "key": "tool_touch:0",
+        "model": "private-model-identity",
+        "recipe_hash": "private-recipe-identity",
+        "obstacles": [
+            {"name": "stock", "bbox_mm": [0.0, 0.0, 0.0, 127.0, 127.0, 25.4]},
+            {"name": "clamp", "bbox_mm": [0.0, 0.0, 25.4, 25.4, 25.4, 88.9]},
+        ],
+        "request": {
+            "at_mm": [50.8, 76.2],
+            "paper_mm": 0.127,
+            "check_jog_mm": jog,
+            "retract_clearance_mm": 12.7,
+        },
+        "resolved_contact": {
+            "plane_mm": 25.4,
+            "point_mm": [50.8, 76.2, 25.4],
+            "axis_mm": [50.8, 76.2, 25.527],
+            "plane_id": "private-contact-plane",
+        },
+        "path": {
+            "complete": True,
+            "start_mm": [50.8, 76.2, 101.6],
+            "contact_mm": [50.8, 76.2, 25.527],
+            "retract_height_mm": 101.6,
+            "stock_top_mm": 25.4,
+            "jog_mm": jog,
+        },
+    }
+    touch = {
+        "tool": "cutter",
+        "before_ops": [20],
+        "after_op": 10,
+        "z_face": "top",
+        "method": "paper",
+        "edge_mm": 25.4 / scale,
+        "paper_mm": 0.127 / scale,
+        "z_axis_set": 25.527 / scale,
+        # Already carried by zero_check; the renderer must not derive another surface.
+        "setting_residual_mm": 0.0,
+        "at_mm": [50.8 / scale, 76.2 / scale],
+        "retract_clearance_mm": 12.7 / scale,
+        "pickup_proof": proof,
+    }
+    setup = {
+        "id": "S1",
+        "machine": "mill",
+        "stock_state": {"top_z": 25.4 / scale, "top_feature": "top"},
+        "zero": {"tool_touches": [touch]},
+        "ops": [
+            {"op": 10, "do": "face", "feature": "top", "tool": "facer"},
+            {"op": 20, "do": "pocket", "feature": "pocket", "tool": "cutter"},
+        ],
+    }
+    sheet = shop({("zero_check", "S1"): {"tool_touches": [touch]}}, detail=detail)
+    sheet.units = units
+    sheet.bundle.features["units"] = units
+    sheet.plan.update(
+        dro={"kind": "digital", "units": display_units or units},
+        setups=[setup],
+    )
+    sheet.setup = setup
+    sheet.touched_tool = lambda reference, tools, slot: "T2 flat end mill"
+    return sheet, setup, touch
+
+
+def _assert_manifest_top_position(text, units):
+    position = re.search(
+        rf"tool axis at setup X ([+-]?\d+(?:\.\d+)?), "
+        rf"Y ([+-]?\d+(?:\.\d+)?) {units}\b",
+        text,
+    )
+    assert position, text
+    scale = 25.4 if units == "in" else 1.0
+    assert [float(value) for value in position.groups()] == pytest.approx(
+        [50.8 / scale, 76.2 / scale]
+    )
+    clearance = re.search(rf"requested retract clearance ([+-]?\d+(?:\.\d+)?) {units}\b", text)
+    assert clearance and float(clearance[1]) == pytest.approx(12.7 / scale)
+
+
+def _assert_native_top_motion(text, jog, *, axis_set=None):
+    """Read physical path facts without treating its millimetres as plan-unit lengths."""
+    coordinate = r"([+-]?\d+(?:\.\d+)?)"
+    position = re.search(rf"physical setup X {coordinate}, Y {coordinate} mm\b", text)
+    start = re.search(rf"start[^;]*?\bZ {coordinate} mm\b", text)
+    contact = re.search(rf"lower[^;]*?paper contact[^;]*?\bZ {coordinate} mm\b", text)
+    checked = re.search(rf"check ([+−-])Z {coordinate} mm\b", text)
+    retract = re.search(rf"retract[^;]*?\bZ {coordinate} mm\b", text)
+    assert position and start and contact and checked and retract, text
+    assert [float(value) for value in position.groups()] == pytest.approx([50.8, 76.2])
+    assert float(start[1]) == pytest.approx(101.6)
+    assert float(contact[1]) == pytest.approx(25.527)
+    assert float(retract[1]) == pytest.approx(101.6)
+    assert checked[1] == ("−" if jog < 0 else "+")
+    assert float(checked[2]) == pytest.approx(abs(jog))
+    assert start.start() < contact.start() < checked.start() < retract.start()
+    setting_step = text[contact.end() : checked.start()]
+    assert "axis set" in setting_step.lower()
+    if axis_set is not None:
+        setting = re.search(rf"\bAxis Set Z {coordinate}", setting_step)
+        assert setting and float(setting[1]) == pytest.approx(axis_set, abs=0.0005)
+    # The occupied-stack-safe height is not the nominal top plus requested clearance.
+    assert float(retract[1]) != pytest.approx(25.4 + 12.7)
+    for identity in ("private-model-identity", "private-recipe-identity", "private-contact-plane"):
+        assert identity not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    ("units", "display_units"), [("mm", "mm"), ("in", "in"), ("mm", "in"), ("in", "mm")]
+)
+@pytest.mark.parametrize("jog", [0.0508, -0.0508])
+def test_staged_top_tool_touch_keeps_manifest_position_native_motion_and_dro_units(
+    detail, units, display_units, jog
+):
+    sheet, setup, touch = native_top_touch_sheet(
+        detail=detail, units=units, display_units=display_units, jog=jog
+    )
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert re.search(r"\bBefore op 20\b", text) and re.search(r"\bafter op 10\b", text)
+    assert "T2 flat end mill" in text
+    _assert_manifest_top_position(text, units)
+    display_scale = 25.4 if display_units == "in" else 1.0
+    _assert_native_top_motion(text, jog, axis_set=25.527 / display_scale)
+    assert not sheet.producer_decisions.get("S1")
+    assert "STOP" not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_an_explicit_top_touch_without_proof_keeps_xy_and_retract_but_blocks_the_path(
+    detail, units
+):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail, units=units)
+    del touch["pickup_proof"]
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    _assert_manifest_top_position(text, units)
+    assert "STOP" in text and re.search(r"path.*unproved", text, re.IGNORECASE)
+    assert "Axis Set Z" in text
+    assert not re.search(r"above.*clamp", text, re.IGNORECASE)
+    assert "101.6" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert (decision.source, decision.status, decision.kind) == ("zero_check", "unknown", "block")
+    assert "STOP" in decision.text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_nonpassing_top_tool_touch_preserves_native_reason_and_never_prints_a_safe_path(
+    detail, status
+):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail)
+    reason = (
+        "fixture intercepts the vertical return" if status == "error" else "contact land unresolved"
+    )
+    touch["pickup_proof"].update(status=status, reasons=[reason])
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    _assert_manifest_top_position(text, "mm")
+    assert "STOP" in text and reason in text
+    assert "101.6" not in text and "physical setup X" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert (decision.source, decision.status, decision.kind, decision.scope) == (
+        "zero_check",
+        status,
+        "block",
+        "S1:tool_touch:0",
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("start_mm", None),
+        ("start_mm", [50.8, 76.2]),
+        ("start_mm", [50.8, 76.2, float("nan")]),
+        ("contact_mm", None),
+        ("contact_mm", [50.8, 76.2, "unknown"]),
+        ("contact_mm", [50.8, float("inf"), 25.527]),
+        ("retract_height_mm", None),
+        ("retract_height_mm", "unknown"),
+        ("retract_height_mm", float("inf")),
+        ("jog_mm", None),
+        ("jog_mm", "unknown"),
+        ("jog_mm", float("nan")),
+    ],
+)
+def test_incomplete_pass_top_pickup_is_a_typed_stop_in_both_direct_and_tool_touch_consumers(
+    field, value
+):
+    from prechips.sheet import _Box
+
+    sheet, setup, touch = native_top_touch_sheet()
+    if value is None:
+        del touch["pickup_proof"]["path"][field]
+    else:
+        touch["pickup_proof"]["path"][field] = value
+    pickup = sheet.pickup_contact("z", touch)
+    assert isinstance(pickup, _Box)
+    assert (pickup.source, pickup.status, pickup.kind, pickup.scope) == (
+        "zero_check",
+        "unknown",
+        "block",
+        "S1:tool_touch:0",
+    )
+    assert "STOP" in pickup and "incomplete" in pickup.lower()
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert str(pickup) in text and "physical setup X" not in text
+    (decision,) = sheet.producer_decisions["S1"]
+    assert decision.source == "zero_check" and decision.kind == "block"
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("jog", [0.0508, -0.0508])
+def test_initial_z_pickup_seam_uses_the_same_physical_native_path(units, jog):
+    sheet, _, touch = native_top_touch_sheet(units=units, jog=jog)
+    proof = deepcopy(touch["pickup_proof"])
+    proof["key"] = "z"
+    computed = {
+        "axis_set": touch["z_axis_set"],
+        "at_mm": list(touch["at_mm"]),
+        "pickup_proof": proof,
+    }
+    _assert_native_top_motion(sheet.pickup_contact("z", computed), jog)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_legacy_top_touch_without_explicit_xy_or_proof_does_not_invent_a_native_path(detail):
+    sheet, setup, touch = native_top_touch_sheet(detail=detail)
+    for field in ("pickup_proof", "at_mm", "retract_clearance_mm"):
+        del touch[field]
+    text = sheet.tool_touch(setup, touch, {}, "spindle")
+    assert re.search(r"\bBefore op 20\b", text) and re.search(r"\bafter op 10\b", text)
+    assert "T2 flat end mill" in text and "Axis Set Z" in text
+    assert "paper" in text
+    assert "STOP" not in text and "retract" not in text and "physical setup" not in text
+    assert sheet.pickup_contact("z", {"axis_set": touch["z_axis_set"]}) is None
+    assert not sheet.producer_decisions.get("S1")
 
 
 SPOT = {"id": "S1", "ops": [{"op": 60, "do": "spot", "feature": "hole", "tool": "c"}]}
@@ -228,10 +504,12 @@ def test_the_clearance_row_names_the_smallest_clearance_of_the_op():
     ops, tool, obstacle, value, action = clearance_row(reach_records(top=4.47), headroom(40.0))
     assert (ops, tool, value, action) == ("60", "T4", "22.030", "")
     assert "holder face" in obstacle and "4.470" in obstacle
-    # Jaw tops 1.2 below the tip win over both, and ask for a hand-fed approach.
+    # Jaw tops 1.2 below the tip win over both and require a check before plunging.
     numbers = headroom(40.0, tip_above_jaws=1.2, jaw_top_z=-1.7)
     _, _, obstacle, value, action = clearance_row(reach_records(top=4.47), numbers)
-    assert "jaw" in obstacle and value == "1.200" and action.startswith("hand feed")
+    assert "jaw" in obstacle and float(value) == 1.2
+    assert "check" in action and "plung" in action
+    assert "JAW" in action and re.search(r"\b1\.2(?:0*)\b", action)
 
 
 def test_a_declared_reach_clearance_competes_for_the_closest_obstacle():
@@ -291,13 +569,17 @@ def test_the_holding_nearest_the_cut_is_a_clearance_row_and_a_hand_feed_check_on
     sheet, setup = near_holding(1.57)
     ((ops, _, obstacle, value, action),) = sheet.clearance_rows(setup, headroom(40.0), {})
     assert (obstacle, value) == ("LOC2 collar beside the cut", "1.570")
-    assert action == "hand feed past the LOC2 collar; check the cutter clears it"
+    assert "LOC2" in action and "COLLAR" in action
+    assert "hand feed" in action and "check the cutter clears" in action
+    assert re.search(r"\b1\.57(?:0*) mm\b", action)
     (box,) = sheet.crash_boxes(setup, setup["ops"][0])
-    assert box == "LOC2 COLLAR 1.570 mm FROM THE CUT — hand feed past it"
+    assert "LOC2" in box and "COLLAR" in box and "hand feed" in box
+    assert re.search(r"\b1\.57(?:0*) mm\b", box)
     # Jaw tops 1.2 below the tip are closer still: the collar stays named, with its gap.
     numbers = headroom(40.0, tip_above_jaws=1.2, jaw_top_z=-1.7)
     ((_, _, obstacle, _, action),) = sheet.clearance_rows(setup, numbers, {})
-    assert "jaw" in obstacle and "hand feed past the LOC2 collar (1.570 mm)" in action
+    assert "jaw" in obstacle and "LOC2" in action and "COLLAR" in action
+    assert "hand feed" in action and re.search(r"\b1\.57(?:0*) mm\b", action)
 
 
 def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
@@ -310,9 +592,11 @@ def test_a_file_near_the_holding_is_a_clearance_row_and_a_check_on_its_own_op():
     setup = {**setup, "ops": [filed]}
     ((ops, tool, obstacle, value, action),) = sheet.clearance_rows(setup, {}, {})
     assert (ops, tool, obstacle, value) == ("30", "", "LOC2 rodlocator beside the cut", "2.817")
-    assert action == "keep the file clear of the LOC2 rodlocator"
+    assert "LOC2" in action and "RODLOCATOR" in action and "keep the file clear" in action
+    assert re.search(r"\b2\.817 mm\b", action)
     (box,) = sheet.crash_boxes(setup, filed)
-    assert box == "LOC2 RODLOCATOR 2.817 mm FROM THE CUT — keep the file clear of it"
+    assert "LOC2" in box and "RODLOCATOR" in box and "keep the file clear" in box
+    assert re.search(r"\b2\.817 mm\b", box)
 
 
 @pytest.mark.parametrize(
@@ -366,6 +650,157 @@ def contour_records(levels):
 
 
 POCKET = {"id": "S1", "ops": [{"op": 10, "do": "pocket", "feature": "ear", "tool": "c"}]}
+
+
+def level_entry_note(entries, *, raster=False, levels=(-0.5,), feed=120.0, **record):
+    """Render the canonical coordinates record, without deriving contact in the test."""
+    path = {
+        "op": 10,
+        "entries": [{"pass": raster, **entry} for entry in entries],
+        "levels": list(levels),
+        "from_z": 0.0,
+        "raise_z": 2.0,
+        "raster": raster,
+        "closed": False,
+        **record,
+    }
+    sheet = shop(
+        {
+            ("coordinates", "S1"): {"level_paths": [path]},
+            ("speeds_feeds", "S1:10"): {"plunge_mm_min": feed},
+        }
+    )
+    sheet.plan["setups"] = [POCKET]
+    (paragraph,) = Markup(sheet.level_entries(POCKET, POCKET["ops"][0], [])).find("contour-context")
+    return content(paragraph).lower()
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("levels", [(-0.5,), (-0.5, -1.0)])
+def test_tangent_entries_lower_without_claiming_air_or_inventing_a_plunge_feed(raster, levels):
+    note = level_entry_note(
+        [
+            {"xy": [-3.0, -4.0], "air": False, "contact": "tangent"},
+            {"xy": [13.0, 14.0], "air": False, "contact": "tangent"},
+        ],
+        raster=raster,
+        levels=levels,
+    )
+    assert "tangent" in note and re.search(r"\blower\b", note)
+    assert not re.search(r"\b(?:plunge|air|clear)\b", note)
+    assert "mm/min" not in note and "stop" not in note
+    if raster:
+        # Same-kind pass starts share one instruction, rather than repeating each XY.
+        assert note.count("tangent") == note.count("lower") == 1
+        assert "-3.000" not in note and "13.000" not in note
+    elif len(levels) == 1:
+        assert "-0.500" in note
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("levels", [(-0.5,), (-0.5, -1.0)])
+def test_mixed_entry_classes_keep_lowering_and_the_cutting_feed_at_their_own_xy(raster, levels):
+    note = level_entry_note(
+        [
+            {"xy": [-3.0, -4.0], "air": False, "contact": "tangent"},
+            {"xy": [-6.0, 0.0], "air": True},
+            {"xy": [1.0, 1.0], "air": False},
+        ],
+        raster=raster,
+        levels=levels,
+        plunge_mm_rev=0.01,
+    )
+    entries = note.split("between levels", 1)[0].split(";")
+    tangent, air, cutting = [
+        next(clause for clause in entries if xy in clause)
+        for xy in ("x -3.000, y -4.000", "x -6.000, y 0.000", "x 1.000, y 1.000")
+    ]
+    assert "tangent" in tangent and "lower" in tangent
+    assert not re.search(r"\b(?:clear|air|plunge)\b", tangent)
+    assert "clear" in air and "lower" in air and "plunge" not in air
+    assert "plunge" in cutting and re.search(r"\b120\s+mm/min\b", cutting)
+    assert "mm/min" not in tangent + air
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize(
+    "contact",
+    [
+        pytest.param({}, id="missing"),
+        pytest.param({"contact": "unknown"}, id="unknown"),
+        pytest.param({"contact": None}, id="none"),
+        pytest.param({"contact": "TANGENT"}, id="wrong-case"),
+        pytest.param({"contact": "tangent "}, id="trailing-space"),
+    ],
+)
+def test_only_the_exact_tangent_marker_removes_cutting_entry_and_feed_debt(raster, contact):
+    reason = "cutter centre-cutting capability unknown"
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, **contact}],
+        raster=raster,
+        # Equal start/depth alone is not proof that this lowering avoids stock.
+        from_z=-0.5,
+        plunge_mm_rev="unknown",
+        plunge_reason=reason,
+        feed="unknown",
+    )
+    assert "plunge" in note and "stop" in note and reason in note
+    assert not re.search(r"\b(?:lower|tangent|clear|air)\b", note)
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize("entry_kind", ["air", "stock-top"])
+def test_existing_proven_non_tangent_lowering_keeps_its_own_clearance_meaning(raster, entry_kind):
+    record = {"lowered": "top"} if entry_kind == "stock-top" else {}
+    note = level_entry_note(
+        [{"xy": [-6.0, 0.0], "air": entry_kind == "air"}],
+        raster=raster,
+        from_z=-0.5,
+        **record,
+    )
+    assert "lower" in note and "plunge" not in note and "tangent" not in note
+    assert "mm/min" not in note
+    assert ("clear" in note) is (entry_kind == "air")
+    if entry_kind == "stock-top":
+        assert "top of the stock" in note
+
+
+@pytest.mark.parametrize("raster", [False, True])
+@pytest.mark.parametrize(
+    ("raised", "clearance"),
+    [
+        pytest.param("unknown", {}, id="unknown-height-missing-proof"),
+        pytest.param("unknown", {"raise_clear": "unknown"}, id="unknown-height"),
+        pytest.param(-0.5, {"raise_clear": False}, id="below-stock"),
+        pytest.param(2.0, {}, id="known-height-missing-proof"),
+        pytest.param(2.0, {"raise_clear": True}, id="proven-above-stock"),
+    ],
+)
+def test_tangent_lowering_does_not_erase_the_between_level_raise_or_its_unknowns(
+    raster, raised, clearance
+):
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, "contact": "tangent"}],
+        raster=raster,
+        levels=(-0.5, -1.0),
+        raise_z=raised,
+        **clearance,
+    )
+    expected = f"{raised:.3f}" if isinstance(raised, (int, float)) else "?"
+    assert re.findall(r"\b(?:raise|lift) to z (\?|[+-]?\d+(?:\.\d+)?)", note) == [expected]
+    assert "back" in note and "tangent" in note and "lower" in note
+    assert ("above the stock" in note) is (clearance.get("raise_clear") is True)
+    assert "plunge" not in note and "mm/min" not in note
+
+
+def test_a_closed_tangent_path_does_not_invent_a_between_level_raise_or_return():
+    note = level_entry_note(
+        [{"xy": [-3.0, -4.0], "air": False, "contact": "tangent"}],
+        levels=(-0.5, -1.0),
+        closed=True,
+    )
+    assert "stay" in note and "x -3.000, y -4.000" in note
+    assert not re.search(r"\b(?:raise|lift|rapid|plunge)\b", note)
 
 
 def test_a_stepped_contour_lists_its_levels_once_in_the_heading():
@@ -480,9 +915,13 @@ def raster_notes(html):
 
 
 def raster_note(bundle, units="mm", removal=None, records=None):
-    """The raster note op 10 prints: its passes at Y 1 and 2 run X -13.765 to 13.765 with a
-    4.76 cutter radius over the area X -9..9, entering from the open -Y side."""
-    sheet = shop(records or contour_records(None))
+    """Plan-unit pass coordinates with a fixed 4.76 mm physical cutter radius."""
+    records = deepcopy(records or contour_records(None))
+    scale = 25.4 if units == "in" else 1.0
+    for profile in records[("coordinates", "S1")]["profiles"]:
+        # _raster stores its converted plan-unit radius despite this field's suffix.
+        profile["raster"]["clearance_mm"] /= scale
+    sheet = shop(records)
     sheet.bundle, sheet.units = bundle, units
     op = {**POCKET["ops"][0]}
     if removal is not None:
@@ -726,6 +1165,117 @@ def test_outline_rows_are_cutter_clearance_only_wholly_outside_the_kernel_entry_
     note = outline_note(bundle)
     named = re.search(r";\s*([^;]*) stand wholly clear of the stock", note)
     assert (named.group(1).split(", ") if named else []) == clear
+
+
+@pytest.mark.parametrize("units", ["mm", "in", "unknown"])
+@pytest.mark.parametrize(
+    ("points_mm", "every"),
+    [
+        pytest.param([[-3.1, -4.1], [13.1, -4.1]], True, id="diagonal-air"),
+        pytest.param([[-3.0, -4.0], [13.0, -4.0]], False, id="exact-tangent"),
+        pytest.param([[-3.0003, -4.0], [13.0003, -4.0]], False, id="sub-margin-gap"),
+        pytest.param([[-2.9, -4.0], [12.9, -4.0]], False, id="intrusion"),
+        pytest.param([[-3.1, -4.1], [12.8, -4.1]], False, id="one-end-intrudes"),
+        pytest.param([[-3.1, -4.1], ["unknown", -4.1]], False, id="unknown-end"),
+    ],
+)
+def test_direct_raster_clearance_uses_each_finite_disk_not_its_axis_bounding_box(
+    units, points_mm, every
+):
+    scale = 25.4 if units == "in" else 1.0
+    points = [
+        [value / scale if isinstance(value, (int, float)) else value for value in point]
+        for point in points_mm
+    ]
+    ends = [point[0] for point in points]
+    if ends[1] == "unknown":
+        # A clipped piece's unresolved end does not erase the known outer raster bound.
+        ends[1] = 13.1 / scale
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    profile = {
+        "cutter_centre": [points],
+        "raster": {
+            "run_axis": "x",
+            "ends": ends,
+            "clearance_mm": 5.0 / scale,
+            "entry_pass": points[0][1],
+            "open_side": "-y",
+        },
+    }
+    note = sheet.raster_clearance(POCKET, profile)
+    assert bool(EVERY.search(note)) is (every and units != "unknown")
+    # Diagonal clearance proves the whole disk clear, not either individual stock side.
+    assert not re.search(r"(?:enters from|leaves into) air at [+-][XY]\b", note)
+    assert "pass 1" not in note
+    if not every or units == "unknown":
+        assert not AIR.search(note)
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("x_gap", "y_gap", "x_clear", "y_clear"),
+    [
+        (3.1, 4.1, False, False),
+        (5.01, 4.1, True, False),
+        (3.1, 5.01, False, True),
+        (5.0, 4.0, False, False),
+        (5.0005, 4.0, False, False),
+    ],
+)
+def test_direct_raster_side_claims_require_that_sides_own_positive_margin(
+    units, x_gap, y_gap, x_clear, y_clear
+):
+    scale = 25.4 if units == "in" else 1.0
+    points = [[-x_gap / scale, -y_gap / scale], [(10.0 + x_gap) / scale, -y_gap / scale]]
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    profile = {
+        "cutter_centre": [points],
+        "raster": {
+            "run_axis": "x",
+            "ends": [point[0] for point in points],
+            "clearance_mm": 5.0 / scale,
+            "entry_pass": points[0][1],
+            "open_side": "-y",
+        },
+    }
+    note = sheet.raster_clearance(POCKET, profile)
+    assert EVERY.search(note)
+    assert ("enters from air at -X" in note) is x_clear
+    assert ("leaves into air at +X" in note) is x_clear
+    assert ("pass 1 enters from air" in note) is y_clear
+
+
+@pytest.mark.parametrize("units", ["mm", "in", "unknown"])
+def test_direct_outline_clearance_names_only_proven_positive_finite_disk_clearance(units):
+    labelled = [
+        ("diagonal-air", [-3.1, -4.1]),
+        ("tangent", [-3.0, -4.0]),
+        ("sub-margin-gap", [-3.0003, -4.0]),
+        ("intrusion", [-2.9, -4.0]),
+        ("unknown", ["unknown", -4.0]),
+        ("nonfinite-x", [float("nan"), -4.0]),
+        ("nonfinite-y", [-3.1, float("inf")]),
+        ("inside-stock", [1.0, 1.0]),
+    ]
+    scale = 25.4 if units == "in" else 1.0
+    points = [
+        [value / scale if isinstance(value, (int, float)) else value for value in point]
+        for _, point in labelled
+    ]
+    sheet = shop({})
+    sheet.bundle, sheet.units = kernel_stock([0.0, 0.0, -1.0, 10.0, 10.0, 1.0]), units
+    rows = [[label, *point] for (label, _), point in zip(labelled, points, strict=True)]
+    part = ((0, -1, 0), "Cutter-centre checkpoints", ["P", "X", "Y"], rows, "Return as authored.")
+    result = sheet.outline_clearance(
+        POCKET, {"cutter_radius_mm": 5.0, "cutter_centre": points}, part
+    )
+    assert (result[0], *result[2:]) == (part[0], *part[2:])
+    named = re.search(r";\s*([^;]*) stand wholly clear of the stock", result[1])
+    assert (named.group(1).split(", ") if named else []) == (
+        ["diagonal-air"] if units != "unknown" else []
+    )
 
 
 def test_a_contour_table_repeats_its_operation_context_and_coordinate_values():
@@ -1135,6 +1685,21 @@ def worksheet_readings(markup):
     return result
 
 
+def inspection_html(checks, op=20, *, detail="hobby", setup_id="S1"):
+    """Render semantic inspection items through the real audience-aware consumer."""
+    from prechips.sheet import _Row
+
+    sheet = shop({}, detail=detail)
+    setup = {"id": setup_id, "ops": [{"op": op, "do": "inspect", "feature": "bore"}]}
+    sheet.plan["setups"] = [setup]
+    row = _Row(
+        [str(op), "bore", "—", "Inspect original bore", checks],
+        setup_id=setup_id,
+        op_id=op,
+    )
+    return sheet.operation_table(setup, [row])
+
+
 @pytest.mark.parametrize(
     ("procedure", "worksheet"),
     [
@@ -1146,19 +1711,21 @@ def worksheet_readings(markup):
 def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_own(
     procedure, worksheet
 ):
-    from prechips.sheet import _worksheet
+    from prechips.sheet import _Steps
 
     sheet = shop({})
-    notes, worksheets = ["an earlier note"], []
     op = {"op": 110, "feature": "bore", "inspection_note": procedure}
-    sheets = {"notes": 2, "worksheets": 4}
-    cell = sheet.inspection({"id": "S11"}, op, notes, worksheets, sheets)
+    setup = {"id": "S11", "ops": [op]}
+    sheet.plan["setups"] = [setup]
+    checks = sheet.inspection(setup, op)
+    assert len(checks) == 1 and isinstance(checks[0], _Steps)
+    markup = Markup(inspection_html(checks, op=110, setup_id="S11"))
+    assert bool(markup.find("worksheet")) is worksheet
     if not worksheet:
-        assert cell == ["see S11 sheet 2 note 2"] and not worksheets
+        assert len(markup.find("writing-blank")) == len(
+            re.findall(r"\{[^{}]+\}", " ".join(procedure))
+        )
         return
-    assert cell == ["see S11 sheet 4 worksheet"] and notes == ["an earlier note"]
-    html = _worksheet(worksheets[0])
-    markup = Markup(html)
     steps = markup.find("steps")[0]
     assert not markup.find("field", steps)  # steps refer to readings, not extra value boxes
     assert [
@@ -1183,25 +1750,21 @@ def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_o
 
 
 def test_underscore_prompts_never_classify_as_named_worksheet_readings():
-    from prechips.sheet import _list, _readings
+    from prechips.sheet import _readings
 
     procedure = ["Read the dial: _____", "Calculate: a = _____", "Calculate: b = _____"]
     sheet = shop({})
-    notes, worksheets = [], []
-    rows = sheet.inspection(
-        {"id": "S1"},
-        {"op": 10, "inspection_note": procedure},
-        notes,
-        worksheets,
-        {"notes": 2, "worksheets": 3},
-    )
-    assert rows == ["see S1 sheet 2 note 1"] and not worksheets
+    op = {"op": 10, "inspection_note": procedure}
+    setup = {"id": "S1", "ops": [op]}
+    sheet.plan["setups"] = [setup]
+    markup = Markup(inspection_html(sheet.inspection(setup, op), op=10))
     assert _readings(procedure) == []
-    assert len(Markup(_list(notes)).find("writing-blank")) == 3
+    assert not markup.find("worksheet")
+    assert len(markup.find("writing-blank")) == 3
 
 
-@pytest.mark.parametrize("details", [False, True])
-def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(details):
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_real_cone_worksheet_keeps_source_steps_equations_and_inline_owner(detail):
     from prechips.inputs import load_bundle
 
     bundle = load_bundle(
@@ -1211,29 +1774,25 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"][
         "angularity_dia"
     ]
-    sheet = _Traveler(bundle, [], {}, None)
-    # Exercise both routing branches without invoking a native renderer.
+    sheet = _Traveler(bundle, [], {}, None, detail=detail)
     sheet.fixture_render = lambda setup: ""
     sheet.shop_made_tables = lambda setup: ""
     sheet.clearance = lambda setup, tools: ""
-    sheet.feature_map = lambda setup: "<h2>FEATURE MAP</h2>" if details else ""
     sheet.blank_checks = lambda setup: ""
-    sheet.contours = lambda setup, tools, stops: "<h2>CONTOURS</h2>"
-    original_operations = sheet.operations
-
-    def operations(setup, tools, sheets):
-        table, notes, worksheets, stops = original_operations(setup, tools, sheets)
-        return table, notes if details else "", worksheets, stops
-
-    sheet.operations = operations
+    sheet.contours = lambda setup, tools, decisions: "<h2>CONTOURS</h2>"
     sections = sheet.setup_section(setup)
-    assert len(sections) == (4 if details else 3)
-    front = Markup("<div>" + "".join(sections[0]) + "</div>")
-    assert f"S11 sheet {len(sections)} worksheet" in content(front.nodes[0])
-    assert "CONTOURS" in "".join(sections[-2])
-    worksheet = "".join(sections[-1])
-    assert "worksheet, S11 op 110 angularity Ø" in worksheet
-    markup = Markup(worksheet)
+    assert len(sections) == 1
+    html = "".join(sections[0])
+    markup = Markup(html)
+    (worksheet,) = markup.find("worksheet")
+    owner = worksheet
+    while owner is not None and "data-requirement" not in owner["attrs"]:
+        owner = owner["parent"]
+    assert owner is not None
+    assert owner["attrs"]["data-setup-id"] == "S11"
+    assert owner["attrs"]["data-op-id"] == "110"
+    assert owner["attrs"]["data-requirement"] == "angularity_dia"
+    assert markup.find("inspection-method", owner)
     source_steps = [step for step in authored if not step.startswith("Calculate:")]
     source_calculations = [step for step in authored if step.startswith("Calculate:")]
     readings = [
@@ -1243,7 +1802,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     ]
     assert [name for _, _, name in readings] == ["rJ1", "rC1", "rJ2", "rC2"]
     assert worksheet_readings(markup) == readings
-    (steps,) = markup.find("steps")
+    (steps,) = markup.find("steps", worksheet)
     instruction_rows = [
         node for node in markup.nodes if node["tag"] == "li" and node["parent"] is steps
     ]
@@ -1278,13 +1837,13 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
             if re.fullmatch(r"\[[^\[\]]+\]", content(node))
         ] == [f"[{name}]" for name in re.findall(r"\{([^{}]+)\}", source)]
     assert not markup.find("field", steps)
-    calculations = markup.find("calc")
+    calculations = markup.find("calc", worksheet)
     assert [content(markup.find("field-label", row)[0]) for row in calculations] == [
         "e1",
         "e2",
         "result",
     ]
-    assert len(markup.find("writing-blank")) == 7
+    assert len(markup.find("writing-blank", worksheet)) == 7
     for row, source in zip(calculations, source_calculations, strict=True):
         assert content(row) == re.sub(r"\{([^{}]+)\}", r"\1", source)
 
@@ -1328,7 +1887,7 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
 PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
 
 
-def _bench_sheet(ops, **setup):
+def _bench_sheet(ops, *, detail="hobby", **setup):
     from prechips.inputs import Bundle
 
     data = Bundle(
@@ -1345,27 +1904,29 @@ def _bench_sheet(ops, **setup):
         root=Path("."),
         kernel={"status": "ok", "ops": {}},
     )
-    sheet = _Traveler(data, [], {}, None)
-    html, _, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    html, _ = sheet.operations(data.plan["setups"][0], {})
     return html
 
 
-def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns(detail):
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet(
-        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
+        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}],
+        detail=detail,
     )
     markup = Markup(html)
-    assert "<h2>ASSEMBLY / FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
     painted, deburred = markup.find("operation")
     assert [node["attrs"]["data-op"] for node in (painted, deburred)] == ["10", "20"]
     assert content(markup.find("op-feature", painted)[0]).endswith("body")
-    assert "RAL 6005 alkyd (in-house)" in content(markup.find("op-consumable", painted)[0])
+    consumable = content(markup.find("op-consumable", painted)[0])
+    assert "RAL 6005" in consumable and "alkyd" in consumable
     assert PAINT_NOTE in content(markup.find("op-action", painted)[0])
     assert content(painted).count("brush RAL 6005") == 1
     assert "deburr" in content(markup.find("op-action", deburred)[0])
     for operation in (painted, deburred):
-        assert len(markup.find("performed-mark", operation)) == 1
+        assert len(markup.find("performed-mark", operation)) == (detail == "pedantic")
         assert not markup.find("inspection-message", operation)
         assert not markup.find("inspection-record", operation)
         for css in ("op-speed", "op-feed", "op-target", "op-direction", "op-tool"):
@@ -1375,11 +1936,10 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
 def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
-    assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in content(Markup(html).find("op-speed")[0])
 
 
-def _lathe_sheet(ops, hands):
+def _lathe_sheet(ops, hands, *, detail="hobby"):
     from prechips.inputs import Bundle
 
     tools = {name: {"kind": "lathe_tool_bit", "name": name} for name in hands}
@@ -1389,7 +1949,9 @@ def _lathe_sheet(ops, hands):
     data = Bundle(
         plan={"setups": [{"id": "S1", "machine": "lathe", "ops": ops}]},
         inventory={"machines": {"lathe": {"kind": "lathe"}}, "tools": tools},
-        features={"features": {"body": {"kind": "cylinder"}}},
+        features={
+            "features": {"body": {"kind": "cylinder", "requirements": ["dia"], "dia": [10.0, 10.2]}}
+        },
         policy={},
         cutting_data={},
         paths={},
@@ -1397,17 +1959,16 @@ def _lathe_sheet(ops, hands):
         root=Path("."),
         kernel={"status": "ok", "ops": {}},
     )
-    sheet = _Traveler(data, [], {}, None)
-    html, _, _, stops = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
-    rows = {}
-    markup = Markup(html)
-    for operation in markup.find("operation"):
-        speed = markup.find("op-speed", operation)[0]
-        value = next(
-            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is speed
-        )
-        rows[operation["attrs"]["data-op"]] = " ".join(value["text"]).split()
-    return html, rows, stops
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    setup = data.plan["setups"][0]
+    semantic = sheet.operation_rows(setup, {})
+    assert all(len(row) == 9 for row in semantic)
+    html, decisions = sheet.operations(setup, {})
+    rows = {
+        str(row[0]): " ".join(row[4] if isinstance(row[4], list) else [row[4]]).split()
+        for row in semantic
+    }
+    return html, rows, decisions
 
 
 @pytest.mark.parametrize(
@@ -1518,8 +2079,13 @@ def test_the_op_that_bonds_names_its_compound_as_its_consumable(joint):
         {"op": 30, "do": "fit", "feature": "body"},
     ]
     markup = Markup(_bench_sheet(ops, joint=joint))
-    cells = [content(markup.find("op-consumable", row)[0]) for row in markup.find("operation")]
-    assert [cell.endswith("Loctite 638") for cell in cells] == [False, True, False]
+    rows = {row["attrs"]["data-op"]: row for row in markup.find("operation")}
+    assert set(rows) == {"10", "20", "30"}
+    assert ["Loctite 638" in content(rows[str(op["op"])]) for op in ops] == [
+        False,
+        True,
+        False,
+    ]
 
 
 def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand():
@@ -1533,59 +2099,70 @@ def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand
     # An edge-up turning tool of either hand: the work turns down onto it.
     assert rows["10"][-1] == rows["20"][-1] == "FORWARD"
     assert rows["30"][-1] == "REVERSE" and rows["40"] == ["—"]
-    assert (
-        "<h2>OPERATIONS — spindle FORWARD: the top of the work turns toward you; "
-        "spindle REVERSE: the top of the work turns away from you</h2>"
-    ) in html
-    assert "spindle direction not known" not in stops
+    markup = Markup(html)
+    speeds = [content(node) for node in markup.find("op-speed")]
+    assert sum(text.count("FORWARD") for text in speeds) == 2
+    assert sum(text.count("REVERSE") for text in speeds) == 1
+    assert not any("spindle direction" in decision.text for decision in stops)
 
 
-def test_a_lathe_setup_turning_one_way_says_so_once_and_its_rpm_cells_carry_only_the_rpm():
+def test_each_known_lathe_turn_remains_in_its_own_rpm_cell():
     ops = [
         {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
         {"op": 20, "do": "rough_turn", "feature": "body", "tool": "lh"},
         {"op": 30, "do": "inspect", "feature": "body"},
     ]
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
-    assert "FORWARD" not in rows["10"] + rows["20"]
-    assert (
-        "<h2>OPERATIONS — spindle FORWARD whenever it runs: the top of the work turns toward "
-        "you</h2>"
-    ) in html
-    assert "spindle direction not known" not in stops
+    assert rows["10"][-1] == rows["20"][-1] == "FORWARD"
+    assert rows["30"] == ["—"]
+    speeds = [content(node) for node in Markup(html).find("op-speed")]
+    assert sum(text.count("FORWARD") for text in speeds) == 2
+    assert all("REVERSE" not in text for text in speeds)
+    assert not any("spindle direction" in decision.text for decision in stops)
 
 
 def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells():
-    # One STOP among FORWARD ops: the heading cannot say one turn for every op.
+    # An unknown turn must not erase another operation's known direction.
     ops = [
         {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
         {"op": 20, "do": "rough_turn", "feature": "body", "tool": "bit"},
     ]
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
     assert rows["10"][-1] == "FORWARD"
-    assert "whenever it runs" not in html
-    assert stops["spindle direction not known — the tool's hand is not declared"] == ["20"]
+    blockers = [decision for decision in stops if "spindle direction" in decision.text]
+    assert [(decision.source, decision.kind, decision.scope) for decision in blockers] == [
+        ("producer", "block", "S1:20")
+    ]
 
 
-def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction(detail):
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
-    html, rows, stops = _lathe_sheet(ops, {"bit": None})
-    assert "STOP: spindle direction not known" in " ".join(rows["10"])
-    assert stops["spindle direction not known — the tool's hand is not declared"] == ["10"]
+    html, rows, stops = _lathe_sheet(ops, {"bit": None}, detail=detail)
+    assert "spindle direction" in " ".join(rows["10"])
+    blockers = [decision for decision in stops if "spindle direction" in decision.text]
+    assert [(decision.source, decision.kind, decision.scope) for decision in blockers] == [
+        ("producer", "block", "S1:10")
+    ]
     assert "FORWARD" not in html
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize("checked", [True, False])
-def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(checked):
+def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(
+    checked, detail
+):
     # A lathe op inspected in the chuck is measured stopped, the tool withdrawn: said once
     # over the op rows; a table with nothing measured says nothing about measuring.
     finish = {"op": 10, "do": "finish_turn", "feature": "body", "tool": "rh"}
     if checked:
         finish["checks"] = {"dia": "mic"}
-    html, _, _ = _lathe_sheet([finish], {"rh": "right"})
-    (heading,) = re.findall(r"<h2>OPERATIONS.*?</h2>", html)
-    stopped = "measure only with the spindle stopped and the tool withdrawn" in heading
-    assert stopped is checked, heading
+    html, _, _ = _lathe_sheet([finish], {"rh": "right"}, detail=detail)
+    markup = Markup(html)
+    text = " ".join(content(node) for node in markup.nodes if node["parent"] is None)
+    stopped = bool(re.search(r"spindle stopped|stop(?:ped)? the spindle", text, re.IGNORECASE))
+    withdrawn = "withdraw" in text.casefold()
+    assert (stopped and withdrawn) is checked, text
 
 
 @pytest.mark.parametrize(
@@ -1671,7 +2248,7 @@ def test_the_hold_prints_the_jaw_buttons_measured_sizes(unmeasured):
     }
     marked = [content(node) for node in markup.find("reading", step)]
     for key, label in labels.items():
-        values = re.findall(re.escape(label) + r"(\d+\.\d+) mm", text)
+        values = re.findall(re.escape(label) + r"(\d+(?:\.\d+)?) mm", text)
         if key == unmeasured:
             assert not values, (key, text)
             assert label + "?" in text, (key, text)
@@ -1853,15 +2430,19 @@ def test_a_runout_limit_prints_as_declared(limit):
     assert printed and float(printed.group(1)) == limit, line
 
 
-def ledger(features, ops):
+def ledger(features, ops, *, detail="hobby"):
     """Exercise the actual operation assembly with already-computed machining fields."""
     from prechips.sheet import _Box
 
-    sheet = shop({})
+    sheet = shop({}, detail=detail)
     sheet.features = features
     sheet.units = "mm"
     sheet.findings = []
-    sheet.bundle = replace(sheet.bundle, inventory={"tools": {"c": {}}})
+    sheet.bundle = replace(
+        sheet.bundle,
+        features={**sheet.bundle.features, "features": features},
+        inventory={"tools": {"c": {}}},
+    )
     sheet.setup = {"id": "S1", "ops": ops}
     sheet.plan["setups"] = [sheet.setup]
     sheet.feature_name = lambda feature: feature.replace("_", " ")
@@ -1869,7 +2450,6 @@ def ledger(features, ops):
     sheet.short_reference = lambda reference, category: f"Gauge {reference}"
     sheet.contour_ops = set()
     sheet.lathe = lambda setup: False
-    sheet.cut_depths = lambda setup, op, lathe: op.get("action", [op["do"]])
     sheet.coating = lambda op: op.get("process", "unknown")
     sheet.speeds = lambda setup, op, saw: ("1234", ["0.025 mm/rev", "(31 mm/min)"], False)
     sheet.hole_xy = lambda setup, op: ["tool axis X -25.000, Y +1.250"]
@@ -1881,25 +2461,30 @@ def ledger(features, ops):
     sheet.manual_arc_lines = lambda setup, op: []
     sheet.tip_note = lambda setup, op: None
     sheet.direction = lambda direction: direction
-    html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
-    assert not worksheets
-    return Markup(html), notes, stops
+    rows = sheet.operation_rows(sheet.setup, T4)
+    assert all(len(row) in (5, 9) for row in rows)
+    assert [row.op_id for row in rows] == [op["op"] for op in ops]
+    assert all(row.setup_id == "S1" for row in rows)
+    html, decisions = sheet.operations(sheet.setup, T4)
+    return Markup(html), rows, decisions
 
 
-def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain(detail):
     markup, _, _ = ledger(
-        {"bore": {"kind": "hole", "dia": [6.33, 6.35]}},
+        {"bore": {"kind": "hole", "requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {"op": 10, "do": "face", "feature": "bore", "tool": "c"},
             {"op": 20, "do": "inspect", "feature": "bore", "tool": "c", "checks": {"dia": "mic"}},
             {"op": 30, "do": "inspect", "feature": "bore", "tool": "c", "checks": "unknown"},
         ],
+        detail=detail,
     )
     empty, checked, unknown = markup.find("operation")
     assert not markup.find("inspection-message", within=empty)
     assert not markup.find("inspection-record", within=empty)
     assert not markup.find("writing-blank", within=empty)
-    assert len(markup.find("performed-mark", within=empty)) == 1
+    assert len(markup.find("performed-mark", within=empty)) == (detail == "pedantic")
     (record,) = markup.find("inspection-record", within=checked)
     assert record["attrs"]["data-requirement"] == "dia"
     assert json.loads(record["attrs"]["data-features"]) == ["bore"]
@@ -1908,18 +2493,20 @@ def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_re
     assert len(markup.find("writing-blank", within=record)) == 1
     assert not markup.find("inspection-message", within=checked)
     (message,) = markup.find("inspection-message", within=unknown)
-    assert content(message) == "? inspection checks not set"
+    assert "?" in content(message)
     assert not markup.find("inspection-record", within=unknown)
 
 
-def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety(detail):
     ops = [
         {
             "op": 30,
             "do": "finish_turn",
             "feature": "bore",
             "tool": "c",
-            "action": ["Inspect at -3.125 mm", "retain +0.025 mm"],
+            "rough_allowance_mm": 0.025,
+            "doc_mm": 0.125,
             "direction": "toward −Z",
             "checks": {"dia": "mic", "position_dia": "dti"},
             "inspection_methods": {"position_dia": "Seat datum A; read at -25.000 mm."},
@@ -1928,25 +2515,38 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
         },
         {"op": 10, "do": "inspect", "feature": "bore", "tool": "c", "direction": "not_applicable"},
     ]
-    markup, notes, _ = ledger(
-        {"bore": {"dia": [6.33, 6.35], "position_dia": [0.0, 0.025], "position_datums": ["A"]}},
+    markup, rows, decisions = ledger(
+        {
+            "bore": {
+                "requirements": ["dia", "position_dia"],
+                "dia": [6.33, 6.35],
+                "position_dia": [0.0, 0.025],
+                "position_datums": ["A"],
+            }
+        },
         ops,
+        detail=detail,
     )
     operations = markup.find("operation")
     assert [node["attrs"]["data-op"] for node in operations] == ["30", "10"]
-    for node, op in zip(operations, ops, strict=True):
-        assert len(markup.find("performed-mark", node)) == 1
-        action_text = content(markup.find("op-action", node)[0])
-        assert all(action in action_text for action in op.get("action", [op["do"]]))
-        for css, values in {
-            "op-feature": ["bore"],
-            "op-tool": ["T4"],
-            "op-speed": ["1234"],
-            "op-feed": ["0.025 mm/rev", "(31 mm/min)"],
-            "op-target": ["X -25.000, Y +1.250", "Z -3.125 mm"],
-            "op-direction": [op["direction"]],
+    for node, row, op in zip(operations, rows, ops, strict=True):
+        assert len(markup.find("performed-mark", node)) == (detail == "pedantic")
+        actions = (
+            ["finish turn", "leave 0.025 mm per side", "0.125 mm axial per pass"]
+            if op["op"] == 30
+            else ["inspect"]
+        )
+        assert all(action in str(row[1]) for action in actions)
+        for column, values in {
+            2: ["bore"],
+            3: ["T4"],
+            4: ["1234"],
+            5: ["0.025 mm/rev", "(31 mm/min)"],
+            6: ["X -25.000, Y +1.250", "Z -3.125 mm"],
+            7: [op["direction"]],
         }.items():
-            assert all(value in content(markup.find(css, node)[0]) for value in values)
+            assert all(value in str(row[column]) for value in values)
+        assert all(action in content(node) for action in actions)
     first = operations[0]
     assert ops[0]["safety"] in content(first)
     assert ops[0]["note"] in content(markup.find("op-note", first)[0])
@@ -1957,20 +2557,23 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
     assert all(len(markup.find("result-field", node)) == 1 for node in records)
     assert "6.330–6.350" in content(records[0])
     assert "0.000–0.025" in content(records[1]) and "A" in content(records[1])
-    note_markup = Markup(notes)
-    note_entries = [node for node in note_markup.nodes if node["tag"] == "li"]
-    assert len(note_entries) == 1
-    note = note_entries[0]
-    context = note_markup.find("page-context", note)[0]
-    assert note["attrs"]["data-page-context"] == content(context)
-    assert "S1 op 30" in content(context) and "position" in content(context)
-    assert ops[0]["inspection_methods"]["position_dia"] in content(note)
-    assert "S1 sheet 2 note 1" in content(records[1])
+    (method,) = markup.find("inspection-method", records[1])
+    assert ops[0]["inspection_methods"]["position_dia"] in content(method)
+    assert records[1]["attrs"]["data-setup-id"] == "S1"
+    assert records[1]["attrs"]["data-op-id"] == "30"
+    for record, check in zip(records, rows[0][-1], strict=True):
+        assert json.loads(record["attrs"]["data-inspection-ids"]) == list(check.subjects)
+        assert record["attrs"]["data-workpiece"] == (check.workpiece or "")
+    assert any(
+        decision.kind == "block" and decision.scope == "S1:30" and decision.text == ops[0]["safety"]
+        for decision in decisions
+    )
+    assert any(decision.kind == "block" for decision in rows[0].decisions)
 
 
 def test_shared_owner_limit_is_read_once_with_one_associated_result():
-    markup, notes, _ = ledger(
-        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [6.33, 6.35]}},
+    markup, _, _ = ledger(
+        {name: {"requirements": ["dia"], "dia": [6.33, 6.35]} for name in ("left", "right")},
         [
             {
                 "op": 50,
@@ -1986,12 +2589,16 @@ def test_shared_owner_limit_is_read_once_with_one_associated_result():
     assert json.loads(records[0]["attrs"]["data-features"]) == ["left", "right"]
     assert content(records[0]).count("6.330–6.350") == 1
     assert len(markup.find("result-field", records[0])) == 1
-    assert notes.count("Use the micrometer.") == 1
+    (method,) = markup.find("inspection-method", records[0])
+    assert content(method).count("Use the micrometer.") == 1
 
 
 def test_distinct_owner_bands_keep_their_result_and_method_associations():
-    markup, notes, _ = ledger(
-        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [8.01, 8.03]}},
+    markup, _, _ = ledger(
+        {
+            "left": {"requirements": ["dia"], "dia": [6.33, 6.35]},
+            "right": {"requirements": ["dia"], "dia": [8.01, 8.03]},
+        },
         [
             {
                 "op": 50,
@@ -2010,18 +2617,28 @@ def test_distinct_owner_bands_keep_their_result_and_method_associations():
     ):
         assert expected in content(node) and other not in content(node)
         assert "? " in content(node)
-        assert "S1 sheet 2 note 1" in content(node)
-        assert len(markup.find("writing-blank", node)) == 1
-    assert notes.count("Use the micrometer.") == 1
-    method = Markup(notes)
-    assert [content(label) for label in method.find("field-label")] == ["method_reading"]
-    assert len(method.find("writing-blank")) == 1
-    assert content(method.find("writing-blank")[0]) == ""
+        assert node["attrs"]["data-setup-id"] == "S1"
+        assert node["attrs"]["data-op-id"] == "50"
+        assert len(markup.find("result-field", node)) == 1
+    methods = markup.find("inspection-method")
+    assert len(methods) == 1
+    method = methods[0]
+    assert content(method).count("Use the micrometer.") == 1
+    assert [content(label) for label in markup.find("field-label", method)] == ["method_reading"]
+    assert len(markup.find("writing-blank", method)) == 1
+    assert content(markup.find("writing-blank", method)[0]) == ""
+    assert len(markup.find("writing-blank")) == 3
 
 
 def test_missing_requirements_identities_and_process_holds_do_not_get_fake_results():
-    markup, notes, _ = ledger(
-        {"bore": {"dia": [6.33, 6.35], "position_dia": "unknown"}},
+    markup, _, _ = ledger(
+        {
+            "bore": {
+                "requirements": ["dia", "position_dia"],
+                "dia": [6.33, 6.35],
+                "position_dia": "unknown",
+            }
+        },
         [
             {
                 "op": 50,
@@ -2058,14 +2675,15 @@ def test_missing_requirements_identities_and_process_holds_do_not_get_fake_resul
     assert any("position Ø ?" in content(node) for node in messages)
     assert any("inspection checks not set" in content(node) for node in messages)
     assert all(not markup.find("writing-blank", node) for node in messages)
-    assert "Seat datum A; method remains required." in notes
-    assert "Keep the drawing at the bench." in notes
+    methods = markup.find("inspection-method")
+    assert any("Seat datum A; method remains required." in content(node) for node in methods)
+    assert any("Keep the drawing at the bench." in content(node) for node in methods)
 
 
 def test_long_authored_method_and_qualitative_limit_check_keep_their_association():
     method = "Compare the GO and NO-GO sizes without forcing the gauge. " * 400
-    markup, notes, _ = ledger(
-        {"edge": {"kind": "shaft", "dia": [6.33, 6.35]}},
+    markup, _, _ = ledger(
+        {"edge": {"kind": "shaft", "requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {
                 "op": 80,
@@ -2078,12 +2696,14 @@ def test_long_authored_method_and_qualitative_limit_check_keep_their_association
         ],
     )
     record = markup.find("inspection-record")[0]
-    assert method.strip() in notes
+    (method_owner,) = markup.find("inspection-method", record)
+    assert method.strip() in content(method_owner)
     assert json.loads(record["attrs"]["data-features"]) == ["edge"]
     assert record["attrs"]["data-requirement"] == "dia"
     assert "GO 6.330 passes over" in content(record)
     assert "NO-GO 6.350 does not" in content(record)
-    assert "S1 sheet 2 note 1" in content(record)
+    assert record["attrs"]["data-setup-id"] == "S1"
+    assert record["attrs"]["data-op-id"] == "80"
     assert len(markup.find("writing-blank", record)) == 1
     label = content(markup.find("field-label", record)[0])
     assert "mm" not in label and "°" not in label
@@ -2093,7 +2713,10 @@ def test_one_shared_shoulder_dimension_keeps_both_faces_and_one_recording_area()
     note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
     owners = ["shoulder_north_face", "shoulder_thrust"]
     markup, _, _ = ledger(
-        {owner: {"kind": "face", "length": [0.99, 2.01]} for owner in owners},
+        {
+            owner: {"kind": "face", "requirements": ["length"], "length": [0.99, 2.01]}
+            for owner in owners
+        },
         [
             {
                 "op": 71,
@@ -2116,7 +2739,7 @@ def test_one_shared_shoulder_dimension_keeps_both_faces_and_one_recording_area()
 def test_authored_multi_location_note_stays_with_one_freeform_requirement_record():
     note = "Mic at both ends and the middle for taper before moving on."
     markup, _, _ = ledger(
-        {"pivot_bearing": {"dia": [6.33, 6.35]}},
+        {"pivot_bearing": {"requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {
                 "op": 30,
@@ -2139,7 +2762,7 @@ def test_authored_multi_location_note_stays_with_one_freeform_requirement_record
 
 def picture_sheet(panels):
     sheet = shop({})
-    sheet.plan = {"part": "Bracket"}
+    sheet.plan.update({"part": "Bracket"})
     sheet.arrival = lambda setup: "stock blank"
     sheet.reference = lambda reference, category: "vise"
     sheet.drawing_revision = lambda: "B"
@@ -2163,8 +2786,24 @@ def picture_sheet(panels):
 
 def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale():
     panels = [
-        {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main setup"},
-        {"top_px": 1400, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
+        {
+            "top_px": 0,
+            "height_px": 1400,
+            "role": "setup",
+            "label": "Main setup",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        },
+        {
+            "top_px": 1400,
+            "height_px": 800,
+            "role": "holding_detail",
+            "label": "Rear clamp",
+            "id": "holding_detail:1",
+            "selection_group": "holding_detail:1",
+            "annotations": [],
+        },
     ]
     html = picture_sheet(panels).fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
     markup = Markup(html)
@@ -2185,21 +2824,42 @@ def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale()
         for caption in captions
     )
     assert "Main setup" in captions[0] and "Rear clamp" in captions[1]
-    assert "NOT SHOWN: rear clamp" in html
+    assert any("not drawn: rear clamp" in content(node) for node in markup.find("render-debt"))
     assert "graphic exaggeration: leader clearance" in html
 
 
 @pytest.mark.parametrize(
     "panels",
     [
-        [{"top_px": 0, "height_px": 1400, "role": "setup", "label": "Incomplete"}],
         [
-            {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main"},
+            {
+                "top_px": 0,
+                "height_px": 1400,
+                "role": "setup",
+                "label": "Incomplete",
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": [],
+            }
+        ],
+        [
+            {
+                "top_px": 0,
+                "height_px": 1400,
+                "role": "setup",
+                "label": "Main",
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": [],
+            },
             {
                 "top_px": 1300,
                 "height_px": 900,
                 "role": "holding_detail",
                 "label": "Repeated pixels",
+                "id": "holding_detail:1",
+                "selection_group": "holding_detail:1",
+                "annotations": [],
             },
         ],
     ],
@@ -2225,7 +2885,8 @@ def example_sheet(relative):
     ],
 )
 @pytest.mark.parametrize("field", ["operation.note", "operation.inspection_note", "hold.note"])
-def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field):
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field, detail):
     from prechips.sheet import render_traveler
 
     bundle = example_sheet("rocker-arm/plan.toml").bundle
@@ -2235,62 +2896,46 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
     url_citation = "https://example.invalid/slash-fidelity"
     owner = setup["hold"] if field == "hold.note" else operation
     owner[field.rsplit(".", 1)[-1]] = f"{instruction} {repo_citation} {url_citation}"
-    html = render_traveler(bundle, [], {})
+    html = render_traveler(bundle, [], {}, detail=detail)
     markup = Markup(html)
     setup_id, operation_id = setup["id"], str(operation["op"])
-    pages = [
-        page
-        for page in markup.find("page")
-        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
-    ]
+    setup_owner = setup_flow(markup, setup_id)
     if field == "operation.inspection_note":
-        blocks = [
-            node
-            for page in pages
-            for node in markup.find("keep", page)
-            if any(
-                child["parent"] is node and content(child) == "INSPECTION NOTES"
-                for child in markup.nodes
-            )
-        ]
-        prefix = f"{setup_id} op {operation_id}: "
-        notes = [
-            node
-            for block in blocks
-            for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith(prefix)
-        ]
-        assert [content(node).removeprefix(prefix) for node in notes] == [instruction]
+        operation_owner = operation_instruction(markup, setup_id, operation_id)
+        methods = markup.find("inspection-method", operation_owner)
+        assert sum(content(method).count(instruction) for method in methods) == 1
     elif field == "operation.note":
-        operations = [
-            node
-            for page in pages
-            for node in markup.find("operation", page)
-            if node["attrs"]["data-op"] == operation_id
-        ]
-        notes = [node for operation in operations for node in markup.find("op-note", operation)]
-        assert [content(node) for node in notes] == [instruction]
+        operation_owner = operation_instruction(markup, setup_id, operation_id)
+        assert content(operation_owner).count(instruction) == 1
     else:
-        blocks = [node for page in pages for node in markup.find("hold-steps", page)]
-        notes = [
+        holding_owners = [
             node
-            for block in blocks
+            for node in markup.find("setup-variant", setup_owner)
+            if node["attrs"].get("data-setup-id") == setup_id
+            and not markup.find("operation", node)
+            and not markup.find("route-operation", node)
+            and instruction in content(node)
+        ]
+        holding_owners.extend(
+            node
+            for node in markup.find("route-prelude", setup_owner)
+            if setup_id in json.loads(node["attrs"]["data-setup-members"])
+            and instruction in content(node)
+        )
+        holding_owners.extend(
+            node
+            for table in markup.find("orientation-table", setup_owner)
             for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith("Note: ")
-        ]
-        assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
-            instruction
-        ]
-    instruction_blocks = [
-        node
-        for node in markup.nodes
-        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
-    ]
-    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
+            if node["tag"] == "tr"
+            and node["parent"]["parent"] is table
+            and setup_id in json.loads(node["attrs"].get("data-setup-members", "[]"))
+            and instruction in content(node)
+        )
+        assert len(holding_owners) == 1
+        holding_owner = holding_owners[0]
+        assert content(holding_owner).count(instruction) == 1
+    (body,) = [node for node in markup.nodes if node["tag"] == "body"]
+    assert content(body).count(instruction) == 1
     assert repo_citation not in html
     assert url_citation not in html
 
@@ -2493,7 +3138,7 @@ def test_contour_intros_share_operation_tool_and_all_depth_levels(list_only):
 
 def test_operation_readings_keep_authored_sign_precision_and_unit_in_one_inline_token():
     markup, _, _ = ledger(
-        {"surface": {"kind": "face", "length": [3.0, 3.2]}},
+        {"surface": {"kind": "face", "requirements": ["length"], "length": [3.0, 3.2]}},
         [{"op": 10, "do": "face", "feature": "surface", "tool": "c"}],
     )
     operation = markup.find("operation")[0]
@@ -2588,7 +3233,7 @@ def test_numeric_prose_table_cells_preserve_whole_signed_decimals_and_source_byt
     assert not any(value in readings for value in controls)
 
 
-def test_coating_optional_space_is_not_a_dimensional_inspection_record():
+def test_coating_note_and_unknown_checks_do_not_invent_a_dimensional_inspection_record():
     note = "Existing five-place dry-film check; keep its gauge and limits as authored."
     markup, _, _ = ledger(
         {},
@@ -2603,26 +3248,26 @@ def test_coating_optional_space_is_not_a_dimensional_inspection_record():
         ],
     )
     operation = markup.find("operation")[0]
-    area = markup.find("process-observations", operation)[0]
-    assert "optional" in content(area).casefold()
-    assert area["attrs"]["data-process"] == "coating"
+    assert not markup.find("process-observations", operation)
+    assert not markup.find("writing-blank", operation)
     assert not any(
-        name in area["attrs"] for name in ("data-feature", "data-features", "data-requirement")
+        name in node["attrs"]
+        for node in [operation, *markup.find("inspection-message", operation)]
+        for name in ("data-feature", "data-features", "data-requirement")
     )
-    assert len(markup.find("writing-blank", area)) == 1
     assert not markup.find("inspection-record", operation)
     assert markup.find("inspection-message", operation)
     assert content(markup.find("op-action", operation)[0]) == note
     assert not any(
         unit in content(label)
-        for label in markup.find("field-label", area)
+        for label in markup.find("field-label", operation)
         for unit in ("mm", "µm", "inches")
     )
 
 
 def test_coating_does_not_duplicate_existing_requirement_or_authored_prompt_areas():
     checked, _, _ = ledger(
-        {"body": {"kind": "cylinder", "dia": [10.0, 10.2]}},
+        {"body": {"kind": "cylinder", "requirements": ["dia"], "dia": [10.0, 10.2]}},
         [
             {
                 "op": 10,
@@ -2647,7 +3292,7 @@ def test_coating_does_not_duplicate_existing_requirement_or_authored_prompt_area
     assert not other.find("process-observations")
 
 
-def test_grouped_clearance_actions_keep_the_supplied_check_once_above_all_rows():
+def test_grouped_clearance_actions_keep_each_numeric_check_with_its_operations():
     operations = [
         {"op": op, "do": "pocket", "feature": "surface", "tool": "c"}
         for op in (10, 20, 40, 45, 50, 55)
@@ -2676,25 +3321,20 @@ def test_grouped_clearance_actions_keep_the_supplied_check_once_above_all_rows()
     bodies = [node for node in markup.nodes if node["tag"] == "tbody"]
     assert len(bodies) == len(supplied) == 2
     assert [row[0] for row in supplied] == ["10, 40, 45", "20, 50, 55"]
-    actions = [
-        node
-        for node in markup.nodes
-        if node["tag"] == "p" and content(node).startswith("action for every clearance row:")
-    ]
-    assert len(actions) == 1
-    action = actions[0]
-    assert content(action) == "action for every clearance row: " + supplied[0][4]
-    assert all(row[4] == supplied[0][4] for row in supplied)
-    assert "check the tip clears the jaws before plunging" in content(action)
-    assert content(markup.nodes[0]).count(supplied[0][4]) == 1
+    assert [float(row[3]) for row in supplied] == [2.63, 2.33]
+    assert all("jaw" in row[2] for row in supplied)
+    assert supplied[0][4] != supplied[1][4]
     for body, row in zip(bodies, supplied, strict=True):
         summary = next(
             node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is body
         )
         cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is summary]
         assert [content(cell) for cell in cells] == list(row[:4])
-        assert not markup.find("see", body)
+        (action,) = markup.find("see", body)
         assert row[4] in content(action)
+        assert "check" in content(action) and "plung" in content(action)
+        assert re.search(r"\b" + re.escape(row[3]) + r"\b", content(action))
+        assert content(markup.nodes[0]).count(row[4]) == 1
 
 
 def test_shaft_fit_up_prose_fields_keep_their_source_and_sole_boxes():
@@ -2804,32 +3444,50 @@ def test_printed_shaft_fit_up_field_has_its_own_line_before_the_next_sentence(pr
         "−Z ?",
     ],
 )
-def test_printed_compound_callouts_stay_whole_without_losing_source_text(
-    printed_sheet, callout, monkeypatch
-):
+def test_printed_compound_callouts_stay_whole_without_losing_source_text(printed_sheet, callout):
     from prechips.sheet import _table
 
     text = f"Use {callout}; retain the original callout."
     source = _table(["Component", "Size"], [["Authored component", text]], css="fixture")
-    jog = re.fullmatch(r"([+−])([XYZ]) (10\.000|\?)", callout)
-    if jog and (jog[3] != "?" or jog[1] == "+"):
-        monkeypatch.setattr("prechips.sheet.stock_states", lambda bundle, setup: [])
-        sheet = example_sheet("rocker-arm/plan.toml")
-        setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "P1")
-        sheet.setup = setup
-        sheet.records[("zero_check", "P1")] = {
-            "axes": {
-                jog[2].lower(): {
-                    "axis_set": 0.0,
-                    "check_reading": 10.0,
-                    "mirrored_reading": -10.0,
-                    "jog_mm": ("unknown" if jog[3] == "?" else -10.0 if jog[1] == "−" else 10.0),
-                }
+    _assert_atomic_printed_callout(printed_sheet, source, text, callout)
+
+
+@pytest.mark.parametrize(("axis", "jog"), [("X", 10.0), ("Y", -10.0), ("Y", "unknown")])
+def test_printed_computed_jog_preserves_its_direction_value_and_atomic_reading(
+    printed_sheet, monkeypatch, axis, jog
+):
+    monkeypatch.setattr("prechips.sheet.stock_states", lambda bundle, setup: [])
+    sheet = example_sheet("rocker-arm/plan.toml")
+    setup = next(setup for setup in sheet.plan["setups"] if setup["id"] == "P1")
+    sheet.setup = setup
+    sheet.records[("zero_check", "P1")] = {
+        "axes": {
+            axis.lower(): {
+                "axis_set": 0.0,
+                "check_reading": 10.0,
+                "mirrored_reading": -10.0,
+                "jog_mm": jog,
             }
         }
-        _, tools, _ = sheet.tool_table(setup)
-        source = sheet.dro(setup, tools)
-        text = callout
+    }
+    _, tools, _ = sheet.tool_table(setup)
+    source = sheet.dro(setup, tools)
+    markup = Markup(source)
+    sign = "−" if jog == -10.0 else "+"
+    (callout,) = [
+        content(node)
+        for node in markup.find("reading")
+        if re.fullmatch(re.escape(sign + axis) + r" (\d+(?:\.\d+)?|\?)", content(node))
+    ]
+    value = callout.split(" ", 1)[1]
+    if jog == "unknown":
+        assert value == "?"
+    else:
+        assert float(value) == 10.0
+    _assert_atomic_printed_callout(printed_sheet, source, callout, callout)
+
+
+def _assert_atomic_printed_callout(printed_sheet, source, text, callout):
     original = Markup(source)
     cell = next(node for node in original.nodes if node["tag"] == "td" and content(node) == text)
     assert callout in [content(node) for node in original.find("reading", cell)]
@@ -2888,7 +3546,7 @@ def test_printed_manual_finishing_action_is_working_body_below_its_step(printed_
     assert content(action[0]) == note
     head = original.find("op-head", operation)[0]
     assert not original.find("op-action", head)
-    assert len(original.find("performed-mark", operation)) == 1
+    assert not original.find("performed-mark", operation)
     assert not any(original.find(css, operation) for css in ("op-speed", "op-feed", "op-target"))
     printed, layout = printed_sheet(
         source,
@@ -2904,7 +3562,7 @@ def test_printed_manual_finishing_action_is_working_body_below_its_step(printed_
         }""",
     )
     assert [content(node) for node in printed.find("op-action")] == [note]
-    assert len(printed.find("performed-mark")) == 1
+    assert not printed.find("performed-mark")
     assert not any(printed.find(css) for css in ("op-speed", "op-feed", "op-target"))
     assert "Step" in layout["heading"] and "10" in layout["heading"]
     assert note not in layout["heading"]
@@ -2919,7 +3577,8 @@ def printed_sheet(tmp_path):
     """Read the real browser's final, reprinted DOM without an extra test dependency."""
     from test_machinist_review import mr
 
-    from prechips.sheet import _CSS, _DUPLEX_JS
+    from prechips._sheet_pagination import JOB_PRINT_JS
+    from prechips.sheet import _CSS
 
     variable = (
         "PRECHIPS_TEST_BROWSER" if "PRECHIPS_TEST_BROWSER" in os.environ else "PRECHIPS_CHROME"
@@ -2954,13 +3613,20 @@ def printed_sheet(tmp_path):
     canary = f"http://127.0.0.1:{proxy.server_port}/browser-fixture-positive-control"
 
     def print_html(source, probe, prepare=None, *, expected_error=None):
+        owned_source = source
+        if not any("data-setup-title" in node["attrs"] for node in Markup(source).nodes):
+            owned_source = (
+                '<div class="setup-flow" data-setup-id="S1" data-setup-title="SETUP S1">'
+                + source
+                + "</div>"
+            )
         document = tmp_path / "traveler.html"
         document.write_text(
             '<!doctype html><html><head><meta charset="utf-8">'
-            f"<style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
-            '<section class="page" data-sheet="SETUP S1 sheet 1" data-part="boundary part" '
-            'data-drawing="boundary drawing" data-revision="A">'
-            + source
+            f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head><body>"
+            '<section class="page" data-sheet="job" data-title="Job traveler" '
+            'data-part="boundary part" data-drawing="boundary drawing" data-revision="A">'
+            + owned_source
             + '</section><img style="position:absolute;width:0;height:0" '
             + f'src="{canary}" alt=""><script>'
             + (f"addEventListener('DOMContentLoaded', {prepare});" if prepare else "")
@@ -2981,7 +3647,7 @@ def printed_sheet(tmp_path):
             + "Number(document.documentElement.dataset.pageCapacity) + .01).length;"
             + f"return {{html: section.innerHTML, details: ({probe})(pageOf), overflows, "
             + "pages: Number(section.dataset.pages), "
-            + "blankBack: !!section.nextElementSibling?.classList.contains('blank-side'), "
+            + "blankSides: document.querySelectorAll('.blank-side').length, "
             + "error: document.documentElement.dataset.paginationError || null}; };"
             + "const first = capture(); dispatchEvent(new Event('beforeprint'));"
             + "const result = capture(); result.idempotent = "
@@ -3033,7 +3699,7 @@ def printed_sheet(tmp_path):
         if expected_error is not None:
             return Markup(output["html"]), output["details"]
         assert output["overflows"] == 0
-        assert output["blankBack"] == (output["pages"] % 2 == 1)
+        assert output["blankSides"] == 0
         return Markup(output["html"]), output["details"]
 
     try:
@@ -3063,7 +3729,7 @@ def test_printed_tools_refuse_an_oversized_whole_row_instead_of_splitting_it(pri
     printed, _ = printed_sheet(
         source, "() => null", expected_error="A complete TOOLS row cannot fit on a print page."
     )
-    assert not any("data-duplex-fragment" in node["attrs"] for node in printed.nodes)
+    assert not any("data-job-print-fragment" in node["attrs"] for node in printed.nodes)
     assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected
 
 
@@ -3197,7 +3863,7 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
         contexts = [content(node) for node in printed.find("table-context", table)]
         assert contexts.count(local) == 1
         assert set(contexts).intersection(introductions.values()) == {local}
-        if "data-duplex-split" in table["attrs"]:
+        if "data-job-print-split" in table["attrs"]:
             for note in op_notes:
                 assert contexts.count(note) == 1
                 assert contexts.index(note) < contexts.index(local)
@@ -3423,11 +4089,11 @@ def test_printed_unbounded_authored_context_makes_finite_original_progress(print
         source,
         """pageOf => {
           const section = document.querySelector('section.page');
-          const authored = el => !el.closest('[data-duplex], thead, .record-continuation');
+          const authored = el => !el.closest('[data-job-print], thead, .record-continuation');
           const join = selector => [...section.querySelectorAll(selector)]
             .filter(authored).map(el => el.textContent).join('');
           const pages = new Set();
-          for (const row of section.querySelectorAll('tbody > tr:not([data-duplex])')) {
+          for (const row of section.querySelectorAll('tbody > tr:not([data-job-print])')) {
             pages.add(pageOf(row));
           }
           for (const el of section.querySelectorAll('p.table-intro, li')) {
@@ -3536,11 +4202,14 @@ def test_printed_running_header_retains_working_context_and_measured_final_count
               const context = head.querySelector('.cont-context');
               const count = head.querySelector('.cont-count');
               const total = head.querySelector('.cont-page-total');
-              const before = head.getBoundingClientRect().height;
-              if (total) total.textContent = '?';
-              const reserved = head.getBoundingClientRect().height;
-              if (total) total.textContent = String(pages);
-              const after = head.getBoundingClientRect().height;
+              const before = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
+              total.textContent = '';
+              const reserved = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
+              total.textContent = String(pages);
+              const after = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
               return {
                 text: head.textContent, context: context?.textContent || null,
                 font: context ? getComputedStyle(context).fontSize : null,
@@ -3561,7 +4230,8 @@ def test_printed_running_header_retains_working_context_and_measured_final_count
     for page, head in enumerate(details["heads"], 2):
         assert head["context"] == context
         assert head["font"] == details["workingFont"]
-        assert f"(continued)\n · page {page} of {details['pages']}\n{context}" in head["text"]
+        label = re.search(r"\bpage\s+(\d+)\s+of\s+(\d+)\b", head["text"], re.IGNORECASE)
+        assert label and tuple(map(int, label.groups())) == (page, details["pages"])
         assert {"text": "Z -3.125 mm", "lines": 1} in head["readings"]
         assert head["countFits"]
         assert head["before"] == head["reserved"] == head["after"]
@@ -3646,7 +4316,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
           const heads = [...section.querySelectorAll('.cont-head')];
           const tops = [section.getBoundingClientRect().top,
             ...heads.map(head => head.getBoundingClientRect().top)];
-          const original = el => !el.closest('[data-duplex], .record-continuation, .cont-head');
+          const original = el => !el.closest('[data-job-print], .record-continuation, .cont-head');
           const selector = window.nearCapInput.kind === 'caption'
             ? '.authored-label, .authored-blank .field-label' : '.page-context';
           const sourceText = el => {
@@ -3661,7 +4331,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
           for (const item of section.querySelectorAll('li')) {
             if (!original(item)) continue;
             const own = item.cloneNode(true);
-            own.querySelectorAll('[data-duplex], .record-continuation, .writing-blank, '
+            own.querySelectorAll('[data-job-print], .record-continuation, .writing-blank, '
               + '.fixed-locator-reference')
               .forEach(el => el.remove());
             if (/[\\p{L}\\p{N}]/u.test(own.textContent)) sourcePages.add(pageOf(item));
@@ -3670,7 +4340,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
             input: window.nearCapInput, reconstructed, pages: Number(section.dataset.pages),
             sourcePages: [...sourcePages].sort((a, b) => a - b),
             contextFont: getComputedStyle(section.querySelector('.page-context')).fontSize,
-            identity: section.dataset.title || section.dataset.sheet,
+            identity: section.querySelector('[data-setup-title]').dataset.setupTitle,
             pointers: [...section.querySelectorAll('.fixed-locator-reference')].filter(ref =>
               ref.getClientRects().length && getComputedStyle(ref).visibility !== 'hidden')
               .map(ref => ({
@@ -3719,7 +4389,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
     )
 
 
-def recording_traveler(relative, setup_ids, records=None, change=None):
+def recording_traveler(relative, setup_ids, records=None, change=None, *, detail="hobby"):
     """Public output over authored examples and explicitly synthetic resolved records.
 
     These display fixtures do not execute or claim a kernel verification.
@@ -3735,10 +4405,11 @@ def recording_traveler(relative, setup_ids, records=None, change=None):
         SimpleNamespace(rule=rule, subject=subject, numbers=numbers, status="pass")
         for (rule, subject), numbers in (records or {}).items()
     ]
-    return Markup(render_traveler(bundle, findings, {})), bundle
+    return Markup(render_traveler(bundle, findings, {}, detail=detail)), bundle
 
 
-def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions(detail):
     records = {
         ("zero_check", setup): {
             "axes": {
@@ -3752,7 +4423,9 @@ def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
         }
         for setup, offset in (("P3", 64.95), ("P4", 15.95))
     }
-    markup, bundle = recording_traveler("rocker-arm/plan.toml", {"P3", "P4"}, records)
+    markup, bundle = recording_traveler(
+        "rocker-arm/plan.toml", {"P3", "P4"}, records, detail=detail
+    )
     fields = markup.find("setup-measurement")
     assert [content(markup.find("field-label", field)[0]) for field in fields] == [
         "P3 Z M (mm)",
@@ -3762,15 +4435,20 @@ def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
         assert len(markup.find("writing-blank", field)) == 1
         assert content(markup.find("writing-blank", field)[0]) == ""
         section = field
-        while section["tag"] != "section":
+        while "data-setup-title" not in section["attrs"]:
             section = section["parent"]
-        assert section["attrs"]["data-sheet"].startswith(f"SETUP {setup['id']} ")
+        assert section["attrs"]["data-setup-id"] == setup["id"]
+        outer = section
+        while "page" not in outer["attrs"].get("class", "").split():
+            outer = outer["parent"]
+        assert outer["attrs"]["data-sheet"] == "job"
         assert not markup.find("inspection-record", field)
         assert setup["zero"]["z"].get("measure_before_hold") is not True
 
 
-def test_public_before_hold_measurement_reuses_its_original_destination():
-    markup, bundle = recording_traveler("pivot-shaft/plan.toml", {"S2"})
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_before_hold_measurement_reuses_its_original_destination(detail):
+    markup, bundle = recording_traveler("pivot-shaft/plan.toml", {"S2"}, detail=detail)
     fields = [
         node
         for node in markup.find("field")
@@ -3779,28 +4457,102 @@ def test_public_before_hold_measurement_reuses_its_original_destination():
     assert len(fields) == 1
     assert len(markup.find("writing-blank", fields[0])) == 1
     assert not markup.find("setup-measurement")
-    axes = markup.find("zero")[0]
-    assert "S2 Z M" in content(axes) and "HOLD" in content(axes)
-    assert not markup.find("writing-blank", axes)
+    owner = setup_flow(markup, "S2")
+    assert "S2 Z M" in content(owner) and "HOLD" in content(owner)
+    assert [
+        content(label)
+        for label in markup.find("field-label", owner)
+        if re.search(r"\bZ M(?:\s|$)", content(label))
+    ] == ["Z M"]
     setup = bundle.plan["setups"][0]
     assert setup["zero"]["z"]["measure_before_hold"] is True
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_grouped_before_hold_measurements_keep_each_physical_destination(detail):
+    def group_setups(bundle):
+        (setup,) = bundle.plan["setups"]
+        setup["presentation_group"] = "shared holding instructions"
+        duplicate = deepcopy(setup)
+        duplicate["id"] = "S2-copy"
+        bundle.plan["setups"].append(duplicate)
+
+    markup, bundle = recording_traveler(
+        "pivot-shaft/plan.toml", {"S2"}, change=group_setups, detail=detail
+    )
+    fields = [
+        node
+        for node in markup.find("field")
+        if [content(label) for label in markup.find("field-label", node)] == ["Z M"]
+    ]
+    assert len(fields) == 2
+    owners = []
+    for field in fields:
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+        owner = field
+        while owner is not None and "setup-variant" not in owner["attrs"].get("class", "").split():
+            owner = owner["parent"]
+        assert owner is not None
+        owners.append(owner["attrs"]["data-setup-id"])
+    assert owners == ["S2", "S2-copy"]
+    assert all(setup["zero"]["z"]["measure_before_hold"] is True for setup in bundle.plan["setups"])
+    assert not markup.find("setup-measurement")
+    result_ids = []
+    result_owners = []
+    for common in markup.find("family-common"):
+        assert not markup.find("field", common)
+        assert not markup.find("authored-blank", common)
+        for blank in markup.find("writing-blank", common):
+            assert content(blank) == ""
+            assert "result-field" in blank["parent"]["attrs"].get("class", "").split()
+            checkpoint = blank["parent"]["parent"]
+            assert "checkpoint-result" in checkpoint["attrs"].get("class", "").split()
+            attrs = checkpoint["attrs"]
+            assert attrs["data-setup-id"] in {"S2", "S2-copy"}
+            assert attrs["data-op-id"]
+            assert not attrs["data-shared-check"]
+            subjects = json.loads(attrs["data-inspection-ids"])
+            assert subjects
+            result_ids.extend(
+                (attrs["data-setup-id"], attrs["data-op-id"], subject) for subject in subjects
+            )
+            result_owners.append(
+                (
+                    attrs["data-setup-id"],
+                    attrs["data-op-id"],
+                    attrs["data-features"],
+                    attrs["data-requirement"],
+                )
+            )
+    assert len(result_ids) == len(set(result_ids))
+    assert len(result_owners) == len(set(result_owners))
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize("units", ["in", "unknown"])
-def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units):
+def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units, detail):
     def change(bundle):
         bundle.features["units"] = units
         touch = bundle.plan["setups"][0]["zero"]["z"]
         touch.update(offset_mm="unknown", gauge="unknown", measure="unknown")
 
-    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change)
+    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change, detail=detail)
     (field,) = markup.find("setup-measurement")
     expected = "P3 Z M (in)" if units == "in" else "P3 Z M"
     assert content(markup.find("field-label", field)[0]) == expected
     assert content(markup.find("writing-blank", field)[0]) == ""
-    axes = markup.find("zero")[0]
-    assert "unknown" in content(axes) or "?" in content(axes)
-    assert any("STOP" in content(node) for node in markup.nodes if node["tag"] == "p")
+    owner = setup_flow(markup, "P3")
+    decisions = [
+        node
+        for node in markup.find("decision", owner)
+        if any(
+            evidence["source"] == "zero_check" and evidence["status"] == "unknown"
+            for evidence in json.loads(node["attrs"]["data-decision-evidence"])
+        )
+    ]
+    assert decisions and all(content(node).strip() for node in decisions)
+    assert any("unknown" in content(node) or "?" in content(node) for node in decisions)
 
 
 @pytest.mark.parametrize("method", ["trial_cut_measure", "face_then_set", "touch", "unknown"])
@@ -3810,7 +4562,10 @@ def test_public_other_zero_methods_do_not_manufacture_an_m_destination(method):
 
     markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change)
     assert not markup.find("setup-measurement")
-    assert not markup.find("writing-blank", markup.find("zero")[0])
+    assert not any(
+        re.search(r"\b[XYZ] M(?:\s|$)", content(label))
+        for label in markup.find("field-label", setup_flow(markup, "P3"))
+    )
 
 
 @pytest.mark.parametrize("setup_id", ["unknown", "", None])
@@ -3829,7 +4584,7 @@ def test_public_measurements_are_axis_owned_and_require_a_resolved_setup(setup_i
         for area in markup.find("setup-measurement")
         for label in markup.find("field-label", area)
     ] == ["P3 X M (mm)", "P3 Z M (mm)"]
-    assert "datum edge to raw side" in content(markup.find("zero")[0])
+    assert "datum edge to raw side" in content(setup_flow(markup, "P3"))
     assert all(
         len(markup.find("writing-blank", area)) == 1 for area in markup.find("setup-measurement")
     )
@@ -3838,11 +4593,32 @@ def test_public_measurements_are_axis_owned_and_require_a_resolved_setup(setup_i
         bundle.plan["setups"][0]["id"] = setup_id
 
     unresolved, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=unresolved_owner)
-    assert unresolved.find("zero")
+    (owner,) = [
+        node
+        for node in unresolved.nodes
+        if node["tag"] == "section" and "data-setup-members" in node["attrs"]
+    ]
+    assert "M =" in content(owner)
     assert not unresolved.find("setup-measurement")
+    if setup_id is None:
+        decisions = [
+            node
+            for node in unresolved.find("decision")
+            if node["attrs"].get("data-decision") == "block"
+            and node["attrs"].get("data-status") == "unknown"
+        ]
+        assert decisions
+        assert all(content(node).strip() for node in decisions)
+        assert any(
+            evidence["scope"] is None
+            for node in decisions
+            for evidence in json.loads(node["attrs"]["data-decision-evidence"])
+        )
 
 
-def recording_paths(levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=False):
+def recording_paths(
+    levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=False, *, detail="hobby"
+):
     """Two authored operations with synthetic kernel line tables, never native geometry."""
     records = {("coordinates", "S1"): {"operations": [], "line_table": []}}
     numbers = records[("coordinates", "S1")]
@@ -3890,36 +4666,59 @@ def recording_paths(levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=Fa
             for op in setup["ops"]:
                 op["tool"] = "unknown"
 
-    return recording_traveler("rocker-arm/plan.toml", {"S1"}, records, change)[0]
+    return recording_traveler("rocker-arm/plan.toml", {"S1"}, records, change, detail=detail)[0]
 
 
-def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators():
-    markup = recording_paths()
-    owners = markup.find("contour")
-    assert len(owners) == 2
-    for owner, op in zip(owners, (30, 40), strict=True):
-        (progress,) = markup.find("path-progress", owner)
-        assert "Optional progress only" in content(progress)
-        assert "not level Done" in content(progress) and "clearance to resume" in content(progress)
-        assert [content(label) for label in markup.find("field-label", progress)] == [
-            f"S1 op {op} level",
-            f"S1 op {op} last completed #",
-        ]
-        assert len(markup.find("writing-blank", owner)) == 2
-        assert all(content(blank) == "" for blank in markup.find("writing-blank", owner))
-        assert len(markup.find("tick", owner)) == 3
-        assert all(f"level {level} of 3" in content(owner) for level in (1, 2, 3))
-        heading = next(
-            node for node in markup.nodes if node["tag"] == "h3" and node["parent"] is owner
-        )
-        assert all(z in content(heading) for z in ("-0.250", "-0.500", "-0.600"))
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_paths_keep_owned_depths_and_coordinates_with_optional_pedantic_progress(detail):
+    markup = recording_paths(detail=detail)
+    contours = markup.find("contour")
+    if detail == "pedantic":
+        assert len(contours) == 2
+    for index, op in enumerate((30, 40)):
+        owner = contours[index] if detail == "pedantic" else operation_instruction(markup, "S1", op)
+        if detail == "pedantic":
+            (progress,) = markup.find("path-progress", owner)
+            assert "Optional progress only" in content(progress)
+            assert "not level Done" in content(progress)
+            assert "clearance to resume" in content(progress)
+            assert [content(label) for label in markup.find("field-label", progress)] == [
+                f"S1 op {op} level",
+                f"S1 op {op} last completed #",
+            ]
+            assert len(markup.find("writing-blank", owner)) == 2
+            assert all(content(blank) == "" for blank in markup.find("writing-blank", owner))
+            assert len(markup.find("tick", owner)) == 3
+            assert all(f"level {level} of 3" in content(owner) for level in (1, 2, 3))
+            heading = next(
+                node for node in markup.nodes if node["tag"] == "h3" and node["parent"] is owner
+            )
+            ladder = re.search(r"\bZ (-?\d+(?:\.\d+)?(?:, -?\d+(?:\.\d+)?){2})", content(heading))
+            assert ladder and [float(z) for z in ladder[1].split(", ")] == [-0.25, -0.5, -0.6]
+        else:
+            (path,) = markup.find("route-path", owner)
+            depth_heading = next(
+                node for node in markup.nodes if node["tag"] == "p" and node["parent"] is path
+            )
+            depths = re.findall(r"\bZ\s*([+−-]?\d+(?:\.\d+)?)", content(depth_heading))
+            assert [float(z.replace("−", "-")) for z in depths] == [-0.25, -0.5, -0.6]
         tables = markup.find("coords", owner)
         assert len(tables) == 2
         rows = []
         for table in tables:
-            (repeat,) = markup.find("repeat", table)
-            assert f"S1 op {op} progress beside Done" in content(repeat)
+            if detail == "pedantic":
+                (repeat,) = markup.find("repeat", table)
+                assert f"S1 op {op} progress beside Done" in content(repeat)
             assert not markup.find("writing-blank", table)
+            headings = [
+                content(node)
+                for node in markup.nodes
+                if node["tag"] == "th"
+                and "colspan" not in node["attrs"]
+                and node["parent"]["parent"]["tag"] == "thead"
+                and node["parent"]["parent"]["parent"] is table
+            ]
+            assert "X" in headings and "Y" in headings
             for row in markup.nodes:
                 if (
                     row["tag"] == "tr"
@@ -3927,19 +4726,23 @@ def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators():
                     and row["parent"]["parent"] is table
                 ):
                     cells = [
-                        node
+                        content(node)
                         for node in markup.nodes
                         if node["tag"] == "td" and node["parent"] is row
                     ]
-                    rows.append([content(cell) for cell in cells])
-        assert [row[0] for row in rows] == ["1", "2", "3"]
-        assert [row[1:3] for row in rows] == [
-            ["1.250", "2.500"],
-            ["3.750", "2.500"],
-            ["3.750", "4.500"],
+                    rows.append(dict(zip(headings, cells, strict=True)))
+        if detail == "pedantic":
+            assert [row["#"] for row in rows] == ["1", "2", "3"]
+        else:
+            assert [float(row["Z"]) for row in rows] == [-0.6, -0.6, -0.6]
+        assert [[float(row[axis]) for axis in ("X", "Y")] for row in rows] == [
+            [1.25, 2.5],
+            [3.75, 2.5],
+            [3.75, 4.5],
         ]
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize(
     ("levels", "mode", "tool_missing"),
     [
@@ -3951,17 +4754,422 @@ def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators():
     ],
 )
 def test_public_ineligible_paths_keep_existing_controls_without_progress(
-    levels, mode, tool_missing
+    levels, mode, tool_missing, detail
 ):
-    markup = recording_paths(levels, mode, tool_missing)
-    assert markup.find("contour")
+    markup = recording_paths(levels, mode, tool_missing, detail=detail)
     assert not markup.find("path-progress")
-    for owner in markup.find("contour"):
+    contours = markup.find("contour")
+    if detail == "pedantic":
+        assert len(contours) == 2
+    for index, op in enumerate((30, 40)):
+        owner = contours[index] if detail == "pedantic" else operation_instruction(markup, "S1", op)
         assert not markup.find("writing-blank", owner)
-    if tool_missing:
-        assert not markup.find("coords")
-        assert any("tool not selected" in content(node) for node in markup.find("stop"))
-    elif mode == "numbered":
-        assert markup.find("coords")
-    elif mode == "description":
-        assert any(node["tag"] == "ol" for node in markup.nodes)
+        if tool_missing:
+            assert not markup.find("coords", owner)
+            if detail == "pedantic":
+                assert any(
+                    "tool not selected" in content(node) for node in markup.find("stop", owner)
+                )
+            else:
+                decisions = [
+                    node
+                    for node in markup.find("decision")
+                    if any(
+                        evidence["source"] == "tool_resolves"
+                        and evidence["scope"] == f"S1:{op}"
+                        and evidence["status"] == "unknown"
+                        and evidence["kind"] == "block"
+                        for evidence in json.loads(node["attrs"]["data-decision-evidence"])
+                    )
+                ]
+                assert decisions and any("tool not selected" in content(node) for node in decisions)
+        elif mode == "numbered":
+            assert markup.find("coords", owner)
+            assert "?" in content(owner)
+        elif mode == "description":
+            list_owners = [owner, *markup.find("route-path", owner)]
+            assert any(
+                node["tag"] == "ol" and any(node["parent"] is parent for parent in list_owners)
+                for node in markup.nodes
+            )
+        elif mode == "empty":
+            tables = markup.find("coords", owner)
+            if detail == "pedantic":
+                # Header-only legacy tables are not executable path rows.
+                assert tables
+                assert not [
+                    node
+                    for node in markup.nodes
+                    if node["tag"] == "tr"
+                    and node["parent"]["tag"] == "tbody"
+                    and any(node["parent"]["parent"] is table for table in tables)
+                ]
+            else:
+                assert not tables
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    ("feature", "compact_heading"),
+    [
+        ("end-length", "end-length"),
+        ("overall_length", "overall length"),
+        ("lengthwise", "lengthwise length"),
+    ],
+)
+def test_compact_criterion_deduplicates_only_a_complete_terminal_dimension(
+    detail, feature, compact_heading
+):
+    markup, rows, _ = ledger(
+        {feature: {"kind": "shaft", "requirements": ["length"], "length": [25.3, 25.5]}},
+        [{"op": 10, "do": "inspect", "feature": feature, "checks": {"length": "calipers"}}],
+        detail=detail,
+    )
+    (check,) = rows[0][-1]
+    ((_, _, criterion),) = check.compact_criteria
+    expected = feature.replace("_", " ") + " length" if detail == "pedantic" else compact_heading
+    assert criterion.heading == expected
+    assert str(criterion).removeprefix("? ").startswith(expected + " ")
+    assert check.features == (feature,)
+    assert check.requirement == "length"
+    assert check.subjects == (f"{feature}:length",)
+    (record,) = markup.find("inspection-record")
+    assert json.loads(record["attrs"]["data-inspection-ids"]) == [f"{feature}:length"]
+    assert len(markup.find("result-field", record)) == 1
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "name",
+    ["10 mm carbide cutter", "10 mm endmill", "10 mm end mill", "10 mm end-mill"],
+)
+def test_compact_tool_key_keeps_typed_endmill_flutes_and_packed_setting_owners(detail, name):
+    sheet = shop({}, detail=detail)
+    sheet.bundle.inventory["tools"] = {
+        "rougher": {"kind": "endmill", "name": name, "flutes": 4},
+        "finisher": {"kind": "endmill", "name": "Finishing cutter", "flutes": "unknown"},
+    }
+    sheet.plan["setups"] = [
+        {
+            "id": "S1",
+            "ops": [
+                {"op": 10, "do": "pocket", "feature": "body", "tool": "rougher"},
+                {"op": 20, "do": "pocket", "feature": "body", "tool": "finisher"},
+            ],
+        }
+    ]
+    sheet.route_tool_labels = {("tools", "rougher"): "T1", ("tools", "finisher"): "T2"}
+    sheet._rows_by_setup["S1"] = [
+        [10, "", "", "", "1375", "41.25", "", "", ""],
+        [20, "", "", "", "1825", "26.75", "", "", ""],
+    ]
+    markup = Markup(sheet.settings_key())
+    (table,) = markup.find("settings-key")
+    packed_rows = [node for node in markup.nodes if node["tag"] == "tr"]
+    assert len(packed_rows) == 1
+    entries = markup.find("tool-setting-entry", table)
+    assert len(entries) == 2
+    expected = {
+        "S1:10": ("1375", "41.25", 4),
+        "S1:20": ("1825", "26.75", None),
+    }
+    for entry in entries:
+        (owner,) = json.loads(entry["attrs"]["data-physical-ops"])
+        rpm, feed, flutes = expected[owner]
+        text = content(entry)
+        assert len(re.findall(r"\bend[- ]?mill\b", text, re.IGNORECASE)) == 1
+        counts = [int(value) for value in re.findall(r"\b(\d+)[- ]flutes?\b", text, re.IGNORECASE)]
+        assert counts == ([] if flutes is None else [flutes])
+        for setting in (rpm, feed):
+            assert re.search(rf"(?<![\d.]){re.escape(setting)}(?!\d|\.\d)", text), text
+        assert entry["parent"]["parent"] is packed_rows[0]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+@pytest.mark.parametrize("jog_key", ["check_jog_mm", "jog_mm"])
+@pytest.mark.parametrize("axis_set", [-7.625, 13.375])
+def test_mounted_saw_hobby_y_record_uses_local_source_readings_without_x_or_z_repeat(
+    detail, display_units, jog_key, axis_set
+):
+    sheet = shop({}, detail=detail)
+    sheet.plan["dro"]["units"] = display_units
+    jog = 2.75
+    axes = {
+        "x": {
+            "edge": "Left reference",
+            "edge_mm": -10.25,
+            "axis_set": -11.5,
+            "check_jog_mm": 1.75,
+            "check_reading": -9.75,
+            "mirrored_reading": -13.25,
+        },
+        "y": {
+            "edge": "Rear reference",
+            "edge_mm": 6.125,
+            "axis_set": axis_set,
+            jog_key: jog,
+            "check_reading": axis_set + jog,
+            "mirrored_reading": axis_set - jog,
+        },
+        "z": {
+            "face": "top",
+            "edge_mm": 20.25,
+            "axis_set": 20.6,
+            "check_jog_mm": 1.25,
+            "check_reading": 21.85,
+            "mirrored_reading": 19.35,
+            "mounted_saw_setting": {
+                "blade_side": "minus_z",
+                "body_thickness_mm": 0.45,
+                "kerf_offset_mm": 0.075,
+                "paper_mm": 0.05,
+            },
+        },
+    }
+    if jog_key == "check_jog_mm":
+        axes["y"]["jog_mm"] = 8.25  # The explicit check jog wins over its fallback.
+    signature = [
+        {"at_lateral_mm": 3.25, "clearances_mm": [2.0, 4.0, 5.0]},
+        {"at_lateral_mm": 4.5, "clearances_mm": [2.0, 4.0, 5.0]},
+        {},
+    ]
+    setups = [{"id": "SA"}, {"id": "SB"}]
+    group = [
+        (setup, axes, signature, [7.0, 7.0], {"cut_plane": {"axis": "z", "value": 8.5}})
+        for setup in setups
+    ]
+    # Already-proved grouping is independent of this presentation-only local record.
+    sheet.mounted_datum_groups = {setup["id"]: group for setup in setups}
+    markup = Markup(sheet.mounted_datum_table(setups[0]))
+    text = " ".join(" ".join(content(node).split()) for node in markup.nodes if node["tag"] == "p")
+    # The shared table owns X, Y and Z once. The Y acquisition itself must not
+    # borrow another axis's source values or repeat its pickup/jog instructions.
+    assert text.count(axes["y"]["edge"]) == 1
+    y_clause = re.split(r"\.\s+(?=[A-Z])", text.split(axes["y"]["edge"], 1)[1], maxsplit=1)[0]
+    y_record = re.search(
+        r"Axis Set Y\s*([+−-]?\d+(?:\.\d+)?).*?"
+        r"\+Y\s*([+−-]?\d+(?:\.\d+)?)\s+check\s*([+−-]?\d+(?:\.\d+)?).*?"
+        r"([+−-]?\d+(?:\.\d+)?)\s+reversed",
+        y_clause,
+        re.IGNORECASE,
+    )
+    if detail == "hobby":
+        assert y_record, text
+        assert [float(value.replace("−", "-")) for value in y_record.groups()] == [
+            float(sheet.readout(value))
+            for value in (axis_set, jog, axes["y"]["check_reading"], axes["y"]["mirrored_reading"])
+        ]
+        assert re.match(r"\s*:\s*STOP\b", y_clause[y_record.end() :], re.IGNORECASE)
+    else:
+        assert y_record is None
+    assert not re.search(r"\bAxis Set [XZ]\b|[+−-][XZ]\s*[+−-]?\d+", y_clause)
+    assert len(re.findall(r"\bAxis Set X", text, re.IGNORECASE)) == 1
+    assert len(re.findall(r"\+X\s*[+−-]?\d+(?:\.\d+)?\s+check\b", text)) == (
+        1 if detail == "hobby" else 0
+    )
+    assert len(re.findall(r"\bAxis Set cutting midplane Z", text, re.IGNORECASE)) == 1
+    assert len(re.findall(r"\+Z\s*[+−-]?\d+(?:\.\d+)?\s+check\b", text, re.IGNORECASE)) == (
+        1 if detail == "hobby" else 0
+    )
+    assert sheet.mounted_datum_table(setups[1]) == ""
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("prepared", [False, True], ids=["direct-partition", "prepared-child"])
+def test_compact_single_retained_arrival_keeps_immediate_producer_not_duplicate_root(
+    detail, prepared
+):
+    from test_batch_material_routes import batch
+
+    plan = batch()
+    plan["stock"] = {"form": "flat_bar"}
+    setup = next(setup for setup in plan["setups"] if setup["id"] == "E1")
+    if prepared:
+        setup = {"id": "FINISH", "stock_in": "E1", "ops": []}
+        plan["setups"].append(setup)
+    original = deepcopy(plan)
+    sheet = shop({}, detail=detail)
+    sheet.plan = plan
+    text = sheet.arrival(setup)
+    assert "nut1 b" in text and "retained" in text
+    assert "stock_out." not in text
+    assert "nut2 b" not in text and "lower1" not in text
+    if detail == "pedantic":
+        assert "original flat bar" in text
+        assert "parted in Setup C1a" in text
+        if prepared:
+            assert "from Setup E1" in text
+    else:
+        producer = "E1" if prepared else "C1a"
+        assert f"from Setup {producer}" in text
+        assert "original" not in text and "flat bar" not in text
+        assert ("parted in Setup C1a" in text) == prepared
+    assert plan == original
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("route", ["joined", "multi-root", "unknown", "unpartitioned"])
+def test_compact_arrival_does_not_elide_noneligible_stock_provenance(detail, route):
+    from test_batch_material_routes import batch
+
+    from prechips.material_routes import MaterialGraph
+
+    plan = batch()
+    plan["stock"] = {"form": "flat_bar"}
+    if route == "joined":
+        setup = {"id": "RECEIVE", "stock_in": ["E1", "E2"], "ops": []}
+    elif route == "multi-root":
+        plan["setups"].append({"id": "ASSEMBLE", "stock_in": ["E1", "stock.aux"], "ops": []})
+        setup = {"id": "RECEIVE", "stock_in": "ASSEMBLE", "ops": []}
+    else:
+        setup = {
+            "id": "RECEIVE",
+            "stock_in": "unknown" if route == "unknown" else "P0",
+            "ops": [],
+        }
+    plan["setups"].append(setup)
+    if route == "multi-root":
+        assert MaterialGraph(plan).roots("ASSEMBLE") == frozenset({"stock", "stock.aux"})
+    compact = shop({}, detail=detail)
+    compact.plan = plan
+    exhaustive = shop({}, detail="pedantic")
+    exhaustive.plan = plan
+    assert compact.arrival(setup) == exhaustive.arrival(setup)
+
+
+def straight_saw_sheet(*, detail="hobby", axis="x", keep="below", display_units="mm"):
+    """A passed ordinary saw proof whose incoming box is not anchored at model zero."""
+    box = [17.5, -91.25, 44.5, 101.25, 21.25, 112.25]
+    coordinate = "xyz".index(axis)
+    span = 21.125 if keep == "below" else 31.375
+    edge = box[coordinate] + span if keep == "below" else box[coordinate + 3] - span
+    centre = edge + (0.75 if keep == "below" else -0.75)
+    plane = {"axis": axis, "keep": keep, "value": centre}
+    numbers = {"cut_plane": plane, "retained_boundary_mm": edge}
+    sheet = shop({("saw_cut", "SA:30"): numbers}, kind="bandsaw", detail=detail)
+    sheet.plan["dro"]["units"] = display_units
+    sheet.bundle.inventory["tools"] = {"blade": {"kind": "bandsaw", "kerf_mm": 1.5}}
+    native = {**deepcopy(numbers), "stock_bbox_before_mm": box}
+    sheet.bundle = replace(sheet.bundle, kernel={"ops": {"SA:30": native}})
+    sheet.finding_statuses[("saw_cut", "SA:30")] = "pass"
+    op = {"op": 30, "do": "cut_off", "tool": "blade", "cut_plane": deepcopy(plane)}
+    setup = {"id": "SA", "stock_in": "stock", "ops": [op]}
+    sheet.plan["setups"] = [setup]
+    return sheet, setup, op, numbers, native, span
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("axis", ["x", "y", "z"])
+@pytest.mark.parametrize("keep", ["below", "above"])
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+def test_straight_saw_target_measures_from_translated_retained_stock_end(
+    detail, axis, keep, display_units
+):
+    sheet, setup, op, numbers, _, span = straight_saw_sheet(
+        detail=detail, axis=axis, keep=keep, display_units=display_units
+    )
+    original = deepcopy((numbers, sheet.bundle.kernel))
+    target, direction = sheet.straight_saw_target(setup, op, numbers)
+    side = "lower" if keep == "below" else "higher"
+    assert re.search(rf"\b{side}-{axis.upper()}\s+stock end\b", target, re.IGNORECASE)
+    quantities = re.search(
+        r"\bretained span\s+(\d+(?:\.\d+)?)\s+(mm|in)\b.*?"
+        r"\bkerf cent(?:re|er)\s+(\d+(?:\.\d+)?)\s+(mm|in)\b",
+        target,
+        re.IGNORECASE,
+    )
+    assert quantities, target
+    scale = 25.4 if display_units == "in" else 1.0
+    assert float(quantities[1]) == pytest.approx(span / scale, abs=0.0005)
+    assert float(quantities[3]) == pytest.approx((span + 0.75) / scale, abs=0.0005)
+    assert quantities[2] == quantities[4] == display_units
+    assert re.search(r"\bkeep\b.*\bstock end\b", direction, re.IGNORECASE)
+    assert re.search(r"\bkerf\b.*\bscrap side\b", direction, re.IGNORECASE)
+    assert (numbers, sheet.bundle.kernel) == original
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "unknown-status",
+        "unknown-boundary",
+        "mismatched-plane",
+        "mismatched-boundary",
+        "missing-box",
+        "nonfinite-box",
+        "reversed-box",
+        "boundary-outside-box",
+        "centre-on-kept-side",
+        "native-reason",
+        "pedantic",
+        "scribed",
+        "spindle-saw",
+        "hand-saw",
+        "non-saw",
+    ],
+)
+def test_straight_saw_target_refuses_unproved_inconsistent_and_noneligible_paths(defect):
+    sheet, setup, op, numbers, native, _ = straight_saw_sheet()
+    if defect == "unknown-status":
+        sheet.finding_statuses[("saw_cut", "SA:30")] = "unknown"
+    elif defect == "unknown-boundary":
+        numbers["retained_boundary_mm"] = native["retained_boundary_mm"] = "unknown"
+    elif defect == "mismatched-plane":
+        native["cut_plane"]["value"] += 0.125
+    elif defect == "mismatched-boundary":
+        native["retained_boundary_mm"] += 0.125
+    elif defect == "missing-box":
+        del native["stock_bbox_before_mm"]
+    elif defect == "nonfinite-box":
+        native["stock_bbox_before_mm"][0] = float("nan")
+    elif defect == "reversed-box":
+        native["stock_bbox_before_mm"][0] = native["stock_bbox_before_mm"][3]
+    elif defect == "boundary-outside-box":
+        numbers["retained_boundary_mm"] = native["retained_boundary_mm"] = 150.0
+    elif defect == "centre-on-kept-side":
+        centre = numbers["retained_boundary_mm"] - 0.75
+        numbers["cut_plane"]["value"] = native["cut_plane"]["value"] = centre
+    elif defect == "native-reason":
+        native["saw_reason"] = "Retained child geometry is unresolved"
+    elif defect == "pedantic":
+        sheet.detail = "pedantic"
+    elif defect == "scribed":
+        op["follows"] = "LAYOUT:10"
+    elif defect in ("spindle-saw", "hand-saw"):
+        sheet.bundle.inventory["tools"]["blade"]["kind"] = (
+            "slitting_saw" if defect == "spindle-saw" else "hand_saw"
+        )
+    else:
+        op["do"] = "face"
+    assert sheet.straight_saw_target(setup, op, numbers) is None
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_unproved_straight_saw_operation_keeps_legacy_retained_edge_fallback(monkeypatch, detail):
+    original = _Traveler.straight_saw_target
+    calls = []
+
+    def unproved_target(self, setup, op, numbers):
+        result = original(self, setup, op, numbers)
+        calls.append((setup["id"], op["op"], result))
+        return result
+
+    monkeypatch.setattr(_Traveler, "straight_saw_target", unproved_target)
+    _, rows, _ = ledger(
+        {"blank": {"kind": "shaft", "requirements": []}},
+        [
+            {
+                "op": 30,
+                "do": "cut_off",
+                "feature": "blank",
+                "tool": "c",
+                "cut_plane": {"axis": "x", "keep": "below", "value": 38.625},
+            }
+        ],
+        detail=detail,
+    )
+    assert calls and all(call == ("S1", 30, None) for call in calls)
+    assert re.search(r"\bretained X edge\s+\?\s+mm\b", str(rows[0][6]))
+    assert "retained span" not in str(rows[0][6])
+    assert re.search(r"\bkeep lower-X side\b", str(rows[0][7]))

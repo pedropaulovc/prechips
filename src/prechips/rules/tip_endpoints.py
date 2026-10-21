@@ -8,7 +8,6 @@ import math
 import re
 
 from prechips.material_routes import (
-    feature_material_status,
     producer_setup,
     reference_frame,
     route_identities_known,
@@ -25,11 +24,16 @@ from .resolution import (
     SAW_OPS,
     TAP_OPS,
     UNKNOWN,
+    canonical_face_mapping,
     identity,
     length_mm,
+    member_protection_status,
     number,
     op_feature,
+    operation_material_status,
+    operation_members,
     record,
+    registered_workpieces,
     resolve,
     same_length,
     setup_frame,
@@ -101,7 +105,7 @@ def _operative(row, bundle, setup, face, op):
         anchor = _subtract(reading["z_axis_set"], reading["paper_offset_mm"])
         shift = _subtract(anchor, reference)
         physical_shift = _subtract(reading["edge_mm"], reference)
-        producer = _producer(bundle, setup, row["entry_z"], face, 0, row["entry_from"])
+        producer = _producer(bundle, setup, row["entry_z"], face, 0, row["entry_from"], op=op)
         if (
             number(shift)
             and number(physical_shift)
@@ -112,7 +116,9 @@ def _operative(row, bundle, setup, face, op):
             # A surviving numeric touch proves this DRO. A local cut already
             # ran on it, so do not shift its printed face as an imported native
             # coordinate again; an original producer cannot repair a lost touch.
-            formed = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
+            formed = operative_z(
+                bundle, setup, row["entry_z"], face, source=row["entry_from"], op=op
+            )
             shift = _subtract(formed, row["entry_z"])
             residual = reading.get("setting_residual_mm", UNKNOWN)
             scale = UNIT_MM.get(bundle.features.get("units"))
@@ -155,7 +161,7 @@ def _operative(row, bundle, setup, face, op):
             shift = _subtract(row["dro_exit_face"], row["exit_face"])
     else:
         row["dro_entry_z"] = operative_z(
-            bundle, setup, row["entry_z"], face, source=row["entry_from"]
+            bundle, setup, row["entry_z"], face, source=row["entry_from"], op=op
         )
         if through:
             exit_face = row["exit_face"]
@@ -332,7 +338,7 @@ def _frame(bundle, feature):
     return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
 
 
-def _kernel_face_boxes(bundle, target, frame):
+def _kernel_face_boxes(bundle, target, frame, *, setup=None, workpiece_id=None):
     """Every geometry-matched face's enclosing setup-frame X/Y/Z box and raw ref.
 
     Resolve the complete list before selecting a producer plane: a missing face must
@@ -357,7 +363,13 @@ def _kernel_face_boxes(bundle, target, frame):
     scale = UNIT_MM.get(bundle.features.get("units"))
     if scale is None:
         return None, "no footprint: feature units are unknown"
-    matched = mapping(kernel.get("mapping"))
+    if registered_workpieces(bundle):
+        members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+        if members is None or len(members) != 1:
+            return None, "no footprint: a unique receiving workpiece is unresolved"
+        if member_protection_status(bundle, setup, members[0]) is not True:
+            return None, "no footprint: receiving workpiece protection is unproved"
+    matched = canonical_face_mapping(bundle, kernel, setup, workpiece_id=workpiece_id)
     errors = kernel.get("mapping_errors", {})
     if not isinstance(errors, dict):
         return None, "no footprint: kernel.mapping_errors is malformed"
@@ -403,11 +415,25 @@ def _setup_footprint(bundle, setup, target, debts=None):
     if process_of(target) and target.get("bounds"):
         target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
     frame = setup_frame(bundle, setup)
+    if (
+        registered_workpieces(bundle)
+        and target.get("kind") == "face"
+        and process_of(target) is None
+    ):
+        boxes, reason = _kernel_face_boxes(bundle, target, frame, setup=setup)
+        if boxes is None:
+            if debts is not None:
+                debts.append(reason)
+            return None
+        return [
+            [min(box[i][0] for _, box in boxes), max(box[i][1] for _, box in boxes)]
+            for i in range(2)
+        ]
     points = _corners(bundle, target, frame)
     if points is None:
         reason = "no footprint: feature bounds/plane/at or setup frame origin/x/y/z is unknown"
         if target.get("kind") == "face" and "bounds" not in target:
-            boxes, reason = _kernel_face_boxes(bundle, target, frame)
+            boxes, reason = _kernel_face_boxes(bundle, target, frame, setup=setup)
             if boxes is not None:
                 return [
                     [min(box[i][0] for _, box in boxes), max(box[i][1] for _, box in boxes)]
@@ -512,7 +538,7 @@ def _keep_out_hits(circles, boxes):
     )
 
 
-def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
+def cut_coverage(bundle, setup, op, target, debts=None, credited=None, *, workpiece_id=None):
     """``"whole"``, ``"partial"`` or ``UNKNOWN`` coverage of the producer's surface.
 
     Unbounded own-feature cuts retain declared whole coverage; cross-feature native
@@ -525,6 +551,8 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
     above-cut model, not an inferred +Z normal. Keep-out islands prevent whole credit.
     Only a whole eligible kernel-box producer appends raw refs to ``credited``.
     """
+    from prechips.process_features import process_of
+
     from .coordinates import UNIT_MM, frame_axes
 
     name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
@@ -567,10 +595,14 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
             debts.append("stock_removal_bounds.x/y is missing or malformed")
         return UNKNOWN
     frame = setup_frame(bundle, setup)
-    native = target.get("kind") == "face" and "bounds" not in target
+    native = target.get("kind") == "face" and (
+        "bounds" not in target or (registered_workpieces(bundle) and process_of(target) is None)
+    )
     refs = []
     if native:
-        faces, reason = _kernel_face_boxes(bundle, target, frame)
+        faces, reason = _kernel_face_boxes(
+            bundle, target, frame, setup=setup, workpiece_id=workpiece_id
+        )
         if faces is None:
             if debts is not None:
                 debts.append(reason)
@@ -784,7 +816,7 @@ def lineage(bundle, setup):
     return [other for other in bundle.plan.get("setups", []) if other.get("id") in earlier]
 
 
-def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False):
+def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False, *, op=None):
     """One printed Z for the surface at nominal ``value`` in ``setup``: the ``dro_to_z``
     of the op that produced it, on that op's own setup grid (:func:`formed_z`: for a
     grooving/parting blade, the face its rounded corner reading leaves, unknown when that
@@ -817,35 +849,71 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     (:func:`_turning_window`) is passed over there. It places no face on a ``to_z`` a
     path end could print, so as its producer it could only blank it; a touch read keeps
     it as its producer."""
-    return _operative_z(bundle, setup, value, face, done, source, path, None)
+    return _operative_z(bundle, setup, value, face, done, source, path, None, op=op)
 
 
-def top_reader(bundle, setup):
-    """``top(value, done=0)``: :func:`operative_z` of ``setup``'s stock ``"top"``, the Zs
-    it carries over (:func:`transfer`) found at most once, and each read once, for the
-    setup."""
+def top_reader(bundle, setup, *, native_top=True):
+    """Read a produced/carried top, or an exact-stage native paper-contact proof.
+
+    ``native_top=False`` compiles the explicitly requested command plane only. Its
+    operation's native ``zero_pickup_key`` gate must prove that plane before any
+    material or motion credit; this keeps cold request normalization proof-independent.
+    """
     carried, reads = functools.cache(lambda: _carried(bundle, setup)), {}
 
     def top(value, done=0):
         if not number(value):
             return value
         if (value, done) not in reads:
-            reads[value, done] = _operative_z(
-                bundle, setup, value, "top", done, None, False, carried
+            from prechips.kernel import _top_pickup_specs
+
+            requested = any(
+                position == done
+                and number(
+                    edge := (
+                        source.get("edge_mm")
+                        if "z_face" in source
+                        else mapping(setup.get("stock_state")).get("top_z")
+                    )
+                )
+                and abs(value - edge) <= SAME_Z
+                for _, source, position in _top_pickup_specs(setup)
             )
+            if requested:
+                from .coordinates import UNIT_MM, dro_grid, dro_z
+
+                physical = value
+
+                if native_top:
+                    from .zero_recipe.native import top_pickup_evidence
+
+                    proof = top_pickup_evidence(bundle, setup, done)
+                    plane = mapping(mapping(proof).get("resolved_contact")).get("plane_mm")
+                    physical = (
+                        plane / UNIT_MM[bundle.features["units"]]
+                        if mapping(proof).get("status") == "pass" and number(plane)
+                        else UNKNOWN
+                    )
+                reads[value, done] = (
+                    dro_z(physical, dro_grid(bundle, setup)) if number(physical) else UNKNOWN
+                )
+            else:
+                reads[value, done] = _operative_z(
+                    bundle, setup, value, "top", done, None, False, carried
+                )
         return reads[value, done]
 
     return top
 
 
-def _operative_z(bundle, setup, value, face, done, source, path, carried):
+def _operative_z(bundle, setup, value, face, done, source, path, carried, *, op=None):
     """:func:`operative_z`; ``carried()``, when given, returns ``setup``'s carried Zs
     (:func:`_carried`)."""
     from .coordinates import dro_grid, dro_z, formed_z
 
     if not number(value):
         return value
-    producer = _producer(bundle, setup, value, face, done, source, path)
+    producer = _producer(bundle, setup, value, face, done, source, path, op=op)
     if producer == UNKNOWN:
         return UNKNOWN
     if producer:
@@ -866,10 +934,7 @@ def _operative_z(bundle, setup, value, face, done, source, path, carried):
             if key in found:
                 return found[key][1]
         surface = state.get("top_feature") if face == "top" else face
-        if (
-            not path
-            and feature_material_status(bundle.plan, setup["id"], "stock", surface, bundle) is None
-        ):
+        if not path and operation_material_status(bundle, setup, "stock", surface, op=op) is None:
             return UNKNOWN
     return dro_z(value, dro_grid(bundle, setup))
 
@@ -939,9 +1004,7 @@ def transfer(bundle, setup):
     for key, named in ARRIVAL_ZS.items():
         if number(state.get(key)):
             feature = state.get(named) if named else None
-            material = feature_material_status(
-                bundle.plan, setup["id"], before["id"], feature, bundle
-            )
+            material = operation_material_status(bundle, setup, before, feature)
             if material is None:
                 unresolved[key] = (state[key], UNKNOWN)
             if material is not True:
@@ -1118,10 +1181,13 @@ def forms_face(bundle, setup, op):
     return UNKNOWN
 
 
-def _producer(bundle, setup, value, face, done, source, path=False, debts=None, credited=None):
+def _producer(
+    bundle, setup, value, face, done, source, path=False, debts=None, credited=None, *, op=None
+):
     """Resolve the existing producer; optionally collect its whole eligible face refs."""
     if not route_identities_known(bundle.plan, setup.get("id")):
         return UNKNOWN
+    receiver_op = op
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
@@ -1138,6 +1204,11 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
             op = producer[1]
             top = mapping(setup.get("stock_state")).get("top_feature")
             surface_name = top or op_feature(op) if face == "top" else face
+            material = operation_material_status(
+                bundle, setup, setup, surface_name, op=receiver_op, producer_op=op
+            )
+            if material is not True:
+                return UNKNOWN if material is None else None
             surface = mapping(features.get(surface_name)) if isinstance(surface_name, str) else {}
             matched = [] if credited is not None else None
             if surface.get("kind") == "face" and not mapping(surface.get("bounds")):
@@ -1184,8 +1255,8 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
         if not forms:
             continue
         surface_name = top or name if face == "top" else face
-        material = feature_material_status(
-            bundle.plan, setup["id"], cut_setup["id"], surface_name, bundle
+        material = operation_material_status(
+            bundle, setup, cut_setup, surface_name, op=receiver_op, producer_op=op
         )
         if material is False:
             continue

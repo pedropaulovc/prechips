@@ -1345,7 +1345,17 @@
       ],
       "message": "pocket: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "pocket",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -2503,7 +2513,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "cb919080f000df21c77cf650a60ceaf53e574dc7aea5a6d91143881022bd0e1c",
+  "hash": "91b3567e08944cc79b6bf312b1cd06bb7ad2b16424b9a3a370f1e6ca1937d18e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2523,11 +2533,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "3f42fb6c68029068076e2b375150651d516e92423bac32a4929f0c77ca30ca0a"
+      "sha256": "f4ef2cdb2a125692625738a38bf450fa08788f6cca2499b98b26ed7579d75268"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "ba7eae09175dcc2dfbd2aab9a7260f35349b5759ad24c0f04ab43d3e1d8910a5"
+      "sha256": "062fdfc89d63cdf66bf3b6850e2deb501bb80160a931074e9bd664ab864c0215"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2559,7 +2569,7 @@
         "fixture_kind": null,
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1176,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2571,9 +2581,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1176,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2589,7 +2602,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "3f42fb6c68029068076e2b375150651d516e92423bac32a4929f0c77ca30ca0a"
+      "sha256": "f4ef2cdb2a125692625738a38bf450fa08788f6cca2499b98b26ed7579d75268"
     },
     "S2": {
       "fixture": "modeled",
@@ -2598,21 +2611,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -45.0,
+              40.0,
+              -32.0,
+              105.0,
+              70.0,
+              8.0
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              -30.0,
+              -32.0,
+              105.0,
+              0.0,
+              8.0
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              2.0,
+              -20.0,
+              105.0,
+              8.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              32.0,
+              -20.0,
+              105.0,
+              38.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -2629,7 +2674,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1514,
+        "height_px": 1266,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -2641,9 +2686,12 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2658,7 +2706,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ba7eae09175dcc2dfbd2aab9a7260f35349b5759ad24c0f04ab43d3e1d8910a5"
+      "sha256": "062fdfc89d63cdf66bf3b6850e2deb501bb80160a931074e9bd664ab864c0215"
     }
   },
   "rules_version": "m5-rev12",

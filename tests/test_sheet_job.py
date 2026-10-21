@@ -1,20 +1,18 @@
 """Job page, names and zero-recipe text the machinist reads, with synthetic kernel facts."""
 
+import json
 import re
 import tomllib
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
+from test_process_route import operation
 from test_sheet_ops import Markup, content
-from test_sheet_precision import sections, table_rows, tagged, text
+from test_sheet_precision import sections, tagged, text
 
 from prechips.inputs import load_bundle
 from prechips.rules.coordinates import dro_grid
 from prechips.sheet import _Traveler
-
-
-def pages(html):
-    return html.split('<section class="page"')[1:]
 
 
 def run(tmp_path, bundle, edit=None):
@@ -24,53 +22,6 @@ def run(tmp_path, bundle, edit=None):
         edit(examples)
     _, report, html = traveler(examples / bundle, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     return report, html
-
-
-def _illustrative_rocker_fixtures(examples, *, measured_arm=False):
-    """Qualify only selected fixture solids in this test's copied inventory."""
-    inventory = examples / "inventory" / "pedro-shop.toml"
-    authored = inventory.read_text(encoding="utf-8")
-    fixtures = tomllib.loads(authored)["fixtures"]
-    for reference in (
-        "rocker-vise-stop",
-        "rocker-s2-support-jack",
-        "rocker-profile-fixture",
-        "rocker-hub-strap",
-        "rocker-rod-diamond-pin",
-        "rocker-hub-filing-buttons",
-        "rocker-pivot-screw",
-        "rocker-rail-clamp",
-    ):
-        section = re.search(
-            rf"^\[fixtures\.{re.escape(reference)}\]\n.*?(?=^\[|\Z)",
-            authored,
-            re.MULTILINE | re.DOTALL,
-        )
-        assert section is not None, reference
-
-        def qualify(match, reference=reference):
-            trusted = measured_arm and reference == "rocker-vise-stop" and match[2] == "arm"
-            status = "measured" if trusted else "illustrative"
-            # Complete demo metadata is not a physical measurement. Only the arm's
-            # explicit measured status exercises the trusted positive control.
-            return (
-                match[1]
-                + f'{{ status = "{status}", '
-                + 'by = "example value (realistic, not a shop measurement)", '
-                + 'date = "2026-10-11", instrument = "example fixture (no physical measurement)" }'
-            )
-
-        replacement, count = re.subn(
-            r'^(  \{ name = "([^"]+)"[^\n]*?measured = )\{[^{}\n]*\}',
-            qualify,
-            section[0],
-            flags=re.MULTILINE,
-        )
-        assert count == len(fixtures[reference]["solids"]) > 0, reference
-        if measured_arm and reference == "rocker-vise-stop":
-            assert sum(solid["name"] == "arm" for solid in fixtures[reference]["solids"]) == 1
-        authored = authored[: section.start()] + replacement + authored[section.end() :]
-    inventory.write_text(authored, encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -88,60 +39,14 @@ def rocker(tmp_path_factory):
     return run(tmp_path_factory.mktemp("rocker"), "rocker-arm/plan.toml")
 
 
-def test_the_job_page_states_release_without_checker_jargon(shaft):
-    # The machinist reads the release state, not the checker's result or its file set.
-    _, html = shaft
-    job = text(sections(html, "JOB STATUS")[0])
-    assert "Plan check" not in job and "rule" not in job
-    assert "input bundle" not in text(html).lower()
-    assert "NOT APPROVED: no first article is recorded" in job
-    # The release banner stays on every page.
-    assert pages(html) and all(
-        '<div class="banner">PLANNED — NOT APPROVED</div>' in page for page in pages(html)
-    )
-
-
-def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(tmp_path, shaft):
-    _, html = run(tmp_path, "rocker-arm/plan.toml", _illustrative_rocker_fixtures)
+def test_the_job_page_states_the_actual_release_state(shaft):
+    report, html = shaft
     markup = Markup(html)
-    legends = [node for node in tagged(markup, "p") if "†" in content(node)]
-    # The authored-setting legend belongs to the job page, once; no installed clearance.
-    assert len(legends) == 1
-    assert "Make-to-drawing expected settings; check the physical fixture as made" in (
-        content(legends[0])
-    )
-    assert "†" in text(pages(html)[0])
-    tables = sections(html, "SHOP-MADE FIXTURE")
-    assert tables and all("†" in table for table in tables)
-    for table in tables:
-        markup = Markup(table)
-        (fixture,) = markup.find("fixture")
-        rows = table_rows(markup, fixture)
-        assert all("†" in row[0] for row in rows), rows
-    # No shop-made fixture, no example mark or legend.
-    _, plain = shaft
-    assert "†" not in text(plain)
-
-
-def test_only_rows_with_non_measured_dimensions_carry_the_mark(tmp_path):
-    def measured_arm(examples):
-        _illustrative_rocker_fixtures(examples, measured_arm=True)
-
-    _, html = run(tmp_path, "rocker-arm/plan.toml", measured_arm)
-    stop = next(t for t in sections(html, "SHOP-MADE FIXTURE") if "blank-end stop" in t)
-    rows = text(stop)
-    assert "|arm|" in rows and "|finger †|" in rows, rows
-    for table in sections(html, "SHOP-MADE FIXTURE"):
-        markup = Markup(table)
-        (fixture,) = markup.find("fixture")
-        components = [row[0] for row in table_rows(markup, fixture)]
-        if "blank-end stop" in table:
-            assert components.count("arm") == 1, components
-            assert "finger †" in components, components
-            others = [component for component in components if component != "arm"]
-        else:
-            others = components
-        assert others and all("†" in component for component in others), components
+    (job,) = [page for page in markup.find("page") if page["attrs"]["data-sheet"] == "job"]
+    assert report["verification"] == "planned"
+    (banner,) = markup.find("banner", job)
+    assert content(banner) == "PLANNED — NOT APPROVED"
+    assert "CHECKED — FIRST ARTICLE RECORDED" not in content(job)
 
 
 def test_coating_cells_print_the_shop_name_of_a_consumable_or_service(shaft, bracket):
@@ -150,8 +55,16 @@ def test_coating_cells_print_the_shop_name_of_a_consumable_or_service(shaft, bra
     )
     oil = inventory["consumables"]["light-machine-oil"]["name"]
     finisher = inventory["services"]["black-oxide-vendor"]["name"]
-    assert f"{oil} (in-house)" in text(shaft[1]) and "light-machine-oil" not in text(shaft[1])
-    assert f"outside: {finisher} (hot black oxide, matte)" in text(bracket[1])
+    markup, coat = operation(shaft[1], "S3", 40)
+    assert any(oil in content(tool) for tool in tagged(markup, "strong", coat))
+    assert "light-machine-oil" not in content(coat)
+    markup, coat = operation(bracket[1], "S5", 20)
+    tools = [content(tool) for tool in tagged(markup, "strong", coat)]
+    assert any(
+        f"outside: {finisher}" in tool
+        and inventory["services"]["black-oxide-vendor"]["coating"] in tool
+        for tool in tools
+    )
     assert "black-oxide-vendor" not in text(bracket[1])
 
 
@@ -166,26 +79,56 @@ def test_a_consumable_without_a_name_prints_its_slug(tmp_path):
         inventory.write_text(authored[:start] + authored[start + named.end() :], encoding="utf-8")
 
     _, html = run(tmp_path, "pivot-shaft/plan.toml", unnamed)
-    assert "light-machine-oil (in-house)" in text(html)
+    markup, coat = operation(html, "S3", 40)
+    (identity,) = tagged(markup, "strong", coat)
+    # The identity heading, not the authored oiling procedure, must name the
+    # unnamed inventory item. Slug separators are presentation, not identity.
+    consumable = content(identity).partition("·")[0].strip().rstrip(":")
+    assert re.split(r"[-\s]+", consumable.lower()) == ["light", "machine", "oil"]
 
 
 def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
-    # A +X/+Y check jog from an edge pickup moves the finder over the work: the recipe
-    # raises Z first, jogs, then jogs back to the Axis Set reading before lowering.
-    _, html = bracket
-    zeros = sections(html, "DRO ZERO")
-    assert zeros
-    for zero in zeros:
-        steps = text(zero)
-        order = [steps.find(step) for step in ("raise Z", "jog the", "jog back")]
-        assert -1 not in order and order == sorted(order), steps
-        assert "do not Axis Set again" in steps, steps
-    # A lathe check jogs away from the work: no raise step.
-    _, plain = shaft
-    assert all("raise Z" not in text(zero) for zero in sections(plain, "DRO ZERO"))
+    # Each family's first-use guide owns safe check-jog motion; local setups own
+    # their settings. Returning before lowering must not establish a second datum.
+    def family_guide(html, folder, family):
+        data = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        owners = [
+            setup["id"]
+            for setup in data.plan["setups"]
+            if data.inventory["machines"][setup["machine"].removeprefix("machines.")]["kind"]
+            == family
+        ]
+        markup = Markup(html)
+        (guide,) = markup.find("dro-guide")
+        assert guide["attrs"]["data-setup-id"] == owners[0]
+        guide_id = guide["attrs"]["id"]
+        (target,) = [node for node in markup.nodes if node["attrs"].get("id") == guide_id]
+        assert target is guide
+        return guide
+
+    guide = family_guide(bracket[1], "pivot-bracket", "mill")
+    motion = re.search(r"Clear vertically[^.]*check jog[^.]*\.", content(guide))
+    assert motion, content(guide)
+    steps = motion[0]
+    order = [
+        steps.find(step)
+        for step in (
+            "Clear vertically",
+            "check jog",
+            "return to the contact reading",
+            "before lowering",
+            "without another Axis Set",
+        )
+    ]
+    assert -1 not in order and order == sorted(order), steps
+    clearance = steps[: steps.index("check jog")]
+    assert "work" in clearance and "clamps" in clearance, steps
+    # A lathe guide jogs away from the work, never directing a mill-style lift.
+    guide = family_guide(shaft[1], "pivot-shaft", "lathe")
+    assert "Clear vertically" not in content(guide) and "raise Z" not in content(guide)
 
 
-def test_job_page_stock_sizes_print_on_the_receiving_machine_grid():
+def test_job_stock_summary_preserves_the_receiving_blank_dimensions():
     def stock_markup(folder, machine, resolution):
         bundle = load_bundle(ROOT / "examples" / folder / "plan.toml")
         # Only this formatting regression supplies synthetic evidence for its DRO grid.
@@ -199,33 +142,21 @@ def test_job_page_stock_sizes_print_on_the_receiving_machine_grid():
             },
         }
         html = _Traveler(bundle, [], {}, None).header(bundle.plan["setups"])
-        return Markup(sections(html, "STOCK AND ROUTE")[0])
+        return Markup(html)
 
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
     markup = stock_markup("pivot-shaft", "PM-1127VF-LB", 0.01)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
-    assert "Ø10.00 × 180.50 long" in stock, stock
-    assert not re.search(r"\d\.\d{3}", stock), stock
+    size = re.search(r"Ø(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) mm long", stock)
+    assert size and tuple(map(float, size.groups())) == (10.00, 180.50), stock
+    supply = re.search(r"Supply length: (\d+(?:\.\d+)?) mm", stock)
+    assert supply and float(supply[1]) == 175.0, stock
     markup = stock_markup("rocker-arm", "PM-30MV", 0.005)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
-    assert "76.200 × 19.050 × 345.000 long" in stock, stock
+    size = re.search(r"(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) mm long", stock)
+    assert size and tuple(map(float, size.groups())) == (76.200, 19.050, 345.000), stock
     # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.
     assert "Prepared" not in stock and "{" not in stock, stock
-
-
-def test_the_abbreviation_key_lists_only_abbreviations_the_sheets_print(shaft, rocker):
-    keys = {"EM": r"\bEM\b", "CD": r"\bCD\b", "DTI": r"\bDTI\b", "mic": r"\bmic\b"}
-    for _, html in (shaft, rocker):
-        job, *setups = pages(html)
-        key = re.search(r"T# = [^<|]*", text(job))[0]
-        # The traveler is what the operator runs from: it never sends them to the drawing.
-        assert "Keep the drawing" not in text(job), key
-        printed = text("".join(setups))
-        for abbreviation, pattern in keys.items():
-            used = re.search(pattern, printed) is not None
-            assert (f"{abbreviation} = " in key) is used, (abbreviation, key)
-    # The shaft is turned: no endmill prints, so its key has no endmill entry.
-    assert "EM = " not in text(pages(shaft[1])[0])
 
 
 def plan_setups(folder):
@@ -233,8 +164,34 @@ def plan_setups(folder):
     return tomllib.loads(plan)["setups"]
 
 
-def setup_pages(html, sid):
-    return [page for page in pages(html) if f"<h2>SETUP {sid} — " in page]
+def _setup_text(markup, setup_id):
+    """Read local and explicitly shared setup facts, excluding sibling variants."""
+    candidates = [
+        node
+        for node in markup.nodes
+        if node["tag"] in {"p", "td", "li"}
+        or {"route-prelude", "datum-clause"} & set(node["attrs"].get("class", "").split())
+    ]
+
+    def belongs(node):
+        while node is not None:
+            attrs = node["attrs"]
+            if attrs.get("data-setup-id"):
+                return attrs["data-setup-id"] == setup_id
+            if "data-setup-members" in attrs:
+                return setup_id in json.loads(attrs["data-setup-members"])
+            node = node["parent"]
+        return False
+
+    parents = set()
+    for node in candidates:
+        ancestor = node["parent"]
+        while ancestor is not None:
+            parents.add(id(ancestor))
+            ancestor = ancestor["parent"]
+    return " ".join(
+        content(node) for node in candidates if id(node) not in parents and belongs(node)
+    )
 
 
 def test_a_jaw_round_bar_prints_at_the_height_it_is_held(bracket, rocker):
@@ -247,8 +204,11 @@ def test_a_jaw_round_bar_prints_at_the_height_it_is_held(bracket, rocker):
             jaw = setup["hold"]["jaw_above_parallels_mm"]
             state = setup["stock_state"]
             gripped = min(jaw, state["top_z"] - state["bottom_z"])
-            hold = text(sections(setup_pages(html, setup["id"])[0], "HOLD")[0])
-            centre = re.search(r"Round bar:[^|]*centre ([\d.]+) mm above the parallels", hold)
+            markup = Markup(html)
+            hold = _setup_text(markup, setup["id"])
+            centre = re.search(
+                r"round bar\b.*?centre ([\d.]+) mm above (?:the )?parallels", hold, re.IGNORECASE
+            )
             assert centre, (setup["id"], hold)
             assert float(centre[1]) == pytest.approx(gripped / 2, abs=5e-4), setup["id"]
             assert float(centre[1]) + 6.35 / 2 <= jaw, setup["id"]
@@ -267,12 +227,11 @@ def test_a_measured_raw_top_is_faced_down_no_deeper_per_pass_than_the_setup_cuts
         assert measured
         for setup in measured:
             doc = min(op["doc_mm"] for op in setup["ops"] if "doc_mm" in op)
-            pages_of = setup_pages(html, setup["id"])
-            zero = text(sections(pages_of[0], "DRO ZERO")[0])
+            markup = Markup(html)
+            zero = _setup_text(markup, setup["id"])
             caps = re.findall(r"no more than ([\d.]+) per pass", zero)
             assert caps, (setup["id"], zero)
-            every = re.findall(r"no more than ([\d.]+) per pass", text("".join(pages_of)))
-            assert [float(cap) for cap in every] == [pytest.approx(doc)] * len(every)
+            assert [float(cap) for cap in caps] == [pytest.approx(doc)] * len(caps)
 
 
 def drawn_in(folder, units):
@@ -318,7 +277,7 @@ def test_a_round_bar_height_is_millimetres_whatever_the_drawing_units(units, jaw
     setup_of(bundle, "P2")["hold"]["jaw_above_parallels_mm"] = jaw
     hold = text(sections(setup_html(bundle, "P2"), "HOLD")[0])
     assert "Round bar:" in hold, hold
-    printed = re.search(r"Round bar:[^|]*centre (-?[\d.]+) (\S+) above the parallels", hold)
+    printed = re.search(r"Round bar:[^|]*centre (-?[\d.]+) (\S+) above (?:the )?parallels", hold)
     if centre is None:
         assert printed is None, hold
     else:

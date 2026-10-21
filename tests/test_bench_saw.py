@@ -424,12 +424,12 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
 
 
 @pytest.mark.parametrize(
-    "op, words",
+    "op, pattern",
     [
         (
             scribed(),
-            "Hand saw guided by the line scribed in S1 op 10, leave at least 0.500 mm on "
-            "the waste side of the scribed line for filing.",
+            r"Hand saw guided by the line scribed in S1 op 10, leave at least "
+            r"(?P<allowance>\d+(?:\.\d+)?) mm on the waste side of the scribed line for filing",
         ),
         (
             scribed(allowance_mm="unknown"),
@@ -437,18 +437,21 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
         ),
         (
             saw(cut_plane=dict(PLANE)),
-            "keeping the -Y piece 37.5 mm long; the kerf falls on the +Y (waste) side",
+            r"keeping the -Y piece 37\.5 mm long; the kerf falls on the \+Y \(waste\) side",
         ),
     ],
 )
-def test_a_bench_hand_saw_prints_a_hand_saw_card(op, words):
+def test_a_bench_hand_saw_prints_a_hand_saw_card(op, pattern):
     native = {"retained_boundary_mm": 87.0, "retained_length_mm": 37.5}
     bundle = saw_bundle(op=op, kernel={"status": "ok", "ops": {"S2:20": native}})
     findings = saw_cut.evaluate(bundle) + speeds_feeds.evaluate(bundle)
     setup = bundle.plan["setups"][0]
-    html, _, _, _ = _Traveler(bundle, findings, {}, None).operations(setup, {}, {"notes": 2})
+    html, _ = _Traveler(bundle, findings, {}, None).operations(setup, {})
     text = re.sub(r"<[^>]+>", "", html)
-    assert "ASSEMBLY / FINISHING" in text
-    assert words in text
+    assert "Hand saw" in text
+    match = re.search(pattern, text)
+    assert match, text
+    if "allowance" in match.groupdict():
+        assert float(match["allowance"]) == 0.5
     assert "deburr" not in html
     assert "STOP: no blade speed" not in html

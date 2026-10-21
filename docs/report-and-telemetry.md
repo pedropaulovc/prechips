@@ -81,6 +81,29 @@ Canonical bytes are UTF-8 JSON with sorted keys, two-space indentation,
 of that same canonical serialization after removing only the root `hash` member,
 including the final LF.
 
+Selected native diagnostics use the existing six-decimal native output precision:
+`1e-6` mm for coordinates, `1e-6` mm² for areas and `1e-6` mm³ for volumes, with
+positive zero. This removes platform-dependent floating-point last bits from
+diagnostic evidence, not from safety operands. The publication boundary covers:
+
+- Finite mounted-saw fixture-clearance `minimum` and `sweeps[].minimum`
+  `from_mm`/`to_mm` witness coordinates. Scalar `mm` distances, minimum selection
+  and stopped-setting classifications retain native precision.
+- Requested native pickup `path.legs[].components[].swept_volume_mm3`.
+- Flat-end arriving-top `resolved_contact.patch_bbox_mm`,
+  `contact_area_mm2`, `uncovered_area_mm2` and `patch_area_mm2`.
+
+The native kernel facts and in-memory finding numbers remain unrounded for every
+contact-coverage, collision and clearance decision. `Finding.to_dict()` and report
+scene publication copy the evidence before applying this diagnostic precision;
+the independent example validator uses the same publication contract after its
+own evaluation, including independently derived digital and mechanical zero
+evidence. It compares a projected copy without changing the raw derivation or
+its verdict. Authored inputs, tool dimensions, target coordinates and other
+numbers are not rounded by this projection. Published diagnostics are not
+substitutes for raw operands when reproducing a boundary decision. Canonical
+reports and golden comparisons still require exact bytes, not numeric tolerances.
+
 Every operative TOML/STEP asset read by the run has its exact file-byte SHA-256.
 Input keys include `plan`, `features`, `inventory`, `shop_policy`, `cutting_data`
 and referenced assets such as `step`. Paths are root-relative POSIX labels.
@@ -130,8 +153,8 @@ report hash and stales approval, just as an edited TOML does.
 `fixture` is `"modeled"` only when the kernel reports `fixture_rendered = true`:
 the fixture is placed, every drawn component is exact and there are no fixture
 debts. Otherwise it is `"unresolved"`. `scene` contains the kernel's
-`render_scene` object verbatim, or `{}` if none was returned. Its fixture facts
-include:
+`render_scene` object with the [diagnostic publication precision](#canonical-bytes-and-input-binding)
+above, or `{}` if none was returned. Its fixture facts include:
 
 | Field | Meaning |
 | --- | --- |
@@ -526,6 +549,140 @@ pages and keeps report internals off the paper. Its content and layout contracts
 below describe the existing renderer; they do not change machining facts,
 findings or approval.
 
+### Traveler detail modes
+
+The CLI's `--detail pro|hobby|pedantic` and the renderer's keyword-only `detail`
+select presentation, with `hobby` as the default. They do not change checking
+policy, findings, report identity, unresolved debt or approval requirements.
+Every mode retains applicable stops, required actions, operative values and
+inspection acceptance criteria. A generated sheet is not real-shop readiness
+or first-article evidence.
+
+| Mode | Printed content |
+| --- | --- |
+| `pro` | Compact working instructions, datum targets, tooling/settings and inspection checkpoints. Omits setup figures and first-use DRO teaching. |
+| `hobby` | Compact instructions with first-use DRO guidance and selected complete setup figure groups, with reading-order references where needed rather than fixed page references. The plan's [`picture_panels`](plan.md#setup-fields) controls the selection. |
+| `pedantic` | Expanded setup content, including detailed stock, tooling, fixture, feature and clearance tables, full DRO worksheets, all setup figure groups and performed marks. |
+
+Only setup, hold and operation `note` fields support
+[minimum-detail segments](plan.md#authored-notes). Plain strings remain visible
+at every level; checking reads every segment. Other prose fields retain their
+own schemas.
+
+Compact modes may share repeated instructions or acceptance wording, including
+across adjacent setup groups. Physical inspections retain distinct recording
+destinations and their member/location ownership. Equal limits do not authorize
+one result for separate workpieces. An explicitly authored shared check retains
+its declared covered members; compact presentation does not create one.
+
+Each displayed criterion has an inline `.inspection-criterion` wrapper carrying
+the existing `data-inspection-ids` JSON subject list, independently of whether
+it owns a recording field. Unknown bands, manual contracts and authored missing
+requirements therefore retain their canonical criterion/debt identities
+without acquiring result blanks. Visible owner, requirement and local unknown
+marker remain necessary; metadata is not disclosure. Process holds keep their
+setup/operation identity rather than becoming feature criteria.
+
+Already-equal shared instructions may union corresponding member criterion IDs,
+not unrelated checks or known/unknown variants. Identity attributes alone do not
+prevent sharing, but visible limits, methods, trust state and physical reading
+ownership still do. Separate member records and their result fields remain
+separate.
+
+Compact identity lines retain the drawing number and actual revision without a
+visible audience token; the selected detail remains in document metadata.
+They include the first page's number and the actual local page total;
+continuation headers retain their page numbering.
+After a setup-local instruction, a shared compact instruction restates its
+visible family scope without changing its physical owners or comparison.
+
+Both compact modes retain operative tool paths and canonical operation
+allowances, including explicit zero leave, alongside authored instructions.
+Path-owned depths are not repeated as depth-of-cut prose. Each inspection's
+gauge, acceptance band and method stays with its physical owner, whether its
+check is attached to an inspection or a machining operation; distinct scoped
+methods are not replaced by the first feature's method. These associations do
+not establish physical fit or require duplicate authored prose.
+
+When one operation owns several result cells, each label names its human-readable
+feature and criterion as well as its setup/operation owner. A single physical
+checkpoint covering several criteria still owns one result field per member.
+
+Compact facing cycles retain their evaluated entry kind: uniformly proved air
+entries may say to lower in air; uniformly tangent entries retain tangent
+wording. Mixed or unresolved entries are not folded into either cycle, and
+different entry kinds do not share a cycle merely because depth/lift match.
+Differing cycles retain explicit owner labels, as does a single cycle whose
+owners cover only part of the setup family.
+Raster paths not extracted into a shared cycle retain their operation-specific
+lift and return instruction in both compact modes.
+Raster stock-clearance claims still require the actual incoming-stock proof.
+A radius allowance refers to the planned cut area only when evaluated area/end
+bounds establish it; that allowance is not a stock-clearance proof.
+
+Applicable receipt checks and actual shop-made construction obligations remain
+at their first-use setup, with later-use references; a receipt reference is not
+evidence of acceptance. Compact holding retains locating-fixture placement and
+alignment when due, not exhaustive model-pose coordinates or clearance tables.
+Hobby DRO guidance is shared once per applicable machine family, so a lathe
+lesson cannot replace milling guidance. A setup without pickup rows retains
+its unknowns and stops, not a link to an absent or inapplicable guide. Pro
+remains free of routine DRO teaching and default forward-spindle narration;
+nondefault or mixed spindle senses and unknown-direction stops retain their
+operation owners.
+
+Compact datum owners retain evaluated AxisSet targets, distinct from surface
+coordinates. Setup-local operative constraints stay associated with the work.
+
+Remaining local datum blocks retain procedure, evaluated AxisSet references, then
+local-instruction order before family operations, even when only later members
+supply them. Already-shared references stay at their earlier proved location.
+Measured-M fields and conditional raw-top pre-facing instructions retain each
+member's own nominal start surface and per-pass limit.
+
+Mounted-saw recipes distinguish the body-contact point from the arbor-axis
+position using the canonical zero record. Shared pro saw settings retain the
+numeric X/Y Axis Set targets without importing the hobby jog lesson. Tool keys
+in both compact modes show selected holders and installed projections explicitly
+in source millimetres, preserving their verification/debt markers; other tool
+lengths retain their existing display units. Axial projections run from the
+holder exit face to the tool tip. Mounted-saw projection runs from the blade
+body midplane to the holder gauge plane, positive spindleward, not from the
+holder face to a cutting tip. Tap chamfer/lead and threaded cutting length
+labels do not relabel a reamer's geometry. Compact hand-tap warnings retain
+the unchecked movement; the report and pedantic detail retain the unidentified
+bore-surface cause.
+
+Measurement-debt labels use the current setup's tool identity, not a list of all
+setups sharing the measurement. Compact labels use the same job-wide tool number
+as the route and settings key; expanded setup labels retain their local tool
+numbers. Installed-projection debt continues to name the selected holder.
+Setup-picture warnings carry one `NOT SHOWN:` prefix without removing the warning.
+
+Result cells are emitted in consecutive grids of at most four, without
+cloning or reordering physical inspection records. A trailing single cell may
+span its row; field minimums and print containment checks remain unchanged.
+
+An unresolved selected tool withholds contour coordinates without discarding
+independent recorded contour failures, such as an unresolved step size.
+
+A straight-saw distance from the physical stock end requires one incoming
+material reference carrying one atom rooted in a known supply. Missing or
+unknown lineage, multiple supplies and ambiguous aggregate stock retain
+retained-edge/model-plane wording rather than inventing a physical stock end.
+
+The expanded job/setup inventories below describe pedantic output. Compact
+modes place settings and acceptance criteria at their working operations and
+avoid repeating them in exhaustive job tables. Unassigned inspection
+requirements and unresolved facts remain visible.
+
+The complete four-nut T-nut demonstration has user-approved acceptance ceilings
+of **3 physical Letter pages for `pro` and 6 for `hobby`**, including the hobby
+DRO guide and all four selected complete figures. Preserve 12pt working text,
+0.5-inch margins and required recording-field interiors. These are maxima, not
+page-fill targets. Other jobs retain long-content behavior without these
+example-specific total-page caps.
+
 ### Job section
 
 The job page opens with part, drawing number, revision and the approval banner.
@@ -594,12 +751,12 @@ places, never `?–1234.57`. Physical carried-face heights retain the digits nee
 to show a surface off the receiving DRO grid; they are not rounded onto a grid
 line the surface does not occupy.
 
-Each setup has an overview/operations section followed by picture, clearance,
-notes and contour sections where applicable. Content determines physical page
-count; no setup overview is promised to fit one physical page. Letter portrait
-uses 0.5-inch margins, 12 pt working text and at least 10 pt metadata in offline
-Arial/Helvetica/sans-serif type. Drawing limits and operative values retain
-units and their applicable precision.
+Each setup has working instructions and applicable picture, clearance, notes
+and contour content, arranged according to its detail mode. Content determines
+physical page count; no setup or complete job is promised to fit a fixed number
+of pages. Letter portrait uses 0.5-inch margins, 12 pt working text and at least
+10 pt metadata in offline Arial/Helvetica/sans-serif type. Drawing limits and
+operative values retain units and their applicable precision.
 
 Ordinary read-only tables have 4 pt vertical and 8 pt horizontal cell padding,
 12 pt text and 1.4 line height. Operation and handwriting areas retain their
@@ -608,14 +765,19 @@ stay together without splitting neighboring words. Fixture/check tables wrap
 at word boundaries and give identified long cells more room without changing
 dimensions or instructions.
 
-### Duplex printing and layout refusal
+<a id="duplex-printing-and-layout-refusal"></a>
 
-Print the whole file double-sided with scripts enabled. The inline script
-measures content at print width on load and before printing, places page breaks,
-repeats continuation context and table headings, and pads odd-length logical
-sections with a blank back. The job section and each setup section start on a
-front side. Blank backs contain no instructions or ink. Without scripts, the
-same content prints without duplex padding; print single-sided in that case.
+### Printing and layout refusal
+
+Use Letter portrait print preview with scripts enabled. All modes use one
+continuous job flow with measured page breaks and continuation context.
+Ordinary setups or compact setup families may share a physical page. The
+renderer does not insert automatic blank backs or force each setup onto a
+front side. It does not add sign-off pages. Choose single- or double-sided
+printing for your shop, and inspect the complete preview before printing.
+Without scripts, measured pagination and continuation context are unavailable.
+The measured job flow contains opening and closing source margins within its
+physical page bounds; an opening heading cannot shift the measurement origin.
 
 Before each print pass, the script restores original text and wrappers while
 retaining loaded image elements, including SVG images. It does not reload
@@ -631,16 +793,29 @@ prove the browser's eventual pagination or physical print result.
 
 ### Continuation context and source progress
 
-Headings, captions and authored lead-ins stay with the following content; the
-sign-off stays with the last operation. Ordinary read-only tables keep the
-three-row widow/orphan policy when those original row groups fit on both sides
-of a break. Over-tall side-by-side blocks stack before splitting.
+Headings, captions and authored lead-ins stay with the following content.
+Ordinary read-only tables keep the three-row widow/orphan policy when those
+original row groups fit on both sides of a break. Over-tall side-by-side blocks
+stack before splitting.
 
-Continuation headings name the part, drawing/revision and logical section,
-repeat the exact original printed status as a read-only reminder, and show the
-local page number and total within that logical section. They do not recompute
-approval or certify a new state. Moved or split operations leave a pointer to
-the next physical page.
+Continuation headings identify the job and page count, with the original printed
+approval status as a read-only reminder. In compact modes, running-header identity
+is the human job title only; setup/operation ownership stays beside resumed work
+under its local continued heading. Compact modes retain the example-only warning
+in running context; the first page retains the drawing/revision and full warning.
+Pedantic retains the full part/drawing/revision identity and the first retained
+setup's identity. Every mode reports the setup range actually represented by
+original source on that physical page, including a shared-page transition to a
+new setup. Pedantic owner-title candidates and all owner-range slots are measured
+before source pagination, so final ownership cannot grow the header afterwards.
+Candidate measurement and final ownership use the same visible original text
+and image traversal, including setup title, member and workpiece metadata
+inherited from nested source elements.
+An empty inner operation setup ID does not hide an enclosing shared physical-owner
+list: isolated tails retain that family, and mixed pages begin their range with
+the continued family rather than the next setup.
+These headings do not recompute approval or certify a new state. Moved or split
+operations leave a pointer to the next physical page.
 
 A continuation retains its applicable original operation, table or worksheet
 title and units when these fit beside original content advancing onto the page.
@@ -668,25 +843,43 @@ leaves continuation behavior unchanged. Each cell keeps its original content,
 whitespace, order and column. Writing fields and controls are neither copied
 nor treated as whole-cell completion candidates.
 
+An operation's complete main row moves before splitting when it needs a fresh
+page. If the row itself is over-page, continuations prefer complete headings,
+actions, labelled setting/warning fields and numbered steps, including their
+recording destinations. Pedantic setting fields keep their original grid
+columns. A genuinely oversized individual unit may continue at measured word
+boundaries only after the mandatory operation identity and fresh-page context
+are budgeted. Restored field labels are included in subsequent fragment
+measurements. Original words remain in order; repeated headings, labels and
+warning identities are read-only context, never replacement source or extra
+writing areas.
+Standalone warning boxes inside an operation row are also complete units: a
+fitting warning keeps its attribute, negation and conclusion together, even when
+an earlier warning in that row has already advanced the page.
+An oversized warning first continues between its authored semicolon-delimited
+clauses, keeping each fitting fact identity, negation and conclusion together.
+Only a clause that itself cannot fit beside mandatory fresh-page context may
+continue at measured word boundaries. Clause markup preserves the exact source
+text and delimiters; repeated labels still cannot satisfy original source progress.
+
 An original note title that cannot fit its continuation body may continue as
 authored source text, in order and at working size. Short titles stay atomic.
 Repeated identity alone never counts as source progress; this fallback does
 not split complete figures or duplicate recording fields.
 
-A figure-bearing logical continuation keeps its complete first figure and stock
-caption together. If the full repeated identity makes that group too tall, the
-same part, drawing, revision, quantity, status and complete logical heading use
-the 10 pt running-metadata hierarchy. True setup fronts keep full headers.
-Working text, source captions and images do not shrink. A group that still
-exceeds measured capacity is refused. Every print pass restores the full header
-and recomputes the decision, so resizing or printing again cannot reuse stale
-compacted content.
+A figure-bearing continuation keeps its complete canonical figure group and
+caption together. Figures and result rows remain atomic in every mode.
+Repeated identity may use the 10 pt running-metadata hierarchy; working text,
+source captions and images do not shrink. A group that still exceeds measured
+capacity is refused. Every print pass restores source content and recomputes
+the decision, so resizing or printing again cannot reuse stale compacted
+content.
 
 ### Recording areas and performed marks
 
-Operations retain authored order. A square beside an operation ID means
-operation performed only, not inspection acceptance, approval or clearance to
-proceed. It adds no schema field.
+Operations retain authored order. Pedantic adds a square beside an operation
+ID for operation performed only, not inspection acceptance, approval or
+clearance to proceed. Compact modes omit that mark. It adds no schema field.
 
 A genuine inspection requirement without its own authored recording destination
 gets one full-width white readings/observations area below it, with at least
@@ -715,11 +908,9 @@ Titles, source words, numbers, methods, GO / NO-GO meaning and gauge/source
 ownership are unchanged. Unknown requirement identities, bands and other debt
 remain visible, without fabricated result data or invented gauges.
 
-The sign-off has its own signature field. Its first-article reading reminder is
-a read-only pointer to labelled inspection fields or worksheets, not a second
-unqualified measured-results blank. Neither signing nor a performed mark changes
-findings or approval. Approval, first-article evidence and all authored recording
-fields are unchanged.
+No automatic sign-off page is added. Any authored signature or recording field
+retains its meaning and ownership; signing or marking an operation performed
+does not change findings or approval. First-article evidence remains separate.
 
 An actual `measure_then_set` DRO acquisition with known setup, axis and plan
 units has one setup/axis-qualified empty `M` writing area. When a before-HOLD
@@ -767,18 +958,24 @@ areas nor counts as source progress.
 
 ### Setup overview and operation order
 
-Each setup overview/operations section follows this order:
+All modes use the same continuous setup flow and preserve authored operation
+order and physical ownership. Setup identity, stops and applicable measurement
+references introduce the content:
 
-1. Title, status boxes and applicable measurement references.
+1. Authored setup notes and, in pedantic, incoming stock state.
 2. `HOLD`, then grip/stickout and related holding dimensions.
-3. Coolant, any setup-specific edge break, and applicable purchased-tooling
-   receipt checks.
-4. `TOOLS FOR THIS SETUP`.
-5. `DRO ZERO` where applicable.
+3. Pedantic coolant and purchased-tooling receipt checks, followed by any
+   setup-specific edge break.
+4. Pedantic tool, fixture and feature tables.
+5. Datum prerequisites and `DRO ZERO` where applicable, followed by the
+   pedantic clearance table.
 6. `OPERATIONS`, or `ASSEMBLY / FINISHING` for an all-bench sequence.
-7. The existing sign-off and its writing area.
 
-The following contracts define the content in those positions.
+Compact modes share repeated content and put tooling/settings beside the
+working operations rather than restoring a separate overview layout.
+
+The following contracts define the content; repeated tables and the job-wide
+measurement register are expanded in pedantic.
 
 #### Stops and the job-wide measurement register
 
@@ -866,8 +1063,10 @@ spelling.
 
 Spindle-stopped `die_thread` and `hand_tap` selections also appear in this
 pull list with their selected die stock, tap wrench or follower. Their
-operation rows use the same `T#`. A nominal thread designation does not
-supply a physical cutting diameter, projection or powered-tool touch-off.
+operation rows use the same `T#`. Compact output retains the selected local
+hand-thread holder in its settings key or beside the operation, even when the
+tool already has a number from spindle work. A nominal thread designation does
+not supply a physical cutting diameter, projection or powered-tool touch-off.
 
 #### DRO zero and acquisition
 
@@ -889,6 +1088,10 @@ the work and everything clamped to it, checked by eye across the top; jogs the
 table the printed distance and reads it; jogs back to the Axis Set value; then
 lowers. The picked-up value is never set again. The lead-in stays with these
 steps. A lathe check jogs away from the work without a raise step.
+
+A mounted-saw check jog prints its signed axis direction and one positive
+distance. Axis Set, expected display and reversed-axis readings retain their
+signs.
 
 A lathe X trial-cut pickup, for zero or tool change, says
 `take a light trial cut, withdraw along Z without moving X, stop the spindle, measure the diameter`.
@@ -1000,10 +1203,17 @@ For each cutting operation, the row takes the smallest known value among:
 
 A bench file in a machine setup has its own row without a tool, using holding
 nearest the material it removes. Negative clearance or a holder past the flute
-hitting a wall is a STOP. Unknown clearance or unproven holder wall clearance
-requires a check at the machine. Jaw clearance within 3 mm asks for a hand-fed
-approach. Holding within 3 mm of a cutter says `hand feed past the …`; near a
-file it says `keep the file clear of the …`.
+hitting a wall is a STOP. A swept-tool/removal-to-holding distance of zero is
+also a STOP: native distance zero can mean contact or overlap, not proved
+clearance. These swept-clearance stops retain their value and obstacle, count
+toward setup stops, and never merge into a caution. This does not change the
+separate headroom-margin or tip-above-jaw boundaries.
+
+Unknown clearance or unproven holder wall clearance requires a check at the
+machine. Jaw clearance within 3 mm asks for a hand-fed approach. Only a
+strictly positive known swept gap within 3 mm says `hand feed past the …`
+for a cutter or `keep the file clear of the …` for a file. Zero, negative and
+unknown swept gaps never receive that advice.
 
 Operations with the same tool, obstacle, clearance and action share a row. An
 identical nonempty action for every row prints once above the table, explicitly
@@ -1071,8 +1281,8 @@ never fragmented.
 
 A procedure becomes a worksheet only when it has an authored step list, named
 `{name}` readings in those steps and at least two calculation lines. Each
-worksheet has its own logical sheet after contours, for example
-`SETUP S11 — sheet 4 of 4: worksheet, S11 op 110 angularity Ø`. Steps keep their
+worksheet has its own named section associated with its setup, operation and
+requirement; its title supplies continuation context. Steps keep their
 original numbers and refer to readings with identifiers such as `[rJ1]`, without
 duplicate value boxes. READINGS has one box per named reading at its source
 step. Original equations and calculation fields print once after the readings.
@@ -1080,7 +1290,7 @@ Underscore prompts alone do not make a worksheet.
 
 ### Shop-facing wording and review limits
 
-The job and setup overview/operations sections end with their existing sign-off.
+Any authored sign-off retains its recording ownership.
 The renderer removes author's-choice tags, face ids, inventory slugs, frame
 names and hashes from shop-facing prose. Frame `T1` reads as `Setup S1 zero`.
 Rule ids, source paths, uncertainty detail and hashes stay in `report.json`;
@@ -1096,8 +1306,8 @@ rehearsal remains pending. Intermediate CLI/PDF observations in
 [examples](../examples/README.md) are not final pagination acceptance.
 
 The developer tool `scripts/machinist_review.py` prints the HTML to Letter with
-headless Chrome or Edge, including duplex padding, and asks a reviewer from the
-other model family to inspect every page: no questions and nothing the operator
+headless Chrome or Edge, using the measured continuous job pagination, and asks
+a reviewer from the other model family to inspect every page: no questions and nothing the operator
 does not need. It compares speeds, feeds, depths of cut, tap drills and reamer
 allowances with local Machinery's Handbook pages supplied by `--handbook` or
 `PRECHIPS_HANDBOOK_DIR`. Page selections are in

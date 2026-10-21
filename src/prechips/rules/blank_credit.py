@@ -35,7 +35,13 @@ from prechips.model import (
 )
 from prechips.rules._profile import requirement_band
 from prechips.rules.geometry_common import provenance, unavailable
-from prechips.rules.resolution import _citations, number, record
+from prechips.rules.resolution import (
+    _citations,
+    number,
+    record,
+    registered_workpieces,
+    workpiece_face_mapping,
+)
 
 UNKNOWN = "unknown"
 RULE = "blank_credit"
@@ -236,23 +242,84 @@ def _face(bundle, facts, ref, owners, tolerances):
     return {**row, "verdict": CREDITED}
 
 
-def credit(bundle, facts):
-    """``{as-is ref: credit row}`` for a plan with a profiled supply; ``{}`` otherwise.
+def _member_facts(bundle, facts, workpiece_id):
+    """Project only this instance's bound native contact and canonical labels."""
+    from prechips.kernel import workpiece_inputs
 
-    Only rows whose ``verdict`` is ``credited`` count toward coverage."""
+    registration = record(
+        workpiece_inputs(bundle.plan.get("workpieces"), bundle.features.get("units"))
+    ).get(workpiece_id)
+    contacts = record(record(facts.get("workpiece_as_is_contact")).get(workpiece_id))
+    return {
+        "mapping": workpiece_face_mapping(bundle, facts, workpiece_id),
+        "as_is_contact": {
+            ref: contact
+            if (
+                facts.get("status") == "ok"
+                and isinstance(contact, dict)
+                and contact.get("workpiece_id") == workpiece_id
+                and isinstance(registration, dict)
+                and isinstance(registration.get("pose"), dict)
+                and contact.get("registration") == registration
+            )
+            else {"reason": "no matching native as-stock contact for the current workpiece"}
+            for ref, contact in contacts.items()
+        },
+    }
+
+
+def credit(bundle, facts, *, workpiece_id=None):
+    """As-is credit rows for a profiled supply; empty when none is requested.
+
+    An explicit member returns canonical-ref keys for only that instance. Registered
+    plans without a selector return qualified ``(member, ref)`` keys. Only a row whose
+    verdict is ``credited`` counts; unknown member/contact evidence remains debt.
+    """
     supplies = profiled_supplies(bundle)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     if not supplies or not isinstance(refs, list):
         return {}
+    if registered_workpieces(bundle):
+        if workpiece_id is None:
+            members = record(bundle.plan.get("workpieces"))
+            if not members:
+                return {
+                    ref: {
+                        "ref": ref,
+                        "verdict": UNKNOWN,
+                        "reason": "workpiece registrations are unresolved",
+                    }
+                    for ref in refs
+                    if isinstance(ref, str) and ref != UNKNOWN
+                }
+            return {
+                (member, ref): row
+                for member in members
+                for ref, row in credit(bundle, facts, workpiece_id=member).items()
+            }
+        facts = _member_facts(bundle, facts, workpiece_id)
+    elif workpiece_id is not None:
+        facts = _member_facts(bundle, facts, workpiece_id)
     owners, unresolved = _owners(bundle, facts)
     tolerances = {name: cited_tolerance(blank) for name, blank in supplies.items()}
     rows = {}
     for ref in refs:
-        if ref == UNKNOWN or ref not in record(facts.get("mapping")):
-            continue  # Coverage already reports an unknown or unmapped as-is ref.
+        if ref == UNKNOWN:
+            continue  # Coverage already reports an unknown as-is ref.
+        if ref not in record(facts.get("mapping")):
+            if workpiece_id is not None:
+                rows[ref] = {
+                    "ref": ref,
+                    "workpiece_id": workpiece_id,
+                    "verdict": UNKNOWN,
+                    "reason": "the selected workpiece has no exact native face mapping",
+                }
+            continue
         row = _face(bundle, facts, ref, owners, tolerances)
         if unresolved and row["verdict"] == CREDITED and "owners" in row:
             row = {**row, "verdict": UNKNOWN, "unresolved_features": unresolved}
+        if workpiece_id is not None:
+            row["workpiece_id"] = workpiece_id
         rows[ref] = row
     return rows
 
@@ -362,7 +429,8 @@ def evaluate(bundle):
         if "owners" not in row and row["verdict"] == CREDITED:
             continue  # A bar component's face: no vendor tolerance to judge.
         for owner in row.get("owners") or [row["ref"]]:
-            groups.setdefault(owner, []).append(row)
+            identity = f"{row['workpiece_id']}:{owner}" if "workpiece_id" in row else owner
+            groups.setdefault(identity, []).append(row)
     findings = []
     for owner, faces in sorted(groups.items()):
         verdicts = {row["verdict"] for row in faces}

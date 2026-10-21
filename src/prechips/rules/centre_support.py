@@ -18,8 +18,11 @@ support whose identity is unresolved (unknown, not in the inventory, or of unkno
 may be one; so may each centre beyond the one ``centre_hole`` a hold names. Any of those
 keeps the finding unknown unless an error is established. A support of a known non-centre
 kind is not one, whatever verification or measurement debt its record carries: that debt
-is its own checks'. A hold none of whose supports is (or may be) a centre is not
-applicable. A wholly undeclared hold names no support to check: its debt is
+is its own checks'. An explicitly posed borrowed-stock support is likewise not a centre
+when its source is a validated available material-route identity; it does not name
+inventory tooling. Missing, ambiguous or unavailable borrowed sources remain unresolved.
+A hold none of whose supports is (or may be) a centre is not applicable.
+A wholly undeclared hold names no support to check: its debt is
 ``hold_fields``', as an unrouted setup's is stock routing's rather than ``joint_fit``'s.
 The kernel separately checks that the point touches the cut countersink without
 interpenetration.
@@ -28,13 +31,14 @@ interpenetration.
 import re
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status
-from prechips.model import setup_lineage
+from prechips.material_routes import MaterialGraph
+from prechips.model import PlacedSupport, setup_lineage
 from prechips.process_features import ACTIONS, centre_depth_mm, label, process_of
 from prechips.rules.resolution import (
     UNKNOWN,
     identity,
     number,
+    operation_material_status,
     record,
     resolve,
     same_length,
@@ -61,20 +65,57 @@ def _is_centre(kind, reference):
 
 
 def _supports(hold):
-    """Every support reference ``hold`` declares: ``support`` and each ``supports`` ref."""
+    """Every support entry ``hold`` declares, retaining the posed source discriminator."""
     values = [hold["support"]] if "support" in hold else []
     supports = hold.get("supports", [])
     values += supports if isinstance(supports, list) else [supports]
-    return [value.get("ref", UNKNOWN) if isinstance(value, dict) else value for value in values]
+    return values
 
 
-def _centres(bundle, hold):
+def _stock_supports(bundle):
+    """Known borrowed identities, only after schema and available-stock route validation."""
+    placed = []
+    for setup in bundle.plan["setups"]:
+        supports = record(setup.get("hold")).get("supports")
+        for value in supports if isinstance(supports, list) else []:
+            if isinstance(value, dict) and value.get("placement") == "posed":
+                placed.append((setup["id"], value))
+    if not any("stock_ref" in value for _, value in placed):
+        return frozenset()
+    try:
+        for _, value in placed:
+            PlacedSupport.model_validate(value)
+        MaterialGraph(bundle.plan, validate=True)
+    except ValueError:
+        return frozenset()
+    return frozenset(
+        (sid, value["id"], value["stock_ref"]) for sid, value in placed if "stock_ref" in value
+    )
+
+
+def _centres(bundle, setup, hold, stock_supports):
     """``(centres, unresolved)``: the distinct ``hold`` supports that are centres
     (``_is_centre``), plus the hold's ``support`` if it declares the centre it seats in; and
     the support references whose identity is unresolved (unknown, not in the inventory, or
     of unknown kind), any of which may be a centre."""
     centres, unresolved = [], []
-    for reference in _supports(hold):
+    for value in _supports(hold):
+        if isinstance(value, dict) and value.get("placement") == "posed":
+            sources = value.keys() & {"ref", "stock_ref"}
+            if len(sources) != 1:
+                unresolved.append(value.get("stock_ref", value.get("ref", UNKNOWN)))
+                continue
+            if "stock_ref" in sources:
+                reference = value["stock_ref"]
+                if (
+                    isinstance(reference, str)
+                    and isinstance(value.get("id"), str)
+                    and (setup["id"], value["id"], reference) in stock_supports
+                ):
+                    continue
+                unresolved.append(reference)
+                continue
+        reference = value.get("ref", UNKNOWN) if isinstance(value, dict) else value
         if not isinstance(reference, str) or reference in (UNKNOWN, ""):
             unresolved.append(reference)
             continue
@@ -111,7 +152,7 @@ def _makers(bundle, setup, name):
             if other["id"] not in earlier:
                 after.append(made)
                 continue
-            material = feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle)
+            material = operation_material_status(bundle, setup, other, name, producer_op=op)
             if material is False:
                 rejected.append(made)
             elif material is None or op.get("feature") == UNKNOWN or op.get("do") == UNKNOWN:
@@ -205,9 +246,12 @@ def _open(centres, unresolved):
 
 def evaluate(bundle):
     findings = []
+    stock_supports = _stock_supports(bundle)
     for setup in bundle.plan["setups"]:
         hold = setup.get("hold")
-        centres, unresolved = _centres(bundle, hold) if isinstance(hold, dict) else ([], [])
+        centres, unresolved = (
+            _centres(bundle, setup, hold, stock_supports) if isinstance(hold, dict) else ([], [])
+        )
         if centres:
             status, numbers, why = _evaluate(bundle, setup, hold, centres)
         else:

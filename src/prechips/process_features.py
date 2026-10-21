@@ -195,9 +195,7 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
         # unresolved, while strict complete-plan loading still rejects this identity.
         return None
     # Root-stock bounds are not registered bounds of an independently reposed child.
-    if any(
-        atom.split is not None for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())
-    ):
+    if any(atom.path for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())):
         return None
     trimmed = {key: list(span) for key, span in bounds.items()}
     earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}

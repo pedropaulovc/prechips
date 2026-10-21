@@ -12,7 +12,7 @@ presence, even unknown, forbids substitution of the finished feature or stock sp
 Without a printed path, its setup-frame limits remain evidence only and XY stays unknown.
 A child feature (``hole``/``parent``) without its own ``at`` is located at its
 parent's ``at`` in the parent's frame; it inherits no parent bounds.
-Saw cuts drive no spindle cutter and are skipped.
+Mounted disks use their proved spindle-axis path extrema, never blade diameter.
 """
 
 from prechips.findings import Finding
@@ -34,6 +34,7 @@ from prechips.rules._envelope import (
     unknown_sentence,
 )
 from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by, printed_xy
+from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
@@ -132,17 +133,50 @@ def evaluate(bundle):
         scalar_spans = {axis: [] for axis in AXES}
         complete = {axis: True for axis in AXES}
         spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
-        saw_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_saws
+        saw_debts = []
+        for op in spindle_saws:
+            status, reasons, evidence, inputs = _mounted_saw_bounds(bundle, setup, op, "travel")
+            bounds = evidence.get("axis_path_bounds_mm")
+            path = (
+                {axis: [bounds[i], bounds[i + 3]] for i, axis in enumerate(AXES)}
+                if isinstance(bounds, list) and len(bounds) == 6
+                else {}
             )
-        )
-        if spindle_saws:
+            if status != "pass":
+                saw_debts.extend(
+                    reasons
+                    or [
+                        SLITTING_SAW_MODEL_REASON
+                        if slitting_saw(bundle, op)
+                        else UNRESOLVED_SAW_MODEL_REASON
+                    ]
+                )
+            if status == "error":
+                errors.extend(f"op {op['op']}: {reason}" for reason in reasons)
+            valid = _ordered_bounds(bounds)
+            for axis in AXES:
+                band = path.get(axis)
+                known = _band(band) and band[0] <= band[1]
+                if known:
+                    _include(bands[axis], band)
+                    if axis in sourced:
+                        sourced[axis]["cutter-centre path"].append(band)
+                complete[axis] &= bool(known and status == "pass")
+            if valid:
+                operations.append(
+                    {
+                        "op": op["op"],
+                        "do": op["do"],
+                        "mounted_saw": inputs,
+                        "axis_path_bounds_mm": bounds,
+                        "xy_cutter_bounds_mm": {axis: path[axis] for axis in "xy"},
+                        "z_bounds_mm": path["z"],
+                        "z_verified": status == "pass",
+                    }
+                )
+        saw_debt = "; ".join(dict.fromkeys(saw_debts))
+        if saw_debt:
             missing.append(saw_debt)
-            complete = {axis: False for axis in AXES}
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(_input_cite(target, f"{owner}.{setup.get('frame', UNKNOWN)}"))
         stock, stock_cite = stock_extents(bundle, setup)

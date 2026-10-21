@@ -5,9 +5,12 @@ indicating an earlier pilot does not establish a later reamed datum. A surface p
 relates each datum of its reference frame at its zone ``t``; a profile with no datums
 controls form only and relates none. A ``height_from`` reads the height band, a BASIC
 height's band derived from its surface profile included.
+Registered members retain independent final cuts and datum producers. An indicated
+pickup never transfers a sibling's datum or unproved protected material.
 """
 
 from prechips.findings import Finding
+from prechips.material_routes import MaterialGraph
 from prechips.rules._profile import datum_features, requirement_band
 from prechips.rules.resolution import (
     HAND_FINISH,
@@ -16,6 +19,8 @@ from prechips.rules.resolution import (
     SAW_OPS,
     TAP_OPS,
     UNKNOWN,
+    operation_material_status,
+    operation_members,
     operations,
 )
 
@@ -30,32 +35,56 @@ def _number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _cuts(bundle, feature):
+def _cuts(bundle, feature, workpiece_id=None):
     """Final forming cuts of a feature: its labeled ops plus ops whose explicit faces own it.
     Filing and manual threading materially form faces; other manual work does not.
 
     An unresolved datum (no feature name) has no cuts, never every op.
+    Registered plans select and demote pilots per member; the default result is
+    the ordered union, retaining a drill that finishes a different physical member.
     """
     if not isinstance(feature, str):
         return []
-    order = {id(setup): index for index, setup in enumerate(bundle.plan["setups"])}
-    cuts = [
-        (order[id(setup)], setup, op)
-        for setup, op in operations(bundle, feature, owned=True)
-        if op.get("do", UNKNOWN) not in _NONFINISH | (MANUAL - HAND_FINISH - HAND_THREAD)
-        and not op.get("do", UNKNOWN).startswith("rough")
-    ]
+    members = bundle.plan.get("workpieces")
+    if workpiece_id is None and isinstance(members, dict):
+        selected = {id(op) for member in members for _, _, op in _cuts(bundle, feature, member)}
+        return [
+            (index, setup, op)
+            for index, setup, op in _cuts_unselected(bundle, feature)
+            if id(op) in selected or operation_members(bundle, setup, op) is None
+        ]
+    cuts = _cuts_unselected(bundle, feature, workpiece_id)
     # A pilot is not the final datum when reaming happens in a later setup.
     if any(op.get("do") in TAP_OPS | {"ream", "bore"} for _, _, op in cuts):
         cuts = [(index, setup, op) for index, setup, op in cuts if op.get("do") != "drill"]
     return cuts
 
 
+def _cuts_unselected(bundle, feature, workpiece_id=None):
+    """Keep potential cuts until ownership is checked, before granting datum credit."""
+    order = {id(setup): index for index, setup in enumerate(bundle.plan["setups"])}
+    return [
+        (order[id(setup)], setup, op)
+        for setup, op in operations(bundle, feature, owned=True, workpiece_id=workpiece_id)
+        if op.get("do", UNKNOWN) not in _NONFINISH | (MANUAL - HAND_FINISH - HAND_THREAD)
+        and not op.get("do", UNKNOWN).startswith("rough")
+    ]
+
+
 def _label(cut):
     return f"{cut[1]['id']}:{cut[2]['op']}"
 
 
-def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
+def _indicated(
+    setups,
+    feature_cut,
+    datum_cut,
+    datum_feature,
+    datum_name,
+    *,
+    bundle=None,
+    workpiece_id=None,
+):
     _, setup, _ = feature_cut
     transfer = _mapping(_mapping(setup.get("zero")).get("transfer"))
     selected = transfer.get("indicate", [])
@@ -65,6 +94,24 @@ def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
         return False
     source = transfer.get("from")
     source_index = next((index for index, item in enumerate(setups) if item["id"] == source), None)
+    if bundle is not None and workpiece_id is not None:
+        source_setup = next((item for item in setups if item["id"] == source), None)
+        if source_setup is None:
+            return False
+        if workpiece_id not in (MaterialGraph(bundle.plan).members(source) or ()):
+            return False
+        if (
+            operation_material_status(
+                bundle,
+                source_setup,
+                datum_cut[1],
+                datum_feature,
+                producer_op=datum_cut[2],
+                workpiece_id=workpiece_id,
+            )
+            is not True
+        ):
+            return False
     # Pickup from an earlier intermediate cannot prove the finished datum.
     return source_index is not None and datum_cut[0] <= source_index < feature_cut[0]
 
@@ -169,11 +216,17 @@ def evaluate(bundle):
         if feature_cuts:
             numbers["feature_op"] = _label(feature_cuts[-1])
         unknown = not resolved or not feature_cuts
+        registered = bundle.plan.get("workpieces")
+        if isinstance(registered, dict):
+            unknown |= any(not _cuts(bundle, name, member) for member in registered)
         failed = []
         cross_setup = False
         for datum_name, datum_feature, tolerance in relationships:
             datum_cuts = _cuts(bundle, datum_feature)
             numbers["datums"][datum_name] = [_label(cut) for cut in datum_cuts]
+            unknown |= any(
+                operation_members(bundle, setup, op) is None for _, setup, op in datum_cuts
+            )
             numbers["tolerance_mm"] = tolerance
             if "coaxial_to" in feature:
                 numbers["coaxial_to"] = feature["coaxial_to"]
@@ -185,15 +238,54 @@ def evaluate(bundle):
                 unknown = True
                 continue
             for feature_cut in feature_cuts:
-                for datum_cut in datum_cuts:
+                members = operation_members(bundle, feature_cut[1], feature_cut[2])
+                if members is None:
+                    unknown = True
+                    continue
+                matching = []
+                for member in members or (None,):
+                    if member is not None and not any(
+                        cut[2] is feature_cut[2] for cut in _cuts(bundle, name, member)
+                    ):
+                        continue
+                    member_datums = _cuts(bundle, datum_feature, member)
+                    if not member_datums:
+                        unknown = True
+                    matching.extend((member, cut) for cut in member_datums)
+                for member, datum_cut in matching:
+                    material = (
+                        True
+                        if member is None
+                        else operation_material_status(
+                            bundle,
+                            feature_cut[1],
+                            datum_cut[1],
+                            datum_feature,
+                            op=feature_cut[2],
+                            producer_op=datum_cut[2],
+                            workpiece_id=member,
+                        )
+                    )
+                    if material is False:
+                        unknown = True
+                        continue
+                    unknown |= material is None
                     same_setup = feature_cut[0] == datum_cut[0]
                     indicated = (
                         False
                         if same_setup
-                        else _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name)
+                        else _indicated(
+                            setups,
+                            feature_cut,
+                            datum_cut,
+                            datum_feature,
+                            datum_name,
+                            bundle=bundle,
+                            workpiece_id=member,
+                        )
                     )
                     cross_setup |= not same_setup
-                    verdict = "pass"
+                    verdict = "unknown" if material is None else "pass"
                     if not same_setup and not indicated:
                         if not _number(tolerance) or not _number(budget):
                             unknown = True
@@ -205,6 +297,7 @@ def evaluate(bundle):
                         {
                             "datum": datum_name,
                             "datum_feature": datum_feature,
+                            **({"workpiece_id": member} if member is not None else {}),
                             "feature_op": _label(feature_cut),
                             "datum_op": _label(datum_cut),
                             "same_setup": same_setup,

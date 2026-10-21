@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from prechips.findings import Finding, Status
+from prechips.findings import Finding, SelectorMatch, Status, selector_match
 from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
@@ -112,16 +112,20 @@ GEOMETRY_RULES = [
 RULES.extend(GEOMETRY_RULES)
 
 
-def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
-    """A shop cannot accidentally obtain checked readiness by naming a missing rule."""
+def required_coverage(
+    bundle: Bundle, findings: list[Finding], *, policy: dict | None = None
+) -> list[Finding]:
+    """Require positive subject coverage, not merely a finding in the named rule."""
     from prechips.model import tolerance_requirements
+    from prechips.rules.resolution import HOLE_KINDS
 
     rows = []
-    required = bundle.policy.get("required", "unknown")
+    required = (bundle.policy if policy is None else policy).get("required", "unknown")
     if required == "unknown":
         required = {"required_policy": "*"}
     for name, selector in required.items():
         actual = {f.subject for f in findings if f.rule == name}
+        family = [finding for finding in findings if finding.rule == name]
         if isinstance(selector, list):
             subjects = selector
         elif selector == "setups":
@@ -131,7 +135,7 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
                 feature
                 for feature, item in bundle.feature_definitions.items()
                 if (
-                    item.get("kind") in {"hole", "counterbore", "thread"}
+                    item.get("kind") in HOLE_KINDS
                     if selector == "holes"
                     else bool(tolerance_requirements(item))
                 )
@@ -143,7 +147,12 @@ def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
         if not subjects and not actual:
             subjects = ["*"]
         for subject in subjects:
-            if any(value == subject or value.startswith(subject + ":") for value in actual):
+            # Lists and setup selectors name exact subjects. Feature selectors also
+            # cover structured member/shared dimensions and participating relationships.
+            match = [subject] if isinstance(selector, list) or selector == "setups" else subject
+            if any(
+                selector_match(finding, match, bundle) == SelectorMatch.MATCH for finding in family
+            ):
                 continue
             rows.append(
                 Finding(

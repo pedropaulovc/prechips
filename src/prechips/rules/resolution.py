@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from fractions import Fraction
+from typing import Literal
 
 UNKNOWN = "unknown"
 # Inch fields convert by float multiplication (3/8 in -> 9.524999999999999 mm), so a
@@ -33,6 +34,9 @@ HAND_FINISH = frozenset({"file_to_line"})
 HAND_THREAD = frozenset({"die_thread", "hand_tap"})
 TAP_OPS = frozenset({"tap", "hand_tap"})
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH | HAND_THREAD
+# These labels alone do not change material. Other bench actions still need a
+# bounded native effect before an earlier dimensional check can survive them.
+PRESERVATION_METADATA = frozenset({"inspect", "release", "scribe"})
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
 # Saw tool kind -> the machine kinds it cuts on. A slitting saw is a spindle-mounted
 # disk, not a bandsaw blade or hand saw: recognizing its station proves no arbor fit.
@@ -183,42 +187,551 @@ def op_entry(op, table, feature, requirement):
     return flat.get(requirement)
 
 
+def thread_class_acceptance(bundle, name) -> Literal["formal", "manual_functional"]:
+    """The explicit class policy authorized by a complete hardware-fit contract.
+
+    This does not establish thread identity, class, machining or physical fit.
+    """
+    feature = record(record(getattr(bundle, "feature_definitions", {})).get(name))
+    if feature.get("kind") not in {"thread", "threaded_hole"}:
+        return "formal"
+    for relationship in record(record(getattr(bundle, "features", {})).get("acceptance")).values():
+        relationship = record(relationship)
+        contract = record(relationship.get("contract"))
+        clauses = contract.get("accept")
+        if (
+            name in relationship.get("features", [])
+            and contract.get("kind") == "manual"
+            and contract.get("gauge_kind") == "mating_hardware"
+            and isinstance(clauses, list)
+            and bool(clauses)
+            and all(
+                isinstance(text, str) and text.strip() and text.strip() != UNKNOWN
+                for text in clauses
+            )
+            and _citations(contract.get("cite"))
+        ):
+            return "manual_functional"
+    return "formal"
+
+
+def op_check_targets(bundle, setup, op):
+    """Authored dimensional/part checks with explicit inspection, not geometry, ownership.
+
+    One shared record covers its explicit members; a final record selects only its
+    arriving member. Unknown selection never borrows the canonical or a sibling part.
+    ``op_entry`` remains the sole flat/scoped inspection-table precedence.
+    """
+    from prechips.model import tolerance_requirements
+
+    shared = op.get("inspect_workpieces")
+    shared_known = isinstance(shared, list) and bool(shared)
+    members = operation_members(bundle, setup, op)
+    selected = (
+        not registered_workpieces(bundle)
+        or shared_known
+        or "inspect_workpieces" not in op
+        and members is not None
+        and len(members) == 1
+    )
+    workpiece = (
+        shared[0]
+        if shared_known and len(shared) == 1
+        else members[0]
+        if not shared_known and members and len(members) == 1
+        else None
+    )
+    operation = f"{setup['id']}:{op['op']}"
+    targets = []
+
+    def append(name, requirement, kind, contract=None):
+        gauge = op_entry(op, "checks", name, requirement)
+        if gauge is None:
+            return
+        batch = (
+            kind == "dimensional" and shared_known and (len(shared) > 1 or "inspection_scope" in op)
+        )
+        resolved = selected and (kind != "manual" or not shared_known or len(shared) == 1)
+        owner = name if name is not None else "part"
+        subject = f"{owner}:{requirement}"
+        if batch:
+            subject = f"{operation}/{subject}"
+        elif workpiece is not None:
+            subject = f"{workpiece}/{subject}"
+        targets.append(
+            {
+                "identity": {
+                    "workpiece": None if batch else workpiece,
+                    "feature_owner": name,
+                    "requirement": requirement,
+                },
+                "kind": kind,
+                "setup_id": setup["id"],
+                "op_id": op["op"],
+                "op": operation,
+                "subject": subject,
+                "gauge": gauge,
+                "method": op_entry(op, "inspection_methods", name, requirement),
+                "contract": contract,
+                "shared_check_id": operation if batch else None,
+                "covered_workpieces": list(shared) if batch else [],
+                "selection_status": "pass" if resolved else UNKNOWN,
+            }
+        )
+
+    for name in op_features(op):
+        feature = record(bundle.feature_definitions.get(name))
+        requirements = (
+            tolerance_requirements(feature)
+            if feature
+            else [
+                requirement
+                for scope, requirement, _ in op_entries(op, "checks")
+                if scope in (None, name)
+                and requirement not in record(bundle.features.get("acceptance"))
+            ]
+        )
+        for requirement in dict.fromkeys(requirements):
+            append(name, requirement, "dimensional")
+    for requirement, relationship in record(bundle.features.get("acceptance")).items():
+        append(None, requirement, "manual", record(relationship).get("contract", UNKNOWN))
+    return targets
+
+
 def op_feature(op):
     """The one feature an op cuts or works on; ``None`` when absent or an inspect list."""
     feature = op.get("feature")
     return feature if isinstance(feature, str) else None
 
 
-def claim_refs(bundle, op):
-    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``; a
-    plan-owned transient (joint or process) feature claims its one plan label."""
+def registered_workpieces(bundle):
+    """Whether the plan explicitly requests instance ownership, including unknown input."""
+    return "workpieces" in bundle.plan
+
+
+def operation_members(bundle, setup, op=None):
+    """Selected live member ids, ``()`` for legacy plans, or unresolved ``None``.
+
+    Explicit qualified claims select only their named live members. Unqualified claims
+    select a member only when exactly one arrives; no canonical-face sibling fallback.
+    """
+    from prechips.material_routes import MaterialGraph
+
+    if not registered_workpieces(bundle):
+        return ()
+    if not isinstance(bundle.plan.get("workpieces"), dict):
+        return None
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    return _members_from_live(MaterialGraph(bundle.plan).members(sid), op)
+
+
+def _members_from_live(live, op):
+    """Apply current operation claims to the supplied live material members."""
+    if live is None:
+        return None
+    if isinstance(op, dict) and "workpiece_faces" in op:
+        claims = op["workpiece_faces"]
+        if (
+            not isinstance(claims, dict)
+            or not claims
+            or "faces" in op
+            or any(not known_refs(refs) for refs in claims.values())
+            or not set(claims) <= live
+        ):
+            return None
+        return tuple(claims)
+    return tuple(live) if len(live) == 1 else None
+
+
+def _operation_setup(bundle, op):
+    return next(
+        (setup for setup in bundle.plan["setups"] if any(item is op for item in setup["ops"])),
+        None,
+    )
+
+
+def claim_refs(bundle, op, setup=None):
+    """Current face identities: canonical refs for legacy, ``(member, ref)`` for instances."""
+    if "workpiece_faces" in op:
+        setup = setup if setup is not None else _operation_setup(bundle, op)
+        members = operation_members(bundle, setup, op)
+        if members is None or not registered_workpieces(bundle):
+            return UNKNOWN
+        return [(member, ref) for member in members for ref in op["workpiece_faces"][member]]
     if "faces" in op:
-        return op["faces"]
-    feature = record(bundle.feature_definitions.get(op_feature(op)))
-    owner = record(feature.get("joint")) or record(feature.get("preparation"))
-    return [owner["label"]] if owner else feature.get("faces", UNKNOWN)
+        refs = op["faces"]
+    else:
+        feature = record(bundle.feature_definitions.get(op_feature(op)))
+        owner = record(feature.get("joint")) or record(feature.get("preparation"))
+        refs = [owner["label"]] if owner else feature.get("faces", UNKNOWN)
+    if not registered_workpieces(bundle):
+        return refs
+    setup = setup if setup is not None else _operation_setup(bundle, op)
+    members = operation_members(bundle, setup, op)
+    if members is None or not known_refs(refs):
+        return UNKNOWN
+    return [(members[0], ref) for ref in refs]
 
 
 def known_refs(refs):
-    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
+    def known(ref):
+        if isinstance(ref, tuple):
+            return len(ref) == 2 and all(known(value) for value in ref)
+        return isinstance(ref, str) and ref.strip() not in {"", UNKNOWN}
+
+    return isinstance(refs, list) and bool(refs) and all(known(ref) for ref in refs)
 
 
-def owns_feature(bundle, op, name):
-    """Whether an op's explicit ``faces`` claim every declared face of feature ``name``.
+def face_identity_text(identity):
+    """Human-readable member-qualified face label; never an identity lookup key."""
+    return f"{identity[0]}:{identity[1]}" if isinstance(identity, tuple) else str(identity)
 
-    Ownership needs a known, nonempty feature face list and a known, nonempty explicit
-    claim that contains all of it; empty, unknown, malformed or partial claims never
-    establish it, and a label alone never does. A hole-family feature is owned only by a
-    complete-form action (drill/ream/bore/counterbore): a spot, tap, pilot or profile op
-    never becomes a hole's owner through its claim.
+
+def workpiece_face_mapping(bundle, facts, workpiece_id):
+    """Exact explicit member face lookup; the lookup alone does not prove protection."""
+    if workpiece_id not in record(bundle.plan.get("workpieces")):
+        return {}
+    return record(record(facts.get("workpiece_mapping")).get(workpiece_id))
+
+
+def face_mapping(bundle, facts, setup=None, workpiece_id=None):
+    """Native face lookup in the same identity domain as :func:`claim_refs`."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("mapping"))
+    if workpiece_id is not None:
+        if workpiece_id not in record(bundle.plan.get("workpieces")):
+            return {}
+        members = (workpiece_id,)
+    elif setup is not None:
+        from prechips.material_routes import MaterialGraph
+
+        members = MaterialGraph(bundle.plan).members(
+            setup.get("id") if isinstance(setup, dict) else setup
+        )
+    else:
+        members = record(bundle.plan.get("workpieces"))
+    return {
+        (member, ref): index
+        for member in members or ()
+        for ref, index in workpiece_face_mapping(bundle, facts, member).items()
+    }
+
+
+def member_protection_evidence(bundle, setup, member, facts=None):
+    """Bound native protection evidence, separate from declared live membership.
+
+    ``not_live`` means the identity does not belong to this arriving material. A
+    matching native containment ``error`` is a physical failure, never that identity
+    verdict; it must retain its reasons even while causal credit remains unavailable.
     """
-    if "faces" not in op:
+    from prechips.kernel import workpiece_inputs
+    from prechips.material_routes import MaterialGraph
+
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    result = {
+        "setup_id": sid,
+        "workpiece_id": member,
+        "status": UNKNOWN,
+        "reasons": [],
+        "proof": {},
+    }
+    registrations = bundle.plan.get("workpieces")
+    if not isinstance(registrations, dict):
+        return result
+    if member not in registrations:
+        return {**result, "status": "not_live"}
+    graph = MaterialGraph(bundle.plan)
+    live = graph.members(sid)
+    if live is not None and member not in live:
+        return {**result, "status": "not_live"}
+    if live is None:
+        return result
+    facts = record(getattr(bundle, "kernel", None)) if facts is None else facts
+    if facts.get("status") != "ok":
+        return result
+    detail = record(record(record(facts.get("setups")).get(sid)).get("workpieces"))
+    proof = record(detail.get(member))
+    paths = [
+        [{"split": edge.split, "output": edge.output} for edge in atom.path]
+        for atom in graph.nodes.get(sid, ())
+        if atom.workpieces is not None and member in atom.workpieces
+    ]
+    registration = record(workpiece_inputs(registrations, bundle.features.get("units"))).get(member)
+    if (
+        proof.get("workpiece_id") != member
+        or len(paths) != 1
+        or proof.get("partition_path") != paths[0]
+        or not isinstance(registration, dict)
+        or not isinstance(registration.get("pose"), dict)
+        or proof.get("registration") != registration
+    ):
+        return result
+    status = proof.get("status")
+    status = status if status in ("pass", "error") else UNKNOWN
+    reasons = proof.get("reasons")
+    reasons = (
+        [reason for reason in reasons if isinstance(reason, str)]
+        if isinstance(reasons, list)
+        else []
+    )
+    if status == "error" and not reasons:
+        reasons = ["the registered target is not contained in actual arriving stock"]
+    return {**result, "status": status, "reasons": reasons, "proof": proof}
+
+
+def inspection_preservation_evidence(bundle, receiver, op, feature, requirement, member):
+    """Requirement-specific native survival proof, never mere target containment.
+
+    The native ledger binds the descendant route, current registration and partition,
+    and exact scoped check/producer. Missing or mismatched proof remains debt.
+    """
+    from prechips.kernel import (
+        inspection_preservation_inputs,
+        inspection_preservation_ledger,
+        workpiece_inputs,
+    )
+    from prechips.material_routes import MaterialGraph
+
+    sid = receiver.get("id") if isinstance(receiver, dict) else receiver
+    setup = _operation_setup(bundle, op)
+    scope = record(op.get("inspection_scope"))
+    check_id = f"{setup['id']}:{op['op']}" if setup is not None else None
+    result = {"status": UNKNOWN, "reasons": [], "proof": {}, "receiver": sid}
+    if (
+        check_id is None
+        or member not in (op.get("inspect_workpieces") or [])
+        or not all(
+            isinstance(scope.get(key), str) and scope[key] != UNKNOWN for key in ("after", "before")
+        )
+    ):
+        return result
+    requests = [
+        row
+        for row in inspection_preservation_inputs(bundle)
+        if row.get("check_id") == check_id
+        and row.get("feature") == feature
+        and row.get("requirement") == requirement
+        and row.get("workpiece_id") == member
+        and row.get("after") == scope["after"]
+        and row.get("before") == scope["before"]
+    ]
+    if len(requests) != 1:
+        return result
+    nominal = requests[0]["nominal_mm"]
+    graph = MaterialGraph(bundle.plan)
+    paths = [
+        [{"split": edge.split, "output": edge.output} for edge in atom.path]
+        for atom in graph.nodes.get(sid, ())
+        if atom.workpieces is not None and member in atom.workpieces
+    ]
+    registration = record(
+        workpiece_inputs(bundle.plan.get("workpieces"), bundle.features.get("units"))
+    ).get(member)
+    facts = record(getattr(bundle, "kernel", None))
+    if (
+        len(paths) != 1
+        or not isinstance(registration, dict)
+        or not isinstance(registration.get("pose"), dict)
+        or facts.get("status") != "ok"
+    ):
+        return result
+    rows = record(record(facts.get("setups")).get(sid)).get("inspection_preservation")
+    if not isinstance(rows, list):
+        return result
+    expected = {
+        "model": "requirement_preservation_v1",
+        "check_id": check_id,
+        "feature": feature,
+        "requirement": requirement,
+        "workpiece_id": member,
+        "after": scope["after"],
+        "before": scope["before"],
+        "producer": scope["after"],
+        "receiver": sid,
+        "registration": registration,
+        "partition_path": paths[0],
+    }
+    matching = [
+        row
+        for row in rows
+        if isinstance(row, dict) and all(row.get(key) == value for key, value in expected.items())
+    ]
+    if len(matching) != 1:
+        return result
+    proof = matching[0]
+    reasons = proof.get("reasons")
+    reasons = (
+        [text for text in reasons if isinstance(text, str)] if isinstance(reasons, list) else []
+    )
+    if proof.get("status") == "error":
+        return {**result, "status": "error", "reasons": reasons, "proof": proof}
+    region = record(proof.get("region"))
+    indices, axis, planes = (region.get(key) for key in ("indices", "axis", "planes_mm"))
+    ledger = proof.get("operations")
+    expected_ops, unmodeled = [], []
+    active = False
+    for current in bundle.plan["setups"]:
+        carries_member = member in (graph.members(current["id"]) or ())
+        for entry in inspection_preservation_ledger(current):
+            subject = entry["subject"]
+            active |= subject == scope["after"]
+            if carries_member:
+                if entry["effect"] == "unmodeled":
+                    unmodeled.append(subject)
+                if active and (
+                    subject == scope["after"] or entry["do"] not in PRESERVATION_METADATA
+                ):
+                    expected_ops.append(subject)
+        if current["id"] == sid:
+            break
+    if unmodeled:
+        return {
+            **result,
+            "reasons": [
+                *reasons,
+                "material effects are unmodeled for " + ", ".join(unmodeled),
+            ],
+            "proof": proof,
+        }
+    complete = (
+        region.get("model") == "planar_support_v1"
+        and isinstance(indices, list)
+        and bool(indices)
+        and all(
+            isinstance(index, int) and not isinstance(index, bool) and index >= 0
+            for index in indices
+        )
+        and isinstance(axis, list)
+        and len(axis) == 3
+        and all(number(value) and math.isfinite(value) for value in axis)
+        and sum(value * value for value in axis) > 0
+        and isinstance(planes, list)
+        and len(planes) == 2
+        and all(number(value) and math.isfinite(value) for value in planes)
+        and planes[0] != planes[1]
+        and number(region.get("nominal_mm"))
+        and region.get("nominal_mm") == nominal
+        and same_length(abs(planes[1] - planes[0]), nominal)
+        and active
+        and isinstance(ledger, list)
+        and ledger == expected_ops
+    )
+    status = "pass" if proof.get("status") == "pass" and complete else UNKNOWN
+    return {**result, "status": status, "reasons": reasons, "proof": proof}
+
+
+def member_protection_status(bundle, setup, member, facts=None):
+    """True only for protected material; False only for a non-live identity.
+
+    A native containment error withholds credit (None), but is not a different
+    material identity. Geometry rules consume ``member_protection_evidence`` to
+    report that known physical error without suppressing authored order errors.
+    """
+    status = member_protection_evidence(bundle, setup, member, facts)["status"]
+    return False if status == "not_live" else True if status == "pass" else None
+
+
+def canonical_face_mapping(bundle, facts, setup, *, workpiece_id=None):
+    """Canonical labels for one proved arriving member; never a global sibling map."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("mapping"))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    return workpiece_face_mapping(bundle, facts, members[0])
+
+
+def feature_mapping(bundle, facts, setup, *, workpiece_id=None):
+    """Canonical feature labels for one proved arriving member's native faces."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("features"))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    return record(record(facts.get("workpiece_features")).get(members[0]))
+
+
+def setup_member_geometry(bundle, setup, field, facts=None, *, workpiece_id=None):
+    """Select per-member setup geometry explicitly, retaining the legacy field contract."""
+    facts = record(getattr(bundle, "kernel", None)) if facts is None else facts
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    detail = record(record(facts.get("setups")).get(sid))
+    if not registered_workpieces(bundle):
+        return record(detail.get(field))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    qualified = record(detail.get(f"workpiece_{field}"))
+    if members[0] in qualified:
+        return record(qualified[members[0]])
+    return {
+        name: row
+        for name, row in record(detail.get(field)).items()
+        if isinstance(row, dict) and row.get("workpiece_id") == members[0]
+    }
+
+
+def operation_material_status(
+    bundle, receiver, producer, feature, *, op=None, producer_op=None, workpiece_id=None
+):
+    """Member-aware causal survival; native protection never comes from a sibling."""
+    from prechips.material_routes import feature_material_status
+
+    target = receiver.get("id") if isinstance(receiver, dict) else receiver
+    source = producer.get("id") if isinstance(producer, dict) else producer
+    if not registered_workpieces(bundle):
+        return feature_material_status(bundle.plan, target, source, feature, bundle)
+    members = (
+        (workpiece_id,) if workpiece_id is not None else operation_members(bundle, receiver, op)
+    )
+    if members is None:
+        return None
+    prior = operation_members(bundle, producer, producer_op) if producer_op is not None else None
+    selected = operation_members(bundle, receiver, op) if op is not None else None
+    statuses = []
+    for member in members:
+        if (
+            prior is not None
+            and member not in prior
+            or selected is not None
+            and member not in selected
+        ):
+            statuses.append(False)
+            continue
+        status = feature_material_status(
+            bundle.plan, target, source, feature, bundle, workpiece_id=member
+        )
+        protected = member_protection_status(bundle, receiver, member)
+        statuses.append(
+            False
+            if status is False or protected is False
+            else None
+            if producer_op is not None and prior is None or op is not None and selected is None
+            else status and protected
+        )
+    return False if False in statuses else True if statuses and all(statuses) else None
+
+
+def owns_feature(bundle, op, name, *, setup=None, workpiece_id=None):
+    """Whether a complete explicit claim owns every face of the selected member's feature."""
+    if "faces" not in op and "workpiece_faces" not in op:
         return False
     feature = record(bundle.feature_definitions.get(name))
     if feature.get("kind") in HOLE_KINDS and op.get("do") not in COMPLETE_FORM:
         return False
-    claimed, declared = op["faces"], feature.get("faces", UNKNOWN)
-    return known_refs(claimed) and known_refs(declared) and set(declared) <= set(claimed)
+    claimed, declared = claim_refs(bundle, op, setup), feature.get("faces", UNKNOWN)
+    if not known_refs(claimed) or not known_refs(declared):
+        return False
+    if not registered_workpieces(bundle):
+        return set(declared) <= set(claimed)
+    members = operation_members(bundle, setup or _operation_setup(bundle, op), op)
+    if members is None:
+        return False
+    selected = (workpiece_id,) if workpiece_id is not None else members
+    return any(
+        member in members and {(member, ref) for ref in declared} <= set(claimed)
+        for member in selected
+    )
 
 
 EXPORTED_FRAMES = "features.frames"
@@ -437,11 +950,12 @@ def setup_items(bundle, setup):
     the hold's fixture and dividing head (workholding); its chuck, parallels, riser, jaw
     bar / buttons, support, clamps, stop, supports and support blocks (fixtures) and
     alignment indicator (a gauge); the zero's touch tools (spindle), holders and gauges (a
-    tool touch's Z measuring gauge too), the transfer's tool (spindle) and gauge; then each
-    op's filing guide (its buttons a fixture, its template and gauge gauges), guided
-    sweep (its fixture a fixture, its master a gauge), tool,
-    holder, inspection gauges (``checks`` and ``missing_requirements``) and process-hold
-    gauges. A shop-made holding item is followed by the tool of each of its make
+    tool touch's Z measuring gauge too) and mounted-saw fixture contact pads, the transfer's
+    tool (spindle) and gauge; then each op's filing guide (its buttons a fixture, its template
+    and gauge gauges), guided sweep (its fixture a fixture, its master a gauge), mounted-saw
+    capture fixture and moving clamp (fixtures), tool, holder, inspection gauges (``checks``
+    and ``missing_requirements``) and process-hold gauges. A shop-made holding item is
+    followed by the tool of each of its make
     operations (:func:`make_ops`), a ``tools`` item only (:func:`make_tool`). One reference
     two kinds of slot select in two categories is two items. An item is its category and
     reference from here on: every reader uses that pair, never the bare key again."""
@@ -461,6 +975,19 @@ def setup_items(bundle, setup):
     slots = (("tool", "spindle"), ("holder", "holders"), ("gauge", "gauges"), ("z_gauge", "gauges"))
     for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
         uses += [(kind, record(touch).get(key)) for key, kind in slots]
+        touch = record(touch)
+        face = touch.get("face", touch.get("z_face"))
+        if touch.get("method") == "mounted_saw_side" and isinstance(face, str):
+            target, separator, side = face.removeprefix("fixture:").rpartition(":")
+            reference, slash, component = target.rpartition("/")
+            if (
+                face.startswith("fixture:")
+                and separator
+                and side in {"+z", "-z"}
+                and slash
+                and component
+            ):
+                uses.append(("fixtures", reference))
     transfer = record(zero.get("transfer"))
     uses += [("spindle", transfer.get("tool")), ("gauges", transfer.get("gauge"))]
     for op in setup.get("ops") or []:
@@ -472,6 +999,8 @@ def setup_items(bundle, setup):
         uses += [("fixtures", sweep.get("fixture")), ("gauges", sweep.get("master"))]
         uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
         uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
+        capture = record(op.get("saw_capture"))
+        uses += [("fixtures", capture.get(key)) for key in ("fixture", "moving_clamp")]
         uses += [("gauges", gauge) for _, _, gauge in op_entries(op, "checks")]
         uses += [("gauges", gauge) for gauge in record(op.get("missing_requirements")).values()]
         process_holds = op.get("process_holds")
@@ -894,21 +1423,36 @@ def jaw_top_z(bundle, setup, hold, scale):
     return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
-def operations(bundle, feature=None, owned=False):
-    """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
+def operations(bundle, feature=None, owned=False, *, workpiece_id=None):
+    """Every (setup, op), optionally scoped by feature and physical member.
 
-    An inspect op naming a feature list selects each feature it names. With ``owned`` an
-    op also selects a feature it does not name when its explicit faces claim the whole
-    feature (``owns_feature``). Labels keep describing the op's own feature, so
-    label-scoped callers (chains, sizing, inspection) keep the default.
+    Complete explicit claims may own another feature only when ``owned`` is true.
+    A member selector never admits an ambiguous or different-member operation.
     """
+    from prechips.material_routes import MaterialGraph
+
+    graph = None
+
+    def selected_members(setup, op):
+        nonlocal graph
+        if not registered_workpieces(bundle):
+            return ()
+        if not isinstance(bundle.plan.get("workpieces"), dict):
+            return None
+        if graph is None:
+            graph = MaterialGraph(bundle.plan)
+        return _members_from_live(graph.members(setup.get("id")), op)
+
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
-        if feature is None
-        or feature in op_features(op)
-        or (owned and owns_feature(bundle, op, feature))
+        if (workpiece_id is None or workpiece_id in (selected_members(setup, op) or ()))
+        and (
+            feature is None
+            or feature in op_features(op)
+            or (owned and owns_feature(bundle, op, feature, setup=setup, workpiece_id=workpiece_id))
+        )
     ]
 
 

@@ -558,7 +558,7 @@ feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, t
 direction = "apex_to_base"  # author's choice: hand traverse from T2 Z0 to -1.5
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
-note = "Forms the dome and with it the north end of the journal (JournalLength). Rough first, row by row down the ROUGH table on S2 sheet 3: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take the FINISH table. The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
+note = "Forms the dome and with it the north end of the journal (JournalLength). Rough first, row by row down this operation's rough-stair table: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take this operation's sphere finish table (tool columns). The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
 
 [setups.ops.checks]
 height = "calipers"         # author's choice: axial outside-jaw contact at apex and visible base rim
@@ -741,7 +741,7 @@ feed_mm_rev = 0.05          # example (plausible, not measured); .0020 in/rev, t
 direction = "apex_to_base"  # author's choice
 rough_allowance_mm = 0.2    # author's choice, on diameter: the rough stair leaves 0.1 normal to the sphere for the finish table
 contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: rough stair rows, then the finish table (tool columns)
-note = "Rough first, row by row down the ROUGH table on S3 sheet 3: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take the FINISH table. The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
+note = "Rough first, row by row down this operation's rough-stair table: each row is one pass, 0.10 deep in Z — at the row's Z, feed in along X from outside the work to the row's X, then back out. Then take this operation's sphere finish table (tool columns). The 0.20 left on Ø is the finish allowance the rough rows leave, not a pass depth."
 
 [setups.ops.checks]
 height = "calipers"         # author's choice: axial outside-jaw contact at apex and base rim

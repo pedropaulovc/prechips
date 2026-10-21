@@ -646,11 +646,38 @@ def test_measured_gauge_resolution_preserves_capability_and_trust(
         encoding="utf-8",
     )
     bundle = load_bundle(path)
-    row = next(row for row in inspection.evaluate(bundle) if row.subject == "socket:dia")
-    assert row.status == status
-    assert row.numbers["limits"] == [10.0, 10.125]
+    # This matrix owns gauge capability, not final-cut ordering. The full assembly
+    # route contains later cuts with unproved face effects and cannot prove a final
+    # socket check merely because the gauge itself is capable.
+    setup = bundle.plan["setups"][0]
+    actual, _, numbers = inspection.requirement_check(
+        bundle, "socket", "dia", setup["ops"][0], setup=setup
+    )
+    assert actual == status
+    assert numbers["limits"] == [10.0, 10.125]
+    assert numbers["evaluation"] == "inspection_plan"
+    assert numbers["part_result"] == "not_recorded"
     if status != "unknown":
-        assert row.numbers["resolution_mm"] == pytest.approx(resolution_mm)
+        assert numbers["resolution_mm"] == pytest.approx(resolution_mm)
+
+
+def test_capable_joint_gauge_does_not_prove_a_check_survives_later_unbounded_work(tmp_path):
+    bundle = _load(tmp_path)
+    bundle.inventory.setdefault("gauges", {})["gauge"] = {
+        "kind": "bore_gauge",
+        "range_mm": [0, 20],
+        "resolution_mm": 0.125,
+        "verify": False,
+    }
+    setup = bundle.plan["setups"][0]
+    capability, _, _ = inspection.requirement_check(
+        bundle, "socket", "dia", setup["ops"][0], setup=setup
+    )
+    assert capability == "pass"
+    row = next(row for row in inspection.evaluate(bundle) if row.subject == "socket:dia")
+    assert row.status == "unknown"
+    assert row.numbers["limits"] == [10.0, 10.125]
+    assert row.numbers["unresolved_cut_effects"] == ["P:10", "J:10"]
 
 
 @pytest.mark.parametrize("final_cut, status", [(False, "error"), (True, "pass")])

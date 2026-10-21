@@ -730,6 +730,9 @@ def test_an_inspect_ops_set_up_sketches_are_drawn_beside_the_setup_picture(engin
             "role": "inspection",
             "label": view["title"],
             "view_ordinal": ordinal,
+            "id": f"inspection:{ordinal}",
+            "selection_group": f"inspection:{ordinal}",
+            "annotations": [],
         }
         assert 0 < panel["height_px"] <= 1792
         cursor += panel["height_px"]

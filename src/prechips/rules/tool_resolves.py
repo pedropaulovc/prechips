@@ -2,7 +2,7 @@
 
 A non-spindle saw cut uses a ``bandsaw`` blade on a mill, bench or bandsaw, or a
 ``hand_saw`` at a bench or manual station. A mill-mounted ``slitting_saw`` instead needs
-an arbor assembly; its finite disk and mount are not modelled by the planar cut.
+an arbor assembly; its measured fit is resolved once by the host normalizer.
 The cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
 op has no tool: it names its process, an outside service or in-house consumables. A
 shop-made item's make operation names a ``tools`` key and states its cutting data.
@@ -11,13 +11,17 @@ shop-made item's make operation names a ``tools`` key and states its cutting dat
 from ..findings import Finding
 from ..measurements import length_debt, length_fact, limits_fact
 from ..thread_specs import match as thread_match
-from .geometry_common import _AXIAL_LATHE_ACTIONS
+from ..thread_specs import selected_class_status
+from .geometry_common import (
+    _AXIAL_LATHE_ACTIONS,
+    mounted_saw_assembly_evidence,
+    mounted_saw_inputs,
+)
 from .resolution import (
     HAND_THREAD,
     MANUAL,
     SAW_MACHINES,
     SAW_OPS,
-    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
     UNRESOLVED_SAW_MODEL_REASON,
     WORKHOLDING_CATEGORIES,
@@ -40,6 +44,7 @@ from .resolution import (
     shop_made_item,
     slitting_saw,
     spindle_saw,
+    thread_class_acceptance,
     uncertain,
 )
 
@@ -89,48 +94,33 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     problems = []
     station = saw_station(bundle, setup, op)
     if spindle_saw(bundle, setup, op):
-        model_reason = (
-            SLITTING_SAW_MODEL_REASON if slitting_saw(bundle, op) else UNRESOLVED_SAW_MODEL_REASON
-        )
+        mounted = mounted_saw_inputs(bundle, setup, op)
+        status, reasons = mounted_saw_assembly_evidence(mounted)
+        blade = record(mounted.get("blade"))
+        diagnostic_dia = blade.get("dia_mm", UNKNOWN)
+        if diagnostic_dia == UNKNOWN:
+            # Display a refused declaration without resolving or admitting it a second time.
+            diagnostic_dia = record(mounted.get("diagnostics")).get("blade_diameter_mm", UNKNOWN)
         holder_ref = op.get("holder", UNKNOWN)
         holder = record(resolve(bundle, "holders", holder_ref))
         nums.update(
             holder=holder_ref,
             arbor=record(tool).get("arbor", UNKNOWN),
-            arbor_fit=UNKNOWN,
+            arbor_fit="pass" if status == "pass" else UNKNOWN,
             spindle_interface=record(record(machine).get("spindle")).get("taper", UNKNOWN),
             holder_interface=holder.get("taper", holder.get("standard", UNKNOWN)),
-            model_reason=model_reason,
+            blade_diameter_mm=diagnostic_dia,
+            kerf_mm=blade.get("kerf_mm", UNKNOWN),
+            mounted_saw=mounted,
         )
-        missing = [model_reason]
-        debts = []
-        category, reference, _ = select(bundle, op.get("tool"), "tools")
-        for field, label in (("dia", "blade_diameter_mm"), ("kerf", "kerf_mm")):
-            fact = length_fact(record(tool), field, require_measured=False)
-            value = fact["value"] if fact["verified"] else UNKNOWN
-            nums[label] = value
-            if number(value) and value <= 0:
-                problems.append(f"blade {field} must be positive")
-            elif not number(value):
-                missing.append(f"known, verified positive blade {field}")
-            debt = length_debt(record(tool), field, category, reference)
-            if debt is not None:
-                debts.append(debt)
-        if debts:
-            nums["measurements"] = debts
-        if not holder or uncertain(holder):
-            missing.append("resolved, verified mounted arbor/holder")
-        if machine and holder and not any(uncertain(item) for item in (machine, holder)):
-            spindle_interface = nums["spindle_interface"]
-            holder_interface = nums["holder_interface"]
-            if (
-                all(
-                    isinstance(value, str) and value.strip() and value != UNKNOWN
-                    for value in (spindle_interface, holder_interface)
-                )
-                and spindle_interface != holder_interface
-            ):
-                problems.append("holder interface does not match machine")
+        if status == "error":
+            problems.extend(reasons)
+        missing = reasons if status != "error" else []
+        if not slitting_saw(bundle, op):
+            status = UNKNOWN
+            missing.append(UNRESOLVED_SAW_MODEL_REASON)
+        if mounted.get("measurement_debts"):
+            nums["measurements"] = mounted["measurement_debts"]
         if station == UNKNOWN:
             missing.append("resolved, verified slitting saw and mill")
         if station == "wrong_station":
@@ -143,13 +133,20 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
         return Finding(
             "tool_resolves",
             subject,
-            "error" if problems else UNKNOWN,
+            "error" if problems else UNKNOWN if missing else "pass",
             nums,
             [
                 "inventory spindle, selected holder, blade dia and kerf",
                 "docs/rules-tools.md: Shop-made tooling and saws",
             ],
-            f"{subject}: " + "; ".join(problems or missing) + ".",
+            f"{subject}: "
+            + (
+                "; ".join(problems or missing)
+                if problems or missing
+                else "the measured finite blade and complete arbor envelope fit the spindle, "
+                "pilot and blade thickness, with tightening retention and matching rotation"
+            )
+            + ".",
         )
     scribed_blade = nums["tool_kind"] == "bandsaw" and "follows" in op
     if station == "no_vertical_mode":
@@ -333,6 +330,18 @@ def _manual_thread(bundle, subject, op):
         nums[field] = {"required": required, cutter: actual}
         if field == "thread":
             matches = thread_match(required, actual)
+        elif field == "thread_class":
+            class_status = selected_class_status(
+                feature,
+                record(tool),
+                acceptance=thread_class_acceptance(bundle, op.get("feature"))
+                if tapping
+                else "formal",
+            )
+            if class_status == "not_adopted":
+                nums[field]["adoption"] = "not_adopted"
+                continue
+            matches = {"match": True, "mismatch": False}.get(class_status)
         else:
             matches = (
                 required.strip().casefold() == actual.strip().casefold()

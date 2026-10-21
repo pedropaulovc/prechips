@@ -7,22 +7,25 @@ duplicate on a finished hole. Contour/form starts must still be deterministic fa
 import math
 
 from ..findings import Finding
-from ..material_routes import feature_material_status, setup_lineage
+from ..material_routes import setup_lineage
 from ..measurements import angle_fact, length_debt
 from ..process_features import process_of
-from ..thread_specs import match
+from ..thread_specs import match, selected_class_status
 from .resolution import (
     TAP_OPS,
     UNKNOWN,
     length_mm,
     number,
     op_feature,
+    operation_material_status,
+    operation_members,
     operations,
     record,
     resolve,
     same_length,
     select,
     setup_frame,
+    thread_class_acceptance,
     uncertain,
 )
 
@@ -40,8 +43,9 @@ def _z(value):
 def _banded_starts(bundle):
     """({feature: [error clause]}, {feature: [unknown clause]}) for contour/form ops whose
     ``z_from`` is the face an earlier op in the setup leaves only within its ``to_z_band``
-    (the last op leaving that Z decides). A band with an unknown end still makes its own
-    ``to_z`` a banded face; whether it holds another start is then unknown."""
+    (the last applicable op leaving that Z decides separately for each selected member).
+    A band with an unknown end still makes its own ``to_z`` a banded face; whether it
+    holds another start is then unknown."""
     errors, unknowns = {}, {}
     for setup in bundle.plan["setups"]:
         ops = setup["ops"]
@@ -49,7 +53,8 @@ def _banded_starts(bundle):
             start = op.get("z_from")
             if not _forms(op) or not number(start):
                 continue
-            maybe = []  # later ops whose partly unknown band may hold the start
+            selected = operation_members(bundle, setup, op)
+            producers = []
             for earlier in reversed(ops[:index]):
                 to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
                 banded = isinstance(band, list) and len(band) == 2
@@ -59,25 +64,43 @@ def _banded_starts(bundle):
                 same = same_length(to_z, start)
                 if not same and not (banded and (not known or min(band) <= start <= max(band))):
                     continue
-                if not banded:
-                    break
-                leader = (
-                    f"{setup['id']} op {op['op']} starts at Z {start:g}, which op {earlier['op']}"
+                producers.append(
+                    (earlier, band, banded, known, same, operation_members(bundle, setup, earlier))
                 )
-                lo, hi = sorted(band) if known else band
-                if same or known:
-                    # Certain whatever the later partly unknown bands hold: if one holds
-                    # the start it is banded there, else this band leaves it.
-                    errors.setdefault(op_feature(op), []).append(
-                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
-                        "that face at a deterministic to_z first"
+            for member in selected or (None,):
+                maybe = []  # later ops whose partly unknown band may hold this member's start
+                member_label = f" member {member}" if selected and len(selected) > 1 else ""
+                for earlier, band, banded, known, same, prior in producers:
+                    if member is not None and prior is not None and member not in prior:
+                        continue
+                    if selected is None or prior is None:
+                        maybe.append(
+                            f"{setup['id']} op {earlier['op']} start-face member"
+                            f"{' ' + str(member) if member_label else ''} is unresolved"
+                        )
+                        continue
+                    if not banded:
+                        break
+                    leader = (
+                        f"{setup['id']} op {op['op']}{member_label} starts at Z {start:g}, "
+                        f"which op {earlier['op']}"
                     )
-                    maybe = []
-                    break
-                # Unknown until known not to hold it: keep scanning the earlier producers.
-                maybe.append(f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it")
-            if maybe:
-                unknowns.setdefault(op_feature(op), []).extend(maybe)
+                    lo, hi = sorted(band) if known else band
+                    if same or known:
+                        # Certain whatever the later partly unknown bands hold: if one holds
+                        # the start it is banded there, else this band leaves it.
+                        errors.setdefault(op_feature(op), []).append(
+                            f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}; an op must leave "
+                            "that face at a deterministic to_z first"
+                        )
+                        maybe = []
+                        break
+                    # Unknown until known not to hold it: keep scanning this member's producers.
+                    maybe.append(
+                        f"{leader} leaves anywhere in {_z(lo)} to {_z(hi)}, which may hold it"
+                    )
+                if maybe:
+                    unknowns.setdefault(op_feature(op), []).extend(maybe)
     return errors, unknowns
 
 
@@ -85,9 +108,11 @@ def _label(setup, op):
     return f"{setup['id']}:{op['op']}"
 
 
-def _material(bundle, setup, producer, name):
+def _material(bundle, setup, producer, name, *, op=None, producer_op=None):
     """Retained-material proof; missing routing is debt, never a different blank."""
-    status = feature_material_status(bundle.plan, setup["id"], producer["id"], name, bundle)
+    status = operation_material_status(
+        bundle, setup, producer, name, op=op, producer_op=producer_op
+    )
     if setup["id"] == producer["id"]:
         return status
     lineage = setup_lineage(bundle.plan, setup["id"])
@@ -188,7 +213,7 @@ def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=No
     elif sum(a * b for a, b in zip(source_axis, target_axis, strict=True)) < 1 - 1e-9:
         errors.append("spot prerequisite and target hole have different directed axes")
     for name in (source, target):
-        material = _material(bundle, setup, other, name)
+        material = _material(bundle, setup, other, name, op=op, producer_op=cut)
         if material is False:
             errors.append(f"spot prerequisite does not belong to the target material ({name})")
         elif material is None:
@@ -241,7 +266,7 @@ def _earlier(bundle, setup, op, target, action, route, positions):
     for other, cut in reversed(route[: positions[id(op)]]):
         if op_feature(cut) not in (target, UNKNOWN) or cut.get("do") not in {action, UNKNOWN}:
             continue
-        material = _material(bundle, setup, other, target)
+        material = _material(bundle, setup, other, target, op=op, producer_op=cut)
         if material is not False:
             certain = cut.get("do") == action and op_feature(cut) == target
             return other, cut, material if certain else None
@@ -264,7 +289,7 @@ def _drill_preparation(bundle, setup, op, target, route, positions, prepared):
     for earlier_setup, earlier in reversed(route[: positions[id(op)]]):
         if op_feature(earlier) != target or earlier.get("do") != "drill":
             continue
-        carried = _material(bundle, setup, earlier_setup, target)
+        carried = _material(bundle, setup, earlier_setup, target, op=op, producer_op=earlier)
         if carried is False:
             continue
         bad, debt, source, _ = prepared[id(earlier)]
@@ -290,7 +315,9 @@ def _drill_preparation(bundle, setup, op, target, route, positions, prepared):
                 errors.extend(bad)
                 unknown.extend(debt)
             else:
-                survives = _material(bundle, setup, source_setup, target)
+                survives = _material(
+                    bundle, setup, source_setup, target, op=op, producer_op=source_op
+                )
                 if survives is False:
                     errors.append(f"{_label(setup, op)} initial spot is on different material")
                 elif survives is None:
@@ -318,7 +345,9 @@ def _turned_blank(bundle, setup, op, name, route, positions):
     errors, unknown, candidates = [], [], []
     for other, cut in route[: positions[id(op)]]:
         if op_feature(cut) == name and cut.get("do") in {"rough_turn", "finish_turn", "turn"}:
-            candidates.append((other, cut, _material(bundle, setup, other, name)))
+            candidates.append(
+                (other, cut, _material(bundle, setup, other, name, op=op, producer_op=cut))
+            )
     if not candidates:
         return [], ["no earlier turned male blank/shoulder preparation is established"], UNKNOWN
     eligible = [candidate for candidate in candidates if candidate[2] is not False]
@@ -415,7 +444,7 @@ def evaluate(bundle):
             for setup, op in route:
                 if op["do"] != "die_thread":
                     continue
-                if _material(bundle, setup, setup, name) is False:
+                if _material(bundle, setup, setup, name, op=op, producer_op=op) is False:
                     errors.append("external thread die operation is on different retained material")
                 bad, debt, producer = _turned_blank(bundle, setup, op, name, all_ops, positions)
                 errors.extend(bad)
@@ -507,14 +536,10 @@ def evaluate(bundle):
                 hand, actual_hand = feature.get("thread_hand"), tap.get("thread_hand")
                 required_class = feature.get("thread_class", UNKNOWN)
                 selected_class = tap.get("thread_class", UNKNOWN)
-                class_match = (
-                    required_class.strip().casefold() == selected_class.strip().casefold()
-                    if isinstance(required_class, str)
-                    and isinstance(selected_class, str)
-                    and required_class.strip().casefold() not in {"", UNKNOWN}
-                    and selected_class.strip().casefold() not in {"", UNKNOWN}
-                    else None
+                class_status = selected_class_status(
+                    feature, tap, acceptance=thread_class_acceptance(bundle, name)
                 )
+                class_match = {"match": True, "mismatch": False}.get(class_status)
                 tap_checks.append(
                     {
                         "operation": _label(setup, op),
@@ -528,6 +553,8 @@ def evaluate(bundle):
                         "class_match": class_match,
                     }
                 )
+                if class_status == "not_adopted":
+                    tap_checks[-1]["class_adoption"] = "not_adopted"
                 if designation is False:
                     errors.append("selected tap thread differs from feature thread designation")
                 elif designation is None:
@@ -539,7 +566,7 @@ def evaluate(bundle):
                     unknown.append("feature or selected tap thread hand is unresolved")
                 if class_match is False:
                     errors.append("selected tap class differs from feature thread class")
-                elif class_match is None:
+                elif class_status == UNKNOWN:
                     unknown.append("feature or selected tap thread class is unresolved")
                 if not tap or uncertain(tap):
                     unknown.append("the selected tap identity is unresolved or unconfirmed")

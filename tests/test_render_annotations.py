@@ -164,6 +164,132 @@ def test_join_only_annotations_label_only_printed_checkpoints_not_raw_profile_po
     _assert_table_keys(waypoints)
 
 
+@pytest.mark.parametrize("scale", [1.0, 25.4])
+@pytest.mark.parametrize("levels", [[-1.0, -2.0], [-0.5, -1.0, -1.5, -2.0], "unknown"])
+def test_linear_outline_keys_keep_final_depth_identity_without_redrawing_axial_levels(
+    scale, levels
+):
+    points = [[0, 0], [4, 0], [4, 3], [0, 3], [0, 0]]
+    numbers = {
+        "operations": [{"op": 10, "dro_to_z": -2.0, "z_levels": {"levels": levels}}],
+        "profiles": [
+            {"op": 20, "cutter_centre": []},
+            {
+                "op": 10,
+                "stage": "finish",
+                "contour": {"method": "linear_table"},
+                "cutter_centre": points,
+                "dro_to_z": -2.0,
+                "cut_order": "conventional",
+            },
+        ],
+    }
+
+    paths, waypoints = contour_annotations(numbers, scale, "S1")
+    tables = coordinates.checkpoints("S1:10", numbers, 10)
+
+    assert len(tables) == 1
+    assert all(table["kind"] == table["method"] == "linear_table" for table in tables)
+    assert [table["profile_index"] for table in tables] == [1]
+    assert [table["path_index"] for table in tables] == [0]
+    assert tables[0]["material_scope"] == "final_depth"
+    assert paths == [
+        {"op": "10", "xy": [[x * scale, y * scale] for x, y in points], "directed": True}
+    ]
+    assert [waypoint["label"] for waypoint in waypoints] == ["P1", "P2", "P3", "P4"]
+    for vertex, waypoint in enumerate(waypoints):
+        assert waypoint["xy"] == [value * scale for value in points[vertex]]
+        vertices = [0, 4] if vertex == 0 else [vertex]
+        assert waypoint["rows"] == [
+            table["rows"][index][0] for index in vertices for table in tables
+        ]
+        assert all(" finish linear path 1 final depth point " in row for row in waypoint["rows"])
+        assert all(
+            row != coordinates.row_id("S1:10", "line_table", {"stage": "finish"}, vertex)
+            for row in waypoint["rows"]
+        )
+    assert [row[2] for table in tables for row in table["rows"]] == [-2.0] * 5
+    _assert_table_keys(waypoints)
+
+
+def test_cold_linear_outline_keeps_final_depth_row_ids_when_schedule_is_unknown():
+    points = [[0, 0], [4, 0], [4, 3]]
+    numbers = {
+        "operations": [{"op": 10, "dro_to_z": -2.0, "z_levels": {"levels": "unknown"}}],
+        "profiles": [
+            {
+                "op": 10,
+                "stage": "finish",
+                "contour": {"method": "linear_table"},
+                "cutter_centre": points,
+                "dro_to_z": -2.0,
+            }
+        ],
+    }
+
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
+    final = coordinates.checkpoints("S1:10", numbers, 10)
+
+    assert paths == [{"op": "10", "xy": points, "directed": False}]
+    assert [waypoint["label"] for waypoint in waypoints] == ["P1", "P2", "P3"]
+    assert len(final) == 1
+    assert [row[2] for table in final for row in table["rows"]] == [-2.0] * len(points)
+    for vertex, waypoint in enumerate(waypoints):
+        assert waypoint["rows"] == [final[0]["rows"][vertex][0]]
+        assert waypoint["rows"] == [f"S1:10 finish linear path 1 final depth point {vertex}"]
+    numbers["operations"][0]["z_levels"]["levels"] = [-1.0, -2.0]
+    assert coordinates.checkpoints("S1:10", numbers, 10) == final
+    assert contour_annotations(numbers, 1.0, "S1") == (paths, waypoints)
+    _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize("unknown", [None, ["unknown", 5], [5, "unknown"]])
+def test_canonical_linear_outline_with_unknown_geometry_never_draws_known_ends(unknown):
+    numbers = {
+        "operations": [{"op": 10, "z_levels": {"levels": [-1.0, -2.0]}}],
+        "profiles": [
+            {
+                "op": 10,
+                "stage": "finish",
+                "contour": {"method": "linear_table"},
+                "cutter_centre": [[0, 0], unknown, [10, 10]],
+            }
+        ],
+    }
+
+    assert contour_annotations(numbers, 1.0, "S1") == ([], [])
+
+
+def test_canonical_linear_raster_depths_do_not_duplicate_passes_or_add_outline_keys():
+    pieces = [[[0, 0], [10, 0]], [[10, 2], [0, 2]]]
+    numbers = {
+        "operations": [{"op": 10, "z_levels": {"levels": [-1.0, -2.0]}}],
+        "profiles": [
+            {
+                "op": 10,
+                "stage": "finish",
+                "contour": {"method": "linear_table"},
+                "cutter_centre": pieces,
+                "raster": {"keep_out": True},
+                "cut_order": "climb",
+            }
+        ],
+    }
+
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
+
+    assert paths == [
+        {
+            "op": "10",
+            "xy": piece,
+            "directed": True,
+            "raster": {"pass": index + 1, "of": 2, "keep_out": True},
+        }
+        for index, piece in enumerate(pieces)
+    ]
+    assert waypoints == []
+
+
 @pytest.mark.parametrize("kind", ["arc_table", "line_table"])
 @pytest.mark.parametrize("scale", [1.0, 25.4])
 def test_singleton_hole_table_keeps_its_real_waypoint_without_a_connected_path(kind, scale):

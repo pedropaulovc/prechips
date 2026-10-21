@@ -4,6 +4,7 @@ import copy
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from test_input_contracts import PLAN, bundle_files
 
 from prechips.inputs import BadInput, _finished_feature_owners, load_bundle
@@ -116,8 +117,10 @@ def test_same_bar_siblings_route_to_one_threaded_assembly_without_new_supplies()
     assert graph.descriptor("P3", OWNERS.finished_feature_owners)["finished_solids"] is None
     assert graph.descriptor("C1", OWNERS.finished_feature_owners) == {
         "roots": ["stock"],
-        "partitions": [{"split": "P3", "output": "bar_remnant"}],
+        "partitions": [{"root": "stock", "path": [{"split": "P3", "output": "bar_remnant"}]}],
         "finished_solids": ["cap"],
+        "workpieces": None,
+        "registrations": None,
     }
     assert graph.descriptor("A1", OWNERS.finished_feature_owners)["finished_solids"] == [
         "body",
@@ -175,7 +178,6 @@ def test_duplicate_or_unproven_material_is_rejected_statically(case, reason):
     "case, reason",
     [
         ("not_part_off", "only part_off"),
-        ("one_output", "exactly two"),
         ("keep", "exclusive"),
         ("later_keep", "keep cannot follow"),
         ("uncited", "must cite"),
@@ -188,8 +190,6 @@ def test_output_schema_requires_real_two_piece_cited_split(case, reason):
     op = plan["setups"][1]["ops"][0]
     if case == "not_part_off":
         op["do"] = "finish_turn"
-    elif case == "one_output":
-        op["outputs"].pop("bar_remnant")
     elif case == "keep":
         op["keep"] = "body-thread"
     elif case == "later_keep":
@@ -209,6 +209,24 @@ def test_output_schema_requires_real_two_piece_cited_split(case, reason):
         op["outputs"]["tube_blank"]["carries"] = "unknown"
     with pytest.raises(ValueError, match=reason):
         Plan.model_validate(plan)
+
+
+def test_part_off_output_count_error_identifies_the_failing_setup_and_op():
+    plan = route()
+    op = plan["setups"][1]["ops"][0]
+    op["op"] = 37
+    op["outputs"].pop("bar_remnant")
+
+    with pytest.raises(ValidationError) as caught:
+        Plan.model_validate(plan)
+
+    (error,) = caught.value.errors()
+    assert error["type"] == "value_error"
+    assert error["loc"] == ()
+    assert isinstance(error["ctx"]["error"], ValueError)
+    assert "Setup P3 op 37:" in error["msg"]
+    assert "outputs" in error["msg"]
+    assert "exactly two" in error["msg"]
 
 
 def test_transient_centre_cannot_leak_from_parent_to_unknown_child():
@@ -653,7 +671,7 @@ def test_named_partition_does_not_make_unrelated_ordinary_setup_states_single_us
     graph = MaterialGraph(Plan.model_validate(plan).model_dump(exclude_unset=True), validate=True)
     assert graph.roots("A1") == {"stock.bar"}
     assert graph.roots("plate_second") == graph.roots("plate_rework") == {"stock.plate"}
-    assert all(atom.split is None for atom in graph.nodes["plate_rework"])
+    assert all(not atom.path for atom in graph.nodes["plate_rework"])
 
 
 def test_unsplit_predecessor_of_named_partition_is_still_exclusive():

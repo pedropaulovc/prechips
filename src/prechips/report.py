@@ -12,6 +12,7 @@ from typing import Any
 from prechips import __version__
 from prechips.findings import Finding, exit_code
 from prechips.inputs import Bundle
+from prechips.native_diagnostics import publish_native_diagnostics
 
 
 def canonical_bytes(data: Any) -> bytes:
@@ -226,13 +227,16 @@ def build_report(
         renders[setup["id"]] = {
             **record,
             "fixture": "modeled" if facts.get("fixture_rendered") is True else "unresolved",
-            "scene": facts.get("render_scene", {}),
+            "scene": publish_native_diagnostics(facts.get("render_scene", {})),
         }
         sketches = {}
         for key in sorted(sketches_pngs):
             name = inspection_sketch_name(ordinal, key)
             record = {"path": name, "sha256": hashlib.sha256(assets[name]).hexdigest()}
-            sketches[key] = {**record, "scene": facts["inspection_scenes"][key]}
+            sketches[key] = {
+                **record,
+                "scene": publish_native_diagnostics(facts["inspection_scenes"][key]),
+            }
             inputs[f"render:{setup['id']}:{key}"] = dict(record)
         if sketches:
             renders[setup["id"]]["inspections"] = sketches
@@ -245,6 +249,8 @@ def build_report(
         "step_sha256": bundle.features.get("step_sha256", "unknown"),
         "verification": "checked" if result == 0 else "planned",
     }
+    if bundle.plan.get("purpose", "shop") == "demonstration":
+        report["purpose"] = "demonstration"
     if renders:
         report["renders"] = renders
     report["hash"] = report_hash(report)

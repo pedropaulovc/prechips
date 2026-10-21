@@ -4,7 +4,7 @@ import pytest
 from test_deep_hole_speed import drill_bundle
 
 from prechips.rules import speeds_feeds
-from prechips.sheet import _Traveler
+from prechips.sheet import _Box, _Traveler
 
 
 def chain_bundle(diameter=6.35):
@@ -101,10 +101,10 @@ def test_tool_kind_alone_or_contour_method_alone_does_not_change_action(method, 
 
 
 def check_speed_oracle(data, row):
-    from test_validate_examples import VALIDATOR
+    from test_validate_examples import VALIDATOR, validator_test_bundle
 
     entries = VALIDATOR["Entries"](data.inventory)
-    depths = VALIDATOR["check_endpoints"](data.plan, data.features, {}, entries)
+    depths = VALIDATOR["check_endpoints"](validator_test_bundle(data), {}, entries)
     setup = data.plan["setups"][0]
     VALIDATOR["check_speeds"](
         data.plan,
@@ -174,7 +174,13 @@ def test_missing_or_nonpositive_drill_flutes_leave_axial_feed_unknown(flutes):
     assert finding.numbers["plunge_mm_rev"] == "unknown"
     setup = data.plan["setups"][0]
     _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
-    assert feed == "STOP"
+    assert isinstance(feed, _Box)
+    assert (feed.source, feed.status, feed.scope, feed.kind) == (
+        "speeds_feeds",
+        "unknown",
+        f"{setup['id']}:{setup['ops'][0]['op']}",
+        "block",
+    )
     assert stop
 
 
@@ -243,7 +249,13 @@ def test_unknown_or_noncutting_chain_depth_stays_unresolved(start, end):
     assert finding.status == "unknown"
     assert finding.numbers["depth_over_dia"] == "unknown"
     _, feed, stop = _Traveler(data, [finding], {}, None).speeds(setup, setup["ops"][0], False)
-    assert feed == "STOP"
+    assert isinstance(feed, _Box)
+    assert (feed.source, feed.status, feed.scope, feed.kind) == (
+        "speeds_feeds",
+        "unknown",
+        f"{setup['id']}:{setup['ops'][0]['op']}",
+        "block",
+    )
     assert stop
 
 

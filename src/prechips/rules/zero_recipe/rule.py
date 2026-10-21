@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import math
+
 from prechips.rules.zero_recipe.faces import _boundary, _tops, paper_offset, x_face_state
-from prechips.rules.zero_recipe.native import _retouch_recipe
+from prechips.rules.zero_recipe.native import _retouch_recipe, zero_pickup_evidence
 from prechips.rules.zero_recipe.tool_setting import (
     TOOL_SETTING_CITES,
     _carried_setting,
     _corner_recorder,
     _face_checker,
+    mounted_saw_settings,
     tool_changes,
     tool_setting,
     toolpost,
@@ -16,6 +19,7 @@ from prechips.rules.zero_recipe.tool_setting import (
 from prechips.rules.zero_recipe.touch import (
     DIRECTIONS,
     MEASURED,
+    _opposed_midpoint_recipe,
     _position,
     _touch_diameter,
     axis_recipe,
@@ -33,18 +37,13 @@ from ...findings import Finding
 from ...measurements import length_debt, measurement_checklist
 from .._bench import manual_bench, manual_thread_setup, not_applicable
 from ..resolution import (
-    MANUAL,
-    SAW_OPS,
-    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
-    UNRESOLVED_SAW_MODEL_REASON,
     identity,
     number,
     plan_frame_cite,
     resolve,
     saw_setup,
     setup_frame,
-    slitting_saw,
     spindle_saw,
     uncertain,
 )
@@ -151,41 +150,36 @@ def evaluate(bundle):
             result.append(_mechanical_zero(bundle, setup))
             continue
         spindle_ops = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        mounted = mounted_saw_settings(bundle, setup) if spindle_ops else {}
         spindle_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_ops
-            )
+            dict.fromkeys(reason for row in mounted.values() for reason in row["reasons"])
         )
         spindle_numbers = (
             {
                 "spindle_saw_ops": [op["op"] for op in spindle_ops],
                 "spindle_saw_debt": spindle_debt,
+                "mounted_saw_settings": mounted,
             }
             if spindle_ops
             else {}
         )
-        ordinary = [op for op in setup["ops"] if op.get("do") not in MANUAL | SAW_OPS]
-        if spindle_ops and not ordinary:
-            result.append(
-                Finding(
-                    "zero_check",
-                    setup["id"],
-                    "error" if dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} else UNKNOWN,
-                    {
-                        "frame": setup.get("frame", UNKNOWN),
-                        **spindle_numbers,
-                    },
-                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
-                    f"{setup['id']}: {spindle_debt}; mounted-blade zero setting is unresolved.",
-                )
-            )
-            continue
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
+        from prechips.kernel import _top_pickup_specs, zero_pickup_inputs
+
+        pickup_inputs = (
+            zero_pickup_inputs(bundle, setup)
+            if _top_pickup_specs(setup)
+            or any("at_mm" in mapping(zero.get(axis)) for axis in ("x", "y"))
+            else {}
+        )
+        pickups = {
+            key: proof
+            for key in mapping(pickup_inputs.get("requests"))
+            if (proof := zero_pickup_evidence(bundle, setup, key, normalized=pickup_inputs))
+            is not None
+        }
         ops = records(setup.get("ops"))
         states = list(stock_states(bundle, setup))
         spindle_tools = {
@@ -214,20 +208,25 @@ def evaluate(bundle):
         # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
         finder_status = set()
         tip_measurements = []
+        midpoint_failures = []
         # X/Y pick-ups a swivelled vise leaves unproven: the work's edges stand at the
         # swivel to the travel, so only an indicated centre sets X or Y (#300).
-        swivel = swivel_angle(mapping(setup.get("hold"))) if swivelled(bundle, setup) else 0.0
+        declared_swivel = swivel_angle(mapping(setup.get("hold")))
+        swivel = declared_swivel if swivelled(bundle, setup) else 0.0
         slanted = []
 
         unknown = (
-            bool(spindle_ops)
+            any(row["status"] != "pass" for row in mounted.values())
             or not frame
             or frame.get("binding") == UNKNOWN
             or dro.get("controller", UNKNOWN) == UNKNOWN
             or dro.get("radius_mode") == UNKNOWN
             or dro.get("mode", UNKNOWN) == UNKNOWN
         )
-        bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN}
+        unknown |= any(proof["status"] != "pass" for proof in pickups.values())
+        bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} or any(
+            row["status"] == "error" for row in mounted.values()
+        )
         # A setup whose every spindle op is a guided sweep sets X and Y by touching the
         # cutter to its master and locks them: it picks up no X/Y zero (#255).
         from ..guided_sweep import touch_set, trammel_set
@@ -265,7 +264,31 @@ def evaluate(bundle):
             # Frames are installed machine-aligned: a flipped model frame changes
             # the model basis, not the machine's authored right/away/up convention.
             bad |= sign == -1
-            if unsupported_touch(recipe.get("tool")):
+            if axis == "z" and recipe.get("method") == "mounted_saw_side":
+                setting = next((row for row in mounted.values() if row.get("kind") == "axis"), {})
+                shown = setting.get("z_axis_set", UNKNOWN)
+                jog = recipe.get("check_jog_mm", UNKNOWN)
+                increment = sign * jog if sign in {-1, 1} and number(jog) else UNKNOWN
+                axes[axis] = {
+                    **recipe,
+                    "axis_set": shown,
+                    "check_reading": shown + increment
+                    if number(shown) and number(increment)
+                    else UNKNOWN,
+                    "mirrored_reading": shown - increment
+                    if number(shown) and number(increment)
+                    else UNKNOWN,
+                    "axis_set_status": "computed" if number(shown) else UNKNOWN,
+                    "tool_setting_state": "mounted_saw_side",
+                    "mounted_saw_proof": setting.get("proof", {}),
+                    "mounted_saw_setting": setting.get("mounted_saw_setting", {}),
+                }
+                unknown |= not number(shown) or not number(increment)
+                continue
+            if (
+                unsupported_touch(recipe.get("tool"))
+                and recipe.get("method") != "opposed_edge_midpoint"
+            ):
                 axes[axis] = {
                     **recipe,
                     "axis_set": UNKNOWN,
@@ -280,8 +303,11 @@ def evaluate(bundle):
             paper = recipe.get("paper_mm", UNKNOWN) if axis == "z" else None
             tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
             method = recipe.get("method")
-            indicated = recipe.get("from") == "indicated"
-            if swivel and axis != "z" and not indicated:
+            indicated = recipe.get("from") == "indicated" and method != "opposed_edge_midpoint"
+            # An unresolved fixture kind must not turn a stated swivel into a square
+            # pickup for the two-contact midpoint method.
+            pickup_swivel = declared_swivel if method == "opposed_edge_midpoint" else swivel
+            if pickup_swivel and axis != "z" and not indicated:
                 slanted.append(axis.upper())
             radius = (
                 "not_applicable"
@@ -339,7 +365,60 @@ def evaluate(bundle):
             if carried:
                 _carried_setting(bundle, setup, values, "axis_set", carried)
             gauge = gauge_ready(bundle, recipe.get("gauge"))
-            if method == "trial_cut_measure":
+            if method == "opposed_edge_midpoint":
+                values = _opposed_midpoint_recipe(edge, recipe.get("check_jog_mm", UNKNOWN), sign)
+                midpoint_errors, midpoint_debts = [], []
+                if axis not in {"x", "y"} or lathe:
+                    midpoint_errors.append("opposed-edge midpoint requires a mill X or Y axis")
+                if recipe.get("from") not in (None, UNKNOWN):
+                    midpoint_errors.append(
+                        "opposed-edge midpoint has two contacts, not a single from direction"
+                    )
+                if tool.get("kind", UNKNOWN) not in {"edge_finder", UNKNOWN}:
+                    midpoint_errors.append("opposed-edge midpoint requires one edge finder")
+                elif tool.get("kind", UNKNOWN) == UNKNOWN:
+                    midpoint_debts.append("the same edge finder for both contacts is unresolved")
+                if number(radius) and (not math.isfinite(radius) or radius <= 0):
+                    midpoint_errors.append("the qualified finder tip diameter must be positive")
+                elif not number(radius):
+                    midpoint_debts.append("the finder tip diameter is unresolved")
+                if not tool or uncertain(tool):
+                    midpoint_debts.append("the finder qualification is unresolved")
+                if "at_mm" in recipe:
+                    midpoint_debts.append(
+                        "one transverse pickup point does not prove two opposed contact paths"
+                    )
+                if pickup_swivel:
+                    midpoint_debts.append(
+                        "opposed contacts are not proved perpendicular to the table axis"
+                    )
+                if tool.get("kind") == "edge_finder":
+                    finder = finder_procedure(bundle, setup, tool)
+                    values["finder"] = finder
+                    if finder["status"] == "error":
+                        midpoint_errors.append("the mill cannot run the qualified finder")
+                    elif finder["status"] != "pass":
+                        midpoint_debts.append("the finder contact or speed facts are unresolved")
+                if any(
+                    values[key] == UNKNOWN
+                    for key in ("axis_set", "check_reading", "mirrored_reading")
+                ):
+                    midpoint_debts.append(
+                        "the authored center, signed jog or DRO sign is unresolved"
+                    )
+                midpoint_status = (
+                    "error" if midpoint_errors else "unknown" if midpoint_debts else "pass"
+                )
+                if midpoint_status != "pass":
+                    for key in ("axis_set", "check_reading", "mirrored_reading"):
+                        values[key] = UNKNOWN
+                values.update(
+                    midpoint_status=midpoint_status,
+                    midpoint_reasons=[*midpoint_errors, *midpoint_debts],
+                )
+                midpoint_failures.extend(f"{axis.upper()}: {reason}" for reason in midpoint_errors)
+                unknown |= bool(midpoint_debts)
+            elif method == "trial_cut_measure":
                 # The diameter is measured at the machine after the cut, like paper
                 # thickness: the recipe is complete once the gauge and jog are known.
                 display = measured(scale) if axis == "x" and lathe else UNKNOWN
@@ -408,7 +487,9 @@ def evaluate(bundle):
                 ) or not bool(tool)
                 if not indicated and tool.get("kind") == "edge_finder":
                     # The one EDGE FINDER box on the traveler prints these facts.
-                    finder = row["finder"] = finder_procedure(bundle, setup, tool)
+                    finder = row["finder"] = row.get("finder") or finder_procedure(
+                        bundle, setup, tool
+                    )
                     finder_status.add(finder["status"])
             axes[axis] = row
             if axis == "z":
@@ -418,6 +499,9 @@ def evaluate(bundle):
                 or not tool
                 or uncertain(tool)
             )
+        for axis, proof in pickups.items():
+            if axis in axes:
+                axes[axis]["pickup_proof"] = proof
         retouch = []
         recipe = mapping(zero.get("z"))
         paper = recipe.get("paper_mm", UNKNOWN)
@@ -460,6 +544,31 @@ def evaluate(bundle):
         # Authored X touches on a diameter that is gone (errors) or not shown standing.
         x_errors, x_unknowns = [], []
         for record in records(zero.get("tool_touches")):
+            if record.get("method") == "mounted_saw_side":
+                setting = next(
+                    (
+                        row
+                        for row in mounted.values()
+                        if row.get("kind") == "tool"
+                        and row.get("tool_reference") == record.get("tool")
+                        and row.get("holder_reference") == record.get("holder")
+                        and row.get("before_ops") == record.get("before_ops")
+                        and row.get("after_op") == record.get("after_op")
+                    ),
+                    {},
+                )
+                touches.append(
+                    {
+                        **record,
+                        "x_axis_set": "not_applicable",
+                        "z_axis_set": setting.get("z_axis_set", UNKNOWN),
+                        "tool_setting_state": "mounted_saw_side",
+                        "mounted_saw_proof": setting.get("proof", {}),
+                        "mounted_saw_setting": setting.get("mounted_saw_setting", {}),
+                    }
+                )
+                unknown |= setting.get("status") != "pass"
+                continue
             if unsupported_touch(record.get("tool")):
                 touches.append(
                     {
@@ -524,7 +633,7 @@ def evaluate(bundle):
             )
         unknown |= bool(x_unknowns)
         derived, missing, changes_unknown, _, served = tool_changes(
-            bundle, setup, zero, lathe, x_scale, touches
+            bundle, setup, zero, lathe, x_scale, touches, mounted=mounted
         )
         unknown |= changes_unknown
         # A listed retouch names the op that reads it and the tool that goes in first;
@@ -571,6 +680,11 @@ def evaluate(bundle):
             "missing_touches": missing,
             **spindle_numbers,
         }
+        if pickups:
+            numbers["zero_pickups"] = pickups
+            pickup_debts = records(pickup_inputs.get("measurement_debts"))
+            if pickup_debts:
+                numbers["measurements"] = measurement_checklist([], debts=pickup_debts)
         touched = [axis for axis in ("x", "y") if swept and not isinstance(zero.get(axis), dict)]
         if touched:
             numbers["touch_set"] = {
@@ -581,7 +695,9 @@ def evaluate(bundle):
         grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
         if grid_debt:
             numbers["dro_grid_debt"] = grid_debt
-            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+            numbers["measurements"] = measurement_checklist(
+                [], debts=[*numbers.get("measurements", []), *dro_grid_measurements(bundle, setup)]
+            )
         if tip_measurements:
             numbers["measurements"] = measurement_checklist(
                 [], debts=[*numbers.get("measurements", []), *tip_measurements]
@@ -608,7 +724,9 @@ def evaluate(bundle):
             or face_errors
             or x_errors
             or finder_error
+            or midpoint_failures
             or railed_errors
+            or any(proof["status"] == "error" for proof in pickups.values())
         )
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
@@ -639,6 +757,17 @@ def evaluate(bundle):
                 )
             )
         )
+        if midpoint_failures:
+            sentence += (
+                " Opposed-edge midpoint is not usable (" + "; ".join(midpoint_failures) + ")."
+            )
+        if any(row.get("method") == "opposed_edge_midpoint" for row in axes.values()):
+            sentence += (
+                " With the same unchanged finder, take actual opposed contact readings "
+                "C− and C+ without resetting, move to (C− + C+)/2, then Axis Set the "
+                "authored center and check the signed jog. Contact readings and part "
+                "acceptance are not recorded by this recipe."
+            )
         if finder_error:
             sentence += (
                 " The edge finder's rpm range lies outside the spindle's: the mill cannot "
@@ -650,7 +779,7 @@ def evaluate(bundle):
                 "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
             )
         if slanted:
-            turned = "an unknown angle" if swivel == UNKNOWN else f"{swivel:g}°"
+            turned = "an unknown angle" if declared_swivel == UNKNOWN else f"{declared_swivel:g}°"
             sentence += (
                 f" The vise is swivelled {turned}: the work's edges stand off the table "
                 "travel, so a touch on an edge does not set "
@@ -701,6 +830,15 @@ def evaluate(bundle):
             )
         if spindle_debt:
             sentence += f" {spindle_debt}."
+        for axis, proof in pickups.items():
+            if proof["status"] != "pass":
+                sentence += (
+                    " The requested "
+                    f"{'Z tool touch' if axis.startswith('tool_touch:') else axis.upper()} "
+                    f"pickup path is {proof['status']}: "
+                    + "; ".join(proof["reasons"])
+                    + ". Arithmetic Axis Sets do not establish pickup clearance."
+                )
         result.append(
             Finding(
                 "zero_check",

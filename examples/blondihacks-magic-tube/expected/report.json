@@ -15356,7 +15356,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-magic-tube/plan.toml",
-            "sha256": "2eb23536bd788ab74b716dd2c5ff8969e38e14ee1d7996d3fca6da414b6aecae"
+            "sha256": "044514c220223a3ad59aff9d67f3d8a3b005ab0432a4cd82294b2d90b7d8670d"
           },
           "shop_policy": {
             "path": "examples/blondihacks-magic-tube/shop-policy.toml",
@@ -24894,7 +24894,7 @@
         "deburr_mm": "unknown",
         "fixture": "four-jaw",
         "hold": {
-          "clamp": "Clamp the sound round bar in the four-jaw chuck; remove the key and turn the chuck by hand to establish complete tool and jaw clearance.",
+          "clamp": "Clamp the sound round bar in fixtures.four-jaw; remove the key and turn the chuck by hand to establish complete tool and jaw clearance.",
           "fixed_jaw": "not_applicable",
           "fixture": "four-jaw",
           "grip_mm": "unknown",
@@ -25154,12 +25154,24 @@
       ],
       "message": "all-surfaces burrs_and_chips: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "all-surfaces",
+          "requirement": "burrs_and_chips",
+          "workpiece": null
+        },
         "inspection_method": "Inspect exposed ends, threads and interior for loose chips, sharp burrs, cracking or a parted-face pip. Stop for a controlled corrective procedure if needed.",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
-        "requirement": "burrs_and_chips"
+        "op_id": 20,
+        "part_result": "not_recorded",
+        "requirement": "burrs_and_chips",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25173,12 +25185,24 @@
       ],
       "message": "all-surfaces hidden_seam: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "all-surfaces",
+          "requirement": "hidden_seam",
+          "workpiece": null
+        },
         "inspection_method": "Close the cap fully and inspect the complete circumference under suitable light; record whether the seam remains visible. Cosmetic gap/step acceptance limits remain unknown.",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
-        "requirement": "hidden_seam"
+        "op_id": 20,
+        "part_result": "not_recorded",
+        "requirement": "hidden_seam",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25192,12 +25216,24 @@
       ],
       "message": "all-surfaces smooth_open_close: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "all-surfaces",
+          "requirement": "smooth_open_close",
+          "workpiece": null
+        },
         "inspection_method": "Open and close the cap by hand repeatedly, checking for clean starts, smooth running and solid shoulder seating without looseness or forcing. Record the result; torque and engagement acceptance limits remain unknown.",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
-        "requirement": "smooth_open_close"
+        "op_id": 20,
+        "part_result": "not_recorded",
+        "requirement": "smooth_open_close",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25211,13 +25247,29 @@
       ],
       "message": "body-length length: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "body-length",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "With the cap removed, measure body base-to-mouth length and record it. Nominal is 88.9 mm; no acceptance band is supplied.",
         "op": "F1:10",
+        "op_id": 10,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "length",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "F1",
+        "shared_check_id": null,
+        "subject": "body-length:length"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25231,12 +25283,24 @@
       ],
       "message": "body-length seam_limit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-length",
+          "requirement": "seam_limit",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seam_limit"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seam_limit",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25250,12 +25314,24 @@
       ],
       "message": "body-length seating_load: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-length",
+          "requirement": "seating_load",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seating_load"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seating_load",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25269,12 +25345,24 @@
       ],
       "message": "body-length thread_class: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-length",
+          "requirement": "thread_class",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "thread_class"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "thread_class",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25288,13 +25376,29 @@
       ],
       "message": "body-od dia: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "body-od",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Stop the spindle, measure tube OD at several axial stations and orientations and record readings. Compare only to approved size bands once supplied; the selected 11/16-inch nominal is not a tolerance.",
         "op": "A2:20",
+        "op_id": 20,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "dia",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "A2",
+        "shared_check_id": null,
+        "subject": "body-od:dia"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25308,13 +25412,29 @@
       ],
       "message": "body-thread depth: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "body-thread",
+          "requirement": "depth",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Use the caliper's depth function only if its actual reach and end geometry can read the cavity reliably. Record mouth-to-bottom depth and distinguish full-diameter depth from drill-point depth. Instrument capability and acceptance limits remain unknown.",
         "op": "F1:10",
+        "op_id": 10,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "depth",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "F1",
+        "shared_check_id": null,
+        "subject": "body-thread:depth"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25328,10 +25448,26 @@
       ],
       "message": "body-thread dia: explicit inspection method is unknown.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-thread",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Record the drilled cavity's actual size only with an approved suitable method. Bore measurement method remains unresolved; nominal drill size is not a finished bore measurement.",
         "op": "F1:10",
-        "requirement": "dia"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "dia",
+        "selection_status": "pass",
+        "setup_id": "F1",
+        "shared_check_id": null,
+        "subject": "body-thread:dia"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25345,12 +25481,24 @@
       ],
       "message": "body-thread seam_limit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-thread",
+          "requirement": "seam_limit",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seam_limit"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seam_limit",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25364,12 +25512,24 @@
       ],
       "message": "body-thread seating_load: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-thread",
+          "requirement": "seating_load",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seating_load"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seating_load",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25383,12 +25543,24 @@
       ],
       "message": "body-thread thread_class: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "body-thread",
+          "requirement": "thread_class",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "thread_class"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "thread_class",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25402,7 +25574,17 @@
       ],
       "message": "cap-blank-head: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "cap-blank-head",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -25416,13 +25598,29 @@
       ],
       "message": "cap-head-length length: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "cap-head-length",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Measure from the actual shoulder seating annulus to the outer head face; record it separately from male stub length. Head nominal is 12.7 mm.",
         "op": "F1:10",
+        "op_id": 10,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "length",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "F1",
+        "shared_check_id": null,
+        "subject": "cap-head-length:length"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25436,12 +25634,24 @@
       ],
       "message": "cap-head-length seam_limit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-head-length",
+          "requirement": "seam_limit",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seam_limit"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seam_limit",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25455,12 +25665,24 @@
       ],
       "message": "cap-head-length seating_load: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-head-length",
+          "requirement": "seating_load",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seating_load"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seating_load",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25474,12 +25696,24 @@
       ],
       "message": "cap-head-length thread_class: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-head-length",
+          "requirement": "thread_class",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "thread_class"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "thread_class",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25493,13 +25727,29 @@
       ],
       "message": "cap-head dia: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "cap-head",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Measure the cap OD and compare directly with the body across the seam. Record both; do not claim a flush seam is dimensional, thread-class or load acceptance.",
         "op": "A2:20",
+        "op_id": 20,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "dia",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "A2",
+        "shared_check_id": null,
+        "subject": "cap-head:dia"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25513,13 +25763,29 @@
       ],
       "message": "cap-thread length: requirement limits or units are unresolved.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "caliper",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "cap-thread",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": "unknown",
+        "method": "Measure male tip-to-shoulder axial length; nominal is 12.7 mm. Record actual usable full-thread length separately; do not count lead and runout as engaged.",
         "op": "F1:10",
+        "op_id": 10,
+        "part_result": "not_recorded",
         "range_mm": "unknown",
         "requirement": "length",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "F1",
+        "shared_check_id": null,
+        "subject": "cap-thread:length"
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25533,12 +25799,24 @@
       ],
       "message": "cap-thread seam_limit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-thread",
+          "requirement": "seam_limit",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seam_limit"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seam_limit",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25552,12 +25830,24 @@
       ],
       "message": "cap-thread seating_load: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-thread",
+          "requirement": "seating_load",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "seating_load"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "seating_load",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25571,12 +25861,24 @@
       ],
       "message": "cap-thread thread_class: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cap-thread",
+          "requirement": "thread_class",
+          "workpiece": null
+        },
         "inspection_method": "unknown",
+        "kind": "dimensional",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
-        "requirement": "thread_class"
+        "op_id": 10,
+        "part_result": "not_recorded",
+        "requirement": "thread_class",
+        "setup_id": "F1",
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "unknown",
@@ -25590,7 +25892,17 @@
       ],
       "message": "tube-blank-tail: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "tube-blank-tail",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -25604,7 +25916,17 @@
       ],
       "message": "tube-centre: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "tube-centre",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -27719,10 +28041,12 @@
         "inventory.holders.die-holder: explicit-unit verified dimensions",
         "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=420s"
       ],
-      "message": "C1:60: kernel facts for this rotary op are not rotary-model facts.",
-      "numbers": {},
+      "message": "C1:60: a rotary cutter-corner check does not evaluate hand threading.",
+      "numbers": {
+        "action": "die_thread"
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "C1:60"
     },
     {
@@ -29921,10 +30245,12 @@
         "inventory.holders.tap-wrench: explicit-unit verified dimensions",
         "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=583s"
       ],
-      "message": "T2:30: kernel facts for this rotary op are not rotary-model facts.",
-      "numbers": {},
+      "message": "T2:30: a rotary cutter-corner check does not evaluate hand threading.",
+      "numbers": {
+        "action": "hand_tap"
+      },
       "rule": "internal_corner_radius",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "T2:30"
     },
     {
@@ -57121,7 +57447,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "d4172ce3ee93e357109efd072f119f4b325faf36fd2fe63442f1eab5979ed3e8",
+  "hash": "6a6e67fd9b275d3daf71ede5531d01285dc84b9d732a3007e97cd7bb57f85987",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57137,7 +57463,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-magic-tube/plan.toml",
-      "sha256": "2eb23536bd788ab74b716dd2c5ff8969e38e14ee1d7996d3fca6da414b6aecae"
+      "sha256": "044514c220223a3ad59aff9d67f3d8a3b005ab0432a4cd82294b2d90b7d8670d"
     },
     "shop_policy": {
       "path": "examples/blondihacks-magic-tube/shop-policy.toml",

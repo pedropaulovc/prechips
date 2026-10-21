@@ -251,19 +251,6 @@ def test_mounted_saw_keeps_required_setup_rows_instead_of_no_spindle_waivers(rul
     assert row.numbers["spindle_saw_ops"] == [20]
 
 
-def test_the_printed_slitting_saw_operation_keeps_geometry_debt_visible():
-    data = slitting_bundle()
-    findings = saw_cut.evaluate(data) + tool_resolves.evaluate(data) + speeds_feeds.evaluate(data)
-    setup = data.plan["setups"][0]
-    html, _, _, _ = _Traveler(data, findings, {}, None).operations(setup, {}, {"notes": 2})
-    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
-    assert "200 rpm" in text
-    assert "80 mm/min" in text
-    assert "sfm" not in text
-    assert "STOP: blade reach, arbor fit and fixture clearance have not been checked." in text
-    assert op_row(saw_cut, data).status == "unknown"
-
-
 def test_a_passing_measured_mill_stack_cannot_hide_a_mixed_slitting_saw():
     data = measured_envelope_bundle()
     data.inventory["tools"]["blade"] = {

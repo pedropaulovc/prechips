@@ -536,3 +536,27 @@ def test_existing_nominal_conventions_still_work_without_measurement_metadata():
     assert length_mm({"shank_in": "3/8"}, "shank") == pytest.approx(9.525)
     assert length_mm({"shank": "1/2", "shank_in": "3/8"}, "shank") == pytest.approx(9.525)
     assert length_mm({"dia_mm": measured(6)}, "dia") == 6
+
+
+@pytest.mark.parametrize("value", [-2, -0.001, 0, 0.001, 2])
+def test_numeric_inch_facts_preserve_sign_without_fraction_string_rewriting(value):
+    item = {"kerf_offset_in": measured(value)}
+    fact = length_fact(item, "kerf_offset")
+    assert fact["value"] == pytest.approx(value * 25.4)
+    assert fact["verified"] is True
+    assert length_debt(item, "kerf_offset", "tools", "saw", require_measured=True) is None
+
+
+@pytest.mark.parametrize("value", ["3/8", "3-8", "0.375", "3/8in"])
+def test_legacy_inch_fraction_strings_keep_their_existing_meaning(value):
+    assert length_mm({"shank_in": value}, "shank") == pytest.approx(9.525)
+
+
+def test_signed_inch_conversion_does_not_promote_assumed_or_duplicate_facts():
+    assumed = measured(-0.001)
+    assumed["measured"]["status"] = "assumed"
+    fact = length_fact({"kerf_offset_in": assumed}, "kerf_offset")
+    assert fact["value"] == pytest.approx(-0.0254)
+    assert fact["verified"] is False
+    duplicate = {"kerf_offset_in": measured(-0.001), "kerf_offset_mm": measured(-0.0254)}
+    assert length_fact(duplicate, "kerf_offset")["value"] == "unknown"

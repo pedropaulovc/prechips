@@ -7,7 +7,7 @@ this boundary. Display annotations never certify a holding or a toolpath.
 import math
 
 from prechips.clamp_labels import clamp_labels
-from prechips.rules.coordinates import dro_grid, row_id
+from prechips.rules.coordinates import checkpoints, dro_grid, row_id
 from prechips.rules.geometry_common import cutting_action
 from prechips.rules.resolution import (
     LENGTH_TOLERANCE_MM,
@@ -41,6 +41,8 @@ def contour_annotations(numbers, scale, setup_id):
     single-axis step. A bounded op's tables (``kernel_clip``) are not drawn here: the
     kernel draws its clip of them (``FreeCAD job _clipped_sketch``), never the whole
     unclipped path.
+    Canonical linear outlines draw their cutter-centre path once; each waypoint names
+    the canonical final-depth checkpoint rows, not duplicate P keys for axial levels.
     A singleton table retains its real waypoint but draws no connecting path.
     A path is ``directed`` (drawn with travel arrows) only when coordinates established
     its cutting order; otherwise its point order is geometric, not a travel claim.
@@ -58,7 +60,8 @@ def contour_annotations(numbers, scale, setup_id):
                 paths[-1]["raster"] = raster
         for index in candidates:
             point = points[index]
-            rows = [] if ids is None else [ids[index]]
+            rows = [] if ids is None else ids[index]
+            rows = list(rows) if isinstance(rows, (list, tuple)) else [rows]
             match = next(
                 (
                     w
@@ -107,7 +110,8 @@ def contour_annotations(numbers, scale, setup_id):
             _directed(line),
             [row_id(subject, "line_table", line, i) for i in range(len(points))],
         )
-    for profile in numbers.get("profiles", []):
+    linear_ids = {}
+    for profile_index, profile in enumerate(numbers.get("profiles", [])):
         if str(profile.get("op")) in table_ops:
             continue
         points = profile.get("cutter_centre", [])
@@ -133,7 +137,23 @@ def contour_annotations(numbers, scale, setup_id):
                     },
                 )
         else:
-            add_path(profile.get("op"), points, range(len(points)), _directed(profile))
+            ids = None
+            if record(profile.get("contour")).get("method") == "linear_table":
+                op = profile.get("op")
+                if op not in linear_ids:
+                    linear_ids[op] = {}
+                    tables = checkpoints(f"{setup_id}:{op}", numbers, op)
+                    for table in tables:
+                        if table["kind"] != "linear_table":
+                            continue
+                        for vertex, (identity, _, _, _) in enumerate(table["rows"]):
+                            key = (table["profile_index"], table["path_index"], vertex)
+                            linear_ids[op].setdefault(key, []).append(identity)
+                ids = [
+                    linear_ids[op].get((profile_index, 0, vertex), [])
+                    for vertex in range(len(points))
+                ]
+            add_path(profile.get("op"), points, range(len(points)), _directed(profile), ids)
     return paths, waypoints
 
 

@@ -845,6 +845,32 @@ decide); an undecided or missing union is `?`. A whole-face non-rotary claim
 supersedes a gap, as does as-stock for `coverage` only. A per-op
 `claimed_indices` entry never credits a face by itself.
 
+**Finite slitting-saw face creation.** Saw coverage is a separate native
+certificate, never an ordinary `claimed_indices` claim. Only an explicitly
+registered `slitting_saw` `cut_off` with `workpiece_faces`, complete passing
+`finite_disk_v1` geometry and successfully published named children can
+prove a newly created planar target face. `finite_saw_face_credit_v1` binds
+the producer and current normalized saw request, member/canonical/global
+face identity, current native member protection registration and input path,
+the unique carrying output's side and normalized registration, its exact
+accepted output/conservation proof, and the path extended by the current
+setup/output edge.
+
+Exact trimmed B-rep boundary differences, independently cross-checked against
+their native common measures, and full-area outward/inward material columns
+establish that this cut, not preexisting air or an old boundary, created the
+entire target face at the appropriate kerf edge. The existing named-output
+contract excludes `saw_cut` from this credit.
+The host independently checks finite nonboolean witnesses, fixed area/volume
+tolerance formulas, band/side orientation and complete request/material
+bindings; coverage findings retain accepted and refused certificate rows.
+Missing or refused proof leaves the face uncovered, never a fabricated pass.
+Bandsaw and hand-saw operations remain no-credit. No saw receives surface
+finish, dimensional/tolerance or physical-execution certification; existing
+final caliper checks are unchanged. See the
+[certificate contract](docs/rules-geometry.md#finite-saw-face-creation-credit).
+
+
 ### 4.3 Workholding (geometry + inventory — needs the kernel for the solids)
 
 | rule | inputs | tier | on the sheet |
@@ -1111,9 +1137,11 @@ Standalone video examples are tracked separately from consumer-export delivery:
 the [catalog-adapted T-nuts](examples/blondihacks-t-nuts/README.md),
 [360-brass ring](examples/blondihacks-brass-ring/README.md) and
 [adapted two-piece Magic Tube](examples/blondihacks-magic-tube/README.md)
-use local shop inputs and preserve missing real measurements. Their expected exit is 4 and
-their travelers remain PLANNED. Source/catalog identity and bound CAD are not
-physical feasibility, first-article or live-farm acceptance evidence.
+use local shop inputs and preserve the distinction between demonstration values
+and missing real measurements. Their current expected exits belong in each
+example's guide; their travelers remain PLANNED. Source/catalog identity and
+bound CAD are not physical feasibility, first-article or live-farm acceptance
+evidence.
 The [plan reference](docs/plan.md) owns retained-output identity and removable
 threaded-joint fields; [geometry limits](docs/rules-geometry.md#limits) remain
 applicable to multi-solid routes. Exact native material ownership is not a
@@ -1394,23 +1422,68 @@ first-article acceptance.
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
 
-   **Bounded mill slitting-saw recognition:** `saw_cut` / `cut_off` distinguish
-   mill-only `slitting_saw` from nonspindle `bandsaw` and `hand_saw`, including
-   unresolved identities so they cannot acquire nonspindle/manual waivers.
-   Existing inventory fields provide explicit disk `dia_mm` / `dia_in`,
-   separate `kerf_mm` / `kerf_in` (never thickness-derived), `flutes` as tooth
-   count, optional `arbor` identity and the operation's selected `holder`;
-   unknown dimensions or arbor remain debt. Cited rotating-tool charts or a
-   unique diameter-matched `operation = "slitting_saw"` row provide `sfm` and
-   `chip_load_mm_per_tooth`, spindle-limited RPM and RPM × teeth × chip-load
-   feed, never canonical `saw_cut` blade-speed/descent numbers. The existing
-   planar kerf/one-side-retained Boolean is ideal removal only; no native
-   finite-disk reach, mount/axis, arbor/spindle/tool/fixture clearance or
-   engagement model is added. Physical `saw_cut`, `tool_resolves`,
-   `accessibility`, `reach`, `saw_teeth` and setup zero/clearance rows remain
-   unknown for that missing model. There is no finished-face coverage,
-   physical safety certification, complete slitting support or live-validation
-   claim.
+   **Mounted slitting-saw phase 0a implemented; selected regression gate passed:**
+   mill-only `slitting_saw` now has a strict measured blade/arbor assembly,
+   one finite straight constant-Z cut plus checked clear moves, explicit
+   clamped upper-child capture and independent native geometry, established
+   engagement and body-side zero evidence. Native separation retains both
+   physical children. M5 consumes existing successful native results and
+   independently requires its measured limits; it never starts FreeCAD.
+   Planar-only and axial synthetic saw inputs remain negative contracts.
+   An actual FreeCAD smoke exercised complete geometry/engagement/zero and
+   released-capture geometry refusal. The required-FreeCAD selected gate passed
+   706 tests with `-n2 --dist loadscope` and `PRECHIPS_KERNEL_WORKERS=1`;
+   `ruff check .` and `ruff format --check .` passed. This was not the full
+   suite, a release or completion of the broader work.
+   Registered batch lineage (0b) now extends that support as described below.
+   Detail modes are implemented as described below; inspection expansion (0c)
+   remains separate unfinished work. See
+   [inventory](docs/inventory.md#mounted-slitting-saw-assembly),
+   [operations](docs/plan.md#mounted-slitting-saw-path-and-capture) and
+   [geometry limits](docs/rules-geometry.md#saw-cut-off).
+
+   **Registered batch lineage phase 0b implemented; selected expanded gate passed:**
+   `Plan.workpieces`, member-qualified face claims, nested named finite-saw
+   outputs and single-consumption preserve each physical member's material
+   path. Native containment and host credit bind exact member, registration
+   and setup-keyed partition path; operation-partition provenance remains
+   separate. Posed inventory and borrowed available-stock supports enter the
+   actual scene without becoming cutting stock. Requested transverse finder
+   pickups prove tip/shank/holder contact and four-leg clearance against
+   arriving stock, including support and capture obstacles.
+   A standalone native-to-host smoke passed three actual cuts
+   (1024.1915 mm³ kerf each), four distinct retained nuts, host protection and
+   pickup using arriving-stock top 84.455 mm/retract 97.155 mm.
+   Invalid placements withheld geometry with containment errors.
+   `ruff check` and format checks passed across 321 files. The selected
+   33-module gate passed 1843 tests in 785.40 s with real FreeCAD required,
+   `-n2 --dist loadscope`, `PRECHIPS_KERNEL_WORKERS=1` and persistent cache.
+   This is not a full-suite pass, final T-nut exit 0, live-shop evidence or
+   physical holding certification.
+   Input contracts: [members](docs/plan.md#registered-workpieces),
+   [outputs](docs/plan.md#registered-finite-saw-outputs),
+   [supports](docs/plan.md#posed-and-borrowed-supports) and
+   [pickups](docs/plan.md#transverse-pickup-path).
+
+   **Traveler detail modes implemented; acceptance pending:** `pro`, default
+   `hobby` and `pedantic` select presentation without changing checks, report
+   identity or approval. Classified setup/hold/operation notes retain all prose
+   for checking. Compact shared instructions preserve distinct physical
+   inspection destinations; hobby adds DRO guidance and selected complete
+   figures, while pedantic expands setup content. All modes use continuous
+   measured Letter flow without automatic blank-back/setup-front padding.
+   The frozen v4 T-nut demonstration printed as 3 pro / 6 hobby physical
+   Letter pages; PDF counts agreed with continuation labels and all three
+   CLI modes exited 0 with identical reports. The whole-job acceptance
+   ceilings remain 3 pro / 6 hobby pages, including the four hobby figures
+   and DRO guide; shorter complete output is acceptable.
+   Three independent reviews per compact PDF completed with raw FIX verdicts.
+   Recurring, evidence-backed presentation repairs and authored original-end
+   orientation clarifications are implemented; fresh print/review evidence and
+   final integration validation remain pending.
+   None of this establishes physical paper acceptance or real-shop readiness.
+   See the
+   [current output contract](docs/report-and-telemetry.md#traveler-detail-modes).
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
    bench/manual machine keeps the manual-bench waiver and has no blade-speed

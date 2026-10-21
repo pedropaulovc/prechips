@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.2.0"><meta name="prechips-report" content="bca1eaa1d816a9e135c90a3d19378e00704d98a0078dc6f9af1a953439a3bf41"><title>step-block traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
+<html lang="en"><head><meta charset="utf-8">
+<meta name="prechips-version" content="0.2.0">
+<meta name="prechips-report" content="a54b517bd7322c8215f978d15c3d61f56bed90d61fd141f651ec77fda8803ef8">
+<meta name="prechips-detail" content="hobby">
+<title>step-block traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
  * theme: existing monochrome print · enrichment: existing kernel diagrams
  * Preserve offline Arial and black/white paper; marketing hero/nav/footer gates do not apply.
  * Physical pen floors use mm; print spacing uses named 4pt tokens. No blanket 58/58 claim.
@@ -116,7 +120,7 @@ padding: var(--space-xs) var(--space-sm); margin-top: var(--space-xs); }
 .contour.wide { column-span: all; }
 .stages { display: block; }
 .stages > div { min-width: 0; }
-table.coords { table-layout: auto; }
+table.coords, table.zero { table-layout: auto; }
 table.coords th { overflow-wrap: normal; }
 table.coords td.num { white-space: nowrap; overflow-wrap: normal; }
 .tick { display: inline-block; width: 7pt; height: 7pt; border: 1px solid var(--color-ink); margin: 0 2pt -1pt 6pt; } .levels .level:first-child .tick { margin-left: 2pt; }
@@ -148,8 +152,8 @@ content: attr(data-label); display: block; font-weight: bold; }
 th.read, td.read { font-weight: bold; }
 th.read { background: var(--color-reading-header); }
 tr.repeat th { background: var(--color-paper); font-weight: bold; }
-.paged table:not([data-duplex-split]) tr.repeat { display: none; }
-table:not([data-duplex-split]) tr.table-context { display: none; }
+.paged table:not([data-job-print-split]) tr.repeat { display: none; }
+table:not([data-job-print-split]) tr.table-context { display: none; }
 .paged table thead tr.table-context[data-context-suppressed="same-page"] { display: none; }
 .paged table thead [data-title-repeat][data-title-suppressed] { display: none; }
 .hold-row { display: block; }
@@ -192,20 +196,18 @@ gap: var(--space-xs) var(--space-md); margin: var(--space-sm) 0 0; }
 .inspection-record > td { border-top-style: solid; }
 .operation-continuation .op-number { font-weight: bold; }
 .record-continuation { display: block; }
-.signoff { margin-top: var(--space-lg); break-before: avoid; page-break-before: avoid;
-display: flex; flex-wrap: wrap; gap: var(--space-md); }
-.signoff .field { flex: 1 1 52mm; }
-.signoff p { flex: 1 1 52mm; margin: 0; }
-.signoff .writing-blank { width: auto; }
-.contour-row, .contour-row.tall, [data-duplex-stacked] { display: block; }
+.contour-row, .contour-row.tall, [data-job-print-stacked] { display: block; }
 .contour-row > .contour { min-width: 0; }
-.blank-side { min-height: 1px; }
 @media screen {
   body { max-width: var(--page-content-width); margin: var(--space-md) auto;
   padding: 0 var(--space-sm); }
   .page { margin-bottom: var(--space-lg); }
-  .blank-side { display: none; }
   html:not(.print-measuring) table.coords { display: block; overflow-x: auto; }
+}
+@media print {
+  html, body { width: var(--page-content-width); max-width: none;
+  margin: 0; padding: 0; overflow: visible; }
+  .page { margin: 0; }
 }
 @media screen and (max-width: 600px) {
   html:not(.print-measuring) .meta { display: block; }
@@ -213,16 +215,139 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
   html:not(.print-measuring) table:not(.operations) {
   display: block; overflow-x: auto; table-layout: auto; }
 }
+body:is([data-detail="pro"], [data-detail="hobby"]) {
+--text-running: var(--text-working); line-height: 1.18; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .cont-head { margin-bottom: 2pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .cont-count { display: inline; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h2 { font-size: var(--text-working);
+margin: 7pt 0 3pt; line-height: 1.18; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h3 {
+font-size: var(--text-working); line-height: 1.18; margin: 3pt 0 1pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .operation > tr > td { padding: 2pt 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-head,
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-head h3 { display: inline; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details { display: inline; margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details > div { display: inline; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details > div { margin-left: 8pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details dt,
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details dd { display: inline; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-details dt::after { content: ": "; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .op-note { margin: 1pt 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) {
+table-layout: auto; margin: 2pt 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) :is(th, td) {
+padding: 2pt 3pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) p {
+margin: 1pt 0; }
+.setup-flow, .setup-family { min-width: 0; }
+.setup-flow > h2, .setup-family > h2 { break-after: avoid; }
+.variant-label { font-weight: bold; margin: 3pt 0 1pt;
+break-after: avoid; page-break-after: avoid; }
+.family-common { margin: 0; }
+.inspection-method { margin: 2pt 0; min-width: 0; }
+.checkpoint-results { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+gap: 3mm; break-inside: avoid; page-break-inside: avoid; margin: 2pt 0 5pt; }
+.checkpoint-result { min-width: 0; }
+.checkpoint-result .result-field { margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .checkpoint-result .result-field { gap: 0; }
+.checkpoint-result .writing-blank { min-width: 35mm; min-height: 20mm; width: auto; }
+.checkpoint-results:has(> :only-child) { grid-template-columns: minmax(35mm, 1fr); }
+.tool-settings { margin: 2pt 0; }
+.tool-setting { margin: 1pt 0; }
+.settings-key { table-layout: fixed; width: 100%; margin: 2pt 0; }
+.settings-key th, .settings-key td { padding: 1pt 3pt; vertical-align: top; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .orientation-table :is(th, td):first-child {
+width: 1%; white-space: nowrap; overflow-wrap: normal; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow > h2,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family > h2 {
+border: 0; margin: 3pt 0 1pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-variant,
+body:is([data-detail="pro"], [data-detail="hobby"]) .family-common { display: contents; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-variant > p,
+body:is([data-detail="pro"], [data-detail="hobby"]) .family-common > p {
+margin: 1pt 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-variant > div[data-physical-ops] {
+display: contents; }
+.route-operation, .route-path p, .route-inspection p { margin: 1pt 0; }
+.route-operation + .route-path { margin: 0 0 2pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .decision {
+padding: 2pt 4pt; margin: 2pt 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .decision p { margin: 0; }
+body[data-detail="pro"] span.decision { border: 0; padding: 0; margin: 0; font-weight: bold; }
+body[data-detail="pro"] span.decision::after { content: "; "; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family { margin: 3pt 0; }
+.job-route { margin: 2pt 0; }
+.picture-notice { border-left: var(--rule-thin) solid var(--color-ink);
+padding-left: 5pt; }
+/* Compact modes use the physically proven 12pt / 12.5pt print rhythm. */
+body:is([data-detail="pro"], [data-detail="hobby"]) {
+--line-working: 12.5pt; line-height: var(--line-working); }
+body:is([data-detail="pro"], [data-detail="hobby"]) p,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-variant > p,
+body:is([data-detail="pro"], [data-detail="hobby"]) .family-common > p,
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) p { margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h2,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow > h2,
+body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family > h2 {
+line-height: var(--line-working); margin: 4pt 0 0; padding-top: 1pt; }
+body:is([data-detail="pro"], [data-detail="hobby"])
+:is(.setup-flow, .setup-family):has(> h2 + .route-prelude) > h2 {
+display: inline; margin: 0; }
+body:is([data-detail="pro"], [data-detail="hobby"])
+:is(.setup-flow, .setup-family):has(> h2 + .route-prelude) > h2::after {
+content: ": "; }
+body:is([data-detail="pro"], [data-detail="hobby"]) h3 { line-height: var(--line-working); }
+body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) :is(th, td) {
+padding: 0 3pt; }
+body:is([data-detail="pro"], [data-detail="hobby"]) .banner { padding: 2pt; margin: 0 0 4pt; }
+body[data-detail="hobby"] h3 { margin: 4pt 0 0; padding-top: 1pt; }
+body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
+@media screen and (max-width: 600px) {
+  html:not(.print-measuring) .checkpoint-results { grid-template-columns: minmax(0, 1fr); }
+  html:not(.print-measuring) .checkpoint-result .writing-blank { min-width: 0; }
+}
 </style><script>(() => {
   // The fewest original ordinary-table row groups on either side of a feasible break.
   const KEEP = 3;
-  const ADDED = "data-duplex", SPLIT = "data-duplex-split", STACKED = "data-duplex-stacked";
+  const ADDED = "data-job-print", SPLIT = "data-job-print-split",
+    STACKED = "data-job-print-stacked";
   const CONTEXT_ROLE = "data-context-role";
+  const JOB = 'section.page[data-sheet="job"]';
+  const RESULTS = ".checkpoint-results";
+  function physicalOwner(node) {
+    const setup = node.closest("[data-setup-title]"),
+      physical = node.closest("[data-setup-id]"),
+      member = node.closest("[data-member]"), workpiece = node.closest("[data-workpiece]");
+    const title = setup?.dataset.setupTitle || "", id = physical?.dataset.setupId || "",
+      tokens = title.split(/[\s·:,()—]+/);
+    const values = [title, ...[id, member?.dataset.member, workpiece?.dataset.workpiece]
+      .filter((value) => value && !tokens.includes(value))].filter(Boolean);
+    return { identity: [...new Set(values)].join(" · ") || "Job",
+      setup: physical?.dataset.setupId || "", member: member?.dataset.member || "",
+      workpiece: workpiece?.dataset.workpiece || "", title: setup?.dataset.setupTitle || "" };
+  }
   const originals = new Map();
   let CAP;
   const heading = (el) => el && /^H[1-6]$/.test(el.tagName);
   function box(el) {
-    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    const s = getComputedStyle(el);
+    if (s.display === "contents") {
+      const bounds = [...el.childNodes].flatMap((child) => {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          return getComputedStyle(child).display === "none" ? [] : [box(child)];
+        }
+        if (child.nodeType !== Node.TEXT_NODE || !child.textContent.trim()) return [];
+        const range = document.createRange();
+        range.selectNode(child);
+        return [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      });
+      return bounds.length
+        ? { top: Math.min(...bounds.map((r) => r.top)),
+          bottom: Math.max(...bounds.map((r) => r.bottom)) }
+        : { top: 0, bottom: 0 };
+    }
+    const r = el.getBoundingClientRect();
     return { top: r.top - parseFloat(s.marginTop), bottom: r.bottom + parseFloat(s.marginBottom) };
   }
   const LOCATOR_TARGET = "data-locator-target", LOCATOR_REF = "data-locator-ref";
@@ -247,14 +372,14 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     (node, index) => ({ node, page: index + 1, top: box(node).top })
   );
   function locatorPage(node) {
-    const section = node.closest("section.page[data-sheet]");
+    const section = node.closest(JOB);
     if (!section) throw new Error("A recording destination has no logical sheet.");
     const start = locatorStarts(section).filter(
       (entry) => entry.node === section || entry.node === node
         || entry.node.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING
     ).at(-1);
     const bounds = section.getBoundingClientRect();
-    return { sheet: section.dataset.sheet, identity: section.dataset.title || section.dataset.sheet,
+    return { sheet: section.dataset.sheet, ...physicalOwner(node),
       page: start.page, top: start.top, bottom: start.top + CAP,
       left: bounds.left, right: bounds.right };
   }
@@ -280,6 +405,10 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     ref.append(slot);
     return ref;
   }
+  const TYPOGRAPHY = ["font-family", "font-size", "font-weight", "font-style",
+    "font-stretch", "font-variant-numeric", "font-feature-settings",
+    "font-variation-settings", "font-kerning", "font-optical-sizing",
+    "letter-spacing", "word-spacing", "line-height"];
   function measureLocator(ref) {
     const slot = ref.querySelector(".fixed-locator-digit"), style = getComputedStyle(slot);
     const line = parseFloat(style.lineHeight);
@@ -288,38 +417,63 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     }
     const probe = document.createElement("span");
     probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;"
-      + "display:inline-block;padding:0;margin:0;border:0";
-    for (const property of ["font-family", "font-size", "font-weight", "font-style",
-      "font-stretch", "font-variant-numeric", "font-feature-settings",
-      "font-variation-settings", "font-kerning", "font-optical-sizing",
-      "letter-spacing", "word-spacing", "line-height"]) {
+      + "display:inline-block;left:0;top:0;padding:0;margin:0;border:0";
+    for (const property of TYPOGRAPHY) {
       probe.style.setProperty(property, style.getPropertyValue(property));
     }
     document.body.append(probe);
-    let width;
+    const range = document.createRange();
+    let width, top = 0, bottom = line;
     try {
       for (let digit = 0; digit <= 9; digit++) {
         probe.textContent = String(digit).repeat(locatorPass.digits);
-        const measured = probe.getBoundingClientRect().width;
+        const bounds = probe.getBoundingClientRect(), measured = bounds.width;
         if (!Number.isFinite(measured) || measured <= 0
             || !style.fontVariantNumeric.includes("tabular-nums")
             || (width !== undefined && measured !== width)) {
           throw new Error("A recording locator lacks measured tabular digit metrics.");
         }
         width = measured;
+        range.selectNodeContents(probe);
+        const glyph = range.getBoundingClientRect();
+        if (!Number.isFinite(glyph.height) || glyph.height <= 0) {
+          throw new Error("A recording locator has no measured digit glyph height.");
+        }
+        top = Math.min(top, glyph.top - bounds.top);
+        bottom = Math.max(bottom, glyph.bottom - bounds.top);
       }
     } finally { probe.remove(); }
-    // Empty reserved counters take exactly the same line box as the final ink.
+    // Retain the measured baseline: increasing line-height after probing moves
+    // the glyph origin. The reservation covers the original line box and every
+    // digit's measured top/bottom, with ink offset into that same envelope.
+    const height = bottom - top;
     slot.style.cssText = `display:inline-block;position:relative;width:${width}px;`
-      + `min-width:${width}px;max-width:${width}px;height:${line}px;min-height:${line}px;`
-      + `max-height:${line}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
+      + `min-width:${width}px;max-width:${width}px;height:${height}px;min-height:${height}px;`
+      + `max-height:${height}px;line-height:${line}px;vertical-align:bottom;white-space:nowrap;`
       + `flex:0 0 ${width}px;padding:0;margin:0;border:0`;
-    slot.firstElementChild.style.cssText = "position:absolute;left:0;top:0;display:block;"
+    slot.firstElementChild.style.cssText = `position:absolute;left:0;top:${-top}px;display:block;`
       + "white-space:nowrap;line-height:inherit;padding:0;margin:0;border:0";
+    // Reference prose has its own glyph overhang under tight body leading.
+    // Give this complete locator a local formatting box and reserve its actual
+    // top/bottom overhang, rather than borrowing a larger owner or weakening fit.
+    ref.style.display = "inline-block";
+    ref.style.maxWidth = "100%";
+    ref.style.verticalAlign = "bottom";
+    ref.style.paddingTop = "0";
+    ref.style.paddingBottom = "0";
+    const bounds = ref.getBoundingClientRect();
+    range.selectNodeContents(ref);
+    const glyphs = locatorLines(range).filter((rect) => rect[4] && rect[5]);
+    if (glyphs.length) {
+      ref.style.paddingTop =
+        Math.max(0, bounds.top - Math.min(...glyphs.map((rect) => rect[1]))) + "px";
+      ref.style.paddingBottom =
+        Math.max(0, Math.max(...glyphs.map((rect) => rect[3])) - bounds.bottom) + "px";
+    }
   }
   function prepareLocators() {
     locatorPass = { expected: new Map(), reservations: new Map() };
-    const sections = locatorNodes(document, "section.page[data-sheet]");
+    const sections = locatorNodes(document, JOB);
     let units = 1n;
     for (const section of sections) {
       const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
@@ -342,16 +496,18 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     locatorPass.bound = Number(units);
     locatorPass.digits = String(locatorPass.bound).length;
     for (const [sectionIndex, section] of sections.entries()) {
-      const identity = section.dataset.title || section.dataset.sheet;
-      if (!identity) throw new Error("A recording locator has no logical sheet identity.");
+      if (section.dataset.sheet !== "job") {
+        throw new Error("Recording destinations require one continuous job flow.");
+      }
       for (const [ordinal, blank] of locatorNodes(section, ".writing-blank").entries()) {
         const field = blank.closest(".field,.result-field,.authored-blank");
         if (!field) throw new Error("An original writing area has no structural owner.");
-        const name = field.querySelector(".field-label")?.textContent ?? "";
+        const name = field.querySelector(".field-label")?.textContent ?? "",
+          owner = physicalOwner(blank);
         const key = JSON.stringify([section.dataset.sheet, sectionIndex, "field", ordinal, name]);
         blank.setAttribute(LOCATOR_TARGET, key);
         field.setAttribute("data-locator-field-key", key);
-        locatorPass.expected.set(key, { key, identity, section: section.dataset.sheet, name,
+        locatorPass.expected.set(key, { key, ...owner, section: section.dataset.sheet, name,
           authored: field.classList.contains("authored-blank"), ordinal });
       }
       for (const [ordinal, group] of locatorNodes(section, ".path-progress").entries()) {
@@ -361,7 +517,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         }
         const members = children.map((node) => node.getAttribute(LOCATOR_TARGET));
         const key = JSON.stringify([section.dataset.sheet, sectionIndex, "progress pair", ordinal]);
-        const meta = { key, identity, section: section.dataset.sheet, members };
+        const meta = { key, ...physicalOwner(group), section: section.dataset.sheet, members };
         children.forEach((node) => node.setAttribute("data-locator-group", key));
         locatorPass.expected.set(key, meta);
         for (const locator of locatorNodes(group.closest(".contour"),
@@ -369,7 +525,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           const instruction = [...locator.childNodes].map((node) => node.cloneNode(true));
           const ref = locatorReference(meta, "");
           ref.firstChild.replaceWith(...instruction,
-            document.createTextNode(" — " + identity + ", page "));
+            document.createTextNode(" — " + meta.identity + ", page "));
           locator.replaceChildren(ref);
         }
       }
@@ -409,14 +565,15 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       blank.parentElement.append(ref);
       measureLocator(ref);
       ref.remove();
-      ref.removeAttribute("style");
+      ref.style.removeProperty("position");
+      ref.style.removeProperty("visibility");
       locatorPass.reservations.set(meta.key, ref);
     }
   }
   const locatorInstruction = (meta) => meta.authored
     ? "Original authored blank " + (meta.ordinal + 1) : "Original " + meta.name;
   function locatorRegistry() {
-    for (const section of locatorNodes(document, "section.page[data-sheet]")) {
+    for (const section of locatorNodes(document, JOB)) {
       const actual = locatorStarts(section).length;
       if (!Number.isSafeInteger(actual) || actual < 1 || actual > locatorPass.bound
           || actual !== Number(section.dataset.pages)) {
@@ -444,6 +601,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           throw new Error("An original writing destination does not fit wholly on its local page.");
         }
         places.push({ member, page: page.page, sheet: page.sheet, identity: page.identity,
+          setup: page.setup, workpiece: page.workpiece,
           field: locatorRect(field), blank: locatorRect(blank),
           top: page.top, bottom: page.bottom });
       }
@@ -460,7 +618,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     return registry;
   }
   function locatorLayout(registry) {
-    const nodes = locatorNodes(document, "section.page[data-sheet],section.page[data-sheet] *")
+    const nodes = locatorNodes(document, JOB + "," + JOB + " *")
       .filter((node) => locatorVisible(node)
         && !node.matches(".fixed-locator-ink") && !node.closest(".fixed-locator-ink"));
     const geometry = nodes.map((node) => [locatorRect(node), locatorLines(node)]);
@@ -474,7 +632,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       range.selectNodeContents(node);
       text.push([node.textContent, locatorLines(range)]);
     }
-    const starts = locatorNodes(document, "section.page[data-sheet]").map(
+    const starts = locatorNodes(document, JOB).map(
       (section) => [section.dataset.sheet, Number(section.dataset.pages),
         locatorStarts(section).map((start) => [start.page, start.top]), locatorRect(section)]
     );
@@ -482,7 +640,8 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       Number(document.documentElement.dataset.printWidth), starts]);
   }
   function finishLocators() {
-    const refs = locatorNodes(document, "[" + LOCATOR_REF + "]").filter(locatorVisible);
+    const allRefs = locatorNodes(document, "[" + LOCATOR_REF + "]");
+    const refs = allRefs.filter(locatorVisible);
     for (const ref of refs) {
       const slot = ref.querySelector(".fixed-locator-digit"), style = slot.getAttribute("style");
       // Re-read live inherited CSS, not the line box pinned by the reservation.
@@ -494,7 +653,9 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     }
     const registry = locatorRegistry(), before = locatorLayout(registry),
       byKey = new Map(registry.map((entry) => [entry.key, entry]));
-    for (const ref of refs) {
+    // Hidden original repeat rows still retain valid addresses when their
+    // continuation copies print. Only visible references participate in geometry.
+    for (const ref of allRefs) {
       const target = byKey.get(ref.getAttribute(LOCATOR_REF));
       const ink = ref.querySelector(".fixed-locator-digit")?.firstElementChild;
       if (!target || !ink || ink.textContent !== "") {
@@ -511,13 +672,22 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     }
     for (const ref of refs) {
       const slot = ref.querySelector(".fixed-locator-digit"), ink = slot.firstElementChild,
-        page = locatorPage(ref), owner = ref.closest("tr,.cont-head,li,p,.op-action")
+        // An inline method label's glyph box omits the line-height leading used
+        // by its reserved counter. Its method block owns the complete line box.
+        page = locatorPage(ref),
+        owner = ref.closest("tr,.cont-head,li,p,.op-action,.inspection-method")
           ?? ref.parentElement;
       const ownerRect = locatorRect(owner), ownerBounds = { left: ownerRect[0],
         top: ownerRect[1], right: ownerRect[2], bottom: ownerRect[3] },
         refRects = locatorLines(ref), slotRect = locatorRect(slot);
       if (!locatorWithin(slotRect, ownerBounds) || !locatorWithin(slotRect, page)) {
-        throw new Error("A recording-locator reservation escapes its owner or local print page.");
+        throw new Error("A recording-locator reservation escapes its owner or local print page. "
+          + JSON.stringify({ key: ref.getAttribute(LOCATOR_REF),
+            owner: { tag: owner.tagName, id: owner.id, class: owner.getAttribute("class"),
+              bounds: ownerBounds },
+            slot: { left: slotRect[0], top: slotRect[1], right: slotRect[2], bottom: slotRect[3] },
+            page: { number: page.page, left: page.left, top: page.top,
+              right: page.right, bottom: page.bottom } }));
       }
       const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
       const range = document.createRange();
@@ -532,7 +702,21 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
             if (!containers.some((bounds) => locatorWithin(rect,
               { left: bounds[0], top: bounds[1], right: bounds[2], bottom: bounds[3] }))
                 || !locatorWithin(rect, ownerBounds) || !locatorWithin(rect, page)) {
-              throw new Error("A recording-locator glyph escapes its reservation or print owner.");
+              const style = getComputedStyle(node.parentElement);
+              throw new Error("A recording-locator glyph escapes its reservation or print owner. "
+                + JSON.stringify({ key: ref.getAttribute(LOCATOR_REF),
+                  character: node.textContent.slice(offset, offset + 1),
+                  ink: node.parentElement === ink,
+                  glyph: { left: rect[0], top: rect[1], right: rect[2], bottom: rect[3] },
+                  containers, slot: slotRect, reference: refRects,
+                  owner: { tag: owner.tagName, class: owner.getAttribute("class"),
+                    bounds: ownerBounds },
+                  page: { number: page.page, left: page.left, top: page.top,
+                    right: page.right, bottom: page.bottom },
+                  typography: { family: style.fontFamily, size: style.fontSize,
+                    weight: style.fontWeight, lineHeight: style.lineHeight,
+                    slotLineHeight: getComputedStyle(slot).lineHeight,
+                    inkLineHeight: getComputedStyle(ink).lineHeight } }));
             }
           }
         }
@@ -551,95 +735,110 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     ref.prepend(" · ");
     return [...nodes, ref];
   }
+  function prepareTableColumns() {
+    for (const table of document.querySelectorAll(JOB + " table")) {
+      if (table.querySelector(":scope > colgroup")
+          || getComputedStyle(table).tableLayout !== "auto") continue;
+      const rows = [...table.rows].filter((row) =>
+        [...row.cells].every((cell) => cell.colSpan === 1 && cell.rowSpan === 1));
+      const count = Math.max(0, ...rows.map((row) => row.cells.length));
+      const row = rows.find((candidate) => candidate.cells.length === count);
+      if (!row || count === 0) continue;
+      const firstColumn = rows.filter((candidate) => candidate.cells.length === count)
+        .map((candidate) => candidate.cells[0]);
+      if (firstColumn.every((cell) => cell.textContent.trim().replace(/\s+/g, " ").length <= 20
+          && !cell.querySelector("figure,.field,.result-field,.authored-blank"))) {
+        // Short keys are labels, not prose. Their min-content width must include
+        // the complete key/header instead of a single character from anywhere-wrap.
+        for (const cell of firstColumn) {
+          cell.style.whiteSpace = "nowrap";
+          cell.style.overflowWrap = "normal";
+        }
+      }
+      // Let the browser allocate content-sized columns once at the print width.
+      // Continuation fragments retain those measured widths, not equal shares or
+      // a new allocation based only on the few rows left in that fragment.
+      const columns = document.createElement("colgroup");
+      columns.setAttribute(ADDED, "");
+      for (const cell of row.cells) {
+        const column = document.createElement("col");
+        column.style.width = cell.getBoundingClientRect().width + "px";
+        columns.append(column);
+      }
+      table.prepend(columns);
+      table.style.tableLayout = "fixed";
+    }
+  }
   function paginate(section) {
-    // Recompute roles at this print width; source continuations inherit them only
-    // within this pass, never from an earlier pagination measurement.
+    // Keep the first/last authored margins inside the measured page. A collapsed
+    // opening heading margin otherwise shifts pageTop below the physical origin.
+    section.style.display = "flow-root";
+    // Recompute original/context distinctions at this width, never from a previous pass.
     section.querySelectorAll(".page-context").forEach((context) => {
       context.removeAttribute(CONTEXT_ROLE);
     });
     const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
       .map((node) => node.cloneNode(true));
+    const compactRunning = ["pro", "hobby"].includes(document.body.dataset.detail);
+    const compactTitle = section.dataset.jobTitle || section.dataset.part;
+    const quantity = section.dataset.quantity ? "qty " + section.dataset.quantity : "";
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
-      section.dataset.title || section.dataset.sheet].filter(Boolean).join(" · ");
-    const titleOwners = new Map();
-    for (const source of section.querySelectorAll("h3.page-context > [data-title-source]")) {
-      const key = source.dataset.titleSource, units = new Map();
-      const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT), nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach((node, ordinal) => {
-        const identity = key + ":text:" + ordinal, span = document.createElement("span");
-        span.dataset.titleUnit = identity;
-        units.set(identity, node.length);
-        node.replaceWith(span);
-        span.append(node);
-      });
-      // DOM text lengths and Range offsets are UTF-16 units, including non-BMP titles.
-      titleOwners.set(key, { length: source.textContent.length, units });
-    }
-    for (const repeat of section.querySelectorAll("[data-title-repeat]")) {
-      const key = repeat.dataset.titleRepeat;
-      if (!titleOwners.has(key)) continue;
-      const walker = document.createTreeWalker(repeat, NodeFilter.SHOW_TEXT), nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach((node, ordinal) => {
-        const span = document.createElement("span");
-        span.dataset.titleUnit = key + ":text:" + ordinal;
-        node.replaceWith(span);
-        span.append(node);
-      });
-    }
-    function fullTitleCanonicalOnPage(key) {
-      const owner = titleOwners.get(key);
-      if (!owner?.units.size) return false;
+      quantity]
+      .filter(Boolean).join(" · ");
+    const titleOwners = new Map(
+      [...section.querySelectorAll("h3.page-context > [data-title-source]")]
+        .map((source) => [source.dataset.titleSource, source.textContent])
+    );
+    function fullTitleCanonicalOnPage(key, originalOnly = false) {
+      const text = titleOwners.get(key);
+      if (!text) return false;
       const left = section.getBoundingClientRect().left,
         right = left + Number(document.documentElement.dataset.printWidth);
       const within = (r) => r.left >= left - .01 && r.right <= right + .01
         && r.top >= pageTop - .01 && r.bottom <= pageTop + CAP + .01;
       for (const span of section.querySelectorAll("[data-title-source]")) {
-        if (span.dataset.titleSource !== key) continue;
+        if (span.dataset.titleSource !== key || span.textContent !== text) continue;
         const running = span.closest(".cont-context"), original = span.closest("h3.page-context");
-        if (!running && (!original || span.closest("[" + ADDED + "]"))) continue;
-        if (span.textContent.length !== owner.length) continue;
-        const units = [...span.querySelectorAll("[data-title-unit]")];
-        if (units.length !== owner.units.size || units.some((node) =>
-          !owner.units.has(node.dataset.titleUnit)
-            || node.textContent.length !== owner.units.get(node.dataset.titleUnit))) continue;
-        if (!span.getClientRects().length || !within(span.getBoundingClientRect())
-            || [...span.querySelectorAll("*")].some((node) =>
-              [...node.getClientRects()].some((rect) => !within(rect)))) continue;
+        if (running ? originalOnly : !original || span.closest("[" + ADDED + "]")) continue;
+        if (!span.getClientRects().length || !within(span.getBoundingClientRect())) continue;
+        // A single Range measures every retained title run, including nested numeric
+        // spans. Per-word wrappers and repeated subtree queries made a long depth
+        // list quadratic during prefix fitting without proving anything stronger.
         const range = document.createRange();
-        if (units.some((node) => {
-          range.selectNodeContents(node);
-          return [...range.getClientRects()].some((rect) => !within(rect));
-        })) continue;
-        return true;
+        range.selectNodeContents(span);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+        if (rects.length && rects.every(within)) return true;
       }
       return false;
     }
     function refreshTitleCopies(t) {
       for (const span of t.tHead?.querySelectorAll("[data-title-repeat]") || []) {
-        const key = span.dataset.titleRepeat, owner = titleOwners.get(key),
-          units = [...span.querySelectorAll("[data-title-unit]")];
-        const whole = owner && span.textContent.length === owner.length
-          && units.length === owner.units.size && units.every((node) =>
-            owner.units.has(node.dataset.titleUnit)
-              && node.textContent.length === owner.units.get(node.dataset.titleUnit));
-        span.toggleAttribute("data-title-suppressed", !!whole && fullTitleCanonicalOnPage(key));
+        const key = span.dataset.titleRepeat;
+        span.toggleAttribute("data-title-suppressed",
+          span.textContent === titleOwners.get(key) && fullTitleCanonicalOnPage(key));
       }
     }
-    const contextHeads = new Map(
-      [...section.querySelectorAll("[data-page-context]")].map((owner) => [
-        owner.dataset.pageContext, owner.querySelector(":scope > .page-context")?.cloneNode(true)
-      ])
-    );
-    const operationHeads = new Map(
-      [...section.querySelectorAll("tbody.operation")].map((body) => [
-        body.dataset.op, [...body.rows].filter(
-          (row) => row.classList.contains("operation-main") || row.querySelector(".op-note")
-        ).map((row) => row.cloneNode(true))
-      ])
-    );
+    const contextHeads = new Map();
+    [...section.querySelectorAll("[data-page-context]")].forEach((owner, index) => {
+      // Stable within a pass and inherited by source fragments; identical titles in
+      // different physical setups never select each other's heading.
+      owner.dataset.printContext = String(index);
+      const original = owner.querySelector(":scope > .page-context");
+      if (!original) return;
+      const style = getComputedStyle(original);
+      contextHeads.set(String(index), {
+        heading: original.cloneNode(true),
+        typography: TYPOGRAPHY.map((property) => [property, style.getPropertyValue(property)])
+      });
+    });
+    const operationHeads = new Map();
+    [...section.querySelectorAll("tbody.operation")].forEach((body, index) => {
+      body.dataset.printOperation = String(index);
+      operationHeads.set(String(index), [...body.rows].filter(
+        (row) => row.classList.contains("operation-main") || row.querySelector(".op-note")
+      ).map((row) => row.cloneNode(true)));
+    });
     const instructionOwners = new Map();
     function registerInstructionOwner(t, index) {
       const intro = t.previousElementSibling,
@@ -700,7 +899,8 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     const ORDINARY_EXCLUSIONS = "figure,figcaption,.field,.result-field,.authored-blank,"
       + ".writing-blank,.field-label,.tick,.performed-mark,input,textarea,select,button,svg,img,"
       + ".record-continuation,.row-continuation,.page-context,.op-number,.op-details,"
-      + ".cont-head,[data-continuation-locator],.fixed-locator-reference,[" + ADDED + "]";
+      + ".cont-head,.checkpoint-results,.checkpoint-result,[data-continuation-locator],"
+      + ".fixed-locator-reference,[" + ADDED + "]";
     function ordinaryWholeCell(cell) {
       if (cell?.nodeType !== Node.ELEMENT_NODE || !cell.matches("td,th")
           || cell.closest("table.operations,[" + ADDED + "]")) return false;
@@ -840,34 +1040,10 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         });
       }
     });
-    // Each print pass starts from pristine children. Only repeated logical-sheet
-    // identity may use the running-header hierarchy to keep its first figure whole.
-    if (section.dataset.sheetRole === "continuation") {
-      const [meta, banner, heading, figure] = [...section.children];
-      if (meta?.matches(".meta") && banner?.matches(".banner")
-          && heading?.tagName === "H2" && figure?.tagName === "FIGURE") {
-        const required = box(figure).bottom - box(section).top;
-        if (required > CAP) {
-          const head = document.createElement("div");
-          head.className = "compact-sheet-head lead-in";
-          const identity = document.createElement("span"), title = document.createElement("span");
-          identity.className = title.className = "cont-title";
-          for (const item of [...meta.children, banner]) {
-            if (identity.childNodes.length) {
-              const separator = document.createElement("span");
-              separator.className = "compact-identity-separator";
-              separator.textContent = " · ";
-              identity.append(separator);
-            }
-            identity.append(...[...item.childNodes]);
-          }
-          title.append(...[...heading.childNodes]);
-          head.append(identity, document.createElement("br"), title);
-          meta.before(head);
-          meta.remove(); banner.remove(); heading.remove();
-          // The unchanged figure/caption must still fit with this measured header.
-        }
-      }
+    for (const total of section.querySelectorAll(".first-page-count .cont-page-total")) {
+      total.style.fontKerning = "none";
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
     }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
@@ -919,29 +1095,38 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       return el.tagName === "TR"
         ? prefixBottom(el.closest("table"), el, contents) : textBottom(el, contents);
     }
-    function pageProgress(el, relax = true) {
+    function pageProgress(el, relax = true, firstPrefixOnly = false) {
+      // A full repeated heading can already exhaust the page. No original
+      // prefix can fit below that start; compact context before cloning words.
+      if (box(el).top >= pageTop + CAP) return null;
       if (el.tagName === "TABLE") {
-        const progress = sourceProgress(el, el.tBodies[0]);
+        const progress = sourceProgress(el, el.tBodies[0], true, !firstPrefixOnly);
         return progress ? () => prefixBottom(el, progress.row, progress.contents) : null;
       }
-      for (const point of pointsIn(el)) {
+      for (const point of pointsIn(el, !firstPrefixOnly)) {
         const contents = contentsAt(el, point);
-        if (originalText(contents) && fits(textBottom(el, contents))) {
-          return () => textBottom(el, contents);
-        }
+        if (!originalText(contents)) continue;
+        if (fits(textBottom(el, contents))) return () => textBottom(el, contents);
+        // The first pass is only an admission trial for full repeated context.
+        // A conservative rejection can shorten that copy, never refuse source:
+        // after compaction the complete mixed-block prefix search runs below.
+        if (firstPrefixOnly) break;
       }
       if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
-      return relax && prepareFields(el) ? pageProgress(el, false) : null;
+      return relax && prepareFields(el) ? pageProgress(el, false, firstPrefixOnly) : null;
     }
-    function compactContext(el, suffix = "") {
+    function compactContext(el, suffix = "", operationOnly = false) {
       const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
         .map((ref) => ref.cloneNode(true));
       const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
       if (!identity) return false;
+      const authored = el.dataset.pageContext?.split(/\s+[—·]\s+/, 1)[0].trim(),
+        label = !operationOnly && authored && el.textContent.startsWith(authored)
+          ? authored : identity[0];
       const range = document.createRange(),
         walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       range.selectNodeContents(el);
-      let remaining = identity[0].length, node;
+      let remaining = label.length, node;
       while ((node = walker.nextNode())) {
         if (remaining <= node.length) {
           range.setEnd(node, remaining);
@@ -952,52 +1137,326 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       }
       return false;
     }
-    function breakAt(el) {
+    const sharedOwners = new Map();
+    function sharedPhysicalOwners(raw) {
+      if (!sharedOwners.has(raw)) {
+        let values;
+        try { values = JSON.parse(raw); } catch { values = null; }
+        sharedOwners.set(raw, Array.isArray(values) && values.length
+          && values.every((value) => value && typeof value.setup_id === "string"
+            && value.setup_id.trim() && (value.workpiece == null
+              || typeof value.workpiece === "string"))
+          ? values.map((value) => ({ setup: value.setup_id,
+            member: "", workpiece: value.workpiece || "" })) : []);
+      }
+      return sharedOwners.get(raw);
+    }
+    const PAGE_REFERENCE = '[data-page-reference="final-inspection"]',
+      routeOrder = new Map();
+    function registerRoute(scope, setup) {
+      const key = JSON.stringify([scope, setup]);
+      if (setup && !routeOrder.has(key)) routeOrder.set(key, routeOrder.size);
+      return routeOrder.get(key);
+    }
+    // Register original route scopes before fragmentation; their token survives
+    // splitting. Separate fresh wrappers remain separate even with identical labels.
+    const routeScopes = [...section.querySelectorAll("[data-setup-title]")].filter(
+      (node) => !node.closest(PAGE_REFERENCE)
+        && !node.parentElement.closest("[data-setup-title]"));
+    routeScopes.forEach((scope, index) => {
+      scope.dataset.printOwnerScope = String(index);
+      let members;
+      try { members = JSON.parse(scope.dataset.setupMembers || "[]"); }
+      catch { members = []; }
+      if (Array.isArray(members)) members.filter(
+        (value) => typeof value === "string" && value.trim()
+      ).forEach((setup) => registerRoute(String(index), setup));
+      registerRoute(String(index), physicalOwner(scope).setup);
+      // Shared operation lists retain authored route order even when a selected
+      // picture for a later member precedes the common operation in the DOM.
+      for (const node of scope.querySelectorAll("[data-physical-ops]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
+        sharedPhysicalOwners(node.dataset.physicalOps).forEach(
+          (owner) => registerRoute(String(index), owner.setup));
+      }
+      for (const node of scope.querySelectorAll("[data-setup-id]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
+        registerRoute(String(index), physicalOwner(node).setup);
+      }
+    });
+    function sourcePhysicalOwners(element) {
+      if (element.closest(PAGE_REFERENCE)) return [];
+      // Shared operation cards intentionally carry an empty setup ID on their
+      // inner tbody. That sentinel is not an owner and must not hide the enclosing
+      // authored physical-operation list. Nonempty IDs and explicit lists still
+      // take precedence at their nearest source boundary.
+      let source = element.closest("[data-setup-id],[data-physical-ops]");
+      while (source && !source.hasAttribute("data-physical-ops") && !source.dataset.setupId) {
+        source = source.parentElement?.closest("[data-setup-id],[data-physical-ops]");
+      }
+      if (!source) return [];
+      const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
+        owners = source.hasAttribute("data-physical-ops")
+          ? sharedPhysicalOwners(source.dataset.physicalOps)
+          : [physicalOwner(element)].filter((owner) => owner.setup);
+      return owners.map((owner) => {
+        const member = owner.member === owner.workpiece ? "" : owner.member,
+          key = JSON.stringify([scope ?? null, owner.setup, member, owner.workpiece]);
+        return { ...owner, member, scope, key,
+          order: registerRoute(scope ?? null, owner.setup) };
+      });
+    }
+    function forEachPhysicalSource(visit) {
+      const walker = document.createTreeWalker(section,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT), range = document.createRange();
+      while (walker.nextNode()) {
+        const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
+          ? node.parentElement : node;
+        if (node.nodeType === Node.TEXT_NODE ? !node.textContent.trim()
+            : !element.matches("img,svg")) continue;
+        if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
+            || !locatorVisible(element)) continue;
+        const sourceOwners = sourcePhysicalOwners(element);
+        if (!sourceOwners.length) continue;
+        range.selectNode(node);
+        if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+        visit(sourceOwners, node, element);
+      }
+    }
+    const physicalSources = [];
+    // Resolve nested metadata from the same visible source nodes used after
+    // pagination, not only from elements carrying an explicit setup ID.
+    forEachPhysicalSource((owners) => physicalSources.push(...owners));
+    const physicalLabels = [...new Set(physicalSources.map((owner) => owner.setup))];
+    function physicalRunningTitle(owner, continued) {
+      const identity = owner?.identity && owner.identity !== "Job" ? owner.identity
+        : owner?.setup ? "Setup " + owner.setup : "";
+      return [title, identity].filter(Boolean).join(" · ") + (continued ? " (continued)" : "");
+    }
+    const physicalTitles = compactRunning ? [] : [...new Set(
+      [null, ...physicalSources].flatMap(
+        (owner) => [false, true].map((continued) => physicalRunningTitle(owner, continued))
+      )
+    )];
+    function reserveRunningSlot(slot, candidates, wrap = false, target = slot) {
+      // Measure in place at the inherited typography, before fitting source.
+      // Totals, owner ranges and wrapped titles retain this envelope when filled.
+      slot.style.display = wrap ? "block" : "inline-block";
+      slot.style.whiteSpace = wrap ? "normal" : "nowrap";
+      slot.style.verticalAlign = "bottom";
+      const range = document.createRange();
+      let width = 0, height = 0, above = 0, below = 0;
+      for (const candidate of candidates) {
+        target.textContent = candidate;
+        const bounds = slot.getBoundingClientRect();
+        range.selectNodeContents(slot);
+        const ink = range.getBoundingClientRect();
+        width = Math.max(width, bounds.width);
+        height = Math.max(height, bounds.height);
+        above = Math.max(above, bounds.top - ink.top);
+        below = Math.max(below, ink.bottom - bounds.bottom);
+      }
+      // Tight working leading can be shorter than the glyph envelope. Preserve
+      // its baseline and reserve the actual overhang, as for recording locators.
+      slot.style.paddingTop = above + "px";
+      slot.style.paddingBottom = below + "px";
+      slot.style.width = wrap ? "100%" : width + "px";
+      slot.style.height = height + above + below + "px";
+      target.textContent = "";
+    }
+    function finishPageOwners() {
+      const starts = [section, ...section.querySelectorAll(".cont-head")],
+        owners = starts.map(() => []), seenSetups = new Set(),
+        setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
+      forEachPhysicalSource((sourceOwners, node, element) => {
+        // Retained DOM boundaries, not page-number guesses or interior headings,
+        // decide membership. Fragments inherit the original physical metadata.
+        const start = starts.findLastIndex((head) => head === element
+          || !!(head.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+        for (const owner of sourceOwners) {
+          if (start >= 0 && !owners[start].some((entry) => entry.key === owner.key)) {
+            owners[start].push(owner);
+          }
+        }
+      });
+      owners.forEach((entries, index) => {
+        entries.sort((left, right) => left.order - right.order);
+        const head = starts[index], first = entries[0],
+          continued = !!first && first.scope !== undefined && seenSetups.has(setupKey(first));
+        // The qualifier describes a setup, not an individual member's record.
+        // Preserve full member identities above, but resume the scoped setup even
+        // when this page opens on its first workpiece-specific inspection record.
+        entries.filter((entry) => entry.scope !== undefined)
+          .forEach((entry) => seenSetups.add(setupKey(entry)));
+        if (!index) return;
+        head.dataset.pageOwners = JSON.stringify(entries.map(
+          ({ setup, member, workpiece }) => ({ setup, member, workpiece })));
+        head.dataset.ownerRangeStart = first?.setup || "";
+        head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
+        head.dataset.ownerContinued = String(continued);
+        if (!compactRunning) {
+          const running = head.querySelector(".cont-title");
+          running.querySelector(".cont-physical-title").textContent =
+            physicalRunningTitle(first, continued);
+          if (running.scrollWidth > running.clientWidth + 1
+              || running.scrollHeight > running.clientHeight + 1) throw new Error(
+            "A physical owner title exceeds its measured running-header reservation.");
+        }
+        const slot = head.querySelector(".cont-page-owners");
+        if (!slot || !first) return;
+        const setups = [...new Set(entries.map((entry) => entry.setup))];
+        slot.textContent = " · Setups " + first.setup + (continued ? " (continued)" : "")
+          + (setups.length > 1 ? " → " + entries.at(-1).setup : "");
+        if (slot.scrollWidth > slot.clientWidth + 1) throw new Error(
+          "A physical owner range exceeds its measured running-header reservation.");
+      });
+    }
+    function physicalOwnerWrapper(origin) {
+      let wrapper = origin.closest("[data-setup-id],[data-setup-title]");
+      if (!wrapper) return null;
+      const id = wrapper.dataset.setupId || "", title = wrapper.dataset.setupTitle || "";
+      if (!id && !title) return null;
+      for (let parent = wrapper.parentElement; parent && parent !== section;
+          parent = parent.parentElement) {
+        if (id ? parent.dataset.setupId === id
+            : !parent.dataset.setupId && parent.dataset.setupTitle === title) wrapper = parent;
+      }
+      return wrapper;
+    }
+    function openingOwnerHeadingVisible(wrapper) {
+      // Only the owner's direct original opening heading can supply its identity.
+      // An inner READINGS/HOLD/etc. heading cannot make a continued tail fresh.
+      const first = [...wrapper.children].find((node) => !node.hasAttribute(ADDED));
+      const selector = wrapper.matches(".setup-variant") ? ".variant-label" : "h2";
+      if (!first?.matches(selector) || first.closest("[" + ADDED + "]")
+          || !locatorVisible(first)) return false;
+      for (let node = wrapper.firstChild; node !== first; node = node.nextSibling) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return false;
+      }
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth),
+        within = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+          && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const range = document.createRange();
+      range.selectNodeContents(first);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      return rects.length > 0 && rects.every(within);
+    }
+    function breakAt(el, origin = el) {
       pages += 1;
       const head = document.createElement("p");
       head.className = "cont-head";
       head.setAttribute(ADDED, "");
       const running = document.createElement("span");
       running.className = "cont-title";
-      running.textContent = title + " (continued)";
-      if (statusContents.length) {
-        running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+      const setup = physicalOwner(origin), owner = origin.closest("[data-page-context]");
+      running.textContent = (compactRunning
+        ? [compactTitle || title, compactTitle ? quantity : ""]
+        : [title, setup.identity === "Job" ? "" : setup.identity])
+        .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
+      if (!compactRunning) {
+        const identity = document.createElement("span");
+        identity.className = "cont-physical-title";
+        identity.textContent = running.textContent;
+        running.replaceChildren(identity);
+      }
+      for (const [key, value] of Object.entries({ setupTitle: setup.title,
+        setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
+        if (value) head.dataset[key] = value;
+      }
+      if (owner) head.dataset.pageContext = owner.dataset.pageContext;
+      if (compactRunning) {
+        const status = statusContents.map((node) => node.textContent).join("")
+          .replace("EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT", "EXAMPLE ONLY");
+        if (section.dataset.continuationLabel &&
+            !status.includes(section.dataset.continuationLabel)) {
+          running.append(" · " + section.dataset.continuationLabel);
+        }
+        if (status) running.append(" · " + status);
+      } else {
+        if (section.dataset.continuationLabel) {
+          running.append(" · " + section.dataset.continuationLabel);
+        }
+        if (statusContents.length) {
+          running.append(" · ", ...statusContents.map((node) => node.cloneNode(true)));
+        }
       }
       const count = document.createElement("span");
       count.className = "cont-count";
       count.append(" · page " + pages + " of ");
       const total = document.createElement("span");
       total.className = "cont-page-total";
-      total.textContent = "?";
+      total.style.fontKerning = "none";
       count.append(total);
       // The count line is present during every fit/progress measurement. Its final
       // digits cannot change the title wrapping or the preserved working context.
       head.append(running, "\n", count);
-      const owner = el.closest("[data-page-context]");
       el.before(head);
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
+      if (!compactRunning) {
+        const identity = running.querySelector(".cont-physical-title"),
+          initial = identity.textContent;
+        reserveRunningSlot(running, [...physicalTitles, initial], true, identity);
+        identity.textContent = initial;
+      }
+      if (physicalLabels.length) {
+        const owners = document.createElement("span");
+        owners.className = "cont-page-owners";
+        count.append(owners);
+        reserveRunningSlot(owners, physicalLabels.map(
+          (label) => " · Setups " + label + " (continued) → " + label));
+      }
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
-      const source = owner && contextHeads.get(owner.dataset.pageContext);
-      if (source) {
-        let progress = pageProgress(el);
-        if (!progress) {
-          // A repeated long note title is not original progress. Keep its stable
-          // setup/op identity when the full repeat blocks the original remainder.
+      const source = owner && contextHeads.get(owner.dataset.printContext);
+      const wrapper = compactRunning && !owner ? physicalOwnerWrapper(origin) : null,
+        freshOwner = wrapper && (el === wrapper || el.contains(wrapper));
+      const localOwner = compactRunning && !owner && setup.identity !== "Job"
+        && (!freshOwner || !openingOwnerHeadingVisible(wrapper));
+      if (owner || localOwner) {
+        const context = document.createElement("span");
+        context.className = "cont-context";
+        if (owner) context.dataset.pageContext = owner.dataset.pageContext;
+        if (source) {
+          context.append(...[...source.heading.childNodes].map((node) => node.cloneNode(true)));
+          // The copied destination counters were reserved in the original heading.
+          // Preserve that context's typography before fitting the running header,
+          // rather than discovering a different inherited line box after pagination.
+          for (const [property, value] of source.typography) {
+            context.style.setProperty(property, value);
+          }
+        } else context.textContent = owner
+          ? owner.dataset.pageContext
+          : setup.identity + (freshOwner ? "" : " (continued)");
+        cleanLocatorCopy(context);
+        head.append("\n", context);
+        const titleKey = source?.heading.querySelector("[data-title-source]")?.dataset.titleSource;
+        if (titleKey) {
+          // Prefer the complete authored heading when it opens this page. A full
+          // running copy above the same heading wastes space and presents it twice.
+          // Trial only the repeated identity; restore it when the complete original
+          // is absent, fragmented or cannot fit at its retained working typography.
+          const full = context.cloneNode(true);
+          if (compactContext(context) && !fullTitleCanonicalOnPage(titleKey, true)) {
+            context.replaceChildren(...full.childNodes);
+          }
+        }
+        if (!pageProgress(el, true, true)) {
+          // Only repeated context may compact. The complete authored title and
+          // every original instruction remain source and must advance finitely.
           for (const repeated of el.querySelectorAll(".record-continuation")) {
             compactContext(repeated, " (continued)");
           }
-          progress = pageProgress(el);
-        }
-        if (!progress) return;
-        const context = document.createElement("span");
-        context.className = "cont-context";
-        context.append(...[...source.childNodes].map((node) => node.cloneNode(true)));
-        cleanLocatorCopy(context);
-        head.append("\n", context);
-        if (!fits(progress())) {
-          if (!compactContext(context)) context.replaceChildren();
-          if (!context.textContent || !fits(progress())) context.remove();
+          if (!compactContext(context)) context.textContent = owner
+            ? owner.dataset.pageContext : setup.identity + " (continued)";
+          // Authored context may itself be a complete over-page instruction.
+          // If its preferred prefix still blocks source, repeat only the scoped
+          // operation identity; keep the complete original heading as source.
+          if (!pageProgress(el)
+              && (!compactContext(context, "", true) || !pageProgress(el))) throw new Error(
+            "A continuation owner cannot share a page with original source progress.");
         }
       }
     }
@@ -1010,7 +1469,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         const prev = start.previousElementSibling;
         const caption = prev && prev.tagName === "P"
           && /^(TABLE|OL|UL)$/.test(start.tagName) && !prev.hasAttribute(ADDED);
-        if (heading(prev) || caption || (prev && prev.classList.contains("lead-in"))) {
+        if (heading(prev) || caption || prev?.matches(".lead-in,.variant-label")) {
           start = prev;
         } else if (!prev && start.parentElement !== section) {
           start = start.parentElement;
@@ -1038,13 +1497,13 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         start.before(more);
         const op = operations.tBodies[0].dataset.op
           || operations.tBodies[0].rows[0].cells[0].textContent;
-        more.textContent = "Operations continue on reverse, op " + op;
+        more.textContent = "Operations continue on the next page, op " + op;
         if (!fits(box(more).bottom)) {
           more.remove();
           more = null;
         }
       }
-      breakAt(start);
+      breakAt(start, el);
       const movedTable = el.tagName === "TABLE" ? el
         : (heading(el) || el.classList.contains("table-intro"))
           && el.nextElementSibling?.tagName === "TABLE" ? el.nextElementSibling : null;
@@ -1057,21 +1516,31 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           tableContext(movedTable, progress, true);
         }
       }
-      if (more && pages % 2 === 1) {
-        more.textContent = more.textContent.replace("on reverse", "on the next sheet");
-      }
       return true;
     }
-    function pointsIn(el) {
-      const points = [], atomicContexts = new Map();
+    const OPERATION_UNITS = ".op-head,.op-action,.op-action p,.op-details > div,"
+      + ".op-note,.steps > li,.box,.warning-clause,.stop,.caution,.unverified";
+    function pointsIn(el, allowFallback = true) {
+      const points = [], atomicContexts = new Map(),
+        flow = el.closest("table") || el, start = lead(flow),
+        fresh = start === pageStart || start.contains(pageStart) || box(start).top <= pageTop;
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           // A whole canonical view is source, but none of its SVG, title, caption
           // or text descendants is a legal pagination boundary.
-          if (node.parentElement?.closest("figure, [" + ADDED + "]")) {
+          if (node.parentElement?.closest("figure,.checkpoint-results,[" + ADDED + "]")) {
             return NodeFilter.FILTER_REJECT;
           }
-          return node.nodeType === Node.TEXT_NODE || node.matches("figure")
+          const unit = node.parentElement?.closest(OPERATION_UNITS);
+          if (unit && el.contains(unit) && atomicContexts.get(unit)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          // An enclosing worksheet row may span many pages. Its nested table
+          // advances at complete source groups, never within a row or field.
+          const table = node.parentElement?.closest("table");
+          if (table && el.contains(table)) return NodeFilter.FILTER_REJECT;
+          return node.nodeType === Node.TEXT_NODE
+            || node.matches("table,figure," + RESULTS + "," + OPERATION_UNITS)
             ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
         }
       });
@@ -1079,7 +1548,39 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       while ((node = walker.nextNode())) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const parent = node.parentNode, slot = [...parent.childNodes].indexOf(node);
-          points.push([parent, slot], [parent, slot + 1]);
+          points.push([parent, slot]);
+          if (node.matches(OPERATION_UNITS)) {
+            const before = [parent, slot], after = [parent, slot + 1],
+              prefix = originalText(contentsAt(el, before)),
+              atomic = !allowFallback || !fresh || prefix || fits(sourceBottom(el, after));
+            atomicContexts.set(node, atomic);
+            // Exhaust complete units before words, including each fact clause
+            // inside an oversized warning. Only an oversized leading unit may
+            // descend at a fresh start after repeated context is budgeted.
+            if (prefix) points.push(before);
+            if (atomic) points.push(after);
+            continue;
+          }
+          if (node.tagName === "TABLE") {
+            const bodies = [...node.tBodies];
+            for (const [index, body] of bodies.entries()) {
+              const rows = [...body.rows];
+              // Authored tables normally group rows in separate bodies. Also
+              // support a conventional single-body READINGS table, provided no
+              // merged cell binds one complete reading row to the next.
+              if (bodies.length === 1 && node.classList.contains("readings")
+                  && rows.every((row) => [...row.cells].every((cell) => cell.rowSpan === 1))) {
+                for (const row of rows.slice(0, -1)) {
+                  points.push([body, [...body.childNodes].indexOf(row) + 1]);
+                }
+              }
+              if (index < bodies.length - 1) {
+                points.push([node, [...node.childNodes].indexOf(body) + 1]);
+              }
+            }
+          }
+          // Outside-table endpoints leave no empty header-only table shell.
+          points.push([parent, slot + 1]);
           continue;
         }
         if (node.parentElement.closest(
@@ -1141,42 +1642,98 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       return contents;
     }
     function contentsAt(el, point, tail = false) {
-      if (el.tagName === "TR") return rowContents(el, point, tail);
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      if (tail) range.setStart(...point);
-      else range.setEnd(...point);
-      return range.cloneContents();
+      let contents;
+      if (el.tagName === "TR") contents = rowContents(el, point, tail);
+      else {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        if (tail) range.setStart(...point);
+        else range.setEnd(...point);
+        contents = range.cloneContents();
+      }
+      if (el.matches("tr.operation-main")) {
+        const fields = [...el.querySelectorAll(".op-details > div")];
+        for (const field of contents.querySelectorAll(".op-details > div")) {
+          const index = fields.findIndex((source) => source.className === field.className),
+            source = fields[index];
+          if (!source) continue;
+          if (getComputedStyle(source.parentElement).display === "grid") {
+            // The pedantic detail grid has two slots. A continued field keeps
+            // its source column instead of restarting auto-placement at slot one.
+            field.style.gridColumnStart = source.style.gridColumnStart || String(index % 2 + 1);
+          }
+          if (!tail || !field.querySelector("dd") || field.querySelector("dt")) continue;
+          const original = source.querySelector("dt");
+          if (original) {
+            const label = original.cloneNode(true);
+            label.setAttribute(ADDED, "");
+            field.prepend(label);
+          }
+        }
+      }
+      const boundary = point[0],
+        table = boundary.nodeType === Node.ELEMENT_NODE
+          && boundary.matches("table,tbody") ? boundary.closest("table") : null;
+      if (!tail || !table || !el.contains(table)) return contents;
+      const copy = [...contents.querySelectorAll("table")].find(
+        (node) => node.dataset.tableContext === table.dataset.tableContext
+      );
+      if (!copy) throw new Error("A nested table continuation lost its source owner.");
+      // Range cloning from a body boundary omits the measured columns and head.
+      // Restore only this table's skeleton and registered repeatable context;
+      // recording destinations and canonical figures remain sole original atoms.
+      const skeleton = [...table.children].filter(
+        (part) => part.tagName === "COLGROUP" || part.tagName === "THEAD"
+      ).map((part) => {
+        const repeated = part.cloneNode(true);
+        repeated.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+          .forEach((row) => row.remove());
+        return repeated;
+      });
+      copy.prepend(...skeleton);
+      copy.setAttribute(SPLIT, "");
+      const head = copy.tHead || copy.createTHead(),
+        columns = head.querySelector("tr:not(.repeat):not(.table-context)");
+      for (const source of tableHeads.get(table.dataset.tableContext) || []) {
+        const row = repeatTableRow(source);
+        if (columns) columns.before(row);
+        else head.append(row);
+      }
+      return contents;
     }
     function originalText(contents) {
       // Retained whole figures and over-page original context advance source;
-      // short repeatable identities and recording marks never do so alone.
+      // short repeatable identities, detail labels and recording marks cannot do so alone.
       const copy = contents.cloneNode(true),
         identityOnly = '.page-context:not([' + CONTEXT_ROLE + '="source"])';
       if (copy.matches?.(identityOnly
         + ", .record-continuation, .fixed-locator-reference, [" + ADDED + "]")) return false;
       copy.querySelectorAll(".performed-mark, .writing-blank, .record-continuation, "
-        + ".fixed-locator-reference, .op-number, " + identityOnly + ", [" + ADDED + "]")
+        + ".fixed-locator-reference, .op-number, .op-details dt, "
+        + identityOnly + ", [" + ADDED + "]")
         .forEach((node) => node.remove());
       return !!copy.matches?.("figure") || !!copy.querySelector("figure")
         || /[\p{L}\p{N}]/u.test(copy.textContent);
     }
-    function sourceProgress(t, body, relax = true) {
+    function sourceProgress(t, body, relax = true, allowFallback = true) {
       const row = [...body.rows].find((source) => !source.hasAttribute(ADDED));
-      if (!row) return null;
+      if (!row || box(row).top >= pageTop + CAP) return null;
       if (t.classList.contains("measurement-actions")) {
         return originalText(row) && fits(prefixBottom(t, row))
           ? { row, point: null, contents: null } : null;
       }
-      for (const point of pointsIn(row)) {
+      for (const point of pointsIn(row, allowFallback)) {
         const contents = contentsAt(row, point);
         if (!originalText(contents)) continue;
         if (fits(prefixBottom(t, row, contents))) return { row, point, contents };
+        // Fixed measured columns make later source prefixes no smaller. A full
+        // scan cannot recover space below an already non-fitting first prefix.
+        break;
       }
       if (originalText(row) && fits(prefixBottom(t, row))) {
         return { row, point: null, contents: null };
       }
-      return relax && prepareFields(row) ? sourceProgress(t, body, false) : null;
+      return relax && prepareFields(row) ? sourceProgress(t, body, false, allowFallback) : null;
     }
     function progressBottom(t, progress) {
       return prefixBottom(t, progress.row,
@@ -1185,7 +1742,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     function contextBudget(t, progress) {
       if (!t.classList.contains("operations")) {
         const original = [...t.tBodies].filter(
-          (body) => !body.hasAttribute("data-duplex-fragment")
+          (body) => !body.hasAttribute("data-job-print-fragment")
         );
         if (original.length >= KEEP && fits(prefixBottom(t, original[KEEP - 1]))) {
           return () => prefixBottom(t, original[KEEP - 1]);
@@ -1241,6 +1798,21 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       }
       return changed;
     }
+    function retainSourceAtoms(el, fragments) {
+      const selector = "figure,.field,.result-field,.authored-blank," + RESULTS;
+      const atoms = (root) => [...root.querySelectorAll(selector)].filter((node) => {
+        const owner = node.parentElement?.closest(selector);
+        return !owner || !root.contains(owner);
+      });
+      const originals = atoms(el), copies = fragments.flatMap(atoms);
+      if (originals.length !== copies.length
+          || originals.some((node, index) => !node.isEqualNode(copies[index]))) {
+        throw new Error("A source figure or recording destination was split, lost, or reordered.");
+      }
+      // Measurement uses disposable clones; the accepted partition must retain
+      // the loaded canonical images and sole live recording destinations.
+      copies.forEach((copy, index) => copy.replaceWith(originals[index]));
+    }
     // Only original source is fragmented. Repeated context is admitted whole,
     // and the writing box stays with the final measured source caption line.
     function fragment(el, relax = true) {
@@ -1263,29 +1835,26 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         if (!candidate.prefixCredit) continue;
         const first = candidate.first, remaining = candidate.remaining;
         if (candidate.complete && el.tagName === "TR") {
+          retainSourceAtoms(el, [first]);
           el.replaceChildren(first);
           return el;
         }
         if (!candidate.tailCredit) continue;
+        retainSourceAtoms(el, [first, remaining]);
         const rest = el.cloneNode(false);
         rest.append(remaining);
         if (rest.dataset.rowContext) rest.dataset.rowContinuation = "";
         el.replaceChildren(first);
         el.after(rest);
-        for (const field of rest.querySelectorAll(".op-details > div")) {
-          if (!field.querySelector("dd") || field.querySelector("dt")) continue;
-          const source = el.querySelector(".op-details > ." + field.className + " > dt");
-          if (source) {
-            const label = source.cloneNode(true);
-            label.setAttribute(ADDED, "");
-            field.prepend(label);
-          }
-        }
         if (rest.classList.contains("inspection-record")) {
           const identity = document.createElement("p");
           identity.className = "record-continuation";
           identity.textContent = rest.dataset.recordTitle + " (continued)";
-          rest.querySelector(".inspection-requirement").prepend(identity);
+          const owner = rest.querySelector(".inspection-requirement")
+            || rest.querySelector(".inspection-layout") || rest.cells[0];
+          // A valid tail may begin in a method after the complete requirement
+          // printed on the previous page. Keep identity with that retained method.
+          owner.prepend(identity);
         }
         if (rest.tagName === "LI" && rest.dataset.pageContext) {
           const identity = document.createElement("span");
@@ -1297,7 +1866,12 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           || (rest.matches(".stop, .caution") ? rest : null);
         if (warning) {
           const word = /\b(STOP|HOLD|CAUTION)\b/.exec(el.textContent);
-          if (word) warning.prepend(word[1] + " (continued): ");
+          if (word) {
+            const identity = document.createElement("span");
+            identity.setAttribute(ADDED, "");
+            identity.textContent = word[1] + " (continued): ";
+            warning.prepend(identity);
+          }
         }
         return rest;
       }
@@ -1324,14 +1898,22 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       if (number) number.append(" (continued)");
       return row;
     }
-    function operationContext(t, body, progress) {
-      const sources = operationHeads.get(body.dataset.op);
-      if (!sources || !body.hasAttribute("data-operation-continuation")) return;
-      const full = contextRow(sources[0]), identity = full.cloneNode(true);
-      identity.querySelector(".op-action").remove();
-      identity.querySelector(".op-head h3").replaceChildren(identity.querySelector(".op-number"));
-      identity.querySelector(".op-details").remove();
+    function operationIdentity(body) {
+      const sources = operationHeads.get(body.dataset.printOperation);
+      if (!sources?.length || !body.hasAttribute("data-operation-continuation")) return null;
+      const identity = contextRow(sources[0]);
+      identity.querySelector(".op-action")?.remove();
+      const number = identity.querySelector(".op-number"),
+        heading = identity.querySelector(".op-head h3");
+      if (number && heading) heading.replaceChildren(number);
+      identity.querySelector(".op-details")?.remove();
       body.prepend(identity);
+      return identity;
+    }
+    function operationContext(t, body, progress, identity) {
+      if (!identity) return;
+      const sources = operationHeads.get(body.dataset.printOperation),
+        full = contextRow(sources[0]);
       const accepted = () => fits(prefixBottom(t, progress.row, progress.contents));
       if (!accepted()) {
         identity.remove();
@@ -1340,17 +1922,29 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       identity.replaceWith(full);
       if (!accepted()) {
         full.replaceWith(identity);
-        const compact = full.querySelector(".op-details").cloneNode(true);
-        [...compact.children].forEach((field) => {
-          if (!field.matches(".op-tool, .op-target, .op-direction")) field.remove();
-        });
-        identity.cells[0].append(compact);
-        if (!accepted()) compact.remove();
+        const compact = full.querySelector(".op-details")?.cloneNode(true);
+        if (compact) {
+          [...compact.children].forEach((field) => {
+            if (!field.matches(".op-tool, .op-target, .op-direction")) field.remove();
+          });
+          identity.cells[0].append(compact);
+          if (!accepted()) compact.remove();
+        }
       }
       const notes = sources.slice(1).map(contextRow);
       const head = [...body.rows].find((row) => row.hasAttribute(ADDED));
       head.after(...notes);
       if (!accepted()) notes.forEach((row) => row.remove());
+    }
+    function repeatTableRow(source) {
+      const row = cleanLocatorCopy(source.cloneNode(true));
+      row.setAttribute(ADDED, "");
+      row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
+        .forEach((mark) => mark.remove());
+      row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
+        field.replaceWith(...locatorFieldContext(field));
+      });
+      return row;
     }
     function tableContext(t, progress, optionalOnly = false) {
       if (!t.hasAttribute(SPLIT)) return;
@@ -1362,17 +1956,14 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         if (source.dataset.instructionRef && fullInstructionOnPage(source.dataset.instructionRef)) {
           continue;
         }
-        const row = cleanLocatorCopy(source.cloneNode(true));
-        row.setAttribute(ADDED, "");
-        row.querySelectorAll(".performed-mark, .writing-blank, .tick, figure")
-          .forEach((mark) => mark.remove());
-        row.querySelectorAll(".field, .result-field, .authored-blank").forEach((field) => {
-          field.replaceWith(...locatorFieldContext(field));
-        });
-        const columns = t.tHead.querySelector("tr:not(.repeat):not(.table-context)");
+        const row = repeatTableRow(source);
+        const head = t.tHead || t.createTHead();
+        const columns = head.querySelector("tr:not(.repeat):not(.table-context)");
         const followingContext = optionalOnly && row.classList.contains("table-context")
-          ? t.tHead.querySelector(`tr.table-context:not([${ADDED}])`) : null;
-        (followingContext || columns).before(row);
+          ? head.querySelector(`tr.table-context:not([${ADDED}])`) : null;
+        const anchor = followingContext || columns;
+        if (anchor) anchor.before(row);
+        else head.append(row);
         refreshTitleCopies(t);
         if (fits(budget())) continue;
         if (row.hasAttribute("data-optional-context")) {
@@ -1455,7 +2046,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         if (completed && index >= body.rows.length) return true;
       }
       const rest = body.cloneNode(false);
-      if (!t.classList.contains("operations")) rest.setAttribute("data-duplex-fragment", "");
+      if (!t.classList.contains("operations")) rest.setAttribute("data-job-print-fragment", "");
       rest.append(...[...body.rows].slice(index));
       body.after(rest);
       if (rest.classList.contains("operation")) {
@@ -1465,12 +2056,15 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     }
     function startTablePage(t) {
       t.setAttribute(SPLIT, "");
-      t.tHead.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
+      t.tHead?.querySelectorAll("tr.continued, tr.repeat, tr.table-context")
         .forEach((row) => row.remove());
+      // Mandatory identity participates in running-context compaction and the
+      // first semantic source admission, not just the later optional copies.
+      const body = t.tBodies[0], identity = operationIdentity(body);
       breakAt(t);
-      const progress = sourceProgress(t, t.tBodies[0]);
+      const progress = sourceProgress(t, body);
       if (!progress) throw new Error("A continuation cannot advance its original source.");
-      operationContext(t, t.tBodies[0], progress);
+      operationContext(t, body, progress, identity);
       tableContext(t, progress);
       fixtureContext(t, progress);
     }
@@ -1498,10 +2092,10 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         more.className = "more";
         more.setAttribute(ADDED, "");
         t.after(more);
-        pointer("on reverse");
+        pointer("on the next page");
         while (t.tBodies.length > 1 && !fits(box(more).bottom)) {
           rest.insertBefore(t.tBodies[t.tBodies.length - 1], rest.tBodies[0]);
-          pointer("on reverse");
+          pointer("on the next page");
         }
         if (!fits(box(more).bottom)) {
           // As in the base, move the table with its heading if even one group and
@@ -1519,7 +2113,7 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         }
       }
       startTablePage(rest);
-      if (more) pointer(pages % 2 === 0 ? "on reverse" : "on the next sheet");
+      if (more) pointer("on the next page");
       table(rest);
     }
     function table(t) {
@@ -1534,12 +2128,19 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         return index;
       };
       let j = over();
-      if (j === 0 && move(t)) j = over();
+      const first = j === 0 ? [...(t.tBodies[0]?.rows || [])].find(
+        (row) => !row.hasAttribute(ADDED)
+      ) : null, moveMain = first?.matches(".operation-main")
+        && box(first).bottom - box(first).top <= CAP && !fits(prefixBottom(t, first));
+      // Decide whole-main admission before destructive partitioning. Otherwise
+      // pointer recovery can move an already fractured but fresh-page-fitting card.
+      if (j === 0 && (moveMain || t.matches("table.tools, table.measurement-actions")
+          || !sourceProgress(t, t.tBodies[0])) && move(t)) j = over();
       if (!t.classList.contains("operations")) {
         const bodies = [...t.tBodies];
-        const authored = bodies.filter((body) => !body.hasAttribute("data-duplex-fragment"));
+        const authored = bodies.filter((body) => !body.hasAttribute("data-job-print-fragment"));
         const countBefore = (index) => bodies.slice(0, index).filter(
-          (body) => !body.hasAttribute("data-duplex-fragment")
+          (body) => !body.hasAttribute("data-job-print-fragment")
         ).length;
         // Only original ordinary-table groups count toward KEEP, never fragments
         // or added context. Feasibility includes the retained table's closing geometry.
@@ -1591,27 +2192,39 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
     function walk(parent) {
       for (const el of [...parent.children]) {
         if (!el.isConnected || el.hasAttribute(ADDED)) continue;
+        const style = getComputedStyle(el);
+        if (style.display === "none") continue;
+        if (style.display === "contents") {
+          walk(el);
+          continue;
+        }
+        if (["page", "always"].includes(style.breakBefore)) {
+          // Honor an authored page boundary without retaining a second native
+          // break after the measured running header. Reset restores the source.
+          el.style.breakBefore = "auto";
+          el.style.pageBreakBefore = "auto";
+          if (el !== pageStart && box(el).top > pageTop) breakAt(el);
+        }
         const b = box(el);
         if (fits(b.bottom)) continue;
-        if (el.tagName === "TABLE") {
+        if (el.matches(RESULTS)) {
+          move(el);
+          if (!fits(box(el).bottom)) throw new Error(
+            "A complete checkpoint result row cannot fit on a print page.");
+        } else if (el.tagName === "TABLE") {
           table(el);
-        } else if (el.classList.contains("signoff")) {
-          const prev = el.previousElementSibling;
-          if (prev && prev.tagName === "TABLE") {
-            // Reuse the table splitter with space reserved for the existing signoff,
-            // so even a one-operation continuation cannot leave it on a page alone.
-            const capacity = CAP;
-            CAP -= Math.max(b.bottom - box(prev).bottom, b.bottom - b.top);
-            try { table(prev); } finally { CAP = capacity; }
-          } else move(el);
         } else if (el.tagName === "FIGURE") {
           move(el);
           if (!fits(box(el).bottom)) refuseFigure(el);
-        } else if (b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) {
-          continue;
-        } else if (el.children.length
+        } else if (el.children.length && style.display !== "inline"
+            && ![...el.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
             && !el.matches("p, li, .page-context, .stop:not(.measurement-stop), "
               + ".caution, .unverified")) {
+          // Ordinary flow containers may share a page and fragment between their
+          // children. Only an explicit keep-together box moves as a whole.
+          if (["avoid", "avoid-page"].includes(style.breakInside)
+              && b.bottom - b.top <= CAP && move(el) && fits(box(el).bottom)) continue;
           const s = getComputedStyle(el);
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
@@ -1623,28 +2236,75 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           CAP -= parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth);
           try { walk(el); } finally { CAP = capacity; }
         } else {
-          move(el);
+          // Inline prose shares lines with its siblings. Fragment its complete
+          // ordered content here: visiting only element children misses direct
+          // text between/after readings, which can escape onto an uncounted page.
+          if (style.display !== "inline") move(el);
           let current = el;
           while (!fits(box(current).bottom)) {
             const rest = fragment(current);
-            if (!rest) throw new Error(
-              "An over-page text block could not be continued without losing content."
-            );
+            if (!rest) {
+              // Atomic inline readings have no legal word boundary. Move that
+              // complete item only when no original prefix fits this page.
+              if (style.display === "inline" && move(current)
+                  && fits(box(current).bottom)) break;
+              throw new Error(
+                "An over-page text block could not be continued without losing content."
+              );
+            }
             breakAt(rest);
             current = rest;
           }
         }
       }
     }
+    for (const figure of section.querySelectorAll("figure")) {
+      const bounds = box(figure), height = bounds.bottom - bounds.top;
+      if (height > CAP) refuseFigure(figure, height);
+    }
     walk(section);
-    section.querySelectorAll(".cont-head").forEach((head) => {
-      head.querySelector(".cont-page-total").textContent = String(pages);
+    finishPageOwners();
+    const firstCounts = [...section.querySelectorAll(".first-page-count")],
+      firstHead = section.querySelector(".cont-head");
+    if (firstCounts.length > 1 || firstCounts.some((count) =>
+      !count.closest(".job-identity") || count.closest("[" + ADDED + "]")
+      || locatorPage(count).page !== 1
+      || (firstHead && !(count.compareDocumentPosition(firstHead)
+        & Node.DOCUMENT_POSITION_FOLLOWING)))) throw new Error(
+      "A first-page count must be a single original identity on page 1.");
+    section.querySelectorAll(
+      ".cont-head .cont-page-total,.first-page-count .cont-page-total").forEach((total) => {
+      const value = String(pages);
+      if (value.length > locatorPass.digits) throw new Error(
+        "A running page total exceeds its source-bound digit reservation.");
+      total.textContent = value;
+      const bounds = total.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(total);
+      const ink = range.getBoundingClientRect();
+      if (ink.left < bounds.left - .01 || ink.right > bounds.right + .01
+          || ink.top < bounds.top - .01 || ink.bottom > bounds.bottom + .01) throw new Error(
+        "A running page total exceeds its measured reservation.");
     });
+    for (const grid of section.querySelectorAll(RESULTS)) {
+      const cells = [...grid.querySelectorAll(":scope > .checkpoint-result")];
+      const first = cells[0]?.getBoundingClientRect();
+      if (!first || cells.some((cell) => {
+        const bounds = cell.getBoundingClientRect(), blank = cell.querySelector(".writing-blank");
+        if (!blank || Math.abs(bounds.top - first.top) > .1) return true;
+        const rect = blank.getBoundingClientRect(), style = getComputedStyle(blank);
+        const width = rect.width - parseFloat(style.borderLeftWidth)
+          - parseFloat(style.borderRightWidth);
+        const height = rect.height - parseFloat(style.borderTopWidth)
+          - parseFloat(style.borderBottomWidth);
+        return width + .1 < 35 * 96 / 25.4 || height + .1 < 20 * 96 / 25.4;
+      })) throw new Error(
+        "Checkpoint results require one horizontal row of full-size writing cells.");
+    }
     section.dataset.pages = pages;
     return pages;
   }
   function reset() {
-    document.querySelectorAll(".blank-side, [" + ADDED + "]").forEach((el) => el.remove());
+    document.querySelectorAll("[" + ADDED + "]").forEach((el) => el.remove());
     // Restore the source DOM, not a second, partly split pagination layout. This also
     // restores text fragments, stacked blocks and authored list numbering before print.
     for (const [section, { source, images }] of originals) {
@@ -1665,12 +2325,15 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
         copy.replaceWith(image);
       });
       section.replaceChildren(...restored.childNodes);
+      section.style.setProperty("display", source.style.getPropertyValue("display"),
+        source.style.getPropertyPriority("display"));
+      if (!source.hasAttribute("style") && !section.style.cssText) section.removeAttribute("style");
       delete section.dataset.pages;
     }
   }
   function run() {
     const body = document.body, root = document.documentElement, saved = body.getAttribute("style");
-    for (const section of document.querySelectorAll("section.page[data-sheet]")) {
+    for (const section of document.querySelectorAll(JOB)) {
       if (!originals.has(section)) originals.set(section, {
         source: section.cloneNode(true),
         images: [...section.querySelectorAll("img, svg image")]
@@ -1690,19 +2353,18 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
       root.dataset.pageCapacity = CAP;
       root.dataset.printWidth = measure.getBoundingClientRect().width;
       measure.remove();
+      prepareTableColumns();
       prepareLocators();
       document.querySelectorAll("ol").forEach((list) => {
         [...list.children].filter((item) => item.tagName === "LI").forEach((item, index) => {
           item.value = list.start + index;
         });
       });
-      for (const section of [...document.querySelectorAll("section.page[data-sheet]")]) {
-        if (paginate(section) % 2 === 0) continue;
-        const blank = document.createElement("section");
-        blank.className = "page blank-side";
-        blank.setAttribute("aria-hidden", "true");
-        section.after(blank);
+      const jobs = [...document.querySelectorAll(JOB)];
+      if (jobs.length !== 1 || document.querySelectorAll("section.page[data-sheet]").length !== 1) {
+        throw new Error("Print pagination requires one continuous job page.");
       }
+      paginate(jobs[0]);
       finishLocators();
     } catch (error) {
       reset();
@@ -1724,43 +2386,12 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
   addEventListener("load", run);
   addEventListener("beforeprint", run);
 })();
-</script></head><body>
-<section class="page" data-sheet="job page" data-title="JOB PAGE" data-part="step-block" data-drawing="?" data-revision="" data-sheet-role="front">
-<div class="meta"><h1>STEP-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
+</script></head><body data-detail="hobby">
+<section class="page" data-sheet="job" data-title="JOB" data-part="step-block" data-job-title="Step Block" data-quantity="?" data-drawing="?" data-revision="">
+<p class="job-identity"><strong>Step Block</strong> · qty ? · ? · REV NOT CONFIRMED<span class="cont-count first-page-count"> · page 1 of <span class="cont-page-total"></span></span></p>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<h2>JOB STATUS</h2><div class="stop"><p>✗ STOP — do not run until resolved:</p><p>Drawing revision not confirmed — match the print revision first.</p><p>Faces have no cutting op or as-stock claim: #<span class="reading">185</span>/ADVANCED FACE[<span class="reading">6</span>]/.</p><p>Setups S1, S2: STOP items on the setup page — do not run a setup until its STOPs are cleared.</p></div><ul><li>Not ready to run: clear the items above first.</li><li>NOT APPROVED: no first article is recorded; the first part made is the first article — sign it off below.</li></ul><p>Drawing material: ? not stated.</p><p>Speeds / feeds: no cited source — resolve speed/feed STOPs before powered cuts.</p><p>DRO resolution: DRO <span class="reading">0.001 mm</span> (resolution absent/unknown: provisional default grid). DRO targets print on this grid.</p><h2>JOB MEASUREMENT REGISTER</h2><div class="stop measurement-stop"><p>?M# marks an unverified decision input; check and record it below. Make-to-drawing expected settings are not installed measurements. Bare M is an authored measurement variable; follow its named measurement.</p><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">parallels — source Setup S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="fixtures.test-parallels-20.height" data-measurement-binding="fixtures.test-parallels-20.height" data-measurement-label="M1"><td><span class="reading">M1</span> — measure: its parallel height between its bottom and top bearing faces, calipers or height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">vise — source Setup S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="fixtures.test-vise.bed_height" data-measurement-binding="fixtures.test-vise.bed_height" data-measurement-label="M2"><td><span class="reading">M2</span> — measure: its table to vise bed supporting the parallels or part, height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col"><span class="reading">R8</span> collet — source Setup S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="holders.r8-collet-8mm.gauge_len" data-measurement-binding="holders.r8-collet-8mm.gauge_len" data-measurement-label="M3"><td><span class="reading">M3</span> — measure: its spindle nose to mounted holder exit face, steel rule or height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="holders.r8-collet-8mm.grip" data-measurement-binding="holders.r8-collet-8mm.grip" data-measurement-label="M4"><td><span class="reading">M4</span> — measure: its installed tool insertion from holder exit face, steel rule or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">unknown (not in shop list) — source Setup S1</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="holders.unknown.gauge_dia" data-measurement-binding="holders.unknown.gauge_dia" data-measurement-label="M5"><td><span class="reading">M5</span> — measure: its mounted holder outside diameter, micrometer or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="holders.unknown.gauge_len" data-measurement-binding="holders.unknown.gauge_len" data-measurement-label="M6"><td><span class="reading">M6</span> — measure: its spindle nose to mounted holder exit face, steel rule or height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="holders.unknown.grip" data-measurement-binding="holders.unknown.grip" data-measurement-label="M7"><td><span class="reading">M7</span> — measure: its installed tool insertion from holder exit face, steel rule or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">mill — source Setups S1, S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="machines.test-mill.envelope.spindle_to_table_max" data-measurement-binding="machines.test-mill.envelope.spindle_to_table_max" data-measurement-label="M8"><td><span class="reading">M8</span> — measure: its spindle nose to table at full Z-up, steel rule or height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="machines.test-mill.envelope.spindle_to_table_min" data-measurement-binding="machines.test-mill.envelope.spindle_to_table_min" data-measurement-label="M9"><td><span class="reading">M9</span> — measure: its spindle nose to table at full Z-down, steel rule or height gauge, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="machines.test-mill.envelope.travel.x" data-measurement-binding="machines.test-mill.envelope.travel.x" data-measurement-label="M10"><td><span class="reading">M10</span> — measure: its X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="machines.test-mill.envelope.travel.y" data-measurement-binding="machines.test-mill.envelope.travel.y" data-measurement-label="M11"><td><span class="reading">M11</span> — measure: its Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="machines.test-mill.envelope.travel.z" data-measurement-binding="machines.test-mill.envelope.travel.z" data-measurement-label="M12"><td><span class="reading">M12</span> — measure: its Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">DRO — source Setups S1, S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="machines.test-mill.resolution" data-measurement-binding="machines.test-mill.resolution" data-measurement-label="M13"><td><span class="reading">M13</span> — measure: its installed DRO least readable step, installed readout and indicator check, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">S2 T1 <span class="reading">8 mm</span> EM — source Setup S2</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="tools.em-8-std.dia" data-measurement-binding="tools.em-8-std.dia" data-measurement-label="M14"><td><span class="reading">M14</span> — measure: its selected cutter diameter, micrometer, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="tools.em-8-std.oal" data-measurement-binding="tools.em-8-std.oal" data-measurement-label="M15"><td><span class="reading">M15</span> — measure: its selected tool overall length, steel rule or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><table class="measurement-actions"><colgroup><col><col class="record-column"></colgroup><thead><tr><th scope="col">S1 T1 <span class="reading">8 mm</span> EM — source Setup S1</th><th scope="col">Record</th></tr></thead><tbody><tr data-measurement-id="tools.em-preparation.dia" data-measurement-binding="tools.em-preparation.dia" data-measurement-label="M16"><td><span class="reading">M16</span> — measure: its selected cutter diameter, micrometer, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="tools.em-preparation.flute_len" data-measurement-binding="tools.em-preparation.flute_len" data-measurement-label="M17"><td><span class="reading">M17</span> — measure: its selected cutter usable flute length, calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="tools.em-preparation.oal" data-measurement-binding="tools.em-preparation.oal" data-measurement-label="M18"><td><span class="reading">M18</span> — measure: its selected tool overall length, steel rule or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody><tbody><tr data-measurement-id="tools.em-preparation.shank" data-measurement-binding="tools.em-preparation.shank" data-measurement-label="M19"><td><span class="reading">M19</span> — measure: its shank diameter, micrometer or calipers, mm.</td><td><span class="field"><span class="field-label">mm</span><span class="writing-blank" aria-hidden="true"></span></span></td></tr></tbody></table><p>Record the measured values here and return this traveler for reissue. Measurement alone does not clear the STOP decisions named on the setup pages; do not run a blocked setup until the corrected traveler is issued.</p></div><h2>STOCK AND ROUTE</h2><p>Stock: rectangular bar <span class="reading">60.000 × 40.000 × 21.000</span> long. Authored <span class="reading">60</span> x <span class="reading">40</span> x <span class="reading">21 mm</span> supply: <span class="reading">1 mm</span> top allowance over the synthetic <span class="reading">20 mm</span> block. Four outer surfaces are supplied as-is; the deliberate +X end-face coverage omission stays undeclared.</p><table><colgroup><col style="width:12%"><col style="width:30%"><col style="width:25%"><col style="width:33%"></colgroup><thead><tr><th>setup</th><th>starts from</th><th>machine</th><th>holding</th></tr></thead><tbody><tr><td>S1</td><td>the stock blank</td><td>mill</td><td>STOP: not chosen</td></tr></tbody><tbody><tr><td>S2</td><td>part as it arrives from Setup S1</td><td>mill</td><td>vise</td></tr></tbody></table><h2>DRAWING REQUIREMENTS</h2><table><colgroup><col style="width:30%"><col style="width:70%"></colgroup><thead><tr><th>feature</th><th>limits</th></tr></thead><tbody><tr><td>step</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>end face</td><td>no toleranced requirement</td></tr></tbody><tbody><tr><td>all edges</td><td>? edge break not on the drawing; plan breaks edges <span class="reading">0.000 mm</span> max</td></tr></tbody></table><p>T# = tool number in that setup&#x27;s TOOLS table. EM = endmill.</p>
-<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
-</section>
-<section class="page" data-sheet="SETUP S1 sheet 1" data-title="SETUP S1 — sheet 1" data-part="step-block" data-drawing="?" data-revision="" data-sheet-role="front">
-<div class="meta"><h1>STEP-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S1 — mill · sheet 1 of 2</h2><div class="stop"><p>STOP — do not run this setup:</p><p>holding not chosen — do not run</p><p>selected cutter dimensions are unresolved; do not run</p><p>Op <span class="reading">10</span> — no starting rpm; no starting feed</p><p>Op <span class="reading">10</span> — Z target not set</p><p>Unverified decision input — unknown (not in shop list) holder outside Ø <span class="measurement-ref" data-measurement-ref="M5">?M5</span>; holder gauge length <span class="measurement-ref" data-measurement-ref="M6">?M6</span>; insertion length <span class="measurement-ref" data-measurement-ref="M7">?M7</span></p><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M8">?M8</span>; minimum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M9">?M9</span>; X usable travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y usable travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span>; Z usable travel <span class="measurement-ref" data-measurement-ref="M12">?M12</span></p><p>Unverified decision input — DRO readout step <span class="measurement-ref" data-measurement-ref="M13">?M13</span></p><p>Unverified decision input — S1 T1 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref" data-measurement-ref="M16">?M16</span>; usable flute length <span class="measurement-ref" data-measurement-ref="M17">?M17</span>; overall length <span class="measurement-ref" data-measurement-ref="M18">?M18</span>; shank Ø <span class="measurement-ref" data-measurement-ref="M19">?M19</span></p><p>Clear the decisions named above and return this traveler for reissue; do not run until the corrected traveler is issued.</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>tool access (op <span class="reading">10</span>); consistency; coordinates; cutter engagement (op <span class="reading">10</span>); machine envelope; holding clearance; headroom and clearance; holding details; tool reach (op <span class="reading">10</span>); starting speeds / feeds (op <span class="reading">10</span>); chuck / collet size; thin walls under clamping; tool / holder fit (op <span class="reading">10</span>); axis travel; vise grip; DRO zero check.</p></div><p>Synthetic rough preparation clears the top allowance and step before S2. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt.</p><p class="stock-state">Starts from: the stock blank — <span data-stock-surface="top_z" data-stock-state="unknown">top Z ? not set</span>, <span data-stock-surface="bottom_z" data-stock-state="unknown">bottom Z ? not set</span>.</p>
-<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>STOP: holding not chosen — do not run.</li><li>Stop: ?.</li><li>?.</li></ol></div></div><table><thead><tr><th>grip length mm</th></tr></thead><tbody><tr><td>? not set</td></tr></tbody></table><p>Coolant: none.</p>
-<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table class="tools"><colgroup><col style="width:9%"><col style="width:21%"><col style="width:33%"><col style="width:25%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td><span class="reading">8 mm</span> EM</td><td><span class="unverified"><span class="reading">Ø8.000</span> <span class="measurement-ref" data-measurement-ref="M16">?M16</span></span></td><td>—</td><td><span class="reading">10</span></td></tr></tbody></table>
-<h2>DRO ZERO — Setup S1 zero, mm, linear mode</h2><table class="zero"><colgroup><col style="width:9%"><col style="width:38%"><col style="width:13%"><col style="width:14%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
-<h2>OPERATIONS</h2><table class="operations"><thead><tr class="continued"><th colspan="1">SETUP S1 — sheet <span class="reading">1</span> (continued): operations</th></tr><tr><th>Performed mark: operation performed only — not inspection acceptance or clearance to proceed.</th></tr></thead><tbody class="operation" data-op="10"><tr class="operation-main"><td><div class="op-head"><span class="performed-mark" role="img" aria-label="Operation 10 performed mark"></span><h3><span class="op-number">Op 10</span> — <span class="op-action">rough profile, leave <span class="reading">0.000 mm</span> per side</span></h3></div><dl class="op-details"><div class="op-feature"><dt>feature</dt><dd>step</dd></div><div class="op-tool"><dt>tool</dt><dd>T1</dd></div><div class="op-speed"><dt>rpm</dt><dd><span class="box">STOP: no starting rpm</span></dd></div><div class="op-feed"><dt>feed</dt><dd><span class="box">STOP: no starting feed</span></dd></div><div class="op-target"><dt>Z tip</dt><dd><span class="box">STOP: Z target not set</span></dd></div><div class="op-direction"><dt>direction</dt><dd>?</dd></div></dl></td></tr><tr class="warn"><td><div class="op-note">Only outside-finished material inside this box is cleared. Do not credit the unclaimed +X end face: it is intentionally absent from these claims.</div></td></tr></tbody></table>
-<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
-</section>
-<section class="page" data-sheet="SETUP S1 sheet 2" data-title="SETUP S1 — sheet 2" data-part="step-block" data-drawing="?" data-revision="" data-sheet-role="continuation">
-<div class="meta"><h1>STEP-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S1 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render" data-panel="1" data-panel-role="setup" data-panel-top="0" data-panel-height="1484"><figcaption><p>Setup S1 — the stock blank, held in the ?.</p>step-block · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1484" width="1600" height="1484" role="img" aria-label="step-block · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW"><title>step-block · Setup S1 · setup · panel 1 of 1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1484" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: Fixture solids are not declared for this holding kind.</p><p class="render-debt">STOP: selected cutter dimensions are unresolved; do not run.</p>
-<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span>; tool stickout and headroom.</p><p>mill maximum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M8">?M8</span>; X usable travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y usable travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span></p><p>S1 T1 <span class="reading">8 mm</span> EM overall length <span class="measurement-ref" data-measurement-ref="M18">?M18</span></p><p>action for every clearance row: holder face to the stock beside the tool: not computed — check at the machine; holding beside the cut: not computed — check at the machine</p><table class="clearance"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:55%"><col style="width:21%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th></tr></thead><tbody><tr><td><span class="reading">10</span></td><td>T1</td><td>—</td><td>?</td></tr></tbody></table></div>
-</section>
-<section class="page" data-sheet="SETUP S2 sheet 1" data-title="SETUP S2 — sheet 1" data-part="step-block" data-drawing="?" data-revision="" data-sheet-role="front">
-<div class="meta"><h1>STEP-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S2 — mill · sheet 1 of 2</h2><div class="stop"><p>STOP — do not run this setup:</p><p>Op <span class="reading">10</span> — no starting rpm; no starting feed</p><p>Op <span class="reading">10</span> — TIP <span class="reading">10.000</span> BELOW JAW TOP</p><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M8">?M8</span>; minimum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M9">?M9</span>; X usable travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y usable travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span>; Z usable travel <span class="measurement-ref" data-measurement-ref="M12">?M12</span></p><p>Unverified decision input — DRO readout step <span class="measurement-ref" data-measurement-ref="M13">?M13</span></p><p>Unverified decision input — parallels height <span class="measurement-ref" data-measurement-ref="M1">?M1</span></p><p>Unverified decision input — vise work-support height <span class="measurement-ref" data-measurement-ref="M2">?M2</span></p><p>Unverified decision input — <span class="reading">R8</span> collet holder gauge length <span class="measurement-ref" data-measurement-ref="M3">?M3</span>; insertion length <span class="measurement-ref" data-measurement-ref="M4">?M4</span></p><p>Unverified decision input — S2 T1 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref" data-measurement-ref="M14">?M14</span>; overall length <span class="measurement-ref" data-measurement-ref="M15">?M15</span></p><p>Clear the decisions named above and return this traveler for reissue; do not run until the corrected traveler is issued.</p></div><div class="unverified"><p>? Not verified by the planner — confirm at the machine:</p><p>consistency; coordinates; cutter engagement (op <span class="reading">10</span>); machine envelope; headroom and clearance; starting speeds / feeds (op <span class="reading">10</span>); axis travel; DRO zero check.</p></div><p>Upper land up on <span class="reading">20 mm</span> parallels; jaws along X clamp the <span class="reading">40 mm</span> width across Y, <span class="reading">8 mm</span> above the parallels so the jaws stay below the step floor.</p><p class="stock-state">Starts from: part as it arrives from Setup S1 — <span data-stock-surface="top_z" data-stock-state="known">top (step) at <span class="reading">Z 20.000</span></span>, <span data-stock-surface="bottom_z" data-stock-state="known">bottom at <span class="reading">Z 0.000</span></span>.</p>
-<div class="hold-row"><div class="hold-steps"><h2>HOLD</h2><ol><li>Mount the vise; jaws along X; fixed jaw rear.</li><li>Square the fixed jaw to the X travel: with the dial test indicator held from the spindle head on the fixed jaw, traverse <span class="reading">X 100 mm</span> along it; tap the vise round until the reading changes no more than <span class="reading">0.0254 mm</span> (<span class="reading">0.001 in</span>) over that length, tighten the vise to the table and sweep again.</li><li>Parallels: parallels.</li><li>Stop: left end against the fixed-jaw stop.</li><li>Hand snug, then quarter turn.</li></ol></div></div><table><thead><tr><th>grip length mm</th><th>jaw top above parallels mm</th><th>work top above jaw tops mm</th><th>jaw centre at X</th><th>parallels at (X, Y)</th></tr></thead><tbody><tr><td class="num"><span class="reading">6.000</span></td><td class="num"><span class="reading">8.000</span></td><td class="num"><span class="reading">12.000</span></td><td class="num"><span class="reading">30.000</span></td><td>(<span class="reading">30.000</span>, <span class="reading">5.000</span>); (<span class="reading">30.000</span>, <span class="reading">35.000</span>)</td></tr></tbody></table><p>Coolant: none.</p>
-<h2>TOOLS FOR THIS SETUP — pull before starting</h2><table class="tools"><colgroup><col style="width:9%"><col style="width:21%"><col style="width:33%"><col style="width:25%"><col style="width:12%"></colgroup><thead><tr><th>T</th><th>tool</th><th>insert / size / material</th><th>holder / station</th><th>ops</th></tr></thead><tbody><tr><td>T1</td><td><span class="reading">8 mm</span> EM</td><td>flute <span class="reading">19.000</span>, <span class="reading">4</span> flutes, HSS<span class="unverified"><span class="reading">Ø8.000</span> <span class="measurement-ref" data-measurement-ref="M14">?M14</span></span></td><td><span class="reading">R8</span> collet</td><td><span class="reading">10</span></td></tr></tbody></table>
-<h2>DRO ZERO — Setup S2 zero, mm, linear mode</h2><table class="zero"><colgroup><col style="width:9%"><col style="width:38%"><col style="width:13%"><col style="width:14%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>axis</th><th>touch / pick up</th><th>Axis Set</th><th>check jog</th><th>must read</th><th>if reversed</th></tr></thead></table>
-<h2>OPERATIONS</h2><table class="operations"><thead><tr class="continued"><th colspan="1">SETUP S2 — sheet <span class="reading">1</span> (continued): operations</th></tr><tr><th>Performed mark: operation performed only — not inspection acceptance or clearance to proceed.</th></tr></thead><tbody class="operation" data-op="10"><tr class="operation-main"><td><div class="op-head"><span class="performed-mark" role="img" aria-label="Operation 10 performed mark"></span><h3><span class="op-number">Op 10</span> — <span class="op-action">finish profile</span></h3></div><dl class="op-details"><div class="op-feature"><dt>feature</dt><dd>step</dd></div><div class="op-tool"><dt>tool</dt><dd>T1</dd></div><div class="op-speed"><dt>rpm</dt><dd><span class="box">STOP: no starting rpm</span></dd></div><div class="op-feed"><dt>feed</dt><dd><span class="box">STOP: no starting feed</span></dd></div><div class="op-target"><dt>Z tip</dt><dd><span class="reading">Z → 10.000</span></dd></div><div class="op-direction"><dt>direction</dt><dd>climb</dd></div></dl></td></tr><tr class="warn"><td><span class="box">TIP <span class="reading">10.000</span> BELOW JAW TOP — STOP</span></td></tr></tbody></table>
-<div class="signoff"><span class="field"><span class="field-label">Sign off</span><span class="writing-blank" aria-hidden="true"></span></span><p>First article: enter measured results in their labeled inspection fields or worksheets.</p></div>
-</section>
-<section class="page" data-sheet="SETUP S2 sheet 2" data-title="SETUP S2 — sheet 2" data-part="step-block" data-drawing="?" data-revision="" data-sheet-role="continuation">
-<div class="meta"><h1>STEP-BLOCK · ? · REV NOT CONFIRMED</h1><div>qty ?</div></div>
-<div class="banner">PLANNED — NOT APPROVED</div>
-<h2>SETUP S2 — sheet 2 of 2: holding picture and clearance</h2><figure class="fixture-render" data-panel="1" data-panel-role="setup" data-panel-top="0" data-panel-height="1514"><figcaption><p>Setup S2 — part as it arrives from Setup S1, held in the vise.</p>step-block · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1514" width="1600" height="1514" role="img" aria-label="step-block · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW"><title>step-block · Setup S2 · setup · panel 1 of 1 — SETUP S2  /  ISOMETRIC VIEW</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1514" preserveAspectRatio="none"></image></svg></figure>
-<div class="keep"><h2>CLEARANCE — mill</h2><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span>; tool stickout and headroom.</p><p>vise work-support height <span class="measurement-ref" data-measurement-ref="M2">?M2</span></p><p>mill maximum spindle-to-table room <span class="measurement-ref" data-measurement-ref="M8">?M8</span>; X usable travel <span class="measurement-ref" data-measurement-ref="M10">?M10</span>; Y usable travel <span class="measurement-ref" data-measurement-ref="M11">?M11</span></p><p>Authored fixture coordinates are setup settings, not verified clearance.</p><p>action for every clearance row: STOP: the tip goes below the jaw tops; holding beside the cut: not computed — check at the machine</p><table class="clearance"><colgroup><col style="width:12%"><col style="width:12%"><col style="width:55%"><col style="width:21%"></colgroup><thead><tr><th>op</th><th>tool</th><th>closest obstacle</th><th>clearance mm</th></tr></thead><tbody><tr><td><span class="reading">10</span></td><td>T1</td><td>jaw tops below the tool tip</td><td class="num"><span class="reading">-10.000</span></td></tr></tbody></table></div>
-</section>
-</body></html>
+<div class="decision stop" data-decision="block" data-source="coverage" data-status="error" data-scope="step-block" data-decision-evidence="[{&quot;source&quot;: &quot;coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;step-block&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>faces have no cutting op or as-stock claim: #<span class="reading">185</span>/ADVANCED FACE[<span class="reading">6</span>]/.</p></div><div class="decision stop" data-decision="block" data-source="drawing_revision" data-status="unknown" data-scope="drawing" data-decision-evidence="[{&quot;source&quot;: &quot;drawing_revision&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;drawing&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>Drawing revision not confirmed — match the drawing before execution.</p></div><p>Blocked setups: S1, S2. Resolve their stated prerequisites before execution.</p><p class="job-summary">Drawing material: ? not stated. Stock: rectangular bar <span class="reading">60 × 40 × 21 mm</span> long. mill. Millimetres unless marked. Speeds / feeds: no cited source — resolve speed/feed STOPs before powered cuts. DRO resolution: mill <span class="reading">0.001 mm</span> (resolution absent/unknown: provisional default grid).</p><p>All edges: ? edge break not on the drawing; plan breaks edges <span class="reading">0 mm</span> max</p><div class="tool-settings"><h2>Tools / settings — RPM / feed (mm/min unless marked); lengths (mm)</h2><table class="settings-key"><colgroup><col style="width:10%"><col style="width:90%"></colgroup><tbody><tr><th scope="row">T1</th><td><span class="tool-setting-entry" data-physical-ops="[&quot;S1:10&quot;]"><span class="reading">8 mm</span> EM endmill hand.</span></td></tr><tr><th scope="row">T2</th><td><span class="tool-setting-entry" data-physical-ops="[&quot;S2:10&quot;]"><span class="reading">8 mm</span> EM endmill; <span class="reading">R8</span> collet hand; <span class="reading">4</span> flutes.</span></td></tr></tbody></table></div>
+<section class="setup-flow" data-setup-title="S1" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-workpiece=""><h2>S1</h2><span class="route-prelude" data-setup-members="[&quot;S1&quot;]">Synthetic rough preparation clears the top allowance and step before S2. The preparation cutter diameter and authored zero leave are declared; its other dimensions, holder and holding remain measurement debt. Stop: ?. ?. Grip mm: ? not set.</span> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="consistency" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>A stated fact cannot be compared: stock state.top z is unknown, stock state.bottom z is unknown, so the authored stock is not compared; the setup picture&#x27;s nearest cut cannot be compared: CLEARANCE rows for ops <span class="reading">10</span> are not computed.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="coordinates" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;coordinates&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. Missing geometry or unverified tool/frame binding prevents a cleared toolpath.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;step&quot;]"><b>10.</b> <strong>T1:</strong> rough profile, leave <span class="reading">0</span> per side Only outside-finished material inside this box is cleared. Do not credit the unclaimed +X end face: it is intentionally absent from these claims. ?</p></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="envelope" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;envelope&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops<span class="reading">.10</span>.holder; measure: mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops<span class="reading">.10</span> commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting rpm</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="fixture_interference" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;fixture_interference&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding parts clash: holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>headroom, travel or jaw-path geometry remains unmeasured or unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp, hold.fixed jaw, stock state.top z, stock state.bottom z, ops<span class="reading">.10</span>.holder, ops<span class="reading">.10</span>.direction.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting feed</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="producer" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;producer&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: Z target not set</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="accessibility" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;accessibility&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Fixture solids are not declared for this holding kind. Refused kernel facts: ? unknown.gauge dia (missing): No numeric length with explicit millimetre or inch units is recorded; ? unknown.gauge len (missing): No numeric length with explicit millimetre or inch units is recorded; ? unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.flute len (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="engagement" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;engagement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Engagement proxy needs resolved/verified selected holder, positive selected tool/holder projection or OAL minus holder grip, positive authored axial depth per pass (doc mm). Refused kernel facts: ? unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="reach" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;reach&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>selected tool/holder dimensions are unmeasured or unavailable. Refused kernel facts: ? unknown.gauge dia (missing): No numeric length with explicit millimetre or inch units is recorded; ? unknown.gauge len (missing): No numeric length with explicit millimetre or inch units is recorded; ? unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.flute len (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; <span class="reading">8 mm</span> endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="speeds_feeds" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="tool_resolves" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;tool_resolves&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>assembly fit needs measured shank, holder and machine facts.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="stock_diameter" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;stock_diameter&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>selected collet/chuck identity is unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="thin_wall_under_clamp" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;thin_wall_under_clamp&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;vise&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="travel" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;travel&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops<span class="reading">.10</span>.holder; measure: mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Declare plan.setups.S1.ops<span class="reading">.10</span> full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.S1.ops<span class="reading">.10</span> current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock state.top z in mm; Author plan.setups.S1.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops<span class="reading">.10</span> commanded to z, z from/z to or depth mm from the setup datum with a depth gauge or machine Z readout in mm; measure: <span class="reading">8 mm</span> endmill selected cutter diameter, micrometer, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1176" data-page-context="Setup S1"><p class="stock-fixture-caption">Stock: the stock blank; fixture: ?</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1176" width="1600" height="1176" role="img" aria-label="Setup S1 — SETUP S1  /  ISOMETRIC VIEW"><title>Setup S1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1176" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: fixture not drawn: Fixture solids are not declared for this holding kind.</p><p class="render-debt">NOT SHOWN: STOP: selected cutter dimensions are unresolved; do not run.</p></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="zero_check" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: holding not chosen — do not run.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:zero" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:zero&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: no zero recipe — touch, Axis Set and jog checks not planned.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S1:readout-mode" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:readout-mode&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: establish ABS mode before setting the datum.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="reach" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;reach&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>holder face to the stock beside the tool: not computed — check at the machine</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="cut_clearance" data-status="unknown" data-scope="S1:10" data-decision-evidence="[{&quot;source&quot;: &quot;cut_clearance&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>holding beside the cut: not computed — check at the machine</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref">?</span>; Y travel <span class="measurement-ref">?</span>; tool stickout and headroom.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>mill maximum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>S1 T1 <span class="reading">8 mm</span> EM overall length <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — unknown (not in shop list) holder outside Ø <span class="measurement-ref">?</span>; holder gauge length <span class="measurement-ref">?</span>; insertion length <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref">?</span>; minimum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span>; Z usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — DRO readout step <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>Unverified decision input — S1 T1 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref">?</span>; usable flute length <span class="measurement-ref">?</span>; overall length <span class="measurement-ref">?</span>; shank Ø <span class="measurement-ref">?</span></p></div></div> </section>
+<section class="setup-flow" data-setup-title="S2" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-workpiece=""><h2>S2</h2><span class="route-prelude" data-setup-members="[&quot;S2&quot;]">Upper land up on <span class="reading">20 mm</span> parallels; jaws along X clamp the <span class="reading">40 mm</span> width across Y, <span class="reading">8 mm</span> above the parallels so the jaws stay below the step floor. Mount the vise; jaws along X; fixed jaw rear. Align the fixed jaw to X travel with dial test indicator: ≤<span class="reading">0.0254 mm</span> over <span class="reading">100 mm</span>; tighten and recheck. Parallels <span class="reading">20 mm</span>; grip <span class="reading">6 mm</span>. left end against the fixed-jaw stop. Hand snug, then quarter turn.</span> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;step&quot;]"><b>10.</b> <strong>T2:</strong> finish profile <span class="reading">Z → 10</span>; climb</p></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="consistency" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>A stated fact cannot be compared: stock state.top z <span class="reading">20</span> is top feature step&#x27;s face, which the kernel finishes at <span class="reading">Z 10.0000</span>; no band of step is proved to be its faces&#x27; separation, so the departure is not judged; the setup picture&#x27;s nearest cut cannot be compared: CLEARANCE rows for ops <span class="reading">10</span> are not computed.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="coordinates" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;coordinates&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting rpm</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="envelope" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;envelope&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>spindle envelope remains unmeasured or unresolved. measure: parallels parallel height between its bottom and top bearing faces, calipers or height gauge, mm; measure: vise table to vise bed supporting the parallels or part, height gauge, mm; measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Author plan.setups.S2.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="speeds_feeds" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>STOP: no starting feed</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision stop" data-decision="block" data-source="producer" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;producer&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>TIP <span class="reading">10</span> BELOW JAW TOP — STOP</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="headroom" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>headroom, travel or jaw-path geometry remains unmeasured or unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="engagement" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;engagement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Tool projection is <span class="reading">4.75</span>×D, above <span class="reading">4</span>×D; DOC reduction is unknown without a positive authored axial depth per pass.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><div class="decision caution" data-decision="caution" data-source="speeds_feeds" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;speeds_feeds&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p>Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.</p></div></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1266" data-page-context="Setup S2"><p class="stock-fixture-caption">Stock: part as it arrives from Setup S1; fixture: vise</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1266" width="1600" height="1266" role="img" aria-label="Setup S2 — SETUP S2  /  ISOMETRIC VIEW"><title>Setup S2 — SETUP S2  /  ISOMETRIC VIEW</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1266" preserveAspectRatio="none"></image></svg></figure></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="travel" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;travel&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>declared operation travel remains unmeasured or unresolved. measure: <span class="reading">R8</span> collet spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: <span class="reading">R8</span> collet installed tool insertion from holder exit face, steel rule or calipers, mm; measure: mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S2.ops<span class="reading">.10</span> full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length mm and section mm/dia mm with calipers instead of using a nominal feature width; author: Author plan.setups.S2.ops<span class="reading">.10</span>.approach mm &gt;= <span class="reading">0 in</span> mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: <span class="reading">8 mm</span> endmill selected cutter diameter, micrometer, mm; measure: <span class="reading">8 mm</span> endmill selected tool overall length, steel rule or calipers, mm.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="zero_check" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S2" data-op=""><p>Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S2:zero" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:zero&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>STOP: no zero recipe — touch, Axis Set and jog checks not planned.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="zero_check" data-status="unknown" data-scope="S2:readout-mode" data-decision-evidence="[{&quot;source&quot;: &quot;zero_check&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:readout-mode&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>STOP: establish ABS mode before setting the datum.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="error" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>STOP: the tip goes below the jaw tops</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="cut_clearance" data-status="unknown" data-scope="S2:10" data-decision-evidence="[{&quot;source&quot;: &quot;cut_clearance&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2:10&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>holding beside the cut: not computed — check at the machine</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>? Not computed — check at the machine: spindle-to-table room; X travel <span class="measurement-ref">?</span>; Y travel <span class="measurement-ref">?</span>; tool stickout and headroom.</p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>vise work-support height <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="headroom" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;headroom&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>mill maximum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — mill maximum spindle-to-table room <span class="measurement-ref">?</span>; minimum spindle-to-table room <span class="measurement-ref">?</span>; X usable travel <span class="measurement-ref">?</span>; Y usable travel <span class="measurement-ref">?</span>; Z usable travel <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — DRO readout step <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — parallels height <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — vise work-support height <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — <span class="reading">R8</span> collet holder gauge length <span class="measurement-ref">?</span>; insertion length <span class="measurement-ref">?</span></p></div></div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div class="decision stop" data-decision="block" data-source="measurement" data-status="unknown" data-scope="S2" data-decision-evidence="[{&quot;source&quot;: &quot;measurement&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S2&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S2" data-op=""><p>Unverified decision input — S2 T2 <span class="reading">8 mm</span> EM cutter Ø <span class="measurement-ref">?</span>; overall length <span class="measurement-ref">?</span></p></div></div> </section>
+
+</section></body></html>

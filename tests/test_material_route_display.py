@@ -6,8 +6,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_batch_material_routes import batch
 
 from prechips.findings import Finding
+from prechips.inputs import Bundle
 from prechips.material_routes import MaterialGraph, setup_lineage, stock_ancestry
 from prechips.sheet import _Traveler
 
@@ -51,9 +53,17 @@ def retained_plan():
 
 
 def sheet_for(plan):
-    sheet = _Traveler.__new__(_Traveler)
-    sheet.plan = plan
-    return sheet
+    bundle = Bundle(
+        plan=plan,
+        features={},
+        inventory={},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path(__file__).resolve().parent,
+    )
+    return _Traveler(bundle, [], {}, None)
 
 
 def native_facts():
@@ -105,10 +115,6 @@ def test_magic_sibling_routes_keep_one_original_bar_and_actual_producer_history(
     assert stock_ancestry(retained_plan)["stock_out.cone"] == frozenset({"stock"})
     assert setup_lineage(retained_plan, "C1") == {"P1", "P3", "C1"}
     assert setup_lineage(retained_plan, "A1") == {"P1", "P3", "C1", "T2", "A1"}
-    assert {(atom.split, atom.output) for atom in graph.nodes["A1"]} == {
-        ("P3", "cone"),
-        ("P3", "tube"),
-    }
     assert (
         VALIDATOR["carry_route"](retained_plan, retained_plan["setups"][-1])
         == retained_plan["setups"]
@@ -133,6 +139,25 @@ def test_assembly_arrival_never_invents_two_independent_supplies(retained_plan):
     assert arrival.count("original round bar") == 1
     assert "stock_out." not in arrival
     assert "independent" not in arrival
+
+
+@pytest.mark.parametrize(
+    "sid,piece,split",
+    [
+        ("E1", "nut1 b", "C1a"),
+        ("E2", "nut2 b", "C1b"),
+        ("E3", "nut3 b", "C2"),
+        ("E4", "nut4 b", "C2"),
+    ],
+)
+def test_nested_arrival_selects_each_final_child_not_an_ancestor_remainder(sid, piece, split):
+    plan = batch()
+    setup = next(setup for setup in plan["setups"] if setup["id"] == sid)
+    arrival = sheet_for(plan).arrival(setup)
+    assert piece in arrival
+    assert f"Setup {split}" in arrival
+    assert "lower1" not in arrival and "lower2" not in arrival
+    assert all(f"nut{index} b" not in arrival for index in range(1, 5) if sid != f"E{index}")
 
 
 @pytest.mark.parametrize(
@@ -163,10 +188,6 @@ def test_retained_arrival_humanizes_output_labels_without_changing_route_identit
     assert "bar_remnant" not in arrival
     assert "tube_blank" not in arrival
     assert json.dumps(retained_plan, sort_keys=True) == before
-    assert {atom.output for atom in MaterialGraph(retained_plan).nodes["A1"]} == {
-        "bar_remnant",
-        "tube_blank",
-    }
 
 
 @pytest.mark.parametrize(

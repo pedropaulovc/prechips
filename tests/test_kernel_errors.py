@@ -212,7 +212,16 @@ def test_the_reason_reaches_the_bundle(tmp_path, monkeypatch, code, says):
 
 def test_the_real_engine_names_a_failed_job_and_leaves_its_trail(tmp_path, freecad_kernel):
     source, target = tmp_path / "input.json", tmp_path / "output.json"
-    job = {"version": 1, "step_path": str(tmp_path / "absent.STEP"), "step_sha256": "0" * 64}
+    # Keep the native request complete so only the missing STEP exercises the diagnostic.
+    job = {
+        "version": 1,
+        "step_path": str(tmp_path / "absent.STEP"),
+        "step_sha256": "0" * 64,
+        "features": {},
+        "as_is_faces": [],
+        "stock": {"shape": "part"},
+        "setups": [],
+    }
     source.write_text(json.dumps({"jobs": [job], "timing": True}), encoding="utf-8")
     script = Path(kernel.__file__).with_name("freecad_job.py")
     subprocess.run(
@@ -259,7 +268,15 @@ def test_a_guard_kill_during_step_import_names_the_step(tmp_path, freecad_kernel
         raise subprocess.TimeoutExpired(process.args, timeout)
 
     monkeypatch.setattr(kernel, "_await_launcher", guard)
-    job = {"version": 1, "step_path": str(step), "step_sha256": "0" * 64}
+    job = {
+        "version": 1,
+        "step_path": str(step),
+        "step_sha256": "0" * 64,
+        "features": {},
+        "as_is_faces": [],
+        "stock": {"shape": "part"},
+        "setups": [],
+    }
     result = kernel._execute(Path(freecad_kernel), {"jobs": [job], "timing": True})
     assert result["status"] == "error"
     assert "runaway guard" in result["reason"]

@@ -2512,7 +2512,7 @@ def test_every_ambiguous_current_native_cut_invalidates_root_and_recovery_credit
 def test_invalid_current_contact_prints_no_numeric_recipe_or_native_refs(tmp_path, edge):
     import re
 
-    from test_tool_change_touch import paragraphs
+    from test_tool_change_touch import dro_paragraphs
 
     from prechips.sheet import _Traveler
 
@@ -2526,9 +2526,10 @@ def test_invalid_current_contact_prints_no_numeric_recipe_or_native_refs(tmp_pat
     assert "credited_faces" not in row and "touch_exclusion_dia_mm" not in row
     report = finding.to_dict()
     assert report["numbers"]["tool_touches"][0]["z_axis_set"] == "unknown"
-    text = paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
+    text = dro_paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
     (instruction,) = [line for line in text if "Before op 40" in line and "target" in line]
-    assert re.search(r"Axis Set Z [+-]?\d", instruction) is None, instruction
+    assert re.search(r"\bAxis Set Z\s+\?(?!\w)", instruction), instruction
+    assert re.search(r"\bAxis Set Z\s+[+−-]?\d", instruction) is None, instruction
     assert all(ref not in " ".join(text) for ref in refs)
     assert "ADVANCED_FACE" not in " ".join(text)
 
@@ -2590,7 +2591,7 @@ def test_a_provably_xy_disjoint_current_cut_preserves_the_native_touch(tmp_path,
 def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carried_setting(
     tmp_path, reface
 ):
-    from test_tool_change_touch import paragraphs
+    from test_tool_change_touch import dro_paragraphs
 
     from prechips.sheet import _Traveler
 
@@ -2618,7 +2619,7 @@ def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carrie
     assert row["z_axis_set"] == pytest.approx(-8.7963)
     assert "native_edge_mm" not in row and "setting_residual_mm" not in row
     assert zero_recipe_tool_setting.carried_z_reading(bundle, setup, last) is None
-    text = paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
+    text = dro_paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
     (instruction,) = [line for line in text if "Before op 40" in line and "target" in line]
     assert "touch the face outside Ø0.8 mm" in instruction
     assert all(ref not in " ".join(text) for ref in refs)
