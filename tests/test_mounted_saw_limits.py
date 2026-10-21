@@ -93,7 +93,8 @@ def test_failed_native_proof_keeps_independently_known_limit_overruns(monkeypatc
         assert row.numbers["travel_checks"]["x"]["lower_bound_margin_mm"] == -1
     else:
         assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"] == [112, 142]
-        assert row.numbers["stacks"][0]["upper_margin_mm"] == -1
+        margin_key = "margin_mm" if rule is headroom else "upper_margin_mm"
+        assert row.numbers["stacks"][0][margin_key] == -1
 
 
 @pytest.mark.parametrize("rule", [envelope, headroom, travel])
