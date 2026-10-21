@@ -160,6 +160,13 @@ ignore = [
 [sources]
 # New modules have explicit conservative consumers until the next coordinated
 # coverage-map rebuild; native modules also appear in [consumers] above.
+"src/prechips/native_diagnostics.py" = [
+    "tests/test_native_diagnostics.py",
+    "tests/test_report.py",
+    "tests/test_arriving_top_rule_consumers.py",
+    "tests/test_mounted_saw_clearance.py",
+    "tests/test_validate_examples.py",
+]
 "src/prechips/kernel/cache_recipe.py" = [
     "tests/test_batch_kernel_inputs.py",
     "tests/test_engine_digest.py",
@@ -420,6 +427,7 @@ ignore = [
     "tests/test_manual_arc.py",
     "tests/test_measurement_checklist.py",
     "tests/test_measurement_instructions.py",
+    "tests/test_native_diagnostics.py",
     "tests/test_measurement_provenance.py",
     "tests/test_operative_surface.py",
     "tests/test_physics_m2.py",
@@ -1193,6 +1201,7 @@ ignore = [
     "tests/test_prepared_blank.py",
     "tests/test_process_route.py",
     "tests/test_provenance_checklist.py",
+    "tests/test_native_diagnostics.py",
     "tests/test_report.py",
     "tests/test_sheet_job.py",
     "tests/test_sheet_precision.py",
