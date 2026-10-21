@@ -44,9 +44,7 @@ def _diagnostics(variant):
     pickup = {
         "model": "arriving_top_v1",
         "path": {
-            "legs": [
-                {"components": [{"swept_volume_mm3": volume} for volume in _VOLUMES[variant]]}
-            ]
+            "legs": [{"components": [{"swept_volume_mm3": volume} for volume in _VOLUMES[variant]]}]
         },
         "resolved_contact": {
             "contact_model": "flat_end_projection_v1",
