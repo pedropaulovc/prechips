@@ -586,7 +586,42 @@ def test_later_physical_alias_changes_numeric_and_manual_acceptance(
         assert rows["nut1/part:actual_slot_fit"].status == "pass"
 
 
-@pytest.mark.parametrize("action", ["release", "scribe"])
+@pytest.mark.parametrize("registered", [False, True], ids=["legacy", "registered"])
+@pytest.mark.parametrize(
+    "faces,status",
+    [(["#2"], "error"), (["#99"], "pass"), ("unknown", "unknown")],
+    ids=["same-face", "disjoint-face", "unresolved-face"],
+)
+def test_later_spot_alias_invalidates_only_affected_manual_acceptance(registered, faces, status):
+    bundle = final_multiowner_bundle()
+    bundle.features["features"]["spot-location"] = {
+        "kind": "hole",
+        "faces": faces,
+        "requirements": [],
+    }
+    later = {
+        "op": 20,
+        "do": "spot",
+        "feature": "spot-location",
+        "workpiece_faces": {"nut4": faces},
+    }
+    bundle.plan["setups"][-1]["ops"].append(later)
+    if not registered:
+        bundle.plan.pop("workpieces")
+        for setup in bundle.plan["setups"]:
+            for op in setup["ops"]:
+                op.pop("workpiece_faces", None)
+                op.pop("inspect_workpieces", None)
+        later["faces"] = faces
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    prefix = "nut4/" if registered else ""
+    assert rows[f"{prefix}part:actual_slot_fit"].status == status
+    if registered:
+        for member in MEMBERS[:-1]:
+            assert rows[f"{member}/part:actual_slot_fit"].status == "pass"
+
+
+@pytest.mark.parametrize("action", ["inspect", "release", "scribe"])
 def test_nonmaterial_alias_does_not_invalidate_final_checks(action):
     bundle = final_multiowner_bundle()
     bundle.features["features"]["other-label"] = {
@@ -1035,6 +1070,24 @@ def test_later_member_work_requires_a_new_manual_final_check():
     )
     assert row.status == "error"
     assert "precedes later work" in row.sentence
+
+
+@pytest.mark.parametrize("repeat_check", [False, True])
+def test_later_spot_requires_member_specific_manual_reinspection(repeat_check):
+    bundle = practical_bundle()
+    setup = bundle.plan["setups"][-4]
+    setup["ops"].append({"op": 20, "do": "spot", "feature": "thread"})
+    if repeat_check:
+        setup["ops"].append({**deepcopy(final_op(bundle)), "op": 30})
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    affected = rows["nut1/part:stud_retention"]
+    assert affected.status == ("pass" if repeat_check else "error")
+    assert affected.numbers["op"] == ("E1:30" if repeat_check else "E1:10")
+    if not repeat_check:
+        assert "precedes later work" in affected.sentence
+    assert rows["nut1/part:actual_slot_fit"].status == "pass"
+    for member in MEMBERS[1:]:
+        assert rows[f"{member}/part:stud_retention"].status == "pass"
 
 
 def test_explicit_single_member_manual_selection_uses_inspection_not_face_ownership():
