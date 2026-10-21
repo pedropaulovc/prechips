@@ -1594,3 +1594,390 @@ def test_first_page_total_is_reserved_before_boundary_fitting(tmp_path, detail):
     for index, page in enumerate(pages, 1):
         match = LABEL.search(page)
         assert match and tuple(map(int, match.groups())) == (index, len(pages))
+
+
+def _semantic_operation_source(*, oversized=False, steps=False, step_words=170):
+    """Authored operation-card structure, with identities on source units only."""
+    action = _words("Action", 1500) if oversized else "Advance across the supported face."
+    details = (
+        '<div class="op-speed" data-semantic-unit="speed"><dt>RPM</dt>'
+        "<dd>420 rpm<br>Reduce to 260 rpm for the final interrupted cut.</dd></div>"
+        '<div class="op-feed" data-semantic-unit="feed"><dt>Feed</dt>'
+        '<dd><span class="box">STOP: no starting feed</span></dd></div>'
+        '<div class="op-direction" data-semantic-unit="direction"><dt>Direction</dt>'
+        "<dd>Clockwise viewed from the spindle nose.<br>"
+        "Verify rotation before engaging the work.</dd></div>"
+        '<div class="op-target" data-semantic-unit="feature"><dt>Feature</dt>'
+        "<dd>North bearing relief<br>Leave the adjacent shoulder untouched.<br>"
+        "Measure between the two indicated datum faces.</dd></div>"
+    )
+    note = ""
+    if steps:
+        items = "".join(
+            f'<li data-semantic-unit="step-{index}">{_words(f"Step{index}Word", step_words)}'
+            + (
+                " Return to the first setup before recording the final result. "
+                + _writing_field("step four result")
+                if index == 4
+                else ""
+            )
+            + "</li>"
+            for index in range(1, 5)
+        )
+        note = (
+            '<tr class="inspection-procedure" data-page-context="Inspection:"><td>'
+            '<div class="inspection-method" data-page-context="Inspection:">'
+            f'<span class="page-context">Inspection:</span><ol class="steps">{items}</ol>'
+            "</div></td></tr>"
+        )
+    else:
+        action += " " + _writing_field("operation observed")
+    return _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        "<div data-semantic-filler></div>"
+        '<table class="operations"><thead><tr><th>Operation</th></tr></thead>'
+        '<tbody class="operation" data-setup-id="S1" data-op="10" '
+        'data-operation-context="S1 op 10 radial facing">'
+        '<tr class="operation-main"><td>'
+        '<div class="op-head" data-semantic-unit="heading">'
+        '<h3><span class="op-number">10</span> Face at 0.35 mm radial per pass</h3></div>'
+        f'<div class="op-action"><p data-semantic-unit="action">{action}</p></div>'
+        f'<dl class="op-details">{details}</dl></td></tr>'
+        + note
+        + '<tr><td><figure class="fixture-render"><figcaption>Original setup diagram</figcaption>'
+        f'<img src="{IMAGE}" width="240" height="120" '
+        'style="display:block;width:240px;height:120px" alt="Radial facing datum">'
+        "</figure></td></tr></tbody></table>",
+    )
+
+
+def _semantic_prepare(detail, remaining, *, authored_display=False):
+    return f"""() => {{
+      document.body.dataset.detail = {json.dumps(detail)};
+      const root = document.documentElement, section = document.querySelector('section.page');
+      if ({json.dumps(authored_display)}) {{
+        section.style.setProperty('display', 'block', 'important');
+      }}
+      root.classList.add('print-measuring');
+      document.body.style.cssText =
+        'max-width:none;width:var(--page-content-width);margin:0;padding:0';
+      const words = text => text.trim().split(/\\s+/).filter(Boolean);
+      window.semanticExpected = [...section.querySelectorAll('[data-semantic-unit]')]
+        .map(node => ({{key:node.dataset.semanticUnit, words:words(node.textContent)}}));
+      window.semanticImages = [...section.querySelectorAll('figure img')];
+      const measure = document.createElement('div');
+      measure.style.cssText = 'position:absolute;width:var(--page-content-width);'
+        + 'height:var(--page-content-height)';
+      document.body.append(measure);
+      const capacity = measure.getBoundingClientRect().height
+        - parseFloat(getComputedStyle(root).getPropertyValue('--page-rounding'));
+      measure.remove();
+      const row = section.querySelector('.operation-main');
+      const unit = {json.dumps(remaining)} === 'card'
+        ? row : row.querySelector('.op-head');
+      const filler = section.querySelector('[data-semantic-filler]');
+      // Leave a nonempty prefix budget, but not enough for the measured unit.
+      filler.style.height = Math.max(0, capacity
+        - (row.getBoundingClientRect().top - section.getBoundingClientRect().top)
+        - unit.getBoundingClientRect().height * .65) + 'px';
+    }}"""
+
+
+_SEMANTIC_SOURCE_LAYOUT = r"""pageOf => {
+  const root = document.documentElement, section = document.querySelector('section.page');
+  const snapshot = () => {
+    const starts = [section, ...section.querySelectorAll('.cont-head')]
+      .map(node => node.getBoundingClientRect().top);
+    const cap = Number(root.dataset.pageCapacity);
+    const sheetBounds = section.getBoundingClientRect();
+    const original = node => !node.closest(
+      '[data-job-print],.record-continuation,.fixed-locator-reference');
+    const words = text => text.trim().split(/\s+/).filter(Boolean);
+    const units = [...section.querySelectorAll('[data-semantic-unit]')].filter(original);
+    const fragments = units.map(node => {
+      const copy = node.cloneNode(true);
+      copy.querySelectorAll('[data-job-print],.record-continuation,.fixed-locator-reference')
+        .forEach(child => child.remove());
+      return {key:node.dataset.semanticUnit, words:words(copy.textContent),
+        page:pageOf(node), list:node.closest('ol') !== null};
+    });
+    const escaped = [], sourcePages = [];
+    for (const unit of units) {
+      const walker = document.createTreeWalker(unit, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent.trim() || !original(node.parentElement)) continue;
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          const page = starts.findLastIndex(top => top <= rect.top + .1);
+          sourcePages.push(page);
+          if (page < 0 || rect.bottom > starts[page] + cap + .1
+              || rect.left < sheetBounds.left - .1 || rect.right > sheetBounds.right + .1) {
+            escaped.push(unit.dataset.semanticUnit);
+          }
+        }
+      }
+    }
+    const atoms = (selector, canonical = null) =>
+      [...section.querySelectorAll(selector)].map(node => {
+      const rect = node.getBoundingClientRect(), page = pageOf(node);
+      return {original:original(node), same:canonical ? canonical.includes(node) : null, page,
+        fits:page >= 0 && rect.top >= starts[page] - .1
+          && rect.bottom <= starts[page] + cap + .1
+          && rect.left >= sheetBounds.left - .1 && rect.right <= sheetBounds.right + .1};
+    });
+    return {fragments, escaped, sourcePages, expected:window.semanticExpected,
+      pages:Number(section.dataset.pages), boundaries:starts.length,
+      display:{value:section.style.getPropertyValue('display'),
+        priority:section.style.getPropertyPriority('display')},
+      controls:atoms('.writing-blank'),
+      images:atoms('figure img', window.semanticImages),
+      figures:atoms('figure'),
+      mainRows:[...section.querySelectorAll('.operation-main')].filter(original).length,
+      contextCopies:[...section.querySelectorAll('[data-job-print] [data-semantic-unit]')].length};
+  };
+  return snapshot();
+}"""
+
+
+def _assert_semantic_source(layout, *, oversized=False, oversized_steps=()):
+    expected = layout["expected"]
+    fragments = layout["fragments"]
+    assert [word for unit in fragments for word in unit["words"]] == [
+        word for unit in expected for word in unit["words"]
+    ]
+    assert 1 < layout["pages"] < 30
+    assert layout["boundaries"] == layout["pages"]
+    assert not layout["escaped"]
+    assert all(0 <= page < layout["pages"] for page in layout["sourcePages"])
+    assert len(layout["controls"]) == len(layout["images"]) == len(layout["figures"]) == 1
+    assert all(
+        atom["original"] and atom["fits"]
+        for atom in layout["controls"] + layout["images"] + layout["figures"]
+    )
+    assert all(image["same"] for image in layout["images"])
+    for unit in expected:
+        parts = [part for part in fragments if part["key"] == unit["key"]]
+        if oversized and unit["key"] == "action":
+            assert len(parts) > 1
+            assert len({part["page"] for part in parts}) > 1
+            assert all(part["words"] for part in parts)
+        elif unit["key"] in oversized_steps:
+            assert parts and all(part["words"] for part in parts)
+            if len(parts) > 1:
+                assert len({part["page"] for part in parts}) > 1
+        else:
+            assert len(parts) == 1, (unit["key"], parts)
+            assert parts[0]["words"] == unit["words"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_fitting_original_radial_heading_and_detail_card_move_whole(printed_sheet, detail):
+    _, layout = printed_sheet(
+        _semantic_operation_source(),
+        _SEMANTIC_SOURCE_LAYOUT,
+        prepare=_semantic_prepare(detail, "card"),
+    )
+    _assert_semantic_source(layout)
+    assert layout["mainRows"] == 1
+    card = [unit for unit in layout["fragments"] if not unit["key"].startswith("step-")]
+    assert len({unit["page"] for unit in card}) == 1
+    assert card[0]["page"] > 0
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_oversized_action_keeps_original_stop_and_multiline_detail_units(printed_sheet, detail):
+    _, layout = printed_sheet(
+        _semantic_operation_source(oversized=True),
+        _SEMANTIC_SOURCE_LAYOUT,
+        prepare=_semantic_prepare(detail, "heading"),
+    )
+    _assert_semantic_source(layout, oversized=True)
+    # A full copied context must not satisfy the complete-original-unit assertions.
+    assert layout["contextCopies"] > 0
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("step_words", [140, 170])
+def test_numbered_original_step_tail_keeps_its_result_destination(
+    printed_sheet, detail, step_words
+):
+    _, layout = printed_sheet(
+        _semantic_operation_source(steps=True, step_words=step_words),
+        _SEMANTIC_SOURCE_LAYOUT,
+        prepare=_semantic_prepare(detail, "card"),
+    )
+    # Independent measured layouts establish that only these 170-word pedantic
+    # steps exceed a fresh page after mandatory context; 140-word steps fit.
+    oversized_steps = ("step-1", "step-4") if detail == "pedantic" and step_words == 170 else ()
+    _assert_semantic_source(layout, oversized_steps=oversized_steps)
+    steps = [unit for unit in layout["fragments"] if unit["key"].startswith("step-")]
+    assert {unit["key"] for unit in steps} == {f"step-{index}" for index in range(1, 5)}
+    assert all(unit["list"] for unit in steps)
+    if oversized_steps:
+        assert len(steps) > 4
+    assert len({unit["page"] for unit in steps}) > 1
+    assert layout["controls"][0]["page"] == steps[-1]["page"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_semantic_fragments_restore_original_units_across_repeated_beforeprint(
+    printed_sheet, detail
+):
+    probe = _SEMANTIC_SOURCE_LAYOUT.replace(
+        "return snapshot();",
+        """const first = snapshot(), html = section.innerHTML;
+  const height = root.style.getPropertyValue('--page-content-height');
+  root.style.setProperty('--page-content-height', '40in');
+  dispatchEvent(new Event('beforeprint'));
+  const large = snapshot();
+  root.style.setProperty('--page-content-height', '0.5in');
+  dispatchEvent(new Event('beforeprint'));
+  const refusal = {error:root.dataset.paginationError || null,
+    display:{value:section.style.getPropertyValue('display'),
+      priority:section.style.getPropertyPriority('display')}};
+  if (height) root.style.setProperty('--page-content-height', height);
+  else root.style.removeProperty('--page-content-height');
+  dispatchEvent(new Event('beforeprint'));
+  const second = snapshot(), restored = section.innerHTML === html;
+  dispatchEvent(new Event('beforeprint'));
+  const third = snapshot();
+  return {first, large, refusal, second, third, restored,
+    stable:JSON.stringify(first) === JSON.stringify(second)
+      && JSON.stringify(second) === JSON.stringify(third)};""",
+    )
+    _, replay = printed_sheet(
+        _semantic_operation_source(oversized=True),
+        probe,
+        prepare=_semantic_prepare(detail, "heading", authored_display=True),
+    )
+    assert replay["restored"] and replay["stable"]
+    assert replay["large"]["pages"] < replay["first"]["pages"]
+    assert replay["refusal"]["error"]
+    assert replay["refusal"]["display"] == {"value": "block", "priority": "important"}
+    for key in ("first", "second", "third"):
+        _assert_semantic_source(replay[key], oversized=True)
+
+
+@pytest.mark.parametrize("nested_owner", [False, True], ids=["co-located", "nested-owner-contract"])
+def test_pedantic_long_later_setup_title_reserves_room_before_source_fitting(
+    printed_sheet, nested_owner
+):
+    long_title = (
+        "S2 secondary holding arrangement for the north bearing shoulder and south relief "
+        "using protected jaws against the finished datum while supporting the free end "
+        "through alignment verification radial clearance checks spindle direction confirmation "
+        "tool approach inspection measured trial passes final size recording and release approval"
+    )
+    short_source = f"<p>{_positioned_words('ShortOwner', 700)}</p>"
+    long_source = (
+        f"<p>{_positioned_words('LongOwner', 1600)} "
+        + _writing_field("long hold observed")
+        + "</p>"
+    )
+    if nested_owner:
+        # Integration contract: ownership attributes may live on different
+        # ancestors, even though the current native producer co-locates them.
+        # The forced-page origin is deliberately anonymous, not the title owner.
+        source = _setup(
+            SETUP_ONE,
+            "S1",
+            "nut1",
+            short_source
+            + '<div style="break-before:page">'
+            + f'<div data-setup-title="{long_title}" data-member="nested-member" '
+            'data-workpiece="nested-blank">' + long_source + "</div></div>",
+        )
+    else:
+        source = _setup(SETUP_ONE, "S1", "nut1", short_source) + _setup(
+            long_title, "S2", "nut2", long_source
+        )
+    _, layout = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const heads = [...section.querySelectorAll('.cont-head')];
+          const starts = [section, ...heads].map(node => node.getBoundingClientRect().top);
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          const bounds = section.getBoundingClientRect(), escaped = [];
+          const original = node => !node.closest(
+            '[data-job-print],.record-continuation,.fixed-locator-reference');
+          const contained = (node, owner, source = false) => {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const box = owner.getBoundingClientRect();
+            for (const rect of range.getClientRects()) {
+              const page = starts.findLastIndex(top => top <= rect.top + .1);
+              const top = source && page > 0
+                ? heads[page - 1].getBoundingClientRect().bottom : starts[page];
+              if (page < 0 || rect.top < top - .1 || rect.bottom > starts[page] + cap + .1
+                  || rect.left < bounds.left - .1 || rect.right > bounds.right + .1
+                  || (!source && (rect.top < box.top - .1 || rect.bottom > box.bottom + .1))) {
+                escaped.push(node.textContent);
+              }
+            }
+          };
+          const positions = [...section.querySelectorAll('[data-source-position]')]
+            .filter(original).map(node => {
+              contained(node, node, true);
+              return {key:node.dataset.sourcePosition, text:node.textContent, page:pageOf(node)};
+            });
+          const headers = heads.map(head => {
+            const walker = document.createTreeWalker(head, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+              if (node.textContent.trim()) contained(node, head);
+            }
+            return {setup:head.dataset.setupId, page:pageOf(head),
+              title:head.querySelector('.cont-title').textContent.replace(/\s+/g, ' ').trim(),
+              height:head.getBoundingClientRect().height};
+          });
+          const controls = [...section.querySelectorAll('.writing-blank')].map(node => {
+            const rect = node.getBoundingClientRect(), page = pageOf(node);
+            return {original:original(node), page,
+              fits:page >= 0 && rect.top >= starts[page] - .1
+                && rect.bottom <= starts[page] + cap + .1};
+          });
+          return {positions, headers, controls, escaped, capacity:cap,
+            pages:Number(section.dataset.pages), boundaries:starts.length};
+        }""",
+        prepare="() => { document.body.dataset.detail = 'pedantic'; }",
+    )
+    expected = _words("ShortOwner", 700).split() + _words("LongOwner", 1600).split()
+    assert [position["key"] for position in layout["positions"]] == expected
+    assert [position["text"] for position in layout["positions"]] == expected
+    assert 2 < layout["pages"] < 30
+    assert layout["boundaries"] == layout["pages"]
+    assert not layout["escaped"]
+    assert all(0 <= position["page"] < layout["pages"] for position in layout["positions"])
+    long_pages = {
+        position["page"]
+        for position in layout["positions"]
+        if position["key"].startswith("LongOwner")
+    }
+    short_heads = [
+        head
+        for head in layout["headers"]
+        if head["setup"] == "S1" and head["page"] not in long_pages
+    ]
+    long_heads = [
+        head
+        for head in layout["headers"]
+        if head["page"] in long_pages and (nested_owner or head["setup"] == "S2")
+    ]
+    assert short_heads and long_heads
+    assert all(SETUP_ONE in head["title"] for head in short_heads)
+    assert all(long_title in head["title"] for head in long_heads)
+    if nested_owner:
+        expected_identity = f"{long_title} · S1 · nested-member · nested-blank"
+        assert all(
+            head["setup"] == "S1" and expected_identity in head["title"] for head in long_heads
+        )
+    assert all(0 < head["height"] < layout["capacity"] for head in layout["headers"])
+    assert len(long_pages) > 1
+    assert len(layout["controls"]) == 1
+    assert layout["controls"][0]["original"] and layout["controls"][0]["fits"]
+    assert layout["controls"][0]["page"] in long_pages

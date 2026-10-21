@@ -588,6 +588,159 @@ def _sections(blocks):
     )
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("fresh", [False, True], ids=["shared-transition", "fresh-owner"])
+def test_physical_running_header_tracks_retained_setup_owners(tmp_path, detail, fresh):
+    from prechips._sheet_pagination import JOB_PRINT_JS
+    from prechips.sheet import _CSS
+
+    # Sweep the end of the old setup across page boundaries. The new setup is
+    # either admitted beside its tail or explicitly starts a fresh physical page.
+    # Only uniquely marked authored paragraphs establish actual page ownership.
+    counts = range(16, 35, 3)
+    scenarios = []
+    for scenario, count in enumerate(counts):
+        paragraphs = "".join(
+            f'<p style="min-height:60px">LatheOriginal{scenario:02}Row{row:03}</p>'
+            for row in range(count)
+        )
+        scenarios.append(
+            "<div" + (' style="break-before:page"' if scenario else "") + ">"
+            '<div class="setup-flow" data-setup-id="L1" '
+            'data-setup-title="SETUP L1 Lathe">'
+            "<h2>SETUP L1 Lathe</h2>"
+            + paragraphs
+            + '</div><div class="setup-flow" data-setup-id="H1" '
+            'data-setup-title="SETUP H1 Wooden bench"'
+            + (' style="break-before:page"' if fresh else "")
+            + "><h2>SETUP H1 Wooden bench</h2>"
+            + f"<p>BenchOriginal{scenario:02}Start</p></div></div>"
+        )
+    html = (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head>"
+        f'<body data-detail="{detail}"><section class="page" data-sheet="job" '
+        'data-part="OwnerPartIdentity" data-job-title="OwnerPartIdentity" '
+        'data-drawing="OwnerDrawingIdentity" data-revision="OwnerRevisionIdentity">'
+        + "".join(scenarios)
+        + "</section></body></html>"
+    )
+    pages = printed_pages(html, tmp_path)
+    assert 1 < len(pages) < 60
+    shared = 0
+    for scenario, count in enumerate(counts):
+        marker = f"BenchOriginal{scenario:02}Start"
+        (page_index,) = [index for index, page in enumerate(pages) if marker in page]
+        page = pages[page_index]
+        lathe_rows = re.findall(rf"LatheOriginal{scenario:02}Row\d{{3}}", page)
+        # Header evidence must be above all authored content, not merely a setup
+        # heading later on the page. The page-count line is generated only there.
+        count_line = next(
+            index for index, line in enumerate(page.splitlines()) if LABEL.search(line)
+        )
+        header = " ".join(page.splitlines()[: count_line + 1])
+        assert "OwnerPartIdentity" in header
+        if detail == "pedantic":
+            assert "OwnerDrawingIdentity" in header and "OwnerRevisionIdentity" in header
+        if lathe_rows:
+            assert not fresh
+            shared += 1
+            assert re.search(r"Setups\s+L1\s+\(continued\)\s*→\s*H1", header), page
+            assert f"LatheOriginal{scenario:02}Row{count - 1:03}" in page
+        else:
+            assert re.search(r"Setups\s+H1\b", header), page
+            assert not re.search(r"\bL1\b", header), page
+            assert not re.search(r"\bH1\s+\(continued\)", header), page
+        if fresh:
+            assert not lathe_rows
+    if not fresh:
+        assert shared
+
+
+def test_pedantic_running_header_retains_full_long_authored_setup_title(tmp_path):
+    from prechips._sheet_pagination import JOB_PRINT_JS
+    from prechips.sheet import _CSS
+
+    title = "SETUP H1 " + " ".join(f"HumanSetupName{index:02}" for index in range(48))
+    words = [f"LongOwnerOriginalWord{index:04}" for index in range(1000)]
+    preceding = "".join(
+        f'<p style="min-height:60px">PrecedingOwnerRow{index:02}</p>' for index in range(18)
+    )
+    html = (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head>"
+        '<body data-detail="pedantic"><section class="page" data-sheet="job" '
+        'data-part="LongTitlePartIdentity" data-drawing="LongTitleDrawingIdentity" '
+        'data-revision="LongTitleRevisionIdentity">'
+        '<div class="setup-flow" data-setup-id="L1" data-setup-title="SETUP L1 Lathe">'
+        "<h2>SETUP L1 Lathe</h2>"
+        + preceding
+        + '</div><div class="setup-flow" data-setup-id="H1" '
+        + f'data-setup-title="{title}" style="break-before:page">'
+        + f"<h2>{title}</h2><p>"
+        + " ".join(words)
+        + "</p></div></section></body></html>"
+    )
+    pages = printed_pages(html, tmp_path)
+    assert 3 < len(pages) < 30
+    assert re.findall(r"LongOwnerOriginalWord\d{4}", " ".join(pages)) == words
+    source_pages = [page for page in pages if re.search(r"LongOwnerOriginalWord\d{4}", page)]
+    assert len(source_pages) > 1
+    for page in source_pages:
+        lines = page.splitlines()
+        count_line = next(index for index, line in enumerate(lines) if LABEL.search(line))
+        # Restrict evidence to the physical running header. The original h2 below
+        # the count line cannot compensate for a truncated or stale running title.
+        header = " ".join(" ".join(lines[:count_line]).split())
+        assert title in header, page
+        assert "LongTitlePartIdentity" in header
+        assert "LongTitleDrawingIdentity" in header
+        assert "LongTitleRevisionIdentity" in header
+        assert not re.search(r"\bL1\b", header), page
+
+
+def test_nested_owner_identity_below_anonymous_break_keeps_full_physical_header(tmp_path):
+    from prechips._sheet_pagination import JOB_PRINT_JS
+    from prechips.sheet import _CSS
+
+    # An integration-contract fixture, not a claim about current sheet producers:
+    # nested title/member metadata inherits S1 from the outer physical setup.
+    # The break belongs to its anonymous ancestor, which has no owner metadata.
+    title = "SETUP S1 " + " ".join(f"NestedHumanSetupName{index:02}" for index in range(44))
+    member, workpiece = "NestedMemberIdentity", "NestedWorkpieceIdentity"
+    expected_identity = f"{title} · {member} · {workpiece}"
+    words = [f"NestedOwnerOriginalWord{index:04}" for index in range(800)]
+    html = (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head>"
+        '<body data-detail="pedantic"><section class="page" data-sheet="job" '
+        'data-part="NestedPartIdentity" data-drawing="NestedDrawingIdentity" '
+        'data-revision="NestedRevisionIdentity">'
+        '<div class="setup-flow" data-setup-id="S1" data-setup-title="SETUP S1 ShortOuter">'
+        "<h2>SETUP S1 ShortOuter</h2><p>OuterOriginalIdentity</p>"
+        '<div style="break-before:page">'
+        f'<div data-setup-title="{title}" data-member="{member}" data-workpiece="{workpiece}">'
+        f"<h2>{title}</h2><p>" + " ".join(words) + "</p></div></div></div></section></body></html>"
+    )
+    pages = printed_pages(html, tmp_path)
+    assert 2 < len(pages) <= len(words) + 1
+    assert " ".join(pages).count("OuterOriginalIdentity") == 1
+    assert re.findall(r"NestedOwnerOriginalWord\d{4}", " ".join(pages)) == words
+    source_pages = [page for page in pages if re.search(r"NestedOwnerOriginalWord\d{4}", page)]
+    assert len(source_pages) > 1
+    for page in source_pages:
+        lines = page.splitlines()
+        count_line = next(index for index, line in enumerate(lines) if LABEL.search(line))
+        # Neither the authored heading below the count nor an inherited short
+        # outer identity may stand in for the nested source's full running owner.
+        header = " ".join(" ".join(lines[:count_line]).split())
+        assert expected_identity in header, page
+        assert "ShortOuter" not in header, page
+        assert "NestedPartIdentity" in header
+        assert "NestedDrawingIdentity" in header
+        assert "NestedRevisionIdentity" in header
+
+
 @pytest.mark.parametrize("weight", [400, 700], ids=["working", "bold"])
 def test_recording_counter_measures_actual_unkerned_tabular_digits(printed_sheet, weight):
     from prechips.sheet import _list, _Note
@@ -755,6 +908,238 @@ def test_an_op_table_moved_whole_keeps_its_owner_and_original_rows(tmp_path):
         assert sum(text.count("second-op-row") for text in run) == 1
     # The boundary itself: some fillers leave no room for the table.
     assert moved
+
+
+def _pdf_original(text):
+    # Context keeps its measured footprint, but cannot provide the original's PDF
+    # evidence. Range-cloned original fragments retain this class and stay visible.
+    return f'<span class="pdf-original">{text}</span>'
+
+
+def _pdf_operation(action, details="", *, finishing=False):
+    heading = '<span class="op-number">Op 20</span>'
+    if not finishing:
+        heading += f' — <span class="op-action">{action}</span>'
+    return (
+        "<style>[data-job-print] .pdf-original {visibility:hidden}"
+        ".field:has(.writing-blank) .field-label,.setup-flow > p:first-child {"
+        "color:rgb(255,0,0);print-color-adjust:exact;-webkit-print-color-adjust:exact}"
+        ".fixed-locator-reference {color:rgb(0,0,0)}</style>"
+        '<h2>OPERATIONS</h2><table class="operations"><tbody class="operation" '
+        'data-op="20" data-operation-context="Operation 20">'
+        '<tr class="operation-main"><td><div class="op-head"><h3>'
+        + heading
+        + "</h3></div>"
+        + (f'<div class="op-action">{action}</div>' if finishing else "")
+        + f'<dl class="op-details">{details}</dl></td></tr></tbody></table>'
+    )
+
+
+def _pdf_original_page(run, phrase):
+    """Require one complete original on one physical page, not a context copy."""
+    normalized = [" ".join(page.split()) for page in run]
+    matches = [index for index, page in enumerate(normalized) if phrase in page]
+    assert len(matches) == 1, (phrase, run)
+    assert " ".join(normalized).count(phrase) == 1, (phrase, run)
+    return matches[0]
+
+
+def _pdf_writable_labels(tmp_path, *, scenarios):
+    """Read the fixture's red live-destination labels, not black locator copies.
+
+    Color changes no geometry and leaves useful read-only context visible. A
+    duplicated writable field also gets red ink, so it cannot evade the oracle.
+    Existing authored section markers provide a known-red positive control for
+    the PDF glyph-color API and Chrome's print-color handling.
+    """
+    from ctypes import byref, c_uint
+
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as pdfium_raw
+
+    labels = []
+    document = pdfium.PdfDocument(str(tmp_path / "traveler.pdf"))
+    try:
+        for index in range(len(document)):
+            page = document[index]
+            textpage = page.get_textpage()
+            try:
+                chars = []
+                for char_index in range(textpage.count_chars()):
+                    red, green, blue, alpha = (c_uint() for _ in range(4))
+                    if not pdfium_raw.FPDFText_GetFillColor(
+                        textpage.raw,
+                        char_index,
+                        byref(red),
+                        byref(green),
+                        byref(blue),
+                        byref(alpha),
+                    ):
+                        continue
+                    if (red.value, green.value, blue.value, alpha.value) == (255, 0, 0, 255):
+                        chars.append(textpage.get_text_range(char_index, 1))
+                labels.append("".join(chars))
+            finally:
+                textpage.close()
+                page.close()
+    finally:
+        document.close()
+    assert re.findall(r"SECTION-\d+-START", "".join(labels)) == [
+        f"SECTION-{index}-START" for index in range(scenarios)
+    ], "PDF color extraction must recover every known-red source marker exactly once"
+    return labels
+
+
+def test_fitting_stop_feed_box_prints_as_one_original_field(tmp_path):
+    heading = "FeedOperationIdentity rough the fixture seat"
+    warning = "FeedWarningStart STOP: no starting feed FeedWarningEnd"
+    details = "".join(
+        f'<div class="op-{name}"><dt>{name}</dt><dd>{value}</dd></div>'
+        for name, value in [
+            ("feature", _pdf_original("FeedFeatureIdentity fixture seat")),
+            ("tool", _pdf_original("FeedToolIdentity boring tool")),
+            ("speed", _pdf_original("FeedSpeedIdentity 400 RPM clockwise")),
+            ("feed", f'<div class="box">{_pdf_original(warning)}</div>'),
+            ("target", _pdf_original("FeedTargetIdentity finish diameter")),
+            ("direction", _pdf_original("FeedDirectionIdentity toward the shoulder")),
+        ]
+    )
+    source = _pdf_operation(_pdf_original(heading), details)
+    fillers = range(700, 901, 20)
+    texts = printed_pages(_sections([(filler, source) for filler in fillers]), tmp_path)
+    moved = 0
+    for run in _runs(texts, len(fillers)):
+        assert 1 <= len(run) < 8
+        page = _pdf_original_page(run, warning)
+        # A complete warning repeated in a continuation header is hidden above.
+        # A fractured original cannot satisfy this with its residual "feed" tail.
+        assert _pdf_original_page(run, heading) == page
+        for identity in ("Feature", "Tool", "Speed", "Target", "Direction"):
+            assert _pdf_original_page(run, f"Feed{identity}Identity") == page
+        moved += page > 0
+    assert moved
+
+
+def test_fitting_radial_per_pass_heading_has_no_original_tail_on_another_page(tmp_path):
+    heading = (
+        "RadialHeadingStart rough the shoulder using the stated depth of cut "
+        "and maintain 0.35 mm radial per pass RadialHeadingEnd"
+    )
+    details = (
+        '<div class="op-feature"><dt>feature</dt><dd>'
+        + _pdf_original("RadialFeatureIdentity shoulder")
+        + '</dd></div><div class="op-feed"><dt>feed</dt><dd>'
+        + _pdf_original("RadialFeedIdentity 0.1 mm per revolution")
+        + "</dd></div>"
+    )
+    source = _pdf_operation(_pdf_original(heading), details)
+    fillers = range(700, 901, 20)
+    texts = printed_pages(_sections([(filler, source) for filler in fillers]), tmp_path)
+    moved = 0
+    for run in _runs(texts, len(fillers)):
+        assert 1 <= len(run) < 8
+        page = _pdf_original_page(run, heading)
+        assert _pdf_original_page(run, "RadialFeatureIdentity") == page
+        assert _pdf_original_page(run, "RadialFeedIdentity") == page
+        moved += page > 0
+    assert moved
+
+
+def test_fitting_numbered_steps_and_their_result_print_complete_on_physical_pages(tmp_path):
+    from prechips.sheet import _fields
+
+    # The operation is too long for one page, but every individual numbered step
+    # fits fresh. Full repeated operation prose must not conceal an original tail.
+    steps = [
+        f"StepIdentity{index:02}Start "
+        + " ".join(f"Step{index:02}Word{word:02}" for word in range(28))
+        + f" StepIdentity{index:02}End"
+        for index in range(1, 25)
+    ]
+    result = "StepResultIdentity"
+    action = (
+        '<ol class="steps">'
+        + "".join(
+            "<li>"
+            + _pdf_original(step)
+            + (" " + _fields("Record {" + result + "}.") if index == 24 else "")
+            + "</li>"
+            for index, step in enumerate(steps, 1)
+        )
+        + "</ol>"
+    )
+    source = _pdf_operation(action, finishing=True)
+    fillers = (0, 740, 800, 860)
+    texts = printed_pages(_sections([(filler, source) for filler in fillers]), tmp_path)
+    writable = _pdf_writable_labels(tmp_path, scenarios=len(fillers))
+    offset = 0
+    for run in _runs(texts, len(fillers)):
+        destinations = writable[offset : offset + len(run)]
+        offset += len(run)
+        assert 1 < len(run) < 16
+        step_pages = [_pdf_original_page(run, step) for step in steps]
+        assert step_pages == sorted(step_pages)
+        assert len(set(step_pages)) > 1
+        for number, (step, page) in enumerate(zip(steps, step_pages, strict=True), 1):
+            assert re.search(rf"\b{number}\.\s+{re.escape(step)}", " ".join(run[page].split()))
+        assert _pdf_original_page(destinations, result) == step_pages[-1]
+        assert re.findall(r"Step\d{2}Word\d{2}", " ".join(run)) == [
+            word for step in steps for word in re.findall(r"Step\d{2}Word\d{2}", step)
+        ]
+
+
+def test_genuinely_oversized_operation_control_keeps_original_words_and_sole_result(tmp_path):
+    from prechips.sheet import _fields
+
+    words = [f"OversizeControlWord{index:04}" for index in range(700)]
+    warning = (
+        '<div class="box">'
+        + _pdf_original("OversizeWarningStart STOP: " + " ".join(words) + " OversizeWarningEnd")
+        + "</div>"
+    )
+    details = (
+        '<div class="op-feed"><dt>feed</dt><dd>'
+        + warning
+        + '</dd></div><div class="op-target"><dt>target</dt><dd>'
+        + _fields("Record {OversizeResultIdentity}.")
+        + "</dd></div>"
+    )
+    source = _pdf_operation(_pdf_original("OversizeHeadingIdentity controlled cut"), details)
+    fillers = (0, 760, 860)
+    texts = printed_pages(_sections([(filler, source) for filler in fillers]), tmp_path)
+    writable = _pdf_writable_labels(tmp_path, scenarios=len(fillers))
+    offset = 0
+    for run in _runs(texts, len(fillers)):
+        destinations = writable[offset : offset + len(run)]
+        offset += len(run)
+        # printed_pages also compares Chrome's declared count with PDFium's actual
+        # physical count; a finite count alone would not prove source progress.
+        assert len(run) > 1
+        # Every physical page must consume original source: the initial scenario
+        # marker/heading, warning words or endpoints, or the sole final result.
+        # Thus context-only pages cannot pad out an apparently finite result.
+        progress = [
+            re.findall(
+                r"OversizeControlWord\d{4}|OversizeHeadingIdentity|"
+                r"OversizeWarningStart|OversizeWarningEnd|"
+                r"SECTION-\d+-START",
+                page,
+            )
+            + re.findall(r"OversizeResultIdentity", destination)
+            for page, destination in zip(run, destinations, strict=True)
+        ]
+        assert all(progress), run
+        assert len(run) <= len(words) + 5
+        text = " ".join(run)
+        assert re.findall(r"OversizeControlWord\d{4}", text) == words
+        occupied = [
+            index for index, page in enumerate(run) if re.search(r"OversizeControlWord\d{4}", page)
+        ]
+        assert len(occupied) > 1
+        assert _pdf_original_page(run, "OversizeWarningStart") == occupied[0]
+        assert _pdf_original_page(run, "OversizeWarningEnd") == occupied[-1]
+        assert _pdf_original_page(destinations, "OversizeResultIdentity") >= occupied[-1]
+        assert _pdf_original_page(run, "OversizeHeadingIdentity") <= occupied[0]
 
 
 def test_the_clearance_section_never_leaves_its_travel_lines_apart_from_its_table(tmp_path):
