@@ -1182,9 +1182,7 @@ def _printed_warning_clauses(tmp_path, detail, clauses):
     expected_words = re.findall(word_pattern, raw)
     vocabulary = set(expected_words)
     assert [
-        word
-        for word in re.findall(word_pattern, " ".join(run))
-        if word in vocabulary
+        word for word in re.findall(word_pattern, " ".join(run)) if word in vocabulary
     ] == expected_words
     assert _pdf_original_page(run, "ClauseHeadingIdentity") == 0
     return run, destinations
@@ -1198,8 +1196,7 @@ def test_over_page_warning_keeps_each_numeric_missing_fact_on_one_original_pdf_p
     # Ninety-six complete facts exceed a fresh physical page even in compact
     # modes, while each individual fact is only a few lines long.
     clauses = [
-        f"ClauseFact{index:03} body width 12.5 mm (missing): {missing}"
-        for index in range(96)
+        f"ClauseFact{index:03} body width 12.5 mm (missing): {missing}" for index in range(96)
     ]
     run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
     clause_pages = [_pdf_original_page(run, clause) for clause in clauses]
@@ -1214,8 +1211,7 @@ def test_individually_over_page_warning_clause_falls_back_without_fracturing_nei
 ):
     missing = "No numeric length with explicit millimetre or inch units is recorded"
     neighbors = [
-        f"ClauseFact{index:03} body width 9.5 mm (missing): {missing}"
-        for index in range(6)
+        f"ClauseFact{index:03} body width 9.5 mm (missing): {missing}" for index in range(6)
     ]
     words = [f"ClauseWord{index:04}" for index in range(700)]
     oversized = "ClauseOversizeStart " + " ".join(words) + " ClauseOversizeEnd"
@@ -1223,9 +1219,7 @@ def test_individually_over_page_warning_clause_falls_back_without_fracturing_nei
     run, destinations = _printed_warning_clauses(tmp_path, detail, clauses)
     neighbor_pages = [_pdf_original_page(run, clause) for clause in neighbors]
     assert neighbor_pages == sorted(neighbor_pages)
-    occupied = [
-        index for index, page in enumerate(run) if re.search(r"ClauseWord\d{4}", page)
-    ]
+    occupied = [index for index, page in enumerate(run) if re.search(r"ClauseWord\d{4}", page)]
     assert len(occupied) > 1
     assert re.findall(r"ClauseWord\d{4}", " ".join(run)) == words
     assert _pdf_original_page(run, "ClauseOversizeStart") == occupied[0]
