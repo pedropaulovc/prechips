@@ -1124,12 +1124,81 @@ _ZERO_FACE_UNKNOWN = (
 _ZERO_FACE_TAIL = "): its Axis Set is not known."
 # Producer zero facts that restate an unknown Axis Set the zero_check hold already lists.
 _ZERO_SETTING = "zero-setting"
-# Authoring debts (rules._envelope ``authoring_entry``) as an operator-scoped clause; the
-# field paths and authoring instructions stay in report.json.
-_AUTHORING_WORDS = {
-    "z_geometry": "stock top and safe approach Z not declared",
-    "xy_geometry": "full cutter-centre X/Y path not declared",
-}
+
+
+def _authoring_phrases(label):
+    """``(exact instruction phrase, operator words)`` for the Z/XY geometry authoring
+    debts of one op ``label`` (``plan.setups.<id>.ops.<op>``), as rules._envelope
+    ``_z_extent`` and rules.travel write them; the field paths stay in report.json."""
+    return (
+        (
+            f"Measure {label} current stock top from the setup datum with a height gauge or "
+            "touch-off; record plan.setups.stock_state.top_z in mm",
+            "stock top Z",
+        ),
+        (
+            f"Author {label}.approach_mm >= 0 in mm above the current stock top "
+            "from the intended safe Z approach; no approach is assumed",
+            "safe approach height",
+        ),
+        *(
+            (
+                f"Measure {label}.{field} from the setup datum using the machine Z "
+                "readout or depth gauge and record the commanded target in mm",
+                f"{field} target",
+            )
+            for field in ("to_z", "z_from", "z_to")
+        ),
+        (
+            f"Measure {label} hole entry and local thickness/depth with a depth gauge, "
+            "drill point or reamer lead with an optical comparator, and exit allowance "
+            "in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "hole entry, local thickness and exit allowance",
+        ),
+        (
+            f"Measure {label}.depth_mm and local entry using a depth gauge or machine "
+            "Z readout; record a nonnegative depth and entry_z in mm",
+            "depth and local entry",
+        ),
+        (
+            f"Measure and declare {label} commanded to_z, z_from/z_to or depth_mm from "
+            "the setup datum with a depth gauge or machine Z readout in mm",
+            "commanded Z target",
+        ),
+        (
+            f"Author {label}.do and setup-datum Z geometry with features.units = mm",
+            "action and Z geometry in mm",
+        ),
+        (
+            f"Measure and author {label}.stock_removal_bounds as the actual full "
+            "removal footprint in the setup frame with calipers, a height gauge "
+            "or CMM in mm. ",
+            "removal footprint",
+        ),
+        (
+            f"Declare {label} full cutter-centre X/Y path, including approach and "
+            "exit, with a contour the traveler prints; the finished feature bounds "
+            "and the material-removal box do not establish that path",
+            "full cutter-centre X/Y path",
+        ),
+        (
+            f"Author {label} feature.bounds x/y in its declared frame (or a "
+            "contour the traveler prints as a cutter-centre path): the stock span "
+            "is only a lower bound and does not include the cutter's approach and "
+            "exit",
+            "feature X/Y bounds or cutter-centre path",
+        ),
+        (
+            f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
+            "in its declared frame with calipers, a height gauge or CMM, in mm",
+            "feature bounds or position",
+        ),
+        (
+            "; for a broad cut record plan.stock.length_mm and "
+            "section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "stock length and section",
+        ),
+    )
 
 
 class _Box(str):
@@ -1417,7 +1486,22 @@ def _decision_evidence(decisions):
     )
 
 
+def _decision_text(decision, related=()):
+    if decision.notice_group:
+        return "; ".join(dict.fromkeys(fact.text for fact in (decision, *related)))
+    return decision.text
+
+
 def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=(), layout="block"):
+    return _decision_box(
+        [(decision, *related)], setup_id=setup_id, op_id=op_id, owners=owners, layout=layout
+    )
+
+
+def _decision_box(groups, *, setup_id=None, op_id=None, owners=(), layout="block"):
+    """One notice for decision groups of one owner and kind: each group's text is its own
+    paragraph, an action label repeats no paragraph above it, and every fact is evidence."""
+    decision = groups[0][0]
     if decision.kind == "none":
         return ""
     css = "stop" if decision.kind == "block" else "caution"
@@ -1437,17 +1521,26 @@ def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=()
             f' data-physical-ops="{escape(json.dumps(owners))}"'
         )
     tag = "span" if layout == "inline" else "div"
-    text = (
-        "; ".join(dict.fromkeys(fact.text for fact in (decision, *related)))
-        if decision.notice_group
-        else decision.text
-    )
+    texts, labels = [], set()
+    for group in groups:
+        text = _decision_text(group[0], group[1:])
+        label = re.match(r"(?:STOP|HOLD|CAUTION): ", text)
+        if label and label[0] in labels:
+            text = text[len(label[0]) :]
+        elif label:
+            labels.add(label[0])
+        texts.append(text)
+    facts = [fact for group in groups for fact in group]
     return (
         f'<{tag} class="decision {css}" data-decision="{decision.kind}" '
         f'data-source="{escape(decision.source)}" data-status="{escape(decision.status)}" '
         f'data-scope="{escape(decision.scope or "")}" '
-        f'data-decision-evidence="{_decision_evidence((decision, *related))}"{owner}>'
-        + (_numeric_html(text) if layout == "inline" else _p(text))
+        f'data-decision-evidence="{_decision_evidence(facts)}"{owner}>'
+        + (
+            _numeric_html(texts[0])
+            if layout == "inline"
+            else "".join(_p(text) for text in dict.fromkeys(texts))
+        )
         + f"</{tag}>"
     )
 
@@ -10986,21 +11079,29 @@ class _Traveler:
                     pieces.append(("", _list(description)))
                     continue
                 if headings == ["pass", "X from", "Y from", "X to", "Y to", "Z"] and rows:
-                    # Consecutive equal runs share their instruction, never their results.
+                    # Consecutive passes along one axis over the same span and Z share their
+                    # instruction, never their results; any other pass prints whole.
                     runs = []
                     for row in rows:
-                        run = (row[1], row[3], row[5]) if row[2] == row[4] else None
+                        run = (
+                            ("X", row[1], row[3], row[5], "Y")
+                            if row[2] == row[4]
+                            else ("Y", row[2], row[4], row[5], "X")
+                            if row[1] == row[3]
+                            else None
+                        )
+                        across = row[2] if row[2] == row[4] else row[1]
                         if run and runs and runs[-1][0] == run:
-                            runs[-1][1].append(row[2])
+                            runs[-1][1].append(across)
                         else:
-                            runs.append((run, [row[2]], row))
+                            runs.append((run, [across], row))
                     lines = []
                     for run, across, row in runs:
                         if run:
                             lines.append(
-                                f"X {run[0]} → {run[1]} at Y "
+                                f"{run[0]} {run[1]} → {run[2]} at {run[4]} "
                                 + ", ".join(across)
-                                + (f"; Z{run[2]}" if not depth_line else "")
+                                + (f"; Z{run[3]}" if not depth_line else "")
                             )
                         else:
                             lines.append(
@@ -12625,7 +12726,92 @@ class _Traveler:
             return _authored_rpm_stop(numbers), message
         if rule == "zero_check" and _status(finding) != "pass":
             message = self.compact_zero_message(message)
+        if rule == "coordinates" and _status(finding) != "pass":
+            message = self.compact_coordinates(message, numbers)
+        message = self.compact_refused(message, numbers, _field(finding, "subject", ""))
         return None, self.compact_authoring(message, numbers)
+
+    @staticmethod
+    def compact_coordinates(message, numbers):
+        """Drop the pass-case basis sentence and print the pass-plan unknowns each op row
+        already stops on as one scoped list; any other pass-plan item prints as it is."""
+        lead = (
+            "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
+            "nominal geometry and authored allowance."
+        )
+        if message.startswith(lead + " "):
+            message = message[len(lead) + 1 :]
+        known = {}
+        for entry in numbers.get("operations") or ():
+            levels = _mapping(_mapping(entry).get("z_levels"))
+            if levels.get("levels") == UNKNOWN and levels.get("reason"):
+                op = _mapping(entry).get("op")
+                known[f"op {op} axial levels: {levels['reason']}"] = (op, "depth levels")
+        for profile in map(_mapping, numbers.get("profiles") or ()):
+            for stage in ("rough", "finish") if profile.get("lift_reason") else ():
+                text = f"op {profile.get('op')} {stage}: {profile['lift_reason']}"
+                known[text] = (profile.get("op"), "lift Z")
+        for path in map(_mapping, numbers.get("level_paths") or ()):
+            op = path.get("op")
+            known[
+                f"op {op} returns to its entry but its raise Z is unknown: it needs "
+                "approach_mm above a known top"
+            ] = (op, "raise Z")
+            if path.get("plunge_reason"):
+                known[
+                    f"op {op} plunges into the stock but its plunge feed is unknown: "
+                    f"{path['plunge_reason']}"
+                ] = (op, "plunge feed")
+        marker = "Pass plan unknown: "
+        start = message.find(marker)
+        if start < 0 or start > 0 and message[start - 1] != " ":
+            return message
+        start += len(marker)
+        end = message.find(". ", start)
+        end = end if end >= 0 else len(message.rstrip(".")) if message.endswith(".") else -1
+        if end < 0:
+            return message
+        needs, kept = {}, []
+        for item in message[start:end].split("; "):
+            if item in known:
+                op, need = known[item]
+                needs.setdefault(op, [])
+                if need not in needs[op]:
+                    needs[op].append(need)
+            else:
+                kept.append(item)
+        if not needs:
+            return message
+        scoped = {}
+        for op, items in needs.items():
+            scoped.setdefault(tuple(items), []).append(op)
+        clauses = [f"{_ops_label(ops)}: {', '.join(items)}" for items, ops in scoped.items()]
+        return message[:start] + "; ".join([*clauses, *kept]) + message[end:]
+
+    def compact_refused(self, message, numbers, subject):
+        """Drop the refused-input diagnosis only when this setup prints every listed
+        measurement separately; an upstream-stock hold cannot replace a tooling debt."""
+        entries = [entry for entry in numbers.get("measurements") or () if isinstance(entry, dict)]
+        if not entries or not all("id" in entry for entry in entries):
+            return message
+        diagnosis = "; ".join(
+            f"{entry['id']} ({entry.get('status', UNKNOWN)}): {entry['reason'].rstrip('.')}"
+            if entry.get("reason")
+            else f"{entry['id']} ({entry.get('status', UNKNOWN)})"
+            for entry in entries
+        )
+        suffix = f" Refused kernel facts: {diagnosis}."
+        if not message.endswith(suffix):
+            return message
+        sid = str(subject).partition(":")[0]
+        printed = self.setup_measurement_ids.get(sid, set())
+        covered = all(
+            quantities and all(quantity["id"] in printed for quantity in quantities)
+            for quantities in map(self.measurement_quantities, entries)
+        )
+        if covered:
+            return message[: -len(suffix)]
+        return message
 
     @staticmethod
     def compact_zero_message(message):
@@ -12655,27 +12841,46 @@ class _Traveler:
 
     @staticmethod
     def compact_authoring(message, numbers):
-        """Replace each plan-authoring debt the finding lists with its operation scope; the
-        field paths and authoring steps stay in report.json. Others print as they are."""
+        """Replace each Z/XY geometry authoring debt the finding lists with its operation
+        scope and the values it still needs; the field paths and authoring steps stay in
+        report.json. A debt holding any phrase this does not recognise prints whole."""
         scoped = {}
         for entry in numbers.get("measurements") or ():
             entry = _mapping(entry)
             instruction = entry.get("instruction")
-            debt = re.fullmatch(r"plan\.setups\.[^.]+\.ops\.([^.]+)\.(\w+)", str(entry.get("id")))
-            if (
+            debt = re.fullmatch(
+                r"(plan\.setups\.[^.]+\.ops\.([^.]+))\.(?:z|xy)_geometry", str(entry.get("id"))
+            )
+            if not (
                 isinstance(instruction, str)
                 and instruction.startswith("author: ")
                 and debt
-                and debt[2] in _AUTHORING_WORDS
                 and instruction in message
             ):
-                message = message.replace(instruction, "\0")
-                scoped.setdefault(debt[2], []).append(debt[1])
+                continue
+            rest, needs = instruction.removeprefix("author: "), []
+            phrases = _authoring_phrases(debt[1])
+            while rest:
+                match = next(((p, w) for p, w in phrases if rest.startswith(p)), None)
+                if match is None and rest.startswith("; "):
+                    rest = rest[2:]
+                    continue
+                if match is None:
+                    break
+                needs.append(match[1])
+                rest = rest[len(match[0]) :]
+            if rest or not needs:
+                continue
+            message = message.replace(instruction, "\0")
+            scoped.setdefault(tuple(dict.fromkeys(needs)), []).append(debt[2])
         if not scoped:
             return message
         message = re.sub(r";\s*\0", "", re.sub(r"\0;\s*", "", message)).replace("\0", "")
         message = re.sub(r"\.\s*\.$", ".", message.strip()).rstrip(". ")
-        clauses = [f"{_ops_label(ops)}: {_AUTHORING_WORDS[kind]}" for kind, ops in scoped.items()]
+        clauses = [
+            f"{_ops_label(ops)}: {', '.join(needs)} not established"
+            for needs, ops in scoped.items()
+        ]
         return message + ". " + "; ".join(clauses) + "."
 
     @staticmethod
@@ -12708,8 +12913,8 @@ class _Traveler:
         if not folded:
             return groups
         settings = {}
-        for group in folded:
-            _, setting, item = group[0].notice_group.split("|", 2)
+        for fact in (fact for group in folded for fact in group):
+            _, setting, item = fact.notice_group.split("|", 2)
             settings.setdefault(setting, [])
             if item:
                 settings[setting].append(item)
@@ -13164,9 +13369,9 @@ class _Traveler:
 
     def shared_procedure_runs(self, setup, rows):
         """``{op id: run}`` for consecutive ops of one setup and workpiece that repeat one
-        authored procedure with the same action, tool and holder. Any other op between
-        them ends the run; ops owning inspections, readings, contours or saw cycles never
-        join one."""
+        authored procedure with the same action, tool, holder and adverse decisions. Any
+        other op between them, or a STOP/caution one op has and another lacks, ends the
+        run; ops owning inspections, readings, contours or saw cycles never join one."""
         ops = {op["op"]: op for op in setup.get("ops", [])}
         contours = getattr(self, "_route_contours", {}).get(setup["id"], {})
 
@@ -13183,7 +13388,12 @@ class _Traveler:
                 or op.get("tool") in (None, "unknown")
             ):
                 return None
-            return (row.workpiece, op.get("do"), op.get("tool"), op.get("holder"), note)
+            holds = frozenset(
+                (fact.source, fact.status, fact.kind, fact.text)
+                for fact in row.decisions
+                if fact.kind != "none"
+            )
+            return (row.workpiece, op.get("do"), op.get("tool"), op.get("holder"), note, holds)
 
         runs, run, previous = {}, [], None
         for row in [*rows, None]:
@@ -13339,7 +13549,7 @@ class _Traveler:
                     + f"</{tag}>"
                 )
             tool = ""
-        content = shared_lead + (
+        content = (
             f'<{tag} class="route-operation{" keep" if keep_together else ""}" '
             f'data-features="{escape(json.dumps(feature_ids))}">'
             + lead_in
@@ -13358,6 +13568,10 @@ class _Traveler:
             + (" " + _fields(path_text) if path_text else "")
             + f"</{tag}>"
         )
+        if shared_lead:
+            # The paginator moves a keep box whole: the procedure never ends a page
+            # apart from its first op.
+            content = '<div class="keep">' + shared_lead + content + "</div>"
         for warning in row.warnings:
             # Decisions are rendered once at their actual owner, below. A contour pointer
             # is replaced by the concrete path in this same operation, not printed twice.
@@ -13618,6 +13832,10 @@ class _Traveler:
                     + "</p>",
                 )
         runs = self.shared_procedure_runs(setup, rows) if self.detail != "pedantic" else {}
+        grouped = self.detail != "pedantic" and any(
+            len(group) > 1 and sid in {member["id"] for member in group}
+            for group in self.route_groups(self.plan.get("setups", []))
+        )
         for row in rows:
             op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
             records = tuple(check for check in row[-1] if isinstance(check, _Inspection))
@@ -13714,6 +13932,7 @@ class _Traveler:
                         + "</div>",
                         comparison=(warning, tuple(owner.op_id for owner in owners)),
                     )
+                boxes = {}
                 for index, group in enumerate(
                     _decision_groups(row.decisions, combine_notices=True)
                 ):
@@ -13749,15 +13968,25 @@ class _Traveler:
                         )
                         else "block"
                     )
+                    # One box per owner set and kind; a route-grouped setup keeps one box
+                    # per notice so its members still share what they have in common.
+                    owner_key = (
+                        json.dumps(identities),
+                        facts[0].kind,
+                        decision_layout,
+                        index if grouped or decision_layout == "inline" else None,
+                    )
+                    box = boxes.setdefault(owner_key, (index, identities, [], []))
+                    box[2].append(facts)
+                    box[3].append(signature)
+                for key, (index, identities, groups, signatures) in boxes.items():
                     add(
                         f"operation-decision:{row.op_id}:{index}",
-                        _decision_html(
-                            facts[0], facts[1:], owners=identities, layout=decision_layout
-                        ),
-                        comparison=signature,
+                        _decision_box(groups, owners=identities, layout=key[2]),
+                        comparison=signatures[0] if len(signatures) == 1 else tuple(signatures),
                         op_id=row.op_id,
-                        decisions=facts,
-                        layout=decision_layout,
+                        decisions=tuple(fact for facts in groups for fact in facts),
+                        layout=key[2],
                     )
                 continue
             criteria, common_checks = [], []
@@ -13900,21 +14129,31 @@ class _Traveler:
         groups = _decision_groups(pending, combine_notices=self.detail != "pedantic")
         if self.detail != "pedantic":
             groups = self.fold_zero_settings(groups, sid)
+        # A compact setup prints one box per kind, each notice its own paragraph; a
+        # route-grouped setup keeps one box per notice so members share what they share.
+        merge = self.detail != "pedantic" and not grouped
+        boxes = {}
         for index, group in enumerate(groups):
-            decision = group[0]
-            if decision.kind != "none":
-                blocks.insert(
-                    index,
-                    _Block(
-                        f"decision:{decision.source}:{index}",
-                        _decision_html(decision, group[1:], setup_id=sid),
-                        tuple((fact.source, fact.status, fact.kind, fact.text) for fact in group),
-                        (),
-                        sid,
-                        member,
-                        decisions=tuple(group),
-                    ),
-                )
+            if group[0].kind != "none":
+                boxes.setdefault(group[0].kind if merge else index, (index, []))[1].append(group)
+        for position, (index, members) in enumerate(boxes.values()):
+            decision = members[0][0]
+            signatures = tuple(
+                tuple((fact.source, fact.status, fact.kind, fact.text) for fact in group)
+                for group in members
+            )
+            blocks.insert(
+                position if merge else index,
+                _Block(
+                    f"decision:{decision.source}:{index}",
+                    _decision_box(members, setup_id=sid),
+                    signatures[0] if len(signatures) == 1 else signatures,
+                    (),
+                    sid,
+                    member,
+                    decisions=tuple(fact for group in members for fact in group),
+                ),
+            )
         self._blocks_by_setup[sid] = blocks
         self.setup = None
         return blocks
