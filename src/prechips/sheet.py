@@ -14897,25 +14897,22 @@ class _Traveler:
         last_inline_owners = None
         last_visible_owners = tuple(ids)
         notice_keys = ("operation-decision:", "shared-warning:", "saw-cycle:")
-        # An operation followed by a combined notice frame keeps its notices up to its
-        # last STOP; cautions after that STOP flow outside the group. The paginator moves
-        # a page-sized group whole and still splits an oversized one between children.
+        # An operation keeps its notices up to its last STOP; cautions after that STOP
+        # flow outside the group. The paginator moves a page-sized group whole and still
+        # splits an oversized one between children.
         stop_ends = {}
         if self.detail != "pedantic" and len(group) == 1:
-            operation_key = last_stop = None
-            framed = False
-            for key in [*keys, None]:
-                if operation_key and key is not None and key.startswith(notice_keys):
-                    html = "".join(mapping[key].html for mapping in maps if key in mapping)
-                    if 'data-decision="block"' in html:
-                        last_stop = key
-                    framed = framed or 'class="decision-box"' in html
+            operation_key = None
+            for key in keys:
+                if operation_key and key.startswith(notice_keys):
+                    if any(
+                        'data-decision="block"' in mapping[key].html
+                        for mapping in maps
+                        if key in mapping
+                    ):
+                        stop_ends[operation_key] = key
                     continue
-                if framed and last_stop:
-                    stop_ends[operation_key] = last_stop
-                operation_key = key if key is not None and key.startswith("operation:") else None
-                last_stop = None
-                framed = False
+                operation_key = key if key.startswith("operation:") else None
         stop_closes = set(stop_ends.values())
         for key in keys:
             if key in stop_ends:
