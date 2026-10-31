@@ -1068,6 +1068,151 @@ def _ops_label(ops, every=None):
     return ("op " if len(ordered) == 1 else "ops ") + ", ".join(ordered)
 
 
+def _numbered_names(names, separator=", "):
+    """Join names; three or more truly consecutive identities that differ only in one
+    integer (``rail hole 1`` … ``rail hole 7``) print as one range. Gaps, other names and
+    zero-padded numbers keep their own entries in order."""
+    entries, run = [], []
+
+    def flush():
+        if len(run) >= 3:
+            prefix, first, suffix, _ = run[0]
+            entries.append(f"{prefix}{first}–{run[-1][1]}{suffix}")
+        else:
+            entries.extend(name for *_, name in run)
+        run.clear()
+
+    for name in names:
+        match = re.fullmatch(r"(.*\D|)(\d+)(\D*)", str(name))
+        number = int(match[2]) if match and str(int(match[2])) == match[2] else None
+        if number is None:
+            flush()
+            entries.append(str(name))
+            continue
+        if run and (run[-1][0], run[-1][2], run[-1][1] + 1) != (match[1], match[3], number):
+            flush()
+        run.append((match[1], number, match[3], str(name)))
+    flush()
+    return separator.join(entries)
+
+
+def _authored_rpm_stop(numbers):
+    """The one operator STOP for an unresolved authored spindle-speed request."""
+    requested = numbers.get("requested_rpm")
+    speed = f"{_number(requested)} rpm requested" if _known(requested) else "requested RPM unknown"
+    return f"STOP: {speed}. {numbers.get('rpm_reason')}"
+
+
+# Compact zero_check projection: routine procedure sentences the datum block already
+# teaches, and the recursive face-provenance sentence the report keeps (rules.zero_recipe).
+_ZERO_ROUTINE = (
+    "Touch, Axis Set the compensated value, then jog without retouching and compare "
+    "expected versus mirrored readings.",
+    " Each tool change is touched off on the last touched or faced surface still standing.",
+)
+_ZERO_UNVERIFIED = " Measured setup/tool or trial-cut verification remains unknown."
+_ZERO_FACE_UNKNOWN = (
+    (
+        " A Z touch meets a face its op left at an unknown Z (",
+        "A Z touch meets a face its op left at an unknown height",
+    ),
+    (
+        " A Z touch cannot be certified on an unverified DRO grid (",
+        "A Z touch cannot be certified on an unverified DRO grid",
+    ),
+)
+_ZERO_FACE_TAIL = "): its Axis Set is not known."
+# Producer zero facts that restate an unknown Axis Set the zero_check hold already lists.
+_ZERO_SETTING = "zero-setting"
+# Unknown checks that only say they are not computed, by their exact rule sentence, and
+# the producer facts that ask for a check at the machine: one scoped paragraph each setup.
+_NOT_COMPUTED = "not-computed"
+_MACHINE_CHECK = "machine-check"
+_NOT_COMPUTED_RULES = {
+    "envelope": ("spindle envelope remains unmeasured or unresolved", "spindle envelope"),
+    "travel": ("declared operation travel remains unmeasured or unresolved", "X/Y travel"),
+    "headroom": (
+        "headroom, travel or jaw-path geometry remains unmeasured or unresolved",
+        "headroom and jaw path",
+    ),
+}
+
+
+def _authoring_phrases(label):
+    """``(exact instruction phrase, operator words)`` for the Z/XY geometry authoring
+    debts of one op ``label`` (``plan.setups.<id>.ops.<op>``), as rules._envelope
+    ``_z_extent`` and rules.travel write them; the field paths stay in report.json."""
+    return (
+        (
+            f"Measure {label} current stock top from the setup datum with a height gauge or "
+            "touch-off; record plan.setups.stock_state.top_z in mm",
+            "stock top Z",
+        ),
+        (
+            f"Author {label}.approach_mm >= 0 in mm above the current stock top "
+            "from the intended safe Z approach; no approach is assumed",
+            "safe approach height",
+        ),
+        *(
+            (
+                f"Measure {label}.{field} from the setup datum using the machine Z "
+                "readout or depth gauge and record the commanded target in mm",
+                f"{field} target",
+            )
+            for field in ("to_z", "z_from", "z_to")
+        ),
+        (
+            f"Measure {label} hole entry and local thickness/depth with a depth gauge, "
+            "drill point or reamer lead with an optical comparator, and exit allowance "
+            "in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "hole entry, local thickness and exit allowance",
+        ),
+        (
+            f"Measure {label}.depth_mm and local entry using a depth gauge or machine "
+            "Z readout; record a nonnegative depth and entry_z in mm",
+            "depth and local entry",
+        ),
+        (
+            f"Measure and declare {label} commanded to_z, z_from/z_to or depth_mm from "
+            "the setup datum with a depth gauge or machine Z readout in mm",
+            "commanded Z target",
+        ),
+        (
+            f"Author {label}.do and setup-datum Z geometry with features.units = mm",
+            "action and Z geometry in mm",
+        ),
+        (
+            f"Measure and author {label}.stock_removal_bounds as the actual full "
+            "removal footprint in the setup frame with calipers, a height gauge "
+            "or CMM in mm. ",
+            "removal footprint",
+        ),
+        (
+            f"Declare {label} full cutter-centre X/Y path, including approach and "
+            "exit, with a contour the traveler prints; the finished feature bounds "
+            "and the material-removal box do not establish that path",
+            "full cutter-centre X/Y path",
+        ),
+        (
+            f"Author {label} feature.bounds x/y in its declared frame (or a "
+            "contour the traveler prints as a cutter-centre path): the stock span "
+            "is only a lower bound and does not include the cutter's approach and "
+            "exit",
+            "feature X/Y bounds or cutter-centre path",
+        ),
+        (
+            f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
+            "in its declared frame with calipers, a height gauge or CMM, in mm",
+            "feature bounds or position",
+        ),
+        (
+            "; for a broad cut record plan.stock.length_mm and "
+            "section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "stock length and section",
+        ),
+    )
+
+
 class _Box(str):
     """A producer-owned adverse fact, not a STOP inferred from printed prose."""
 
@@ -1353,7 +1498,32 @@ def _decision_evidence(decisions):
     )
 
 
+def _decision_text(decision, related=()):
+    if decision.notice_group:
+        return "; ".join(dict.fromkeys(fact.text for fact in (decision, *related)))
+    return decision.text
+
+
 def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=(), layout="block"):
+    return _decision_box(
+        [(decision, *related)], setup_id=setup_id, op_id=op_id, owners=owners, layout=layout
+    )
+
+
+# A merged box draws one frame round its notices; each notice keeps its own decision node.
+_DECISION_FRAMES = {
+    "stop": "border: var(--rule-warning) solid var(--color-ink); padding: var(--space-sm); "
+    "margin: var(--space-sm) 0; font-weight: bold; break-inside: avoid",
+    "caution": "border: var(--rule-thin) solid var(--color-ink); padding: var(--space-sm); "
+    "margin: var(--space-sm) 0; break-inside: avoid",
+}
+
+
+def _decision_box(groups, *, setup_id=None, op_id=None, owners=(), layout="block"):
+    """One notice per decision group. Several groups of one owner and kind share one
+    framed box: each group stays its own decision node, with its own text, status, scope
+    and evidence, so no notice borrows another's metadata."""
+    decision = groups[0][0]
     if decision.kind == "none":
         return ""
     css = "stop" if decision.kind == "block" else "caution"
@@ -1372,19 +1542,33 @@ def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=()
             f' data-op="{escape(str(next(iter(op_ids)))) if len(op_ids) == 1 else ""}"'
             f' data-physical-ops="{escape(json.dumps(owners))}"'
         )
-    tag = "span" if layout == "inline" else "div"
-    text = (
-        "; ".join(dict.fromkeys(fact.text for fact in (decision, *related)))
-        if decision.notice_group
-        else decision.text
-    )
+
+    def notice(group, tag, body, style=""):
+        lead = group[0]
+        return (
+            f'<{tag} class="decision {"stop" if lead.kind == "block" else "caution"}" '
+            f'data-decision="{lead.kind}" '
+            f'data-source="{escape(lead.source)}" data-status="{escape(lead.status)}" '
+            f'data-scope="{escape(lead.scope or "")}" '
+            f'data-decision-evidence="{_decision_evidence(group)}"{owner}{style}>'
+            + body
+            + f"</{tag}>"
+        )
+
+    if len(groups) == 1:
+        text = _decision_text(decision, groups[0][1:])
+        if layout == "inline":
+            return notice(groups[0], "span", _numeric_html(text))
+        return notice(groups[0], "div", _p(text))
+    inner = ' style="border: 0; padding: 0; margin: var(--space-xs) 0"'
     return (
-        f'<{tag} class="decision {css}" data-decision="{decision.kind}" '
-        f'data-source="{escape(decision.source)}" data-status="{escape(decision.status)}" '
-        f'data-scope="{escape(decision.scope or "")}" '
-        f'data-decision-evidence="{_decision_evidence((decision, *related))}"{owner}>'
-        + (_numeric_html(text) if layout == "inline" else _p(text))
-        + f"</{tag}>"
+        f'<div class="decision-box" data-decision="{decision.kind}" '
+        f'style="{_DECISION_FRAMES[css]}"{owner}>'
+        + "".join(
+            notice(group, "p", _numeric_html(_decision_text(group[0], group[1:])), inner)
+            for group in groups
+        )
+        + "</div>"
     )
 
 
@@ -3291,6 +3475,12 @@ class _Traveler:
                 require_measured=True,
             )
         return detail
+
+    def feature_names(self, features):
+        """Several features' names; compact levels print consecutive numbered names as
+        one range (:func:`_numbered_names`)."""
+        names = [self.feature_name(feature) for feature in features]
+        return ", ".join(names) if self.detail == "pedantic" else _numbered_names(names)
 
     def feature_name(self, key):
         if not isinstance(key, str) or key == "unknown":
@@ -5291,13 +5481,14 @@ class _Traveler:
             # A saw cut-off has no spindle stack or table travel: nothing to print.
             return None
 
-        def decision(text, status="unknown", *, source="headroom", scope=None):
+        def decision(text, status="unknown", *, source="headroom", scope=None, check=""):
             self.record_decision(
                 setup,
                 source=source,
                 status=status,
                 scope=scope if scope is not None else setup["id"],
                 text=text,
+                notice_group=f"{_MACHINE_CHECK}|{check}" if check else "",
             )
             return text
 
@@ -5327,7 +5518,8 @@ class _Traveler:
         def fits(need, have, topic):
             if not (_known(need) and _known(have)):
                 result = "? not computed — check at the machine"
-                decision(f"{topic}: needs {o(need)} of {o(have)}: {result}.")
+                check = f"{topic}: needs {o(need)} of {o(have)}"
+                decision(f"{check}: {result}.", check=check)
                 return result
             if need > have:
                 decision(f"{topic}: needs {o(need)} of {o(have)}: DOES NOT FIT.", "error")
@@ -5366,7 +5558,10 @@ class _Traveler:
                     unknown.append(topic)
             if unknown:
                 lines.append(
-                    decision("? Not computed — check at the machine: " + "; ".join(unknown) + ".")
+                    decision(
+                        "? Not computed — check at the machine: " + "; ".join(unknown) + ".",
+                        check="; ".join(unknown),
+                    )
                 )
             quill = _mapping(setup.get("hold")).get("quill_extension_mm")
             if _known(quill):
@@ -5452,7 +5647,7 @@ class _Traveler:
         if any(not _known(s.get("margin_mm")) for s in numbers.get("stacks", [])):
             missing.append("tool stickout and headroom")
         if missing:
-            lines.append(decision(unknown + "; ".join(missing) + "."))
+            lines.append(decision(unknown + "; ".join(missing) + ".", check="; ".join(missing)))
         # A guided sweep moves its fixture under the spindle: each fit above holds at the
         # setup pose only, so the sweep's own debt prints beside them, never a bare pass.
         lines.extend(
@@ -5571,6 +5766,7 @@ class _Traveler:
                     source=what.source if isinstance(what, _Box) else "headroom",
                     status="unknown",
                     scope=scope,
+                    notice_group=f"{_MACHINE_CHECK}|{what}",
                 )
                 for value, what in candidates
                 if value is not None and not _known(value)
@@ -5676,7 +5872,14 @@ class _Traveler:
                     if status == "error"
                     else f"{what}: not computed — check at the machine"
                 )
-                self.record_decision(setup, source="reach", status=status, scope=scope, text=text)
+                self.record_decision(
+                    setup,
+                    source="reach",
+                    status=status,
+                    scope=scope,
+                    text=text,
+                    notice_group="" if status == "error" else f"{_MACHINE_CHECK}|{what}",
+                )
             candidates.append((value, what))
 
         _, tip = self.cut_span(setup, op)
@@ -6593,8 +6796,15 @@ class _Traveler:
         taught = getattr(self, "_dro_guides_seen", set())
         first_lesson = detail == "hobby" and guide_id not in taught
 
-        def unresolved(text, scope, status="unknown", source="zero_check"):
-            self.record_decision(setup, source=source, status=status, scope=scope, text=text)
+        def unresolved(text, scope, status="unknown", source="zero_check", notice_group=""):
+            self.record_decision(
+                setup,
+                source=source,
+                status=status,
+                scope=scope,
+                text=text,
+                notice_group=notice_group,
+            )
             compact_debts.append((scope, text))
 
         def mounted_lesson(record):
@@ -6961,7 +7171,11 @@ class _Traveler:
             setting = self.reading(readings["axis_set"])
             if setting == "?":
                 location = "midpoint" if opposed else "contact"
-                unresolved(f"{axis.upper()} {location} Axis Set is unknown.", scope)
+                unresolved(
+                    f"{axis.upper()} {location} Axis Set is unknown.",
+                    scope,
+                    notice_group=f"{_ZERO_SETTING}|{axis.upper()} {location} Axis Set|",
+                )
             elif opposed:
                 setting += " at actual midpoint"
             if not _known(jog):
@@ -6970,7 +7184,11 @@ class _Traveler:
                 readings["check_reading"] in (None, "unknown")
                 or readings["mirrored_reading"] in (None, "unknown")
             ):
-                unresolved(f"{axis.upper()} check-jog reading is unknown.", scope)
+                unresolved(
+                    f"{axis.upper()} check-jog reading is unknown.",
+                    scope,
+                    notice_group=f"{_ZERO_SETTING}|{axis.upper()} check-jog reading|",
+                )
             if (
                 _known(jog)
                 and jog > 0
@@ -7428,10 +7646,14 @@ class _Traveler:
                 for axis in ("x", "z"):
                     field = f"{axis}_axis_set"
                     if field in touch and self.reading(touch[field]) == "?":
+                        name = self.touched_tool(touch.get("tool"), tools, slot)
+                        before = touch.get("before_ops", touch.get("before_op"))
+                        before = _ops_label(before if isinstance(before, list) else [before])
                         unresolved(
-                            f"{self.touched_tool(touch.get('tool'), tools, slot)} "
-                            f"{axis.upper()} tool-touch setting is unknown.",
+                            f"{name} {axis.upper()} tool-touch setting is unknown.",
                             f"{setup['id']}:{kind}:{index}:{axis}:{touch.get('tool')}",
+                            notice_group=f"{_ZERO_SETTING}|{axis.upper()} tool-touch setting|"
+                            + " before ".join(filter(None, (name, before))),
                         )
         for gap in numbers.get("missing_touches", []):
             if gap.get("tool_setting_state") == "unsupported_spindle_saw":
@@ -8959,7 +9181,7 @@ class _Traveler:
             placed.add(key)
             name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
             if label_owners and not flat and owners:
-                name += " — " + ", ".join(self.feature_name(owner) for owner in owners)
+                name += " — " + self.feature_names(owners)
             item = self.note(name, method)
             if flat:
                 item.sketch = self.inspection_sketch(setup, op, requirement)
@@ -9258,7 +9480,7 @@ class _Traveler:
             ]
         if absent or requirement == "unknown" or not owners or not targets:
             if owners:
-                line = ", ".join(self.feature_name(feature) for feature in owners) + " — " + line
+                line = self.feature_names(owners) + " — " + line
             return [
                 _Criterion(
                     line,
@@ -9286,7 +9508,7 @@ class _Traveler:
                 for value in values
             )
             unit = criteria[group[0]][1]
-            text = ", ".join(self.feature_name(feature) for feature in group)
+            text = self.feature_names(group)
             shown_band = (
                 f"{band} {unit}"
                 if self.detail == "pedantic"
@@ -9308,7 +9530,11 @@ class _Traveler:
                 re.split(r"[-_\s]+", label.strip())[-1].casefold() == name.casefold()
                 for label in feature_labels
             )
-            heading = ", ".join(feature_labels) + ("" if repeated_dimension else " " + name)
+            heading = (
+                ", ".join(feature_labels)
+                if self.detail == "pedantic"
+                else _numbered_names(feature_labels)
+            ) + ("" if repeated_dimension else " " + name)
             rows.append(
                 _Inspection(
                     text,
@@ -9738,9 +9964,7 @@ class _Traveler:
                 else "requested RPM unknown"
             )
             if rpm_stop:
-                speed = blocked(
-                    f"STOP: {speed}. {numbers['rpm_reason']}", numbers.get("rpm_status", "unknown")
-                )
+                speed = blocked(_authored_rpm_stop(numbers), numbers.get("rpm_status", "unknown"))
         if slitting:
             feed = numbers.get("feed_mm_min")
             return (
@@ -10183,7 +10407,14 @@ class _Traveler:
                 kind, text = fact.kind, fact.text
                 boxes.append(
                     _Box(
-                        ("STOP: " if kind == "block" else "CAUTION: ") + text,
+                        (
+                            ""
+                            if text.startswith("STOP: ")
+                            else "STOP: "
+                            if kind == "block"
+                            else "CAUTION: "
+                        )
+                        + text,
                         source=fact.source,
                         status=fact.status,
                         kind=kind,
@@ -10888,21 +11119,29 @@ class _Traveler:
                     pieces.append(("", _list(description)))
                     continue
                 if headings == ["pass", "X from", "Y from", "X to", "Y to", "Z"] and rows:
-                    # Consecutive equal runs share their instruction, never their results.
+                    # Consecutive passes along one axis over the same span and Z share their
+                    # instruction, never their results; any other pass prints whole.
                     runs = []
                     for row in rows:
-                        run = (row[1], row[3], row[5]) if row[2] == row[4] else None
+                        run = (
+                            ("X", row[1], row[3], row[5], "Y")
+                            if row[2] == row[4]
+                            else ("Y", row[2], row[4], row[5], "X")
+                            if row[1] == row[3]
+                            else None
+                        )
+                        across = row[2] if row[2] == row[4] else row[1]
                         if run and runs and runs[-1][0] == run:
-                            runs[-1][1].append(row[2])
+                            runs[-1][1].append(across)
                         else:
-                            runs.append((run, [row[2]], row))
+                            runs.append((run, [across], row))
                     lines = []
                     for run, across, row in runs:
                         if run:
                             lines.append(
-                                f"X {run[0]} → {run[1]} at Y "
+                                f"{run[0]} {run[1]} → {run[2]} at {run[4]} "
                                 + ", ".join(across)
-                                + (f"; Z{run[2]}" if not depth_line else "")
+                                + (f"; Z{run[3]}" if not depth_line else "")
                             )
                         else:
                             lines.append(
@@ -12499,17 +12738,315 @@ class _Traveler:
         return groups
 
     def finding_fact(self, finding):
+        rule, subject = _field(finding, "rule"), _field(finding, "subject", "")
+        message, text = _field(finding, "message", "?"), None
+        if self.detail != "pedantic":
+            text, message = self.compact_finding(finding)
+        text = text if text is not None else self.plain_error(rule, message, subject)
+        notice_group = ""
+        if self.detail != "pedantic" and _status(finding) == "unknown":
+            label, needs = self.not_computed(rule, text)
+            if label:
+                notice_group = "|".join((_NOT_COMPUTED, label, needs))
+                text = f"Not computed: {label}" + (f". Needs: {needs}" if needs else "") + "."
         return _Decision(
             _field(finding, "rule", "finding"),
             _status(finding),
-            _field(finding, "subject", ""),
+            subject,
             finding_decision(finding, self.bundle),
-            self.plain_error(
-                _field(finding, "rule"),
-                _field(finding, "message", "?"),
-                _field(finding, "subject", ""),
-            ),
+            text,
+            notice_group,
         )
+
+    @staticmethod
+    def not_computed(rule, text):
+        """``(label, needs)`` for an unknown finding that only says one fixed check is not
+        computed, from its exact rule sentence; ``needs`` is the rest of the printed
+        sentence (the inputs still to record), verbatim. Else ``("", "")``."""
+        if rule == "consistency":
+            match = re.fullmatch(
+                r"A stated fact cannot be compared: the setup picture's nearest cut cannot be "
+                r"compared: (CLEARANCE rows for ops [^:;]+ are not computed)\.",
+                text,
+            )
+            return (f"picture nearest-cut check ({match[1]})", "") if match else ("", "")
+        sentence, label = _NOT_COMPUTED_RULES.get(rule, ("", ""))
+        if not sentence or not (text == sentence + "." or text.startswith(sentence + ". ")):
+            return "", ""
+        return label, text[len(sentence) + 1 :].strip().rstrip(".")
+
+    def compact_finding(self, finding):
+        """``(text, message)``: a compact level's operator wording for one finding. ``text``
+        is final when the finding restates a producer box (it groups with that box);
+        otherwise ``message`` still goes through :meth:`plain_error`. Status, scope and
+        decision never change, and report.json keeps the full sentence."""
+        rule, message = _field(finding, "rule"), str(_field(finding, "message", "?"))
+        numbers = _mapping(_field(finding, "numbers"))
+        if (
+            rule == "speeds_feeds"
+            and numbers.get("rpm_basis") == "authored"
+            and numbers.get("rpm_status") != "pass"
+            and message == f"Authored RPM request: {numbers.get('rpm_reason')}"
+        ):
+            return _authored_rpm_stop(numbers), message
+        if rule == "zero_check" and _status(finding) != "pass":
+            message = self.compact_zero_message(message)
+        if rule == "coordinates" and _status(finding) != "pass":
+            message = self.compact_coordinates(message, numbers)
+        message = self.compact_refused(message, numbers, _field(finding, "subject", ""))
+        return None, self.compact_authoring(message, numbers)
+
+    @staticmethod
+    def compact_coordinates(message, numbers):
+        """Drop the pass-case basis sentence and print the pass-plan unknowns each op row
+        already stops on as one scoped list; any other pass-plan item prints as it is."""
+        lead = (
+            "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
+            "nominal geometry and authored allowance."
+        )
+        if message.startswith(lead + " "):
+            message = message[len(lead) + 1 :]
+        known = {}
+        for entry in numbers.get("operations") or ():
+            levels = _mapping(_mapping(entry).get("z_levels"))
+            if levels.get("levels") == UNKNOWN and levels.get("reason"):
+                op = _mapping(entry).get("op")
+                known[f"op {op} axial levels: {levels['reason']}"] = (op, "depth levels")
+        for profile in map(_mapping, numbers.get("profiles") or ()):
+            for stage in ("rough", "finish") if profile.get("lift_reason") else ():
+                text = f"op {profile.get('op')} {stage}: {profile['lift_reason']}"
+                known[text] = (profile.get("op"), "lift Z")
+        for path in map(_mapping, numbers.get("level_paths") or ()):
+            op = path.get("op")
+            known[
+                f"op {op} returns to its entry but its raise Z is unknown: it needs "
+                "approach_mm above a known top"
+            ] = (op, "raise Z")
+            if path.get("plunge_reason"):
+                known[
+                    f"op {op} plunges into the stock but its plunge feed is unknown: "
+                    f"{path['plunge_reason']}"
+                ] = (op, "plunge feed")
+        marker = "Pass plan unknown: "
+        start = message.find(marker)
+        if start < 0 or start > 0 and message[start - 1] != " ":
+            return message
+        start += len(marker)
+        end = message.find(". ", start)
+        end = end if end >= 0 else len(message.rstrip(".")) if message.endswith(".") else -1
+        if end < 0:
+            return message
+        needs, kept = {}, []
+        for item in message[start:end].split("; "):
+            if item in known:
+                op, need = known[item]
+                needs.setdefault(op, [])
+                if need not in needs[op]:
+                    needs[op].append(need)
+            else:
+                kept.append(item)
+        if not needs:
+            return message
+        scoped = {}
+        for op, items in needs.items():
+            scoped.setdefault(tuple(items), []).append(op)
+        clauses = [f"{_ops_label(ops)}: {', '.join(items)}" for items, ops in scoped.items()]
+        return message[:start] + "; ".join([*clauses, *kept]) + message[end:]
+
+    def compact_refused(self, message, numbers, subject):
+        """Drop the refused-input diagnosis only when this setup prints every listed
+        measurement separately; an upstream-stock hold cannot replace a tooling debt."""
+        entries = [entry for entry in numbers.get("measurements") or () if isinstance(entry, dict)]
+        if not entries or not all("id" in entry for entry in entries):
+            return message
+        diagnosis = "; ".join(
+            f"{entry['id']} ({entry.get('status', UNKNOWN)}): {entry['reason'].rstrip('.')}"
+            if entry.get("reason")
+            else f"{entry['id']} ({entry.get('status', UNKNOWN)})"
+            for entry in entries
+        )
+        suffix = f" Refused kernel facts: {diagnosis}."
+        if not message.endswith(suffix):
+            return message
+        sid = str(subject).partition(":")[0]
+        printed = self.setup_measurement_ids.get(sid, set())
+        covered = all(
+            quantities and all(quantity["id"] in printed for quantity in quantities)
+            for quantities in map(self.measurement_quantities, entries)
+        )
+        if covered:
+            return message[: -len(suffix)]
+        return message
+
+    @staticmethod
+    def compact_zero_message(message):
+        """Drop the routine touch procedure and the recursive face provenance; every other
+        sentence (an independent failure) stays verbatim. :meth:`fold_zero_settings` adds
+        the unknown settings the datum block itself found."""
+        text = message
+        for routine in _ZERO_ROUTINE:
+            text = text.replace(routine, "", 1)
+        face = ""
+        for marker, summary in _ZERO_FACE_UNKNOWN:
+            start = text.find(marker)
+            if start < 0:
+                continue
+            depth, end = 0, None
+            for index in range(start + len(marker) - 1, len(text)):
+                depth += {"(": 1, ")": -1}.get(text[index], 0)
+                if depth == 0:
+                    end = index
+                    break
+            if end is not None and text.startswith(_ZERO_FACE_TAIL, end):
+                text = text[:start] + text[end + len(_ZERO_FACE_TAIL) :]
+                face = summary + "."
+        if face:
+            text = text.replace(_ZERO_UNVERIFIED, "", 1)
+        return " ".join(filter(None, (text.strip(), face))) or message
+
+    @staticmethod
+    def compact_authoring(message, numbers):
+        """Replace each Z/XY geometry authoring debt the finding lists with its operation
+        scope and the values it still needs; the field paths and authoring steps stay in
+        report.json. A debt holding any phrase this does not recognise prints whole."""
+        scoped = {}
+        for entry in numbers.get("measurements") or ():
+            entry = _mapping(entry)
+            instruction = entry.get("instruction")
+            debt = re.fullmatch(
+                r"(plan\.setups\.[^.]+\.ops\.([^.]+))\.(?:z|xy)_geometry", str(entry.get("id"))
+            )
+            if not (
+                isinstance(instruction, str)
+                and instruction.startswith("author: ")
+                and debt
+                and instruction in message
+            ):
+                continue
+            rest, needs = instruction.removeprefix("author: "), []
+            phrases = _authoring_phrases(debt[1])
+            while rest:
+                match = next(((p, w) for p, w in phrases if rest.startswith(p)), None)
+                if match is None and rest.startswith("; "):
+                    rest = rest[2:]
+                    continue
+                if match is None:
+                    break
+                needs.append(match[1])
+                rest = rest[len(match[0]) :]
+            if rest or not needs:
+                continue
+            message = message.replace(instruction, "\0")
+            scoped.setdefault(tuple(dict.fromkeys(needs)), []).append(debt[2])
+        if not scoped:
+            return message
+        message = re.sub(r";\s*\0", "", re.sub(r"\0;\s*", "", message)).replace("\0", "")
+        message = re.sub(r"\.\s*\.$", ".", message.strip()).rstrip(". ")
+        clauses = [
+            f"{_ops_label(ops)}: {', '.join(needs)} not established"
+            for needs, ops in scoped.items()
+        ]
+        return message + ". " + "; ".join(clauses) + "."
+
+    @staticmethod
+    def fold_not_computed(groups, sid):
+        """One paragraph per setup for unknown checks that are only not computed: the
+        checks, the inputs still to record (each once, verbatim), then the checks to make
+        at the machine. Every decision stays evidence; any other notice is untouched."""
+        picked = [
+            group
+            for group in groups
+            if all(
+                fact.scope == sid
+                and fact.kind == "block"
+                and fact.status == "unknown"
+                and fact.notice_group.startswith((_NOT_COMPUTED + "|", _MACHINE_CHECK + "|"))
+                for fact in group
+            )
+        ]
+        if not picked:
+            return groups
+        labels, needs, checks = {}, {}, {}
+        for fact in (fact for group in picked for fact in group):
+            kind, _, rest = fact.notice_group.partition("|")
+            if kind == _NOT_COMPUTED:
+                label, _, need = rest.partition("|")
+                labels[label] = None
+                if need:
+                    needs[need] = None
+            else:
+                checks[rest] = None
+        sentences = []
+        if labels:
+            sentences.append(
+                "Not computed: "
+                + ", ".join(labels)
+                + (". Needs: " + "; ".join(needs) if needs else "")
+                + "."
+            )
+        if checks:
+            if not labels:
+                sentences.append("Not computed.")
+            sentences.append("Check at the machine: " + "; ".join(checks) + ".")
+        facts = [fact for group in picked for fact in group]
+        lead = next((fact for fact in facts if fact.scope == sid), facts[0])
+        merged = [
+            replace(lead, text=" ".join(sentences), notice_group=""),
+            *(fact for fact in facts if fact is not lead),
+        ]
+        first = picked[0]
+        return [
+            merged if group is first else group
+            for group in groups
+            if group is first or not any(group is other for other in picked)
+        ]
+
+    @staticmethod
+    def fold_zero_settings(groups, sid):
+        """One datum hold per setup: unknown Axis Set facts the datum block found join the
+        setup's adverse zero_check notice as a list, retaining every decision as evidence.
+        Without that notice (or with a weaker one) they keep their own boxes."""
+        lead = next(
+            (
+                group
+                for group in groups
+                if group[0].source == "zero_check"
+                and group[0].scope == sid
+                and group[0].kind != "none"
+                and not group[0].notice_group
+            ),
+            None,
+        )
+        folded = [
+            group
+            for group in groups
+            if lead is not None
+            and group is not lead
+            and all(
+                fact.notice_group.startswith(_ZERO_SETTING + "|")
+                and (fact.kind == lead[0].kind or lead[0].kind == "block")
+                for fact in group
+            )
+        ]
+        if not folded:
+            return groups
+        settings = {}
+        for fact in (fact for group in folded for fact in group):
+            _, setting, item = fact.notice_group.split("|", 2)
+            settings.setdefault(setting, [])
+            if item:
+                settings[setting].append(item)
+        listed = "; ".join(
+            setting + (" for " + ", ".join(dict.fromkeys(items)) if items else "")
+            for setting, items in settings.items()
+        )
+        text = lead[0].text.rstrip(".") + ". Unknown: " + listed + "."
+        merged = [replace(lead[0], text=text), *lead[1:], *(f for g in folded for f in g)]
+        return [
+            merged if group is lead else group
+            for group in groups
+            if not any(group is other for other in folded)
+        ]
 
     def settings_key(self):
         """One job key for operative settings; manual tools stay at their operation."""
@@ -12948,8 +13485,121 @@ class _Traveler:
             "route-cycle",
         )
 
-    def route_operation(self, setup, row, *, layout="block", lead_in="", keep_together=False):
-        """Project one canonical row without duplicating its ledger and contour prose."""
+    def shared_procedure_runs(self, setup, rows):
+        """``{op id: run}`` for consecutive ops of one setup and workpiece that repeat one
+        procedure with the same action, tool, holder and adverse decisions: an authored
+        note, or hole ops at their own X/Y with identical Z, depth and endpoint parts. Any
+        other op between them, or a STOP/caution one op has and another lacks, ends the
+        run; ops owning inspections, readings, contours or saw cycles never join one."""
+        ops = {op["op"]: op for op in setup.get("ops", [])}
+        contours = getattr(self, "_route_contours", {}).get(setup["id"], {})
+
+        def signature(row):
+            op = ops[row.op_id]
+            note = note_text(row.authored_note, detail=self.detail)
+            positioned = None if note else self.positioned_tail(setup, row)
+            if (
+                not (note or positioned)
+                or note == UNKNOWN
+                or _FIELD.search(note or "")
+                or row[-1]
+                or str(row.op_id) in contours
+                or spindle_saw(self.bundle, setup, op)
+                or op.get("tool") in (None, "unknown")
+            ):
+                return None
+            holds = frozenset(
+                (fact.source, fact.status, fact.kind, fact.text)
+                for fact in row.decisions
+                if fact.kind != "none"
+            )
+            return (
+                row.workpiece,
+                op.get("do"),
+                op.get("tool"),
+                op.get("holder"),
+                note,
+                holds,
+                positioned and positioned[1],
+            )
+
+        runs, run, previous = {}, [], None
+        for row in [*rows, None]:
+            key = signature(row) if row is not None else None
+            if key is not None and key == previous:
+                run.append(row)
+                continue
+            if len(run) > 1:
+                runs.update((member.op_id, tuple(run)) for member in run)
+            run, previous = ([row], key) if key is not None else ([], None)
+        return runs
+
+    def route_target_parts(self, setup, op, row, *, cycle=False, path_owned=False):
+        """The operative target parts a route row prints after its action: its values
+        (a hole's X/Y first, then Z, depth or endpoint), cut direction and spindle sense."""
+        # The path owns its checked Z ladder; the target retains all other facts.
+        values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
+        depth_target = self.z_target(setup, op) if path_owned else None
+        parts = (
+            []
+            if cycle
+            else [
+                str(value)
+                for value in values
+                if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
+            ]
+        )
+        direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
+        if (
+            self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
+            and (setup["id"], row.op_id) in self._route_cut_direction
+            and direction == self.direction(op["direction"])
+        ):
+            direction = ""
+        if direction not in ("", "—", None, "not applicable") and not isinstance(direction, _Box):
+            parts.append(str(direction))
+        turn = getattr(row, "spindle_turn", None)
+        turns = {
+            getattr(other, "spindle_turn", None)
+            for other in self._rows_by_setup.get(setup["id"], ())
+            if getattr(other, "spindle_turn", None) in _SPINDLE_TURNS
+        }
+        if turn in _SPINDLE_TURNS and (
+            len(turns) > 1 or self.detail == "pro" and turn == "REVERSE"
+        ):
+            sense = "spindle " + turn
+            if self.detail == "hobby":
+                sense += ": " + _SPINDLE_TURNS[turn]
+            parts.append(sense)
+        return [part for part in parts if part]
+
+    def positioned_tail(self, setup, row):
+        """``(X/Y, rest)`` when a hole row's target starts with its one dialled X/Y, else
+        None; ``rest`` is the Z, depth, endpoint, direction and spindle parts."""
+        op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
+        xy = self.hole_xy(setup, op)
+        if len(row) == 5 or len(xy) != 1 or isinstance(xy[0], _Box):
+            return None
+        parts = self.route_target_parts(setup, op, row)
+        if not parts or parts[0] != xy[0]:
+            return None
+        return parts[0], tuple(parts[1:])
+
+    def shared_target_tail(self, setup, run):
+        """The Z/depth/endpoint parts every op of ``run`` shares after its own X/Y, or None
+        when any op has no single dialled X/Y or its parts differ."""
+        tails = {(self.positioned_tail(setup, member) or (None, None))[1] for member in run}
+        if len(tails) != 1 or None in tails:
+            return None
+        return next(iter(tails))
+
+    def route_operation(
+        self, setup, row, *, layout="block", lead_in="", keep_together=False, shared=None
+    ):
+        """Project one canonical row without duplicating its ledger and contour prose.
+        ``shared`` is the row's run from :meth:`shared_procedure_runs`: its first row
+        prints the common tool, action or authored procedure, and Z/depth/endpoint parts
+        once; every row keeps its own number, feature, X/Y and derived instructions."""
         op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
         authored = note_text(row.authored_note, detail=self.detail)
         authored = self.bench(authored, setup) if authored else ""
@@ -12958,6 +13608,7 @@ class _Traveler:
         self._route_cycles[(setup["id"], row.op_id)] = cycle_html
         contour_owned = str(row.op_id) in getattr(self, "_route_contours", {}).get(setup["id"], {})
         path_owned = contour_owned and self.z_levels(setup, op) is not None
+        shared_tail = self.shared_target_tail(setup, shared) if shared else None
         canonical = ", ".join(
             self.cut_depth_text(
                 self.cut_depths(setup, op, self.lathe(setup)),
@@ -12968,10 +13619,12 @@ class _Traveler:
         parts = [
             canonical,
             row.instruction_before,
-            authored,
+            None if shared else authored,
             row.instruction_after,
         ]
-        action = " ".join(dict.fromkeys(part for part in parts if part)) or _text(op.get("do"))
+        action = " ".join(dict.fromkeys(part for part in parts if part)) or (
+            "" if shared else _text(op.get("do"))
+        )
         if len(row) == 5:
             consumable = row[2]
             tool = (
@@ -12986,42 +13639,14 @@ class _Traveler:
             tool = (
                 self.route_tool_label(op["tool"]) if op.get("tool") not in (None, "unknown") else ""
             )
-            # The path owns its checked Z ladder; the target retains all other facts.
-            values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
-            depth_target = self.z_target(setup, op) if path_owned else None
-            target = (
-                ""
-                if cycle
-                else "; ".join(
-                    str(value)
-                    for value in values
-                    if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
-                )
+            target_parts = self.route_target_parts(
+                setup, op, row, cycle=cycle, path_owned=path_owned
             )
-            direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
-            if (
-                self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
-                and (setup["id"], row.op_id) in self._route_cut_direction
-                and direction == self.direction(op["direction"])
-            ):
-                direction = ""
-            if direction not in ("", "—", None, "not applicable") and not isinstance(
-                direction, _Box
-            ):
-                target = "; ".join(filter(None, (target, str(direction))))
-            turn = getattr(row, "spindle_turn", None)
-            turns = {
-                getattr(other, "spindle_turn", None)
-                for other in self._rows_by_setup.get(setup["id"], ())
-                if getattr(other, "spindle_turn", None) in _SPINDLE_TURNS
-            }
-            if turn in _SPINDLE_TURNS and (
-                len(turns) > 1 or self.detail == "pro" and turn == "REVERSE"
-            ):
-                sense = "spindle " + turn
-                if self.detail == "hobby":
-                    sense += ": " + _SPINDLE_TURNS[turn]
-                target = "; ".join(filter(None, (target, sense)))
+            if shared_tail is not None:
+                # The run's lead carries the common Z/depth/endpoint parts once; each op
+                # keeps its own X/Y.
+                target_parts = target_parts[:1]
+            target = "; ".join(target_parts)
         if (
             op.get("do") in HAND_THREAD
             and not _known(
@@ -13044,7 +13669,7 @@ class _Traveler:
             )
             if label != feature_id or not action:
                 labels.append(label)
-        feature = "; ".join(labels)
+        feature = "; ".join(labels) if self.detail == "pedantic" else _numbered_names(labels, "; ")
         path_text, path_block = (
             getattr(self, "_route_contours", {}).get(setup["id"], {}).get(str(row.op_id), ("", ""))
         )
@@ -13068,6 +13693,27 @@ class _Traveler:
             )
         )
         tag = "span" if layout == "inline" else "p"
+        shared_lead = ""
+        if shared:
+            if row is shared[0]:
+                owners = [
+                    {"setup_id": setup["id"], "op_id": member.op_id, "workpiece": member.workpiece}
+                    for member in shared
+                ]
+                procedure = _fields(authored or _text(op.get("do")))
+                if shared_tail:
+                    procedure += ("; " if not authored else " ") + _numeric_html(
+                        "; ".join(shared_tail)
+                    )
+                shared_lead = (
+                    f'<{tag} class="route-operation shared-procedure" '
+                    f'data-physical-ops="{escape(json.dumps(owners))}">'
+                    + f"<b>{escape(str(shared[0].op_id))}–{escape(str(shared[-1].op_id))}.</b> "
+                    + f"<strong>{escape(tool)}:</strong> "
+                    + procedure
+                    + f"</{tag}>"
+                )
+            tool = ""
         content = (
             f'<{tag} class="route-operation{" keep" if keep_together else ""}" '
             f'data-features="{escape(json.dumps(feature_ids))}">'
@@ -13087,6 +13733,10 @@ class _Traveler:
             + (" " + _fields(path_text) if path_text else "")
             + f"</{tag}>"
         )
+        if shared_lead:
+            # The paginator moves a keep box whole: the procedure never ends a page
+            # apart from its first op.
+            content = '<div class="keep">' + shared_lead + content + "</div>"
         for warning in row.warnings:
             # Decisions are rendered once at their actual owner, below. A contour pointer
             # is replaced by the concrete path in this same operation, not printed twice.
@@ -13346,21 +13996,28 @@ class _Traveler:
                     + escape(f"Spindle {turn}: {_SPINDLE_TURNS[turn]}.")
                     + "</p>",
                 )
+        runs = self.shared_procedure_runs(setup, rows) if self.detail != "pedantic" else {}
+        grouped = self.detail != "pedantic" and any(
+            len(group) > 1 and sid in {member["id"] for member in group}
+            for group in self.route_groups(self.plan.get("setups", []))
+        )
         for row in rows:
             op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
             records = tuple(check for check in row[-1] if isinstance(check, _Inspection))
             if self.detail != "pedantic":
                 what = "guided sweep" if str(row.op_id) in self.sweep_ops else "contour table"
                 pointer = f"See {what} on Setup {_text(sid)} contour instructions"
+                # Warnings an inline op may hold: they print at their own owner, not here.
+                printed_elsewhere = all(
+                    isinstance(warning, (_Box, _OperationNote))
+                    or warning == pointer
+                    or warning in self._route_shared_warnings[sid]
+                    for warning in row.warnings
+                )
                 inline = (
                     not row[-1]
                     and op.get("do") in MANUAL
-                    and all(
-                        isinstance(warning, (_Box, _OperationNote))
-                        or warning == pointer
-                        or warning in self._route_shared_warnings[sid]
-                        for warning in row.warnings
-                    )
+                    and printed_elsewhere
                     and not any(fact.kind == "block" for fact in row.decisions)
                     and not self._route_contours.get(sid, {}).get(str(row.op_id), ("", ""))[1]
                     and not any(
@@ -13371,10 +14028,11 @@ class _Traveler:
                         ]
                     )
                 )
-                keep_together = inline and op.get("do") == "deburr"
-                layout = "inline" if inline and not keep_together else "block"
+                run = runs.get(row.op_id)
+                keep_together = inline and op.get("do") == "deburr" and not run
+                layout = "inline" if inline and not keep_together and not run else "block"
                 instruction = self.route_operation(
-                    setup, row, layout=layout, keep_together=keep_together
+                    setup, row, layout=layout, keep_together=keep_together, shared=run
                 )
                 comparison_instruction = instruction
                 for criterion in _inspection_criteria(row[-1]):
@@ -13441,6 +14099,7 @@ class _Traveler:
                         + "</div>",
                         comparison=(warning, tuple(owner.op_id for owner in owners)),
                     )
+                boxes = {}
                 for index, group in enumerate(
                     _decision_groups(row.decisions, combine_notices=True)
                 ):
@@ -13476,15 +14135,25 @@ class _Traveler:
                         )
                         else "block"
                     )
+                    # One box per owner set and kind; a route-grouped setup keeps one box
+                    # per notice so its members still share what they have in common.
+                    owner_key = (
+                        json.dumps(identities),
+                        facts[0].kind,
+                        decision_layout,
+                        index if grouped or decision_layout == "inline" else None,
+                    )
+                    box = boxes.setdefault(owner_key, (index, identities, [], []))
+                    box[2].append(facts)
+                    box[3].append(signature)
+                for key, (index, identities, groups, signatures) in boxes.items():
                     add(
                         f"operation-decision:{row.op_id}:{index}",
-                        _decision_html(
-                            facts[0], facts[1:], owners=identities, layout=decision_layout
-                        ),
-                        comparison=signature,
+                        _decision_box(groups, owners=identities, layout=key[2]),
+                        comparison=signatures[0] if len(signatures) == 1 else tuple(signatures),
                         op_id=row.op_id,
-                        decisions=facts,
-                        layout=decision_layout,
+                        decisions=tuple(fact for facts in groups for fact in facts),
+                        layout=key[2],
                     )
                 continue
             criteria, common_checks = [], []
@@ -13601,8 +14270,22 @@ class _Traveler:
             for key, (_, entry) in self.measurement_registry().items()
             if key in self.setup_measurement_ids.get(sid, set())
         ]
+        # A compact level prints a measurement another setup notice already states once:
+        # the same text groups both decisions into one notice.
+        on_rows = {fact for row in rows for fact in row.decisions}
+        stated = (
+            {fact.text for fact in decisions if fact not in on_rows}
+            if self.detail != "pedantic"
+            else set()
+        )
         decisions.extend(
-            _Decision("measurement", "unknown", sid, "block", "Unverified decision input — " + line)
+            _Decision(
+                "measurement",
+                "unknown",
+                sid,
+                "block",
+                line if line in stated else "Unverified decision input — " + line,
+            )
             for line in self.measurement_lines(local, setup)
         )
         decisions = list(dict.fromkeys(decisions))
@@ -13610,23 +14293,34 @@ class _Traveler:
         self.setup_stops[sid] = sum(fact.kind == "block" for fact in decisions)
         displayed = {fact for row in rows for fact in row.decisions}
         pending = [decision for decision in decisions if decision not in displayed]
-        for index, group in enumerate(
-            _decision_groups(pending, combine_notices=self.detail != "pedantic")
-        ):
-            decision = group[0]
-            if decision.kind != "none":
-                blocks.insert(
-                    index,
-                    _Block(
-                        f"decision:{decision.source}:{index}",
-                        _decision_html(decision, group[1:], setup_id=sid),
-                        tuple((fact.source, fact.status, fact.kind, fact.text) for fact in group),
-                        (),
-                        sid,
-                        member,
-                        decisions=tuple(group),
-                    ),
-                )
+        groups = _decision_groups(pending, combine_notices=self.detail != "pedantic")
+        if self.detail != "pedantic":
+            groups = self.fold_not_computed(self.fold_zero_settings(groups, sid), sid)
+        # A compact setup prints one box per kind, each notice its own paragraph; a
+        # route-grouped setup keeps one box per notice so members share what they share.
+        merge = self.detail != "pedantic" and not grouped
+        boxes = {}
+        for index, group in enumerate(groups):
+            if group[0].kind != "none":
+                boxes.setdefault(group[0].kind if merge else index, (index, []))[1].append(group)
+        for position, (index, members) in enumerate(boxes.values()):
+            decision = members[0][0]
+            signatures = tuple(
+                tuple((fact.source, fact.status, fact.kind, fact.text) for fact in group)
+                for group in members
+            )
+            blocks.insert(
+                position if merge else index,
+                _Block(
+                    f"decision:{decision.source}:{index}",
+                    _decision_box(members, setup_id=sid),
+                    signatures[0] if len(signatures) == 1 else signatures,
+                    (),
+                    sid,
+                    member,
+                    decisions=tuple(fact for group in members for fact in group),
+                ),
+            )
         self._blocks_by_setup[sid] = blocks
         self.setup = None
         return blocks
@@ -14202,7 +14896,27 @@ class _Traveler:
             keys[start:] = datum_keys + [key for key in keys[start:] if key not in datum_keys]
         last_inline_owners = None
         last_visible_owners = tuple(ids)
+        notice_keys = ("operation-decision:", "shared-warning:", "saw-cycle:")
+        # An operation keeps its notices up to its last STOP; cautions after that STOP
+        # flow outside the group. The paginator moves a page-sized group whole and still
+        # splits an oversized one between children.
+        stop_ends = {}
+        if self.detail != "pedantic" and len(group) == 1:
+            operation_key = None
+            for key in keys:
+                if operation_key and key.startswith(notice_keys):
+                    if any(
+                        'data-decision="block"' in mapping[key].html
+                        for mapping in maps
+                        if key in mapping
+                    ):
+                        stop_ends[operation_key] = key
+                    continue
+                operation_key = key if key.startswith("operation:") else None
+        stop_closes = set(stop_ends.values())
         for key in keys:
+            if key in stop_ends:
+                result.append('<div class="keep">')
             available = [mapping[key] for mapping in maps if key in mapping]
             variants = []
             for block in available:
@@ -14320,6 +15034,8 @@ class _Traveler:
                         + self.block_html(block)
                         + f"</{tag}> "
                     )
+            if key in stop_closes:
+                result.append("</div>")
         result.append("</section>")
         return "".join(result)
 

@@ -11,6 +11,7 @@ import re
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_batch_material_routes import batch
@@ -29,7 +30,13 @@ from prechips.report import build_report, canonical_bytes, render_assets
 from prechips.rules import consistency, fixture_interference, hold_fields, inspection
 from prechips.rules.resolution import op_check_targets, operation_members
 from prechips.rules.zero_recipe import rule as zero_recipe
-from prechips.sheet import _Traveler, finding_decision, render_traveler
+from prechips.sheet import (
+    _Decision,
+    _decision_groups,
+    _Traveler,
+    finding_decision,
+    render_traveler,
+)
 
 EXAMPLE_WARNING = "EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT"
 DETAIL_ERROR = "detail must be pro, hobby, or pedantic"
@@ -3404,6 +3411,38 @@ def test_compact_straight_paths_keep_each_evaluated_depth_in_order(levels_owner)
     assert "-.5075" in text and "4.225" in text
 
 
+def test_compact_raster_shares_one_span_per_axis_and_z_and_keeps_every_other_pass():
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 75, "do": "rough_profile", "tool": "cutter", "to_z": 12.45}]
+    data.inventory["tools"]["cutter"] = {"kind": "endmill", "dia_mm": 12.7}
+    numbers = {"operations": [{"op": 75}], "level_paths": [{"op": 75, "entries": [{"air": True}]}]}
+    finding = Finding("coordinates", setup["id"], "pass", numbers, [], "Raster fixture")
+    sheet = _Traveler(data, [finding], {}, None, detail="hobby")
+    rows = [
+        ["1", "-1.5", "9.52", "-1.5", "-149.22", "12.45"],
+        ["2", "12.17", "9.52", "12.17", "-149.22", "12.45"],
+        ["3", "25.84", "9.52", "25.84", "-149.22", "12.45"],
+        ["4", "39.5", "9.52", "39.5", "-149.22", "12.1"],
+        ["5", "39.5", "-149.22", "50", "9.52", "12.1"],
+        ["6", "60", "9.52", "60", "-149.22", "12.45"],
+    ]
+    headings = ["pass", "X from", "Y from", "X to", "Y to", "Z"]
+    entry = {"parts": [((0, 0, 0), "Lift Z 20", headings, rows, "")], "stops": []}
+    text, html = sheet.route_contour_parts(setup, {("tools", "cutter"): "T1"}, {"75": entry}, {})[
+        "75"
+    ]
+    assert not html
+    # Same span and Z share one line in pass order; a new Z, a diagonal pass or a pass
+    # after them starts its own line, so no span, Z or order is lost.
+    assert (
+        "Centre: Y 9.52 → -149.22 at X -1.5, 12.17, 25.84; Z12.45; "
+        "Y 9.52 → -149.22 at X 39.5; Z12.1; (X39.5, Y-149.22) → (X50, Y9.52); Z12.1; "
+        "Y 9.52 → -149.22 at X 60; Z12.45."
+    ) in text
+    assert "Lift Z 20; return at lift height." in text
+
+
 def test_hobby_selected_figure_keeps_native_identity_without_repeated_job_slug():
     from test_sheet_ops import picture_sheet
 
@@ -4916,3 +4955,454 @@ def test_compact_powered_saw_fixture_without_parallels_has_no_jaw_height_basis(d
     ]
     assert "jaw height" not in content(summary).casefold()
     assert 37.5 not in numeric_values(content(summary))
+
+
+def zero_hold_job():
+    """A Z touch on an unproven face, plus an independent finder failure, in one finding."""
+    data = mill_job(setups=1)
+    (passed,) = zero_recipe.evaluate(data)
+    numbers = deepcopy(passed.numbers)
+    numbers["axes"]["z"].update(
+        axis_set="unknown", check_reading="unknown", mirrored_reading="unknown"
+    )
+    provenance = "native evidence gap: S1 op 10 has no proven usable touch land"
+    independent = (
+        "The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: "
+        "its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+    )
+    message = (
+        "Touch, Axis Set the compensated value, then jog without retouching and compare "
+        "expected versus mirrored readings. Measured setup/tool or trial-cut verification "
+        "remains unknown. A Z touch meets a face its op left at an unknown Z (the Z zero touch "
+        f"on deck (no surviving credited stock plane ({provenance}))): its Axis Set is not "
+        f"known. {independent}"
+    )
+    finding = replace(passed, status="unknown", numbers=numbers, sentence=message)
+    return data, [finding], provenance, independent
+
+
+def zero_notices(markup):
+    return [
+        node
+        for node in decision_nodes(markup)
+        if any(
+            entry["source"] == "zero_check" and entry["scope"].split(":")[0] == "S1"
+            for entry in decision_evidence(node)
+        )
+    ]
+
+
+def zero_bindings(nodes):
+    return {
+        (entry["source"], entry["status"], entry["scope"], entry["kind"])
+        for node in nodes
+        for entry in decision_evidence(node)
+        if entry["source"] == "zero_check"
+    }
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_datum_hold_drops_recursive_provenance_but_keeps_every_failure(detail):
+    data, findings, provenance, independent = zero_hold_job()
+    compact_html = rendered(data, findings, detail=detail)
+    pedantic_html = rendered(data, findings, detail="pedantic")
+    compact, pedantic = Markup(compact_html), Markup(pedantic_html)
+    text = visible_text(compact_html)
+    assert provenance not in text
+    assert provenance in visible_text(pedantic_html)
+    # An independent failure in the same finding is printed whole, not summarised away.
+    assert " ".join(independent.split()[-8:]) in text
+    notices = zero_notices(compact)
+    # The datum's unknown settings join its one hold; every typed binding is retained.
+    assert len(notices) < len(zero_notices(pedantic))
+    assert zero_bindings(notices) == zero_bindings(zero_notices(pedantic))
+    (hold,) = [
+        node for node in notices if any(entry["scope"] == "S1" for entry in decision_evidence(node))
+    ]
+    assert hold["attrs"]["data-decision"] == "block"
+    assert {entry["scope"] for entry in decision_evidence(hold)} > {"S1"}
+
+
+def authored_rpm_job():
+    data = mill_job(setups=1)
+    reason = "Spindle limits, cutting data, tool or material are unresolved or unverified."
+    finding = Finding(
+        "speeds_feeds",
+        "S1:10",
+        "unknown",
+        {
+            "rpm_basis": "authored",
+            "rpm_status": "unknown",
+            "requested_rpm": 1250,
+            "rpm_reason": reason,
+        },
+        [],
+        f"Authored RPM request: {reason}",
+    )
+    return data, [*zero_recipe.evaluate(data), finding], reason
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_same_fact_rpm_box_prints_once_with_both_bindings(detail):
+    data, findings, reason = authored_rpm_job()
+    compact_html = rendered(data, findings, detail=detail)
+    assert visible_text(compact_html).count(reason) == 1
+    assert visible_text(rendered(data, findings, detail="pedantic")).count(reason) >= 2
+    (notice,) = [
+        node
+        for node in decision_nodes(Markup(compact_html))
+        if reason in content(node)
+        and any(entry["source"] == "speeds_feeds" for entry in decision_evidence(node))
+    ]
+    assert notice["attrs"]["data-decision"] == "block"
+    assert {(entry["scope"], entry["kind"]) for entry in decision_evidence(notice)} == {
+        ("S1:10", "block"),
+        ("S1:10", "caution"),
+    }
+
+
+def repeated_procedure_job():
+    """Two runs of one authored procedure split by an op with its own note."""
+    data = mill_job(setups=1)
+    shared = "Brush on oil and stop exactly on the DRO number."
+    unique = "Stop and check the chips before the next position."
+    notes = [shared, shared, shared, unique, shared, shared]
+    data.plan["setups"][0]["ops"] = [
+        {
+            "op": 10 * (index + 1),
+            "do": "spot",
+            "feature": f"hole_{index + 1}",
+            "tool": "centre/1",
+            "note": note,
+        }
+        for index, note in enumerate(notes)
+    ]
+    return data, zero_recipe.evaluate(data), shared, unique
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_repeated_procedure_prints_once_per_consecutive_run(detail):
+    data, findings, shared, unique = repeated_procedure_job()
+    html = rendered(data, findings, detail=detail)
+    markup = Markup(html)
+    leads = markup.find("shared-procedure")
+    assert [[owner["op_id"] for owner in operation_owners(lead)] for lead in leads] == [
+        [10, 20, 30],
+        [50, 60],
+    ]
+    assert all(shared in content(lead) for lead in leads)
+    assert visible_text(html).count(shared) == 2
+    assert visible_text(html).count(unique) == 1
+    rows = {
+        json.loads(node["attrs"]["data-features"])[0]: node
+        for node in markup.find("route-operation")
+        if "shared-procedure" not in node["attrs"]["class"].split()
+    }
+    # Every op keeps its own row; the procedure precedes its first dependent op.
+    assert set(rows) == {f"hole_{n}" for n in range(1, 7)}
+    assert unique in content(rows["hole_4"])
+    assert not any(shared in content(rows[f"hole_{n}"]) for n in (1, 2, 3, 5, 6))
+    order = [id(node) for node in markup.nodes]
+    assert order.index(id(leads[0])) < order.index(id(rows["hole_1"]))
+    assert order.index(id(rows["hole_4"])) < order.index(id(leads[1]))
+    assert order.index(id(leads[1])) < order.index(id(rows["hole_5"]))
+    # The paginator moves each procedure and its first op as one keep box.
+    for lead, first in ((leads[0], "hole_1"), (leads[1], "hole_5")):
+        assert "keep" in lead["parent"]["attrs"].get("class", "").split()
+        assert rows[first]["parent"] is lead["parent"]
+    pedantic = rendered(data, findings, detail="pedantic")
+    assert not Markup(pedantic).find("shared-procedure")
+    assert visible_text(pedantic).count(shared) >= 5
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_procedure_run_splits_where_one_op_has_its_own_stop(detail):
+    data, findings, shared, _ = repeated_procedure_job()
+    stop = Finding("tool_resolves", "S1:20", "error", {}, [], "S1:20: selected bit is wrong.")
+    markup = Markup(rendered(data, [*findings, stop], detail=detail))
+    leads = markup.find("shared-procedure")
+    # Ops 10, 20 and 30 no longer share one procedure across op 20's own STOP.
+    assert [[owner["op_id"] for owner in operation_owners(lead)] for lead in leads] == [[50, 60]]
+    assert visible_text(rendered(data, [*findings, stop], detail=detail)).count(shared) == 4
+    assert finding_nodes(markup, stop)
+
+
+def test_compact_authoring_debt_keeps_every_missing_value_and_unrecognised_debt():
+    label = "plan.setups.S1.ops.20"
+    hole = (
+        f"author: Measure {label} current stock top from the setup datum with a height gauge "
+        "or touch-off; record plan.setups.stock_state.top_z in mm; Measure "
+        f"{label} hole entry and local thickness/depth with a depth gauge, drill point or "
+        "reamer lead with an optical comparator, and exit allowance in mm; record "
+        "stock_state.entry_z/local_thickness and operation depth_mm/exit_mm"
+    )
+    other = "author: Declare plan.setups.S1.ops.30 a fixture the rule has never named"
+    numbers = {
+        "measurements": [
+            {"id": f"{label}.z_geometry", "instruction": hole},
+            {"id": "plan.setups.S1.ops.30.xy_geometry", "instruction": other},
+        ]
+    }
+    message = f"S1: declared operation travel remains unmeasured or unresolved. {hole}; {other}."
+    text = _Traveler.compact_authoring(message, numbers)
+    assert hole not in text and "stock_state.top_z" not in text
+    # Both missing values of op 20 stay named; an unrecognised debt prints whole.
+    assert "op 20" in text and "stock top" in text and "hole entry" in text
+    assert other in text
+
+
+def test_compact_datum_hold_lists_every_touch_owner_of_one_tool():
+    def fact(text, scope, group=""):
+        return _Decision("zero_check", "unknown", scope, "block", text, group)
+
+    lead = fact("A Z touch meets a face its op left at an unknown height.", "S1")
+    touches = [
+        fact(
+            "T3 Z tool-touch setting is unknown.",
+            f"S1:derived_touches:{index}:z:centre",
+            f"zero-setting|Z tool-touch setting|T3 before op {op}",
+        )
+        for index, op in enumerate((20, 90))
+    ]
+    groups = _decision_groups([lead, *touches])
+    assert len(groups) == 2
+    (merged,) = _Traveler.fold_zero_settings(groups, "S1")
+    assert set(merged[1:]) == set(touches)
+    assert "op 20" in merged[0].text and "op 90" in merged[0].text
+
+
+def test_compact_pass_plan_scopes_unknowns_ops_already_stop_on_and_keeps_the_rest():
+    lead = (
+        "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
+        "nominal geometry and authored allowance."
+    )
+    levels = "its start Z, DRO depth, plan units or doc_mm is unknown"
+    lift = "its lift Z is unknown: it needs approach_mm above a known top"
+    plunge = "the material class, tool material or tool diameter is unknown"
+    other = "op 30 radius mode is unknown"
+    items = [
+        f"op 10 axial levels: {levels}",
+        f"op 20 axial levels: {levels}",
+        f"op 10 rough: {lift}",
+        f"op 20 finish: {lift}",
+        f"op 20 plunges into the stock but its plunge feed is unknown: {plunge}",
+        other,
+    ]
+    numbers = {
+        "operations": [
+            {"op": op, "z_levels": {"levels": "unknown", "reason": levels}} for op in (10, 20)
+        ],
+        "profiles": [{"op": op, "lift_reason": lift} for op in (10, 20)],
+        "level_paths": [{"op": 20, "plunge_reason": plunge}],
+    }
+    message = f"{lead} Pass plan unknown: {'; '.join(items)}. Check the DRO."
+    text = _Traveler.compact_coordinates(message, numbers)
+    assert lead not in text and levels not in text and lift not in text
+    # Each op keeps every unknown it stops on; an unrecognised item prints as authored.
+    assert "op 10: depth levels, lift Z" in text
+    assert "op 20: depth levels, lift Z, plunge feed" in text
+    assert other in text and text.endswith(". Check the DRO.")
+
+
+@pytest.mark.parametrize("stock_dependency", [None, "S0"])
+def test_compact_refused_kernel_diagnosis_drops_only_when_the_setup_prints_its_facts(
+    stock_dependency,
+):
+    entry = {"id": "tools.T6.oal", "category": "tools", "identity": "T6", "field": ["oal"]}
+    numbers = {"measurements": [{**entry, "status": "missing", "reason": "not measured."}]}
+    base = "A:430: selected tool/holder dimensions are unmeasured or unavailable."
+    message = base + " Refused kernel facts: tools.T6.oal (missing): not measured."
+
+    def sheet(printed):
+        return SimpleNamespace(
+            plan={"setups": [{"id": "A", "ops": []}]},
+            setup_measurement_ids={"A": printed},
+            measurement_quantities=lambda value: [value],
+            stock_dependency=lambda setup: stock_dependency,
+        )
+
+    assert _Traveler.compact_refused(sheet({"tools.T6.oal"}), message, numbers, "A:430") == base
+    assert _Traveler.compact_refused(sheet(set()), message, numbers, "A:430") == message
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_setup_frames_notices_of_one_kind_together_with_their_own_metadata(detail):
+    data = mill_job(setups=1)
+    first = Finding("travel", "S1", "error", {}, [], "S1: X travel exceeds the table.")
+    second = Finding("envelope", "S1", "error", {}, [], "S1: spindle envelope is exceeded.")
+    caution = Finding("envelope", "S1", "unknown", {}, [], "S1: spindle envelope is unread.")
+    findings = [first, second, caution]
+    markup = Markup(rendered(data, findings, detail=detail))
+    (travel,) = finding_nodes(markup, first)
+    (envelope,) = [node for node in finding_nodes(markup, second) if "exceeded" in content(node)]
+    (unread,) = [node for node in finding_nodes(markup, caution) if "unread" in content(node)]
+    # One frame per kind; each notice is still its own decision with its own evidence.
+    assert travel is not envelope and travel["parent"] is envelope["parent"]
+    assert "decision-box" in travel["parent"]["attrs"]["class"].split()
+    assert unread["attrs"]["data-decision"] != travel["attrs"]["data-decision"]
+    assert unread["parent"] is not travel["parent"]
+    assert {entry["source"] for entry in decision_evidence(travel)} == {"travel"}
+    pairs = {(entry["source"], entry["status"]) for entry in decision_evidence(envelope)}
+    assert pairs == {("envelope", "error")}
+    assert "X travel" in content(travel) and "spindle envelope" not in content(travel)
+    pedantic = Markup(rendered(data, findings, detail="pedantic"))
+    assert not pedantic.find("decision-box")
+    assert finding_nodes(pedantic, first) != finding_nodes(pedantic, second)
+
+
+def hole_run_job():
+    """Six spot ops at their own X/Y; op 40 goes deeper than its neighbours."""
+    data = mill_job(setups=1)
+    data.plan["setups"][0]["ops"] = [
+        {"op": 10 * n, "do": "spot", "feature": f"hole_{n}", "tool": "centre/1"}
+        for n in range(1, 7)
+    ]
+    rows = [{"feature": f"hole_{n}", "dro_xy": [10.0 * n, 5.0]} for n in range(1, 7)]
+    findings = [Finding("coordinates", "S1", "pass", {"rows": rows}, [], "Hole fixture")]
+    for n in range(1, 7):
+        depth = 3.0 if n == 4 else 2.5
+        endpoint = {
+            "setup": "S1",
+            "op": 10 * n,
+            "dro_entry_z": 0.5,
+            "dro_tip_z": 0.5 - depth,
+            "tip_z": 0.5 - depth,
+            "depth_mm": depth,
+            "dro_depth_mm": depth,
+            "exit_face": "not_applicable",
+        }
+        findings.append(
+            Finding("blind_depth", f"hole_{n}", "pass", {"endpoints": [endpoint]}, [], "")
+        )
+    return data, findings
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_hole_run_prints_shared_depth_once_and_every_op_at_its_own_xy(detail):
+    data, findings = hole_run_job()
+    markup = Markup(rendered(data, findings, detail=detail))
+    leads = markup.find("shared-procedure")
+    # Op 40's own depth splits the runs; no op borrows another's depth.
+    assert [[owner["op_id"] for owner in operation_owners(lead)] for lead in leads] == [
+        [10, 20, 30],
+        [50, 60],
+    ]
+    # The fixture's plan is in inches: compare with the sheet's own readout of each value.
+    readout = _Traveler(data, findings, {}, None, detail=detail).readout
+    assert all(f"depth {readout(2.5)}" in content(lead) for lead in leads)
+    rows = {
+        json.loads(node["attrs"]["data-features"])[0]: node
+        for node in markup.find("route-operation")
+        if "shared-procedure" not in node["attrs"]["class"].split()
+    }
+    assert set(rows) == {f"hole_{n}" for n in range(1, 7)}
+    for n, row in ((n, rows[f"hole_{n}"]) for n in range(1, 7)):
+        # Every op keeps its own number, feature and X/Y.
+        assert f"{10 * n}." in content(row) and f"hole {n}" in content(row)
+        assert f"X{readout(10.0 * n)}/Y{readout(5.0)}" in content(row), content(row)
+        assert ("depth" in content(row)) is (n == 4)
+    assert f"depth {readout(3.0)}" in content(rows["hole_4"])
+    assert not Markup(rendered(data, findings, detail="pedantic")).find("shared-procedure")
+
+
+def test_compact_not_computed_reads_only_the_fixed_rule_sentences():
+    envelope = "spindle envelope remains unmeasured or unresolved"
+    needs = "ops 20, 30: stock top Z not established"
+    assert _Traveler.not_computed("envelope", f"{envelope}. {needs}.") == (
+        "spindle envelope",
+        needs,
+    )
+    assert _Traveler.not_computed("envelope", f"{envelope}.") == ("spindle envelope", "")
+    assert _Traveler.not_computed("envelope", "spindle envelope is exceeded.") == ("", "")
+    assert _Traveler.not_computed("travel", f"{envelope}.") == ("", "")
+    clearance = "CLEARANCE rows for ops 10, 20 are not computed"
+    picture = "A stated fact cannot be compared: the setup picture's nearest cut cannot be "
+    assert _Traveler.not_computed("consistency", f"{picture}compared: {clearance}.") == (
+        f"picture nearest-cut check ({clearance})",
+        "",
+    )
+    assert _Traveler.not_computed("consistency", f"{picture}compared: x; {clearance}.") == (
+        "",
+        "",
+    )
+
+
+def test_compact_not_computed_checks_fold_once_and_keep_machine_checks_apart():
+    def fact(source, text, group, scope="S1", status="unknown"):
+        return _Decision(source, status, scope, "block", text, group)
+
+    needs = "ops 20, 30: stock top Z not established"
+    envelope = fact("envelope", "e", f"not-computed|spindle envelope|{needs}")
+    travel = fact("travel", "t", f"not-computed|X/Y travel|{needs}")
+    headroom = fact("headroom", "h", "not-computed|headroom and jaw path|")
+    check = fact("reach", "c", "machine-check|holding beside the cut")
+    local = fact("reach", "local", "machine-check|tool reach", scope="S1:20")
+    error = fact("travel", "STOP: X travel exceeds the table.", "", status="error")
+    groups = [[local], [check], [envelope], [error], [travel], [headroom]]
+    folded = _Traveler.fold_not_computed(groups, "S1")
+    assert folded[0] == [local]
+    assert folded[2] == [error]
+    merged = folded[1]
+    assert {(item.source, item.scope) for item in merged} == {
+        ("reach", "S1"),
+        ("envelope", "S1"),
+        ("travel", "S1"),
+        ("headroom", "S1"),
+    }
+    # Operation-specific debt stays local; setup checks share one scoped list.
+    assert merged[0].scope == "S1"
+    assert merged[0].text == (
+        f"Not computed: spindle envelope, X/Y travel, headroom and jaw path. Needs: {needs}. "
+        "Check at the machine: holding beside the cut."
+    )
+    assert len(folded) == 3 and len(merged) == 4
+    (only_check,) = _Traveler.fold_not_computed([[check]], "S1")
+    assert "Not computed" in only_check[0].text
+
+
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_compact_not_computed_tags_only_unknown_findings(status):
+    data = mill_job(setups=1)
+    finding = Finding(
+        "travel",
+        "S1",
+        status,
+        {},
+        [],
+        "S1: declared operation travel remains unmeasured or unresolved.",
+    )
+    fact = _Traveler(data, [finding], {}, None, detail="hobby").finding_fact(finding)
+    if status == "unknown":
+        assert fact.notice_group == "not-computed|X/Y travel|"
+        assert fact.text == "Not computed: X/Y travel."
+    else:
+        assert not fact.notice_group and "remains unmeasured" in fact.text
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_compact_inspection_labels_range_only_consecutive_names_and_keep_records(detail):
+    data = bench_job()
+    features = ["rail_hole_1", "rail_hole_2", "rail_hole_3", "rail_hole_5", "bolt_hole"]
+    data.plan["setups"][0]["ops"] = [
+        {"op": 10, "do": "inspect", "feature": features, "checks": {"dia": "mic"}}
+    ]
+    data = replace(
+        data,
+        features={
+            **data.features,
+            "features": {
+                name: {"kind": "hole", "requirements": ["dia"], "dia": [3.45, 3.55]}
+                for name in features
+            },
+        },
+    )
+    markup = Markup(rendered(data, detail=detail))
+    text = " ".join(content(job_page(markup)).split())
+    # Gaps and differently named features keep their own labels at every level.
+    assert "rail hole 5" in text and "bolt hole" in text
+    assert ("rail hole 2" in text) is (detail == "pedantic")
+    records = markup.find("checkpoint-result")
+    if detail != "pedantic":
+        # One physical record still owns every feature identity.
+        (record,) = records
+        assert json.loads(record["attrs"]["data-features"]) == features

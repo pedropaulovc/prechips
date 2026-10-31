@@ -1020,6 +1020,67 @@ def test_fitting_stop_feed_box_prints_as_one_original_field(tmp_path):
     assert moved
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_generated_hole_run_prints_each_op_label_with_its_own_xy_on_its_own_line(tmp_path, detail):
+    from test_sheet_detail import hole_run_job, rendered
+
+    # The renderer shares the runs' tool and depth; each op still reads as its own line.
+    data, findings = hole_run_job()
+    readout = _Traveler(data, findings, {}, None, detail=detail).readout
+    lines = [
+        line
+        for page in printed_pages(rendered(data, findings, detail=detail), tmp_path)
+        for line in page.splitlines()
+    ]
+    for n in range(1, 7):
+        own = f"X{readout(10.0 * n)}/Y{readout(5.0)}"
+        labelled = [line for line in lines if line.startswith(f"{10 * n}. ")]
+        # A wrapped label/coordinate pair or a run-on paragraph cannot satisfy this.
+        assert labelled, (n, lines)
+        for line in labelled:
+            assert f"hole {n}" in line and re.findall(r"X[^\s/]+/Y[^\s;]+", line) == [own], line
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_operation_with_its_stops_moves_whole_before_its_long_caution(tmp_path, count):
+    from test_sheet_detail import hole_run_job, rendered
+
+    from prechips.findings import Finding
+
+    # One STOP prints as its own notice, two share one generated frame; either way an
+    # over-page caution of the same op follows them: the group to keep ends at the last STOP.
+    # The sheet orders an op's findings by rule, stably: the first STOP shares the
+    # caution's rule and precedes it in the input, so the caution prints after every STOP.
+    data, findings = hole_run_job()
+    stops = ("spindle envelope is exceeded at op 30", "X travel exceeds the table for op 30")
+    stops = stops[:count]
+    caution = " ".join(f"CautionWord{i:03}" for i in range(700))
+    findings += [
+        Finding(rule, "S1:30", "error", {}, [], f"S1:30: {stop}.")
+        for rule, stop in zip(("envelope", "travel"), stops, strict=False)
+    ]
+    findings.append(Finding("envelope", "S1:30", "warn", {}, [], f"S1:30: {caution}."))
+    html = rendered(data, findings, detail="hobby")
+    start = html.index('<section class="setup-flow"')
+    route = html[start : html.index("</section>", start) + len("</section>")]
+    long_caution = route.index("CautionWord")
+    # Numbers print in reading spans: locate each STOP by its words before "op 30".
+    last_stop = max(route.index(stop.rsplit(" op ", 1)[0]) for stop in stops)
+    assert last_stop < route.rfind('data-decision="caution"', 0, long_caution)
+    # Sweep the page end across op 30 and its STOPs; op 30 and its STOPs fit a page,
+    # while the caution after them is longer than a page and keeps normal pagination.
+    fillers = range(190, 371, 15)
+    texts = printed_pages(_sections([(filler, route) for filler in fillers]), tmp_path)
+    moved = 0
+    for run in _runs(texts, len(fillers)):
+        page = _pdf_original_page(run, "30. T1 · hole 3:")
+        assert [_pdf_original_page(run, stop) for stop in stops] == [page] * count
+        first, last = (_pdf_original_page(run, f"CautionWord{i:03}") for i in (0, 699))
+        assert page <= first < last
+        moved += _pdf_original_page(run, "20. hole 2:") < page
+    assert moved
+
+
 def test_fitting_radial_per_pass_heading_has_no_original_tail_on_another_page(tmp_path):
     heading = (
         "RadialHeadingStart rough the shoulder using the stated depth of cut "

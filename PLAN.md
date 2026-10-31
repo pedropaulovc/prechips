@@ -1472,6 +1472,9 @@ first-article acceptance.
    inspection destinations; hobby adds DRO guidance and selected complete
    figures, while pedantic expands setup content. All modes use continuous
    measured Letter flow without automatic blank-back/setup-front padding.
+   Compact output consolidates equivalent setup holds, keeps recursive datum
+   provenance in the report, and shares identical consecutive operation notes
+   without merging physical inspection records.
    The frozen v4 T-nut demonstration printed as 3 pro / 6 hobby physical
    Letter pages; PDF counts agreed with continuation labels and all three
    CLI modes exited 0 with identical reports. The whole-job acceptance
