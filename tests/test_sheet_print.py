@@ -1020,6 +1020,59 @@ def test_fitting_stop_feed_box_prints_as_one_original_field(tmp_path):
     assert moved
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_generated_hole_run_prints_each_op_label_with_its_own_xy_on_its_own_line(tmp_path, detail):
+    from test_sheet_detail import hole_run_job, rendered
+
+    # The renderer shares the runs' tool and depth; each op still reads as its own line.
+    data, findings = hole_run_job()
+    readout = _Traveler(data, findings, {}, None, detail=detail).readout
+    lines = [
+        line
+        for page in printed_pages(rendered(data, findings, detail=detail), tmp_path)
+        for line in page.splitlines()
+    ]
+    for n in range(1, 7):
+        own = f"X{readout(10.0 * n)}/Y{readout(5.0)}"
+        labelled = [line for line in lines if line.startswith(f"{10 * n}. ")]
+        # A wrapped label/coordinate pair or a run-on paragraph cannot satisfy this.
+        assert labelled, (n, lines)
+        for line in labelled:
+            assert f"hole {n}" in line and re.findall(r"X[^\s/]+/Y[^\s;]+", line) == [own], line
+
+
+def test_operation_with_merged_stop_notices_moves_whole_before_its_long_caution(tmp_path):
+    from test_sheet_detail import hole_run_job, rendered
+
+    from prechips.findings import Finding
+
+    # Two STOPs on op 30 print in one generated notice frame after the operation, then
+    # an over-page caution of the same op: the group to keep ends at the last STOP.
+    data, findings = hole_run_job()
+    stops = ("X travel exceeds the table for op 30", "spindle envelope is exceeded at op 30")
+    caution = " ".join(f"CautionWord{i:03}" for i in range(700))
+    findings += [
+        Finding("travel", "S1:30", "error", {}, [], f"S1:30: {stops[0]}."),
+        Finding("envelope", "S1:30", "error", {}, [], f"S1:30: {stops[1]}."),
+        Finding("envelope", "S1:30", "warn", {}, [], f"S1:30: {caution}."),
+    ]
+    html = rendered(data, findings, detail="hobby")
+    start = html.index('<section class="setup-flow"')
+    route = html[start : html.index("</section>", start) + len("</section>")]
+    long_caution = route.index("CautionWord")
+    frame = route.rfind('class="decision-box" data-decision="block"', 0, long_caution)
+    assert 0 <= frame < route.rfind('data-decision="caution"', 0, long_caution)
+    # Sweep the page end across op 30 and its frame; op 30 and its STOPs fit a page.
+    fillers = range(190, 371, 15)
+    texts = printed_pages(_sections([(filler, route) for filler in fillers]), tmp_path)
+    moved = 0
+    for run in _runs(texts, len(fillers)):
+        page = _pdf_original_page(run, "30. T1 · hole 3:")
+        assert [_pdf_original_page(run, stop) for stop in stops] == [page, page]
+        moved += _pdf_original_page(run, "20. hole 2:") < page
+    assert moved
+
+
 def test_fitting_radial_per_pass_heading_has_no_original_tail_on_another_page(tmp_path):
     heading = (
         "RadialHeadingStart rough the shoulder using the stated depth of cut "

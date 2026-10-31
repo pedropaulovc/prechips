@@ -14030,18 +14030,7 @@ class _Traveler:
                 )
                 run = runs.get(row.op_id)
                 keep_together = inline and op.get("do") == "deburr" and not run
-                # After its lead and first op, a run's plain members flow as compact rows.
-                compact_member = (
-                    run
-                    and row is not run[0]
-                    and printed_elsewhere
-                    and not any(_FIELD.search(fact.text) for fact in row.decisions)
-                )
-                layout = (
-                    "inline"
-                    if inline and not keep_together and not run or compact_member
-                    else "block"
-                )
+                layout = "inline" if inline and not keep_together and not run else "block"
                 instruction = self.route_operation(
                     setup, row, layout=layout, keep_together=keep_together, shared=run
                 )
@@ -14907,7 +14896,30 @@ class _Traveler:
             keys[start:] = datum_keys + [key for key in keys[start:] if key not in datum_keys]
         last_inline_owners = None
         last_visible_owners = tuple(ids)
+        notice_keys = ("operation-decision:", "shared-warning:", "saw-cycle:")
+        # An operation followed by a combined notice frame keeps its notices up to its
+        # last STOP; cautions after that STOP flow outside the group. The paginator moves
+        # a page-sized group whole and still splits an oversized one between children.
+        stop_ends = {}
+        if self.detail != "pedantic" and len(group) == 1:
+            operation_key = last_stop = None
+            framed = False
+            for key in [*keys, None]:
+                if operation_key and key is not None and key.startswith(notice_keys):
+                    html = "".join(mapping[key].html for mapping in maps if key in mapping)
+                    if 'data-decision="block"' in html:
+                        last_stop = key
+                    framed = framed or 'class="decision-box"' in html
+                    continue
+                if framed and last_stop:
+                    stop_ends[operation_key] = last_stop
+                operation_key = key if key is not None and key.startswith("operation:") else None
+                last_stop = None
+                framed = False
+        stop_closes = set(stop_ends.values())
         for key in keys:
+            if key in stop_ends:
+                result.append('<div class="keep">')
             available = [mapping[key] for mapping in maps if key in mapping]
             variants = []
             for block in available:
@@ -15025,6 +15037,8 @@ class _Traveler:
                         + self.block_html(block)
                         + f"</{tag}> "
                     )
+            if key in stop_closes:
+                result.append("</div>")
         result.append("</section>")
         return "".join(result)
 

@@ -584,6 +584,10 @@ Consecutive compatible operations may share an identical authored procedure,
 while retaining each operation's coordinates, limits and local holds. Different
 instructions or intervening operations break that sharing. Numbered feature
 labels may use a consecutive range, but separate inspection records stay separate.
+Hole positions remain separate operation rows, not run-on coordinate paragraphs.
+An operation with a combined notice box stays on one page with its notices up to
+its last STOP when they fit; cautions after that STOP, and oversized groups, keep
+normal pagination.
 
 Each displayed criterion has an inline `.inspection-criterion` wrapper carrying
 the existing `data-inspection-ids` JSON subject list, independently of whether

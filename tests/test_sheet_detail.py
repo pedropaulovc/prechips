@@ -5302,9 +5302,6 @@ def test_compact_hole_run_prints_shared_depth_once_and_every_op_at_its_own_xy(de
         assert f"X{readout(10.0 * n)}/Y{readout(5.0)}" in content(row), content(row)
         assert ("depth" in content(row)) is (n == 4)
     assert f"depth {readout(3.0)}" in content(rows["hole_4"])
-    # After its lead and first op, a run's plain members flow as compact rows.
-    assert rows["hole_1"]["tag"] == "p" and rows["hole_5"]["tag"] == "p"
-    assert {rows[f"hole_{n}"]["tag"] for n in (2, 3, 6)} == {"span"}
     assert not Markup(rendered(data, findings, detail="pedantic")).find("shared-procedure")
 
 
