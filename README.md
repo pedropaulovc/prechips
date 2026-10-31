@@ -45,6 +45,8 @@ Mounted slitting saws have bounded offline support for a measured blade/arbor as
 
 Registered workpieces preserve distinct members through nested named cut outputs and member-qualified face claims. Posed or borrowed supports share the native collision scene, and requested transverse finder pickups check the full installed stack against actual arriving stock. These offline proofs do not establish physical holding or shop execution. Setup sheets support `--detail pro|hobby|pedantic`, defaulting to `hobby`; see the [detail-mode contract](https://github.com/pedropaulovc/prechips/blob/main/docs/report-and-telemetry.md#traveler-detail-modes). Inspection expansion remains separate unfinished work; this support is not CAM or physical safety certification.
 
+Hobby and pro sheets share repeated procedures and consolidate equivalent setup holds. Detailed geometry diagnostics remain in `report.json`; unresolved settings and required actions stay on the sheet.
+
 ## CLI: five noninteractive verbs
 
 | Command | Result |

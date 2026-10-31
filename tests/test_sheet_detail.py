@@ -4916,3 +4916,188 @@ def test_compact_powered_saw_fixture_without_parallels_has_no_jaw_height_basis(d
     ]
     assert "jaw height" not in content(summary).casefold()
     assert 37.5 not in numeric_values(content(summary))
+
+
+
+def zero_hold_job():
+    """A Z touch on an unproven face, plus an independent finder failure, in one finding."""
+    data = mill_job(setups=1)
+    (passed,) = zero_recipe.evaluate(data)
+    numbers = deepcopy(passed.numbers)
+    numbers["axes"]["z"].update(
+        axis_set="unknown", check_reading="unknown", mirrored_reading="unknown"
+    )
+    provenance = "native evidence gap: S1 op 10 has no proven usable touch land"
+    independent = (
+        "The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: "
+        "its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+    )
+    message = (
+        "Touch, Axis Set the compensated value, then jog without retouching and compare "
+        "expected versus mirrored readings. Measured setup/tool or trial-cut verification "
+        "remains unknown. A Z touch meets a face its op left at an unknown Z (the Z zero touch "
+        f"on deck (no surviving credited stock plane ({provenance}))): its Axis Set is not "
+        f"known. {independent}"
+    )
+    finding = replace(passed, status="unknown", numbers=numbers, sentence=message)
+    return data, [finding], provenance, independent
+
+
+def zero_notices(markup):
+    return [
+        node
+        for node in decision_nodes(markup)
+        if any(
+            entry["source"] == "zero_check" and entry["scope"].split(":")[0] == "S1"
+            for entry in decision_evidence(node)
+        )
+    ]
+
+
+def zero_bindings(nodes):
+    return {
+        (entry["source"], entry["status"], entry["scope"], entry["kind"])
+        for node in nodes
+        for entry in decision_evidence(node)
+        if entry["source"] == "zero_check"
+    }
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_datum_hold_drops_recursive_provenance_but_keeps_every_failure(detail):
+    data, findings, provenance, independent = zero_hold_job()
+    compact_html = rendered(data, findings, detail=detail)
+    pedantic_html = rendered(data, findings, detail="pedantic")
+    compact, pedantic = Markup(compact_html), Markup(pedantic_html)
+    text = visible_text(compact_html)
+    assert provenance not in text
+    assert provenance in visible_text(pedantic_html)
+    # An independent failure in the same finding is printed whole, not summarised away.
+    assert " ".join(independent.split()[-8:]) in text
+    notices = zero_notices(compact)
+    # The datum's unknown settings join its one hold; every typed binding is retained.
+    assert len(notices) < len(zero_notices(pedantic))
+    assert zero_bindings(notices) == zero_bindings(zero_notices(pedantic))
+    (hold,) = [
+        node
+        for node in notices
+        if any(entry["scope"] == "S1" for entry in decision_evidence(node))
+    ]
+    assert hold["attrs"]["data-decision"] == "block"
+    assert {entry["scope"] for entry in decision_evidence(hold)} > {"S1"}
+
+
+def authored_rpm_job():
+    data = mill_job(setups=1)
+    reason = "Spindle limits, cutting data, tool or material are unresolved or unverified."
+    finding = Finding(
+        "speeds_feeds",
+        "S1:10",
+        "unknown",
+        {
+            "rpm_basis": "authored",
+            "rpm_status": "unknown",
+            "requested_rpm": 1250,
+            "rpm_reason": reason,
+        },
+        [],
+        f"Authored RPM request: {reason}",
+    )
+    return data, [*zero_recipe.evaluate(data), finding], reason
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_same_fact_rpm_box_prints_once_with_both_bindings(detail):
+    data, findings, reason = authored_rpm_job()
+    compact_html = rendered(data, findings, detail=detail)
+    assert visible_text(compact_html).count(reason) == 1
+    assert visible_text(rendered(data, findings, detail="pedantic")).count(reason) >= 2
+    (notice,) = [
+        node
+        for node in decision_nodes(Markup(compact_html))
+        if reason in content(node)
+        and any(entry["source"] == "speeds_feeds" for entry in decision_evidence(node))
+    ]
+    assert notice["attrs"]["data-decision"] == "block"
+    assert {
+        (entry["scope"], entry["kind"]) for entry in decision_evidence(notice)
+    } == {("S1:10", "block"), ("S1:10", "caution")}
+
+
+def repeated_procedure_job():
+    """Two runs of one authored procedure split by an op with its own note."""
+    data = mill_job(setups=1)
+    shared = "Brush on oil and stop exactly on the DRO number."
+    unique = "Stop and check the chips before the next position."
+    notes = [shared, shared, shared, unique, shared, shared]
+    data.plan["setups"][0]["ops"] = [
+        {
+            "op": 10 * (index + 1),
+            "do": "spot",
+            "feature": f"hole_{index + 1}",
+            "tool": "centre/1",
+            "note": note,
+        }
+        for index, note in enumerate(notes)
+    ]
+    return data, zero_recipe.evaluate(data), shared, unique
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_repeated_procedure_prints_once_per_consecutive_run(detail):
+    data, findings, shared, unique = repeated_procedure_job()
+    html = rendered(data, findings, detail=detail)
+    markup = Markup(html)
+    leads = markup.find("shared-procedure")
+    assert [[owner["op_id"] for owner in operation_owners(lead)] for lead in leads] == [
+        [10, 20, 30],
+        [50, 60],
+    ]
+    assert all(shared in content(lead) for lead in leads)
+    assert visible_text(html).count(shared) == 2
+    assert visible_text(html).count(unique) == 1
+    rows = {
+        json.loads(node["attrs"]["data-features"])[0]: node
+        for node in markup.find("route-operation")
+        if "shared-procedure" not in node["attrs"]["class"].split()
+    }
+    # Every op keeps its own row; the procedure precedes its first dependent op.
+    assert set(rows) == {f"hole_{n}" for n in range(1, 7)}
+    assert unique in content(rows["hole_4"])
+    assert not any(shared in content(rows[f"hole_{n}"]) for n in (1, 2, 3, 5, 6))
+    order = [id(node) for node in markup.nodes]
+    assert order.index(id(leads[0])) < order.index(id(rows["hole_1"]))
+    assert order.index(id(rows["hole_4"])) < order.index(id(leads[1]))
+    assert order.index(id(leads[1])) < order.index(id(rows["hole_5"]))
+    pedantic = rendered(data, findings, detail="pedantic")
+    assert not Markup(pedantic).find("shared-procedure")
+    assert visible_text(pedantic).count(shared) >= 5
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_compact_inspection_labels_range_only_consecutive_names_and_keep_records(detail):
+    data = bench_job()
+    features = ["rail_hole_1", "rail_hole_2", "rail_hole_3", "rail_hole_5", "bolt_hole"]
+    data.plan["setups"][0]["ops"] = [
+        {"op": 10, "do": "inspect", "feature": features, "checks": {"dia": "mic"}}
+    ]
+    data = replace(
+        data,
+        features={
+            **data.features,
+            "features": {
+                name: {"kind": "hole", "requirements": ["dia"], "dia": [3.45, 3.55]}
+                for name in features
+            },
+        },
+    )
+    markup = Markup(rendered(data, detail=detail))
+    text = " ".join(content(job_page(markup)).split())
+    # Gaps and differently named features keep their own labels at every level.
+    assert "rail hole 5" in text and "bolt hole" in text
+    assert ("rail hole 2" in text) is (detail == "pedantic")
+    records = markup.find("checkpoint-result")
+    if detail != "pedantic":
+        # One physical record still owns every feature identity.
+        (record,) = records
+        assert json.loads(record["attrs"]["data-features"]) == features

@@ -1068,6 +1068,70 @@ def _ops_label(ops, every=None):
     return ("op " if len(ordered) == 1 else "ops ") + ", ".join(ordered)
 
 
+def _numbered_names(names, separator=", "):
+    """Join names; three or more truly consecutive identities that differ only in one
+    integer (``rail hole 1`` … ``rail hole 7``) print as one range. Gaps, other names and
+    zero-padded numbers keep their own entries in order."""
+    entries, run = [], []
+
+    def flush():
+        if len(run) >= 3:
+            prefix, first, suffix, _ = run[0]
+            entries.append(f"{prefix}{first}–{run[-1][1]}{suffix}")
+        else:
+            entries.extend(name for *_, name in run)
+        run.clear()
+
+    for name in names:
+        match = re.fullmatch(r"(.*\D|)(\d+)(\D*)", str(name))
+        number = int(match[2]) if match and str(int(match[2])) == match[2] else None
+        if number is None:
+            flush()
+            entries.append(str(name))
+            continue
+        if run and (run[-1][0], run[-1][2], run[-1][1] + 1) != (match[1], match[3], number):
+            flush()
+        run.append((match[1], number, match[3], str(name)))
+    flush()
+    return separator.join(entries)
+
+
+def _authored_rpm_stop(numbers):
+    """The one operator STOP for an unresolved authored spindle-speed request."""
+    requested = numbers.get("requested_rpm")
+    speed = f"{_number(requested)} rpm requested" if _known(requested) else "requested RPM unknown"
+    return f"STOP: {speed}. {numbers.get('rpm_reason')}"
+
+
+# Compact zero_check projection: routine procedure sentences the datum block already
+# teaches, and the recursive face-provenance sentence the report keeps (rules.zero_recipe).
+_ZERO_ROUTINE = (
+    "Touch, Axis Set the compensated value, then jog without retouching and compare "
+    "expected versus mirrored readings.",
+    " Each tool change is touched off on the last touched or faced surface still standing.",
+)
+_ZERO_UNVERIFIED = " Measured setup/tool or trial-cut verification remains unknown."
+_ZERO_FACE_UNKNOWN = (
+    (
+        " A Z touch meets a face its op left at an unknown Z (",
+        "A Z touch meets a face its op left at an unknown height",
+    ),
+    (
+        " A Z touch cannot be certified on an unverified DRO grid (",
+        "A Z touch cannot be certified on an unverified DRO grid",
+    ),
+)
+_ZERO_FACE_TAIL = "): its Axis Set is not known."
+# Producer zero facts that restate an unknown Axis Set the zero_check hold already lists.
+_ZERO_SETTING = "zero-setting"
+# Authoring debts (rules._envelope ``authoring_entry``) as an operator-scoped clause; the
+# field paths and authoring instructions stay in report.json.
+_AUTHORING_WORDS = {
+    "z_geometry": "stock top and safe approach Z not declared",
+    "xy_geometry": "full cutter-centre X/Y path not declared",
+}
+
+
 class _Box(str):
     """A producer-owned adverse fact, not a STOP inferred from printed prose."""
 
@@ -3291,6 +3355,12 @@ class _Traveler:
                 require_measured=True,
             )
         return detail
+
+    def feature_names(self, features):
+        """Several features' names; compact levels print consecutive numbered names as
+        one range (:func:`_numbered_names`)."""
+        names = [self.feature_name(feature) for feature in features]
+        return ", ".join(names) if self.detail == "pedantic" else _numbered_names(names)
 
     def feature_name(self, key):
         if not isinstance(key, str) or key == "unknown":
@@ -6593,8 +6663,15 @@ class _Traveler:
         taught = getattr(self, "_dro_guides_seen", set())
         first_lesson = detail == "hobby" and guide_id not in taught
 
-        def unresolved(text, scope, status="unknown", source="zero_check"):
-            self.record_decision(setup, source=source, status=status, scope=scope, text=text)
+        def unresolved(text, scope, status="unknown", source="zero_check", notice_group=""):
+            self.record_decision(
+                setup,
+                source=source,
+                status=status,
+                scope=scope,
+                text=text,
+                notice_group=notice_group,
+            )
             compact_debts.append((scope, text))
 
         def mounted_lesson(record):
@@ -6961,7 +7038,11 @@ class _Traveler:
             setting = self.reading(readings["axis_set"])
             if setting == "?":
                 location = "midpoint" if opposed else "contact"
-                unresolved(f"{axis.upper()} {location} Axis Set is unknown.", scope)
+                unresolved(
+                    f"{axis.upper()} {location} Axis Set is unknown.",
+                    scope,
+                    notice_group=f"{_ZERO_SETTING}|{axis.upper()} {location} Axis Set|",
+                )
             elif opposed:
                 setting += " at actual midpoint"
             if not _known(jog):
@@ -6970,7 +7051,11 @@ class _Traveler:
                 readings["check_reading"] in (None, "unknown")
                 or readings["mirrored_reading"] in (None, "unknown")
             ):
-                unresolved(f"{axis.upper()} check-jog reading is unknown.", scope)
+                unresolved(
+                    f"{axis.upper()} check-jog reading is unknown.",
+                    scope,
+                    notice_group=f"{_ZERO_SETTING}|{axis.upper()} check-jog reading|",
+                )
             if (
                 _known(jog)
                 and jog > 0
@@ -7428,10 +7513,14 @@ class _Traveler:
                 for axis in ("x", "z"):
                     field = f"{axis}_axis_set"
                     if field in touch and self.reading(touch[field]) == "?":
+                        name = self.touched_tool(touch.get("tool"), tools, slot)
+                        before = touch.get("before_ops", touch.get("before_op"))
+                        before = _ops_label(before if isinstance(before, list) else [before])
                         unresolved(
-                            f"{self.touched_tool(touch.get('tool'), tools, slot)} "
-                            f"{axis.upper()} tool-touch setting is unknown.",
+                            f"{name} {axis.upper()} tool-touch setting is unknown.",
                             f"{setup['id']}:{kind}:{index}:{axis}:{touch.get('tool')}",
+                            notice_group=f"{_ZERO_SETTING}|{axis.upper()} tool-touch setting|"
+                            + " before ".join(filter(None, (name, before))),
                         )
         for gap in numbers.get("missing_touches", []):
             if gap.get("tool_setting_state") == "unsupported_spindle_saw":
@@ -8959,7 +9048,7 @@ class _Traveler:
             placed.add(key)
             name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
             if label_owners and not flat and owners:
-                name += " — " + ", ".join(self.feature_name(owner) for owner in owners)
+                name += " — " + self.feature_names(owners)
             item = self.note(name, method)
             if flat:
                 item.sketch = self.inspection_sketch(setup, op, requirement)
@@ -9258,7 +9347,7 @@ class _Traveler:
             ]
         if absent or requirement == "unknown" or not owners or not targets:
             if owners:
-                line = ", ".join(self.feature_name(feature) for feature in owners) + " — " + line
+                line = self.feature_names(owners) + " — " + line
             return [
                 _Criterion(
                     line,
@@ -9286,7 +9375,7 @@ class _Traveler:
                 for value in values
             )
             unit = criteria[group[0]][1]
-            text = ", ".join(self.feature_name(feature) for feature in group)
+            text = self.feature_names(group)
             shown_band = (
                 f"{band} {unit}"
                 if self.detail == "pedantic"
@@ -9308,7 +9397,11 @@ class _Traveler:
                 re.split(r"[-_\s]+", label.strip())[-1].casefold() == name.casefold()
                 for label in feature_labels
             )
-            heading = ", ".join(feature_labels) + ("" if repeated_dimension else " " + name)
+            heading = (
+                ", ".join(feature_labels)
+                if self.detail == "pedantic"
+                else _numbered_names(feature_labels)
+            ) + ("" if repeated_dimension else " " + name)
             rows.append(
                 _Inspection(
                     text,
@@ -9738,9 +9831,7 @@ class _Traveler:
                 else "requested RPM unknown"
             )
             if rpm_stop:
-                speed = blocked(
-                    f"STOP: {speed}. {numbers['rpm_reason']}", numbers.get("rpm_status", "unknown")
-                )
+                speed = blocked(_authored_rpm_stop(numbers), numbers.get("rpm_status", "unknown"))
         if slitting:
             feed = numbers.get("feed_mm_min")
             return (
@@ -10183,7 +10274,14 @@ class _Traveler:
                 kind, text = fact.kind, fact.text
                 boxes.append(
                     _Box(
-                        ("STOP: " if kind == "block" else "CAUTION: ") + text,
+                        (
+                            ""
+                            if text.startswith("STOP: ")
+                            else "STOP: "
+                            if kind == "block"
+                            else "CAUTION: "
+                        )
+                        + text,
                         source=fact.source,
                         status=fact.status,
                         kind=kind,
@@ -12499,17 +12597,133 @@ class _Traveler:
         return groups
 
     def finding_fact(self, finding):
+        rule, subject = _field(finding, "rule"), _field(finding, "subject", "")
+        message, text = _field(finding, "message", "?"), None
+        if self.detail != "pedantic":
+            text, message = self.compact_finding(finding)
         return _Decision(
             _field(finding, "rule", "finding"),
             _status(finding),
-            _field(finding, "subject", ""),
+            subject,
             finding_decision(finding, self.bundle),
-            self.plain_error(
-                _field(finding, "rule"),
-                _field(finding, "message", "?"),
-                _field(finding, "subject", ""),
-            ),
+            text if text is not None else self.plain_error(rule, message, subject),
         )
+
+    def compact_finding(self, finding):
+        """``(text, message)``: a compact level's operator wording for one finding. ``text``
+        is final when the finding restates a producer box (it groups with that box);
+        otherwise ``message`` still goes through :meth:`plain_error`. Status, scope and
+        decision never change, and report.json keeps the full sentence."""
+        rule, message = _field(finding, "rule"), str(_field(finding, "message", "?"))
+        numbers = _mapping(_field(finding, "numbers"))
+        if (
+            rule == "speeds_feeds"
+            and numbers.get("rpm_basis") == "authored"
+            and numbers.get("rpm_status") != "pass"
+            and message == f"Authored RPM request: {numbers.get('rpm_reason')}"
+        ):
+            return _authored_rpm_stop(numbers), message
+        if rule == "zero_check" and _status(finding) != "pass":
+            message = self.compact_zero_message(message)
+        return None, self.compact_authoring(message, numbers)
+
+    @staticmethod
+    def compact_zero_message(message):
+        """Drop the routine touch procedure and the recursive face provenance; every other
+        sentence (an independent failure) stays verbatim. :meth:`fold_zero_settings` adds
+        the unknown settings the datum block itself found."""
+        text = message
+        for routine in _ZERO_ROUTINE:
+            text = text.replace(routine, "", 1)
+        face = ""
+        for marker, summary in _ZERO_FACE_UNKNOWN:
+            start = text.find(marker)
+            if start < 0:
+                continue
+            depth, end = 0, None
+            for index in range(start + len(marker) - 1, len(text)):
+                depth += {"(": 1, ")": -1}.get(text[index], 0)
+                if depth == 0:
+                    end = index
+                    break
+            if end is not None and text.startswith(_ZERO_FACE_TAIL, end):
+                text = text[:start] + text[end + len(_ZERO_FACE_TAIL) :]
+                face = summary + "."
+        if face:
+            text = text.replace(_ZERO_UNVERIFIED, "", 1)
+        return " ".join(filter(None, (text.strip(), face))) or message
+
+    @staticmethod
+    def compact_authoring(message, numbers):
+        """Replace each plan-authoring debt the finding lists with its operation scope; the
+        field paths and authoring steps stay in report.json. Others print as they are."""
+        scoped = {}
+        for entry in numbers.get("measurements") or ():
+            entry = _mapping(entry)
+            instruction = entry.get("instruction")
+            debt = re.fullmatch(r"plan\.setups\.[^.]+\.ops\.([^.]+)\.(\w+)", str(entry.get("id")))
+            if (
+                isinstance(instruction, str)
+                and instruction.startswith("author: ")
+                and debt
+                and debt[2] in _AUTHORING_WORDS
+                and instruction in message
+            ):
+                message = message.replace(instruction, "\0")
+                scoped.setdefault(debt[2], []).append(debt[1])
+        if not scoped:
+            return message
+        message = re.sub(r";\s*\0", "", re.sub(r"\0;\s*", "", message)).replace("\0", "")
+        message = re.sub(r"\.\s*\.$", ".", message.strip()).rstrip(". ")
+        clauses = [f"{_ops_label(ops)}: {_AUTHORING_WORDS[kind]}" for kind, ops in scoped.items()]
+        return message + ". " + "; ".join(clauses) + "."
+
+    @staticmethod
+    def fold_zero_settings(groups, sid):
+        """One datum hold per setup: unknown Axis Set facts the datum block found join the
+        setup's adverse zero_check notice as a list, retaining every decision as evidence.
+        Without that notice (or with a weaker one) they keep their own boxes."""
+        lead = next(
+            (
+                group
+                for group in groups
+                if group[0].source == "zero_check"
+                and group[0].scope == sid
+                and group[0].kind != "none"
+                and not group[0].notice_group
+            ),
+            None,
+        )
+        folded = [
+            group
+            for group in groups
+            if lead is not None
+            and group is not lead
+            and all(
+                fact.notice_group.startswith(_ZERO_SETTING + "|")
+                and (fact.kind == lead[0].kind or lead[0].kind == "block")
+                for fact in group
+            )
+        ]
+        if not folded:
+            return groups
+        settings = {}
+        for group in folded:
+            _, setting, item = group[0].notice_group.split("|", 2)
+            settings.setdefault(setting, [])
+            if item:
+                settings[setting].append(item)
+        listed = "; ".join(
+            setting + (" for " + ", ".join(dict.fromkeys(items)) if items else "")
+            for setting, items in settings.items()
+        )
+        text = lead[0].text.rstrip(".") + ". Unknown: " + listed + "."
+        merged = [replace(lead[0], text=text), *lead[1:], *(f for g in folded for f in g)]
+        return [
+            merged if group is lead else group
+            for group in groups
+            if not any(group is other for other in folded)
+        ]
 
     def settings_key(self):
         """One job key for operative settings; manual tools stay at their operation."""
@@ -12948,8 +13162,47 @@ class _Traveler:
             "route-cycle",
         )
 
-    def route_operation(self, setup, row, *, layout="block", lead_in="", keep_together=False):
-        """Project one canonical row without duplicating its ledger and contour prose."""
+    def shared_procedure_runs(self, setup, rows):
+        """``{op id: run}`` for consecutive ops of one setup and workpiece that repeat one
+        authored procedure with the same action, tool and holder. Any other op between
+        them ends the run; ops owning inspections, readings, contours or saw cycles never
+        join one."""
+        ops = {op["op"]: op for op in setup.get("ops", [])}
+        contours = getattr(self, "_route_contours", {}).get(setup["id"], {})
+
+        def signature(row):
+            op = ops[row.op_id]
+            note = note_text(row.authored_note, detail=self.detail)
+            if (
+                not note
+                or note == UNKNOWN
+                or _FIELD.search(note)
+                or row[-1]
+                or str(row.op_id) in contours
+                or spindle_saw(self.bundle, setup, op)
+                or op.get("tool") in (None, "unknown")
+            ):
+                return None
+            return (row.workpiece, op.get("do"), op.get("tool"), op.get("holder"), note)
+
+        runs, run, previous = {}, [], None
+        for row in [*rows, None]:
+            key = signature(row) if row is not None else None
+            if key is not None and key == previous:
+                run.append(row)
+                continue
+            if len(run) > 1:
+                runs.update((member.op_id, tuple(run)) for member in run)
+            run, previous = ([row], key) if key is not None else ([], None)
+        return runs
+
+    def route_operation(
+        self, setup, row, *, layout="block", lead_in="", keep_together=False, shared=None
+    ):
+        """Project one canonical row without duplicating its ledger and contour prose.
+        ``shared`` is the row's run from :meth:`shared_procedure_runs`: its first row
+        prints the common tool and authored procedure once; every row keeps its own
+        number, feature, operative values and derived instructions."""
         op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
         authored = note_text(row.authored_note, detail=self.detail)
         authored = self.bench(authored, setup) if authored else ""
@@ -12968,10 +13221,12 @@ class _Traveler:
         parts = [
             canonical,
             row.instruction_before,
-            authored,
+            None if shared else authored,
             row.instruction_after,
         ]
-        action = " ".join(dict.fromkeys(part for part in parts if part)) or _text(op.get("do"))
+        action = " ".join(dict.fromkeys(part for part in parts if part)) or (
+            "" if shared else _text(op.get("do"))
+        )
         if len(row) == 5:
             consumable = row[2]
             tool = (
@@ -13044,7 +13299,7 @@ class _Traveler:
             )
             if label != feature_id or not action:
                 labels.append(label)
-        feature = "; ".join(labels)
+        feature = "; ".join(labels) if self.detail == "pedantic" else _numbered_names(labels, "; ")
         path_text, path_block = (
             getattr(self, "_route_contours", {}).get(setup["id"], {}).get(str(row.op_id), ("", ""))
         )
@@ -13068,7 +13323,23 @@ class _Traveler:
             )
         )
         tag = "span" if layout == "inline" else "p"
-        content = (
+        shared_lead = ""
+        if shared:
+            if row is shared[0]:
+                owners = [
+                    {"setup_id": setup["id"], "op_id": member.op_id, "workpiece": member.workpiece}
+                    for member in shared
+                ]
+                shared_lead = (
+                    f'<{tag} class="route-operation shared-procedure" '
+                    f'data-physical-ops="{escape(json.dumps(owners))}">'
+                    + f"<b>{escape(str(shared[0].op_id))}–{escape(str(shared[-1].op_id))}.</b> "
+                    + f"<strong>{escape(tool)}:</strong> "
+                    + _fields(authored)
+                    + f"</{tag}>"
+                )
+            tool = ""
+        content = shared_lead + (
             f'<{tag} class="route-operation{" keep" if keep_together else ""}" '
             f'data-features="{escape(json.dumps(feature_ids))}">'
             + lead_in
@@ -13346,6 +13617,7 @@ class _Traveler:
                     + escape(f"Spindle {turn}: {_SPINDLE_TURNS[turn]}.")
                     + "</p>",
                 )
+        runs = self.shared_procedure_runs(setup, rows) if self.detail != "pedantic" else {}
         for row in rows:
             op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
             records = tuple(check for check in row[-1] if isinstance(check, _Inspection))
@@ -13371,10 +13643,11 @@ class _Traveler:
                         ]
                     )
                 )
-                keep_together = inline and op.get("do") == "deburr"
-                layout = "inline" if inline and not keep_together else "block"
+                run = runs.get(row.op_id)
+                keep_together = inline and op.get("do") == "deburr" and not run
+                layout = "inline" if inline and not keep_together and not run else "block"
                 instruction = self.route_operation(
-                    setup, row, layout=layout, keep_together=keep_together
+                    setup, row, layout=layout, keep_together=keep_together, shared=run
                 )
                 comparison_instruction = instruction
                 for criterion in _inspection_criteria(row[-1]):
@@ -13601,8 +13874,22 @@ class _Traveler:
             for key, (_, entry) in self.measurement_registry().items()
             if key in self.setup_measurement_ids.get(sid, set())
         ]
+        # A compact level prints a measurement another setup notice already states once:
+        # the same text groups both decisions into one notice.
+        on_rows = {fact for row in rows for fact in row.decisions}
+        stated = (
+            {fact.text for fact in decisions if fact not in on_rows}
+            if self.detail != "pedantic"
+            else set()
+        )
         decisions.extend(
-            _Decision("measurement", "unknown", sid, "block", "Unverified decision input — " + line)
+            _Decision(
+                "measurement",
+                "unknown",
+                sid,
+                "block",
+                line if line in stated else "Unverified decision input — " + line,
+            )
             for line in self.measurement_lines(local, setup)
         )
         decisions = list(dict.fromkeys(decisions))
@@ -13610,9 +13897,10 @@ class _Traveler:
         self.setup_stops[sid] = sum(fact.kind == "block" for fact in decisions)
         displayed = {fact for row in rows for fact in row.decisions}
         pending = [decision for decision in decisions if decision not in displayed]
-        for index, group in enumerate(
-            _decision_groups(pending, combine_notices=self.detail != "pedantic")
-        ):
+        groups = _decision_groups(pending, combine_notices=self.detail != "pedantic")
+        if self.detail != "pedantic":
+            groups = self.fold_zero_settings(groups, sid)
+        for index, group in enumerate(groups):
             decision = group[0]
             if decision.kind != "none":
                 blocks.insert(

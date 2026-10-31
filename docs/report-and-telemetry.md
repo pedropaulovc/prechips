@@ -575,6 +575,16 @@ destinations and their member/location ownership. Equal limits do not authorize
 one result for separate workpieces. An explicitly authored shared check retains
 its declared covered members; compact presentation does not create one.
 
+Compact datum holds identify the unresolved setting and affected tools or
+operations once per setup; recursive geometry explanations remain in the report
+and pedantic output. Equivalent warnings share a box without losing their
+individual decision evidence. Recognized plan-authoring debts use operator-facing
+labels rather than input-field paths; other unresolved facts remain visible.
+Consecutive compatible operations may share an identical authored procedure,
+while retaining each operation's coordinates, limits and local holds. Different
+instructions or intervening operations break that sharing. Numbered feature
+labels may use a consecutive range, but separate inspection records stay separate.
+
 Each displayed criterion has an inline `.inspection-criterion` wrapper carrying
 the existing `data-inspection-ids` JSON subject list, independently of whether
 it owns a recording field. Unknown bands, manual contracts and authored missing
