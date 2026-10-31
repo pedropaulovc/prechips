@@ -5226,20 +5226,156 @@ def test_compact_refused_kernel_diagnosis_drops_only_when_the_setup_prints_its_f
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
-def test_compact_setup_prints_one_box_per_kind_with_every_notice(detail):
+def test_compact_setup_frames_notices_of_one_kind_together_with_their_own_metadata(detail):
     data = mill_job(setups=1)
     first = Finding("travel", "S1", "error", {}, [], "S1: X travel exceeds the table.")
     second = Finding("envelope", "S1", "error", {}, [], "S1: spindle envelope is exceeded.")
-    markup = Markup(rendered(data, [first, second], detail=detail))
-    (box,) = finding_nodes(markup, first)
-    assert finding_nodes(markup, second) == [box]
-    paragraphs = [node for node in markup.nodes if node["parent"] is box and node["tag"] == "p"]
-    # Each notice keeps its own paragraph inside the one box.
-    (travel,) = [node for node in paragraphs if "X travel" in content(node)]
-    (envelope,) = [node for node in paragraphs if "spindle envelope" in content(node)]
-    assert travel is not envelope
-    pedantic = Markup(rendered(data, [first, second], detail="pedantic"))
+    caution = Finding("envelope", "S1", "unknown", {}, [], "S1: spindle envelope is unread.")
+    findings = [first, second, caution]
+    markup = Markup(rendered(data, findings, detail=detail))
+    (travel,) = finding_nodes(markup, first)
+    (envelope,) = [node for node in finding_nodes(markup, second) if "exceeded" in content(node)]
+    (unread,) = [node for node in finding_nodes(markup, caution) if "unread" in content(node)]
+    # One frame per kind; each notice is still its own decision with its own evidence.
+    assert travel is not envelope and travel["parent"] is envelope["parent"]
+    assert "decision-box" in travel["parent"]["attrs"]["class"].split()
+    assert unread["attrs"]["data-decision"] != travel["attrs"]["data-decision"]
+    assert unread["parent"] is not travel["parent"]
+    assert {entry["source"] for entry in decision_evidence(travel)} == {"travel"}
+    pairs = {(entry["source"], entry["status"]) for entry in decision_evidence(envelope)}
+    assert pairs == {("envelope", "error")}
+    assert "X travel" in content(travel) and "spindle envelope" not in content(travel)
+    pedantic = Markup(rendered(data, findings, detail="pedantic"))
+    assert not pedantic.find("decision-box")
     assert finding_nodes(pedantic, first) != finding_nodes(pedantic, second)
+
+
+def hole_run_job():
+    """Six spot ops at their own X/Y; op 40 goes deeper than its neighbours."""
+    data = mill_job(setups=1)
+    data.plan["setups"][0]["ops"] = [
+        {"op": 10 * n, "do": "spot", "feature": f"hole_{n}", "tool": "centre/1"}
+        for n in range(1, 7)
+    ]
+    rows = [{"feature": f"hole_{n}", "dro_xy": [10.0 * n, 5.0]} for n in range(1, 7)]
+    findings = [Finding("coordinates", "S1", "pass", {"rows": rows}, [], "Hole fixture")]
+    for n in range(1, 7):
+        depth = 3.0 if n == 4 else 2.5
+        endpoint = {
+            "setup": "S1",
+            "op": 10 * n,
+            "dro_entry_z": 0.5,
+            "dro_tip_z": 0.5 - depth,
+            "tip_z": 0.5 - depth,
+            "depth_mm": depth,
+            "dro_depth_mm": depth,
+            "exit_face": "not_applicable",
+        }
+        findings.append(
+            Finding("blind_depth", f"hole_{n}", "pass", {"endpoints": [endpoint]}, [], "")
+        )
+    return data, findings
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_hole_run_prints_shared_depth_once_and_every_op_at_its_own_xy(detail):
+    data, findings = hole_run_job()
+    markup = Markup(rendered(data, findings, detail=detail))
+    leads = markup.find("shared-procedure")
+    # Op 40's own depth splits the runs; no op borrows another's depth.
+    assert [[owner["op_id"] for owner in operation_owners(lead)] for lead in leads] == [
+        [10, 20, 30],
+        [50, 60],
+    ]
+    # The fixture's plan is in inches: compare with the sheet's own readout of each value.
+    readout = _Traveler(data, findings, {}, None, detail=detail).readout
+    assert all(f"depth {readout(2.5)}" in content(lead) for lead in leads)
+    rows = {
+        json.loads(node["attrs"]["data-features"])[0]: node
+        for node in markup.find("route-operation")
+        if "shared-procedure" not in node["attrs"]["class"].split()
+    }
+    assert set(rows) == {f"hole_{n}" for n in range(1, 7)}
+    for n, row in ((n, rows[f"hole_{n}"]) for n in range(1, 7)):
+        # Every op keeps its own number, feature and X/Y.
+        assert f"{10 * n}." in content(row) and f"hole {n}" in content(row)
+        assert f"X{readout(10.0 * n)}/Y{readout(5.0)}" in content(row), content(row)
+        assert ("depth" in content(row)) is (n == 4)
+    assert f"depth {readout(3.0)}" in content(rows["hole_4"])
+    # After its lead and first op, a run's plain members flow as compact rows.
+    assert rows["hole_1"]["tag"] == "p" and rows["hole_5"]["tag"] == "p"
+    assert {rows[f"hole_{n}"]["tag"] for n in (2, 3, 6)} == {"span"}
+    assert not Markup(rendered(data, findings, detail="pedantic")).find("shared-procedure")
+
+
+def test_compact_not_computed_reads_only_the_fixed_rule_sentences():
+    envelope = "spindle envelope remains unmeasured or unresolved"
+    needs = "ops 20, 30: stock top Z not established"
+    assert _Traveler.not_computed("envelope", f"{envelope}. {needs}.") == (
+        "spindle envelope",
+        needs,
+    )
+    assert _Traveler.not_computed("envelope", f"{envelope}.") == ("spindle envelope", "")
+    assert _Traveler.not_computed("envelope", "spindle envelope is exceeded.") == ("", "")
+    assert _Traveler.not_computed("travel", f"{envelope}.") == ("", "")
+    clearance = "CLEARANCE rows for ops 10, 20 are not computed"
+    picture = "A stated fact cannot be compared: the setup picture's nearest cut cannot be "
+    assert _Traveler.not_computed("consistency", f"{picture}compared: {clearance}.") == (
+        f"picture nearest-cut check ({clearance})",
+        "",
+    )
+    assert _Traveler.not_computed("consistency", f"{picture}compared: x; {clearance}.") == (
+        "",
+        "",
+    )
+
+
+def test_compact_not_computed_checks_fold_once_and_keep_machine_checks_apart():
+    def fact(source, text, group, scope="S1", status="unknown"):
+        return _Decision(source, status, scope, "block", text, group)
+
+    needs = "ops 20, 30: stock top Z not established"
+    envelope = fact("envelope", "e", f"not-computed|spindle envelope|{needs}")
+    travel = fact("travel", "t", f"not-computed|X/Y travel|{needs}")
+    headroom = fact("headroom", "h", "not-computed|headroom and jaw path|")
+    check = fact("reach", "c", "machine-check|holding beside the cut", scope="S1:20")
+    error = fact("travel", "STOP: X travel exceeds the table.", "", status="error")
+    groups = [[check], [envelope], [error], [travel], [headroom]]
+    folded = _Traveler.fold_not_computed(groups, "S1")
+    assert folded[1] == [error]
+    merged = folded[0]
+    assert {(item.source, item.scope) for item in merged} == {
+        ("reach", "S1:20"),
+        ("envelope", "S1"),
+        ("travel", "S1"),
+        ("headroom", "S1"),
+    }
+    # One scoped list: each check once, each missing input once, machine checks apart.
+    assert merged[0].scope == "S1"
+    assert merged[0].text == (
+        f"Not computed: spindle envelope, X/Y travel, headroom and jaw path. Needs: {needs}. "
+        "Check at the machine: holding beside the cut."
+    )
+    assert len(folded) == 2 and len(merged) == 4
+
+
+@pytest.mark.parametrize("status", ["unknown", "error"])
+def test_compact_not_computed_tags_only_unknown_findings(status):
+    data = mill_job(setups=1)
+    finding = Finding(
+        "travel",
+        "S1",
+        status,
+        {},
+        [],
+        "S1: declared operation travel remains unmeasured or unresolved.",
+    )
+    fact = _Traveler(data, [finding], {}, None, detail="hobby").finding_fact(finding)
+    if status == "unknown":
+        assert fact.notice_group == "not-computed|X/Y travel|"
+        assert fact.text == "Not computed: X/Y travel."
+    else:
+        assert not fact.notice_group and "remains unmeasured" in fact.text
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)

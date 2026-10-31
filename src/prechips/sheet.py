@@ -1124,6 +1124,18 @@ _ZERO_FACE_UNKNOWN = (
 _ZERO_FACE_TAIL = "): its Axis Set is not known."
 # Producer zero facts that restate an unknown Axis Set the zero_check hold already lists.
 _ZERO_SETTING = "zero-setting"
+# Unknown checks that only say they are not computed, by their exact rule sentence, and
+# the producer facts that ask for a check at the machine: one scoped paragraph each setup.
+_NOT_COMPUTED = "not-computed"
+_MACHINE_CHECK = "machine-check"
+_NOT_COMPUTED_RULES = {
+    "envelope": ("spindle envelope remains unmeasured or unresolved", "spindle envelope"),
+    "travel": ("declared operation travel remains unmeasured or unresolved", "X/Y travel"),
+    "headroom": (
+        "headroom, travel or jaw-path geometry remains unmeasured or unresolved",
+        "headroom and jaw path",
+    ),
+}
 
 
 def _authoring_phrases(label):
@@ -1498,9 +1510,19 @@ def _decision_html(decision, related=(), *, setup_id=None, op_id=None, owners=()
     )
 
 
+# A merged box draws one frame round its notices; each notice keeps its own decision node.
+_DECISION_FRAMES = {
+    "stop": "border: var(--rule-warning) solid var(--color-ink); padding: var(--space-sm); "
+    "margin: var(--space-sm) 0; font-weight: bold; break-inside: avoid",
+    "caution": "border: var(--rule-thin) solid var(--color-ink); padding: var(--space-sm); "
+    "margin: var(--space-sm) 0; break-inside: avoid",
+}
+
+
 def _decision_box(groups, *, setup_id=None, op_id=None, owners=(), layout="block"):
-    """One notice for decision groups of one owner and kind: each group's text is its own
-    paragraph, an action label repeats no paragraph above it, and every fact is evidence."""
+    """One notice per decision group. Several groups of one owner and kind share one
+    framed box: each group stays its own decision node, with its own text, status, scope
+    and evidence, so no notice borrows another's metadata."""
     decision = groups[0][0]
     if decision.kind == "none":
         return ""
@@ -1520,28 +1542,33 @@ def _decision_box(groups, *, setup_id=None, op_id=None, owners=(), layout="block
             f' data-op="{escape(str(next(iter(op_ids)))) if len(op_ids) == 1 else ""}"'
             f' data-physical-ops="{escape(json.dumps(owners))}"'
         )
-    tag = "span" if layout == "inline" else "div"
-    texts, labels = [], set()
-    for group in groups:
-        text = _decision_text(group[0], group[1:])
-        label = re.match(r"(?:STOP|HOLD|CAUTION): ", text)
-        if label and label[0] in labels:
-            text = text[len(label[0]) :]
-        elif label:
-            labels.add(label[0])
-        texts.append(text)
-    facts = [fact for group in groups for fact in group]
-    return (
-        f'<{tag} class="decision {css}" data-decision="{decision.kind}" '
-        f'data-source="{escape(decision.source)}" data-status="{escape(decision.status)}" '
-        f'data-scope="{escape(decision.scope or "")}" '
-        f'data-decision-evidence="{_decision_evidence(facts)}"{owner}>'
-        + (
-            _numeric_html(texts[0])
-            if layout == "inline"
-            else "".join(_p(text) for text in dict.fromkeys(texts))
+
+    def notice(group, tag, body, style=""):
+        lead = group[0]
+        return (
+            f'<{tag} class="decision {"stop" if lead.kind == "block" else "caution"}" '
+            f'data-decision="{lead.kind}" '
+            f'data-source="{escape(lead.source)}" data-status="{escape(lead.status)}" '
+            f'data-scope="{escape(lead.scope or "")}" '
+            f'data-decision-evidence="{_decision_evidence(group)}"{owner}{style}>'
+            + body
+            + f"</{tag}>"
         )
-        + f"</{tag}>"
+
+    if len(groups) == 1:
+        text = _decision_text(decision, groups[0][1:])
+        if layout == "inline":
+            return notice(groups[0], "span", _numeric_html(text))
+        return notice(groups[0], "div", _p(text))
+    inner = ' style="border: 0; padding: 0; margin: var(--space-xs) 0"'
+    return (
+        f'<div class="decision-box" data-decision="{decision.kind}" '
+        f'style="{_DECISION_FRAMES[css]}"{owner}>'
+        + "".join(
+            notice(group, "p", _numeric_html(_decision_text(group[0], group[1:])), inner)
+            for group in groups
+        )
+        + "</div>"
     )
 
 
@@ -5454,13 +5481,14 @@ class _Traveler:
             # A saw cut-off has no spindle stack or table travel: nothing to print.
             return None
 
-        def decision(text, status="unknown", *, source="headroom", scope=None):
+        def decision(text, status="unknown", *, source="headroom", scope=None, check=""):
             self.record_decision(
                 setup,
                 source=source,
                 status=status,
                 scope=scope if scope is not None else setup["id"],
                 text=text,
+                notice_group=f"{_MACHINE_CHECK}|{check}" if check else "",
             )
             return text
 
@@ -5490,7 +5518,8 @@ class _Traveler:
         def fits(need, have, topic):
             if not (_known(need) and _known(have)):
                 result = "? not computed — check at the machine"
-                decision(f"{topic}: needs {o(need)} of {o(have)}: {result}.")
+                check = f"{topic}: needs {o(need)} of {o(have)}"
+                decision(f"{check}: {result}.", check=check)
                 return result
             if need > have:
                 decision(f"{topic}: needs {o(need)} of {o(have)}: DOES NOT FIT.", "error")
@@ -5529,7 +5558,10 @@ class _Traveler:
                     unknown.append(topic)
             if unknown:
                 lines.append(
-                    decision("? Not computed — check at the machine: " + "; ".join(unknown) + ".")
+                    decision(
+                        "? Not computed — check at the machine: " + "; ".join(unknown) + ".",
+                        check="; ".join(unknown),
+                    )
                 )
             quill = _mapping(setup.get("hold")).get("quill_extension_mm")
             if _known(quill):
@@ -5615,7 +5647,7 @@ class _Traveler:
         if any(not _known(s.get("margin_mm")) for s in numbers.get("stacks", [])):
             missing.append("tool stickout and headroom")
         if missing:
-            lines.append(decision(unknown + "; ".join(missing) + "."))
+            lines.append(decision(unknown + "; ".join(missing) + ".", check="; ".join(missing)))
         # A guided sweep moves its fixture under the spindle: each fit above holds at the
         # setup pose only, so the sweep's own debt prints beside them, never a bare pass.
         lines.extend(
@@ -5734,6 +5766,7 @@ class _Traveler:
                     source=what.source if isinstance(what, _Box) else "headroom",
                     status="unknown",
                     scope=scope,
+                    notice_group=f"{_MACHINE_CHECK}|{what}",
                 )
                 for value, what in candidates
                 if value is not None and not _known(value)
@@ -5839,7 +5872,14 @@ class _Traveler:
                     if status == "error"
                     else f"{what}: not computed — check at the machine"
                 )
-                self.record_decision(setup, source="reach", status=status, scope=scope, text=text)
+                self.record_decision(
+                    setup,
+                    source="reach",
+                    status=status,
+                    scope=scope,
+                    text=text,
+                    notice_group="" if status == "error" else f"{_MACHINE_CHECK}|{what}",
+                )
             candidates.append((value, what))
 
         _, tip = self.cut_span(setup, op)
@@ -12702,13 +12742,38 @@ class _Traveler:
         message, text = _field(finding, "message", "?"), None
         if self.detail != "pedantic":
             text, message = self.compact_finding(finding)
+        text = text if text is not None else self.plain_error(rule, message, subject)
+        notice_group = ""
+        if self.detail != "pedantic" and _status(finding) == "unknown":
+            label, needs = self.not_computed(rule, text)
+            if label:
+                notice_group = "|".join((_NOT_COMPUTED, label, needs))
+                text = f"Not computed: {label}" + (f". Needs: {needs}" if needs else "") + "."
         return _Decision(
             _field(finding, "rule", "finding"),
             _status(finding),
             subject,
             finding_decision(finding, self.bundle),
-            text if text is not None else self.plain_error(rule, message, subject),
+            text,
+            notice_group,
         )
+
+    @staticmethod
+    def not_computed(rule, text):
+        """``(label, needs)`` for an unknown finding that only says one fixed check is not
+        computed, from its exact rule sentence; ``needs`` is the rest of the printed
+        sentence (the inputs still to record), verbatim. Else ``("", "")``."""
+        if rule == "consistency":
+            match = re.fullmatch(
+                r"A stated fact cannot be compared: the setup picture's nearest cut cannot be "
+                r"compared: (CLEARANCE rows for ops [^:;]+ are not computed)\.",
+                text,
+            )
+            return (f"picture nearest-cut check ({match[1]})", "") if match else ("", "")
+        sentence, label = _NOT_COMPUTED_RULES.get(rule, ("", ""))
+        if not sentence or not (text == sentence + "." or text.startswith(sentence + ". ")):
+            return "", ""
+        return label, text[len(sentence) + 1 :].strip().rstrip(".")
 
     def compact_finding(self, finding):
         """``(text, message)``: a compact level's operator wording for one finding. ``text``
@@ -12882,6 +12947,56 @@ class _Traveler:
             for needs, ops in scoped.items()
         ]
         return message + ". " + "; ".join(clauses) + "."
+
+    @staticmethod
+    def fold_not_computed(groups, sid):
+        """One paragraph per setup for unknown checks that are only not computed: the
+        checks, the inputs still to record (each once, verbatim), then the checks to make
+        at the machine. Every decision stays evidence; any other notice is untouched."""
+        picked = [
+            group
+            for group in groups
+            if all(
+                fact.kind == "block"
+                and fact.status == "unknown"
+                and fact.notice_group.startswith((_NOT_COMPUTED + "|", _MACHINE_CHECK + "|"))
+                for fact in group
+            )
+        ]
+        if not picked:
+            return groups
+        labels, needs, checks = {}, {}, {}
+        for fact in (fact for group in picked for fact in group):
+            kind, _, rest = fact.notice_group.partition("|")
+            if kind == _NOT_COMPUTED:
+                label, _, need = rest.partition("|")
+                labels[label] = None
+                if need:
+                    needs[need] = None
+            else:
+                checks[rest] = None
+        sentences = []
+        if labels:
+            sentences.append(
+                "Not computed: "
+                + ", ".join(labels)
+                + (". Needs: " + "; ".join(needs) if needs else "")
+                + "."
+            )
+        if checks:
+            sentences.append("Check at the machine: " + "; ".join(checks) + ".")
+        facts = [fact for group in picked for fact in group]
+        lead = next((fact for fact in facts if fact.scope == sid), facts[0])
+        merged = [
+            replace(lead, text=" ".join(sentences), notice_group=""),
+            *(fact for fact in facts if fact is not lead),
+        ]
+        first = picked[0]
+        return [
+            merged if group is first else group
+            for group in groups
+            if group is first or not any(group is other for other in picked)
+        ]
 
     @staticmethod
     def fold_zero_settings(groups, sid):
@@ -13369,7 +13484,8 @@ class _Traveler:
 
     def shared_procedure_runs(self, setup, rows):
         """``{op id: run}`` for consecutive ops of one setup and workpiece that repeat one
-        authored procedure with the same action, tool, holder and adverse decisions. Any
+        procedure with the same action, tool, holder and adverse decisions: an authored
+        note, or hole ops at their own X/Y with identical Z, depth and endpoint parts. Any
         other op between them, or a STOP/caution one op has and another lacks, ends the
         run; ops owning inspections, readings, contours or saw cycles never join one."""
         ops = {op["op"]: op for op in setup.get("ops", [])}
@@ -13378,10 +13494,11 @@ class _Traveler:
         def signature(row):
             op = ops[row.op_id]
             note = note_text(row.authored_note, detail=self.detail)
+            positioned = None if note else self.positioned_tail(setup, row)
             if (
-                not note
+                not (note or positioned)
                 or note == UNKNOWN
-                or _FIELD.search(note)
+                or _FIELD.search(note or "")
                 or row[-1]
                 or str(row.op_id) in contours
                 or spindle_saw(self.bundle, setup, op)
@@ -13393,7 +13510,15 @@ class _Traveler:
                 for fact in row.decisions
                 if fact.kind != "none"
             )
-            return (row.workpiece, op.get("do"), op.get("tool"), op.get("holder"), note, holds)
+            return (
+                row.workpiece,
+                op.get("do"),
+                op.get("tool"),
+                op.get("holder"),
+                note,
+                holds,
+                positioned and positioned[1],
+            )
 
         runs, run, previous = {}, [], None
         for row in [*rows, None]:
@@ -13406,13 +13531,72 @@ class _Traveler:
             run, previous = ([row], key) if key is not None else ([], None)
         return runs
 
+    def route_target_parts(self, setup, op, row, *, cycle=False, path_owned=False):
+        """The operative target parts a route row prints after its action: its values
+        (a hole's X/Y first, then Z, depth or endpoint), cut direction and spindle sense."""
+        # The path owns its checked Z ladder; the target retains all other facts.
+        values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
+        depth_target = self.z_target(setup, op) if path_owned else None
+        parts = (
+            []
+            if cycle
+            else [
+                str(value)
+                for value in values
+                if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
+            ]
+        )
+        direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
+        if (
+            self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
+            and (setup["id"], row.op_id) in self._route_cut_direction
+            and direction == self.direction(op["direction"])
+        ):
+            direction = ""
+        if direction not in ("", "—", None, "not applicable") and not isinstance(direction, _Box):
+            parts.append(str(direction))
+        turn = getattr(row, "spindle_turn", None)
+        turns = {
+            getattr(other, "spindle_turn", None)
+            for other in self._rows_by_setup.get(setup["id"], ())
+            if getattr(other, "spindle_turn", None) in _SPINDLE_TURNS
+        }
+        if turn in _SPINDLE_TURNS and (
+            len(turns) > 1 or self.detail == "pro" and turn == "REVERSE"
+        ):
+            sense = "spindle " + turn
+            if self.detail == "hobby":
+                sense += ": " + _SPINDLE_TURNS[turn]
+            parts.append(sense)
+        return [part for part in parts if part]
+
+    def positioned_tail(self, setup, row):
+        """``(X/Y, rest)`` when a hole row's target starts with its one dialled X/Y, else
+        None; ``rest`` is the Z, depth, endpoint, direction and spindle parts."""
+        op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
+        xy = self.hole_xy(setup, op)
+        if len(row) == 5 or len(xy) != 1 or isinstance(xy[0], _Box):
+            return None
+        parts = self.route_target_parts(setup, op, row)
+        if not parts or parts[0] != xy[0]:
+            return None
+        return parts[0], tuple(parts[1:])
+
+    def shared_target_tail(self, setup, run):
+        """The Z/depth/endpoint parts every op of ``run`` shares after its own X/Y, or None
+        when any op has no single dialled X/Y or its parts differ."""
+        tails = {(self.positioned_tail(setup, member) or (None, None))[1] for member in run}
+        if len(tails) != 1 or None in tails:
+            return None
+        return next(iter(tails))
+
     def route_operation(
         self, setup, row, *, layout="block", lead_in="", keep_together=False, shared=None
     ):
         """Project one canonical row without duplicating its ledger and contour prose.
         ``shared`` is the row's run from :meth:`shared_procedure_runs`: its first row
-        prints the common tool and authored procedure once; every row keeps its own
-        number, feature, operative values and derived instructions."""
+        prints the common tool, action or authored procedure, and Z/depth/endpoint parts
+        once; every row keeps its own number, feature, X/Y and derived instructions."""
         op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
         authored = note_text(row.authored_note, detail=self.detail)
         authored = self.bench(authored, setup) if authored else ""
@@ -13421,6 +13605,7 @@ class _Traveler:
         self._route_cycles[(setup["id"], row.op_id)] = cycle_html
         contour_owned = str(row.op_id) in getattr(self, "_route_contours", {}).get(setup["id"], {})
         path_owned = contour_owned and self.z_levels(setup, op) is not None
+        shared_tail = self.shared_target_tail(setup, shared) if shared else None
         canonical = ", ".join(
             self.cut_depth_text(
                 self.cut_depths(setup, op, self.lathe(setup)),
@@ -13451,42 +13636,14 @@ class _Traveler:
             tool = (
                 self.route_tool_label(op["tool"]) if op.get("tool") not in (None, "unknown") else ""
             )
-            # The path owns its checked Z ladder; the target retains all other facts.
-            values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
-            depth_target = self.z_target(setup, op) if path_owned else None
-            target = (
-                ""
-                if cycle
-                else "; ".join(
-                    str(value)
-                    for value in values
-                    if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
-                )
+            target_parts = self.route_target_parts(
+                setup, op, row, cycle=cycle, path_owned=path_owned
             )
-            direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
-            if (
-                self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
-                and (setup["id"], row.op_id) in self._route_cut_direction
-                and direction == self.direction(op["direction"])
-            ):
-                direction = ""
-            if direction not in ("", "—", None, "not applicable") and not isinstance(
-                direction, _Box
-            ):
-                target = "; ".join(filter(None, (target, str(direction))))
-            turn = getattr(row, "spindle_turn", None)
-            turns = {
-                getattr(other, "spindle_turn", None)
-                for other in self._rows_by_setup.get(setup["id"], ())
-                if getattr(other, "spindle_turn", None) in _SPINDLE_TURNS
-            }
-            if turn in _SPINDLE_TURNS and (
-                len(turns) > 1 or self.detail == "pro" and turn == "REVERSE"
-            ):
-                sense = "spindle " + turn
-                if self.detail == "hobby":
-                    sense += ": " + _SPINDLE_TURNS[turn]
-                target = "; ".join(filter(None, (target, sense)))
+            if shared_tail is not None:
+                # The run's lead carries the common Z/depth/endpoint parts once; each op
+                # keeps its own X/Y.
+                target_parts = target_parts[:1]
+            target = "; ".join(target_parts)
         if (
             op.get("do") in HAND_THREAD
             and not _known(
@@ -13540,12 +13697,17 @@ class _Traveler:
                     {"setup_id": setup["id"], "op_id": member.op_id, "workpiece": member.workpiece}
                     for member in shared
                 ]
+                procedure = _fields(authored or _text(op.get("do")))
+                if shared_tail:
+                    procedure += ("; " if not authored else " ") + _numeric_html(
+                        "; ".join(shared_tail)
+                    )
                 shared_lead = (
                     f'<{tag} class="route-operation shared-procedure" '
                     f'data-physical-ops="{escape(json.dumps(owners))}">'
                     + f"<b>{escape(str(shared[0].op_id))}–{escape(str(shared[-1].op_id))}.</b> "
                     + f"<strong>{escape(tool)}:</strong> "
-                    + _fields(authored)
+                    + procedure
                     + f"</{tag}>"
                 )
             tool = ""
@@ -13842,15 +14004,17 @@ class _Traveler:
             if self.detail != "pedantic":
                 what = "guided sweep" if str(row.op_id) in self.sweep_ops else "contour table"
                 pointer = f"See {what} on Setup {_text(sid)} contour instructions"
+                # Warnings an inline op may hold: they print at their own owner, not here.
+                printed_elsewhere = all(
+                    isinstance(warning, (_Box, _OperationNote))
+                    or warning == pointer
+                    or warning in self._route_shared_warnings[sid]
+                    for warning in row.warnings
+                )
                 inline = (
                     not row[-1]
                     and op.get("do") in MANUAL
-                    and all(
-                        isinstance(warning, (_Box, _OperationNote))
-                        or warning == pointer
-                        or warning in self._route_shared_warnings[sid]
-                        for warning in row.warnings
-                    )
+                    and printed_elsewhere
                     and not any(fact.kind == "block" for fact in row.decisions)
                     and not self._route_contours.get(sid, {}).get(str(row.op_id), ("", ""))[1]
                     and not any(
@@ -13863,7 +14027,18 @@ class _Traveler:
                 )
                 run = runs.get(row.op_id)
                 keep_together = inline and op.get("do") == "deburr" and not run
-                layout = "inline" if inline and not keep_together and not run else "block"
+                # After its lead and first op, a run's plain members flow as compact rows.
+                compact_member = (
+                    run
+                    and row is not run[0]
+                    and printed_elsewhere
+                    and not any(_FIELD.search(fact.text) for fact in row.decisions)
+                )
+                layout = (
+                    "inline"
+                    if inline and not keep_together and not run or compact_member
+                    else "block"
+                )
                 instruction = self.route_operation(
                     setup, row, layout=layout, keep_together=keep_together, shared=run
                 )
@@ -14128,7 +14303,7 @@ class _Traveler:
         pending = [decision for decision in decisions if decision not in displayed]
         groups = _decision_groups(pending, combine_notices=self.detail != "pedantic")
         if self.detail != "pedantic":
-            groups = self.fold_zero_settings(groups, sid)
+            groups = self.fold_not_computed(self.fold_zero_settings(groups, sid), sid)
         # A compact setup prints one box per kind, each notice its own paragraph; a
         # route-grouped setup keeps one box per notice so members share what they share.
         merge = self.detail != "pedantic" and not grouped
