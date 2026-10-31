@@ -12957,7 +12957,8 @@ class _Traveler:
             group
             for group in groups
             if all(
-                fact.kind == "block"
+                fact.scope == sid
+                and fact.kind == "block"
                 and fact.status == "unknown"
                 and fact.notice_group.startswith((_NOT_COMPUTED + "|", _MACHINE_CHECK + "|"))
                 for fact in group
@@ -12984,6 +12985,8 @@ class _Traveler:
                 + "."
             )
         if checks:
+            if not labels:
+                sentences.append("Not computed.")
             sentences.append("Check at the machine: " + "; ".join(checks) + ".")
         facts = [fact for group in picked for fact in group]
         lead = next((fact for fact in facts if fact.scope == sid), facts[0])

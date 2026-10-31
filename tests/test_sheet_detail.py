@@ -5338,25 +5338,29 @@ def test_compact_not_computed_checks_fold_once_and_keep_machine_checks_apart():
     envelope = fact("envelope", "e", f"not-computed|spindle envelope|{needs}")
     travel = fact("travel", "t", f"not-computed|X/Y travel|{needs}")
     headroom = fact("headroom", "h", "not-computed|headroom and jaw path|")
-    check = fact("reach", "c", "machine-check|holding beside the cut", scope="S1:20")
+    check = fact("reach", "c", "machine-check|holding beside the cut")
+    local = fact("reach", "local", "machine-check|tool reach", scope="S1:20")
     error = fact("travel", "STOP: X travel exceeds the table.", "", status="error")
-    groups = [[check], [envelope], [error], [travel], [headroom]]
+    groups = [[local], [check], [envelope], [error], [travel], [headroom]]
     folded = _Traveler.fold_not_computed(groups, "S1")
-    assert folded[1] == [error]
-    merged = folded[0]
+    assert folded[0] == [local]
+    assert folded[2] == [error]
+    merged = folded[1]
     assert {(item.source, item.scope) for item in merged} == {
-        ("reach", "S1:20"),
+        ("reach", "S1"),
         ("envelope", "S1"),
         ("travel", "S1"),
         ("headroom", "S1"),
     }
-    # One scoped list: each check once, each missing input once, machine checks apart.
+    # Operation-specific debt stays local; setup checks share one scoped list.
     assert merged[0].scope == "S1"
     assert merged[0].text == (
         f"Not computed: spindle envelope, X/Y travel, headroom and jaw path. Needs: {needs}. "
         "Check at the machine: holding beside the cut."
     )
-    assert len(folded) == 2 and len(merged) == 4
+    assert len(folded) == 3 and len(merged) == 4
+    (only_check,) = _Traveler.fold_not_computed([[check]], "S1")
+    assert "Not computed" in only_check[0].text
 
 
 @pytest.mark.parametrize("status", ["unknown", "error"])
