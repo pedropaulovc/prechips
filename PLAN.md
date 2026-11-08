@@ -63,7 +63,7 @@ Geometry and machining validation blockers are tracked in
 [issue 150](https://github.com/pedropaulovc/prechips/issues/150).
 Physical paper/pen/operator and live-farm acceptance remain unobserved.
 
-The minimal held-plan interface adds explicit tailstock mounting, qualified
+The 0.3.0 minimal held-plan interface adds explicit tailstock mounting, qualified
 relative-coordinate inspection readings and source-bound shared-axis placement
 with native construction/proof gating. It does not qualify held producer plans,
 record measured results or replace immutable CAD. Relative-reading setup-sheet

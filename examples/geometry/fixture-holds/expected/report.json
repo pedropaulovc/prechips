@@ -6482,7 +6482,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "a719b0028ad42dab34289a817ef23ff5d4feaf49ac2113bb409ba9a36f22fe7d",
+  "hash": "9f6627e1edf118db1e0396153b76fc7ef1fd0fba3680ffceef70268dee7d6dbe",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -6533,7 +6533,7 @@
       "sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "renders": {
     "S1": {
       "fixture": "modeled",

@@ -57447,7 +57447,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "6a6e67fd9b275d3daf71ede5531d01285dc84b9d732a3007e97cd7bb57f85987",
+  "hash": "31300d7abab08bd9bad9b926fb533f1d03a55d2143f1aa4eb57612c28b1fc9e6",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57474,7 +57474,7 @@
       "sha256": "3c9d4fe47078a61ceda7c5b4e84f6cd5367e6303ba5d05cf3a75aa17a3dca90a"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "rules_version": "m5-rev12",
   "step_sha256": "3c9d4fe47078a61ceda7c5b4e84f6cd5367e6303ba5d05cf3a75aa17a3dca90a",
   "verification": "planned"

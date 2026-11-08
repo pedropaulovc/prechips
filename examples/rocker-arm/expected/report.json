@@ -65244,7 +65244,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "68f216d3b2c542a0e93547d1f97ede882109c9042714b75b085faa7015057fda",
+  "hash": "cf44ab6308b979c0536afd7a96db402d51bd1fda0f14ae5950743f3c2c704a2e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -65315,7 +65315,7 @@
       "sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "renders": {
     "P1": {
       "fixture": "modeled",

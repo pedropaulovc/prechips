@@ -125163,7 +125163,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "61ab52d998f51f269e08b47c7813f14d4a567c8d0a3f93b4aa0b46503c9277fd",
+  "hash": "cbbf20460457566d9073b2b65111a4c3d7ec382d3d208dfd38b8cf87e93f8e09",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
@@ -125274,7 +125274,7 @@
       "sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "purpose": "demonstration",
   "renders": {
     "B0": {

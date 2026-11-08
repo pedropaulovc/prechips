@@ -3408,7 +3408,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "f48bb41f293e6123c011185b78c0062d5ed3fbae67d2fc608da03af608de99cb",
+  "hash": "bc256c1e92fbfa83b38d5ba6542b54b294f73f308336c87a086a396e99c7e1cb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3447,7 +3447,7 @@
       "sha256": "cbcb933eb13cf48ffe8687036c7a805546f1589ee4199c7cd9ebfff47cff1fac"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "renders": {
     "S1": {
       "fixture": "modeled",
