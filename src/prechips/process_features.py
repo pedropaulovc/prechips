@@ -184,7 +184,9 @@ def feature_definitions(plan: dict, definitions: dict, units: str = UNKNOWN) -> 
 def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     """A process end face's footprint on the stock ``setup`` receives: its root-stock
     ``bounds`` trimmed by each process end face an earlier setup of that stock lineage
-    faced on a model-axis plane. Faces it cannot place leave the larger, root footprint."""
+    faced on a model-axis plane. A bounded preparation must cover its complete stock
+    section, alone or in a coplanar union, before it trims another plane globally.
+    Faces it cannot place leave the larger, root footprint."""
     from prechips.rules.resolution import op_feature
 
     bounds, own = definition.get("bounds"), process_of(definition)
@@ -215,6 +217,14 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
             ):
                 continue
             axis, at = made["axis"], made["at"]
+            if "stock_removal_bounds" in op:
+                from prechips.rules.tip_endpoints import process_face_union
+
+                # One window leaves the rest of this plane untouched. Trim globally
+                # only when surviving coplanar cuts really cover the complete section.
+                coverage, _ = process_face_union(bundle, other, made, arriving=False)
+                if coverage != "whole":
+                    continue
             vectors = (axis, at)
             if op.get("do") not in ACTIONS["end_face"] or not all(
                 isinstance(v, list) and len(v) == 3 and all(map(_number, v)) for v in vectors

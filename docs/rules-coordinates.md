@@ -419,6 +419,15 @@ unknown or inconsistent linked join leaves the top table unknown. The lower
 outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
 
+An explicit `op.faces` proper subset does not inherit the whole feature's linked
+straight joins. Its source analytic circle supplies a candidate arc only; the
+native kernel must associate every selected face with that circle and its complete
+finite sector before the coordinates rule publishes the table. Planar or mixed
+straight/circular selections are not circular subsets, and missing native association
+remains unknown. Face labels and list positions never identify surface types.
+Selecting the complete feature keeps all joins. Unselected faces remain subject to
+ordinary cutting and finishing coverage; this does not remove them from the manifest.
+
 ### Manual arc methods
 
 The mill is manual: one handwheel moves at a time. No printed move turns two
@@ -1056,10 +1065,10 @@ levels do not duplicate the final-depth checkpoint identities or the drawn
 outline, and an unresolved final tip or any unresolved cutting path keeps
 the complete native checkpoint request unknown.
 
-#### Authored ball-end rows and explicit transitions
+#### Authored raster rows and explicit transitions
 
-`manual_ball_raster` is separate from the generated `linear_table` raster
-above. Its [trajectory input](plan.md#authored-manual-ball-end-raster) supplies
+`manual_raster` is separate from the generated `linear_table` raster
+above. Its [trajectory input](plan.md#authored-manual-raster) supplies
 every setup-frame millimetre tool-tip endpoint and clear/cut mode. Normalized
 operation values retain that cycle under `operations[i].manual_raster`.
 No common final Z, axial pass schedule, inferred plunge, rounded replacement
@@ -1071,8 +1080,8 @@ clear versus cutting motion. Travel and envelope bounds include all those
 moves, not only the cutting rows. A malformed trajectory or unknown endpoint
 has no usable path and remains a hold. A stated safe height is a constraint,
 not proof of stock or fixture clearance; the native sequential swept-tool
-checks establish the bounded geometric result. A ball-end force model is not
-inferred from a flat-end cylindrical engagement calculation.
+checks establish the bounded geometric result. Tool shape alone does not
+prove per-move DOC/WOC or cutting force for either supported cutter profile.
 
 #### Safe-side raster and outline rounding
 
@@ -2025,6 +2034,19 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+A lathe tailstock touch also sets Z only: `x_axis_set` and `x_face_status`
+are `not_applicable`, with `tool_setting_state = "tailstock_axis"`. This
+requires every cutting operation using that tool to declare
+`tool_mount = "tailstock"`, use an axial role (`spot`, `drill`, `ream`,
+`tap`, `center`, or `center_drill`), and select a known, unflagged holder
+whose taper matches the declared tailstock quill. Each feature's known mouth
+and axis must transform onto the setup spindle axis and −Z feed, with its
+mouth at the touched Z. Tool names, role names, or compatible tapers alone
+do not prove the mount: unknown, toolpost, turret and off-axis cases retain
+the radial X requirement. The quill touch does not replace either carriage
+Axis Set. Its Z contact surface, edge and paper still need proof, and a
+turning/facing tool in the same setup still needs its own radial X touch.
 
 #### Lathe X touch surfaces
 

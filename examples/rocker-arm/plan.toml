@@ -11,6 +11,8 @@
 # plugs, safe approaches, touch sides and typed roughing press clamps with scrap release.
 # P1/P1E/P2/P2E use conventional mechanical restraint and complete both full blank faces
 # before P3; no adhesive capacity or physical machining/inspection result is asserted.
+# Edge-tip scrap uses removable positively fastened seats and typed press clamps,
+# released spindle-stopped before tapering; H1 runout is sacrificial, not a fit revision.
 # Shared physical-input examples use by="example value (realistic, not a shop measurement)"
 # and instrument="example fixture (no physical measurement)"; they are NOT real results.
 # A guided trammel sweep cannot pass travel/headroom in the current model (docs/plan.md
@@ -295,6 +297,17 @@ edge_mm = 2.0
 check_jog_mm = 2.0
 retouch_after = [20, 30, 50]
 
+[[setups.zero.tool_touches]]
+tool = "parting-blade-lms-1728"
+holder = "qctp-axa-lms-2280/7-parting"
+before_ops = [70]
+z_face = "hub_supply_front"
+method = "paper"
+paper_mm = 0.05
+edge_mm = 0.0
+corner = "tailstock_side"
+check_jog_mm = 2.0
+
 [[setups.ops]]
 op = 10
 do = "face"
@@ -314,13 +327,14 @@ feature = "hub_land"
 tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
-z_to = -8.5
+z_to = -9.10
 to_dia = 10.4
 rough_allowance_mm = 0.21206
 doc_mm = 0.4
 feed_mm_rev = 0.08
 direction = "toward_chuck"
-note = "Turn full supply length, not merely the strap engagement. No finished OD may remain raw."
+note = "Turn the full retained 8.50 mm supply, not merely strap engagement. DEMONSTRATION process runout: selected R0.40 mm example nose plus 0.20 mm cleanup margin extends the commanded window to Z-9.10; full cylinder reaches Z-8.70 and terminal blend occupies Z-9.10..-8.70 wholly in sacrificial chuck-side waste. Parting remains Z-8.50; hub_land band and 8.50 mm depth are unchanged. Actual tool nose, stock allowance and endpoint/chuck clearance require qualification; no native clearance result is asserted."
+note_cite = ["AUTHOR'S CHOICE: illustrative full-land process runout from R0.40 example tool nose plus 0.20 mm cleanup; not a shop observation", "inventory.tools.hss-toolbit-3-8-rh"]
 
 [[setups.ops]]
 op = 30
@@ -329,14 +343,15 @@ feature = "hub_land"
 tool = "hss-toolbit-3-8-rh"
 holder = "qctp-axa-lms-2280/1-turning-facing"
 z_from = 0.0
-z_to = -8.5
+z_to = -9.10
 to_dia = 10.18794
 doc_mm = 0.10603
 feed_mm_rev = 0.04
 direction = "toward_chuck"
 checks = { "dia" = "outside-micrometer-0-25mm" }
 inspection_methods = { "dia" = "DEMONSTRATION: calibrated 0.001 mm outside micrometer, masters bracketing 10.188 mm, expanded uncertainty<=0.003 mm. Clean/cool land; read both ends/middle in two directions, guard-band every result inside 10.18286–10.19302. Actual readings not recorded." }
-note = "Finish supply press land .4009-.4013 in. Preserve it through all later handling; no compound or brazing substitute."
+note = "Finish retained 8.50 mm supply press land .4009-.4013 in without dimension reinterpretation. DEMONSTRATION R0.40 mm nose plus 0.20 mm cleanup margin gives command Z-9.10, full cylinder through Z-8.70, terminal blend Z-9.10..-8.70 entirely beyond the unchanged Z-8.50 part-off in sacrificial chuck-side waste. Preserve the land through later handling; no compound/brazing substitute. Real nose qualification and native endpoint/chuck clearance remain HOLD, not assumed from this authored window."
+note_cite = ["AUTHOR'S CHOICE: illustrative full-land process runout from R0.40 example tool nose plus 0.20 mm cleanup; not a shop observation", "inventory.tools.hss-toolbit-3-8-rh"]
 
 [[setups.ops]]
 op = 40
@@ -1159,10 +1174,11 @@ support = "not_applicable"
 fixed_jaw = "not_applicable"
 grip_mm = "not_applicable"
 stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
-clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+clamp = "Two separately declared central press clamps remain over supported strap; the positive-X lower-rail offcut has its own removable seat and press clamp throughout the tip cut."
+clamps = [{ ref = "rocker-edge-central-clamp", pose = { origin_mm = [-21.918356506945194, -224.99990235363978, 0.0], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-central-clamp", pose = { origin_mm = [7.129656667353323, -67.65883037742064, 0.0], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-scrap-clamp", pose = { origin_mm = [27.591681620766902, -25.67602991335106, 0.0], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.2 }]
 pose = { origin_mm = [-5.427586520093197, -146.69246653020895, -2.4892], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }
-supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [-5.427586520093197, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
-note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [-5.427586520093197, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }, { placement = "posed", id = "positive-tip-scrap-seat", ref = "rocker-edge-scrap-seat", pose = { origin_mm = [27.591681620766902, -25.67602991335106, -2.4892], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION removable lower-rail scrap seat at cradle local [125,-10.5,0]. Its 8x25 mm shoe nests in the actual 3 mm deep primary pocket, local Z-7..-4; the modeled M4 shaft passes through the shoe and engages 8 mm of base. Verify positive fastening and seated support before tightening the scrap toe. Remove this entire seat and clamp after the stopped release; no later taper clearance is asserted with the kit installed." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotate cradle, clamps and scrap kit together; re-indicate every rehold. The scrap clamp's own M4 screw passes through the shoe's dia 4.5 clearance at kit local [0,-13.5] and engages 8 mm of tapped primary base below the pocket floor; tighten gradually to the declared 0.2 Nm. The heel seats the shoe while the toe presses scrap onto its 4x2 mm pad; no separate anchor bolt or CL/CR waste restraint is assumed."
 
 [setups.stock_state]
 top_z = 0.0
@@ -1209,6 +1225,13 @@ stock_removal_bounds = { x = [-4.48, 38.545], y = [0.0, 30.065], z = [-2.4892, 0
 contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
 note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..5.587999999999997. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
 
+[[setups.ops]]
+op = 20
+do = "release"
+feature = "strap_datum_b"
+keep = "strap_datum_b"
+note = "Stop and isolate the spindle before loosening only the positive-tip scrap clamp. Retain the piece carrying the complete exported strap datum B; remove the separated lower-rail offcut, its clamp and its removable seat. Keep both central clamps engaged until the supported rehold for the opposite tip. Never carry an unsupported scrap clamp or seat into a later taper cut."
+
 # DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
 [frames.TIP_NEG]
 origin = [-146.25456773160636, 23.799503180135, 1.2446]
@@ -1234,10 +1257,11 @@ support = "not_applicable"
 fixed_jaw = "not_applicable"
 grip_mm = "not_applicable"
 stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
-clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+clamp = "Two separately declared central press clamps remain over supported strap; only the negative-X lower-rail offcut seat and clamp are installed for this tip cut. The previous positive-tip kit is removed."
+clamps = [{ ref = "rocker-edge-central-clamp", pose = { origin_mm = [-1.5416566673533252, -67.65883037742064, 0.0], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-central-clamp", pose = { origin_mm = [27.506356506945192, -224.99990235363978, 0.0], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-scrap-clamp", pose = { origin_mm = [-22.003681620766905, -25.67602991335106, 0.0], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.2 }]
 pose = { origin_mm = [11.015586520093194, -146.69246653020895, -2.4892], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }
-supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [11.015586520093194, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
-note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [11.015586520093194, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }, { placement = "posed", id = "negative-tip-scrap-seat", ref = "rocker-edge-scrap-seat", pose = { origin_mm = [-22.003681620766905, -25.67602991335106, -2.4892], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION removable lower-rail scrap seat at cradle local [-125,-10.5,0]. Its 8x25 mm shoe nests in the actual 3 mm deep primary pocket, local Z-7..-4; the modeled M4 shaft passes through the shoe and engages 8 mm of base. Verify positive fastening and seated support before tightening the scrap toe. Remove this entire seat and clamp after the stopped release; no later taper clearance is asserted with the kit installed." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotate cradle, clamps and scrap kit together; re-indicate every rehold. The scrap clamp's own M4 screw passes through the shoe's dia 4.5 clearance at kit local [0,-13.5] and engages 8 mm of tapped primary base below the pocket floor; tighten gradually to the declared 0.2 Nm. The heel seats the shoe while the toe presses scrap onto its 4x2 mm pad; no separate anchor bolt or CL/CR waste restraint is assumed."
 
 [setups.stock_state]
 top_z = 0.0
@@ -1284,6 +1308,13 @@ stock_removal_bounds = { x = [-32.955, 10.07], y = [0.0, 30.065], z = [-2.4892, 
 contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
 note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..5.587999999999997. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
 
+[[setups.ops]]
+op = 20
+do = "release"
+feature = "strap_datum_b"
+keep = "strap_datum_b"
+note = "Stop and isolate the spindle before releasing only the negative-tip scrap clamp. Retain the piece carrying the complete exported strap datum B; remove the separated lower-rail offcut, its clamp and its removable seat. Keep central restraint until the supported taper rehold. Both tip scrap kits must be absent before any taper cut."
+
 # DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
 [frames.TAPER_POS]
 origin = [146.25456773160636, 23.799503180135, 1.2446]
@@ -1309,7 +1340,8 @@ support = "not_applicable"
 fixed_jaw = "not_applicable"
 grip_mm = "not_applicable"
 stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
-clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+clamp = "Two separately declared central press clamps over supported finished strap; both tip scrap kits were removed after spindle-isolated releases. Do not reinstall those seats beneath the taper sweep."
+clamps = [{ ref = "rocker-edge-central-clamp", pose = { origin_mm = [172.94163684577734, -146.53581798501645, 0.0], x = [-0.7221796477384735, 0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-central-clamp", pose = { origin_mm = [57.39289320762156, -35.8629313160416, 0.0], x = [-0.7221796477384735, 0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
 pose = { origin_mm = [116.55067611006163, -89.75501535505208, -2.4892], x = [-0.7221796477384735, 0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }
 supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [116.55067611006163, -89.75501535505208, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
 note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
@@ -1384,7 +1416,8 @@ support = "not_applicable"
 fixed_jaw = "not_applicable"
 grip_mm = "not_applicable"
 stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
-clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+clamp = "Two separately declared central press clamps over supported finished strap; both tip scrap kits remain removed. No unsupported scrap clamp or lower-rail seat is carried through this taper cut."
+clamps = [{ ref = "rocker-edge-central-clamp", pose = { origin_mm = [-38.70320523731581, -35.86293131604159, 0.0], x = [-0.7221796477384735, -0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-edge-central-clamp", pose = { origin_mm = [-154.25194887547158, -146.53581798501642, 0.0], x = [-0.7221796477384735, -0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
 pose = { origin_mm = [-97.86098813975588, -89.75501535505207, -2.4892], x = [-0.7221796477384735, -0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }
 supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [-97.86098813975588, -89.75501535505207, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
 note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."

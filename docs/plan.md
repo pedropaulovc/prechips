@@ -1807,6 +1807,14 @@ Entries in `zero.tool_touches` declare the surfaces and offsets used to set
 tools before their listed operations. They do not supply a measured diameter
 unless the procedure explicitly obtains one.
 
+For a lathe quill tool, declare `tool_mount = "tailstock"` on its operations.
+`tool_mount` accepts `"tailstock"`, `"toolpost"`, `"turret"`, or `"unknown"`;
+omitting it does not establish a mounting. Only a declared tailstock mount
+with a known matching holder/quill taper, an axial operation role, and a
+feature on the setup spindle axis feeding in −Z can omit the tool touch's
+radial X fields. Its Z contact, edge and paper remain required. This declares
+the planned mounting; it is not evidence of physical commissioning.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
@@ -2292,43 +2300,47 @@ known removal. See [Manual arcs](#manual-arcs).
 
 ### Rotary approach and claim windows
 
-`approach = "rotary"` mills on a horizontal dividing head: each sample of the
-claimed faces' windowed portions is turned about the head axis to top dead
-centre under the vertical spindle
-(see [Approach models](rules-geometry.md#approach-models)). For such an op
-`z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from the
-pose origin, and `angle_window_deg = [from, to]` is the head rotation in
+`approach = "rotary"` supplies diagnostic target poses on a horizontal
+dividing head, not an executed cutting path. Claimed surface samples are
+presented at top dead centre under the vertical spindle
+(see [Approach models](rules-geometry.md#approach-models)).
+`z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from
+the pose origin, and `angle_window_deg = [from, to]` is head rotation in
 degrees, right-handed about that axis (from < to; a span of 360 or more is
-unbounded). Together they are a partial-face claim window: the op samples and
-removes only the part of each claimed face inside it, and points outside are
-excluded, not claim errors. A window holding no positive-area part of a
-claimed face makes that face a claim error. Claims must be supported external
-surfaces of revolution about the head axis (coaxial cylinders or planar
-annuli normal to it). The setup's `hold.index` declares
-`rotation = "continuous"` without `positions` or `angle_deg`, and its
-`hold.pose`, `hold.chuck` and inventory solids establish the head/chuck
-geometry, not an inferred fixture.
+unbounded). The source polar angle has the opposite sign. These geometric
+angles do not establish actual dial readings. Bounds clip sample targets,
+not cutter solids: a tool extending outside the window can still collide.
+A window holding no positive-area part of a claimed face is a claim error.
+Supported claims are coaxial external cylinders or planar annuli normal to
+the head axis. The setup's `hold.pose`, `hold.chuck` and inventory solids
+establish fixture geometry; they are not inferred.
 
-A face claimed through rotary windows is covered only when the exact union of
-every rotary op's window portion of it covers the whole face: several ops,
-cutters and setups may contribute (for example a larger cutter on the body
-and a smaller one into a shoulder), and `finish_coverage` unions only the
-finishing ops' portions. An uncovered remainder is a `coverage` /
-`finish_coverage` error naming its area and spans; an undecided union stays
-unknown. A whole-face non-rotary claim, or `stock.as_is_faces` for
-`coverage` only, covers the face regardless. See
+For a controlled cylindrical target, `to_dia` must be positive and finite in
+feature units. On `rough_*` actions, `rough_allowance_mm` is radial leave in
+machine millimetres, added to the source cylinder radius; if both are
+authored, the resulting radii must agree. A compatible intermediate diameter
+shifts diagnostic poses radially from the claimed source cylinder. Conflicting,
+undersize, nonfinite, noncoaxial or noncylindrical controlled targets are
+refused without changing the source or producing diagnostic measurements.
+On finishing actions, `rough_allowance_mm` instead describes incoming leave
+to remove, not a target offset.
+
+Sampled rotary poses prove neither executed cuts nor finished attainment.
+Native rotary stock removal and coverage remain unknown for valid nonempty
+claims, even when windows together span a whole face; only finishing rotary
+claims enter the finishing unknowns. Empty/away claims add no such unknown.
+A whole-face non-rotary claim, or `stock.as_is_faces` for `coverage` only,
+may independently establish coverage. See
 [`coverage`](rules-geometry.md#coverage).
 
-Own-removal combines each claimed cylinder's radial sweep with the actual
-vertical cutter columns at concave wall-tangent sample poses. Each volume is
-clipped to the axial/angular window, the finished solid is subtracted, and the
-volumes are cut from the stock one by one in order, never fused: finished
-bosses/pads and material outside that derivable allowance remain obstacles.
-The flute meets the stock left after this removal; an underivable removal
-credits none of it. Accessibility holder obstacles retain setup-entry stock;
-reach, holder-wall and shank screens meet the stock earlier ops leave. This is
-one top-dead-centre pose per sample,
-not a continuous toolpath or proof of clearance while rotating between poses.
+Diagnostic collision checks retain before-op stock and protected geometry as
+obstacles; no radial fan or wall-column removal is inferred. Stock after the
+rotary stage is unknown, so later operations cannot claim proven residual
+leave from it. Sampling establishes no radial layers, axial stations, indexed
+or continuous motion, clearance between poses, or head torque/locking.
+The schema's `hold.index` declaration `rotation = "continuous"` (without
+`positions` or `angle_deg`) is not physical authorization to rotate the head
+under cut, nor an instruction to hand-crank it.
 
 ### Depth of cut and approach distance
 
@@ -2483,14 +2495,14 @@ requirements.
 
 ## Contour
 
-`contour` declares a linear raster, an authored ball-end raster, or one supported manual-arc method.
+`contour` declares a generated linear raster, an authored manual raster, or one supported manual-arc method.
 Linear pockets and faces may use `sweep_bounds`, `sweep_frame`, `open_side`
 and circular `keep_out` islands; a generated linear raster also needs `step_mm`.
 See [coordinates](rules-coordinates.md).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str`: `linear_table`, `manual_ball_raster`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
+| `method` | `str`: `linear_table`, `manual_raster`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
 | `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing; `guided_sweep` under 180) |
@@ -2505,7 +2517,7 @@ See [coordinates](rules-coordinates.md).
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 | `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
-| `raster` | `ManualRaster` (`manual_ball_raster`: explicit setup-frame tool-tip trajectory) |
+| `raster` | `ManualRaster` (`manual_raster`: explicit setup-frame tool-tip trajectory) |
 
 A profile action with explicit `contour.sweep_bounds` and no
 `stock_removal_bounds` removes only its complete native-validated printed
@@ -2517,9 +2529,10 @@ Missing or unsupported guided paths stay unknown. An authored
 volume; it is not merely a clipping fence around the guide. See
 [explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
 
-### Authored manual ball-end raster
+### Authored manual raster
 
-`method = "manual_ball_raster"` consumes a finite authored trajectory. It does
+`method = "manual_raster"` consumes a finite authored trajectory for
+`profile`, `rough_profile`, or `finish_profile` operations. It does
 not calculate a toolpath from CAD, fill a selected face, or authorize
 simultaneous two-axis milling. `contour.raster` contains:
 
@@ -2537,20 +2550,43 @@ intermediate point, feed direction, or cut level is supplied by the checker.
 Coordinates retain their stated millimetre units even in an inch-based plan.
 The operation table and diagram use the same normalized values as native proof.
 
-The tool must be an inventory `ball_endmill` with measured cutting diameter,
-flute length, shank diameter, projection and holder dimensions. A missing
-measurement leaves proof unknown; an end mill is not silently treated as a
-ballnose, nor is an unmeasured relieved neck assumed. The native sweep includes
-the hemispherical cutting tip, flute, shank and holder throughout every move.
+The tool has a registered supported kind and qualified tip geometry: a
+`ball_endmill` has nose radius equal to half its cutting diameter; an `endmill`
+has a rounded-flat tip with a positive corner radius smaller than half that
+diameter. Both require known cutting diameter, nose/corner radius, flute length,
+shank diameter, projection and holder dimensions. Missing or contradictory
+geometry remains unknown; neither a bare tool kind nor an idealized zero-radius
+corner silently supplies physical proof. A nominally square-end tool's actual
+edge hone is not a mathematical-zero measurement. No unmeasured relieved neck
+is assumed. A separate qualified `body_envelope_dia_mm` must bound every
+noncutting body, neck and transition from flute end to tool back. The resulting
+enclosing cylinder is conservative, not an exact neck model; it must be at
+least as large as both the cutter and shank diameters. A local shank diameter
+does not establish this whole-region bound. Missing or unverified bounds
+leave clearance unknown even when a guessed cylinder would not intersect.
+An envelope-only overlap stays unknown rather than a certain physical collision.
+The native sweep includes the stated rounded tip, flute, shank envelope
+and holder throughout every move.
 Entry is noncutting: it must already be clear in the stock left by preceding
 operations and moves, not in stock a later pass promises to remove.
+Overall tool length is not needed to construct this visible envelope when
+projection and the other mounted dimensions are measured. It is never invented:
+a supplied measured overall length must accommodate the projection, and
+separate mounting/measurement requirements remain in force.
+
+An operation on an existing validated transient `process_features.end_face`
+can author bulk-preparation rows without selecting finished STEP faces. Use
+`profile` and zero rough allowance: only the literal cutting moves remove
+stock, the real finished material remains protected, and no finished-face
+coverage is credited. A transient plane does not establish a normal rough
+leave on a finished face or authorize clearing its whole footprint.
 
 Unsupported methods fail closed rather than falling back to axial milling.
 Face selections identify the requested source faces, not completed machining:
 the actual bounded sweeps can leave partial coverage, scallops and source-corner
 debt. Filing, scraping and honing that have no represented proof remain
 explicit holds. No tolerance, root blend or finishing allowance is inferred
-from raster spacing. See [bounded ball-raster proof](rules-geometry.md#bounded-manual-ball-raster).
+from raster spacing. See [bounded raster proof](rules-geometry.md#bounded-manual-raster).
 
 ### Chain-drilling cutting data
 

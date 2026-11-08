@@ -3,12 +3,12 @@
 import pytest
 from pydantic import ValidationError
 
-from prechips.model import Contour
+from prechips.model import Contour, InventoryItem
 
 
 def raster():
     return {
-        "method": "manual_ball_raster",
+        "method": "manual_raster",
         "raster": {
             "start_mm": [-4.0, 2.0, 12.0],
             "safe_z_mm": 12.0,
@@ -59,3 +59,14 @@ def test_empty_trajectory_and_implicit_motion_modes_are_not_paths():
     del authored["raster"]["moves"][0]["mode"]
     with pytest.raises(ValidationError):
         Contour.model_validate(authored)
+
+
+def test_whole_body_bound_is_distinct_from_local_shank_measurement():
+    item = InventoryItem.model_validate({"shank_mm": 6.0, "body_envelope_dia_mm": "unknown"})
+    assert item.model_dump(exclude_unset=True) == {
+        "shank_mm": 6.0,
+        "body_envelope_dia_mm": "unknown",
+    }
+    assert "body_envelope_dia_mm" not in InventoryItem.model_validate(
+        {"shank_mm": 6.0}
+    ).model_dump(exclude_unset=True)

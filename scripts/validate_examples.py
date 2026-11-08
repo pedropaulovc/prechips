@@ -7308,7 +7308,7 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "blank dimensions lack author provenance",
     )
     require(
-        plan["stock"]["form"] == "round_bar"
+        plan["stock"]["form"] in {"round_bar", "rectangular_bar"}
         and "components" not in plan["stock"]
         and not plan.get("joint_features")
         and all(not setup.get("joint") for setup in plan["setups"]),

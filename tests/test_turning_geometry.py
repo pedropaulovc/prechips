@@ -176,13 +176,13 @@ def test_a_shoulder_sharper_than_the_nose_is_a_corner_fact_not_an_occlusion(engi
     # form is the corner-radius fact, not a collision with the part.
     assert sharp["corner_radii_mm"] == [0.0] and sharp["min_hits"]["tool"] == 0
     assert sharp["obstacles"]["tool"] == []
-    assert filleted["corner_radii_mm"] == [1.0] and filleted["min_hits"]["tool"] == 0
-    # No fixture solid is placed for the chuck here, so a clear sample is not a pass.
-    assert filleted["tool_hits"] == "unknown"
-    assert "fixture solids unresolved" in filleted["reasons"]["tool_hits"]
-    assert filleted["min_hits"]["holder"] == 0 and filleted["holder_wall_hits"] == 0
-    # The 12 mm bar is turned to 8 mm: 2 mm of material beside the nose, well inside the edge.
-    assert filleted["reach_depth_mm"] == pytest.approx(2.0, abs=1e-3)
+    # The bounded curved terminal has no represented nose envelope. Corner geometry
+    # remains a fact, but neither a clear tool nor a known buried depth follows from it.
+    assert filleted["corner_radii_mm"] == [1.0]
+    assert filleted["min_hits"]["tool"] == filleted["tool_hits"] == "unknown"
+    assert filleted["reach_depth_mm"] == "unknown"
+    assert "bounded curved terminal" in filleted["reasons"]["reach_depth_mm"]
+    assert filleted["holder_wall_hits"] == "unknown"
 
 
 def test_a_fillet_smaller_than_the_nose_is_a_corner_fact_not_an_occlusion(engine, shafts):
@@ -195,7 +195,12 @@ def test_a_fillet_smaller_than_the_nose_is_a_corner_fact_not_an_occlusion(engine
             stock=_bar(),
         )
     )["ops"]["S1:10"]
-    assert detail["corner_radii_mm"] == [1.0] and detail["min_hits"]["tool"] == 0
+    # The R1 corner is still measured even though this bounded curved terminal's
+    # removal and hence its dependent collision lower bound are unsupported.
+    assert detail["corner_radii_mm"] == [1.0]
+    assert detail["min_hits"]["tool"] == detail["tool_hits"] == "unknown"
+    assert detail["reach_depth_mm"] == "unknown"
+    assert "bounded curved terminal" in detail["reasons"]["reach_depth_mm"]
 
 
 def _dome(engine, step):
@@ -232,9 +237,8 @@ def _assert_dome_collision_review(monkeypatch, detail, form):
         patch.setattr(accessibility, "op_contexts", lambda *_, **__: iter(contexts))
         [review] = accessibility.evaluate(SimpleNamespace(features={"units": "mm"}))
     assert detail["tool_hits"] == "unknown"
-    assert detail["nose_z_mm"][0] < form["z_to"]
     assert review.status == "error"
-    assert review.numbers["certain_tool_hits"] == 1
+    assert review.numbers["certain_tool_hits"] == detail["min_hits"]["tool"]
     assert review.numbers["tool_hits"] == "unknown"
     return review
 
@@ -247,23 +251,25 @@ def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles
     original_form = _turn("S1:20", "dome", z_from=40.0, z_to=36.0)
     faced = _formed(engine, step, [facing, original_form])
     detail = faced["ops"]["S1:20"]
-    # The rejected profile leaves stock inside its candidate removal at twelve poses.
-    # One commanded end pose also reaches below z_to=36 into the still-unturned R6 bar:
-    # that outside-window hit is certain even though the own-removal hits are unknown.
-    assert detail["tool_hits"] == "unknown"
-    assert detail["min_hits"]["tool"] == 1
-    assert detail["window_poses"][-1]["meets"] == ["part"]
+    # The leading extreme stops at z_to=36; a centre at 36 would be outside this
+    # command. The unsupported curved terminal cannot prove a collision with the
+    # unturned journal using that old, overtravelled pose.
+    assert detail["tool_hits"] == detail["min_hits"]["tool"] == "unknown"
+    assert detail["reach_depth_mm"] == "unknown"
+    assert "bounded curved terminal" in detail["reasons"]["reach_depth_mm"]
     assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
-    _assert_dome_collision_review(monkeypatch, detail, original_form)
     # Preserve the original unfaced case: its stub beyond z_from=40 is outside the
     # candidate removal, while hits inside that removal still cannot be credited.
     unfaced = _formed(engine, step, [_turn("S1:10", "dome", z_from=40.0, z_to=36.0)])
     assert unfaced["ops"]["S1:10"]["min_hits"]["tool"] > 0
     assert unfaced["ops"]["S1:10"]["obstacles"]["tool"] == ["part"]
     assert unfaced["ops"]["S1:10"]["tool_hits"] == "unknown"
-    # Turn the journal first: otherwise the nose's equator-side extent hits that R6 bar
-    # independently of how the dome forms. Facing 0.5 mm above the apex also avoids the
-    # tangent curved-cut/stock-plane boundary, while leaving real stock for the form.
+    _assert_dome_collision_review(
+        monkeypatch, unfaced["ops"]["S1:10"], _turn("S1:10", "dome", z_from=40.0, z_to=36.0)
+    )
+    # Prepare the supported cylindrical journal and face above the apex to isolate
+    # obstacles outside the dome cut. Preparation cannot make the curved terminal
+    # supported, so its own-removal collision lower bound remains unknown.
     journal = engine.refs(step, (-4, -4, 20), (4, 4, 36), kind="Cylinder")
     assert len(journal) == 1
     features = {"journal": journal}
@@ -271,8 +277,9 @@ def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles
     clear_facing = _turn("S1:10", "dome", to_z=40.5)
     form = _turn("S1:20", "dome", z_from=40.5, z_to=36.0)
     clear = _formed(engine, step, [clear_facing, prep, form], features=features)
-    assert clear["ops"]["S1:20"]["min_hits"]["tool"] == 0
-    assert clear["ops"]["S1:20"]["obstacles"]["tool"] == []
+    assert clear["ops"]["S1:20"]["min_hits"]["tool"] == "unknown"
+    assert clear["ops"]["S1:20"]["reach_depth_mm"] == "unknown"
+    assert "bounded curved terminal" in clear["setups"]["S2"]["stock_reason"]
     # With the journal prepared but no facing, only the stub past the apex blocks the form.
     unfaced = _formed(
         engine,
@@ -290,24 +297,23 @@ def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles
     assert neutral["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
 
 
-def test_a_dome_forms_nose_reaches_past_the_z_its_op_names(engine, shafts):
-    # The dome ends at its equator, Z36: rounding it, the nose sits beside the equator, its
-    # chuck-side edge 0.4 below the Z the op names; the 93-degree insert's flanks and the
-    # shank (2 mm back from the nose centre) trail away from the chuck. The jaw clearance
-    # is the tool's own extent, not the named Z.
+def test_a_dome_forms_leading_nose_stops_at_the_named_z_but_a_wide_shank_reaches_past(
+    engine, shafts
+):
+    # The command ends at the nose's leading extreme, Z36, not its centre.
+    # The 93-degree insert and ordinary shank trail that extreme; a wider shank
+    # can still extend towards the chuck independently of the unsupported removal.
     step = shafts["domed"]
     facing = _turn("S1:10", "dome", to_z=40.0)
     formed = _formed(engine, step, [facing, _turn("S1:20", "dome", z_from=40.0, z_to=36.0)])
-    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
-    # The nose is the tool's lowest point here: its own extent starts there too.
-    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
-    # A shank wider than the insert's functional width stands past the nose on the chuck
-    # side: 12 mm back from it, a 14 mm shank reaches 2 mm past the nose centre, 1.6 below
-    # the nose, which stays where it was.
+    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(36.0, abs=1e-3)
+    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(36.0, abs=1e-3)
+    # The centre is at 36.4. A 14 mm shank reaches 2 mm below it, 1.6 mm
+    # below the leading nose: preserve the real whole-tool extent, not overtravel.
     wide = _turn("S1:20", "dome", z_from=40.0, z_to=36.0, shank_width_mm=14.0)
     formed = _formed(engine, step, [facing, wide])
-    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(34.0, abs=1e-3)
-    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(35.6, abs=1e-3)
+    assert formed["ops"]["S1:20"]["tool_z_mm"][0] == pytest.approx(34.4, abs=1e-3)
+    assert formed["ops"]["S1:20"]["nose_z_mm"][0] == pytest.approx(36.0, abs=1e-3)
 
 
 def test_a_turning_tool_the_kernel_never_poses_has_an_unknown_reach(engine, shafts):
@@ -508,10 +514,12 @@ def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
             stock=_bar(),
         )
     )
-    fillet = math.pi * (25 * 1 - 16) - _fillet_ring_mm3()
-    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
-        FINISHED_MM3 + fillet, rel=1e-6
-    )
+    # A bounded R1 terminal is not an exact stock model: propagate the reason,
+    # not the old sharp-through-stop or CAD-fillet volume, into the next setup.
+    assert "stock_volume_mm3" not in result["setups"]["S2"]
+    assert "bounded curved terminal" in result["setups"]["S2"]["stock_reason"]
+    assert "bounded curved terminal" in result["setups"]["S1"]["stock_out_reason"]
+    assert result["ops"]["S1:10"]["reach_depth_mm"] == "unknown"
     # Facing a shoulder clears outside its innermost radius up to the finished end only,
     # leaving the stub beyond it; facing the end clears the stub.
     longer, sharp = _bar(length=45.0), shafts["shaft"]
@@ -524,10 +532,21 @@ def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
         )
     )["setups"]["S2"]["stock_volume_mm3"]
     assert shoulder == pytest.approx(FINISHED_MM3 + math.pi * 36 * 5, rel=1e-6)
-    ends = engine.run(
+    # Facing the filleted part's planar end is independently supported: no axial
+    # curved-terminal sweep is needed to remove only the five-millimetre stub.
+    faced = engine.run(
         engine.job(
             step,
             features,
+            [_lathe([_turn("S1:10", "end", to_z=40.0)]), {**_lathe([], "S2"), "hold": hold}],
+            stock=longer,
+        )
+    )["setups"]["S2"]["stock_volume_mm3"]
+    assert faced == pytest.approx(math.pi * 36 * 40, rel=1e-6)
+    ends = engine.run(
+        engine.job(
+            sharp,
+            _features(engine, sharp),
             [
                 _lathe(
                     [
@@ -540,13 +559,16 @@ def test_turned_and_faced_stock_is_what_the_next_setup_receives(engine, shafts):
             stock=longer,
         )
     )["setups"]["S2"]["stock_volume_mm3"]
-    assert ends == pytest.approx(FINISHED_MM3 + fillet, rel=1e-6)
+    # The supported sharp journal reaches r4 except at the leading stop, where
+    # the finite R0.4 nose leaves its exact toroidal terminal excess.
+    assert ends == pytest.approx(FINISHED_MM3 + _terminal_blend_excess_mm3(), rel=1e-6)
 
 
 def test_turning_a_cylinder_split_by_tolerant_seams_leaves_its_analytic_radius(engine, shafts):
     # The r4 cylinder is split into three faces by spline seams that stray up to 0.3 um off
     # the radius within their own tolerance. All three lie on one analytic surface, so
-    # roughing and the spring pass leave exactly that radius, not a jagged meridian.
+    # roughing and the spring pass leave that radius away from the terminal nose
+    # blend, not a jagged meridian. Repeating the same stop does not erase the blend.
     step = shafts["seamed"]
     thirds = engine.refs(step, (-4.01, -4.01, 20), (4.01, 4.01, 40), kind="Cylinder")
     assert len(thirds) == 3
@@ -566,13 +588,16 @@ def test_turning_a_cylinder_split_by_tolerant_seams_leaves_its_analytic_radius(e
     assert "stock_out_reason" not in result["setups"]["S1"]
     # 2e-3 mm^3 over the 503 mm^2 turned wall allows a 4 nm mean radius error
     # from native precision, not a seam's stray of tenths of a micron.
-    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(FINISHED_MM3, abs=2e-3)
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
+        FINISHED_MM3 + _terminal_blend_excess_mm3(), abs=2e-3
+    )
 
 
 def test_turning_a_cross_drilled_diameter_leaves_the_stock_whole(engine, shafts):
     # The r4 diameter's exits into the cross hole are approximated edges on the very
     # surface roughing and the spring pass cut down to. The hole is not the lathe's: its
-    # plug stays in the stock, joined to it, and both passes leave exactly the diameter.
+    # plug stays in the stock, joined to it. Both passes leave the analytic diameter
+    # and the same terminal nose blend; neither pass opens the cross hole.
     step = shafts["crossed"]
     hole = engine.refs(step, (-4.01, -1.51, 28.49), (4.01, 1.51, 31.51), kind="Cylinder")
     diameter = [
@@ -595,12 +620,26 @@ def test_turning_a_cross_drilled_diameter_leaves_the_stock_whole(engine, shafts)
         )
     )
     assert "stock_out_reason" not in result["setups"]["S1"]
-    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(FINISHED_MM3, abs=2e-3)
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
+        FINISHED_MM3 + _terminal_blend_excess_mm3(), abs=2e-3
+    )
+
+
+def _terminal_blend_excess_mm3():
+    """Exact excess over the r4 cylinder in the final N=0.4 mm before the stop."""
+    # At axial distance x from the stopped nose centre (0 <= x <= N), the
+    # retained radius is r + N - sqrt(N^2 - x^2). Integrating the annular
+    # area pi * (radius^2 - r^2) gives this closed form, independent of OCC.
+    # The full-radius contact starts N againstfeed from the leading stop.
+    r, nose = 4.0, 0.4
+    return math.pi * (
+        r * nose**2 * (2 - math.pi / 2) + nose**3 * (5 / 3 - math.pi / 2)
+    )
 
 
 def _fillet_ring_mm3():
-    """Volume of the R1 concave fillet's air: ring of quarter-disc section centred r 5, z 21."""
-    # Pappus: quarter-disc area x path of its centroid (r = 5 - 4/(3 pi)).
+    """R1 CAD-fillet air used by the shared integrated-route fixture's volume oracle."""
+    # Pappus: quarter-disc area times its centroid's circular path at major radius 5.
     return (math.pi / 4) * 2 * math.pi * (5 - 4 / (3 * math.pi))
 
 

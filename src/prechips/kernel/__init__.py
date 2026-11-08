@@ -632,6 +632,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             # The tool body past its cutting length: only a reach past the flute needs it.
             "shank_radius_mm": length(tool, "shank"),
         }
+        if manual_raster:
+            values["nose_radius_mm"] = _measured_length(tool, "nose_radius", positive=False)
+            body_envelope = _measured_length(tool, "body_envelope_dia")
+            values["shank_envelope_radius_mm"] = (
+                body_envelope / 2 if number(body_envelope) else UNKNOWN
+            )
         for key in ("radius_mm", "holder_radius_mm", "shank_radius_mm"):
             if number(values[key]):
                 values[key] /= 2
@@ -642,7 +648,10 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             key
             for key, value in values.items()
             if not (number(value) and value > 0)
-            and (manual_raster or key not in {"oal_mm", "shank_radius_mm", "shank_from_mm"})
+            # Measured projection bounds the exposed body; OAL only constrains
+            # mounting when available (or when projection must be derived from it).
+            and key != "oal_mm"
+            and (manual_raster or key not in {"shank_radius_mm", "shank_from_mm"})
         ]
     result = {
         "subject": subject,
@@ -668,6 +677,14 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         result["tool_kind"] = record(
             measurement_item(bundle, "tools", op.get("tool"))
         ).get("kind", UNKNOWN)
+        # The qualified whole-body bound encloses necks and transitions, not just
+        # the locally measured shank diameter.
+        # This can prove clearance, but an overlap is not a certain physical hit.
+        result["shank_geometry"] = "enclosing_cylinder"
+        # Preserve measured idealized/invalid corners for explicit native refusal;
+        # never turn a zero corner into an inferred physically sharp endmill.
+        if number(values.get("nose_radius_mm")):
+            result["nose_radius_mm"] = values["nose_radius_mm"]
     pickup_key = _top_pickup_key(bundle, setup, op)
     if pickup_key is not None:
         # A command dependency, never material evidence from an authored numeric top.
@@ -725,7 +742,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                     f"{process_cut['label']} is not the face part_off {subject} leaves: "
                     + "; ".join(plane["reasons"])
                 )
-        elif process_cut.get("kind") == "end_face" and not turned and "reason" not in process_cut:
+        elif (
+            process_cut.get("kind") == "end_face"
+            and not turned
+            and not manual_raster
+            and "reason" not in process_cut
+        ):
             process_cut.update(face_sweep(op, tables, bundle.features.get("units", UNKNOWN)))
         elif process_cut.get("kind") == "tooling_hole" and "reason" not in process_cut:
             tooling = _tooling_inputs(bundle, setup, op, process_cut)
@@ -742,7 +764,16 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     if "to_z" in op:
         # The op's floor in its setup frame bounds the material it removes from the stock.
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
-    if not turned and str(op.get("do", "")).startswith("rough_"):
+    if (
+        not turned
+        and str(op.get("do", "")).startswith("rough_")
+        and (
+            model != ROTARY
+            or "to_dia" not in op
+            or "rough_allowance_mm" in op
+            or "stock_to_leave_mm" in op
+        )
+    ):
         # Always machine mm per side, independent of feature units; a negative leave is
         # unknown here (the coordinates rule reports it as an error).
         result["rough_allowance_mm"] = rough_leave(op)[0]
@@ -813,16 +844,44 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
     if turned:
-        # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
-        # the axis; a part_off omitting it parts to the axis); a bore is never inferred
-        # from the finished part, so a later-drilled bore does not leave a core behind.
-        if op.get("do") in {"face", "rough_face", "finish_face", "part_off", "cut_to_fit"} and (
-            "to_dia" in op or op.get("do") == "part_off"
-        ):
+        # Preserve an explicit radial target, including unresolved intent: the native
+        # model validates each action's window and tool geometry, never silently
+        # falling back to the final profile. Only part_off defaults to the axis; a
+        # later-drilled bore must not leave an inferred core behind.
+        if op.get("do") in {
+            "face",
+            "rough_face",
+            "finish_face",
+            "part_off",
+            "cut_to_fit",
+            "rough_turn",
+            "finish_turn",
+        } and ("to_dia" in op or op.get("do") == "part_off"):
             to_dia = op.get("to_dia", 0.0)
             result["to_dia_mm"] = (
                 to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
             )
+            if op.get("do") in {"rough_turn", "finish_turn"}:
+                from prechips.rules.coordinates import diameter_target_conflict
+
+                conflict = diameter_target_conflict(bundle, setup, op)
+                if conflict is not None:
+                    result["to_dia_mm"] = UNKNOWN
+                    result["to_dia_reason"] = (
+                        f"{conflict['feature']} to_dia target {conflict['target']:g} "
+                        f"is outside its diameter limits "
+                        f"{conflict['limits'][0]:g}-{conflict['limits'][1]:g} {units}"
+                    )
+    if model == ROTARY and "to_dia" in op:
+        # An explicit rotary radius is enough target intent without inventing an
+        # omitted rough leave. Native validation reconciles any authored pair.
+        value = op["to_dia"]
+        diameter = value * scale if number(value) and math.isfinite(value) and scale else UNKNOWN
+        result["to_dia_mm"] = (
+            diameter
+            if number(diameter) and math.isfinite(diameter) and diameter > 0
+            else UNKNOWN
+        )
     if model == ROTARY and "angle_window_deg" in op:
         window = op["angle_window_deg"]
         result["angle_window_deg"] = window if all(number(v) for v in window) else UNKNOWN
@@ -2943,6 +3002,7 @@ _ENGINE_OP = (
     "finishing",
     "hole",
     "radius_mm",
+    "nose_radius_mm",
     "flute_len_mm",
     "oal_mm",
     "holder_radius_mm",
@@ -2950,6 +3010,8 @@ _ENGINE_OP = (
     "projection_mm",
     "shank_radius_mm",
     "shank_from_mm",
+    "shank_geometry",
+    "shank_envelope_radius_mm",
     "to_z",
     "checkpoints",
     "tool_paths",
@@ -2965,6 +3027,7 @@ _ENGINE_OP = (
     "guide_owner",
     "guide_rim_dia_mm",
     "to_dia_mm",
+    "to_dia_reason",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
     "corners",

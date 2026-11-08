@@ -8,6 +8,7 @@ an unmeasured one is unknown, whether or not a later setup consumes that stock.
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
+    MANUAL_RASTER,
     ROTARY,
     approach,
     approach_model_reason,
@@ -57,7 +58,7 @@ def evaluate(bundle):
     unformed, cap_pending = set(), {}  # cap index -> why its formation is unknown
     mapping, op_facts = face_mapping(bundle, facts), record(facts.get("ops"))
     for setup, op in operations(bundle):
-        if op.get("method") == "manual_ball_raster":
+        if record(op.get("contour")).get("method") == MANUAL_RASTER:
             if f"{setup['id']}:{op['op']}" in finishers:
                 invalid_refs.extend(op_claims(bundle, facts, setup, op)[2])
                 indices = manual_raster_candidates(bundle, facts, setup, op)

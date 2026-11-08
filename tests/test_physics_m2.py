@@ -387,6 +387,57 @@ def test_engagement_four_diameter_boundary_and_doc_halving():
     assert data.plan["setups"][0]["ops"][0]["doc_mm"] == 2
 
 
+@pytest.mark.parametrize("kind", ["endmill", "ball_endmill"])
+@pytest.mark.parametrize("projection", [30, 50])
+@pytest.mark.parametrize("doc", [0.001, 2, 0, -1, "unknown"])
+def test_manual_raster_engagement_requires_actual_segment_proof(projection, doc, kind):
+    data = milling_bundle()
+    data.inventory["tools"]["cutter"]["kind"] = kind
+    op = data.plan["setups"][0]["ops"][0]
+    op.update(
+        doc_mm=doc,
+        woc_mm=0.001,
+        contour={
+            "method": "manual_raster",
+            "raster": {
+                "start_mm": [0, 0, 20],
+                "safe_z_mm": 20,
+                "moves": [
+                    {"to_mm": [0, 0, -10], "mode": "clear"},
+                    {"to_mm": [100, 0, -10], "mode": "cut"},
+                    {"to_mm": [100, 0, 20], "mode": "clear"},
+                ],
+            },
+        },
+    )
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = projection
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["projection_ld"] == projection / 10
+    assert finding.numbers["over_limit"] is (projection > 40)
+    assert finding.numbers["doc_mm"] == doc
+    assert finding.numbers["doc_scale"] == finding.numbers["recommended_doc_mm"] == "unknown"
+    assert "per-segment actual DOC/WOC proof" in finding.sentence
+    assert "authored doc_mm/woc_mm alone do not bound engagement" in finding.sentence
+    if projection > 40:
+        assert "above 4×D" in finding.sentence
+    if doc in (0, -1, "unknown"):
+        assert "positive authored axial depth per pass (doc_mm)" in finding.numbers["missing_inputs"]
+    assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 4
+
+
+def test_manual_raster_engagement_keeps_missing_selected_projection_debt():
+    data = milling_bundle()
+    op = data.plan["setups"][0]["ops"][0]
+    op["contour"] = {"method": "manual_raster"}
+    data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = "unknown"
+    finding = engagement.evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["projection_ld"] == "unknown"
+    assert any("selected tool/holder projection" in value for value in finding.numbers["missing_inputs"])
+    assert any("per-segment actual DOC/WOC" in value for value in finding.numbers["missing_inputs"])
+
+
 def test_explicit_projection_takes_precedence_over_oal_minus_grip():
     data = milling_bundle()
     data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 35

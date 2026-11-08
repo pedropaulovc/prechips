@@ -5,6 +5,7 @@ import math
 
 from ..findings import Finding
 from ..joint_features import joint_of, present, setup_span_mm
+from ..model import setup_lineage
 from .coordinates import frame_point, model_point
 from .resolution import (
     UNKNOWN,
@@ -433,6 +434,69 @@ def _stock_fill(bundle, setup, uncovered):
     return filled, remaining, reason
 
 
+def _formed_later(bundle, setup, name):
+    """An explicit downstream forming claim, not an inference from finished CAD."""
+    lineage = setup_lineage(bundle.plan, setup["id"])
+    formed = {
+        item["id"]
+        for item in bundle.plan["setups"]
+        for op in item["ops"]
+        if op.get("feature") == name and op["do"] in PROFILE_OPS
+    }
+    if not formed or formed.intersection(lineage):
+        return False
+    if any(setup["id"] in setup_lineage(bundle.plan, sid) for sid in formed):
+        return True
+    return None
+
+
+def _accepted_preparation(bundle, setup, items, claimed):
+    """A current joint preparation may realize an unclaimed drawing acceptance band.
+
+    Two simultaneous process claims still require identical geometry. Acceptance is
+    not a new diameter: keep the preparation's actual nominal and validate it against
+    each eventual target's own authored limits.
+    """
+    preparation = [
+        item
+        for item in items
+        if joint_of(bundle.feature_definitions.get(item["feature"]))
+    ]
+    targets = [item for item in items if item not in preparation]
+    if not preparation or not targets or not _one_diameter(preparation):
+        return None
+    diameter = preparation[0]["diameter_mm"]
+    scale = _scale(bundle)
+    preparation_bands = [
+        bundle.feature_definitions[item["feature"]].get("dia") for item in preparation
+    ]
+    lineage = setup_lineage(bundle.plan, setup["id"])
+    already_formed = {
+        op.get("feature")
+        for earlier in bundle.plan["setups"]
+        if earlier["id"] in lineage
+        for op in earlier["ops"]
+        if op["do"] in PROFILE_OPS
+    }
+    for item in targets:
+        feature = bundle.feature_definitions[item["feature"]]
+        band = feature.get("dia")
+        if (
+            item["feature"] in claimed
+            or item["feature"] in already_formed
+            or scale is None
+            or not _pair(band)
+            or not band[0] * scale <= diameter <= band[1] * scale
+            or any(
+                not _pair(prep)
+                or not band[0] <= prep[0] <= prep[1] <= band[1]
+                for prep in preparation_bands
+            )
+        ):
+            return None
+    return preparation
+
+
 def exposed_profile(bundle, setup):
     """Setup-Z profile (declared, kernel-filled) for profile and unsupported-diameter checks."""
     features = bundle.feature_definitions
@@ -496,9 +560,65 @@ def exposed_profile(bundle, setup):
             low, high = max(low, exposure[0]), min(high, exposure[1])
             if low >= high:
                 continue
+        future = _formed_later(bundle, setup, name) if name not in claimed else False
+        if future is None:
+            exposed_names.add(name)
+            unresolve(name, "the forming phase/material lineage is unproven")
+            continue
+        if future:
+            # Finished faces are not today's geometry. Only a complete native
+            # current-stock proof can replace them; missing lineage/cuts remain debt.
+            _, missing, why = _stock_fill(bundle, setup, [[low, high]])
+            if missing:
+                exposed_names.add(name)
+                unresolve(name, f"future forming claim lacks current-stock proof: {why}")
+            continue
         exposed_names.add(name)
         if kind not in AXIAL_KINDS:
             unresolve(name, f"kind {kind!r} has no axial diameter model")
+            continue
+        stages = [
+            op
+            for op in setup["ops"]
+            if op.get("feature") == name
+            and op["do"] in {"rough_turn", "finish_turn"}
+            and "to_dia" in op
+            and op.get("to_z") is None
+        ]
+        if stages:
+            from .geometry_common import _turn_attained
+
+            kernel = record(getattr(bundle, "kernel", None))
+            ops = record(kernel.get("ops"))
+            accepted = kernel.get("status") == "ok" and all(
+                _turn_attained(
+                    bundle,
+                    setup,
+                    op,
+                    record(ops.get(f"{setup['id']}:{op['op']}")),
+                    [],
+                )
+                is not None
+                for op in stages
+            )
+            current, missing, why = _stock_fill(bundle, setup, [[low, high]])
+            if not accepted or missing:
+                unresolve(
+                    name,
+                    "explicit turning stage lacks accepted command/current-stock proof"
+                    + (f": {why}" if missing else ""),
+                )
+            else:
+                intervals.extend(
+                    {
+                        "feature": name,
+                        "kind": "cylinder",
+                        "z_mm": item["z_mm"],
+                        "diameter_mm": item["diameter_mm"],
+                        "source": "kernel_stock",
+                    }
+                    for item in current
+                )
             continue
         diameter = geometry["base_diameter_mm" if kind == "dome" else "diameter_mm"]
         if not number(diameter):
@@ -533,6 +653,10 @@ def exposed_profile(bundle, setup):
         cylinders = [item for item in active if item["kind"] != "groove"]
         grooves = [item for item in active if item["kind"] == "groove"]
         candidates = grooves or cylinders
+        accepted = _accepted_preparation(bundle, setup, cylinders, claimed)
+        if accepted is not None:
+            cylinders = accepted
+            candidates = grooves or cylinders
         ambiguous = not candidates or not _one_diameter(candidates)
         if grooves and cylinders:
             ambiguous |= not _one_diameter(cylinders) or _larger(
@@ -580,6 +704,25 @@ def exposed_profile(bundle, setup):
         ):
             uncovered.append([segments[-1]["z_mm"][1], exposure[1]])
     stock_segments, uncovered, stock_reason = _stock_fill(bundle, setup, uncovered)
+    # A cylindrical finished declaration cannot conceal a thinner current cut.
+    # Domes retain their documented base-diameter proxy, not the zero-radius apex.
+    for segment in segments:
+        low, high = segment["z_mm"]
+        if any(
+            item["kind"] == "dome"
+            and item["z_mm"][0] < high
+            and low < item["z_mm"][1]
+            for item in intervals
+        ):
+            continue
+        current_stock, missing_stock, _ = _stock_fill(bundle, setup, [[low, high]])
+        if not missing_stock:
+            stock_segments.extend(
+                item
+                for item in current_stock
+                if number(segment["diameter_mm"])
+                and _larger(segment["diameter_mm"], item["diameter_mm"])
+            )
     # A span the kernel's stock profile wholly fills (stock preparation ahead of every
     # finished feature) is as known as one finished features cover.
     complete = (
@@ -612,7 +755,11 @@ def exposed_profile(bundle, setup):
                 "(revolved about another axis; FreeCAD B-rep)"
                 for name in off_axis
             }
-            | ({_STOCK_CITE.format(setup=setup["id"])} if stock_segments else set())
+            | (
+                {_STOCK_CITE.format(setup=setup["id"])}
+                if stock_segments or any(item["source"] == "kernel_stock" for item in intervals)
+                else set()
+            )
         ),
     }
 

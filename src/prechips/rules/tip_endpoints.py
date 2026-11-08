@@ -402,15 +402,262 @@ def _kernel_face_boxes(bundle, target, frame, *, setup=None, workpiece_id=None):
     return boxes, None
 
 
-def _setup_footprint(bundle, setup, target, debts=None):
+def _polygon(points):
+    """Convex hull of finite XY points, counterclockwise; no area means no surface."""
+    points = sorted(set(tuple(point[:2]) for point in points))
+    if len(points) < 3:
+        return []
+
+    def cross(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+    halves = []
+    for ordered in (points, reversed(points)):
+        half = []
+        for point in ordered:
+            while len(half) > 1 and cross(half[-2], half[-1], point) <= 0:
+                half.pop()
+            half.append(point)
+        halves.append(half[:-1])
+    hull = halves[0] + halves[1]
+    if len(hull) < 3:
+        return []
+    area_twice = abs(sum(cross(hull[0], hull[i], hull[i + 1]) for i in range(1, len(hull) - 1)))
+    perimeter = sum(
+        math.hypot(b[0] - a[0], b[1] - a[1])
+        for a, b in zip(hull, hull[1:] + hull[:1], strict=True)
+    )
+    # Reprojected coplanar edges can leave a zero-width floating-point sliver.
+    return hull if area_twice > SAME_Z * perimeter else []
+
+
+def _split_polygon(polygon, a, b):
+    """Split a convex polygon along oriented edge a→b into left and right pieces."""
+    left, right = [], []
+    for p, q in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+        dp = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+        dq = (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])
+        if dp >= 0:
+            left.append(p)
+        if dp <= 0:
+            right.append(p)
+        if (dp < 0 < dq) or (dq < 0 < dp):
+            fraction = dp / (dp - dq)
+            crossing = tuple(p[i] + fraction * (q[i] - p[i]) for i in range(2))
+            left.append(crossing)
+            right.append(crossing)
+    return _polygon(left), _polygon(right)
+
+
+def _process_face_polygon(bundle, setup, target, op=None, *, arriving=True):
+    """Finite process plane in setup XY, optionally intersected with its own cut box.
+
+    A point and normal never supply an infinite surface. The stock section must be
+    known, flat in setup Z, and (for a bounded operation) reached by both to_z and the
+    finite removal Z span. Rotation in the plane and flipped frames are handled before
+    clipping; an enclosing box is not substituted for the actual polygon.
+    """
+    from prechips.process_features import arriving_bounds, process_of
+
+    process = process_of(target)
+    if not process or process.get("kind") != "end_face":
+        return None
+    if arriving:
+        target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
+    points = _corners(bundle, target, setup_frame(bundle, setup))
+    if points is None or not all(math.isfinite(v) for point in points for v in point):
+        return None
+    low, high = min(p[2] for p in points), max(p[2] for p in points)
+    if high - low > SAME_Z:
+        return None
+    polygon = _polygon(points)
+    if not polygon:
+        return None
+    if op is not None:
+        floor = op.get("to_z")
+        if not number(floor) or not math.isfinite(floor) or abs(floor - low) > SAME_Z:
+            return None
+        if "stock_removal_bounds" in op:
+            region = cut_region(op)
+            span = mapping(op.get("stock_removal_bounds")).get("z")
+            if region is None or any(s[0] >= s[1] for s in region) or not (
+                _span(span)
+                and len(span) == 2
+                and all(math.isfinite(v) for v in span)
+                and span[0] < span[1]
+                and span[0] - SAME_Z <= low <= span[1] + SAME_Z
+            ):
+                return None
+            x, y = region
+            rectangle = [(x[0], y[0]), (x[1], y[0]), (x[1], y[1]), (x[0], y[1])]
+            for a, b in zip(rectangle, rectangle[1:] + rectangle[:1], strict=True):
+                polygon, _ = _split_polygon(polygon, a, b)
+    return polygon, low
+
+
+def _native_cut_debt(bundle, setup, op):
+    """A supplied native packet cannot be replaced by authored box geometry."""
+    kernel = mapping(getattr(bundle, "kernel", None))
+    if not kernel:
+        return False
+    fact = mapping(mapping(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
+    return (
+        kernel.get("status") != "ok"
+        or not isinstance(fact.get("claimed_indices"), list)
+        or not fact["claimed_indices"]
+        or not number(fact.get("sample_count"))
+        or fact["sample_count"] <= 0
+        or bool(fact.get("reason"))
+        or bool(fact.get("stock_reason"))
+        or bool(fact.get("unsupported_reason"))
+        or bool(fact.get("stock_removal_error"))
+        or bool(fact.get("claim_errors"))
+        or any(number(fact.get(key)) and fact[key] > 0 for key in ("tool_hits", "holder_hits"))
+    )
+
+
+def process_face_union(bundle, setup, target, done=None, *, arriving=True):
+    """Whole-plane coverage by surviving coplanar preparation cuts, plus last maker.
+
+    Process end faces and native-proven bounded facing makers participate. Subtract
+    their actual finite clearing polygons from the receiving raw-stock plane;
+    disjoint windows, unequal floors and gaps never become a whole surface merely
+    because their enclosing box spans it. This grants no finished-face credit.
+    """
+    from prechips.process_features import process_of
+
+    from .coordinates import frame_point, model_point
+
+    surface = _process_face_polygon(bundle, setup, target, arriving=arriving)
+    if surface is None:
+        return UNKNOWN, None
+    polygon, plane = surface
+    remaining, maker, uncertain_cut = [polygon], None, False
+    features = bundle.feature_definitions
+    current_ops = setup.get("ops", [])
+    cuts = [
+        (earlier, op)
+        for earlier in lineage(bundle, setup)
+        for op in earlier.get("ops", [])
+    ] + [(setup, op) for op in current_ops[:done]]
+    frame = setup_frame(bundle, setup)
+    for producer, op in cuts:
+        own = mapping(features.get(op_feature(op)))
+        process = process_of(own)
+        preparation = process and process.get("kind") == "end_face"
+        native = (
+            not process
+            and own.get("kind") == "face"
+            and "stock_removal_bounds" in op
+        )
+        if op.get("do") not in FACING or not (preparation or native):
+            continue
+        status = operation_material_status(
+            bundle, setup, producer, op_feature(op), producer_op=op
+        )
+        if status is not True:
+            uncertain_cut |= status is None
+            continue
+        if native:
+            kernel = mapping(getattr(bundle, "kernel", None))
+            if kernel.get("status") != "ok" or _native_cut_debt(bundle, producer, op):
+                return UNKNOWN, None
+            coverage = cut_coverage(bundle, producer, op, own)
+            if coverage != "whole":
+                if coverage == UNKNOWN:
+                    return UNKNOWN, None
+                continue
+        finite = _process_face_polygon(
+            bundle, producer, target if native else own, op, arriving=False
+        )
+        if finite is None:
+            uncertain_cut = True
+            continue
+        cut, floor = finite
+        source = setup_frame(bundle, producer)
+        points = (
+            [[*p, floor] for p in cut]
+            if source == frame
+            else [frame_point(model_point([*p, floor], source), frame) for p in cut]
+        )
+        if not all(number(v) and math.isfinite(v) for p in points for v in p):
+            uncertain_cut = True
+            continue
+        if not points or any(abs(p[2] - plane) > SAME_Z for p in points):
+            # A deeper cut crossing this plane destroys its land; a different floor
+            # cannot stand in for the plane being proved.
+            target_z = frame_point(model_point([*polygon[0], plane], frame), source)[2]
+            span = mapping(op.get("stock_removal_bounds")).get("z")
+            if number(target_z) and floor < target_z - SAME_Z and (
+                "stock_removal_bounds" not in op
+                or (_span(span) and span[0] <= target_z <= span[-1])
+            ):
+                projected = [
+                    frame_point(model_point([*p, target_z], source), frame) for p in cut
+                ]
+                overlap = polygon
+                cutter = _polygon(projected)
+                for a, b in zip(cutter, cutter[1:] + cutter[:1], strict=True):
+                    overlap, _ = _split_polygon(overlap, a, b)
+                if overlap:
+                    return "partial", None
+            continue
+        if _native_cut_debt(bundle, producer, op):
+            return UNKNOWN, None
+        circles, reason = _keep_out_circles(bundle, producer, op, own)
+        if circles is None or circles:
+            # A circular island is not a filled polygon, and must not fill a union gap.
+            uncertain_cut = True
+            continue
+        cutter = _polygon(points)
+        uncovered, touched = [], False
+        for piece in remaining:
+            inside = piece
+            for a, b in zip(cutter, cutter[1:] + cutter[:1], strict=True):
+                inside, outside = _split_polygon(inside, a, b)
+                if outside:
+                    uncovered.append(outside)
+                if not inside:
+                    break
+            touched |= bool(inside)
+        remaining = uncovered
+        if touched:
+            maker = producer, op
+    return ("whole", maker) if not remaining else (UNKNOWN if uncertain_cut else "partial", None)
+
+
+def _local_cover(bundle, setup, op, target, done):
+    """Whole target coverage, allowing finite preparation windows to complete a plane."""
+    from prechips.process_features import process_of
+
+    process = process_of(target)
+    if process and process.get("kind") == "end_face" and "stock_removal_bounds" in op:
+        surface = _process_face_polygon(bundle, setup, target)
+        if surface is None:
+            return UNKNOWN
+        if not number(op.get("to_z")) or abs(op["to_z"] - surface[1]) > SAME_Z:
+            return "partial"
+        return process_face_union(bundle, setup, target, done)[0]
+    return cut_coverage(bundle, setup, op, target)
+
+
+def _setup_footprint(bundle, setup, target, debts=None, *, op=None):
     """The setup-frame X/Y box enclosing ``target``'s footprint, else None.
 
     Authored bounds and non-face discs take precedence. A bounds-free face uses only
     the existing kernel's geometry-matched boxes, never incidental point/diameter
     metadata. Either enclosing box proves containment, never a cut. A process end
-    face uses its section of the arriving stock.
+    face uses its section of the arriving stock. With ``op``, only its own process
+    plane is clipped to the finite removal window; that is not whole-plane credit.
     """
     from prechips.process_features import arriving_bounds, process_of
+    if op is not None and process_of(target) and op_feature(op) == process_of(target).get("id"):
+        finite = _process_face_polygon(bundle, setup, target, op)
+        if finite is None or not finite[0]:
+            if debts is not None:
+                debts.append("no footprint: finite process end face/window/plane is unresolved")
+            return None
+        return [[min(p[i] for p in finite[0]), max(p[i] for p in finite[0])] for i in range(2)]
 
     if process_of(target) and target.get("bounds"):
         target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
@@ -736,18 +983,20 @@ def stock_states(bundle, setup):
     cut, not adjoining strips. A clearing box must contain both the current entry and
     its new floor in Z, and cannot raise that entry. A boxed cut within :data:`SAME_Z`
     of the entry may still establish its producer, keeping the lower numeric Z.
-    An op that cut only part of a surface (:func:`cut_coverage`)
-    advances neither it nor the top; unknown coverage or removal Z leaves the entry
-    and its source unknown. Local thickness is authored at the eventual hole entry,
-    not raw stock height.
+    An op that cut only part of a surface (:func:`cut_coverage`) advances neither it
+    nor the top, unless surviving coplanar process windows jointly cover that entire
+    stock plane. Unknown coverage or removal Z leaves the entry and its source unknown.
+    Local thickness is authored at the eventual hole entry, not raw stock height.
     """
+    from prechips.process_features import process_of
+
     features = mapping(bundle.feature_definitions)
     stock = mapping(setup.get("stock_state"))
     top = stock.get("top_z", UNKNOWN)
     entries = dict(mapping(stock.get("entry_z")))
     origins = {name: f"{setup['id']} stock_state.entry_z.{name}" for name in entries}
     top_from = f"{setup['id']} stock_state.top_z"
-    for op in setup.get("ops", []):
+    for index, op in enumerate(setup.get("ops", [])):
         before = {
             "top_z": top,
             "entry_z": dict(entries),
@@ -764,7 +1013,7 @@ def stock_states(bundle, setup):
             for target in entries:
                 if not boxed and target != name and not _covers(cut, mapping(features.get(target))):
                     continue
-                coverage = cut_coverage(bundle, setup, op, mapping(features.get(target)))
+                coverage = _local_cover(bundle, setup, op, mapping(features.get(target)), index + 1)
                 if boxed:
                     entry, floor = entries[target], op["to_z"]
                     # Neither the touched top nor an XY box proves material above a
@@ -793,8 +1042,14 @@ def stock_states(bundle, setup):
             faced = mapping(features.get(stock.get("top_feature") or name))
             if op.get("do") in FACING and (
                 stock.get("top_feature") is None or name == stock["top_feature"]
+                or (
+                    process_of(faced)
+                    and process_of(cut)
+                    and process_of(faced).get("kind") == "end_face"
+                    and process_of(cut).get("kind") == "end_face"
+                )
             ):
-                coverage = cut_coverage(bundle, setup, op, faced)
+                coverage = _local_cover(bundle, setup, op, faced, index + 1)
                 if coverage != "partial":
                     top, top_from = (
                         (op["to_z"], made) if coverage == "whole" else (UNKNOWN, UNKNOWN)
@@ -852,6 +1107,40 @@ def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False
     return _operative_z(bundle, setup, value, face, done, source, path, None, op=op)
 
 
+def _untouched_process_window(bundle, setup, done):
+    """Whether this bounded preparation window still has its arriving top.
+
+    This is operation-local preservation, not whole-top or touch-land coverage.
+    Any intervening unbounded/unknown cut, overlapping region or native refusal
+    withholds it. Physical cutter/holder validation stays the native packet's job.
+    """
+    from prechips.process_features import process_of
+
+    ops = setup.get("ops", [])
+    if not 0 < done < len(ops):
+        return False
+    current = ops[done]
+    target = mapping(bundle.feature_definitions.get(op_feature(current)))
+    process = process_of(target)
+    if not process or process.get("kind") != "end_face" or "stock_removal_bounds" not in current:
+        return False
+    held = _setup_footprint(bundle, setup, target, op=current)
+    if held is None or _native_cut_debt(bundle, setup, current):
+        return False
+    for previous in ops[:done]:
+        if previous.get("do") in (MANUAL - HAND_THREAD) | {"inspect", "transfer"}:
+            continue
+        region = cut_region(previous)
+        if region is None or _native_cut_debt(bundle, setup, previous):
+            return False
+        if not any(
+            held[i][1] <= region[i][0] + SAME_Z or region[i][1] <= held[i][0] + SAME_Z
+            for i in range(2)
+        ):
+            return False
+    return True
+
+
 def top_reader(bundle, setup, *, native_top=True):
     """Read a produced/carried top, or an exact-stage native paper-contact proof.
 
@@ -897,6 +1186,13 @@ def top_reader(bundle, setup, *, native_top=True):
                 reads[value, done] = (
                     dro_z(physical, dro_grid(bundle, setup)) if number(physical) else UNKNOWN
                 )
+            elif (
+                done
+                and number(arriving := mapping(setup.get("stock_state")).get("top_z"))
+                and abs(value - arriving) <= SAME_Z
+                and _untouched_process_window(bundle, setup, done)
+            ):
+                reads[value, done] = top(value, 0)
             else:
                 reads[value, done] = _operative_z(
                     bundle, setup, value, "top", done, None, False, carried
@@ -1185,6 +1481,8 @@ def _producer(
     bundle, setup, value, face, done, source, path=False, debts=None, credited=None, *, op=None
 ):
     """Resolve the existing producer; optionally collect its whole eligible face refs."""
+    from prechips.process_features import process_of
+
     if not route_identities_known(bundle.plan, setup.get("id")):
         return UNKNOWN
     receiver_op = op
@@ -1210,6 +1508,14 @@ def _producer(
             if material is not True:
                 return UNKNOWN if material is None else None
             surface = mapping(features.get(surface_name)) if isinstance(surface_name, str) else {}
+            process = process_of(surface)
+            if process and process.get("kind") == "end_face" and "stock_removal_bounds" in op:
+                boundary = next(i + 1 for i, candidate in enumerate(ops) if candidate is op)
+                coverage, _ = process_face_union(bundle, setup, surface, boundary)
+                if coverage != "whole":
+                    if debts is not None:
+                        debts.append("finite process end-face windows leave a gap or unresolved coverage")
+                    return UNKNOWN
             matched = [] if credited is not None else None
             if surface.get("kind") == "face" and not mapping(surface.get("bounds")):
                 coverage = cut_coverage(bundle, setup, op, surface, debts, matched)
@@ -1222,6 +1528,33 @@ def _producer(
         return producer
     if not isinstance(face, str):
         return UNKNOWN if unknown_source else None
+    top_name = mapping(setup.get("stock_state")).get("top_feature")
+    surface = mapping(features.get(top_name if face == "top" else face))
+    process = process_of(surface)
+    candidates = [
+        (earlier, candidate)
+        for earlier in [*lineage(bundle, setup), setup]
+        for candidate in (
+            earlier.get("ops", [])[:done] if earlier is setup else earlier.get("ops", [])
+        )
+    ]
+    if process and process.get("kind") == "end_face" and any(
+        "stock_removal_bounds" in candidate
+        and process_of(mapping(features.get(op_feature(candidate))))
+        for _, candidate in candidates
+    ):
+        finite = _process_face_polygon(bundle, setup, surface)
+        if finite is not None and number(value) and abs(finite[1] - value) <= SAME_Z:
+            coverage, maker = process_face_union(bundle, setup, surface, done)
+            if coverage != "whole":
+                if debts is not None:
+                    debts.append("finite process end-face windows leave a gap or unresolved coverage")
+                return UNKNOWN
+            # A differently posed producer travels through existing transfer arithmetic,
+            # never returning its old setup Z as a receiving-frame reading.
+            if maker and maker[0].get("frame") == setup.get("frame"):
+                return maker
+            return None
     frame = setup.get("frame")
     cuts = [
         (earlier, op)

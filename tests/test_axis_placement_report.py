@@ -72,12 +72,20 @@ def test_placement_report_preserves_exact_evidence_without_process_geometry(repo
     source_features = deepcopy(bundle.features)
     source_inputs = deepcopy(bundle.input_records)
     report = build_report(bundle, [])
+    definition = {
+        "definition_contract": "shared_cylindrical_axis_v1",
+        "source_step_sha256": bundle.features["step_sha256"],
+        "feature_manifest_sha256": bundle.hashes["features"],
+        "requested_axis_placements": resolve_placements(bundle),
+    }
     shape = report["manufacturing_shape"]
     assert shape == {
         "status": "pass",
         "source_step_sha256": bundle.features["step_sha256"],
         "requested_axis_placements": resolve_placements(bundle),
-        "process_shape_sha256": bundle.kernel["process_shape_sha256"],
+        "feature_manifest_sha256": bundle.hashes["features"],
+        "definition_contract": "shared_cylindrical_axis_v1",
+        "process_definition_sha256": hashlib.sha256(canonical_bytes(definition)).hexdigest(),
         "axis_placements": before["axis_placements"],
         "bbox_mm": before["process_shape"]["bbox_mm"],
         "volume_mm3": before["process_shape"]["volume_mm3"],
@@ -88,6 +96,8 @@ def test_placement_report_preserves_exact_evidence_without_process_geometry(repo
     assert b"HOST_FIXTURE" not in encoded
     assert "faces" not in shape
     assert "process_shape" not in shape
+    assert "process_shape_sha256" not in shape
+    assert bundle.kernel["process_shape_sha256"].encode() not in encoded
     assert report["step_sha256"] == bundle.features["step_sha256"]
     assert report["inputs"] == source_inputs
     assert bundle.features == source_features
@@ -236,9 +246,76 @@ def test_changing_only_native_proof_changes_canonical_report_hash(reported_cone)
         == after["manufacturing_shape"]["requested_axis_placements"]
     )
     assert (
-        before["manufacturing_shape"]["process_shape_sha256"]
-        == after["manufacturing_shape"]["process_shape_sha256"]
+        before["manufacturing_shape"]["process_definition_sha256"]
+        == after["manufacturing_shape"]["process_definition_sha256"]
     )
     assert before["hash"] != after["hash"]
     assert canonical_bytes(before) != canonical_bytes(after)
     assert after["hash"] == report_hash(after)
+
+
+def test_raw_native_serialization_digest_does_not_change_public_report(reported_cone):
+    before = build_report(reported_cone, [])
+    kernel = deepcopy(reported_cone.kernel)
+    kernel["process_shape_sha256"] = kernel["process_shape"]["sha256"] = "c3" * 32
+    after = build_report(replace(reported_cone, kernel=kernel), [])
+    assert canonical_bytes(before) == canonical_bytes(after)
+    assert before["hash"] == after["hash"]
+    assert (
+        before["manufacturing_shape"]["process_definition_sha256"]
+        == after["manufacturing_shape"]["process_definition_sha256"]
+    )
+
+
+@pytest.mark.parametrize("change", ["manifest digest", "requested placement"])
+def test_definition_identity_binds_manifest_and_complete_resolved_request(reported_cone, change):
+    before = build_report(reported_cone, [])
+    hashes = dict(reported_cone.hashes)
+    plan = deepcopy(reported_cone.plan)
+    kernel = deepcopy(reported_cone.kernel)
+    if change == "manifest digest":
+        hashes["features"] = "d4" * 32
+    else:
+        plan["axis_placements"]["crank"]["separation_mm"] = 43.3
+    bundle = replace(reported_cone, hashes=hashes, plan=plan, kernel=kernel)
+    kernel["axis_placements"][0]["request"] = deepcopy(resolve_placements(bundle)[0])
+    after = build_report(bundle, [])
+    shape = after["manufacturing_shape"]
+    definition = {
+        "definition_contract": "shared_cylindrical_axis_v1",
+        "source_step_sha256": bundle.features["step_sha256"],
+        "feature_manifest_sha256": bundle.hashes["features"],
+        "requested_axis_placements": resolve_placements(bundle),
+    }
+    assert shape["status"] == "pass"
+    assert shape["process_definition_sha256"] == hashlib.sha256(
+        canonical_bytes(definition)
+    ).hexdigest()
+    assert (
+        before["manufacturing_shape"]["process_definition_sha256"]
+        != shape["process_definition_sha256"]
+    )
+    assert before["hash"] != after["hash"]
+    assert after["hash"] == report_hash(after)
+
+
+@pytest.mark.parametrize("digest", [None, "", "unknown", "a" * 63, "g" * 64])
+def test_missing_or_malformed_feature_manifest_digest_withholds_identity_and_proof(
+    reported_cone, digest
+):
+    hashes = dict(reported_cone.hashes)
+    paths = dict(reported_cone.paths)
+    if digest is None:
+        hashes.pop("features")
+        # Keep input_records coherent while injecting an absent manifest binding.
+        paths.pop("features")
+    else:
+        hashes["features"] = digest
+    report = build_report(replace(reported_cone, hashes=hashes, paths=paths), [])
+    shape = report["manufacturing_shape"]
+    assert shape["status"] == "unknown"
+    assert set(shape) == {"status", "source_step_sha256", "requested_axis_placements", "reason"}
+    assert shape["reason"]
+    assert shape["source_step_sha256"] == reported_cone.features["step_sha256"]
+    assert shape["requested_axis_placements"] == resolve_placements(reported_cone)
+    assert report["hash"] == report_hash(report)

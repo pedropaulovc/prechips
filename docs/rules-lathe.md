@@ -89,6 +89,33 @@ returns the same per-feature result (`z_mm`, `diameter_mm`, `base_diameter_mm`,
 `height_mm` for a dome or a face's axial extent, `source`, `sources`,
 `unresolved`, `cite`) for other rules.
 
+Finished geometry is phase-sensitive. A feature with an explicit forming operation
+only on a downstream setup in the same material lineage does not describe today's
+surface. Its exposed interval can be replaced only when the existing native
+`stock_profile` covers that interval completely; otherwise the future feature
+retains a named current-stock proof debt. Earlier or current forming claims are
+still checked, including a dome widening away from the chuck. An unknown route
+does not establish that a feature is future-only.
+
+An explicit single-point rough/finish `to_dia` is also a manufacturing stage,
+not evidence that the finished feature nominal already exists. The profile uses
+native current-stock bands only after the native `turn_target` is accepted and
+matches the authored diameter and axial window, and stock evidence covers the
+exposed feature span. Rejected, stale or incomplete evidence stays unknown.
+This does not award final-face attainment: coverage consumes that separate proof.
+
+A current transient joint preparation can realize an unclaimed finished target
+without sharing its nominal diameter: the preparation's entire declared diameter
+band must fit inside the target's declared acceptance band. Its actual process
+nominal remains the profile diameter; no midpoint is inferred. Missing or
+incompatible bands, or an already/currently formed target, retain the simultaneous
+geometry disagreement.
+
+For unsupported-length screening, native stock evidence also contributes any
+smaller radius over declared cylindrical intervals, including material turned thin
+before later removal. Entering raw diameter cannot hide that weaker current cut.
+The documented dome base-diameter proxy remains unchanged.
+
 ### Exposed shoulders and groove exceptions
 
 When both setup stock end stations and stick-out are known, the declared

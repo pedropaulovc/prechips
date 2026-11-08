@@ -189,12 +189,14 @@ def test_ordinary_prejoin_turning_uses_component_owned_protection(engine, joint_
     step = joint_solids["joined"]
     job = _joint_job(engine, step)
     job["features"]["outer"] = engine.refs(step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder")
+    # Feed from z=20 toward the raw stock end at z=0, then run the leading
+    # point into air by R0.4 + 0.2 mm margin so full-radius contact clears z=0.
     ordinary = {
         "id": "ordinary-turn",
         "stock_in": "stock.boss",
         "frame": IDENTITY,
         "hold": {"reason": "fixture not part of this stock-boundary probe"},
-        "ops": [_turn("ordinary-turn:10", "outer", z_from=0.0, z_to=20.0)],
+        "ops": [_turn("ordinary-turn:10", "outer", z_from=20.0, z_to=-0.6)],
     }
     job["setups"].insert(1, ordinary)
     job["setups"][2]["stock_in"] = "ordinary-turn"
@@ -402,7 +404,9 @@ def test_join_backstop_refuses_lost_final_material_outside_finite_spigot(engine,
     step = joint_solids["joined"]
     job = _joint_job(engine, step)
     job["joint_features"]["spigot"]["depth_mm"] = 10.0
-    job["setups"][1]["ops"][0]["joint_cut"].update(depth_mm=10.0, z_from=0.0, z_to=20.0)
+    # The finite protected spigot stays z=0..10; the prep pass feeds from z=20
+    # to R0.4 + 0.2 mm margin below the raw stock end, clearing full-radius contact.
+    job["setups"][1]["ops"][0]["joint_cut"].update(depth_mm=10.0, z_from=20.0, z_to=-0.6)
     job["features"]["top"] = engine.refs(step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane")
     face = {
         "id": "lost-cap",

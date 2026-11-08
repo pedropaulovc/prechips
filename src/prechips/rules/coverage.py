@@ -19,6 +19,7 @@ from prechips.material_routes import MaterialGraph, feature_material_status, set
 from prechips.rules import blank_credit, inspection
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
+    MANUAL_RASTER,
     ROTARY,
     approach,
     approach_model_reason,
@@ -774,7 +775,7 @@ def evaluate(bundle):
                     cause = "; ".join(reasons) or "complete causal boundary proof is absent"
                     saw_refusals.setdefault(index, []).append(f"{setup['id']}:{op['op']}: {cause}")
             continue
-        if op.get("method") == "manual_ball_raster":
+        if record(op.get("contour")).get("method") == MANUAL_RASTER:
             errors.extend(op_claims(bundle, facts, setup, op)[2])
             indices = manual_raster_candidates(bundle, facts, setup, op)
             if indices is None:

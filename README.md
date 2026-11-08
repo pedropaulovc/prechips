@@ -35,6 +35,12 @@ Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/do
 
 The shaft, rocker and cone examples target exact v47 CAD source commit `441290434f34f62faba176ef576af6879189c5e7`. The shaft is plain with two flats, not a cut-to-fit route; the rocker uses a built-up hub and strap; the cone uses the integral route with finish requirements still unresolved. Historical reports and the demonstration's earlier exit-0 observations do not establish results for these reconciled inputs.
 
+These are CAD-faithful, explicitly held proposals, not machining approval.
+Rotary cut stock and continuous motion remain unproved; accepted nonnominal
+turning and formed-joint roots can exceed the current native model and remain
+unknown rather than being treated as invalid geometry. A code review-ready
+change does not release a route for execution.
+
 Example values exercise the rules; they are not measurements to copy into a real shop inventory. An exit-0 report is eligible for approval. Without a valid first-article approval record, the printable sheet remains PLANNED.
 
 The standalone [Blondihacks T-nuts example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-t-nuts/README.md) adapts a video process with explicitly selected catalog dimensions. It uses local shop inputs, not harmonic-analyzer exports or the shared demonstration-measurement inventory. Source observations, catalog design choices and missing real measurements remain distinct; the sheet stays PLANNED.
@@ -50,6 +56,11 @@ Registered workpieces preserve distinct members through nested named cut outputs
 Oblique-trammel inventory can describe render-only fixture geometry for setup
 pictures; those fields do not expand clearance or safety proof. See the
 [inventory reference](https://github.com/pedropaulovc/prechips/blob/main/docs/inventory.md#oblique-trammels).
+
+Bounded single-point rough and finish turns can model finite cylindrical
+removal against incoming stock. Intermediate or partial cuts do not acquire
+full-face finish credit, and uncertain reach is not a pass. See the
+[geometry rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md).
 
 Hobby and pro sheets share repeated procedures and consolidate equivalent setup holds. Recursive datum explanations remain in `report.json`; unresolved settings and required actions stay on the sheet.
 
@@ -77,7 +88,9 @@ An authored `op.rpm` is a requested speed, not a verified recommendation. The re
 
 The [geometry reference](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/architecture.md) describes the host/native boundary.
 
-Authored [manual ball-end rasters](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#authored-manual-ball-end-raster) describe finite single-axis cutting rows and explicit lifted transitions. Their bounded native proof uses the measured ball, shank and holder, retains partial source-face coverage debt and refuses unsupported methods. It does not generate a path, clear future-pass stock early, or replace unresolved hand-finishing and inspection requirements.
+Authored [manual rasters](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#authored-manual-raster) describe finite single-axis cutting rows and explicit lifted transitions. Their bounded native proof uses the declared ball-end or rounded-flat cutter geometry, measured shank and holder, retains partial source-face coverage debt and refuses unsupported or unknown shapes. It does not generate a path, clear future-pass stock early, or replace unresolved hand-finishing and inspection requirements.
+
+Native [rotary diagnostics](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#rotary-approach-and-claim-windows) use target-aware sampled poses and retain stock and protected geometry for collision checks. These samples prove neither stock removal nor a cutting path or finished attainment; rotary coverage and stock after the stage remain unknown.
 
 Named finished solids, retained part-off outputs and removable threaded assembly routes require explicit identities and material ownership. A nominal thread match is not proof of engagement, seating, strength or a collision-free assembled cut. The [plan reference](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md) defines retained outputs and threaded joints; unresolved registration and physical engagement remain debt.
 

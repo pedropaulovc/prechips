@@ -607,7 +607,7 @@ class ManualRasterMove(InputModel):
 
 
 class ManualRaster(InputModel):
-    """Finite single-axis ball-end milling motions, including every lifted index."""
+    """Finite single-axis milling motions, including every lifted index."""
 
     start_mm: Point3
     safe_z_mm: Number
@@ -951,6 +951,7 @@ Operation = record(
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
         **texts("tool holder direction layout"),
+        "tool_mount": Literal["tailstock", "toolpost", "turret"] | Unknown,
         "note": AuthoredNote,
         "prerequisites": PreparationWitness,
         # The finished feature whose piece stays when the work is in pieces after this op:
@@ -2657,6 +2658,9 @@ InventoryItem = record(
                 "kerf_offset_in",
                 # The tool body past its cutting length (docs/rules-geometry.md#reach).
                 "shank_mm",
+                # Qualified maximum over all noncutting body/neck/transitions,
+                # from flute end to tool back; a local shank diameter is not this bound.
+                "body_envelope_dia_mm",
                 "max_work_mm",
                 "max_work_in",
                 "t_slot_width_mm",

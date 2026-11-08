@@ -41,6 +41,7 @@ from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import printed_xy
 from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -151,9 +152,11 @@ def _setup_coordinates(bundle, setup, memo):
 def _span(op, coordinates, axis, angle=0.0):
     """[low, high] of ``op``'s cutter-centre sweep along ``axis`` (0 = X, 1 = Y) of the
     jaw frame (the setup frame turned by the swivel ``angle``): its printed cutter-centre
-    path (:func:`coordinates.printed_xy`), else its stock_removal_bounds (under a swivel, the turned
-    corners of that box, which bound the sweep)."""
+    path (:func:`coordinates.printed_xy`), else its stock_removal_bounds (under a swivel,
+    the turned corners of that box). An explicit manual raster never falls back to a box."""
     printed = printed_xy(coordinates, op["op"])
+    if not printed and _mapping(op.get("contour")).get("method") == MANUAL_RASTER:
+        return None
     bounds = _mapping(op.get("stock_removal_bounds"))
     if not printed and angle:
         x, y = bounds.get("x"), bounds.get("y")

@@ -560,6 +560,14 @@ ear cuts do not trim every later process face as though the whole blank
 were faced. Unknown placement or native evidence stays debt. Finished-face
 coverage continues to use the strict declared/native-face rules above.
 
+A bounded facing operation on a finished face can contribute its clearing
+window to this raw-stock-plane union only with successful native bounded-cut
+evidence and the ordinary whole-face coverage proof for its own claims.
+The contribution is its declared clearing box intersected with the raw stock
+plane, not the finished face's bounding box. Missing or refused native cuts
+cannot fill a gap. A later disjoint local cut may retain an earlier proved
+pickup for its unaffected window; this does not restore a uniform global top.
+
 ### Whole producers and bounded coverage
 
 Unbounded cuts of their own feature keep declared-whole semantics. Their

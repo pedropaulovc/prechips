@@ -264,12 +264,13 @@ contracts after reconciliation; no new exit or approval is asserted here.
   from the shop inventory despite the CAD stock note. Demonstration holding,
   tooling, DRO and inspection values are labelled examples, not shop evidence.
 * **Cone pivot post:** integral solid-stock construction, not bonded sleeves.
-  The proposed route preserves the integral bosses during turning, then uses
-  opposing ball-end rasters and hand finishing before boring and inspection.
-  Native replay of the 3D raster, filing and honing is unsupported; this is not
-  proof of those operations. Labelled demonstration values are not shop
-  measurements. The finish instruction remains held for an owner ruling; an
-  old built-up paint interpretation cannot resolve it.
+  The held proposal preserves the integral bosses, uses dividing-head free
+  arcs and hand finishing, then bores and inspects. Diagnostic poses do not
+  prove actual cut stock, continuous motion or torque; downstream claims remain
+  conditional. Hand finishing and honing are not physically qualified.
+  Demonstration values and feed-force targets are not shop measurements or
+  test results. The cosmetic finish instruction remains held for an owner
+  ruling; an old built-up paint interpretation cannot resolve it.
 * **Rocker arm:** the current CAD detail drawings specify a built-up hub and
   strap. One combined route manufactures both components and declares the
   press joint from the CAD details, using the exact assembled v47 STEP; it
@@ -465,11 +466,10 @@ are no rev-3 `fail`, `block` or separate severity fields. Subject domains are:
   gets an explicit not-applicable subject.
 - `order`, `hold_fields`, `headroom`, `zero_check`, `coordinates`: every setup.
   Lathe headroom is unsupported by the mill-only rule. Known nominal frames
-  do not certify measured setup binding. `stock_state.top_feature` disambiguates
-  the rocker's touched hub face: machining a strap face does not move that top.
-  A coordinate row's `local_from = { op, field, axis }` binds a local Z target
-  to an authored operation endpoint when its model transform remains unknown;
-  it does not bind the fitted shaft length to the nominal reference model.
+  do not certify measured setup binding. A coordinate row's
+  `local_from = { op, field, axis }` binds a local target to an authored
+  operation endpoint when its model transform remains unknown; it does not
+  make an unmeasured physical setup nominal.
 - `speeds_feeds`: every op, including not-applicable manual operations. No
   turning, spotting or unsourced tool-material row is invented.
 

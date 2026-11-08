@@ -5,7 +5,7 @@ conservative stock spans without inventing where that stock sits in the frame; s
 span is only a lower bound (the cutter's approach and exit past the stock are undeclared
 plan input), never a pass. An op whose cutter-centre XY the traveler prints
 (``coordinates.printed_xy``: arc rows, join lines, linear-table outlines, face raster
-passes and explicit manual ball rasters) is that printed path, approach and exit included,
+passes and explicit manual rasters) is that printed path, approach and exit included,
 instead of its declared extent (#297). Each X/Y axis names its basis.
 An authored ``stock_removal_bounds`` scopes material rather than cutter motion: its
 presence, even unknown, forbids substitution of the finished feature or stock span.
@@ -292,7 +292,9 @@ def evaluate(bundle):
             )
             radius = diameter["value"] / 2 if _known(diameter["value"]) else UNKNOWN
             radius_known = diameter["verified"] and _known(radius) and radius > 0
-            fallback = broad and not manual_raster and not removal_scoped and not isinstance(extent, dict)
+            fallback = (
+                broad and not manual_raster and not removal_scoped and not isinstance(extent, dict)
+            )
             if fallback and invalid_stock:
                 errors.append(
                     f"op {op['op']} conservative stock requires positive plan.stock."

@@ -87,21 +87,35 @@ placement has matching `pass` evidence under the same guard used by coordinate
 publication, and the evidence count equals the request count. The native
 `process_shape.source_step_sha256` must match the manifest digest, and its
 `sha256` must be a valid 64-hex digest equal to the kernel's
-`process_shape_sha256`. Complete native proof/provenance and a shape summary are
-also required. A passing section contains `process_shape_sha256`, the complete
-native `axis_placements` facts (including exact request, proof quantities,
-source and provenance), `bbox_mm`, `volume_mm3` and `face_count`.
+`process_shape_sha256`. Complete native proof/provenance, a shape summary and a
+valid feature-manifest file digest (`bundle.hashes["features"]`) are also required.
+A passing section contains `feature_manifest_sha256`,
+`definition_contract = "shared_cylindrical_axis_v1"` and
+`process_definition_sha256`, plus the complete native `axis_placements` facts
+(including exact request, proof quantities, source and provenance), `bbox_mm`,
+`volume_mm3` and `face_count`.
+
+The public `process_definition_sha256` is SHA-256 of the canonical bytes of
+exactly `{definition_contract, source_step_sha256, feature_manifest_sha256,
+requested_axis_placements}`. It identifies the bound manufacturing definition,
+not geometry equivalence or the bytes of a native BREP serialization. The raw
+native process digest remains internal native/cache evidence: it must be
+consistent before success is published, but is not included in the report.
+Changing only that consistently supplied serialization digest does not change
+the public definition identity or canonical report.
 
 Missing, stale, mismatched or incomplete evidence produces `unknown`; native
 kernel `status = "error"` produces `error`. Both failure forms retain the source
 digest and full requested specifications with a nonempty `reason`, but publish
-no process digest or native proof. With no placement declaration, or an empty
+no definition identity or native proof. With no placement declaration, or an empty
 one, the section is absent even if kernel facts are present.
 
 The projection copies these facts without diagnostic rounding. Their exact
 values enter canonical report bytes, so changing a proof quantity changes the
-report hash and stales approval. The full process BREP and process face records
-are not serialized; the summary includes only their face count. This is a
+report hash and stales approval. The full process BREP, its serialization hash
+and process face records are not serialized; the summary includes only their
+face count. Changing the feature-manifest digest or resolved placement
+specifications changes the public definition digest. This is a
 reporting contract for native construction evidence, not independent shop
 measurement or first-article acceptance.
 

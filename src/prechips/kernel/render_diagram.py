@@ -2571,7 +2571,12 @@ class _Diagram:
         caption = _wrap(
             c,
             f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm"
-            + (f" / SAFE Z {manual['safe_z_mm']}" if manual else ""),
+            + (
+                f" / SAFE Z {manual['safe_z_mm']} / MOVES "
+                f"{self.spec['manual_move_range'][0]}-{self.spec['manual_move_range'][1]}"
+                if manual
+                else ""
+            ),
             right - left,
         )
         for index, line in enumerate(caption):
@@ -3447,7 +3452,7 @@ def _annotation_detail(spec, role, main_scale, height, colours=None):
     return None
 
 
-def _manual_raster_sketch(spec, raster):
+def _manual_raster_sketch(spec, raster, first=0, last=None):
     """Project the exact authored XYZ polyline, separately from all source/placed solids.
 
     Every segment and endpoint survives, including coincident XY at different heights.
@@ -3459,12 +3464,20 @@ def _manual_raster_sketch(spec, raster):
         return [sum(a * b for a, b in zip(point, axis)) for axis in camera[:2]]
 
     op = str(raster["op"])
-    previous = raster["start_mm"]
+    last = len(raster["moves"]) if last is None else last
+    previous = raster["start_mm"] if first == 0 else raster["moves"][first - 1]["to_mm"]
+    initial = "START" if first == 0 else raster["moves"][first - 1]["mode"].upper()
     paths = []
     waypoints = [
-        {"op": op, "xy": project(previous), "label": f"M0 START Z{previous[2]}", "plain": True}
+        {
+            "op": op,
+            "xy": project(previous),
+            "label": f"M{first} {initial} Z{previous[2]}",
+            "plain": True,
+        }
     ]
-    for index, move in enumerate(raster["moves"], 1):
+    for index in range(first, last):
+        move = raster["moves"][index]
         point = move["to_mm"]
         paths.append(
             {
@@ -3478,7 +3491,7 @@ def _manual_raster_sketch(spec, raster):
             {
                 "op": op,
                 "xy": project(point),
-                "label": f"M{index} {move['mode'].upper()} Z{point[2]}",
+                "label": f"M{index + 1} {move['mode'].upper()} Z{point[2]}",
                 "plain": True,
             }
         )
@@ -3486,6 +3499,7 @@ def _manual_raster_sketch(spec, raster):
     return {
         **spec,
         "manual_raster_sketch": raster,
+        "manual_move_range": (first + 1, last),
         "paths": paths,
         "waypoints": waypoints,
         "nominal_outline_mm": [],
@@ -3530,11 +3544,18 @@ def _annotation_details(spec, main_scale):
             )
         details.append(detail)
     for raster in spec.get("manual_rasters", []):
-        local = _manual_raster_sketch(spec, raster)
-        detail = _annotation_detail(local, "path_detail", main_scale, 980)
-        if detail is None:
-            raise ValueError("complete authored manual raster exceeds its printable band")
-        details.append(detail)
+        batches = [(0, len(raster["moves"]))]
+        while batches:
+            first, last = batches.pop(0)
+            local = _manual_raster_sketch(spec, raster, first, last)
+            detail = _annotation_detail(local, "path_detail", main_scale, 980)
+            if detail is None:
+                if last - first == 1:
+                    raise ValueError("one authored manual raster move exceeds its printable band")
+                middle = (first + last) // 2
+                batches[:0] = [(first, middle), (middle, last)]
+                continue
+            details.append(detail)
     return details
 
 

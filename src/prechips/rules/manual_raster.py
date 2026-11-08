@@ -9,11 +9,16 @@ from __future__ import annotations
 
 import math
 
-METHOD = "manual_ball_raster"
+METHOD = "manual_raster"
 
 
 def _finite(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError, ValueError):
+        return False
 
 
 def _point(value):
@@ -55,3 +60,64 @@ def normalize(raster):
     if not cuts:
         return {"reason": "raster needs at least one explicit horizontal cutting move"}
     return {"start_mm": list(start), "safe_z_mm": safe, "moves": normalized}
+
+
+def motion_finding(rule, subject, detail, inputs, cite, blocked):
+    """Read an exact finite-motion proof, never legacy axial sample counts."""
+    from prechips.findings import Finding
+    from prechips.rules.geometry_common import with_measurement_debts
+
+    keys = (
+        "manual_raster_status",
+        "manual_raster_moves",
+        "manual_raster_checked_moves",
+        "manual_raster_errors",
+        "tool_hits",
+        "shank_hits",
+        "holder_hits",
+    )
+    values = {"approach": METHOD, **{key: detail.get(key, "unknown") for key in keys}}
+    matches = detail.get("approach") == METHOD
+    hits = [values[key] for key in ("tool_hits", "shank_hits", "holder_hits")]
+    minimum = detail.get("min_hits")
+    if matches and isinstance(minimum, dict):
+        values["min_hits"] = minimum
+        hits.extend(minimum.get(key) for key in ("tool", "shank", "holder"))
+    certain_hit = matches and any(_finite(value) and value > 0 for value in hits)
+    trajectory = normalize(inputs.get("manual_raster"))
+    moves = trajectory.get("moves")
+    checked = values["manual_raster_checked_moves"]
+    errors = values["manual_raster_errors"]
+    complete = (
+        matches
+        and isinstance(moves, list)
+        and isinstance(checked, int)
+        and not isinstance(checked, bool)
+        and checked == len(moves)
+        and values["manual_raster_moves"] == len(moves)
+        and checked > 0
+        and errors == []
+        and all(
+            _finite(values[key]) and values[key] == 0
+            for key in ("tool_hits", "shank_hits", "holder_hits")
+        )
+    )
+    status = "unknown"
+    message = detail.get("reason") or "exact authored manual-raster swept-tool proof is unresolved"
+    if matches and (certain_hit or values["manual_raster_status"] == "error"):
+        status = "error"
+        message = "authored manual-raster motion meets protected part, stock or fixture material"
+    elif blocked is not None:
+        return blocked
+    elif values["manual_raster_status"] == "pass" and complete:
+        status = "pass"
+        message = (
+            "every authored cutting, entry, retract and index move clears the measured "
+            "cutter, shank and holder against sequential stock and fixtures"
+        )
+    if blocked is not None and blocked.status == "error":
+        return blocked
+    return with_measurement_debts(
+        Finding(rule, subject, status, values, cite, f"{subject}: {message}."),
+        inputs.get("measurement_debts", []),
+    )

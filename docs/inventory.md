@@ -764,6 +764,16 @@ A `void = true` primitive is cut from the same list's other primitives.
 item's or member's solids. An untrusted or malformed void withholds the solids
 it would cut, with named debt, instead of drawing them uncut.
 
+For provably constant-section box or cylinder solids with parallel,
+through-all voids, native construction subtracts the exact planar sections
+and extrudes the result through the positive solid's full axial extent.
+Qualification checks the axes and each void's complete axial coverage before
+using this construction; blind or angled cuts retain the ordinary 3D path.
+This is an exact representation of the same declared operands, not a
+fixture-name exception or a fallback that omits a failed cut. Disconnected
+pieces remain separate material obstacles. Invalid or unresolved construction
+stays debt and never grants collision clearance.
+
 A strap member models its whole assembly in one list: beam, slot void
 (`cuts = ["beam"]`), stud, heel, nut and washer, with washer bore
 `cuts = ["washer"]`. Primitives in one list are one part and are not checked
@@ -1588,6 +1598,7 @@ permits one authored spelling, not simultaneous copies.
 | `oal` / `oal_mm` / `oal_in` | `MeasuredLength` |
 | `shank_mm` | `MeasuredLength`, tool body past its flutes; [`reach`](rules-geometry.md#reach) checks it against retained stock |
 | `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]`; tool shank as above, or set label/size map |
+| `body_envelope_dia_mm` | `MeasuredLength`, qualified enclosing diameter over every noncutting body, neck and transition from flute end to tool back; required by `manual_raster`. A local shank/collet diameter alone is not this bound. |
 | `flutes` | `int \| list[int]` |
 | `helix_deg` | `{ value, cite, measured, verify }`, end-mill helix angle 0 ≤ β < 90; cited vendor nominal is enough, bare numbers are bad input, uncited/flagged records remain debt |
 | `helix_hand` | `"right"` / `"left"`, flute hand |

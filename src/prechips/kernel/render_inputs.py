@@ -527,15 +527,17 @@ def setup_annotations(bundle, setup, numbers):
         if "manual_raster" in operation
     }
     for operation in setup["ops"]:
-        if record(operation.get("contour")).get("method") == "manual_ball_raster":
+        if record(operation.get("contour")).get("method") == "manual_raster":
             manual_tables.setdefault(
                 str(operation["op"]), {"reason": "normalized motion not established"}
             )
+    for key in ("paths", "waypoints"):
+        result[key] = [item for item in result[key] if str(item.get("op")) not in manual_tables]
     result["manual_rasters"] = []
     for op, raster in manual_tables.items():
         if raster.get("reason"):
             result["notes"].append(
-                f"STOP OP {op}: MANUAL BALL RASTER MOTION UNKNOWN - {raster['reason']}"
+                f"STOP OP {op}: MANUAL RASTER MOTION UNKNOWN - {raster['reason']}"
             )
         else:
             result["manual_rasters"].append({"op": op, **raster})

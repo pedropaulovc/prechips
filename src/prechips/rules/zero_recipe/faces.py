@@ -25,6 +25,7 @@ from ..tip_endpoints import (
     FACING,
     POCKETING,
     _setup_footprint,
+    _local_cover,
     cut_coverage,
     cut_region,
     mapping,
@@ -222,8 +223,11 @@ def _standing(bundle, setup, event, states, index):
 def _tops(bundle, setup, states):
     """(Z, made) of the stock top before each op and after the last: the incoming top
     (made before op 0), then each face op that wholly cuts the top feature makes a new
-    top at its ``to_z``; Z unknown when that top states no Z or is not proven still to
-    stand (:func:`_standing`)."""
+    top at its ``to_z``. Bounded preparation windows may do so only once their exact
+    coplanar union covers the whole stock plane. Z is unknown when that top states no
+    Z or is not proven still to stand (:func:`_standing`)."""
+    from prechips.process_features import process_of
+
     stock = mapping(setup.get("stock_state"))
     features = mapping(bundle.feature_definitions)
     z = stock.get("top_z", UNKNOWN)
@@ -235,8 +239,18 @@ def _tops(bundle, setup, states):
         op = states[index][0] if index < len(states) else {}
         names = _features(op)
         cut = _top_cut(op, names, stock.get("top_feature")) if names else False
-        if cut not in {False, UNKNOWN}:
-            if cut_coverage(bundle, setup, op, mapping(features.get(cut))) == "whole":
+        target = mapping(features.get(stock.get("top_feature") or cut))
+        process = process_of(target)
+        own_name = min(names) if names and len(names) == 1 else None
+        own = process_of(mapping(features.get(own_name)))
+        process_cut = (
+            op.get("do") in FACING
+            and process
+            and own
+            and process.get("kind") == own.get("kind") == "end_face"
+        )
+        if cut not in {False, UNKNOWN} or process_cut:
+            if _local_cover(bundle, setup, op, target, index + 1) == "whole":
                 z = op.get("to_z") if number(op.get("to_z")) else UNKNOWN
                 track = {**track, "index": index + 1, "z": z}
     return tops

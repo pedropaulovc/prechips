@@ -343,3 +343,16 @@ def test_helix_fields_ae_and_kienzle_coefficients_load():
 def test_malformed_helix_fields_are_bad_input(tool):
     with pytest.raises(ValidationError):
         Inventory.model_validate({"tools": {"em": {"kind": "endmill", **tool}}})
+
+
+@pytest.mark.parametrize("kind", ["endmill", "ball_endmill"])
+@pytest.mark.parametrize("entry", ["side", "plunge", "unknown"])
+def test_manual_raster_has_no_force_bound_even_with_side_entry(entry, kind):
+    data = bundle(tool={"kind": kind}, op={"contour": {"method": "manual_raster"}})
+    result = force(data, entry=entry)
+    assert result.status == "unknown"
+    assert result.lateral_n == result.axial_n == "unknown"
+    assert "no manual raster force bound" in " ".join(result.debts)
+    assert "cylindrical peripheral" in " ".join(result.debts)
+    assert "ap_mm" not in result.inputs
+    assert not any(debt.startswith("entry:") for debt in result.debts)

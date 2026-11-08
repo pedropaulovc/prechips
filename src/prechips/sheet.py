@@ -8916,7 +8916,7 @@ class _Traveler:
         entry = self.coordinates_entry(setup, op)
         if "manual_raster" in entry:
             return entry["manual_raster"]
-        if _mapping(op.get("contour")).get("method") == "manual_ball_raster":
+        if _mapping(op.get("contour")).get("method") == "manual_raster":
             return {"reason": "normalized motion not established"}
         return None
 
@@ -8938,7 +8938,7 @@ class _Traveler:
         if raster is not None:
             if raster.get("reason"):
                 return _Box(
-                    "STOP: manual ball raster motion unknown — " + str(raster["reason"]),
+                    "STOP: manual raster motion unknown — " + str(raster["reason"]),
                     source="coordinates",
                 )
             return "tool-tip X/Y/Z: follow the authored setup-mm move table"
@@ -10118,7 +10118,7 @@ class _Traveler:
     def cut_depths(self, setup, op, lathe):
         """Structured action, explicit allowances, passes and depth-of-cut basis."""
         if self.manual_raster(setup, op) is not None:
-            return _CutDepths("manual ball raster", None, (), (), None)
+            return _CutDepths("manual raster", None, (), (), None)
         do = str(op.get("do", ""))
         basis = "on the face" if do in FACING else "on Ø" if lathe else "per side"
         allowances = tuple(
@@ -11161,7 +11161,7 @@ class _Traveler:
                 continue
             if entry.get("manual_raster"):
                 if entry["stops"]:
-                    text = "manual ball raster motion unknown — " + "; ".join(entry["stops"])
+                    text = "manual raster motion unknown — " + "; ".join(entry["stops"])
                     if stops is not None:
                         stops.setdefault(_Box(text, source="coordinates"), []).append(op_id)
                     paths[op_id] = ("", _p("STOP: " + text + " — do not run.", "stop"))
@@ -11326,7 +11326,7 @@ class _Traveler:
         manual_ops = {
             op_id
             for op_id, op in operations.items()
-            if _mapping(op.get("contour")).get("method") == "manual_ball_raster"
+            if _mapping(op.get("contour")).get("method") == "manual_raster"
         }
         manual_tables = {
             str(row.get("op")): row["manual_raster"]
@@ -11359,7 +11359,7 @@ class _Traveler:
                 rows.append([str(index), action, axis, *(str(v) for v in point)])
                 previous = point
             description = (
-                "Manual ball raster: authored tool-tip coordinates in setup-frame mm, "
+                "Manual raster: authored tool-tip coordinates in setup-frame mm, "
                 f"safe Z {raster['safe_z_mm']} mm. Start at row 0; follow every "
                 "numbered move in order, moving only the named handwheel axis. "
                 "CUT rows feed at constant Z; CLEAR rows are explicit approach, lift or index "

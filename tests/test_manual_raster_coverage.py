@@ -9,7 +9,14 @@ import pytest
 from test_geometry_rules import bundle  # noqa: F401
 
 from prechips.rules import coverage, finish_coverage
-from prechips.rules.geometry_common import manual_raster_union
+from prechips.rules.geometry_common import (
+    MANUAL_RASTER,
+    approach,
+    approach_facts,
+    manual_raster_union,
+    op_claims,
+)
+from prechips.rules.manual_raster import normalize
 
 COMPLETE = {"complete_indices": [1], "gaps": [], "unknown": []}
 GAPPED = {
@@ -26,10 +33,25 @@ UNRESOLVED = {
 
 def _rasters(data, cut=None, finish=None, first="finish_profile"):
     ops = data.plan["setups"][0]["ops"]
-    ops[0].update(method="manual_ball_raster", do=first)
+    ops[0].update(
+        contour={
+            "method": "manual_raster",
+            "raster": {
+                "start_mm": [0.0, 0.0, 10.0],
+                "safe_z_mm": 10.0,
+                "moves": [
+                    {"to_mm": [0.0, 0.0, 0.0], "mode": "clear"},
+                    {"to_mm": [10.0, 0.0, 0.0], "mode": "cut"},
+                    {"to_mm": [10.0, 0.0, 10.0], "mode": "clear"},
+                ],
+            },
+        },
+        do=first,
+    )
     ops.append({**ops[0], "op": 20, "do": "finish_profile"})
     claim = {
         **data.kernel["ops"]["S1:10"],
+        "approach": MANUAL_RASTER,
         "claimed_indices": [],
         "manual_raster_partial_indices": [1],
         "manual_raster_coverage": [
@@ -184,3 +206,91 @@ def test_missing_face_entry_is_unresolved_without_mutating_source_facts(bundle):
     assert unresolved[2]["ref"] == "#2"
     assert "reported no manual raster union" in unresolved[2]["reason"]
     assert bundle.kernel == before
+
+
+@pytest.mark.parametrize("reported", [None, "axial", "rotary", "manual_ball_raster", MANUAL_RASTER])
+def test_raster_approach_requires_its_own_native_model(bundle, reported):  # noqa: F811
+    _rasters(bundle, cut=COMPLETE)
+    setup = bundle.plan["setups"][0]
+    for detail in bundle.kernel["ops"].values():
+        detail["approach"] = reported
+        detail["claimed_indices"] = [1]
+    op = setup["ops"][0]
+    assert "method" not in op
+    assert op["contour"]["method"] == "manual_raster"
+    assert approach(bundle, setup, op) == MANUAL_RASTER
+    assert approach_facts(bundle, bundle.kernel, setup, op) == (reported == MANUAL_RASTER)
+    indices, _, _ = op_claims(bundle, bundle.kernel, setup, op)
+    assert indices == ({1} if reported == MANUAL_RASTER else None)
+    for rule in (coverage, finish_coverage):
+        assert _row(rule, bundle).status == ("pass" if reported == MANUAL_RASTER else "unknown")
+
+
+def test_unresolved_raster_does_not_poison_an_unrelated_finished_feature(bundle):  # noqa: F811
+    _rasters(bundle, cut=UNRESOLVED)
+    bundle.features["features"]["other"] = {
+        "kind": "pocket", "faces": ["#2"], "finish_ra": 1.6, "requirements": ["finish_ra"]
+    }
+    bundle.kernel["features"]["other"] = [2]
+    bundle.plan["setups"][0]["ops"].append(
+        {"op": 30, "do": "finish_profile", "feature": "other", "tool": "em", "holder": "holder"}
+    )
+    bundle.kernel["ops"]["S1:30"] = {"claimed_indices": [2], "claim_errors": []}
+    rows = {row.subject: row for row in finish_coverage.evaluate(bundle)}
+    assert rows["pocket"].status == "unknown"
+    assert rows["other"].status == "pass"
+    assert "manual_raster_unresolved" not in rows["other"].numbers
+
+
+def test_exact_indices_keep_repeated_source_refs_separate():
+    facts = {
+        "faces": [
+            {"index": 1, "ref": "#1", "workpiece_id": "left"},
+            {"index": 2, "ref": "#1", "workpiece_id": "right"},
+        ],
+        "manual_raster_coverage": {"cut": deepcopy(COMPLETE)},
+    }
+    complete, gaps, unresolved = manual_raster_union(facts, "cut", {1, 2})
+    assert complete == {1}
+    assert gaps == {}
+    assert set(unresolved) == {2}
+    assert unresolved[2]["ref"] == "right:#1"
+
+
+def test_authored_nested_contour_never_uses_axial_whole_face_claims(bundle):  # noqa: F811
+    _rasters(bundle, cut=GAPPED)
+    setup = bundle.plan["setups"][0]
+    for op in setup["ops"]:
+        assert "method" not in op
+        raster = op["contour"]["raster"]
+        assert normalize(raster) == raster
+        assert approach(bundle, setup, op) == "manual_raster"
+        bundle.kernel["ops"][f"S1:{op['op']}"]["claimed_indices"] = [1]
+    for rule in (coverage, finish_coverage):
+        row = _row(rule, bundle)
+        assert row.status == "error"
+        assert row.numbers["manual_raster_gaps"] == GAPPED["gaps"]
+
+
+def test_transient_raster_plane_cannot_claim_finished_source_faces(bundle):  # noqa: F811
+    _rasters(bundle, cut=COMPLETE)
+    bundle.plan["process_features"] = {
+        "bulk_plane": {
+            "kind": "end_face",
+            "at": [0.0, 0.0, 0.0],
+            "axis": [0.0, 0.0, 1.0],
+            "cite": ["test: transient bulk plane, not a drawing face"],
+        }
+    }
+    setup = bundle.plan["setups"][0]
+    for op in setup["ops"]:
+        op.update(feature="bulk_plane", do="finish_face")
+        bundle.kernel["ops"][f"S1:{op['op']}"]["claimed_indices"] = [1]
+        assert op_claims(bundle, bundle.kernel, setup, op)[0] == set()
+    for rule in (coverage, finish_coverage):
+        row = _row(rule, bundle)
+        assert row.status == "error"
+        key = "unclaimed_indices" if rule is coverage else "uncovered_faces"
+        assert row.numbers[key] == [1]
+        assert "manual_raster_gaps" not in row.numbers
+        assert "manual_raster_unresolved" not in row.numbers

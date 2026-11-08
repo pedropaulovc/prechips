@@ -12,6 +12,7 @@ from prechips.rules.zero_recipe.tool_setting import (
     _corner_recorder,
     _face_checker,
     mounted_saw_settings,
+    tailstock_axis_touch,
     tool_changes,
     tool_setting,
     toolpost,
@@ -589,10 +590,13 @@ def evaluate(bundle):
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
             tool = resolve(bundle, "spindle", record.get("tool")) or {}
+            axial_touch = lathe and tailstock_axis_touch(
+                bundle, setup, {**record, "edge_mm": edge}
+            )
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
                 "not_applicable"
-                if not lathe
+                if not lathe or axial_touch
                 else x_touch_set(
                     x_scale,
                     record.get("x_paper_mm", UNKNOWN),
@@ -614,11 +618,16 @@ def evaluate(bundle):
             else:
                 z_set = edge + stand_off if number(edge) and number(stand_off) else UNKNOWN
             row = {**record, "edge_mm": edge, "x_axis_set": x_set, "z_axis_set": z_set}
+            if axial_touch:
+                row["tool_setting_state"] = "tailstock_axis"
+                row["x_face_status"] = "not_applicable"
+                if record.get("z_face") in (None, "", UNKNOWN):
+                    row["z_axis_set"] = UNKNOWN
             if carried:
                 _carried_setting(bundle, setup, row, "z_axis_set", carried)
             if credited:
                 row["credited_faces"] = credited
-            if lathe:
+            if lathe and not axial_touch:
                 at = _position(ops, record) or 0
                 state, reason = x_face_state(
                     bundle, setup, record, mapping(zero.get("x")), states, at

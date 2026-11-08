@@ -439,6 +439,12 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
             else "shank diameter"
         )
         instrument = "micrometer or calipers"
+    elif field == "body_envelope_dia":
+        description = (
+            "qualified maximum outside diameter over the entire noncutting body, neck "
+            "and transitions from flute end to tool back, not merely local shank diameter"
+        )
+        instrument = "full-length micrometer/caliper survey or qualified dimensional drawing"
     elif field == "reach":
         description = "usable cutting reach"
         instrument = "calipers or optical comparator"

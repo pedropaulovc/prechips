@@ -2,6 +2,7 @@
 # EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
 # example value (realistic, not a shop measurement); example fixture (no physical measurement).
 # Complete fictional worked demonstration; no physical stock, commissioning, inspection or release approval is asserted.
+# Owner decision 2026-11-07: CAD-faithful and explicitly held; unsupported native geometry is not a machining release.
 # Frozen geometry pair: harmonic-analyzer v47, source cd98207012d02b9b3653287ef8ce18735e12cdff.
 # Current source is next_revision v48; the delivered v47 bytes are not relabelled.
 # Hand-authored reference plan for MHA-CH-05 (pivot shaft), rev 9: a PLAIN
@@ -47,6 +48,7 @@ north_allowance_mm = 20.0
 south_grip_mm = 15.0
 on_hand = true              # fictional example allocation only; NOT receipt of the real OM4792 order
 prerequisite = "Worked demonstration uses a fictional qualified Ø9.525 x 201.56 mm 1018 CF blank and designed 15 mm S1 jaw grip. by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'. The cited real OnlineMetals 4792 allocation was ordered 2026-11-03, not confirmed received; owner approved the larger 3/8 in starting stock on 2026-11-07. Those procurement facts are not fictional receipt evidence. No physical release is authorized."
+note = "HOLD — illustrative route, not released for machining. Clearance and retained-stock verification are not established for the Ø6.340 turn and the downstream operations. The drawing permits Ø6.32968–6.350; this route keeps that band and its Ø6.340 aim rather than changing the part to satisfy a nominal-geometry screen."
 origin_mm = [0.0, 0.0, -179.536]
 axis = [0.0, 0.0, 1.0]
 as_is_faces = []
@@ -244,6 +246,7 @@ do = "center_drill"
 feature = "north_end_centre"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-tailstock-mt3"
+tool_mount = "tailstock"     # this individual axial tool is in the tailstock; S0 facing tool remains on the toolpost
 note = "Lock the carriage clear of the end. Feed the centre drill from the tailstock quill by hand with oil, backing out twice to clear chips, until the countersink mouth is Ø3.0: the dead-centre seat for S1."
 feed_mm_rev = 0.038
 rpm = 1500
@@ -254,6 +257,7 @@ note_cite = "../cutting-data.toml: HSS centre-drill110 sfm/.038 mm per rev hand-
 # -162.56, turned to -164.06, jaw fronts -166.06, south end -181.06.
 [[setups]]
 id = "S1"
+note = "HOLD — do not execute this illustrated route or continue to later setups until clearance, support engagement and retained stock are independently approved. Start each turning pass with the follow-rest jaws backed off; establish its jaws only after the tool reaches Z0, then ride the newly turned diameter as specified. The accepted drawing band is unchanged; unproved nominal-geometry screening is not evidence that the Ø6.340 aim violates it."
 machine = "PM-1127VF-LB"
 frame = "T1"                 # plan.frames.T1 (author's choice; exported `setup` stays unknown)
 coolant = "CRC cutting oil brushed on"  # author's choice

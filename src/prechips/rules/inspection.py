@@ -1541,8 +1541,41 @@ def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, work
     """Capability at this checkpoint, not credit from an unrelated or later operation."""
     feature = record(bundle.feature_definitions.get(name))
     value, profile_band = _limits(bundle, name, requirement, feature)
+    selection_unknown = False
+    if registered_workpieces(bundle) and workpiece is None:
+        if setup is None:
+            setup = next((s for s, candidate in operations(bundle) if candidate is op), None)
+        targets = op_check_targets(bundle, setup, op) if setup is not None else []
+        selected = [
+            target
+            for target in targets
+            if target["identity"]["requirement"] == "surface_profile"
+            and any(
+                target["identity"]["feature_owner"] == owner
+                for owner, _ in _profile_owners(bundle, name, requirement)
+            )
+        ]
+        identities = {target["identity"]["workpiece"] for target in selected}
+        workpiece = next(iter(identities)) if len(identities) == 1 else None
+        selection_unknown = workpiece is None or any(
+            target["selection_status"] == UNKNOWN for target in selected
+        )
     checks = []
     for owner, _ in _profile_owners(bundle, name, requirement):
+        if selection_unknown:
+            checks.append(
+                {
+                    "subject": f"{owner}:surface_profile",
+                    "identity": {
+                        "workpiece": None,
+                        "feature_owner": owner,
+                        "requirement": "surface_profile",
+                    },
+                    "status": UNKNOWN,
+                    "reason": "inspection workpiece identity is unresolved",
+                }
+            )
+            continue
         if (
             owner not in op_features(op)
             or op_entry(op, "checks", owner, "surface_profile") is None
@@ -1550,6 +1583,11 @@ def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, work
             checks.append(
                 {
                     "subject": f"{owner}:surface_profile",
+                    "identity": {
+                        "workpiece": workpiece,
+                        "feature_owner": owner,
+                        "requirement": "surface_profile",
+                    },
                     "status": UNKNOWN,
                     "reason": "this operation has no governing surface-profile checkpoint",
                 }
@@ -1564,6 +1602,8 @@ def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, work
                 "identity": evidence["identity"],
                 "status": status,
                 "message": message,
+                "op": evidence.get("op", UNKNOWN),
+                "gauge": evidence.get("gauge", UNKNOWN),
                 "numbers": evidence,
             }
         )
@@ -1581,6 +1621,8 @@ def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, work
         "evaluation": "inspection_plan",
         "part_result": "not_recorded",
     }
+    if setup is not None:
+        nums.update(setup_id=setup["id"], op_id=op["op"], op=f"{setup['id']}:{op['op']}")
     return status, "BASIC geometry depends on its governing surface-profile checkpoint", nums
 
 

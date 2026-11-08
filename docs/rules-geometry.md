@@ -27,8 +27,8 @@ debt cannot substitute for the required geometry.
 - For cutting findings, see [accessibility](#accessibility), [reach](#reach),
   [corner radii](#internal_corner_radius), [face coverage](#coverage),
   [blank credit](#blank_credit) and [finish coverage](#finish_coverage).
-- For authored single-axis ball-end passes, exact swept tools and partial
-  source-face debt, see [bounded manual ball raster](#bounded-manual-ball-raster).
+- For authored single-axis passes, exact swept tools and partial
+  source-face debt, see [bounded manual raster](#bounded-manual-raster).
 - For holding and pictures, see [vise contact](#vise),
   [loaded wall thickness](#thin_wall_under_clamp),
   [fixture interference](#fixture_interference), [renders](#renders) and
@@ -172,13 +172,13 @@ bind the consumer's labelled exports
 (`HAF_<FEATURE>__P<nn>` labels; a periodic surface arrives as several
 `ADVANCED_FACE` patches under one feature label, each bound by its own
 entity/ordinal) with each feature's `faces` copied from that export. In the
-rocker export, `strap_faces` names only the −Z broad face. S1's upper strap operations
-explicitly claim the exported `strap_datum_b` face in the plan; they do not
-rewrite the manifest's face identity. The outline profile operations in S1, S2
-and S3 explicitly claim both exported tip lands (`tip_land_pos_x`,
-`tip_land_neg_x`) together with `profile_outer`, so the rocker reports no
-unclaimed faces. Unmeasured stock/fixture inputs remain named geometry debts, not
-finished-solid clearance passes.
+rocker export, `strap_faces` names only the −Z broad face; upper strap operations
+must claim the exported `strap_datum_b` face instead. Outline operations must
+explicitly claim the exported tip lands (`tip_land_pos_x`, `tip_land_neg_x`)
+where they form them, together with their actual `profile_outer` claims. The
+manifest's face identity is not rewritten to fit a manufacturing route.
+Unmeasured stock/fixture inputs remain named geometry debts, not finished-solid
+clearance passes; these identity examples do not assert a current coverage pass.
 
 An ordinary monolithic import still needs one valid finished solid. A
 multi-solid STEP is supported only with an explicit
@@ -702,6 +702,46 @@ unresolved unless the supported held-split or
 [named terminal part-off](#retained-part-off-outputs) proof accepts it.
 Separate supplies do not authorize an unconnected assembly.
 
+A non-facing single-point `rough_turn` or `finish_turn` with explicit `to_dia`
+uses that diameter as a finite cylindrical command, not the claimed final
+CAD meridian. Both `z_from` and `z_to` must be known and span a nonzero interval;
+the diameter must be positive. The same cylinder drives actual removal,
+profile samples, reach and both endpoint poses. For example, roughing to
+46 mm leaves radius-23 stock, not the claimed 41.91 mm final body. Removal
+intersects the actual incoming solid, including an eccentric rectangular blank;
+the blank is never replaced by a cylinder inferred from its swing envelope.
+Subsequent operations consume the resulting real stock.
+
+An explicit cylinder is refused if it intrudes into component-owned finished
+material beyond BRep coincidence precision; subtracting that material back out
+must not silently turn an undersize command into a different cut. This source
+protection is independent of the exact final-target tolerance check: a final
+`to_dia` outside its known drawing band is refused, while rough/intermediate
+commands retain their existing process-stage distinction. A tolerated target
+that cannot be represented without cutting the protected source is unresolved,
+not silently substituted. Unknown targets/windows, unsupported actions or a
+blade used for this cylindrical profile are refused rather than ignored.
+These accepted stock stages do not invent or prove intermediate roughing passes.
+
+When every exported feature owning a selected cylinder admits an explicit
+below-nominal target, but nominal-source turning geometry cannot represent it,
+the result is an explicit unsupported **unknown**. The cut remains refused:
+no stock, attainment or downstream-clearance credit is invented. An exact
+selected-face skin is used only to classify nominal-geometry collision
+observations as uncertain; it is never removed or propagated as stock.
+Protected core, other features, material outside the command window and
+fixtures remain independent collision evidence. An out-of-band target or a
+gouge outside that diagnostic skin remains an error.
+
+For explicit cylinders, native `turn_target` records the commanded diameter,
+sorted axial interval, stock acceptance and `attained_indices`. Only whole
+finished cylindrical faces on that actual radius, within the entire finite
+window and on accepted owned after-stock can earn final-face credit. A larger
+intermediate diameter or a partial axial interval earns no whole-face credit.
+Bounded CAD-profile cuts without `to_dia` similarly provide `turn_window`
+whole-face attainment. Both coverage checks consume this evidence; missing,
+unaccepted or mismatched evidence remains debt, never direction-only coverage.
+
 #### Turning scope and unresolved approaches
 
 The turning model is a deterministic radial sampled necessary-condition
@@ -730,97 +770,102 @@ this lathe op are not turning-model facts.`) and credit no coverage.
 ### Rotary milling
 
 A mill op with `approach = "rotary"` on a setup held in a `dividing_head`
-turns the work about the head axis under the vertical spindle. The axis is the
-placed chuck's pose z, pointing out of the jaws. The head axis must be
-perpendicular to setup Z (|z·Z| ≤ 1e-6); any other head pose, or a hold that is
-not a dividing head, is `unsupported` with the engine's reason. Claimed faces
-must be external surfaces of revolution about the head axis (coaxial
-cylinders, plus planar annuli normal to the axis); other faces are claim
-errors. The optional window is a partial-face claim window: `z_from`/`z_to`
-are positions along the head axis from the chuck pose origin (plan units) and
-`angle_window_deg = [from, to]` is the head rotation, right-handed about the
-head axis; a span of 360° or more is unbounded, and an op without a window
-claims whole faces. The op samples and removes only the intersection of each
-claimed face with its window; points outside the window are excluded, not
-claim errors. A window containing no positive-area portion of a claimed face
-makes that face a claim error, and invalid, away or unresolved geometry stays
-an error or debt, never a pass. A rotary op's `claimed_indices` therefore name
-faces it may cut only in part.
+provides diagnostic sampled target poses under the vertical spindle, not
+proof of an executed cut. The axis is the placed chuck's pose z, pointing out
+of the jaws. It must be perpendicular to setup Z (|z·Z| ≤ 1e-6); another head
+pose or a hold that is not a dividing head is `unsupported`. Supported claims
+are external coaxial cylinders and planar annuli normal to that axis; other
+faces are claim errors.
 
-#### Rotary window coverage
+The optional window bounds sample targets: `z_from`/`z_to` are positions
+along the head axis from the chuck pose origin (plan units), and
+`angle_window_deg = [from, to]` is right-handed head rotation. Source polar
+angles have the opposite sign; neither convention establishes actual dial
+readings. A span of 360° or more is unbounded; absent bounds select the whole
+face. Points outside are excluded, not claim errors, but a window containing
+no positive-area portion of a claimed face is a claim error. Invalid, away
+or unresolved geometry is never a pass.
 
-Coverage of a rotary-claimed face is decided by the job-level
-`rotary_coverage` facts, never by one op's claim. For each face with a valid
-rotary portion the kernel transforms every claiming op's window portion from
-its setup's head frame into model coordinates and subtracts the portions in
-turn from the original model-frame face: exact B-rep face subtraction up to
-the kernel's geometric tolerance, not a sample set or scalar min/max spans, so
-the actual face's holes and trims count and portions from different cutters,
-ops and setups add up. An op without a window contributes the whole face.
-`cut` unions all rotary cutting ops; `finish` unions only finishing ops. Each
-lists `complete_indices`; `gaps`, each with `index`, `ref`, the uncovered
-`area_mm2` and `spans` (per contributing setup, the remaining portion's
-`z_mm` bounds along that head axis, exact B-rep projection bounds, and its
-`angle_deg` bounds, which may be conservative enclosing bounds and never
-decide coverage); and `unknown` faces with their `reason`. See
+#### Rotary target and coverage evidence
+
+`to_dia` is a positive finite diameter in feature units (`to_dia_mm` in
+native facts). For `rough_*` actions, `rough_allowance_mm` is machine-mm radial
+leave added to the claimed source cylinder radius. If both controls are
+supplied, their target radii must agree. A legal intermediate diameter shifts
+the diagnostic samples radially relative to the source cylinder. Conflicting,
+undersize, negative or nonfinite controls, and controlled noncoaxial or
+noncylindrical sources, are refused: the source is preserved and no diagnostic
+poses are measured. On finishing actions, `rough_allowance_mm` is incoming
+leave to remove, not an offset from the finished target.
+
+Native `rotary_target` records `status: "unknown"`, commanded cylinder
+`faces` (`index`, `radius_mm`), `z_mm` and `angle_deg` bounds (or `null`),
+empty `attained_indices`, and a `reason`. Uncontrolled other surfaces may
+have no cylinder radius record. When poses are built, `sampled_tip_z_mm`
+records their actual minimum and maximum tip Z: diagnostic geometry, not
+motion proof or attainment.
+
+All native `rotary_coverage` categories withhold `complete_indices` and
+`gaps`. Valid nonempty rotary claims have an `unknown` reason: `cut` includes
+all cutting claims and `finish` only finishing claims. Empty/away claims add
+no unknown. Combining windows, cutters, operations or setups does not turn
+sampled target coverage into executed-cut evidence. See
 [`coverage`](#coverage) and [`finish_coverage`](#finish_coverage).
 
-#### Rotary poses and removal
+#### Rotary diagnostic poses and stock
 
-Each sample is turned about the head axis to top dead centre and receives the
-vertical-cutter pose there: the cutter end touches the presented sample
-(cylinder samples include their edge vertices). At any concave floor/wall
-edge, straight or curved (a round pad's or boss's perimeter included), a
-sample on that edge or within one cutter radius of it is shifted away from
-the wall along the wall's in-plane normal at the nearest edge point until the
-cutter is tangent to the wall. A continuous floor surface exported as several
-STEP faces shares one nearest concave-wall boundary across its patches: an
-export seam is not a physical wall or floor end, so a point on either side of
-it gets the same offset. True convex corners keep their existing convention.
-This is one deterministic pose per sample, not a height-aware tangency or pose
-search, and it is the rotary rule only: axial milling keeps the
-incident-wall floor-edge convention under [`accessibility`](#accessibility).
-Cutter and holder cylinders and the reach column are then turned back by the
-sample's angle. Cutter and holder obstacles exclude only the sampled face's
-thin inward shell. The flute meets the stock its setup's one op-order pass
-accepts after this op, like any milling flute (see
-[In-process stock](#in-process-stock)): a rotary removal that cannot be
-derived stops that pass. Its own flute meets its known before-op stock, but
-part observations inside its own candidate removal remain uncertain. Independent
-observations outside that volume and placed fixture hits retain a numeric certain
-minimum. Later flutes keep only finished-material obstacles, with tool certainty
-unknown.
-The holder obstacles retain
-setup-entry stock; reach, holder-wall and shank screens use the stock the op
-meets (see [`reach`](#reach)).
-Chuck jaws and body turn with the work; the head body, tailstock and clamps
-stay put and are checked at the presented pose.
+Each sample is turned about the head axis to top dead centre and receives a
+vertical-cutter pose there (cylinder samples include edge vertices). At a
+concave floor/wall edge, a sample on or within one cutter radius of the edge
+is shifted along the wall's in-plane normal until the cutter is tangent.
+Continuous floor patches share their nearest concave-wall boundary; an
+export seam is not a physical wall. True convex corners retain their existing
+convention. This deterministic pose is not a height-aware tangency or pose
+search; axial milling retains its own
+[`accessibility`](#accessibility) convention.
 
-Own-removal combines a radial sweep of each claimed coaxial cylinder out to
-the stock's outer radius (extended at the cylinder's radius to the axial
-window ends) with the actual vertical cutter columns at concave wall-offset
-poses on those cylinders. Each column starts at its presented cutter tip,
-extends to the stock's outer top and is rotated back into the work's frame.
-These wall-tangent columns account for material a vertical cutter clears that
-a radial sweep alone leaves beside a concave wall. Each volume is clipped to
-the op's axial/angular window, then cut against the finished solid; the
-volumes stay independent and are cut from the stock one by one in order, never
-fused. This is derivable own-removal, not merely counting intersections with
-finished faces: finished bosses and pads remain intact, stock outside the
-allowance stays an obstacle, and holder/fixture obstacles are not excused.
-Planar annuli sweep no removal of their own. Corners: a concave edge in a plane
-through the head axis is 0; other concave edges are unresolved.
+Cutter and holder cylinders and the reach column are turned back by the
+sample's angle. Window bounds clip sample targets only: cutter solids can
+extend beyond them and collide there. Protected finished geometry and stock
+remain obstacles; no radial fan or wall-column removal is credited. Native
+rotary removal is unknown with the reason
+`sampled rotary poses do not prove executed cuts`. Diagnostic checks retain
+known before-op stock; after-op stock is unknown, and later operations cannot
+infer proven residual leave from it. Holder obstacles retain setup-entry
+stock; reach, holder-wall and shank checks retain their
+[`reach`](#reach) stock/uncertainty rules. Chuck jaws and body turn with the
+work; head body, tailstock and clamps stay put and are checked at the
+presented pose.
 
-The rotary model is one static pose per sample. It does not prove a swept
-toolpath, helical or simultaneous rotary-plus-linear motion, rotation between
-samples, chip flow, the head's torque or locking, or interference while the
-head is turning. Setups that turn the head freely declare
-`hold.index = { fixture = "<head>", rotation = "continuous" }` (no `positions`
-or `angle_deg`); `indexing` then passes on a verified dividing head with no
-landings to check, errors on any other fixture kind or when positions/angles
-are also declared, and is `unknown` while the head is unverified.
+These samples establish no radial layers, axial stations, indexed or
+continuous motion, clearance between poses, helical or simultaneous
+rotary-plus-linear motion, chip flow, head torque or locking. The schema
+accepts `hold.index = { fixture = "<head>", rotation = "continuous" }`
+without `positions` or `angle_deg`: `indexing` passes for a verified dividing
+head with no landings to check, errors for other fixture kinds or accompanying
+positions/angles, and is `unknown` for an unverified head. This declaration
+is not physical authorization to rotate under cut or an instruction to
+hand-crank the head.
 
 ### Window ends
+
+`z_from`/`z_to` are leading-nose readings, not cylindrical-contact centre
+positions. With nose radius \(r_e\), each centre is displaced against the
+feed by \(r_e\). For example, feeding toward −Z with \(r_e=0.4\) mm and a
+leading stop at −8.5 mm puts the last centre and full-diameter contact at
+−8.1 mm. The terminal interval −8.5..−8.1 mm retains a real rounded nose
+blend, not a sharp full-diameter cylinder. Cylindrical and analytic spigot
+removal preserves that exact toroidal blend, and whole-face attainment excludes
+it. Profile poses outside the commanded centre travel are not extra tool stops.
+An unrepresented curved terminal envelope leaves stock and attainment unresolved.
+
+A retained spigot must therefore be turned past its later part-off plane by
+the nose radius plus the chosen process margin. A stop at −9.1 mm gives
+full-diameter contact through −8.7 mm: a part-off plane at −8.5 mm then has
+0.2 mm of full-diameter runout, with the blend wholly in waste. A part-off
+plane inside the blend would retain oversize material and cannot earn
+full-cylinder credit. Physical runout does not waive endpoint, chuck or holder
+clearance checks.
 
 A single-point turning op with numeric `z_from`/`z_to` is also posed where it
 starts and stops: the nose's leading extreme at that Z (the DRO reading after a
@@ -887,7 +932,15 @@ spindle on setup Z.
 
 #### Follow rest
 
-A follow rest's jaws ride the carriage. They are posed with the tool at every
+A known `engage_at_z_mm` is an activation threshold in the tool's leading-nose
+DRO coordinate. Before that threshold along the feed, the jaws remain parked:
+there is no work-diameter lookup, missing-diameter debt, active pose, rendered
+engagement or rest-specific collision/clash. Equality and travel beyond the
+threshold activate the existing checks. The threshold is compared with the
+actual leading nose, not its axially offset cylindrical-contact centre.
+Unresolved activation remains debt rather than fabricated active-rest evidence.
+
+A follow rest's jaws ride the carriage. They are posed with the tool at every active
 cutting sample of each served op (`ops`; omitted = every turning op), never as
 a static solid. Each jaw is a box `jaw_height` radially
 outward from the work diameter it rides, `jaw_width` tangentially and
@@ -1414,6 +1467,20 @@ branches:
 - A sharp corner is radius 0, so the band's lower end must be 0. A `[0.1, 0.2]`
   band refuses it.
 
+A narrow representation boundary applies to a toroidal root with a sharp socket:
+completed preparation may prove an actual spigot cylinder different from its
+adjacent nominal STEP cylinder. The exported neighbour's own diameter bands must
+admit both its STEP diameter and the entire declared preparation band. The
+accepted actual diameter must lie in that preparation band, on the same axis and
+over the root's finite span. If the lost corner still contacts both branches and
+every boundary mismatch is explained solely by that actual cylinder, root
+formation is **unknown / unsupported**, not a physical wrong-root refusal. The
+reason names the preparation and the actual and nominal diameters; no replacement
+root shape is constructed and no stock output is credited. Missing preparation,
+non-admitting bands, nominal-neighbour failures, absent branch contact, grooves,
+loss beyond the radius MAX and a nonzero lower radius remain refusals. Other
+formed features and unrelated missing material retain their independent errors.
+
 Each of these failures refuses the join with its message. An unknown band, units
 or mouth break makes a formed feature debt. So does a known feature whose lost
 material is shared with an undecided one, transitively and whatever the order of
@@ -1670,12 +1737,13 @@ setup checks the derived material. Preparation tool/fixture debt stays visible,
 and the fixture policy explicitly requires the target, not fabricated roughing
 clearance.
 
-The current [rocker plan](../examples/rocker-arm/plan.toml) starts with an
-authored 345 × 76.2 × 19.05 mm supply. P1 through P5 prepare the declared
-340 × 65 × 16 mm blank, and S1 consumes P5's output. S1 and S2 declare bounded
-face and profile removals that retain rails, end ears and a 0.42 mm web.
-S2 consumes S1, and S3 consumes S2. These are authored example inputs, not
-physical measurements or fresh acceptance evidence. In any plan, a known
+An earlier one-piece rocker example started with an authored
+345 × 76.2 × 19.05 mm supply. Its P1 through P5 prepared a declared
+340 × 65 × 16 mm blank; S1 through S3 then used bounded removals retaining
+rails, end ears and a 0.42 mm web. Those dimensions and setup IDs describe the
+historical route, not the current built-up [rocker plan](../examples/rocker-arm/plan.toml)
+or fresh acceptance evidence. Evaluate the current plan from its component
+supply declarations and ordered stock lineage. In any plan, a known
 current setup remains checkable and drawable even when its output stock is
 unresolved for a later setup.
 
@@ -2377,35 +2445,79 @@ same solid count. It is conservative and leaves extra material at convex
 corners, never less than the leave, and there is never a fallback to the
 nominal finished solid or a zero leave.
 
-#### Bounded manual ball raster
+#### Bounded manual raster
 
-`contour.method = "manual_ball_raster"` is a bounded verification method, not
-CAM. The [authored trajectory](plan.md#authored-manual-ball-end-raster) states
+`contour.method = "manual_raster"` is a bounded verification method, not
+CAM. The [authored trajectory](plan.md#authored-manual-raster) states
 every tool-tip endpoint, cutting row, vertical entry/retract and lifted index
 in setup-frame millimetres. Native proof consumes those same normalized values
 that the operation table and diagram print. One horizontal cutting axis moves
 at a time; the checker neither generates rows from CAD nor invents connecting
 motions.
 
-The cutting shape is the measured ball-end hemisphere plus cylindrical flute.
-The noncutting shank starts at the measured flute end, and the holder starts at
-the measured projection. No flat-tool substitute, inferred reduced neck, or
-missing dimension can establish clearance. Each straight segment has an exact
-occupied sweep. The proof checks finished-part preservation, noncutting body
+Tool shape comes from qualified geometry, never a fallback. A `ball_endmill`
+uses its hemisphere plus cylindrical flute, with nose radius equal to cutter
+radius R. An `endmill` uses a rounded-flat tip with known corner radius c,
+0 < c < R: its bottom flat has radius R-c, quarter-circle corners meet the
+cylindrical flute at height c. The horizontal occupied sweep is constructed
+from endpoint poses and the extrusion of the exact central profile; each
+horizontal cross-section is the exact swept disk. Vertical motion extends
+the cylinder above the lowest rounded tip. These are analytic sweeps, not
+sampled tool poses or a ball substituted for a flat tool.
+
+Missing, contradictory or unverified tip geometry remains debt. An idealized
+zero-radius edge is not a realistic measured corner and cannot silently earn
+physical completion or permission for a sharp source corner.
+The noncutting shank envelope starts at the measured flute end, and the holder
+starts at the measured projection. The adapter labels its body envelope
+`shank_geometry = "enclosing_cylinder"`. A separate qualified inventory fact,
+`body_envelope_dia_mm`, supplies the maximum enclosing diameter over all
+noncutting body, neck and transitions from flute end to tool back; its native
+radius is `shank_envelope_radius_mm`. That bound must accommodate both cutter
+and shank diameter transitions. It is not inferred from their local values.
+Missing, unverified or undersized bounds remain unknown even if a guessed
+cylinder would be clear. Unmeasured relief is not exactly modeled.
+A clear qualified enclosing sweep proves clearance, but its overlap
+alone is uncertainty, not a certain physical shank hit. Independent cutter
+and holder collisions still remain errors. No flat-tool substitute, inferred
+reduced neck, or missing dimension establishes clearance. Each declared shape
+has an exact occupied sweep. The proof checks finished-part preservation, noncutting body
 and holder collisions, and independent placed fixtures. Clear motions include
 vertical entry and must not remove arriving stock. Motion order matters:
 an earlier entry or holder cannot borrow clearance from a later cutting pass.
 Actual removal updates the arriving stock only in the authored order.
+An authored rough leave uses exact claimed-face normal offset skins and
+applicable convex-edge guards; a failed offset leaves proof unknown rather
+than replacing the allowance with zero or imposing leave on unrelated faces.
+Declared DOC/WOC and a collision-free trajectory alone do not prove cutting
+load. Without actual per-move stock-engagement evidence, engagement remains
+unresolved for both cutter profiles; no flat-end cylindrical force calculation
+substitutes for actual engagement. The route must provide realistic stock preparation and layers.
+
+A validated existing transient end-face operation may use the same literal
+raster path for bulk preparation, without finished-face claims. It must have
+zero transient-only rough allowance; that plane supplies no finished-surface
+normal leave. Actual sweeps alone remove stock while the target part remains
+protected. Transient preparation contributes no source-face cut or finish
+coverage, even when its whole motion is proven clear.
 
 Coverage uses the exact source-face ownership carried through process
 placement. Covered regions are mapped back to that source and subtracted from
 its original face geometry; selecting a face does not credit its entirety.
 The `manual_raster_coverage` result keeps independent `cut` and `finish`
-unions, complete indices, remaining areas, and unresolved geometry.
+unions, complete indices, remaining `uncovered_area_mm2`, and unresolved geometry.
+Host findings retain `manual_raster_gaps` and `manual_raster_unresolved`; absent
+or malformed entries cannot establish completion. Raster and rotary partial
+regions are not added arithmetically to invent a joint coverage proof.
 Overlapping rows do not add their areas twice. Partial or uncertain proof
 remains coverage debt, including scallops, uncut root corners and gaps between
 passes. A complete union of independently proven regions does not establish
 an unmodelled finish, dimensional tolerance or inspection result.
+Coverage is the actual source-face intersection with the cutting sweep, not
+its projected footprint or a tolerance-inflated shell. A tangent ball row on
+an analytic plane or cone may touch only a curve, with no covered face area;
+that remains area debt even when the bounded removal and collision checks
+succeed. Row spacing alone supplies no surface-profile acceptance band.
 
 Unknown or unregistered contour methods refuse proof before generic axial
 fallback. Invalid paths and missing measurements confer neither material
@@ -3118,21 +3230,19 @@ references take precedence. Unresolved claims or as-stock references, followed
 by unresolved rotary unions, produce `unknown` ahead of `unsupported` and
 missing-coverage errors.
 
-### Rotary union evidence
+### Rotary coverage evidence
 
-A rotary op's direction-valid `claimed_indices` name faces its window only
-intersects, so they never credit a face by themselves. For each face that
-rotary ops claim and no whole-face claim covers, the rule consumes the
-kernel's `rotary_coverage.cut` union (see [Approach models](#approach-models)):
-a face in `complete_indices` is credited; a face in `gaps` is an error naming
-its uncovered area and, per contributing setup, its axial span and enclosing
-angular span. An `unknown` union, or a rotary-claimed face the kernel reports
-nothing for, stays `unknown` with the face and reason; it never earns whole-face
-credit. A whole-face non-rotary claim or an `as_is_faces` declaration of the
-same face supersedes its rotary gap or unknown. A gap face is not an
-unclaimed face: `unclaimed_faces` keeps only faces with no claim at all, and
-`rotary_gaps` (`index`, `ref`, `area_mm2`, `spans`) / `rotary_unresolved`
-(`index`, `ref`, `reason`) list the rest.
+A rotary op's direction-valid `claimed_indices` name diagnostic sample
+targets, not executed cuts, and never credit a face by themselves. For a
+rotary-claimed face without independent whole-face coverage, the rule consumes
+`rotary_coverage.cut`. Native sampled-pose facts supply no `complete_indices`
+or `gaps`; valid nonempty claims remain `unknown` with their reason. Missing
+evidence likewise stays unknown, never whole-face credit. A whole-face
+non-rotary claim or an `as_is_faces` declaration can independently settle the
+face. `unclaimed_faces` keeps faces with no claim at all;
+`rotary_unresolved` (`index`, `ref`, `reason`) identifies unproved rotary
+claims. The host can consume `rotary_gaps` (`index`, `ref`, `area_mm2`,
+`spans`) from other evidence, but native sampling supplies no such gap proof.
 
 In a mixed error, `unclaimed_faces` and `rotary_gaps` name only faces with
 genuinely missing claims or known gaps, while `unsupported_faces` /
@@ -3282,12 +3392,12 @@ face set) remains a global `unknown`.
 
 ### Rotary finishing and as-is faces
 
-Rotary finishing claims credit a face only through
-`rotary_coverage.finish`, the union of the finishing rotary ops' window
-portions; a rough rotary op contributes to `coverage` only. A whole-face
-non-rotary finishing claim supersedes a finishing gap or unknown on that
-face. `as_is_faces` never finishes a face, so an as-stock declaration that
-settles `coverage` leaves a finishing gap an error.
+Rotary finishing claims require `rotary_coverage.finish` evidence; native
+diagnostic samples leave valid nonempty finishing claims unknown, not
+finished. Rough rotary claims enter `coverage` unknowns only. A whole-face
+non-rotary finishing claim can independently settle the face. `as_is_faces`
+never finishes a face: settling `coverage` as stock does not resolve rotary
+finishing uncertainty or supply a missing finishing cut.
 
 In a mixed error, `uncovered_faces` names only genuinely missing finishing
 claims (a rotary gap face is listed under `rotary_gaps`, not there) and
