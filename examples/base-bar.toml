@@ -39,16 +39,19 @@ id = "counterbore"
 description = "5/16 in centre-cutting 2-flute end mill"
 [[tools]]
 id = "measure"
-description = "Collets, drill chuck; calipers, 0–1 in micrometer, rule, indicator/base, marker, dead-blow"
+description = "Collets, drill chuck; 0–1 in micrometer, rule, indicator/base, marker, dead-blow"
 [[tools]]
 id = "deburr"
 description = "Deburrer; HGR15 rail, eight #8-32 × 3/4 screws, one × 5/8; 1/2-13 stud; Ra comparator/instrument"
+[[tools]]
+id = "rail-gauge"
+description = "Calipers"
 
 [[setups]]
-title = "Saw / rail check"
+title = "Saw blanks"
 machine = "Saw / bench"
 holding = "Two blanks, 17 7/16 in."
-datum = "Rail end flush with ZERO END: holes 15/75/135/195/255/315/375/435 mm, ±.08 mm. Stop on mismatch."
+datum = "Blank length from sawn end."
 
 [[setups.operations]]
 tool = "saw"
@@ -103,6 +106,10 @@ tool = "em-half"
 instruction = "Jack under right end. Measure cutter D; bottom .04 below bar. Cut +Y, .010 passes; final X = 17.3200 + D/2."
 rpm = 1250
 feed = "6 in/min"
+
+[[setups.operations]]
+tool = "rail-gauge"
+instruction = "Rail inspection — before drilling the bar: choose the rail end that will align with the bar's ZERO END. From that rail end, measure to each hole centre: 15, 75, 135, 195, 255, 315, 375, 435 mm (each ±0.08 mm). Stop if the pattern differs."
 
 [[setups.operations]]
 tool = "spot"
