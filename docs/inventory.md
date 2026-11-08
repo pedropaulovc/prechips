@@ -1205,8 +1205,10 @@ printed settings may still use it.
 `prechips tools --measure [--plan PLAN ...]` evaluates applicable findings and
 lists their unresolved `numbers.measurements`, including host-only facts
 refused by the kernel job. It defaults to the four pilot plans for shaft,
-rocker, bracket and the sole built-up cone. It may need native in-process
-stock facts. See the [CLI catalog](reference/cli.md) for invocation and output
+rocker, bracket and the integral cone (`examples/cone-pivot-post/integral.toml`).
+The cone's finish remains unresolved; listing measurements does not resolve
+that requirement. The command may need native in-process stock facts.
+See the [CLI catalog](reference/cli.md) for invocation and output
 options.
 
 Entries sort and deduplicate by scoped report id, including set-member and

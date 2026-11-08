@@ -155,6 +155,27 @@ Tolerance-band midpoints never define nominal geometry: explicit `*_nominal`
 values take precedence; otherwise only scalar dimensions are usable as nominal
 geometry.
 
+#### Shared boss/bore manufacturing axes
+
+A plan [`axis_placements`](plan.md#shared-manufacturing-axis-placements)
+entry supplies one resolved process target for the named boss, through bore
+and annular caps. Its reference axis comes from the bore's `height_from`
+feature; it does not replace source geometry with a tolerance-band midpoint.
+The authored target must be inside the printed separation band. In the cone
+route, 43.2735 mm is the printed-band midpoint and moves the shared axis
++0.177856497104 mm in model Y.
+
+The placement is bounded to one concentric cylindrical boss/through-bore
+assembly with planar annular caps on an analytic cylindrical support.
+Ambiguous references, unrelated intersecting geometry, unknown source
+locations and conflicting aims cannot use this placement. Missing or refused
+placed native geometry is unresolved evidence, never permission to issue the
+nominal boss/bore coordinates as a substitute. A process target and a numeric
+coordinate are not proof of collision clearance, face coverage or physical
+measurement. STEP bytes, manifest geometry and source identity remain
+unchanged; native manufacturing geometry and coordinate consumers share the
+same resolved placement rather than independently deriving different axes.
+
 Worked holes (including threaded holes and counterbores), bosses, and features
 used by point/hole operations are located by a numeric three-component `at`
 reference point, found in this order (one shared locator,

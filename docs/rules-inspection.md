@@ -222,21 +222,26 @@ roughness kind (e.g. `roughness_comparator`) declares it with the inventory fiel
 `ra_range` (or with an unverified item) finish_ra stays unknown. Scalar dimensions
 without an implemented capability branch stay unknown.
 
-### Exported nominal targets
+### Exported nominal geometry
 
-A numeric requirement band must contain any explicitly exported numeric
-`<requirement>_nominal` or `nominal_<requirement>`, inclusively. A contradiction is
-an exporter-fact error regardless of gauge verification or unknown inspection
-applicability. The error records the exact nominal field/value and exported
-limits; no absolute-value/sign correction or nominal/reference inference is made.
-An in-band, unknown or absent nominal leaves normal inspection evidence unchanged.
-This contract assumes those nominal fields are acceptance-band targets,
-not a fit system's reference basic size. A g6/p6-type fit band can legitimately
-exclude its basic size; the checker does not interpret fit-class offsets and
-such a basic size must not be exported as an in-band target under these names.
-Reference geometry is not acceptance evidence. Supporting displaced fit-class
-basic sizes needs separately identified semantics, not a sign change or a
-nominal-band exception guessed from the numbers.
+An exported `<requirement>_nominal` or `nominal_<requirement>` describes model
+geometry or the drawing dimension's baseline, not an acceptance target.
+Wholly positive or wholly negative deviations can legitimately exclude that
+baseline from the finished-size band. Inspection therefore judges the explicit
+requirement limits and the declared inspection capability, not membership of
+the model nominal in those limits.
+
+The cone journal provides a source-backed example: harmonic-analyzer's
+`dt_cone_pivot_post_spec.py` declares `.483 +.0010/+.0005 in`, and
+`draw_dt_cone_pivot_post.py` exports its 12.2682 mm model nominal separately
+from `[12.2809, 12.2936]` mm limits. This is a dimension baseline, not a boxed
+BASIC dimension or permission to accept the nominal as a finished reading.
+
+No sign correction, band midpoint or fit-class interpretation is inferred.
+Gauge range/resolution, GO / NO-GO acceptance, process-hold containment and
+inspection coverage remain independent requirements. Unknown applicability or
+capability remains unknown. Contradictory geometry needs independent geometry
+evidence; a nominal outside a band alone cannot establish that contradiction.
 
 ### Finding messages and evidence
 
@@ -278,7 +283,6 @@ The placeholders below identify the current subject and values.
   - `inspection capability for requirement unresolved`
   - `named gauge capability needs verification`
   - `unverified gauge dimensions cannot establish capability`
-  - `exported nominal is outside the requirement band`
   - `a GO / NO-GO pair is read only for a diameter`
   - `GO / NO-GO direction is unresolved for a {kind} feature`
   - `named gauge cannot make a GO / NO-GO check of this feature`

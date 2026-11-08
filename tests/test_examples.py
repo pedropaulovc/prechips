@@ -13,7 +13,7 @@ PILOT_CASES = (
     ("pivot-shaft", "plan.toml", "expected", 0),
     ("rocker-arm", "plan.toml", "expected", 0),
     ("pivot-bracket", "plan.toml", "expected", 0),
-    ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
+    ("cone-pivot-post", "integral.toml", "expected/integral", 4),
 )
 PEDANTIC_GOLDEN_FILENAME = "traveler-pedantic.html"
 PEDANTIC_GOLDEN_CASES = (

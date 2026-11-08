@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_batch_material_routes import batch
 from test_bench_hold_fields import handling_bundle
 from test_geometry_rules import rules_bundle
@@ -1292,10 +1293,10 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
 @pytest.mark.parametrize(
-    ("part", "expected"),
+    ("plan", "expected"),
     [
         (
-            "pivot-bracket",
+            Path(__file__).resolve().parents[1] / "examples/pivot-bracket/plan.toml",
             (
                 ("S1", "30", "foot_profile", "width", "foot profile width"),
                 ("S1", "30", "foot_profile", "length", "foot profile length"),
@@ -1308,7 +1309,7 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
             ),
         ),
         (
-            "pivot-shaft",
+            HISTORICAL_EXAMPLES / "pivot-shaft/plan.toml",
             (
                 ("S1", "30", "pivot_bearing", "dia", "pivot bearing Ø"),
                 ("S1", "30", "pivot_bearing", "finish_ra", "pivot bearing Ra"),
@@ -1323,9 +1324,12 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
     ],
 )
 def test_public_checkpoint_results_distinguish_criteria_without_internal_ids(
-    detail, part, expected
+    detail, plan, expected
 ):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples" / part / "plan.toml")
+    # Historical shaft source: d942578676695ebad530856b16e84e734a397d67.
+    # Multiple criteria on one checkpoint exercise label disambiguation; the
+    # reliefs are not current CAD features. The bracket uses current examples.
+    data = load_bundle(plan)
     markup = Markup(rendered(data, detail=detail))
     records = markup.find("checkpoint-result")
     labels = []

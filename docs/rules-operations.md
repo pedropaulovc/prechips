@@ -145,7 +145,7 @@ are:
 | Drill and spot | A drill must not precede its only spot. An earlier spot already satisfies this relationship even if another spot follows. |
 | Spot and facing | A spot follows facing when its setup contains `face` or `finish_face`. |
 | Rough and finish | A `rough_*` operation must not follow the matching `finish_*` for that feature in the same setup. |
-| Release or part-off | Follow all remaining cutting in the same setup, including `die_thread` and `hand_tap`. A later setup may cut the released part; other allowed later manual work in this setup does not violate the relationship. |
+| Release or part-off | Follow all remaining cutting in the same setup, including `die_thread` and `hand_tap`, except for the proved waste-only part-off below. A later setup may cut the released part; other allowed later manual work in this setup does not violate the relationship. |
 
 A finishing hole operation (`ream`, `tap`, `hand_tap` or `counterbore`) in another setup
 must receive stock from the earlier drilled setup through its `stock_in`
@@ -167,10 +167,19 @@ For a named terminal split, schema validation permits only `inspect`, `deburr`,
 are bad input, not merely an `order` finding. Allowed handling does not remodel
 the outputs, certify measurements, create another source or authorize reuse
 of the unsplit ancestor. See [retained outputs](plan.md#retained-part-off-outputs).
+An earlier waste-only `part_off` may precede further cutting only with an
+explicit known `keep`, no named `outputs`, successful native proof of a unique
+feature-carrying kept solid with no discarded finished material, and positive
+`retained_chuck_grip` proof. The grip proof requires that one kept solid
+contains all positive-volume setup-entry material under the placed chuck jaws,
+unchanged. An unplaced or debted chuck, or bounded thread stock, cannot certify
+that proof. Unknown or unsupported proof remains an order error, not a pass.
+
 
 For this release-order check, `die_thread` and `hand_tap` count as cutting
-even though the spindle is stopped. They must precede `release` or `part_off`;
-neither gains the later-manual-work exemption.
+even though the spindle is stopped. They must precede `release` or `part_off`
+unless the latter meets the proved waste-only exception above; neither gains
+the later-manual-work exemption.
 
 An unknown action in the current setup makes its order unknown. Otherwise
 any violation is an error and a route with none passes. Correct the array

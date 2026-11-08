@@ -4,6 +4,7 @@ import re
 from copy import deepcopy
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from pydantic import ValidationError
 from test_bench_saw import NATIVE, PLANE, saw, saw_bundle, scribed
 
@@ -123,7 +124,8 @@ def test_the_vertical_bandsaw_card_names_the_line_and_the_stock_to_leave():
 
 @pytest.fixture(scope="module")
 def rocker():
-    return load_bundle("examples/rocker-arm/plan.toml")
+    """Pinned d9425786 concentric arcs retain saw-clipping/frame-debt regressions."""
+    return load_bundle(HISTORICAL_EXAMPLES / "rocker-arm/plan.toml")
 
 
 def _follow(bundle, scribe, sid="S4"):

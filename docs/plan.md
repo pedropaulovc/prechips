@@ -83,6 +83,7 @@ plans. They require the surrounding root fields, setups, features and inventory.
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
 | `workpieces` | `dict[str, WorkpieceInstance] \| Unknown` | Optional; explicit registered copies of the canonical target |
 | `aims` | `dict[str, Aim]` | Optional |
+| `axis_placements` | `dict[str, AxisPlacement]` | Optional; bounded shared boss/bore manufacturing-axis placement |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
 | `process_features` | `dict[str, ProcessFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
@@ -160,6 +161,43 @@ several members arrive together. An unqualified claim selects a registered
 member only when exactly one member is carried. Explicit unknown registration
 is debt, never an inferred empty batch.
 
+
+## Shared manufacturing-axis placements
+
+`[axis_placements.<name>]` declares one shared process placement for a
+concentric cylindrical boss and its through bore. It is not an edit to the
+source model and is not a measurement of a finished part.
+
+```toml
+[axis_placements.crank]
+boss = "crank_boss"
+bore = "crank_bore"
+caps = "crank_caps"
+support = "post"
+separation_mm = 43.2735
+```
+
+`boss`, `bore`, `caps` and `support` are feature-name strings, not face lists
+or inline geometry. `separation_mm` must be finite and positive. The target
+must lie within the bore's printed separation band; a band midpoint is a
+permitted authored process target, never inferred source nominal geometry.
+For the cone route, 43.2735 mm is that printed-band midpoint; its shared
+model-Y displacement is +0.177856497104 mm.
+
+The supported domain is a single concentric cylindrical boss with a through
+bore and planar annular end caps on an analytic cylindrical support. The
+source facts must unambiguously identify those features and their reference
+axis; unrelated intersecting or ambiguous geometry is not supported.
+Unknown, missing, conflicting or unsupported references refuse placement:
+there is no fallback to the nominal boss or bore. Faced aims, registered
+workpieces and multi-solid interactions are outside this bounded contract.
+
+The plan target is resolved once for coordinate and native manufacturing
+geometry consumers. The source STEP bytes, manifest geometry, face identities
+and their hashes remain unchanged. Native geometry evidence must bind the
+resolved placement before it can establish placed geometry; a declared target
+alone proves neither collision clearance nor coverage. Existing inspection,
+physical pickup, workholding and approval requirements remain in force.
 
 ## Aims
 
@@ -2302,6 +2340,13 @@ as do later ops' flutes in the same setup; their holders still see the
 setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
 The op's traveler row tells the operator which piece to keep and to discard the
 rest. Without `keep`, a held split retains every piece.
+
+A waste-only `part_off` with explicit known `keep` and no `outputs` may be
+followed by cutting in the same setup only when native proof identifies a unique
+kept feature carrier without discarding finished material and proves the
+original chuck grip retained. Missing or unsupported proof does not authorize
+continued cutting. See [`order`](rules-operations.md#order) for the grip proof
+and its limits.
 
 ### Retained part-off outputs
 

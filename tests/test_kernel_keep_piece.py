@@ -13,8 +13,10 @@ import json
 import os
 import re
 import subprocess
+from copy import deepcopy
 from html import unescape
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import ENGINE, Engine, _setup, _vise
@@ -25,7 +27,7 @@ from prechips.findings import is_required
 from prechips.inputs import Bundle
 from prechips.kernel import _cache_recipe, _keeps, engine_job
 from prechips.report import build_report
-from prechips.rules import consistency, keep_piece
+from prechips.rules import consistency, keep_piece, op_order
 from prechips.sheet import render_traveler
 
 UP = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
@@ -263,6 +265,43 @@ for stock_name, stock in {
 }.items():
     kept, record = built._kept("west_top", stock, "S1:10")
     out["built:" + stock_name] = {"shape": None if kept is None else 1, **record}
+# A free-side waste cut leaves the original jaw material on the finished carrier.
+# Prove the native keep path, then feed these actual facts to the host order rule.
+entry = Part.makeCylinder(5, 50, V(0, 0, -30))
+shaft = Part.makeCylinder(5, 31, V(0, 0, -30))
+released = Part.makeCylinder(5, 10, V(0, 0, 10))
+gripped = engine._Setup(
+    SimpleNamespace(
+        multisolid=False, features={"bearing": [0]}, _declared=lambda: {"bearing": {}},
+    ),
+    {
+        "id": "S1",
+        "ops": [{"op": 5, "subject": "S1:5", "do": "part_off"}],
+        "keep": [{"subject": "S1:5", "feature": "bearing", "after": "S1:5"}],
+    },
+)
+gripped.part = entry
+gripped.chuck = {"matrix": FreeCAD.Matrix(), "grip": 10.0}
+gripped.fixture_ready = True
+for name, material in {"waste": shaft, "released": released}.items():
+    gripped.faces = [material.Faces[0]]
+    _, stopped = gripped._keep_after("S1:5", material, "test")
+    assert stopped is None, stopped
+    out["chuck:" + name] = gripped.keeps["S1:5"]
+out["chuck:nicked"] = gripped._retained_chuck_grip(
+    shaft.cut(Part.makeBox(5, 10, 1, V(0, -5, -5)))
+)
+gripped.fixture_ready = False
+out["chuck:unplaced"] = gripped._retained_chuck_grip(shaft)
+gripped.fixture_ready = True
+gripped.fixture_debts = ["jaw position unresolved"]
+out["chuck:debt"] = gripped._retained_chuck_grip(shaft)
+gripped.fixture_debts = []
+gripped.thread_regions = ["bounded stock"]
+out["chuck:bounded"] = gripped._retained_chuck_grip(shaft)
+gripped.thread_regions = []
+gripped.chuck["matrix"].move(V(0, 0, -20))
+out["chuck:translated"] = gripped._retained_chuck_grip(shaft)
 with open(target, "w", encoding="utf-8") as stream:
     json.dump(out, stream)
 """
@@ -303,6 +342,14 @@ def test_the_kept_piece_is_the_one_that_carries_the_whole_feature(tmp_path, free
     scrap = out["built:scrap"]
     assert scrap["shape"] == 1 and "error" not in scrap
     assert [row["piece"] for row in scrap["discarded"]] == [2]
+    assert out["chuck:waste"]["retained_chuck_grip"] is True
+    assert out["chuck:released"]["retained_chuck_grip"] is False
+    assert out["chuck:translated"] is True
+    for name in ("nicked", "unplaced", "debt", "bounded"):
+        assert out["chuck:" + name] is False
+    for later in ("face", "form"):
+        assert _parting_order(out["chuck:waste"], later=later).status == "pass"
+        assert _parting_order(out["chuck:released"], later=later).status == "error"
 
 
 # --------------------------------------------------------------------------- host side
@@ -432,3 +479,80 @@ def test_a_keep_that_would_scrap_finished_material_is_an_error():
     kernel = {"status": "ok", "setups": {"S5": {"keeps": {"S5:70": record}}}}
     [found] = keep_piece.evaluate(_rule_bundle({"keep": "south"}, kernel))
     assert (found.status, found.sentence) == ("error", f"S5:70: {lost}.")
+
+
+def _parting_order(detail, *, later="face", kernel_status="ok", **fields):
+    op = {"op": 5, "do": "part_off", "keep": "bearing", **fields}
+    bundle = SimpleNamespace(
+        plan={
+            "setups": [
+                {
+                    "id": "S1",
+                    "ops": [op, {"op": 10, "do": later, "feature": "dome"}],
+                }
+            ]
+        },
+        feature_definitions={"bearing": {}, "dome": {}},
+        kernel={"status": kernel_status, "setups": {"S1": {"keeps": {"S1:5": detail}}}},
+    )
+    [row] = op_order.evaluate(bundle)
+    return row
+
+
+def _retained_keep():
+    return {
+        "feature": "bearing",
+        "after": "S1:5",
+        "kept": {"piece": 1},
+        "discarded": [],
+        "retained_chuck_grip": True,
+    }
+
+
+@pytest.mark.parametrize("later", ["face", "form"])
+def test_waste_parting_may_face_or_form_the_still_chucked_carrier(later):
+    assert _parting_order(_retained_keep(), later=later).status == "pass"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"retained_chuck_grip": False},
+        {"retained_chuck_grip": "unknown"},
+        {"retained_chuck_grip": 1},
+        {"after": "S1:4"},
+        {"feature": "dome"},
+        {"reason": "carrier unresolved"},
+        {"error": "discarding finished material"},
+    ],
+)
+def test_unsupported_or_unknown_retention_does_not_allow_later_cutting(mutation):
+    detail = {**_retained_keep(), **mutation}
+    assert _parting_order(detail).status == "error"
+
+
+@pytest.mark.parametrize("missing", ["retained_chuck_grip", "kept"])
+def test_keep_without_positive_native_retention_does_not_allow_cutting(missing):
+    detail = deepcopy(_retained_keep())
+    detail.pop(missing)
+    assert _parting_order(detail).status == "error"
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"do": "release"},
+        {"outputs": {"left": {}, "right": {}}},
+        {"keep": "unknown"},
+        {"keep": "missing"},
+        {"keep": None},
+    ],
+)
+def test_actual_release_or_two_output_split_still_ends_the_holding(fields):
+    row = _parting_order(_retained_keep(), **fields)
+    assert row.status == "error"
+    assert row.numbers["violations"] == ["op 5 releases before the final cutting operation"]
+
+
+def test_unavailable_kernel_cannot_certify_retained_parting():
+    assert _parting_order(_retained_keep(), kernel_status="unknown").status == "error"

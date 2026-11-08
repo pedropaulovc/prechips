@@ -1,4 +1,9 @@
-"""Host-only traveler precision and visible machine instructions with synthetic kernel facts."""
+"""Host-only traveler precision and visible instructions with synthetic kernel facts.
+
+Historical cases pin d942578676695ebad530856b16e84e734a397d67 for precision,
+datum, contour and holding regressions whose authored recipes were retired.
+Unchanged bracket cases continue to consume current examples.
+"""
 
 import json
 import re
@@ -6,7 +11,8 @@ import tomllib
 from html.parser import HTMLParser
 
 import pytest
-from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
+from historical_examples import HISTORICAL_EXAMPLES, copy_historical_examples
+from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
 from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 
@@ -151,7 +157,7 @@ def bracket(tmp_path_factory):
 
 
 def test_omitted_lathe_radius_mode_leaves_x_checks_unknown(tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
     plan.write_text(re.sub(r"(?m)^radius_mode = .*\n", "", authored, count=1), encoding="utf-8")
     _, report, _ = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
@@ -166,7 +172,7 @@ def test_omitted_lathe_radius_mode_leaves_x_checks_unknown(tmp_path):
 
 
 def test_unknown_inventory_category_still_renders_its_references(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     stripped = re.sub(
         r"(?ms)^\[gauges(?:\.[^\n]*)?\]\n.*?(?=^\[(?!gauges[.\]])|\Z)",
@@ -288,8 +294,8 @@ cli.load_bundle = _precision_bundle
     assert checked, "Expected known blind-depth endpoints"
 
 
-# S3 op 10 parts the waste off on the +Z side of its cut: the synthetic kernel says so,
-# as the real one does, so the blade's chuck-side corner forms the kept face.
+# The historical S3 op 10 parts waste off on the +Z side of its cut. Synthetic
+# kernel evidence makes the blade's chuck-side corner form the kept face.
 _PARTED_TOWARD_FREE_END = (
     SYNTHETIC_KERNEL
     + """
@@ -318,7 +324,7 @@ cli.load_bundle = _faced_bundle
 
 def test_operative_z_keeps_its_own_digits_over_drawing_precision(tmp_path):
     _, report, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml",
         tmp_path / "out",
         setup=_PARTED_TOWARD_FREE_END,
     )
@@ -380,7 +386,7 @@ length = "Measure 1.75 past the actual scribe to the cut face with calipers."
 
 def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path):
     # Appended after S3's last op (40, oiling) with the next free number.
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + MISSING_LENGTH_OP, encoding="utf-8")
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     markup = Markup(html)
@@ -402,7 +408,7 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
 
 
 def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
-    plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    plan = HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml"
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     feeds = {}
     for finding in findings(report, "speeds_feeds"):
@@ -438,7 +444,7 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
     # The job page must name all stopped setups. Unselect the blade for S1-S3 and
     # S0's centre drill, so every stop is owned by this test, not example provenance.
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
     blade_consumers = {
         setup["id"]
@@ -473,7 +479,7 @@ def test_contour_paths_remain_at_their_own_setup_operation(tmp_path):
     # A contour no longer needs a sheet-number pointer: the path belongs directly to
     # the same physical setup/op as its instruction, including both turning setups.
     _, report, html = traveler(
-        ROOT / "examples" / "pivot-shaft" / "plan.toml",
+        HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml",
         tmp_path / "out",
         setup=SYNTHETIC_KERNEL,
     )
@@ -497,11 +503,11 @@ def test_contour_paths_remain_at_their_own_setup_operation(tmp_path):
 def test_bench_and_saw_setups_print_no_machine_zero_or_clearance(tmp_path):
     # Bench and dedicated saw setups have no spindle zero or machine-clearance
     # instruction. Mill setups retain those facts or their explicit unresolved stop.
-    plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    plan = HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml"
     _, report, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     authored = tomllib.loads(plan.read_text(encoding="utf-8"))
     inventory = tomllib.loads(
-        (ROOT / "examples" / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
+        (HISTORICAL_EXAMPLES / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
     )
     kinds = {
         s["id"]: inventory["machines"].get(s["machine"], {}).get("kind") for s in authored["setups"]
@@ -542,7 +548,7 @@ def test_a_setup_edge_break_tighter_than_the_drawing_prints_on_its_own_sheet(tmp
     # The job page carries the drawing's edge break once; a setup that must break its
     # edges smaller (a bonded socket mouth) says so on its own sheet, and a setup on the
     # drawing's limit does not repeat it.
-    plan = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+    plan = HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml"
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     authored = tomllib.loads(plan.read_text(encoding="utf-8"))
     markup = Markup(html)
@@ -577,7 +583,7 @@ def test_job_status_states_the_first_article_record_it_was_given(
 ):
     # Approval cannot waive unresolved checks. Current, absent and stale evidence
     # retain their distinct warning without requiring redundant positive boilerplate.
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
     assert report["verification"] != "checked"
     digest = report["hash"] if record_hash == "current" else "0" * 64
@@ -606,7 +612,7 @@ def test_job_status_states_the_first_article_record_it_was_given(
 def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
     # The shop names what it owns; the traveler prints that name, not the item's kind or
     # identity key. A member's name is its own: naming the kit does not rename a piece.
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     named = inventory.read_text(encoding="utf-8")
     for header, name in (
@@ -640,7 +646,7 @@ def test_a_named_inventory_item_prints_its_name_not_its_kind_or_slug(tmp_path):
 def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
     # The shaft bar is not on hand: the job page says so beside NOT APPROVED and never
     # reads clear; once the bar is on hand the prerequisite line goes.
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     _, _, html = traveler(plan, tmp_path / "missing", setup=SYNTHETIC_KERNEL)
     markup = Markup(html)
     (stock_stop,) = [
@@ -727,7 +733,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
 
 def test_op_notes_print_at_their_own_physical_operation(tmp_path):
     # The machinist reads an op's note where the op is run, not on another sheet.
-    plan = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    plan = HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml"
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     authored = tomllib.loads(plan.read_text(encoding="utf-8"))
     markup = Markup(html)
@@ -754,7 +760,7 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     # The jaw lead is how far the rest jaws trail (or lead) the tool along the work. Printed
     # after a Ø sign it read as a fixed contact diameter, contradicting the ops that reset
     # the jaws on every newly turned diameter.
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    plan = copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
     edited, count = re.subn(
         r'jaw_lead_mm = 8\.0, jaw_side = "turned"',

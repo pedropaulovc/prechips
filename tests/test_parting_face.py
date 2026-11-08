@@ -1,12 +1,15 @@
 """A part-off prepares a plan process ``end_face`` (#292).
 
-The pivot shaft's S0 faces its plain end (``plain_end``) on the lathe in frame T0, whose
-setup +Z is model -Z. Each test turns that facing op into a part-off and perturbs the end
-face or the op, then reads the ``parting_face`` row and the part-off's kernel input.
+The pinned historical shaft's S0 faces its plain end (``plain_end``) on the lathe in frame
+T0, whose setup +Z is model -Z. These generic regressions turn that facing op into a
+part-off and perturb its end face or operation independently of the current CAD route.
 """
 
 import pytest
-from test_cli import copy_examples
+# The retired d9425786 route isolates process-end-face parting semantics, not current CAD.
+# The final applicability test deliberately uses the current examples instead.
+from historical_examples import copy_historical_examples as copy_examples
+from test_cli import copy_examples as copy_current_examples
 from test_process_features import set_process_key
 from test_process_route import evaluate, rewrite
 
@@ -93,9 +96,9 @@ def test_cut_to_fit_still_cannot_make_an_end_face(tmp_path):
 
 
 def test_facing_and_finished_face_part_offs_have_no_parting_face_row(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_current_examples(tmp_path)
     for plan in (
         examples / "pivot-shaft" / "plan.toml",
-        examples / "cone-pivot-post" / "built-up.toml",
+        examples / "cone-pivot-post" / "integral.toml",
     ):
         assert evaluate("parting_face", load_bundle(plan)) == {}

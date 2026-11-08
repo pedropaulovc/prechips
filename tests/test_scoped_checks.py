@@ -10,7 +10,7 @@ import re
 from dataclasses import replace
 
 import pytest
-from test_cli import copy_examples
+from historical_examples import copy_historical_examples
 from test_consistency import bundle as consistency_bundle
 from test_consistency import errors as consistency_errors
 from test_process_route import append_op, checkpoint_result, evaluate, op_markup
@@ -28,9 +28,11 @@ ISSUE_CHECKS = (
 
 
 def station(tmp_path, *lines, features=STATION):
-    """The rocker plan with one final inspect op reading ``features``; returns
-    ``(plan, subject)``."""
-    plan = copy_examples(tmp_path) / "rocker-arm" / "plan.toml"
+    """Append the issue's station to the d9425786 one-piece rocker fixture.
+
+    Its bore, hub OD, hub faces and prepared blank provide the scoped-check controls.
+    """
+    plan = copy_historical_examples(tmp_path) / "rocker-arm" / "plan.toml"
     body = "\n".join(['do = "inspect"', f"feature = {json.dumps(features)}", *lines]) + "\n"
     return plan, append_op(plan, body)
 

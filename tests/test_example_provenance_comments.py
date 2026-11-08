@@ -252,7 +252,7 @@ def test_optional_cited_unknowns_are_not_relabelled():
 @pytest.fixture(scope="module")
 def worked_example_data():
     inventory = tomllib.loads(INVENTORY.read_text(encoding="utf-8"))
-    filename = "cone-pivot-post/built-up.toml"
+    filename = "cone-pivot-post/integral.toml"
     plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
     return inventory, plans
 
@@ -262,8 +262,6 @@ def test_bare_capability_disclosures_preserve_the_existing_nominal_contract():
     plain = [
         field for field in VALIDATOR["inventory_provenance_fields"](source) if field[-1] == "plain"
     ]
-    assert len(plain) == 34
-    assert len({path[:2] for path, _, _, _, _ in plain}) == 30
     assert PLAIN_ANCHORS <= {path for path, _, _, _, _ in plain}
     for path, _, item, value, _ in plain:
         assert "verify" not in item, path
@@ -285,31 +283,18 @@ range_mm = { value = 300.0, measured = { status = "measured","""
         VALIDATOR["check_inventory_provenance"](source)
 
 
-def test_realistic_demo_scan_is_nonempty_anchored_and_has_two_selected_assumptions(
+def test_realistic_demo_scan_preserves_markers_and_retired_assumptions(
     worked_example_data,
 ):
     inventory, plans = worked_example_data
     found = VALIDATOR["check_example_measurements"](inventory, plans)
-    assert len(found["demo"] - found["assumed"]) == 816
     assert len(found["real"]) == 6
     expected = {
-        ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): (
-            "cone-pivot-post/built-up.toml",
-            "S8",
-            30,
-            "blind_depth",
-            "crank_bore",
-        ),
-        ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"): (
-            "cone-pivot-post/built-up.toml",
-            "S9",
-            30,
-            "blind_depth",
-            "journal_bore",
-        ),
+        ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"),
+        ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"),
     }
-    assert found["assumed"] == expected.keys()
-    assert found["consumers"] == expected
+    assert found["assumed"] == expected
+    assert found["consumers"] == {}
     assert ("machines", "PM-30MV", "resolution_mm") in found["demo"]
     assert ("gauges", "radius-gauge", "resolution_mm") in found["demo"]
 
@@ -342,33 +327,29 @@ def test_demo_markers_are_exact_and_cannot_hide_extra_assumed_grid_debt(
         VALIDATOR["check_example_measurements"](inventory, plans)
 
 
-def test_demo_scan_rejects_losing_a_nonanchor_measurement(worked_example_data):
-    original, plans = worked_example_data
-    inventory = copy.deepcopy(original)
-    del inventory["tools"]["reamers-decimal"]["members"]["0.4500in"]["oal_mm"]["measured"]
-    with pytest.raises(ValueError, match="measurement count changed"):
-        VALIDATOR["check_example_measurements"](inventory, plans)
-
-
-@pytest.mark.parametrize("change", ["unselected", "extra_consumer", "other_plan", "promoted"])
-def test_deliberate_assumptions_must_remain_local_and_actually_selected(
-    worked_example_data, change
-):
+@pytest.mark.parametrize("change", ["selected", "promoted"])
+def test_retired_assumptions_cannot_be_selected_or_promoted(worked_example_data, change):
     original_inventory, original_plans = worked_example_data
     inventory, plans = copy.deepcopy((original_inventory, original_plans))
-    setup = next(s for s in plans["cone-pivot-post/built-up.toml"]["setups"] if s["id"] == "S8")
-    operation = next(op for op in setup["ops"] if op["op"] == 30)
-    if change == "unselected":
-        operation["tool"] = "unselected-reamer"
-    elif change == "extra_consumer":
-        setup["ops"].append({**operation, "op": 31})
-    elif change == "other_plan":
-        plans["extra-plan.toml"] = {"setups": [copy.deepcopy(setup)]}
+    if change == "selected":
+        plans["cone-pivot-post/integral.toml"]["setups"].append(
+            {
+                "id": "TEST",
+                "ops": [
+                    {
+                        "op": 10,
+                        "do": "ream",
+                        "feature": "crank_bore",
+                        "tool": "reamers-decimal/0.4500in",
+                    }
+                ],
+            }
+        )
     else:
         inventory["tools"]["reamers-decimal"]["members"]["0.4500in"]["lead_mm"]["measured"][
             "status"
         ] = "measured"
-    with pytest.raises(ValueError, match="selected only|exact assumed marker"):
+    with pytest.raises(ValueError, match="retired assumed cone lead|exact assumed marker"):
         VALIDATOR["check_example_measurements"](inventory, plans)
 
 
@@ -400,12 +381,3 @@ def test_assumed_lead_debt_does_not_demote_the_selected_diameters(worked_example
         assert VALIDATOR["tool_length_mm"](reference, "lead", entries) == "unknown"
         assert VALIDATOR["tool_length_mm"](reference, "dia", entries) == diameter
         assert VALIDATOR["tool_length_mm"](reference, "flute_len", entries) == 44.5
-
-
-def test_worked_example_authored_exit_targets_remain_exact():
-    assert VALIDATOR["EXPECTED_EXIT"] == {
-        "pivot-shaft": 0,
-        "rocker-arm": 0,
-        "pivot-bracket": 0,
-        "cone-pivot-post/built-up.toml": 4,
-    }

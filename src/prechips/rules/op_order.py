@@ -13,6 +13,36 @@ from .resolution import (
 )
 
 
+def _retained_parting(bundle, setup, op):
+    """A waste-only parting may leave the finished carrier in the unchanged chuck grip."""
+    feature = op.get("keep")
+    if (
+        op["do"] != "part_off"
+        or op.get("outputs")
+        or not isinstance(feature, str)
+        or feature == "unknown"
+        or feature not in bundle.feature_definitions
+    ):
+        return False
+    from prechips.kernel import run_geometry
+
+    facts = record(run_geometry(bundle))
+    if facts.get("status") != "ok":
+        return False
+    subject = f"{setup['id']}:{op['op']}"
+    detail = record(
+        record(record(record(facts.get("setups")).get(setup["id"])).get("keeps")).get(subject)
+    )
+    return (
+        detail.get("feature") == feature
+        and detail.get("after") == subject
+        and "kept" in detail
+        and "error" not in detail
+        and "reason" not in detail
+        and detail.get("retained_chuck_grip") is True
+    )
+
+
 def evaluate(bundle):
     result = []
     route = operations(bundle)
@@ -98,9 +128,15 @@ def evaluate(bundle):
                     for s, prev in before
                 ):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
-            # Release/part-off ends this holding; the next setup may cut the released part.
-            if action in {"release", "part_off"} and any(
-                s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD for s, later in after
+            # A release or unresolved part-off ends this holding. Only a native-proved
+            # waste cut retaining the finished carrier and unchanged chuck grip may continue.
+            if (
+                action in {"release", "part_off"}
+                and any(
+                    s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD
+                    for s, later in after
+                )
+                and not _retained_parting(bundle, setup, op)
             ):
                 errors.append(f"op {op['op']} releases before the final cutting operation")
             if action in TAP_OPS | {"ream", "counterbore"}:

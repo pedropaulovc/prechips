@@ -9,16 +9,17 @@ zone cannot locate stays unknown, never a pass.
 
 import json
 import math
-from pathlib import Path
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_cli import run_cli
 from test_manual_arc import TEMPLATE_FILING, manual_row, scratch
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import datum_consistency, inspection
 
-ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+ROCKER = HISTORICAL_EXAMPLES / "rocker-arm/plan.toml"
+# d9425786 isolates profile-zone metrology on the retired rocker geometry, not current CAD.
 METHOD = '"Probe the edge on the CMM in datum frame A|B|C"'
 TOP_EDGE = (
     'kind = "profile"\n'

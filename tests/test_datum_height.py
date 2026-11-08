@@ -3,8 +3,9 @@
 import json
 
 import pytest
+from historical_examples import copy_historical_examples
 from test_angularity import angularity_bundle, inspection_finding
-from test_cli import SYNTHETIC_KERNEL, copy_examples, run_cli
+from test_cli import SYNTHETIC_KERNEL, run_cli
 
 from prechips.rules import inspection
 
@@ -136,7 +137,8 @@ checks = { height_above_pivot = "height-gauge", radius = "arm-outline-template",
     ],
 )
 def test_issue_snippet_reads_height_with_the_height_gauge(tmp_path, method, status, message):
-    examples = copy_examples(tmp_path)
+    # The issue's top-edge datum and method are from the d9425786 one-piece rocker.
+    examples = copy_historical_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     plan.write_text(plan.read_text(encoding="utf-8") + ISSUE_SNIPPET + method, encoding="utf-8")
     out = tmp_path / "out"

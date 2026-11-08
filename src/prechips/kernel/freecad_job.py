@@ -111,8 +111,11 @@ Measurement conventions (setup frame, tool axis +Z):
   are the profile after the op, the held stock minus the revolved removals of
   the setup's turning ops up to and including this one (final-pass states;
   roughing passes are not simulated), plus placed fixture solids.  Poses are
-  chosen on that profile's meridian section (``MERIDIAN_AZIMUTH``): an
-  insert's nose tangent at the sample; a blade's front edge on a radial-normal
+  chosen on that profile's meridian section (``MERIDIAN_AZIMUTH``), restricted
+  for non-facing ops to the numeric z_from..z_to interval by trimming the actual
+  claimed faces before sampling. Whole claims remain the domain without a window;
+  commanded endpoint poses remain separate and tool/obstacle extents are not clipped.
+  An insert's nose is tangent at the sample; a blade's front edge on a radial-normal
   sample anywhere that keeps the sample under the edge and the blade clear
   (inside its groove: floor spans narrower than the blade are swept by that
   plunge), any other sample cut by the nearest corner.  A nose/blade meeting
@@ -8616,10 +8619,52 @@ class _Setup(ThreadMaterialMixin):
             if kept is None:
                 why = record.get("error") or record["reason"]
                 return None, f"{owner}: {why}; {where}"
+            if owner == subject and any(
+                self._subject(op) == subject
+                and op.get("do") == "part_off"
+                and not op.get("outputs")
+                for op in self.ops
+            ):
+                record["retained_chuck_grip"] = self._retained_chuck_grip(kept)
             if kept is not stock:
                 stock = kept
                 self.stock_states.append(stock)
         return stock, None
+
+    def _retained_chuck_grip(self, kept):
+        """Prove the unique kept solid still contains the unchanged entry chuck grip.
+
+        A feature carrier alone may be the released end. Require all original material
+        under the placed jaws on the same connected piece, not merely overlapping boxes.
+        Bounded thread material and unplaced/debted fixtures cannot certify this proof.
+        """
+        if (
+            self.chuck is None
+            or not self.fixture_ready
+            or self.fixture_debts
+            or self.thread_regions
+            or len(kept.Solids) != 1
+        ):
+            return False
+        try:
+            inverse = self.chuck["matrix"].inverse()
+            entry, retained = self.part.copy(), kept.copy()
+            entry.transformShape(inverse)
+            retained.transformShape(inverse)
+            x0, y0, _, x1, y1, _ = _bbox(entry)
+            grip = self.chuck["grip"]
+            if grip <= PLANE_TOL:
+                return False
+            zone = Part.makeBox(
+                x1 - x0 + 2, y1 - y0 + 2, grip, V(x0 - 1, y0 - 1, -grip)
+            )
+            original = entry.common(zone)
+            return (
+                original.Volume > STOCK_MM3
+                and original.cut(retained).Volume <= STOCK_MM3
+            )
+        except Exception:
+            return False
 
     def _kept(self, feature, stock, after):
         """(the piece of ``stock`` that carries every face of ``feature``, or None, and the
@@ -17060,40 +17105,75 @@ class _Setup(ThreadMaterialMixin):
         with an axial normal (a dome's apex), which the grid never lands on, is one too.
         """
         if index not in self.revolutions:
-            face = self.faces[index]
-            found, skipped = _face_samples(face, 1.0)
-            precision = face.getTolerance(1)
-            verdict, meridian = "external", []
-            for point, normal in found:
-                point = _on_surface(face, point, precision)
-                rho = math.hypot(point.x, point.y)
-                if rho <= AXIS_TOL:
-                    if math.hypot(normal.x, normal.y) > REVOLVED_TOL:
-                        verdict = "away"
-                        break
-                    meridian.append(((0.0, point.z), (0.0, normal.z)))
-                    continue
-                ex, ey = point.x / rho, point.y / rho
-                if abs(normal.y * ex - normal.x * ey) > REVOLVED_TOL:
+            self.revolutions[index] = self._revolution_face(self.faces[index])
+        return self.revolutions[index]
+
+    @staticmethod
+    def _revolution_face(face):
+        """Classify and sample one actual face, including a window-trimmed portion."""
+        found, skipped = _face_samples(face, 1.0)
+        precision = face.getTolerance(1)
+        verdict, meridian = "external", []
+        for point, normal in found:
+            point = _on_surface(face, point, precision)
+            rho = math.hypot(point.x, point.y)
+            if rho <= AXIS_TOL:
+                if math.hypot(normal.x, normal.y) > REVOLVED_TOL:
                     verdict = "away"
                     break
-                radial = normal.x * ex + normal.y * ey
-                if radial < -REVOLVED_TOL:
-                    verdict = "internal"
-                meridian.append(((rho, point.z), (radial, normal.z)))
-            if verdict == "external" and found:
-                for vertex in face.Vertexes:
-                    point = vertex.Point
-                    if math.hypot(point.x, point.y) > BBOX_TOL:
-                        continue
-                    try:
-                        normal = _normal_at(face, point)
-                    except Exception:
-                        continue
-                    if math.hypot(normal.x, normal.y) <= REVOLVED_TOL and normal.Length > 0.5:
-                        meridian.append(((0.0, point.z), (0.0, normal.z)))
-            self.revolutions[index] = (verdict, meridian, skipped if found else max(skipped, 1))
-        return self.revolutions[index]
+                meridian.append(((0.0, point.z), (0.0, normal.z)))
+                continue
+            ex, ey = point.x / rho, point.y / rho
+            if abs(normal.y * ex - normal.x * ey) > REVOLVED_TOL:
+                verdict = "away"
+                break
+            radial = normal.x * ex + normal.y * ey
+            if radial < -REVOLVED_TOL:
+                verdict = "internal"
+            meridian.append(((rho, point.z), (radial, normal.z)))
+        if verdict == "external" and found:
+            for vertex in face.Vertexes:
+                point = vertex.Point
+                if math.hypot(point.x, point.y) > BBOX_TOL:
+                    continue
+                try:
+                    normal = _normal_at(face, point)
+                except Exception:
+                    continue
+                if math.hypot(normal.x, normal.y) <= REVOLVED_TOL and normal.Length > 0.5:
+                    meridian.append(((0.0, point.z), (0.0, normal.z)))
+        return verdict, meridian, skipped if found else max(skipped, 1)
+
+    def _turn_sample_domain(self, op, indices):
+        """Actual claimed meridians within a non-facing cut's axial removal window.
+
+        Trim faces before sampling, rather than dropping grid points: even a window
+        narrower than the sampling pitch must retain its profile and boundary normals.
+        Endpoint standing poses are constructed separately from the untrimmed claims.
+        """
+        ends = op.get("z_from"), op.get("z_to")
+        bounded = op.get("to_z") is None and all(_number(end) for end in ends)
+        if not bounded or max(ends) - min(ends) <= PLANE_TOL:
+            return [(index, self._revolution(index)[1]) for index in indices], None
+        low, high = min(ends), max(ends)
+        band = None
+        result = []
+        for index in indices:
+            face = self.faces[index]
+            box = face.BoundBox
+            if low <= box.ZMin and box.ZMax <= high:
+                result.append((index, self._revolution(index)[1]))
+                continue
+            if box.ZMax < low or box.ZMin > high:
+                continue
+            if band is None:
+                band = _band(0.0, self._outer(), low, high)
+            for face in face.common(band).Faces:
+                verdict, samples, skipped = self._revolution_face(face)
+                if verdict != "external" or skipped:
+                    return [], "window-trimmed turning face has undefined meridian normals"
+                result.append((index, samples))
+        return result, None
 
     def _turn_split(self, indices):
         """Claimed indices: turnable, not revolved, (index, undefined normals), internal."""
@@ -17593,9 +17673,20 @@ class _Setup(ThreadMaterialMixin):
 
     def _turn_samples(self, op, indices, tool, holder_missing, facts):
         reasons = facts["reasons"]
-        meridian = {}
+        full = {}
         for index in indices:
             for point, normal in self._revolution(index)[1]:
+                key = (round(point[0], 6), round(point[1], 6))
+                full.setdefault(key, (index, point, normal))
+        domain, domain_reason = self._turn_sample_domain(op, indices)
+        if domain_reason:
+            for key in (*self._MEASURED, "tool_z_mm", "nose_z_mm"):
+                facts[key] = UNKNOWN
+                reasons[key] = domain_reason
+            return
+        meridian = {}
+        for index, points in domain:
+            for point, normal in points:
                 key = (round(point[0], 6), round(point[1], 6))
                 meridian.setdefault(key, (index, point, normal))
         samples = [meridian[key] for key in sorted(meridian)]
@@ -17645,7 +17736,7 @@ class _Setup(ThreadMaterialMixin):
         # plunges between the part and the slug, so its depth is measured in entry stock.
         radial_feed = faced_feed and tool["corners"] != 2
         reach_stock = part if radial_feed else self.part
-        windows = [] if faced_feed else self._turn_windows(op, tool, samples)
+        windows = [] if faced_feed else self._turn_windows(op, tool, list(full.values()))
         poses = [(index, point, normal, None) for index, point, normal in samples]
         poses += [(w["index"], w["point"], (1.0, 0.0), w) for w in windows]
         tool_z, nose_z = [], []

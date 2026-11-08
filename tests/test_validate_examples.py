@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from historical_examples import HISTORICAL_EXAMPLES, copy_historical_examples
 from split_patch import patch_split, split_attr
 from test_cli import copy_examples
 from test_contour_order import carried_entry_bundle
@@ -67,6 +68,29 @@ from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
+
+
+@pytest.mark.parametrize(
+    ("folder", "identity"),
+    [
+        ("pivot-shaft", "ch-pivot-shaft"),
+        ("rocker-arm", "ch-rocker-arm"),
+        ("cone-pivot-post", "dt-cone-pivot-post"),
+        ("pivot-bracket", "pivot-bracket"),
+    ],
+)
+def test_current_cad_identity_is_not_the_example_folder_alias(folder, identity):
+    VALIDATOR["check_part_identity"](folder, {"part": identity}, {"part": identity})
+    for plan_part, manifest_part in (
+        ("unrelated-part", identity),
+        (identity, "unrelated-part"),
+        ("unrelated-part", "unrelated-part"),
+        (None, None),
+    ):
+        with pytest.raises(ValueError, match="part identity mismatch"):
+            VALIDATOR["check_part_identity"](
+                folder, {"part": plan_part}, {"part": manifest_part}
+            )
 
 
 def validator_test_bundle(data):
@@ -1933,7 +1957,7 @@ def test_plain_catalogue_gauge_ranges_keep_their_numeric_contract(range_fact, ma
 
 def test_worked_example_gauge_resolutions_are_demo_facts_and_ranges_remain_bare_nominals():
     inventory = tomllib.loads(
-        (ROOT / "examples" / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
+        (HISTORICAL_EXAMPLES / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
     )
     for name in (
         "rocker-profile-template",
@@ -2022,12 +2046,12 @@ def test_dro_oracle_keeps_bare_nominal_step_but_never_certifies_it():
 def test_shared_inventory_uses_exact_demo_markers_and_preserves_real_vise_readings():
     inventory_path = ROOT / "examples" / "inventory" / "pedro-shop.toml"
     inventory = tomllib.loads(inventory_path.read_text(encoding="utf-8"))
-    filename = "cone-pivot-post/built-up.toml"
+    filename = "cone-pivot-post/integral.toml"
     plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
     found = VALIDATOR["check_example_measurements"](inventory, plans)
     assert len(found["real"]) == 6
-    assert len(found["demo"]) == 818
-    assert len(found["assumed"]) == 2
+    assert found["assumed"] == VALIDATOR["EXAMPLE_ASSUMED_LEADS"].keys()
+    assert found["consumers"] == {}
     for path, fact in VALIDATOR["example_measurement_records"](inventory):
         measurement = fact["measured"]
         if path in found["real"]:
@@ -2047,6 +2071,47 @@ def test_shared_inventory_uses_exact_demo_markers_and_preserves_real_vise_readin
     assert ("machines", "PM-30MV", "resolution_mm") in found["demo"]
 
 
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        None,
+        "built_up",
+        "paint_override",
+        "finish_resolved",
+        "rim_resolved",
+        "datum_order",
+        "missing_face",
+        "physical_binding",
+    ],
+)
+def test_integral_cone_keeps_cad_permission_finish_and_unknown_boundaries(corruption):
+    folder = ROOT / "examples" / "cone-pivot-post"
+    plan = tomllib.loads((folder / "integral.toml").read_text(encoding="utf-8"))
+    features = tomllib.loads((folder / plan["features"]).read_text(encoding="utf-8"))
+    if corruption == "built_up":
+        plan["construction"] = features["construction"] = "built_up_permitted"
+    elif corruption == "paint_override":
+        features["material"]["finish"] = "paint non-functional ODs only"
+    elif corruption == "finish_resolved":
+        for setup in plan["setups"]:
+            for op in setup["ops"]:
+                if op["do"] == "coating":
+                    op["process"] = "authorized"
+    elif corruption == "rim_resolved":
+        features["features"]["journal_bore"]["requirements"].remove("unknown")
+    elif corruption == "datum_order":
+        features["features"]["crank_bore"]["angularity_datums"] = ["B", "A"]
+    elif corruption == "missing_face":
+        features["features"]["body"]["faces"] = []
+    elif corruption == "physical_binding":
+        next(iter(plan["frames"].values()))["binding"] = "measured"
+    if corruption is None:
+        VALIDATOR["check_cone_facts"](plan, features)
+    else:
+        with pytest.raises(ValueError):
+            VALIDATOR["check_cone_facts"](plan, features)
+
+
 def shifted(value):
     """``value`` moved 1 mm: a number, or a measured-edge ``M ±n`` reading's offset."""
     if isinstance(value, str):
@@ -2055,14 +2120,22 @@ def shifted(value):
     return value + 1.0
 
 
+def zero_example_folder(part):
+    # Bracket CAD/plan are unchanged; only migrated routes need pinned old inputs.
+    examples = ROOT / "examples" if part == "pivot-bracket" else HISTORICAL_EXAMPLES
+    return examples / part
+
+
 def zero_case(part, setup_id):
     """``(setup, finding, entries, own)`` for ``check_zero`` on one example setup: the
     plan's setup, its expected ``zero_check`` finding and the validator's own inputs
     (plan, manifest, inventory, policy and its own kernel run)."""
-    folder = ROOT / "examples" / part
+    folder = zero_example_folder(part)
     bundle = load_bundle(folder / "plan.toml")
     plan, inventory = bundle.plan, bundle.inventory
-    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    report = json.loads(
+        (HISTORICAL_EXAMPLES / part / "expected" / "report.json").read_bytes()
+    )
     setup = next(s for s in plan["setups"] if s["id"] == setup_id)
     finding = next(
         f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
@@ -2083,7 +2156,7 @@ def zero_case(part, setup_id):
     ],
 )
 def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, feature, action, reason):
-    plan = tomllib.loads((ROOT / "examples" / part / "plan.toml").read_text(encoding="utf-8"))
+    plan = tomllib.loads((zero_example_folder(part) / "plan.toml").read_text(encoding="utf-8"))
     setup_ids = [
         setup["id"]
         for setup in plan["setups"]
@@ -2107,7 +2180,7 @@ def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, feature, act
 
 
 def cone_inputs(*, fresh_pure=False, joint_kernel=None):
-    folder = ROOT / "examples" / "cone-pivot-post"
+    folder = HISTORICAL_EXAMPLES / "cone-pivot-post"
     bundle = load_bundle(folder / "built-up.toml")
     report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
     if fresh_pure:
@@ -2178,7 +2251,7 @@ def test_rejects_unsourced_finished_diameter_in_unbound_profile(freecad_kernel):
         f for f in report["findings"] if f["rule"] == "stickout" and f["subject"] == "S1"
     )
     kernel = VALIDATOR["independent_kernel"](
-        ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+        HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml"
     )
     VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
     corrupted = copy.deepcopy(finding)
@@ -2188,13 +2261,16 @@ def test_rejects_unsourced_finished_diameter_in_unbound_profile(freecad_kernel):
 
 
 def test_accepts_cited_kernel_revolved_bases_without_declared_diameters(freecad_kernel):
-    documents = {
-        path.resolve(): tomllib.loads(path.read_text(encoding="utf-8"))
-        for path in (ROOT / "examples").rglob("*.toml")
-    }
-    code, missing = VALIDATOR["validate_fixture"]("pivot-shaft", documents)
-    assert code == 0  # explicit measured-branch demo facts preserve the worked positive control
-    assert missing == []
+    plan, features, inventory, policy, report = pivot_shaft_inputs()
+    kernel = VALIDATOR["independent_kernel"](HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml")
+    for sid in ("S1", "S2", "S3"):
+        setup = next(item for item in plan["setups"] if item["id"] == sid)
+        finding = next(
+            row
+            for row in report["findings"]
+            if (row["rule"], row["subject"]) == ("stickout", setup["id"])
+        )
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, finding, kernel)
 
 
 def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
@@ -2249,7 +2325,7 @@ def test_exposed_profile_converts_inch_dia_alias_and_declared_dome_base():
 )
 def test_rejects_self_consistent_wrong_exposed_profiles(freecad_kernel, corruption):
     plan, features, inventory, policy, report = pivot_shaft_inputs()
-    folder = ROOT / "examples" / "pivot-shaft"
+    folder = HISTORICAL_EXAMPLES / "pivot-shaft"
     kernel = VALIDATOR["independent_kernel"](folder / "plan.toml")
     sid = "S3" if corruption in {"dome_cap", "dome_cap_with_nominal"} else "S1"
     setup = next(item for item in plan["setups"] if item["id"] == sid)
@@ -2306,7 +2382,7 @@ def test_rejects_self_consistent_wrong_exposed_profiles(freecad_kernel, corrupti
 
 
 def pivot_shaft_inputs():
-    folder = ROOT / "examples" / "pivot-shaft"
+    folder = HISTORICAL_EXAMPLES / "pivot-shaft"
     plan = tomllib.loads((folder / "plan.toml").read_text(encoding="utf-8"))
     features = tomllib.loads((folder / "features.toml").read_text(encoding="utf-8"))
     inventory = tomllib.loads((folder / plan["paths"]["inventory"]).read_text(encoding="utf-8"))
@@ -2368,7 +2444,7 @@ def test_stickout_verdict_and_support_come_from_the_plan_hold_and_inventory(shaf
 
 def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
     plan, features, inventory, policy, report = pivot_shaft_inputs()
-    kernel = VALIDATOR["independent_kernel"](ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    kernel = VALIDATOR["independent_kernel"](HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml")
     setup = next(item for item in plan["setups"] if item["id"] == "S1")
     finding = next(
         item
@@ -2385,7 +2461,7 @@ def test_stickout_reads_a_machine_selected_by_its_category_as_that_machine(freec
     """A setup selecting its machine as ``machines.<key>`` is on that machine, as on its
     bare key: the engine's stick-out finding (a lathe's verdict, another machine's
     inapplicable) is accepted with its own status, and no other status is."""
-    plan_path = ROOT / "examples" / "pivot-shaft" / "plan.toml"
+    plan_path = HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml"
     bundle = load_bundle(plan_path)
     assert run_geometry(bundle)["status"] == "ok"
     kernel = VALIDATOR["independent_kernel"](plan_path)
@@ -4041,7 +4117,7 @@ PILOTS = [
     ROOT / "examples" / "pivot-shaft" / "plan.toml",
     ROOT / "examples" / "rocker-arm" / "plan.toml",
     ROOT / "examples" / "pivot-bracket" / "plan.toml",
-    ROOT / "examples" / "cone-pivot-post" / "built-up.toml",
+    ROOT / "examples" / "cone-pivot-post" / "integral.toml",
 ]
 CATEGORIES = ("machines", "tools", "holders", "fixtures", "gauges")
 # Collections an identity may leave "unknown" (resolution.inventory_record).
@@ -5624,7 +5700,7 @@ def native_zero(part, setup_id, dro_edit=None, inventory_edit=None):
     """The engine's ``zero_check`` finding for one example setup after ``dro_edit`` (a
     callable on the plan's ``dro`` table) and ``inventory_edit`` (one on the inventory),
     from a kernel run of the unedited plan (neither enters the kernel)."""
-    bundle = load_bundle(ROOT / "examples" / part / "plan.toml")
+    bundle = load_bundle(zero_example_folder(part) / "plan.toml")
     assert run_geometry(bundle)["status"] == "ok"
     if dro_edit:
         dro_edit(bundle.plan["dro"])
@@ -5865,7 +5941,7 @@ def coverage_case():
     and the validator's coverage check on its own inventory read and native bundle load."""
     plan, features, inventory, _, report = cone_inputs()
     entries = VALIDATOR["Entries"](inventory)
-    checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
+    checked = VALIDATOR["checker_findings"](HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml")
 
     def check(policy, plan, features, findings):
         VALIDATOR["check_required_coverage"](policy, plan, features, findings, entries, checked)
@@ -6030,7 +6106,7 @@ def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
     its 39.34-39.70 printed separation; ``measured`` runs the kernel first, as the CLI
     does, so kernel spans place rows), and a validator call that checks it against a
     plan."""
-    plan_path = copy_examples(tmp_path) / "cone-pivot-post" / "built-up.toml"
+    plan_path = copy_historical_examples(tmp_path) / "cone-pivot-post" / "built-up.toml"
     if aim is not None:
         text = plan_path.read_text(encoding="utf-8")
         authored = 'requirement = "separation"\nvalue_mm = 39.517\n'
@@ -6261,7 +6337,7 @@ def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_
 def rocker_blank(freecad_kernel):
     """An isolated rocker prepared-blank case with fresh test cutter/support/gauge
     facts and its native kernel cut. The shipped example remains unverified."""
-    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "rocker-arm" / "plan.toml")
     synthetic_prep_geometry(bundle)
     bundle.inventory["gauges"]["calipers-18in"] = {
         "kind": "caliper",
@@ -6326,7 +6402,7 @@ def blank_case(rocker_blank, case=None):
 @pytest.fixture
 def host_rocker_blank(monkeypatch):
     """Raw authored inputs with explicitly synthetic handed-on stock, never a native run."""
-    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "rocker-arm" / "plan.toml")
     raw = {
         name: tomllib.loads(bundle.paths[name].read_text(encoding="utf-8"))
         for name in ("plan", "features", "inventory")

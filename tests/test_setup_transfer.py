@@ -3,9 +3,9 @@
 import json
 import math
 import re
-from pathlib import Path
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_operative_surface import FEATURES, ZERO
 from test_operative_surface import bundle as scratch_bundle
 from test_sheet_ops import Markup, content
@@ -16,7 +16,8 @@ from prechips.rules.resolution import setup_frame
 from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.sheet import render_traveler
 
-ROOT = Path(__file__).resolve().parents[1]
+EXAMPLES = HISTORICAL_EXAMPLES
+# d9425786 supplies numeric transfer scenarios; current routes intentionally retain unknowns.
 PILOTS = [
     "pivot-shaft/plan.toml",
     "rocker-arm/plan.toml",
@@ -228,7 +229,7 @@ def _check(bundle, sheets, setup, before, sign, offset):
 
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_each_transfer_prints_one_shift_and_its_zero_touches_the_printed_top(pilot):
-    bundle = load_bundle(ROOT / "examples" / pilot)
+    bundle = load_bundle(EXAMPLES / pilot)
     findings = coordinates.evaluate(bundle) + zero_recipe_rule.evaluate(bundle)
     # The exhaustive arriving-surface/transfer audit is intentionally pedantic;
     # compact travelers retain operative datums, not the stock-state audit table.

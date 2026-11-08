@@ -1,10 +1,16 @@
-"""Job page, names and zero-recipe text the machinist reads, with synthetic kernel facts."""
+"""Job page, names and zero-recipe text the machinist reads, with synthetic kernel facts.
+
+Historical shaft/rocker cases pin d942578676695ebad530856b16e84e734a397d67 for
+stock dimensions, measured holding and datum recipes removed from current routes.
+The unchanged bracket stays on current examples.
+"""
 
 import json
 import re
 import tomllib
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES, copy_historical_examples
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
 from test_process_route import operation
 from test_sheet_ops import Markup, content
@@ -14,10 +20,17 @@ from prechips.inputs import load_bundle
 from prechips.rules.coordinates import dro_grid
 from prechips.sheet import _Traveler
 
+PLANS = {
+    "pivot-bracket": ROOT / "examples/pivot-bracket/plan.toml",
+    "pivot-shaft": HISTORICAL_EXAMPLES / "pivot-shaft/plan.toml",
+    "rocker-arm": HISTORICAL_EXAMPLES / "rocker-arm/plan.toml",
+}
+
 
 def run(tmp_path, bundle, edit=None):
-    """The traveler of ``bundle`` (a plan path under examples/), after ``edit(examples)``."""
-    examples = copy_examples(tmp_path)
+    """Render a sheet regression case after ``edit(examples)``."""
+    copy_inputs = copy_examples if bundle == "pivot-bracket/plan.toml" else copy_historical_examples
+    examples = copy_inputs(tmp_path)
     if edit:
         edit(examples)
     _, report, html = traveler(examples / bundle, tmp_path / "out", setup=SYNTHETIC_KERNEL)
@@ -51,7 +64,7 @@ def test_the_job_page_states_the_actual_release_state(shaft):
 
 def test_coating_cells_print_the_shop_name_of_a_consumable_or_service(shaft, bracket):
     inventory = tomllib.loads(
-        (ROOT / "examples" / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
+        (HISTORICAL_EXAMPLES / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
     )
     oil = inventory["consumables"]["light-machine-oil"]["name"]
     finisher = inventory["services"]["black-oxide-vendor"]["name"]
@@ -91,7 +104,7 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
     # Each family's first-use guide owns safe check-jog motion; local setups own
     # their settings. Returning before lowering must not establish a second datum.
     def family_guide(html, folder, family):
-        data = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        data = load_bundle(PLANS[folder])
         owners = [
             setup["id"]
             for setup in data.plan["setups"]
@@ -130,7 +143,7 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
 
 def test_job_stock_summary_preserves_the_receiving_blank_dimensions():
     def stock_markup(folder, machine, resolution):
-        bundle = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        bundle = load_bundle(PLANS[folder])
         # Only this formatting regression supplies synthetic evidence for its DRO grid.
         bundle.inventory["machines"][machine]["resolution_mm"] = {
             "value": resolution,
@@ -160,7 +173,7 @@ def test_job_stock_summary_preserves_the_receiving_blank_dimensions():
 
 
 def plan_setups(folder):
-    plan = (ROOT / "examples" / folder / "plan.toml").read_text(encoding="utf-8")
+    plan = PLANS[folder].read_text(encoding="utf-8")
     return tomllib.loads(plan)["setups"]
 
 
@@ -237,7 +250,7 @@ def test_a_measured_raw_top_is_faced_down_no_deeper_per_pass_than_the_setup_cuts
 def drawn_in(folder, units):
     """``folder``'s example bundle under a ``units`` feature manifest: its setup-frame stock
     heights (plan-unit DRO values) restated in those units; every ``_mm`` fact stays mm."""
-    bundle = load_bundle(ROOT / "examples" / folder / "plan.toml")
+    bundle = load_bundle(PLANS[folder])
     bundle.features["units"] = units
     scale = {"mm": 1.0, "in": 25.4}.get(units, 1.0)
     for setup in bundle.plan["setups"]:

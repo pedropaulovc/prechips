@@ -1,19 +1,19 @@
-# Pivot-shaft input and output
+# Historical pivot-shaft input and output
 
-This demonstration pairs fragments of the supplied pivot-shaft plan with output generated from that plan. The recorded run used prechips `0.2.0` with a local FreeCAD kernel available. No shop-file overrides or approval record were supplied.
+This demonstration preserves fragments and recorded output from the earlier v40 pivot-shaft bundle. The recorded run used prechips `0.2.0` with a local FreeCAD kernel available. No shop-file overrides or approval record were supplied. These observations are historical evidence, not results for the current exact v47 CAD source commit `441290434f34f62faba176ef576af6879189c5e7`. The current shaft is plain with two flats and has no cut-to-fit route; no new pass is claimed.
 
 Use the [quickstart](quickstart.md) to install the prerequisites, or the [tutorial](tutorial.md) to follow the five inputs and investigate findings. All commands below use PowerShell from the checkout root.
 
-## Run the unchanged bundle
+## Current invocation; historical observations
 
-The entry point is [`examples/pivot-shaft/plan.toml`](../../examples/pivot-shaft/plan.toml). It selects the adjacent feature manifest and the shared inventory, policy and cutting-data files. The manifest binds the adjacent `pivot-shaft.STEP` asset by SHA-256.
+The current entry point is [`examples/pivot-shaft/plan.toml`](../../examples/pivot-shaft/plan.toml). It selects the adjacent feature manifest and the shared inventory, policy and cutting-data files. The current manifest binds the adjacent `ch-pivot-shaft.STEP` asset by SHA-256; the older asset was named `pivot-shaft.STEP`. Running this command evaluates the current files; it does not reproduce or validate the historical excerpts below.
 
 ```powershell
 uv run prechips traveler examples/pivot-shaft/plan.toml --out out/docs-smoke/pivot-shaft
 $LASTEXITCODE
 ```
 
-The recorded invocation returned:
+The earlier v40 invocation returned:
 
 | Observation | Result |
 | --- | --- |
@@ -22,7 +22,7 @@ The recorded invocation returned:
 | Standard error | Empty |
 | Generated files | `report.json`, `traveler.html`, `setup-S1.png`, `setup-S2.png`, `setup-S3.png`, `setup-S4.png` |
 
-These observations came from the generated files in `out/docs-smoke/pivot-shaft/`, not the checked-in expected-output fixtures. Selected top-level fields from the actual `report.json` are shown below. Other fields are omitted; this is not a complete report:
+These historical observations came from the generated files then in `out/docs-smoke/pivot-shaft/`, not the checked-in expected-output fixtures. Selected top-level fields from that run's actual `report.json` are shown below. Other fields are omitted; this is not a complete report:
 
 ```json
 {
@@ -36,7 +36,7 @@ The report contained 158 `pass` findings and 144 `not_applicable` findings in th
 
 ## Preparation input becomes a support finding
 
-The plan's first setup is S0. This exact operation fragment selects the centre drill and tailstock drill chuck. The rest of the setup and the operation's note are omitted:
+The historical plan's first setup was S0. This exact historical operation fragment selects the centre drill and tailstock drill chuck. The rest of the setup and the operation's note are omitted:
 
 ```toml
 [[setups.ops]]
@@ -47,13 +47,13 @@ tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-tailstock-mt3"
 ```
 
-`plain_end_centre` is declared under `[process_features.plain_end_centre]` earlier in the same file. It is the seat the route makes for the later tailstock support. Inside S1's `[setups.hold]`, this exact one-line fragment names that seat:
+In that historical plan, `plain_end_centre` was declared under `[process_features.plain_end_centre]` earlier in the same file. It was the seat the route made for the later tailstock support. Inside S1's `[setups.hold]`, this exact historical one-line fragment named that seat:
 
 ```toml
 centre_hole = "plain_end_centre"  # made by S0 op 20
 ```
 
-The actual report contains this complete finding record:
+The historical report contained this complete finding record:
 
 ```json
 {
@@ -94,24 +94,24 @@ A separate geometry finding for S0 op 20 says:
 
 > S0:20: sampled claimed faces clear the selected cutter and holder cylinders.
 
-That is the actual `accessibility` message for this operation. Its sampled cutter-and-holder check does not prove that every approach, withdrawal or manual movement is collision-free.
+That was the recorded `accessibility` message for this operation in the historical run. Its sampled cutter-and-holder check does not prove that every approach, withdrawal or manual movement is collision-free.
 
 ## Stock input remains an instruction on a checked sheet
 
-The same plan's `[stock]` table contains these exact lines. This is a fragment, not a complete stock declaration:
+The historical plan's `[stock]` table contained these exact lines. This is a fragment, not a complete stock declaration:
 
 ```toml
 on_hand = false              # inventory stock = [] (pedro-shop.toml:7)
 prerequisite = "blank sawn square to 180.5 long from the Ø10 bar"  # AUTHOR'S CHOICE: the saw cut stays a prerequisite because the bar it is sawn from is not declared (on_hand = false; no raw bar length), so a saw setup would have no stock to cut
 ```
 
-The generated `traveler.html` contains this banner:
+The historical generated `traveler.html` contained this banner:
 
 ```html
 <div class="banner">PLANNED — NOT APPROVED</div>
 ```
 
-Its `JOB STATUS` includes the following actual text, with HTML markup removed:
+Its historical `JOB STATUS` included the following actual text, with HTML markup removed:
 
 ```text
 NOT APPROVED: no first article is recorded; the first part made is the first article — sign it off below.
@@ -123,7 +123,7 @@ The declared preparation and stock availability remain visible even though the r
 
 ## Match the images to the authored setups
 
-The report's `renders` entries identify which image belongs to each setup:
+The historical report's `renders` entries identified which image belonged to each setup:
 
 | Authored setup | Generated image |
 | --- | --- |

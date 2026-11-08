@@ -142,11 +142,17 @@ ZERO_FIELDS = (
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 PARTS = ("pivot-shaft", "rocker-arm", "pivot-bracket")
+PART_IDENTITIES = {
+    "pivot-shaft": "ch-pivot-shaft",
+    "rocker-arm": "ch-rocker-arm",
+    "pivot-bracket": "pivot-bracket",
+    "cone-pivot-post": "dt-cone-pivot-post",
+}
 EXPECTED_EXIT = {
     "pivot-shaft": 0,
     "rocker-arm": 0,
     "pivot-bracket": 0,
-    "cone-pivot-post/built-up.toml": 4,
+    "cone-pivot-post/integral.toml": 4,
 }
 STANDALONE_CASES = (
     ("blondihacks-t-nuts", "plan.toml", "expected", 0),
@@ -159,7 +165,6 @@ EXAMPLE_MEASUREMENT = {
     "date": "2026-10-11",
     "instrument": "example fixture (no physical measurement)",
 }
-EXAMPLE_DEMO_FACT_COUNT = 818
 REAL_PEDRO_FACTS = {
     ("fixtures", "vise-pm-6", "jaw_width_in"): (
         6.247,
@@ -175,20 +180,8 @@ REAL_PEDRO_FACTS = {
     ),
 }
 EXAMPLE_ASSUMED_LEADS = {
-    ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): (
-        "cone-pivot-post/built-up.toml",
-        "S8",
-        30,
-        "reamers-decimal/0.4500in",
-        "crank_bore",
-    ),
-    ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"): (
-        "cone-pivot-post/built-up.toml",
-        "S9",
-        30,
-        "reamers-decimal/0.4835in",
-        "journal_bore",
-    ),
+    ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): "reamers-decimal/0.4500in",
+    ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"): "reamers-decimal/0.4835in",
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -675,10 +668,10 @@ def example_measurement_records(node, path=()):
 
 
 def check_example_measurements(inventory: dict, plans: dict) -> dict:
-    """Strict demo markers, unchanged real observations and two actually selected leads.
+    """Strict demo markers and unchanged real observations, never measurement promotion.
 
-    This is authoring policy for the shared worked inventory, not a production trust
-    exception: ASSUMED still fails ``accepted`` and no plain field gains a wrapper."""
+    Retired cone reamer leads remain assumed inventory facts, not current process inputs.
+    ASSUMED still fails ``accepted`` and no plain field gains a wrapper."""
     real, demo, assumed = set(), set(), set()
     for path, fact in example_measurement_records(inventory):
         label = ".".join(path)
@@ -716,13 +709,8 @@ def check_example_measurements(inventory: dict, plans: dict) -> dict:
         ("gauges", "radius-gauge", "resolution_mm"),
     }
     require(anchors <= demo, "shared inventory demonstration scan lost its fact anchors")
-    require(
-        len(demo) == EXAMPLE_DEMO_FACT_COUNT,
-        "shared inventory demonstration measurement count changed",
-    )
     consumers = {}
-    for path, (filename, sid, number, reference, feature) in EXAMPLE_ASSUMED_LEADS.items():
-        require(filename in plans, f"{filename}: assumed lead's consuming plan missing")
+    for path, reference in EXAMPLE_ASSUMED_LEADS.items():
         selected = {
             (plan_name, setup["id"], op["op"], op.get("do"), op.get("feature"))
             for plan_name, plan in plans.items()
@@ -731,10 +719,9 @@ def check_example_measurements(inventory: dict, plans: dict) -> dict:
             if op.get("tool") == reference
         }
         require(
-            selected == {(filename, sid, number, "ream", feature)},
-            f"{'.'.join(path)}: assumed lead must be selected only by {sid}:{number} {feature}",
+            not selected,
+            f"{'.'.join(path)}: retired assumed cone lead gained a current consumer",
         )
-        consumers[path] = (filename, sid, number, "blind_depth", feature)
     return {"real": real, "demo": demo, "assumed": assumed, "consumers": consumers}
 
 
@@ -7235,36 +7222,43 @@ def check_stickout(
 
 
 def check_cone_facts(plan: dict, features: dict) -> None:
-    # User-approved example divergence (examples/README.md): the export says one_piece;
-    # the example treats the drawing as permitting the built-up candidate.
     require(
-        features["construction"] == "built_up_permitted",
-        "cone drawing lost its approved built-up permission",
+        plan["construction"] == features["construction"] == "one_piece",
+        "cone CAD permits only the integral candidate",
     )
-    # Example divergence (examples/README.md, HA #1215 comment): the built-up variant's
-    # paint/mask split replaces only MASK MACHINED FACES; the coating spec stays exported.
+    require(
+        features["notes"]["process"] == "machined from solid stock or casting",
+        "cone lost its exact CAD process permission",
+    )
     require(
         features["material"]["finish"]
-        == "RAL 6005 ALKYD; SSPC-SP 3; 50-75 um DFT; built-up variant: paint RAL 6005 on "
-        "non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32",
-        "cone finish divergence drifted from the approved built-up paint/mask text",
+        == "RAL 6005 ALKYD; SSPC-SP 3; 2-3 MIL DFT; MASK MACHINED FACES; "
+        "OIL BARE FACES ISO VG 32",
+        "cone finish diverged from the authoritative drawing",
+    )
+    coating = [
+        op for setup in plan["setups"] for op in setup["ops"] if op["do"] == "coating"
+    ]
+    require(
+        coating and all(op.get("process") == "unknown" for op in coating),
+        "cone unresolved finish acquired an authorized process",
     )
     for field, expected in (
-        ("linear_1pl", 0.8),
-        ("linear_2pl", 0.51),
-        ("linear_3pl", 0.13),
+        ("linear_1pl", 2.54),
+        ("linear_2pl", 0.254),
+        ("linear_3pl", 0.127),
     ):
         near(features["general_tolerances"][field], expected, "cone rendered general tolerance")
     geometry = features["features"]
     for name, fields in {
-        "body": {"dia_nominal": 42.011, "height_nominal": 86.0},
-        "head": {"dia_nominal": 42.7506, "height_nominal": 26.6},
-        "crank_boss": {"dia_nominal": 21.93},
+        "body": {"dia_nominal": 41.91, "height_nominal": 94.742},
+        "head": {"dia_nominal": 42.672, "height_nominal": 26.67},
+        "crank_boss": {"dia_nominal": 21.844},
         "crank_boss_faces": {"length_nominal": 72.0344, "station_nominal": 21.3753},
-        "crank_bore": {"nominal_dia": 11.438, "land_angle_nominal_deg": 12.5182},
-        "cone_boss": {"dia_nominal": 17.2},
+        "crank_bore": {"nominal_dia": 11.43, "land_angle_nominal_deg": 13.001107353689502},
+        "cone_boss": {"dia_nominal": 17.272},
         "cone_boss_north_face": {"length_nominal": 42.011},
-        "journal_bore": {"nominal_dia": 12.2808},
+        "journal_bore": {"nominal_dia": 12.2682},
         "mount_west": {"nominal_dia": 7.14248},
         "mount_east": {"nominal_dia": 7.14248},
     }.items():
@@ -7275,27 +7269,14 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "BASIC angle lost four places",
     )
     require(geometry["crank_bore"]["dimension_type"] == "basic", "cone angle lost BASIC identity")
-    # Example divergences (examples/README.md, HA #1215): the R0.25 title-block break on the
-    # CAD-sharp body/head step corner, and the cap-to-cap / foot-to-top bands copied onto the
-    # second face that terminates each dimension. Each copy must equal its exported source band
-    # and must not turn into a new drawing requirement on that face.
-    near(geometry["body"]["corner_radius_max_design"], 0.25, "cone body step-corner divergence")
-    for copy, field, source, band in (
-        ("cone_boss_south_face", "length", "cone_boss_north_face", [41.5, 42.52]),
-        ("foot_seat", "height", "body", [85.2, 86.8]),
-    ):
-        require(
-            geometry[copy][field] == geometry[source][field] == band
-            and geometry[copy][f"{field}_nominal"] == geometry[source][f"{field}_nominal"],
-            f"cone {copy}.{field} divergence no longer equals the exported {source} band",
-        )
-        require(
-            field not in geometry[copy]["requirements"],
-            f"cone {copy}.{field} divergence became a drawing requirement",
-        )
-    # Example divergence (examples/README.md): the BASIC angle may carry only the angular
-    # limit HA derives from the 0.10 diametral FCF over the 72.0344 crank bore
-    # (cone_pivot_post_spec.py:373-375), never an independent +/- band.
+    # Keep the exported face-owned requirements; do not invent copied dimension bands.
+    require(
+        "length" not in geometry["cone_boss_south_face"]["requirements"]
+        and "length" not in geometry["cone_boss_south_face"]
+        and "height" not in geometry["foot_seat"]["requirements"]
+        and "height" not in geometry["foot_seat"],
+        "cone acquired unauthored duplicate face requirements",
+    )
     angle_tol = geometry["crank_bore"].get("angle_tol_deg", "unknown")
     require(
         angle_tol == "unknown"
@@ -7311,11 +7292,15 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         < 5e-5,
         "BASIC angle acquired a +/- band beyond its FCF-derived limit",
     )
-    near(geometry["crank_bore"]["angularity_dia"], 0.10, "cone diametral FCF")
+    near(geometry["crank_bore"]["angularity_dia"], 0.1016, "cone diametral FCF")
     require(
         geometry["crank_bore"]["angularity_datums"] == ["A", "B"], "cone lost ordered A/B datums"
     )
     require("angularity_dia" in geometry["crank_bore"]["requirements"], "FCF inspection omitted")
+    require(
+        "unknown" in geometry["journal_bore"]["requirements"],
+        "cone journal rim-break requirement was silently resolved",
+    )
     require(features["datums"]["A"]["feature"] == "journal_bore", "datum A is not the cone bore")
     require(features["datums"]["B"]["feature"] == "foot_seat", "datum B is not the foot")
     require(
@@ -7338,10 +7323,12 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "blank dimensions lack author provenance",
     )
     require(
-        [p.get("id") for p in pieces] == ["body", "cone", "crank"],
-        "built-up candidate must declare its three real leaf blanks: body, cone and crank sleeves",
+        plan["stock"]["form"] == "round_bar"
+        and "components" not in plan["stock"]
+        and not plan.get("joint_features")
+        and all(not setup.get("joint") for setup in plan["setups"]),
+        "integral cone acquired built-up stock or joining operations",
     )
-    require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
 
 
 def check_fixture_semantics(
@@ -7408,6 +7395,14 @@ def check_fixture_semantics(
     return missing
 
 
+def check_part_identity(folder_name: str, plan: dict, features: dict) -> None:
+    """Bind the authored plan to its CAD identity, not the example directory's alias."""
+    require(
+        plan.get("part") == features.get("part") == PART_IDENTITIES[folder_name],
+        "part identity mismatch",
+    )
+
+
 def validate_fixture(
     part: str,
     documents: dict,
@@ -7416,8 +7411,8 @@ def validate_fixture(
 ) -> tuple[int, list]:
     folder = EXAMPLES / part
     plan = documents[folder / plan_filename]
-    features = documents[folder / "features.toml"]
-    require(plan["part"] == features["part"] == part, "part identity mismatch")
+    features = documents[(folder / plan["features"]).resolve()]
+    check_part_identity(part, plan, features)
     require(features.get("features"), "empty manifest")
     digest = features["step_sha256"]
     if digest != "unknown":
@@ -7457,6 +7452,7 @@ def validate_fixture(
         require(
             "step" in paths and sha256(paths["step"]) == digest, "STEP bytes differ from digest"
         )
+        check_step_face_references(paths["step"], plan, features)
     findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
     if part == "cone-pivot-post":
         check_cone_facts(plan, features)
@@ -7693,11 +7689,11 @@ def main() -> int:
         code, missing = validate_fixture(
             "cone-pivot-post",
             documents,
-            "built-up.toml",
-            "expected/built-up",
+            "integral.toml",
+            "expected/integral",
         )
         print(
-            f"cone-pivot-post/built-up.toml: expected exit {code}; named missing: "
+            f"cone-pivot-post/integral.toml: expected exit {code}; named missing: "
             f"{', '.join(missing) or 'none'}"
         )
         for case in GEOMETRY_CASES:

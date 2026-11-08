@@ -2,6 +2,8 @@
 
 Run the supplied pivot-shaft plan to produce a findings report and a printable setup sheet. You will use the example unchanged, so its authored choices and demonstration measurements remain visible.
 
+The current shaft targets exact v47 CAD source commit `441290434f34f62faba176ef576af6879189c5e7`: a plain shaft with two flats, not a cut-to-fit route. The [demonstration](demo.md) preserves observations from an earlier v40 bundle; it is not a current acceptance result.
+
 ## Prerequisites
 
 - Access to the [prechips repository](https://github.com/pedropaulovc/prechips) and Git to obtain a checkout.
@@ -46,7 +48,7 @@ uv run prechips traveler examples/pivot-shaft/plan.toml --out out/docs-smoke/piv
 $LASTEXITCODE
 ```
 
-The last line displays the exit code in PowerShell. With FreeCAD available, this unchanged example exits `0`. The documented run produced no stdout or stderr. A quiet command is normal; inspect its files and exit code.
+The last line displays the exit code in PowerShell. Inspect that code and the generated findings rather than expecting `0`. The earlier v40 demonstration recorded exit `0` and no stdout or stderr; those historical observations do not establish the current bundle's result. A quiet command alone is not evidence of success.
 
 The output directory contains:
 
@@ -54,20 +56,20 @@ The output directory contains:
 | --- | --- |
 | `report.json` | Findings, source citations, input identities and checker result |
 | `traveler.html` | The printable job and setup pages |
-| `setup-S1.png` through `setup-S4.png` | The four native setup images |
+| `setup-S*.png`, when available | Native images for the current authored setups |
 
-Image numbering follows setup order: the authored setups `S0`, `S1`, `S2` and `S3` map to image files `setup-S1.png`, `setup-S2.png`, `setup-S3.png` and `setup-S4.png`. These files are not PDFs. The command can replace existing generated files in this output directory; it leaves the example inputs in place.
+Image numbering follows setup order, not authored setup IDs. The earlier demonstration's four images are historical observations, not a promised current file count. These files are not PDFs. The command can replace existing generated files in this output directory; it leaves the example inputs in place.
 
 Without FreeCAD, geometry-dependent findings remain unresolved and no native setup images are produced. This returns `4` unless a rule error takes precedence and returns `2`. Invalid input or a handled output-path/write failure returns `3`. Use the [CLI exit reference](../reference/cli.md#streams-and-errors) for the full exit contract and the [output-safety reference](../report-and-telemetry.md#output-safety) for write guarantees.
 
 ## 4. Read the result before printing
 
-Open `out/docs-smoke/pivot-shaft/report.json` in a text editor. Find `expected_exit` and `verification`. The recorded run contains `0` and `"checked"`: its declared inputs satisfy the current checker requirements.
+Open `out/docs-smoke/pivot-shaft/report.json` in a text editor. Find `expected_exit` and `verification`, then read the findings that explain them. The earlier v40 run recorded `0` and `"checked"`; no current result is asserted here.
 
-Open `out/docs-smoke/pivot-shaft/traveler.html` in a browser. The sheet still says `PLANNED` and `NOT APPROVED` because no [approval record](../report-and-telemetry.md#eligibility-and-approval) was supplied. Its `JOB STATUS` separately lists the stock as not on hand. Exit `0` does not record a first article, confirm your machine or tooling measurements, or authorize machining.
+Open `out/docs-smoke/pivot-shaft/traveler.html` in a browser. Without a supplied valid [approval record](../report-and-telemetry.md#eligibility-and-approval), the sheet remains `PLANNED` and `NOT APPROVED`. Read its current `JOB STATUS` for stock availability and prerequisites. Even exit `0` would not record a first article, confirm your machine or tooling measurements, or authorize machining.
 
 The examples contain plausible, labelled demonstration values. They are not released shop plans. Read the [example provenance policy](../../examples/README.md#examples-policy-plausible-labelled-values) before reusing any content. Do not copy the fixtures' measurement metadata into a real inventory to clear an unresolved check.
 
-Continue with [Follow a plan through its findings](tutorial.md) to understand the five inputs and read a stored finding. The [input-and-output demonstration](demo.md) shows exact excerpts from this run. See the output reference for [printing](../report-and-telemetry.md#generated-traveler) and [approval rules](../report-and-telemetry.md#eligibility-and-approval).
+Continue with [Follow a plan through its findings](tutorial.md) to understand the five inputs and read a stored finding. The [input-and-output demonstration](demo.md) preserves exact historical excerpts, not results from the current v47 bundle. See the output reference for [printing](../report-and-telemetry.md#generated-traveler) and [approval rules](../report-and-telemetry.md#eligibility-and-approval).
 
 For other tasks, return to the [documentation home](../README.md). Use the [CLI catalog](../reference/cli.md) for command options and the [Python callable catalog](../reference/python-api.md) for the importable implementation surface and its stability limits.

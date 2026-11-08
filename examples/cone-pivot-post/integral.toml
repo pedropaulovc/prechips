@@ -16,7 +16,7 @@ quantity_cite = ["harmonic-analyzer/cad/config/parts/dt-cone-pivot-post.yaml:dt-
 
 [drawing]
 number = "MHA-DT-05" # parts/dt-cone-pivot-post.yaml:dt-cone-pivot-post.number
-revision = "v47"
+revision = "v47" # exact preserved export; not machining approval
 
 [paths]
 inventory = "../inventory/pedro-shop.toml"
@@ -288,26 +288,6 @@ stock_to_leave_mm = 0.0
 dia = "calipers"
 height = "calipers"
 [[setups.ops]]
-op = 40
-do = "profile"
-feature = "crank_boss"
-tool = "unknown"
-holder = "unknown"
-stock_to_leave_mm = 0.0
- direction = "along_crank_axis"
-[setups.ops.checks]
-dia = "calipers"
-[[setups.ops]]
-op = 50
-do = "profile"
-feature = "cone_boss"
-tool = "unknown"
-holder = "unknown"
-stock_to_leave_mm = 0.0
- direction = "along_inclined_journal_axis"
-[setups.ops.checks]
-dia = "calipers"
-[[setups.ops]]
 op = 60
 do = "spot"
 feature = "mount_west"
@@ -323,7 +303,9 @@ holder = "unknown"
 exit_mm = 0.5 # AUTHOR'S CHOICE; actual drill-point target remains unknown
 [setups.ops.checks]
 dia = "unknown"
-station = "calipers"
+station = "unknown"
+ [setups.ops.inspection_methods]
+station = "HOLD: establish the signed west-hole centre coordinate from the body axis with a calibrated datum fixture and a qualified centre-finding method. A positive-range caliper reading alone is not a negative model coordinate; fixture, gauge and uncertainty budget remain unknown."
 [[setups.ops]]
 op = 80
 do = "counterbore"
@@ -363,10 +345,64 @@ dia = "calipers"
 depth = "calipers"
 
 [[setups]]
+id = "S2R"
+machine = "PM-1127VF-LB"
+frame = "T1"
+stock_in = "S2"
+coolant = "CRC cutting oil brushed on"
+deburr_mm = 0.25
+deburr_cite = ["AUTHOR'S CHOICE: below .010 in maximum"]
+[setups.stock_state]
+od_mm = 42.672
+north_end_z = 0.0
+south_end_z = -94.742
+note = "Finished integral outline from S2; crank boss extends radially to Z50.6591 in model coordinates. This is not a plain cylindrical chucking."
+[setups.hold]
+fixture = "unknown"
+support = "unknown"
+grip_on = "AUTHOR'S CHOICE: upper head using a dedicated asymmetric-part adapter; design unresolved"
+grip_mm = "unknown"
+stop = "unknown"
+clamp = "unknown"
+note = "HOLD: design head restraint, spindle-swing clearance and shoulder-tool access around both integral bosses before machining."
+[setups.zero.transfer]
+from = "S2"
+indicate = ["body", "foot_seat"]
+gauge = "unknown"
+runout_limit_mm = "unknown"
+[setups.zero.x]
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "unknown"
+gauge = "unknown"
+check_jog_mm = 10.0
+[setups.zero.z]
+face = "foot_seat"
+edge_mm = 0.0
+from = "+z"
+method = "touch_then_set"
+tool = "unknown"
+paper_mm = 0.0
+check_jog_mm = 10.0
+retouch_after = []
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "head"
+faces = ["#665/ADVANCED_FACE[16]/NONE"]
+tool = "unknown"
+holder = "unknown"
+to_z = -68.072
+direction = "radially_inward"
+note = "Finish only the head underside annulus at model Y68.072, outward normal -Y. The pinned exact v47 STEP identifies it as #665/ADVANCED_FACE[16]/NONE (plane #501, placement #465, point #929 at 2.680 in, +Y axis #726 with reversed face sense). Requires a qualified narrow-shoulder tool; no adequate tool, corner treatment, restraint or clearance proof is recorded. HOLD until these physical requirements are resolved."
+
+[[setups]]
 id = "S3"
 machine = "PM-30MV"
 frame = "J3" # plan.frames.J3, AUTHOR'S CHOICE; physical binding unknown
-stock_in = "S2"
+stock_in = "S2R"
 coolant = "CRC cutting oil brushed on"
 deburr_mm = 0.1016 # exported RIMS BREAK .004 MAX; its unknown requirement remains unresolved
 deburr_cite = ["harmonic-analyzer/cad/scripts/dt_cone_pivot_post_spec.py:JOURNAL_BORE", "harmonic-analyzer/cad/scripts/draw_dt_cone_pivot_post.py"]
@@ -419,6 +455,17 @@ tool = "unknown"
 paper_mm = 0.0
 check_jog_mm = 10.0
 retouch_after = []
+[[setups.ops]]
+op = 5
+do = "profile"
+feature = "cone_boss"
+tool = "unknown"
+holder = "unknown"
+stock_to_leave_mm = 0.0
+direction = "around_journal_axis"
+note = "AUTHOR'S CHOICE: machine the complete integral cone-boss cylindrical outline from its axial presentation, not from the head-top presentation. Tool reach, cutter contour and adapter are unresolved."
+[setups.ops.checks]
+dia = "unknown"
 [[setups.ops]]
 op = 10
 do = "face"
@@ -513,6 +560,17 @@ paper_mm = 0.0
 check_jog_mm = 10.0
 retouch_after = []
 [[setups.ops]]
+op = 1
+do = "profile"
+feature = "crank_boss"
+tool = "unknown"
+holder = "unknown"
+stock_to_leave_mm = 0.0
+direction = "around_crank_axis"
+note = "OWNER-SELECTED COMMON PROCESS AXIS — HOLD: target the centre of the permitted printed inter-bore separation band while keeping the crank boss and bore concentric. Existing target aims move the bore's DRO point only, not this boss profile or native geometry, so neither a bore-only aim nor a shifted display frame implements this choice. Do not machine at the nominal fallback; establish a common operative process-axis placement for both operations first. Cutter reach, contour and restraint remain unresolved."
+[setups.ops.checks]
+dia = "unknown"
+[[setups.ops]]
 op = 5
 do = "face"
 feature = "crank_boss_faces"
@@ -544,7 +602,7 @@ tool = "unknown"
 holder = "unknown"
 direction = "negative_setup_z" # AUTHOR'S CHOICE: feed into crank boss
 exit_mm = 0.5
-note = "AUTHOR'S CHOICE: finish crank bore at sourced spacing from A; separately inspect Ø.10 angularity to A/B, not the BASIC cone-angle value."
+note = "HOLD: use the same owner-selected common process axis as the crank-boss profile S4:1; do not move this bore alone. Current schema cannot apply that shared profile/bore shift, so no operative interior target is claimed. Separately inspect the exported diameter .004 in (0.1016 mm) angularity zone to A/B, not the BASIC cone-angle value."
 [setups.ops.checks]
 dia = "unknown"
 separation = "unknown"
@@ -570,6 +628,7 @@ fixture = "unknown"
 support = "unknown"
 grip_on = "AUTHOR'S CHOICE: finished body and foot B; reverse-cap adapter unresolved"
 grip_mm = "unknown"
+fixed_jaw = "not_applicable"
 stop = "Register finished A and B without loading or damaging either bore; hardware and error budget unresolved."
 clamp = "Unknown; do not machine until reverse restraint and cutter clearance are established."
 [setups.zero.transfer]
@@ -636,6 +695,7 @@ fixture = "unknown"
 support = "unknown"
 grip_on = "AUTHOR'S CHOICE: body and datum B with crank far cap exposed; adapter unresolved"
 grip_mm = "unknown"
+fixed_jaw = "not_applicable"
 stop = "Register A and B without using a pilot hole or inventing an allowable runout."
 clamp = "Unknown; resolve reverse crank-cap holding and approach clearance before machining."
 [setups.zero.transfer]
@@ -685,8 +745,15 @@ id = "S7"
 machine = "finishing-bench"
 frame = "M2"
 stock_in = "S6"
+coolant = "none: manual bench work"
+deburr_mm = 0.1016
+deburr_cite = ["harmonic-analyzer/cad/scripts/dt_cone_pivot_post_spec.py:JOURNAL_BORE"]
 [setups.hold]
 note = "AUTHOR'S CHOICE: support on clean non-marring pads; physical support and calibrated inspection fixtures remain unresolved."
+fixture = "unknown"
+stop = "unknown"
+grip_mm = "unknown"
+clamp = "unknown"
 [[setups.ops]]
 op = 10
 do = "deburr"

@@ -378,17 +378,6 @@ def _tilt(bundle, name, requirement, feature, nums):
     return None if nominal is None else (nominal, length)
 
 
-def _nominal_band_error(feature, requirement):
-    limits = feature.get(requirement)
-    if not (isinstance(limits, list) and len(limits) == 2 and all(number(v) for v in limits)):
-        return {}
-    for field in (f"{requirement}_nominal", f"nominal_{requirement}"):
-        nominal = feature.get(field)
-        if number(nominal) and not limits[0] <= nominal <= limits[1]:
-            return {"nominal_field": field, "nominal": nominal, "limits": limits}
-    return {}
-
-
 def procedure_known(method):
     """An authored inspection procedure: a non-empty string other than ``unknown``, or a
     list of steps each of which is one."""
@@ -992,18 +981,15 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                 if covered(requirement):
                     continue
                 subject = f"{name}:{requirement}" if requirement else name
-                nominal_error = _nominal_band_error(feature, requirement)
                 result.append(
                     _dimensional_finding(
                         name,
                         workpiece,
                         subject,
-                        "error" if nominal_error else "unknown",
-                        {"requirement": requirement or "unknown", **nominal_error},
+                        "unknown",
+                        {"requirement": requirement or "unknown"},
                         cite,
-                        f"{name} {requirement}: exported nominal is outside the requirement band."
-                        if nominal_error
-                        else f"{name}: inspection applicability or finishing action is "
+                        f"{name}: inspection applicability or finishing action is "
                         "explicitly unknown.",
                     )
                 )
@@ -1158,10 +1144,6 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                 worst = max(others, key=lambda row: _SEVERITY[row["status"]])
                 if _SEVERITY[worst["status"]] > _SEVERITY[status]:
                     status, message = worst["status"], f"{worst['op']}: {worst['message']}"
-            nominal_error = _nominal_band_error(feature, requirement)
-            if nominal_error:
-                nums.update(nominal_error)
-                status, message = "error", "exported nominal is outside the requirement band"
             if status == UNKNOWN:
                 debts = {entry["id"]: entry for entry in nums.get("measurements", [])}
                 debts.update(
@@ -1249,10 +1231,6 @@ def _shared_finding(bundle, setup, op, target, route, final_checks):
             status, message = other_status, f"{row['op']}: {other_message}"
     if others:
         nums["other_go_no_go"] = others
-    nominal_error = _nominal_band_error(feature, requirement)
-    if nominal_error:
-        nums.update(nominal_error)
-        status, message = "error", "exported nominal is outside the requirement band"
     if (
         status == UNKNOWN
         and preservation_only

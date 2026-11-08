@@ -18,7 +18,7 @@ from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples" / "pivot-shaft" / "plan.toml"
-BUILT_UP = ROOT / "examples" / "cone-pivot-post" / "built-up.toml"
+INTEGRAL = ROOT / "examples" / "cone-pivot-post" / "integral.toml"
 
 PLAN_FRAME = """[frames.P]
 origin = [10.0, 0.0, 5.0]
@@ -177,24 +177,25 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-shaft" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    head, t3 = text.split("[frames.T3]\n", 1)
-    t3 = t3.replace('binding = "nominal"', 'binding = "unknown"', 1)
-    plan.write_text(head + "[frames.T3]\n" + t3, encoding="utf-8")
+    head, t2 = text.split("[frames.T2]\n", 1)
+    t2 = t2.replace('binding = "nominal"', 'binding = "unknown"', 1)
+    plan.write_text(head + "[frames.T2]\n" + t2, encoding="utf-8")
     found = by_setup(coordinates.evaluate(load_bundle(plan)))
     assert {sid: f.numbers["binding"] for sid, f in found.items()} == {
         "S0": "nominal",
         "S1": "nominal",
         "S2": "nominal",
         "S3": "unknown",
+        "S4": "nominal",
     }
     # A bound frame maps the op's setup Z into model Z.
-    assert rows(found["S1"])["shoulder_thrust", "op 20 to_z"]["model"] == [0.0, 0.0, -7.5]
+    assert rows(found["S2"])["north_dome", "op 10 to_z"]["model"] == [0.0, 0.0, 1.524]
     # An unbound frame invents no model Z; the authored local station is kept and attributed.
-    # S3 parts long (op 10), faces the apex (op 20) and forms the dome from it (op 30).
-    apex = rows(found["S3"])["south_dome", "op 30 z_from"]
+    # S3 parts the grip stub (op 5), faces the apex (op 10), then forms the dome (op 20).
+    apex = rows(found["S3"])["south_dome", "op 20 z_from"]
     assert apex["model"][2] == "unknown"
-    assert apex["setup"] == [0.0, 0.0, 1.75]
-    assert apex["local_from"] == {"op": 30, "field": "z_from", "axis": "z"}
+    assert apex["setup"] == [0.0, 0.0, 0.0]
+    assert apex["local_from"] == {"op": 20, "field": "z_from", "axis": "z"}
     assert found["S3"].status == "unknown"
 
 
@@ -278,7 +279,7 @@ def test_unbound_frames_stay_unknown_without_inventing_a_bench_binding(tmp_path,
         assert rows(found["S1"])["hole", "centre"]["setup"] == [20.0, 0.0, 0.0]
 
 
-@pytest.mark.parametrize("plan", [SHAFT, BUILT_UP])
+@pytest.mark.parametrize("plan", [SHAFT, INTEGRAL])
 def test_restored_setup_frames_live_only_in_the_plan(plan):
     bundle = load_bundle(plan)
     raw = bundle.paths["features"].read_bytes()

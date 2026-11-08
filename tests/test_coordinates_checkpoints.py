@@ -11,9 +11,9 @@ three decimals.
 """
 
 import math
-from pathlib import Path
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
@@ -24,7 +24,8 @@ from prechips.rules import coordinates
 # 0.2 mm radial allowance with the 6 mm cutter; frame A subtracts (5, 2) from model XY.
 ARC = "kind = 'profile'\nradius = 10.0\narc_centre = [0.0, 0.0, 0.0]\nend = [6.0, -8.0, 0.0]\n"
 CENTRE = (-5.0, -2.0)
-ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+# Pinned d9425786 arcs, lands and tapers retain the checkpoint-offset geometry regression.
+ROCKER = HISTORICAL_EXAMPLES / "rocker-arm/plan.toml"
 SUBJECT = "S1:20"
 TABLE = "S1:20 rough arc"
 CONTACT = "first contact with stock outside stock_removal_bounds"
@@ -257,7 +258,7 @@ def test_a_finish_depth_the_dro_leaves_above_its_face_past_its_band_is_an_error(
         assert "op 20 prints Z -2.07 for to_z -2.07825" in residuals[0], residuals
 
 
-def test_rocker_join_records_carry_their_stage_allowance_and_offset():
+def test_historical_join_records_carry_their_stage_allowance_and_offset():
     bundle = load_bundle(ROCKER)
     # Known synthetic cutter/DRO/spindle inputs, only for the joined-table contract.
     machine = bundle.inventory["machines"]["PM-30MV"]
@@ -279,8 +280,8 @@ def test_rocker_join_records_carry_their_stage_allowance_and_offset():
         for kind in ("arc_table", "line_table")
         for table in row.numbers.get(kind, [])
     }
-    # The current manual recipe roughs these joined outlines; file_to_line finishes
-    # them, not a superseded finish arc-table operation.
+    # This historical recipe roughs joined outlines; file_to_line finishes them,
+    # rather than a finish arc-table operation.
     assert {
         (setup, op, "rough", kind)
         for setup, op in (("S1", 40), ("S2", 40), ("S4", 27))

@@ -522,8 +522,7 @@ and the stock after it, and every later setup's stock, is unknown with that
 reason. A `pass` logs the parted plane. A part-off that names a finished drawing
 face gets no `parting_face` row and keeps the ordinary finished-face checks.
 `cut_to_fit` does not prepare an end face: it keeps the chuck side and drops
-the free end, as in pivot-shaft S3, the opposite of a part-off. A part-off
-leaves one piece, so a
+the free end, the opposite of a part-off. A part-off leaves one piece, so a
 [`keep`](#keep-piece) after it has only that piece to keep.
 
 ### Tooling holes
@@ -658,6 +657,17 @@ than the nose is judged by the corner-radius fact below; flank, head and holder
 hits remain collisions.
 Reach is the material radius within the nose's or blade's axial extent; corners are concave toroid or
 sphere profile radii (a sharp shoulder is 0) compared with the nose radius.
+
+For a profile op without `to_z`, a numeric `z_from`/`z_to` pair bounds the
+profile samples as well as the removal. The kernel trims each actual claimed
+face to that axial interval before sampling, including intervals narrower than
+the sampling pitch; it does not pose the tool along remote portions of a
+continuous claimed face. Omitting the window retains the whole claimed-face
+domain. This does not trim the tool, holder, fixture obstacles, or material used
+for reach: a pose within the interval can still collide with a boss outside it.
+The separate commanded start/stop poses described below still use the original
+claims' diameter, even when an endpoint lies beyond the claimed face, so an
+overtravel or a holder collision at an endpoint remains a collision.
 
 #### Turning removal
 

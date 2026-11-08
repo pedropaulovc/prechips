@@ -16,11 +16,22 @@ horizontal dividing-head top-dead-centre poses and window-clipped radial
 plus wall-tangent vertical cutter-column own-removal outside the finished
 part. Exact per-face unions decide coverage and finish coverage for
 partial-face windows. This is not continuous toolpath proof.
+Current CAD authority is harmonic-analyzer source
+`441290434f34f62faba176ef576af6879189c5e7`, exact release **v47**.
+The current routes are: `pivot-shaft`, plain shaft with two flats, allocated
+3/8-inch stock and **no cut-to-fit**; `cone-pivot-post`, integral construction
+with finish unresolved and held; and `rocker-arm`, built-up hub/strap
+construction using one authored `stock.components` route, CAD detail-backed
+plan-owned `joint_features`, actual component preparation branches and a press
+join against the exact assembled v47 STEP. Separate component exports are
+neither required by this chosen route nor claimed to exist. None of these
+route choices grants machining approval or closes an unresolved requirement.
 Historical M3 artifact evidence is recorded in [§8](#8-milestones); its
 eight exit-0 invocations are not a fresh check of the current inputs. The
-[example guide](examples/README.md#expected-consumer-cli-exits) owns current
-bundle targets. Physical paper rehearsal, first-article approval and live
-parented farm/App Insights acceptance remain pending/unobserved.
+[example guide](examples/README.md) records current bundle status; no new CLI
+exit or validation result is asserted here. Physical paper rehearsal,
+first-article approval and live parented farm/App Insights acceptance remain
+pending/unobserved.
 Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
 drill outside the line, bench filing to buttons or a template checked with a
@@ -489,12 +500,15 @@ faces = ["Face2", "Face3", "Face6"]
 
 **Historical source assessment:** the original sketch combined rocker spec
 geometry, hole defaults, notes, datum annotations and title-block tolerances.
-The current export supplies the actual A|B|C position datum chain, rendered
+That export supplied the actual A|B|C position datum chain, rendered
 metric general bands, material alternatives and all labelled face sets,
-including separate strap datum B and both tip lands. Unknown tip-land angular
-acceptance and setup binding remain unknown; no drawing note authorizes
-built-up construction. The generated manifest and its per-fact citations,
-not this sketch's field names or face ordinals, are authoritative.
+including separate strap datum B and both tip lands. At that delivery,
+unknown tip-land angular acceptance and setup binding remained unknown; no
+drawing note authorized built-up construction. That historical assessment
+does not describe the current built-up hub/strap route, whose component
+preparation and press join are plan-authored against the assembled v47 export.
+The generated manifest and its per-fact citations, not this sketch's field
+names or face ordinals, are authoritative for exported requirements.
 
 **Why not PMI in the STEP.** Semantic PMI needs AP242, and in SolidWorks that
 export is the MBD add-in only (`IModelDocExtension.PublishSTEP242File2`,
@@ -897,9 +911,12 @@ The author lists candidate stock forms as alternative plans; prechips emits
 setups, waste ratio, fixtures required and the rules each candidate trips,
 side by side. It does not pick a winner, and a built-up candidate is marked
 `✗ drawing permits one-piece only` unless `features.construction =
-"built_up_permitted"`. Tier: M2. The active `cone-pivot-post` example is the
-bonded-sleeve built-up route; its one-piece example comparison is retired.
-The generic `compare` command remains available for authored alternatives.
+"built_up_permitted"`. Tier: M2. The former bonded-sleeve built-up
+`cone-pivot-post` route and its comparison history are historical, not the
+current integral route. The current built-up pilot is the rocker hub/strap
+route using authored component preparation and a press join. The generic
+`compare` command remains available for authored alternatives; it does not
+authorize construction.
 
 ### 4.6 Non-deterministic residue, named
 
@@ -1111,10 +1128,12 @@ stay out of tree at `C:/src/dt-logs/prechips-spike/`.
   declared (K_c and E from the shipped table, stick-out from the plan).
 - **No EL400 file format.** A DRO recipe on the sheet, with a check move.
 - **Stock-form comparison lists, it does not choose.**
-- **Pilots**: `pivot-shaft` (lathe), `rocker-arm` (mill),
+- **Pilots**: `pivot-shaft` (plain shaft, two flats, allocated 3/8-inch stock,
+  no cut-to-fit), `rocker-arm` (built-up hub/strap, authored component branches
+  and press join against the assembled v47 export),
   `pivot-bracket` (mill, hand-authored manifest) and `cone-pivot-post`
-  (bonded-sleeve built-up route). The `pivot-bushing` and one-piece cone
-  comparison examples are retired.
+  (integral; unresolved finish held). The `pivot-bushing`, former bonded-sleeve
+  cone route and its one-piece comparison history are not current routes.
 
 Dropped from revs 2–3: hashes on the sheet, rule ids on the sheet, per-finding
 citations on the sheet, 15-decimal evidence strings, `attestation.yaml` as a
@@ -1240,23 +1259,31 @@ first-article acceptance.
    turning-deflection and engagement proxies, and gated stock-form comparison
    are implemented. Lathe Z/spindle, diameter-mode X and cross-setup `transfer`
    conventions remain the existing shaft route's; it declares no cross-hole.
-   The cone-pivot-post's BS-0 case is its
+   Historically, the cone-pivot-post's BS-0 case was its
    12.5182° cone-journal inclination (`positions = 1`, no repeated-pattern
-   closure). Its active built-up route uses the labelled, user-approved
-   construction divergence; this is not permission inferred by the checker.
+   closure). The then-active built-up route used a labelled, user-approved
+   construction divergence; that historical permission does not authorize a
+   current built-up cone or resolve the integral cone's finish hold.
    Current declared-input contracts are in the rule docs. Unknown inputs
    remain `?`, not a numerical machining approval; paper rehearsal, the
    independent hand oracle and live farm telemetry need separate evidence.
 3. **M3: consumer export support delivered; upstream follow-ups and combined
    acceptance remain separate.**
-   `examples/rocker-arm/`, `examples/pivot-shaft/` and
-   `examples/cone-pivot-post/` consume generated `features.toml` exports
-   and their exact adjacent STEP files. The manifests bind STEP SHA-256,
-   sourced requirement/precision/citation records and labelled entity/ordinal
-   face sets. The current examples include the explicitly labelled divergences
-   in the example guide and are not verbatim manifests. Export delivery provenance
-   and exact digests are
-   recorded only in [examples/README.md](examples/README.md#m3-export-delivery-provenance).
+   Current route reconciliation targets harmonic-analyzer source
+   `441290434f34f62faba176ef576af6879189c5e7`, exact v47: plain/two-flat shaft
+   from allocated 3/8-inch stock without cut-to-fit, integral cone with finish
+   held, and built-up hub/strap rocker. The rocker uses one authored
+   `stock.components` route with CAD detail-backed plan-owned `joint_features`,
+   component preparation branches and a press join against the final assembled
+   STEP; separate component manifests are not a prerequisite or claimed
+   deliverable. No historical clean exit establishes current readiness.
+   The original M3 delivery to `examples/rocker-arm/`, `examples/pivot-shaft/`
+   and `examples/cone-pivot-post/` supplied generated `features.toml` exports
+   and adjacent STEP files. Those manifests bound STEP SHA-256, sourced
+   requirement/precision/citation records and labelled entity/ordinal face sets.
+   Historical delivery provenance, current export provenance and labelled
+   divergences are recorded in
+   [examples/README.md](examples/README.md#m3-export-delivery-provenance).
    Python citations remain `file:line`; YAML citations are `file:dotted.key.path`.
    All plans remain authored and PLANNED. The pivot-bracket keeps hand-authored
    `features.toml` on the consumer v39 STEP
@@ -1264,15 +1291,16 @@ first-article acceptance.
    No dimensioned bracket drawing is supplied, so its bands are illustrative
    example design intent rather than measured or exported drawing limits.
 
-   [Expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
-   are maintained in the example guide. Existing inspection choices follow the
-   split exported feature owners with unchanged gauges.
+   Current bundle status is maintained in the [example guide](examples/README.md).
+   Historical expected CLI exits and inspection choices are not fresh evidence
+   for the reconciled routes; this reconciliation asserts no new exits.
    Unknown requirement identities, measurements and methods remain unresolved,
    not invented. Plausible example facts do not establish real shop capability.
 
-   The following records the original `b11124ecf` export gaps. Where a current
-   example supplies a labelled divergence, the example guide is authoritative;
-   these original upstream gaps must not be mistaken for current example stops.
+   The following records the original `b11124ecf` export gaps, not the v47
+   current contract. The example guide records current facts; these original
+   upstream gaps and their former example workarounds are historical evidence,
+   not current machining instructions or automatic closure of current holds.
 
    - **Rocker top edge.** At `b11124ecf`, the export set
      `top_edge_feature = "top_edge"` on `profile_outer`, `tip_land_pos_x` and
@@ -1299,13 +1327,13 @@ first-article acceptance.
      checked/reworked; post-doming verification remained a forward instruction.
      The report kept an unknown `pivot_bearing:length` row with
      `missing_requirement = true`. A `checks` entry for an unexported requirement
-     was bad input. The current example instead carries a labelled fit-up hold
-     and claims no `pivot_bearing:length` inspection; see the
-     [example guide](examples/README.md#current-export-contract-changes).
-   - **Cone volume.** The export lacks sourced `volume_mm3`/`volume_cite`.
+     was bad input. A later example carried a labelled fit-up hold and claimed
+     no `pivot_bearing:length` inspection. Both are historical: the current
+     v47 shaft is plain with two flats and has no cut-to-fit route or requirement.
+   - **Cone volume.** The original export lacked sourced `volume_mm3`/`volume_cite`.
      A stock comparison needs both to compute waste; handwritten analytic
-     volume is not imported as an export fact. The active cone route is not
-     a comparison case.
+     volume was not imported as an export fact. This historical gap does not
+     authorize a construction alternative to the current integral cone.
    - **BASIC indexing angle.** At `b11124ecf`, `crank_bore` exported a BASIC angle
      (`dimension_type`, cited to `BASIC_DIMENSIONS`) without `angle_tol_deg`.
      The consumer neither inherited title-block ±1° nor converted the Ø0.10
@@ -1313,14 +1341,23 @@ first-article acceptance.
      HA derived `CRANK_BORE_ANGLE_LIMIT_DEG = degrees(atan(0.10 / CRANK_BOSS_LENGTH))`
      ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`), used it at
      `crank_mesh_stack.py:80` and tested it at `test_cone_pivot_post_drawing.py:439`,
-     but did not export it. The current example supplies a labelled bound; see
-     the [example divergences](examples/README.md#example-divergences-from-consumer-exports).
+     but did not export it. A later example supplied a labelled bound; see
+     the historical [example divergences](examples/README.md#example-divergences-from-consumer-exports).
    - **`mount_west` sign.** At `b11124ecf`, the export had
      `station_nominal = -12.98` (signed X) but `station = [12.47, 13.49]`
      (built from `abs(ATTACHMENT_X)`). The consumer's generic nominal-within-band
      input check reported `mount_west:station` as an `error`; it did not flip
-     the sign or drop the field. The current example has a labelled sign
-     correction; see the [example divergences](examples/README.md#example-divergences-from-consumer-exports).
+     the sign or drop the field. A later example supplied a labelled sign
+     correction; see the historical [example divergences](examples/README.md#example-divergences-from-consumer-exports).
+     That generic check was removed in the 2026-11-07 reconciliation: a model
+     nominal is not necessarily an acceptance target. The authoritative cone
+     journal is `.483 +.0010/+.0005 in`, so its 12.2682 mm model diameter
+     legitimately precedes its `[12.2809, 12.2936]` mm finished-size band.
+     Exported geometry and limits remain unchanged; process holds, limit gauges,
+     capable inspection and applicable plan aims still enforce their bands.
+     A sign contradiction now requires independent source/geometry evidence,
+     not nominal-band membership alone. Regression coverage is in
+     `tests/test_nominal_tolerance_semantics.py`.
 
    **Upstream M3 follow-ups identified at harmonic-analyzer `b11124ecf`:**
    these describe that delivery, not observed current HA status. Example
@@ -1340,8 +1377,8 @@ first-article acceptance.
       end-past-scribe acceptance band. The former hand-authored manifest carried
       `cut_past_scribe = [1.5, 2.0]` and `end_past_scribe = [0.0, 0.5]`; those
       were historical and were not imported. The then-current
-      `pivot_bearing:length` inspection was unknown. The current example
-      claims no such inspection; see the [example guide](examples/README.md#current-export-contract-changes).
+      `pivot_bearing:length` inspection was unknown. This is historical export
+      debt, not a requirement to add cut-to-fit to the current plain/two-flat shaft.
    7. Export `crank_bore.angle_tol_deg` from `CRANK_BORE_ANGLE_LIMIT_DEG`
       (≈ 0.0795°, `cone_pivot_post_spec.py:373`) with its citation, or record in
       HA why that bound is not an indexing landing allowance. The general ±1°
@@ -1358,14 +1395,14 @@ first-article acceptance.
    fragmentation is checked per input piece. These are necessary-condition
    screens, not physical setup or toolpath certification; unresolved inputs
    remain unknown.
-   The far-side `cone_boss` claim error on the retired milled-pad route's
-   S2:50 is gone with that route: the built-up cone is now a turned body and
-   head with a cone sleeve and a crank sleeve, both turned on the lathe and
-   bonded with retaining compound (`examples/README.md`, "Built-up cone route
-   provenance"), so no cone-boss face is milled. Fixing HA's station sign alone
-   never cleared a machining stop. The current route and
-   [expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
-   are recorded in the example guide. A clean example exit is not physical acceptance.
+   Historically, the far-side `cone_boss` claim error on the retired milled-pad
+   route's S2:50 disappeared when that example moved to a turned body and head,
+   a cone sleeve and a crank sleeve bonded with retaining compound.
+   Fixing HA's station sign alone never cleared a machining stop. That
+   bonded-sleeve route is now also historical; the current cone is integral
+   and its finish remains unresolved and held. Current route status is recorded
+   in the [example guide](examples/README.md). Historical clean example exits
+   are neither current validation nor physical acceptance.
 
    **Historical M3 local artifact validation:** eight actual traveler invocations
    exited 0 across two generations of the four plans at that delivery. The
@@ -1379,8 +1416,8 @@ first-article acceptance.
    Superseded implementation, review and golden/test run records are preserved
    in [PLAN §8 at `dfcee1b4`](https://github.com/pedropaulovc/prechips/blob/dfcee1b4432dfa04c371620765bbc884754941a6/PLAN.md#8-milestones).
    Their fixture sets, exits, test totals and timings are historical, not
-   acceptance evidence for the current four-plan delivery. Current export
-   provenance, labelled divergences and route choices live in the example guide.
+   acceptance evidence for the current v47 reconciliation. Current export
+   provenance, unresolved prerequisites and route choices live in the example guide.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
    The current [geometry catalog](docs/rules-geometry.md) covers thirteen
    registered native-rule families, including saw, blank-credit, keep-piece and
@@ -1710,8 +1747,10 @@ first-article acceptance.
    own `dia` band admits, above basic or below it, where the join no longer counts
    the band's skin as lost ([#337](https://github.com/pedropaulovc/prechips/issues/337)).
    Transient taps/counterbores are named debt, not cylindrical substitutes.
-   The built-up cone example is the bonded-sleeve route: three leaf blanks
-   (body, cone sleeve, crank sleeve) and two slip-fit retaining-compound joints.
+   Historically, the built-up cone example exercised the bonded-sleeve route:
+   three leaf blanks (body, cone sleeve, crank sleeve) and two slip-fit
+   retaining-compound joints. This is engine-delivery evidence, not the current
+   integral cone route or permission to substitute bonded sleeves.
    Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
    headroom uses the actual setup-entry stock bbox rather than the raw blank.
    Each output subtracts its setup's derivable removals from its selected input.
@@ -1872,10 +1911,15 @@ first-article acceptance.
    requires its separately qualified shop measurements.
 
    Historically, the pre-M3 production rocker S1 strap operations explicitly
-   claimed the then-exported +Z datum-B face `#492`. The current M3 export uses
+   claimed the then-exported +Z datum-B face `#492`. The later M3 export used
    its own `strap_datum_b` face identity; old entity numbers are not portable.
-   The S1 supply is still authored rectangular stock; later unprovided
-   rail/ear footprints remain debt, not a finished-STEP substitute.
+   That route's S1 supply was authored rectangular stock; later unprovided
+   rail/ear footprints remained debt, not a finished-STEP substitute.
+   The current built-up hub/strap route instead authors component preparation
+   and a press join through `stock.components` and CAD detail-backed
+   `joint_features` against the exact assembled v47 export. It does not require
+   or claim separate component exports; the historical stock declarations do
+   not establish current preparation or workholding readiness.
    Synthetic fixtures author numeric supply allowances and earlier clearing
    setups. The synthetic rocker supply/clearance now fits the STEP global XY
    bbox, retaining its 1 mm Z allowances, so unknown preparation tooling does

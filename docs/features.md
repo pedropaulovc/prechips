@@ -48,11 +48,14 @@ do not acquire invented acceptance bands.
 
 Dimension fields accept a scalar or list of Numbers. List limits conventionally
 mean `[low, high]`. For a banded requirement, `<requirement>_nominal` or
-`nominal_<requirement>` gives its intended in-band target; inspection checks
-inclusive membership. This is not a general fit-system basic-size field.
-Displaced g6/p6 zones can exclude the reference basic size, and the checker does
-not interpret those fit semantics. Keep reference geometry separate from the
-acceptance target.
+`nominal_<requirement>` records the nominal model geometry or drawing dimension
+baseline, not an in-band machining target. Both tolerance deviations may have
+the same sign, so the baseline need not lie inside the acceptance band.
+For example, a diameter of `.483 +.0010/+.0005 in` has a 12.2682 mm nominal
+and a separate `[12.2809, 12.2936]` mm acceptance band. Neither changes the other.
+The checker does not derive fit classes or replace model geometry with a band
+midpoint. Authored process holds and applicable plan aims must satisfy their
+own acceptance checks; a nominal alone proves no manufactured result.
 
 `separation` is a dimension/tolerance field. For example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
@@ -166,8 +169,13 @@ Source references and shell traversal are defined in
 bundle checks in [`inputs.py`](../src/prechips/inputs.py), and native matching
 in [`freecad_job.py`](../src/prechips/kernel/freecad_job.py).
 
-The shaft, rocker and cone reference bundles use consumer-generated manifests
-and exact adjacent STEP exports. The bracket uses a hand-authored manifest on
+The shaft, rocker and cone reference bundles target exact v47 consumer CAD
+source commit `441290434f34f62faba176ef576af6879189c5e7`, with
+consumer-generated manifests and exact adjacent STEP exports. The shaft is
+plain with two flats, not cut-to-fit; the rocker route uses a built-up hub and
+strap; the cone route is integral with finish requirements unresolved. These
+source and route identities are not new checker-pass evidence.
+The bracket uses a hand-authored manifest on
 the consumer v39 STEP
 (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
 It has no dimensioned drawing, so its bands are illustrative design intent,
@@ -268,13 +276,13 @@ datum-referenced inspection method. It does not convert Ø0.10 to degrees.
 For indexing with `dimension_type = "basic"`, omitted `angle_tol_deg` remains
 unresolved and cannot inherit the title-block general angular tolerance.
 An explicit value, numeric or `"unknown"`, is authoritative. Non-BASIC features
-retain the general-angle fallback. The cone export puts the 12.5182° BASIC
-relationship on `crank_bore` as `land_angle_nominal_deg`, with Ø0.10 angularity
-to A/B but no `angle_tol_deg`. harmonic-analyzer (HA) computes
-`CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`)
-but omits it from the export. The exporter must supply that allowance or explain why it is not an indexing
-landing allowance. Prechips neither derives it from the bare FCF nor inherits
-the title-block ±1°. This is export debt, not an absent source.
+retain the general-angle fallback. The exact v47 cone export puts the
+13.001107353689502° BASIC relationship on `crank_bore` as
+`land_angle_nominal_deg`, with Ø0.1016 angularity to A/B and an explicit
+`angle_tol_deg = 0.08081204727737984`. The earlier export's 12.5182°
+relationship and missing allowance are historical, not current export debt.
+Prechips consumes the explicit angular allowance; it does not derive degrees
+from the bare angularity FCF or inherit the title-block ±1° for a BASIC angle.
 
 Drill-kind `rough_profile` / `chain_drill` operations need no invented hole
 feature. Deep-hole derating takes the canonical before-stock state's feature
@@ -305,9 +313,10 @@ invented tolerances or result data. Handwritten readings do not amend the manife
 A drawing SURFACE PROFILE `t` (ASME Y14.5 profile of a surface, optionally
 `U` unequal disposition, to a datum reference frame) belongs to the feature
 whose faces its leader names, like `position_dia`/`position_datums`.
-For the rocker's curved edges (harmonic-analyzer #1544), the BASIC `radius 800`,
-`height_above_pivot 8.0` and `bottom_radius 816` receive their acceptance bands
-from the profile zones.
+In the earlier rocker example (harmonic-analyzer #1544), the BASIC `radius 800`,
+`height_above_pivot 8.0` and `bottom_radius 816` received their acceptance bands
+from the profile zones. Those historical dimensions illustrate the contract;
+use the exact v47 manifest for current rocker requirements.
 
 | Field | Meaning |
 |---|---|

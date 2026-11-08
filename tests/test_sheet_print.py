@@ -1,5 +1,9 @@
 """The traveler as Chrome prints it: continuous job pages, owners and original content
-must match physical output (skipped where no Chrome or Edge is installed)."""
+must match physical output (skipped where no Chrome or Edge is installed).
+
+Historical cases pin d942578676695ebad530856b16e84e734a397d67 for long dome
+tables and retired rocker contours/reaming notes that exercise generic pagination.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 from test_sheet_ops import printed_sheet as printed_sheet
@@ -417,11 +422,11 @@ def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owne
 ):
     from test_sheet_detail import operation_owners
 
-    # A 0.01 axial step and a 1.0 rough leave run the shaft's S2 dome rough and finish
-    # tables, printed side by side when short, over several pages each, unequal in length.
-    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    # The historical S2 dome's 0.01 axial step and 1.0 rough leave exercise
+    # unequal multi-page tables without coupling pagination to current CAD.
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "pivot-shaft" / "plan.toml")
     # The long compensated dome table needs its own known nose and DRO grid,
-    # not a blanket certification of the shipped shaft inventory.
+    # not a blanket certification of the historical inventory.
     bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
     bundle.inventory["tools"]["hss-toolbit-3-8-rh"].update(
         nose_radius_mm=measured(0.4),
@@ -1645,7 +1650,7 @@ def test_public_crowded_contour_continuations_keep_status_and_owned_progress_loc
 
     # Explicitly synthetic resolved coordinate records exercise natural title
     # crowding in the public writer, not a smaller paper or a patched fit function.
-    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "rocker-arm" / "plan.toml")
     bundle.plan["setups"] = [setup for setup in bundle.plan["setups"] if setup["id"] == "S1"]
     bundle.plan["setups"][0]["ops"] = [
         op for op in bundle.plan["setups"][0]["ops"] if op["op"] in (30, 40)
@@ -3276,9 +3281,9 @@ def test_mixed_worksheet_prompts_keep_sole_named_table_field_and_clear_underscor
     assert underscore["clearWidth"] >= 20 * 96 / 25.4 - 0.05
     assert underscore["clearHeight"] >= 20 * 96 / 25.4 - 0.05
 
-    # Consume the real authored before/after reaming note, without a native kernel
-    # or invented measurement results. Its two destinations are not a worksheet.
-    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    # Consume the historical authored before/after reaming note, without a native
+    # kernel or invented results. Its two destinations are not a worksheet.
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "rocker-arm" / "plan.toml")
     setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S3")
     (op,) = setup["ops"]
     sheet = _Traveler(bundle, [], {}, None)

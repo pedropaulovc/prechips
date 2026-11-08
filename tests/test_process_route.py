@@ -1,7 +1,8 @@
 """Finishing route, multi-feature inspection, hold stop faces and process holds (PLAN §4.1).
 
-The example plans evolve, so each test first normalizes the state it exercises (strips
-authored coating ops, stop faces and process holds) and locates its targets structurally.
+These generic regression scenarios deliberately use pinned historical routes, not the
+current reconciled CAD examples. Each test normalizes the state it exercises and locates
+its targets structurally.
 """
 
 import json
@@ -9,7 +10,10 @@ import re
 import tomllib
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
+# Retired routes from d9425786 isolate finish routing, shared inspection, stop faces and
+# process-hold/gauge behavior; they are not current CAD contracts.
+from historical_examples import copy_historical_examples as copy_examples
+from test_cli import SYNTHETIC_KERNEL, synthetic_kernel, traveler
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle

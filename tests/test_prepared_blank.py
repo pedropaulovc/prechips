@@ -8,6 +8,7 @@ import json
 import math
 
 import pytest
+from historical_examples import copy_historical_examples
 from test_cli import SYNTHETIC_KERNEL, copy_examples, run_cli
 from test_envelope_m5 import measured
 from test_process_features import rules
@@ -482,8 +483,10 @@ def prep_routes(tmp_path_factory, freecad_kernel):
     """``{case: (whole plan, its prep route)}`` after one FreeCAD batch over the routes.
 
     A route is the plan's setups up to the blank (S1 onward only consume it), so the
-    kernel cuts the prep passes alone; the whole plan reads the route's facts."""
-    examples = copy_examples(tmp_path_factory.mktemp("prep"))
+    kernel cuts the prep passes alone; the whole plan reads the route's facts. Pin
+    these d9425786 routes to preserve the air-cut and partial-cut negative controls
+    independently of the current rocker's component stock preparation."""
+    examples = copy_historical_examples(tmp_path_factory.mktemp("prep"))
     cases = {
         "bracket": ("pivot-bracket", 6, None),
         "partial": ("pivot-bracket", 6, _partial),

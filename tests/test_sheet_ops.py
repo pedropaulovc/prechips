@@ -1,4 +1,9 @@
-"""Operation-sheet wording a machinist acts on: printed bands and index directions."""
+"""Operation-sheet wording a machinist acts on: printed bands and index directions.
+
+Historical cases pin d942578676695ebad530856b16e84e734a397d67 to preserve
+retired datum recipes and inspection worksheets as generic rendering regressions,
+not as current CAD or manufacturing-route contracts.
+"""
 
 import functools
 import json
@@ -16,11 +21,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 
 from prechips.inputs import Bundle
 from prechips.sheet import _Traveler
 
-ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+ROCKER = HISTORICAL_EXAMPLES / "rocker-arm/plan.toml"
 
 
 def bare(precision):
@@ -1529,8 +1535,10 @@ def rocker():
 
 
 def through(**row):
-    """(a sheet over a through op 60's endpoint as tip_endpoints derives it on the rocker's
-    S1 0.005 mm DRO grid, the endpoint, the setup)."""
+    """A historical through-op endpoint on the rocker's S1 0.005 mm DRO grid.
+
+    The one-piece route is a rendering fixture, not the current rocker contract.
+    """
     from test_envelope_m5 import measured
 
     from prechips.rules.tip_endpoints import _operative
@@ -1764,12 +1772,10 @@ def test_underscore_prompts_never_classify_as_named_worksheet_readings():
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
-def test_real_cone_worksheet_keeps_source_steps_equations_and_inline_owner(detail):
+def test_historical_cone_worksheet_keeps_source_steps_equations_and_inline_owner(detail):
     from prechips.inputs import load_bundle
 
-    bundle = load_bundle(
-        Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/built-up.toml"
-    )
+    bundle = load_bundle(HISTORICAL_EXAMPLES / "cone-pivot-post/built-up.toml")
     setup = next(item for item in bundle.plan["setups"] if item["id"] == "S11")
     authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"][
         "angularity_dia"
@@ -2870,9 +2876,10 @@ def test_printable_picture_windows_never_silently_omit_or_duplicate_source_conte
 
 
 def example_sheet(relative):
+    """Pinned authored cases for renderer behavior, independent of current CAD routes."""
     from prechips.inputs import load_bundle
 
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples" / relative)
+    bundle = load_bundle(HISTORICAL_EXAMPLES / relative)
     return _Traveler(bundle, [], {}, None)
 
 
@@ -4390,14 +4397,14 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
 
 
 def recording_traveler(relative, setup_ids, records=None, change=None, *, detail="hobby"):
-    """Public output over authored examples and explicitly synthetic resolved records.
+    """Public output over historical authored cases and synthetic resolved records.
 
     These display fixtures do not execute or claim a kernel verification.
     """
     from prechips.inputs import load_bundle
     from prechips.sheet import render_traveler
 
-    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples" / relative)
+    bundle = load_bundle(HISTORICAL_EXAMPLES / relative)
     bundle.plan["setups"] = [setup for setup in bundle.plan["setups"] if setup["id"] in setup_ids]
     if change:
         change(bundle)

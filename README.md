@@ -25,13 +25,15 @@ From the repository root:
 uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
-uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
+uv run prechips traveler examples/cone-pivot-post/integral.toml --out out/cone-pivot-post
 uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
 uv run prechips traveler examples/blondihacks-brass-ring/plan.toml --out out/blondihacks-brass-ring
 uv run prechips traveler examples/blondihacks-magic-tube/plan.toml --out out/blondihacks-magic-tube
 ```
 
 Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/demo.md) for actual excerpts. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
+
+The shaft, rocker and cone examples target exact v47 CAD source commit `441290434f34f62faba176ef576af6879189c5e7`. The shaft is plain with two flats, not a cut-to-fit route; the rocker uses a built-up hub and strap; the cone uses the integral route with finish requirements still unresolved. Historical reports and the demonstration's earlier exit-0 observations do not establish results for these reconciled inputs.
 
 Example values exercise the rules; they are not measurements to copy into a real shop inventory. An exit-0 report is eligible for approval. Without a valid first-article approval record, the printable sheet remains PLANNED.
 

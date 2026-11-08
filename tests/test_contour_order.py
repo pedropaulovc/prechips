@@ -1,9 +1,9 @@
 """Contour tables list cutter centres in the real traverse: spindle, direction and frame."""
 
 import math
-from pathlib import Path
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
@@ -16,7 +16,8 @@ from prechips.rules.zero_recipe import native as zero_recipe_native
 from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
-ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
+# Pinned d9425786 R800/R816 route: joined-contour traversal and entry-source regressions.
+ROCKER = HISTORICAL_EXAMPLES / "rocker-arm/plan.toml"
 BOSS = "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
 SLAB = "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }\n"
 OUTSIDE = 1  # orientation sign of a counterclockwise path in the setup top view
@@ -1857,7 +1858,7 @@ def test_a_boxed_cut_cannot_resolve_an_entry_without_known_removal_z(tmp_path, e
     assert end["dro_entry_z"] == end["dro_tip_z"] == "unknown"
 
 
-def test_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
+def test_historical_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
     bundle = load_bundle(ROCKER)
     # The entry-source scenario owns a known DRO grid and its three hole-making tools.
     bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
@@ -2018,9 +2019,11 @@ def rocker_profile_chains(bundle):
 
 
 @pytest.mark.parametrize("direction", ["conventional", "climb"])
-def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(direction):
+def test_historical_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(
+    direction,
+):
     bundle = load_bundle(ROCKER)
-    # Cutter-centre traversal is isolated from the example's unresolved physical evidence.
+    # Cutter-centre traversal is isolated from the historical fixture's physical evidence.
     bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
     bundle.inventory["machines"]["PM-30MV"]["spindle"]["rotation"] = {
         "value": "cw",
