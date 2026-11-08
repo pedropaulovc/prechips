@@ -17,6 +17,8 @@ Open the HTML in a browser. Print on Letter paper at 100% scale with browser hea
 
 The base-bar example uses professional operator shorthand and is limited to two Letter pages at 10.5pt. It omits routine technique and generic safety reminders. It follows the November 5 hand-written guide's flat-on-table width operation. Tooling and inspection limits are stated directly, without process-status disclaimers. The guide's rectangular slot-finishing lap is omitted because it overcuts the rounded ends. Source references are in the TOML comments.
 
+Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
+
 ## Process TOML
 
 Dimensions and manual feed instructions are strings with explicit units; spindle speeds are positive integer rpm. Tool identifiers connect operations to descriptions and are not printed.
@@ -31,6 +33,7 @@ note = "Optional job-specific prerequisite"
 
 [[tools]]
 id = "cutter"
+name = "Short tool name"
 description = "Tool description and size"
 
 [[setups]]
@@ -46,9 +49,13 @@ instruction = "The cut, dimensions and coordinates"
 # rpm = 1000              # Supply the actual authored spindle setting.
 feed = "Authored feed with units, or a manual-feed instruction"
 inspection = "Operation-specific inspection and acceptance limits"
+
+[setups.operations.table]
+columns = ["Feature", "X", "Y"]
+rows = [["Feature name", "Authored X coordinate", "Authored Y coordinate"]]
 ```
 
-Root `note`, setup `inspection`, and operation `rpm`, `feed` and `inspection` are optional. Other shown fields are required; tools, setups and operations must be nonempty. Unknown fields and unresolved tool references produce an input error. Repeat tables in working order; each operation belongs to the most recent setup. Setup inspections print after its operations. Use multiline TOML strings for coordinate lists. Do not invent unknown machining values to fill a field.
+Root `note`, tool `name`, setup `inspection`, and operation `tool`, `rpm`, `feed`, `inspection` and `table` are optional. Omit `tool` for inspections or work requiring only ordinary shop equipment. Tool names provide short labels in operation tables; the tooling list retains full descriptions. Other shown fields are required; tools, setups and operations must be nonempty. Optional operation tables contain string `columns` and string-array `rows`, each matching the column count. Unknown fields and unresolved tool references produce an input error. Repeat tables in working order; each operation belongs to the most recent setup. Setup inspections print after its operations. Do not invent unknown machining values to fill a field.
 
 ## Development
 

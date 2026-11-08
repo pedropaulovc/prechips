@@ -9,6 +9,8 @@ Prechips is starting over at **v0.10**. It is a prototype until Pedro finds it u
 - Print only what an experienced operator needs: tools, setups, feeds, speeds and inspections, with the dimensions and instructions necessary to perform them. No tutorials, repeated warnings, checker reports or internal identifiers. Omit routine technique and generic safety reminders ("lock head", "short stickout", "power off", stopping/retracting, cleaning/reseating); retain part-specific workholding, datums and cutting requirements.
 - Specify datum locations and acceptance dimensions, not how to operate measuring tools. Omit edge-finder speeds, hand-feed instructions, tip-radius offsets and compensated inspection readings.
 - The base-bar traveler must print on no more than two Letter pages at readable type size. Use operator shorthand, not tutorials. Do not print process-status notes such as "untried", "unverified" or certification commentary; state tooling, work instructions and inspection requirements directly.
+- Number setups and operations. Use aligned tables for work instructions, cutting settings, coordinates and inspection criteria; keep full tool specifications in the tooling list and short labels in operations.
+- Assume normal shop equipment (collets, drill chuck, calipers, micrometer, rule, indicator, marker, dead-blow). Omit it from the tool list; list specified cutting tools and job-specific equipment instead.
 - The previous implementation is preserved on `archive/pre-v0.10-2026-11-08`. Pull old code, data-schema ideas or FreeCAD logic only when a concrete approved milestone needs them. Do not migrate the old architecture wholesale.
 
 ## Keep it small

@@ -9,43 +9,44 @@ note = "Inches unless mm. Finished 17.32 × 5.50 × .47, each ±.01. Not mirrore
 
 [[tools]]
 id = "saw"
-description = "Aluminium saw, stock support, file"
+name = "Saw"
+description = "Aluminium saw"
 [[tools]]
 id = "em-half"
+name = "1/2 in end mill"
 description = "1/2 in centre-cutting 2-flute end mill; flutes ≥5/8 in"
 [[tools]]
 id = "em-face"
+name = "3/4 in end mill"
 description = "3/4 in 4-flute end mill"
 [[tools]]
-id = "edge-finder"
-description = ".200 in edge finder"
-[[tools]]
 id = "spot"
+name = "#2 centre drill"
 description = "#2 centre drill"
 [[tools]]
 id = "rail-drill"
+name = "#29 drill"
 description = "#29 (.136 in) drill"
 [[tools]]
 id = "bracket-drill"
+name = "#9 drill"
 description = "#9 (.196 in) drill"
 [[tools]]
 id = "slot-drill"
+name = "3/8 in drill"
 description = "3/8 in drill"
 [[tools]]
 id = "tap"
-description = "8-32 plug tap, T-handle, tapping fluid"
+name = "8-32 tap"
+description = "8-32 plug tap"
 [[tools]]
 id = "counterbore"
+name = "5/16 in end mill"
 description = "5/16 in centre-cutting 2-flute end mill"
 [[tools]]
-id = "measure"
-description = "Collets, drill chuck; 0–1 in micrometer, rule, indicator/base, marker, dead-blow"
-[[tools]]
 id = "deburr"
-description = "Deburrer; HGR15 rail, eight #8-32 × 3/4 screws, one × 5/8; 1/2-13 stud; Ra comparator/instrument"
-[[tools]]
-id = "rail-gauge"
-description = "Calipers"
+name = "Fit hardware"
+description = "HGR15 rail, eight #8-32 × 3/4 screws, one × 5/8; 1/2-13 stud; Ra comparator/instrument"
 
 [[setups]]
 title = "Saw blanks"
@@ -102,20 +103,22 @@ rpm = 1250
 feed = "6 in/min"
 
 [[setups.operations]]
-tool = "rail-gauge"
 instruction = "Rail inspection — before drilling the bar: choose the rail end that will align with the bar's ZERO END. From that rail end, measure to each hole centre: 15, 75, 135, 195, 255, 315, 375, 435 mm (each ±0.08 mm). Stop if the pattern differs."
 
 [[setups.operations]]
 tool = "spot"
-instruction = """
-Spot 18 holes, ~.125 cone:
-R1–8 Y −3.5000; X .5906/2.9528/5.3150/7.6772/10.0394/12.4016/14.7638/17.1260.
-B1–8: X 2.2441/16.8504; each Y −.2450/−.9020/−1.7680/−2.4250.
-S1: X .8700 Y −2.0200; S2: X 15.3500 Y −4.9800.
-All drills: .125 pecks, breakthrough +.125.
-"""
+instruction = "Spot 18 holes, ~.125 cone. All drills: .125 pecks, breakthrough +.125. Coordinates in inches."
 rpm = 3000
 feed = "hand"
+
+[setups.operations.table]
+columns = ["Holes", "X", "Y"]
+rows = [
+  ["Rail R1–8", ".5906, 2.9528, 5.3150, 7.6772,\n10.0394, 12.4016, 14.7638, 17.1260", "−3.5000"],
+  ["Bracket B1–8", "2.2441, 16.8504\n(each X with all four Y)", "−.2450, −.9020,\n−1.7680, −2.4250"],
+  ["Slot S1", ".8700", "−2.0200"],
+  ["Slot S2", "15.3500", "−4.9800"],
+]
 
 [[setups.operations]]
 tool = "rail-drill"
@@ -157,9 +160,19 @@ title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
 holding = "Faced seat on table."
 datum = "Marked end/edge; rail on unmarked face."
-inspection = ["Record each bar: overall dimensions above, width ends/middle, thickness corners/middle; no rocking or chatter. Ra 125 µin both faces.", "Verify hole coordinates/tolerances above. Brackets Ø.196–.200; counterbores Ø.308–.318 × .184–.194 deep, heads recessed. Rail screws hand-start without sideways force, rail end flush; uncut 450 mm rail overhang expected.", "Slots: width .52–.54; overall length minus width .15–.17; far wall ≥.080; stud slides end-to-end."]
+inspection = ["Record results separately for each bar. Verify hole coordinates and tolerances above."]
 
 [[setups.operations]]
 tool = "deburr"
 instruction = "Edges R.010 or chamfer .010 max; clear threads; fit rail/screws and slot stud."
 feed = "hand"
+
+[setups.operations.table]
+columns = ["Inspect", "Requirement"]
+rows = [
+  ["Overall size", "17.32 × 5.50 × .47, each ±.01 in;\nwidth at ends/middle, thickness at corners/middle"],
+  ["Seats", "No rocking or chatter; Ra 125 µin both faces"],
+  ["Bracket holes / counterbores", "Holes Ø.196–.200; counterbores Ø.308–.318 × .184–.194 deep;\nscrew heads recessed"],
+  ["Rail fit", "Screws hand-start without sideways force; rail end flush;\nuncut 450 mm rail overhang expected"],
+  ["Slots", "Width .52–.54; overall length minus width .15–.17;\nfar wall ≥.080; stud slides end-to-end"],
+]
