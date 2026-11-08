@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import struct
 import zlib
 from typing import Any
@@ -199,6 +200,96 @@ def render_assets(bundle: Bundle) -> dict[str, bytes]:
     return assets
 
 
+def _manufacturing_shape(bundle: Bundle) -> dict | None:
+    """Publish only source-bound, request-matched native placement evidence.
+
+    Candidate placement inputs remain visible on refusal, but neither an old process
+    identity nor old native proof is promoted. Native B-rep byte identity remains in the
+    kernel/cache. The public digest identifies the source-bound placement definition,
+    not generated B-rep bytes or geometric equivalence.
+    """
+    from prechips.axis_placements import resolve_placements
+    from prechips.rules.coordinates import _placement_debt
+
+    requested = resolve_placements(bundle)
+    if not requested:
+        return None
+    kernel = getattr(bundle, "kernel", None) or {}
+    source_digest = bundle.features.get("step_sha256", "unknown")
+    manifest_digest = bundle.hashes.get("features")
+    result = {
+        "status": "error" if kernel.get("status") == "error" else "unknown",
+        "source_step_sha256": source_digest,
+        "requested_axis_placements": publish_native_diagnostics(requested),
+    }
+    reason = _placement_debt(bundle)
+    shape = kernel.get("process_shape")
+    digest = kernel.get("process_shape_sha256")
+
+    def sha256(value):
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+        )
+
+    def finite(value):
+        return (
+            isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+        )
+
+    if reason is None and (
+        not isinstance(shape, dict)
+        or not sha256(source_digest)
+        or shape.get("source_step_sha256") != source_digest
+        or not sha256(digest)
+        or shape.get("sha256") != digest
+    ):
+        reason = "native process-shape identity is absent or does not match the source STEP"
+    facts = kernel.get("axis_placements")
+    if reason is None and len(facts) != len(requested):
+        reason = "native placement proof does not uniquely cover the requested placements"
+    if reason is None and (
+        not isinstance(shape.get("bbox_mm"), list)
+        or len(shape["bbox_mm"]) != 6
+        or not all(finite(value) for value in shape["bbox_mm"])
+        or any(shape["bbox_mm"][axis] > shape["bbox_mm"][axis + 3] for axis in range(3))
+        or not finite(shape.get("volume_mm3"))
+        or shape["volume_mm3"] <= 0
+        or not isinstance(shape.get("faces"), list)
+        or not shape["faces"]
+        or any(
+            not isinstance(fact.get("proof"), dict)
+            or not isinstance(fact.get("provenance"), list)
+            or not isinstance(fact.get("source"), dict)
+            for fact in facts
+        )
+    ):
+        reason = "native process-shape construction evidence is incomplete"
+    if reason is None and not sha256(manifest_digest):
+        reason = "feature-manifest input identity is absent or invalid"
+    if reason is not None:
+        result["reason"] = reason
+        return result
+    definition = {
+        "definition_contract": "shared_cylindrical_axis_v1",
+        "source_step_sha256": source_digest,
+        "feature_manifest_sha256": manifest_digest,
+        "requested_axis_placements": result["requested_axis_placements"],
+    }
+    result.update(
+        status="pass",
+        definition_contract=definition["definition_contract"],
+        feature_manifest_sha256=manifest_digest,
+        process_definition_sha256=hashlib.sha256(canonical_bytes(definition)).hexdigest(),
+        axis_placements=publish_native_diagnostics(facts),
+        bbox_mm=publish_native_diagnostics(shape["bbox_mm"]),
+        volume_mm3=shape["volume_mm3"],
+        face_count=len(shape["faces"]),
+    )
+    return result
+
+
 def build_report(
     bundle: Bundle, findings: list[Finding], *, assets: dict[str, bytes] | None = None
 ) -> dict:
@@ -253,5 +344,8 @@ def build_report(
         report["purpose"] = "demonstration"
     if renders:
         report["renders"] = renders
+    manufacturing = _manufacturing_shape(bundle)
+    if manufacturing is not None:
+        report["manufacturing_shape"] = manufacturing
     report["hash"] = report_hash(report)
     return report

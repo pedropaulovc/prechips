@@ -161,7 +161,7 @@ def op_features(op):
 # An op's requirement-keyed inspection tables. A key naming one of the op's listed features
 # scopes its table of requirement entries to that feature; any other key is a requirement
 # whose entry applies to every listed feature that exports it.
-INSPECTION_TABLES = ("checks", "go_no_go", "inspection_methods")
+INSPECTION_TABLES = ("checks", "go_no_go", "inspection_methods", "inspection_readings")
 
 
 def op_entries(op, table):

@@ -74,6 +74,21 @@ Changing the operative catalogue changes the bound report and invalidates prior
 approvals. Reports from earlier catalogues, including `m5-rev10` and `m5-rev11`,
 need regeneration and approval against the current report before reuse.
 
+### Manufacturing shape for a shared-axis placement
+
+When the plan declares `axis_placements`, `manufacturing_shape` preserves the
+requested placement and source STEP identity independently of its proof status.
+Success requires a matching native request, complete source-face provenance and
+construction proof, consistent process-shape evidence and valid source/feature
+digests. Missing or stale evidence is `unknown`; a native failure is not a target.
+Plans without placements retain the existing report shape.
+
+`process_definition_sha256` identifies the canonical definition contract, source
+STEP digest, feature-manifest digest and requested placements. It is not a BREP
+byte hash or a geometry-equivalence claim. Native process BREP bytes and their
+digest are construction evidence, not a replacement for immutable source CAD.
+Neither identity establishes a measured part result or shop approval.
+
 ### Canonical bytes and input binding
 
 Canonical bytes are UTF-8 JSON with sorted keys, two-space indentation,

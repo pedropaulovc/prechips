@@ -63,6 +63,13 @@ Use the [CLI catalog](https://github.com/pedropaulovc/prechips/blob/main/docs/re
 
 The [documentation index](https://github.com/pedropaulovc/prechips/blob/main/docs/README.md#look-up-an-interface) links the five input formats, rule families and output contracts. Use [troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md) to resolve an input error or unresolved finding, and the [FAQ](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/faq.md) for product capabilities and limits.
 
+The plan interface supports explicit tailstock mounting, qualified relative
+inspection readings and source-bound shared-axis placements. Placements require
+matching native construction proof before machining coordinates are released;
+unknown metrology remains debt. These contracts do not qualify held plans or
+record measurements. Relative-reading sheet presentation and the broader
+traveler/command-consumer migration remain deferred.
+
 The literal `"unknown"` is unresolved debt. A source citation, vendor nominal, declared procedure or generated picture does not establish a physical measurement. Approval cannot waive rule errors or required unresolved findings. See [eligibility and approval](https://github.com/pedropaulovc/prechips/blob/main/docs/report-and-telemetry.md#eligibility-and-approval).
 
 An authored `op.rpm` is a requested speed, not a verified recommendation. The requested value takes precedence over calculation, including an explicit `"unknown"` request with no computed fallback. Known machine-limit violations are errors; unresolved safety inputs keep a visible STOP. See [requested RPM](https://github.com/pedropaulovc/prechips/blob/main/docs/cutting-data.md#authored-rpm).

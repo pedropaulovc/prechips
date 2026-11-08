@@ -63,6 +63,18 @@ Geometry and machining validation blockers are tracked in
 [issue 150](https://github.com/pedropaulovc/prechips/issues/150).
 Physical paper/pen/operator and live-farm acceptance remain unobserved.
 
+The minimal held-plan interface adds explicit tailstock mounting, qualified
+relative-coordinate inspection readings and source-bound shared-axis placement
+with native construction/proof gating. It does not qualify held producer plans,
+record measured results or replace immutable CAD. Relative-reading setup-sheet
+presentation, broad traveler/native expansion and the explicit diameter/depth
+command-consumer corrections remain deferred. The existing `to_dia`/`to_z`
+schema is not a claim that every consumer distinguishes authored commands from
+nominal references. Current harmonic-analyzer rocker `bandsaw_preform`
+consumption and absent v48 exports also remain deferred; no accept-and-ignore
+schema or version-guard relaxation is introduced. No examples or golden
+artifacts are migrated by this interface change.
+
 ## 1. Who this is for
 
 A hobby machinist (initially: one person, one shop) making 1–20 of a part on a

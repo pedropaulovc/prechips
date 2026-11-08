@@ -83,6 +83,7 @@ plans. They require the surrounding root fields, setups, features and inventory.
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
 | `workpieces` | `dict[str, WorkpieceInstance] \| Unknown` | Optional; explicit registered copies of the canonical target |
 | `aims` | `dict[str, Aim]` | Optional |
+| `axis_placements` | `dict[str, AxisPlacement]` | Optional; source-bound shared boss/bore/caps placement |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
 | `process_features` | `dict[str, ProcessFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
@@ -282,6 +283,28 @@ The sheet prints each faced aim once, in the instructions of the last facing op
 that claims its face: the feature's requirement "faced to" `value_mm` (at no
 fewer places than the drawing's), the band that holds it, and the reason. For
 example: `Hub faces length faced to 7.080 (band 7.057–7.106): AUTHOR'S CHOICE …`.
+
+## Shared-axis placements
+
+`[axis_placements.<name>]` declares one manufacturing-axis translation without
+editing the exported manifest or source STEP. Its fields are `boss`, `bore`,
+`caps`, `support` (distinct exported feature names) and positive
+`separation_mm` (literal mm). The bore's fixed `height_from` reference and
+printed separation band authorize the target. The boss, through bore and end
+caps move together along the support axis; a bore-only aim is not equivalent.
+
+This bounded contract requires one source solid, one placement, mapped disjoint
+source faces and the supported perpendicular boss/support geometry. Registered
+workpieces and faced aims cannot be combined with it. Unknown or unsupported
+source geometry is refused rather than reconstructed from nominal guesses.
+
+The native kernel constructs the manufacturing solid, preserves the support
+and unrelated openings, and proves the moved surfaces against the exact
+request. Missing, failed or stale native proof withholds machining coordinates;
+pre-kernel candidates are not released targets. The report's
+`manufacturing_shape` records source identity and proof separately from the
+immutable CAD definition. A proved process shape is not a measured part or
+permission to machine an otherwise held plan.
 
 ## Joint features
 
@@ -1794,6 +1817,15 @@ identify the same boundary. The native proof uses the actual material at that
 boundary; it never borrows the initial touch's surviving land. See
 [actual-stock top contact](rules-coordinates.md#explicit-actual-stock-top-contact).
 
+For a lathe tool mounted in the tailstock, every cutting operation using that
+tool must explicitly declare `tool_mount = "tailstock"`. The X tool-touch
+exemption requires known compatible, unflagged holder/tailstock tapers and
+axial, spindle-centred geometry for every such operation. Missing or unknown
+mounting, a radial operation or unresolved geometry retains the normal X
+requirements. A qualified touch reports `tool_setting_state = "tailstock_axis"`
+and X as not applicable; it still requires its Z face, edge and paper facts.
+The quill touch never becomes the carriage DRO setter.
+
 ## Operation
 
 Each `[[setups.ops]]` record declares one action and its tool, geometry,
@@ -1809,6 +1841,7 @@ execution order; `op` is its within-setup identity.
 | `workpiece_faces` | `dict[str, list[str]]`: nonempty per-live-member canonical face claims, exclusive with explicit `faces`; see [qualified claims](#member-qualified-cutting-claims) |
 | `tool` | `str` |
 | `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
+| `tool_mount` | `"tailstock" \| "toolpost" \| "turret"`; explicit mounting identity, not inferred from tool shape |
 | `direction` | `str` |
 | `note` | [Authored note](#authored-notes) |
 | `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`; or `ends`, a guided sweep's two arc-end marks measured from the bar's own faces) |
@@ -1836,6 +1869,7 @@ execution order; `op` is its within-setup identity.
 | `go_no_go` | `dict[str, GoNoGo \| Unknown \| dict[str, GoNoGo \| Unknown]]` (each entry needs its feature's `checks` gauge) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str] \| dict[str, str \| list[str]]]` |
+| `inspection_readings` | Requirement → `InspectionReading` or `"unknown"`, optionally scoped per listed feature |
 | `inspection_views` | `dict[str, list[InspectionView]]` (flat only) |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
@@ -1966,6 +2000,29 @@ provides one value box per named reading with its source step. Original equation
 and calculation fields print once. Standalone underscores do not count as named
 worksheet readings. A list is known only when every step is a non-empty string
 other than `"unknown"`.
+
+#### Qualified relative-coordinate readings
+
+`inspection_readings.<requirement>` may declare
+`{ kind = "relative_coordinate", offset_mm = ..., method = ..., cite = ... }`.
+The relation is **coordinate = physical reading − offset_mm**. The offset is
+literal mm, not manifest units. This contract currently applies only to
+`station` checked with a height gauge or CMM. It supports the same flat or
+feature-scoped keys as `checks`; each affected exported requirement needs its
+checked gauge, and flat/scoped duplicates are invalid.
+
+A finite offset, known qualification method and citation, plus the ordinary
+inspection method, translate the acceptance band by adding the offset. The
+translated physical band must still fit the instrument's range; original band
+width, resolution and verification requirements remain unchanged. Explicit
+`"unknown"` or incomplete qualification remains unresolved, never zero offset
+or a fabricated positive reading. Unsupported requirement/gauge combinations
+are errors.
+
+These are structured inspection findings, not measured results:
+`part_result` remains `not_recorded`. The setup-sheet renderer does not yet
+consume this qualified-reading contract; do not infer printed physical bands
+or an executable inspection procedure from schema acceptance.
 
 #### Inspection views
 

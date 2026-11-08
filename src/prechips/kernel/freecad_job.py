@@ -1446,6 +1446,337 @@ def _common_normal(faces):
     return normal
 
 
+def _placement_same_patch(first, second):
+    """Equality of complete trimmed surface regions, not centres or nearest faces."""
+    tolerance = AREA_ABS + AREA_REL * max(first.Area, second.Area)
+    return first.cut(second).Area + second.cut(first).Area <= tolerance
+
+
+def _placement_cylinder(face, origin, axis, radius=None, concave=False):
+    surface = face.Surface
+    return (
+        isinstance(surface, Part.Cylinder)
+        and abs(surface.Axis.dot(axis)) >= PARALLEL
+        and (surface.Center - origin).cross(axis).Length <= BBOX_TOL
+        and (radius is None or abs(surface.Radius - radius) <= BBOX_TOL)
+        and _cylinder_concave(face) == concave
+    )
+
+
+def _placement_wall(face, origin, axis, radius, span, stop=None):
+    """Extend a source circular end edge; its exact angular domain owns this patch.
+
+    A boss component ends at one cap and runs toward the support centre plane.
+    A support wall runs between its end planes. Neither operation guesses a seam
+    from the order in which a Boolean happens to return its faces.
+    """
+    candidates = []
+    for at in span:
+        edges = [
+            edge
+            for edge in face.Edges
+            if isinstance(edge.Curve, Part.Circle)
+            and abs(edge.Curve.Radius - radius) <= BBOX_TOL
+            and abs(edge.Curve.Axis.dot(axis)) >= PARALLEL
+            and (edge.Curve.Center - origin - axis * at).Length <= BBOX_TOL
+        ]
+        if edges:
+            end = stop if stop is not None else span[1] if at == span[0] else span[0]
+            strips = [edge.extrude(axis * (end - at)) for edge in edges]
+            patch = strips[0].multiFuse(strips[1:]) if len(strips) > 1 else strips[0]
+            patch = patch.removeSplitter()
+            if len(patch.Faces) != 1:
+                raise _Unknown("axis placement source end edges do not extend to one wall")
+            patch = patch.Faces[0]
+            point = _inner_point(patch)
+            if point is None:
+                raise _Unknown("axis placement wall has no interior")
+            if _normal_at(patch, point).dot(_normal_at(face, point)) < 0:
+                patch.reverse()
+            candidates.append(patch)
+    if not candidates or any(
+        not _placement_same_patch(candidates[0], other) for other in candidates[1:]
+    ):
+        raise _Unknown("axis placement wall has no unambiguous source circular end boundary")
+    return candidates[0]
+
+
+def _axis_placed_solid(solid, specs, mapping, labels, features):
+    """Relocate one transverse boss/bore family, retaining source face identities.
+
+    The finite support cylinder is a preservation mask, not replacement material:
+    holes and counterbores inside it survive unchanged. Only the intended old bore
+    is filled; only protruding boss material is removed/added. Analytic source
+    patches, complete cavity boundaries, and a source-ordered sewn shell must all
+    agree with those Booleans before any plan coordinates can be certified.
+    """
+    if not isinstance(specs, list):
+        raise ValueError("job axis_placements is not a list")
+    if not specs:
+        return solid, []
+    if len(specs) != 1:
+        raise _Unknown("multiple axis placements are not modelled")
+    spec = specs[0]
+    if not isinstance(spec, dict):
+        raise ValueError("job axis_placements holds a non-record")
+    what = f"axis_placements.{spec.get('name')}"
+    if "reason" in spec:
+        raise _Unknown(f"{what}: {spec['reason']}")
+
+    def vector(key):
+        value = spec.get(key)
+        if not isinstance(value, list) or len(value) != 3 or not all(_number(v) for v in value):
+            raise _Unknown(f"{what}.{key} is not a finite numeric vector")
+        return V(*value)
+
+    def unit(key):
+        value = vector(key)
+        if abs(value.Length - 1) > PLANE_TOL:
+            raise _Unknown(f"{what}.{key} is not a unit vector")
+        return value
+
+    def number(key):
+        value = spec.get(key)
+        if not _number(value):
+            raise _Unknown(f"{what}.{key} is not finite")
+        return value
+
+    def interval(key):
+        value = spec.get(key)
+        if (
+            not isinstance(value, list)
+            or len(value) != 2
+            or not all(_number(v) for v in value)
+            or value[0] >= value[1]
+        ):
+            raise _Unknown(f"{what}.{key} is not an increasing finite interval")
+        return value
+
+    origin, axis = vector("origin_mm"), unit("axis")
+    support_origin, support_axis = vector("support_origin_mm"), unit("support_axis")
+    reference_origin, reference_axis = vector("reference_origin_mm"), unit("reference_axis")
+    delta = vector("delta_mm")
+    radius, hole_radius, support_radius = (
+        number("boss_radius_mm"),
+        number("bore_radius_mm"),
+        number("support_radius_mm"),
+    )
+    span, support_span, band = interval("z_mm"), interval("support_z_mm"), interval("band_mm")
+    target = number("separation_mm")
+    if not 0 < hole_radius < radius < support_radius or not band[0] <= target <= band[1]:
+        raise _Unknown(f"{what}: invalid radii or separation outside its band")
+    if (
+        abs(axis.dot(support_axis)) > 1 - PARALLEL
+        or abs((origin - support_origin).dot(axis.cross(support_axis))) > BBOX_TOL
+        or delta.cross(support_axis).Length > PLANE_TOL
+    ):
+        raise _Unknown(
+            f"{what}: requires intersecting transverse axes and support-axial translation"
+        )
+    centre = (support_origin - origin).dot(axis)
+    if (
+        span[0] >= centre - support_radius - PLANE_TOL
+        or span[1] <= centre + support_radius + PLANE_TOL
+    ):
+        raise _Unknown(f"{what}: boss caps do not stand outside the supporting cylinder")
+    margins = [
+        margin
+        for at in (origin, origin + delta)
+        for margin in (
+            (at - support_origin).dot(support_axis) - radius - support_span[0],
+            support_span[1] - (at - support_origin).dot(support_axis) - radius,
+        )
+    ]
+    if min(margins) <= PLANE_TOL:
+        raise _Unknown(f"{what}: old or new boss intersects a support end plane")
+    cross = axis.cross(reference_axis)
+
+    def separation(at):
+        offset = at - reference_origin
+        return (
+            abs(offset.dot(cross)) / cross.Length
+            if cross.Length > PLANE_TOL
+            else offset.cross(axis).Length
+        )
+
+    measured = separation(origin + delta)
+    if (
+        abs(measured - target) > BBOX_TOL
+        or not band[0] - PLANE_TOL <= measured <= band[1] + PLANE_TOL
+    ):
+        raise _Unknown(f"{what}: translated source axes do not meet the requested separation")
+    source, roles = {}, {}
+    for role in ("boss", "bore", "caps", "support", "reference"):
+        name = spec.get(role)
+        refs = features.get(name) if isinstance(name, str) else None
+        if not isinstance(refs, list) or not refs or any(ref not in mapping for ref in refs):
+            raise _Unknown(f"{what}.{role}: source faces are not completely bound")
+        source[role] = list(refs)
+        roles[role] = {mapping[ref] for ref in refs}
+    if sum(map(len, roles.values())) != len(set().union(*roles.values())):
+        raise _Unknown(f"{what}: placement roles share source faces")
+    faces = list(solid.Faces)
+    if set(mapping.values()) != set(range(len(faces))):
+        raise _Unknown(f"{what}: every source face needs an unambiguous identity")
+    for role, at, direction, size, concave in (
+        ("boss", origin, axis, radius, False),
+        ("bore", origin, axis, hole_radius, True),
+        ("reference", reference_origin, reference_axis, None, True),
+    ):
+        if not all(
+            _placement_cylinder(faces[i], at, direction, size, concave) for i in roles[role]
+        ):
+            raise _Unknown(f"{what}.{role}: source cylinders contradict the declared primitive")
+
+    boss = Part.makeCylinder(radius, span[1] - span[0], origin + axis * span[0], axis)
+    bore = Part.makeCylinder(hole_radius, span[1] - span[0], origin + axis * span[0], axis)
+    support = Part.makeCylinder(
+        support_radius,
+        support_span[1] - support_span[0],
+        support_origin + support_axis * support_span[0],
+        support_axis,
+    )
+    new_boss, new_bore = boss.translated(delta), bore.translated(delta)
+    protrusion, new_protrusion = boss.cut(support), new_boss.cut(support)
+    bore_walls = Part.makeCompound(
+        [face for face in bore.Faces if isinstance(face.Surface, Part.Cylinder)]
+    )
+    if not _placement_same_patch(Part.makeCompound([faces[i] for i in roles["bore"]]), bore_walls):
+        raise _Unknown(f"{what}: old bore is not an intact complete cylindrical cavity")
+    annuli = Part.makeCompound(
+        [face.cut(bore) for face in boss.Faces if isinstance(face.Surface, Part.Plane)]
+    )
+    if not _placement_same_patch(Part.makeCompound([faces[i] for i in roles["caps"]]), annuli):
+        raise _Unknown(f"{what}: boss caps are not the exact source end annuli")
+    old_void_overlap = bore.common(solid).Volume
+    old_protrusion_missing = protrusion.cut(bore).cut(solid).Volume
+    if old_void_overlap > HIT_MM3 or old_protrusion_missing > HIT_MM3:
+        raise _Unknown(f"{what}: old bore or boss contains unrelated material/voids")
+    base = solid.fuse(bore).cut(protrusion)
+    new_protrusion_overlap = new_protrusion.common(base).Volume
+    if new_protrusion_overlap > HIT_MM3:
+        raise _Unknown(f"{what}: new boss intersects unrelated material outside support")
+    before_bore = base.fuse(new_protrusion)
+    new_bore_missing = new_bore.cut(before_bore).Volume
+    if new_bore_missing > HIT_MM3:
+        raise _Unknown(f"{what}: new bore intersects another void or leaves supported material")
+    expected = before_bore.cut(new_bore)
+    if len(expected.Solids) != 1 or not expected.isValid():
+        raise _Unknown(f"{what}: relocation does not leave one valid connected solid")
+
+    rebuilt, provenance, clearances = list(faces), [], []
+    moving = roles["boss"] | roles["bore"] | roles["caps"]
+    for index, face in enumerate(faces):
+        role = next((name for name, indices in roles.items() if index in indices), "unchanged")
+        if role == "boss":
+            wall = _placement_wall(face, origin, axis, radius, span, centre)
+            old_patch, patch = wall.cut(support), wall.translated(delta).cut(support)
+        elif role == "support" and isinstance(face.Surface, Part.Cylinder):
+            if not _placement_cylinder(face, support_origin, support_axis, support_radius):
+                raise _Unknown(f"{what}: support wall contradicts its cylinder")
+            wall = _placement_wall(face, support_origin, support_axis, support_radius, support_span)
+            # Other holes can open through this same support wall. Preserve their
+            # exact source trims; only the old boss footprint may be restored.
+            # Reconstructing the bare cylinder here would silently close those
+            # openings (or falsely refuse an otherwise independent placement).
+            preserved_openings = wall.cut(face).cut(boss)
+            old_patch = wall.cut(boss).cut(preserved_openings).removeSplitter()
+            patch = wall.cut(new_boss).cut(preserved_openings).removeSplitter()
+        elif role in ("bore", "caps"):
+            old_patch, patch = face, face.translated(delta)
+        else:
+            if role == "support":
+                normal = _common_normal([face])
+                if (
+                    normal is None
+                    or abs(normal.dot(support_axis)) < PARALLEL
+                    or not any(
+                        abs((face.Vertexes[0].Point - support_origin).dot(support_axis) - end)
+                        <= BBOX_TOL
+                        for end in support_span
+                    )
+                ):
+                    raise _Unknown(f"{what}: unsupported non-cylindrical support face")
+            old_patch, patch = face, face
+        if not _placement_same_patch(face, old_patch) or len(patch.Faces) != 1:
+            raise _Unknown(f"{what}: {labels[index]} has ambiguous or unsupported source trimming")
+        rebuilt[index] = patch.Faces[0]
+        if index not in moving and role != "support":
+            clearance = min(
+                face.distToShape(shape)[0] for shape in (bore, new_bore, protrusion, new_protrusion)
+            )
+            clearances.append(clearance)
+            if clearance <= PLANE_TOL:
+                raise _Unknown(f"{what}: relocation touches unrelated surface {labels[index]}")
+        provenance.append(
+            {
+                "ref": labels[index],
+                "index": index,
+                "role": role,
+                "change": "translated"
+                if role in ("bore", "caps")
+                else "retrimmed"
+                if role == "boss" or (role == "support" and isinstance(face.Surface, Part.Cylinder))
+                else "unchanged",
+            }
+        )
+
+    sewn = Part.Shape(Part.Shell(rebuilt))
+    sewn.sewShape()
+    order, used = [], set()
+    for index, wanted in enumerate(rebuilt):
+        matches = [i for i, face in enumerate(sewn.Faces) if _placement_same_patch(face, wanted)]
+        if len(matches) != 1 or matches[0] in used:
+            raise _Unknown(f"{what}: {labels[index]} has no unique sewn source patch")
+        used.add(matches[0])
+        order.append(sewn.Faces[matches[0]])
+    if len(used) != len(sewn.Faces):
+        raise _Unknown(f"{what}: sewing introduced unowned faces")
+    shell = Part.Shell(order)
+    placed = Part.Solid(shell) if shell.isClosed() else None
+    if placed is None:
+        raise _Unknown(f"{what}: source patches do not close a shell")
+    if placed.Volume < 0:
+        placed.reverse()
+    residual = placed.cut(expected).Volume + expected.cut(placed).Volume
+    if (
+        not placed.isValid()
+        or len(placed.Solids) != 1
+        or len(placed.Faces) != len(faces)
+        or residual > HIT_MM3
+        or any(
+            not _placement_same_patch(face, wanted)
+            for face, wanted in zip(placed.Faces, rebuilt, strict=True)
+        )
+    ):
+        raise _Unknown(f"{what}: source-ordered shell disagrees with the relocated solid")
+    return placed, [
+        {
+            "name": spec["name"],
+            "status": "pass",
+            "request": spec,
+            "delta_mm": list(spec["delta_mm"]),
+            "separation_mm": _r(measured),
+            "source_separation_mm": _r(separation(origin)),
+            "source": source,
+            "provenance": provenance,
+            "proof": {
+                "solid_count": 1,
+                "source_face_count": len(faces),
+                "process_face_count": len(placed.Faces),
+                "symmetric_difference_mm3": _r(residual),
+                "old_bore_material_mm3": _r(old_void_overlap),
+                "old_protrusion_missing_mm3": _r(old_protrusion_missing),
+                "new_protrusion_overlap_mm3": _r(new_protrusion_overlap),
+                "new_bore_missing_mm3": _r(new_bore_missing),
+                "support_end_margin_mm": _r(min(margins)),
+                "boss_wall_mm": _r(radius - hole_radius),
+                "unrelated_surface_clearance_mm": _r(min(clearances)) if clearances else None,
+            },
+        }
+    ]
+
+
 # --------------------------------------------------------------------------- faced aims
 
 
@@ -5426,11 +5757,24 @@ class _Job:
             aimed = job.get("aimed_faces", [])
             if not isinstance(aimed, list):
                 raise ValueError("job aimed_faces is not a list")
-            # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
-            # the plan's faced aims make.
+            # ``faces`` and ``bbox_mm`` describe the immutable exported STEP.
+            # Setups cut the independently proved plan-owned process shape.
             if self.multisolid and aimed:
                 raise _Unknown("faced aims on multiple finished solids are not modelled")
             self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
+            placements = job.get("axis_placements", [])
+            if placements and (self.multisolid or aimed or "workpieces" in job):
+                raise _Unknown(
+                    "axis placements with faced aims, workpieces or multiple solids "
+                    "are not modelled"
+                )
+            if placements and self.finished_solid_reasons:
+                raise _Unknown("axis placement finished-solid source ownership is unresolved")
+            self.solid, placement_facts = _axis_placed_solid(
+                self.solid, placements, mapping, self.labels, self._declared()
+            )
+            if placement_facts:
+                self.finished_solids = {name: self.solid for name in self.finished_solids}
             result = {
                 "status": "ok",
                 "bbox_mm": [_r(v) for v in _bbox(solid)],
@@ -5453,6 +5797,31 @@ class _Job:
                 "ops": {},
                 "setups": {},
             }
+            if placement_facts:
+                # Hash the actual proved B-rep, not the requested displacement.
+                with tempfile.TemporaryDirectory(prefix="prechips-process-") as directory:
+                    brep_path = os.path.join(directory, "process.brep")
+                    self.solid.exportBrep(brep_path)
+                    with open(brep_path, "rb") as handle:
+                        process_digest = hashlib.sha256(handle.read()).hexdigest()
+                result["axis_placements"] = placement_facts
+                result["process_shape_sha256"] = process_digest
+                result["process_shape"] = {
+                    "sha256": process_digest,
+                    "source_step_sha256": actual,
+                    "bbox_mm": [_r(value) for value in _bbox(self.solid)],
+                    "volume_mm3": _r(self.solid.Volume),
+                    "faces": [
+                        {
+                            "ref": refs_by_index[index],
+                            "index": index,
+                            "kind": type(face.Surface).__name__,
+                            "bbox_mm": [_r(value) for value in _bbox(face)],
+                            "area_mm2": _r(face.Area),
+                        }
+                        for index, face in enumerate(self.solid.Faces)
+                    ],
+                }
             if self.multisolid or declared_solids:
                 result["finished_solids"] = {
                     name: (
