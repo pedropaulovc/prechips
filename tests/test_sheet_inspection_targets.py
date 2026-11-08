@@ -424,6 +424,128 @@ def test_structured_findings_route_and_match_without_decoding_diagnostic_subject
     assert "?" in content(sibling.find("inspection-record")[0])
 
 
+@pytest.mark.parametrize("checkpoint", ["member", "shared"])
+@pytest.mark.parametrize(
+    "scope",
+    [
+        "matching",
+        "missing_setup",
+        "missing_op",
+        "missing_both",
+        "null_setup",
+        "null_op",
+        "wrong_setup",
+        "wrong_op",
+    ],
+)
+def test_typed_plan_evidence_requires_explicit_matching_setup_and_op(checkpoint, scope):
+    sheet, section, finals = inspection_job()
+    if checkpoint == "member":
+        setup = finals[0]
+        requirement, feature, member, covered = "actual_slot_fit", None, "nut1", ()
+        subject = "nut1/part:actual_slot_fit"
+        unresolved_marker = "?"
+        setup["ops"][0]["checks"] = {"actual_slot_fit": "gauges.actual-slot"}
+    else:
+        setup = section
+        requirement, feature, member, covered = "width", "base-envelope", None, MEMBERS
+        subject = "S1:30/base-envelope:width"
+        unresolved_marker = "not established"
+        setup["ops"][-1]["feature"] = "base-envelope"
+        setup["ops"][-1]["checks"] = {"width": "gauges.calipers"}
+    op = setup["ops"][-1]
+    # Even an exact legacy subject cannot fill in missing typed owner IDs.
+    finding = plan_finding(
+        subject,
+        setup_id=setup["id"],
+        op_id=op["op"],
+        feature=feature,
+        requirement=requirement,
+        member=member,
+        covered=covered,
+    )
+    if scope in ("missing_setup", "missing_both"):
+        del finding.numbers["setup_id"]
+    if scope in ("missing_op", "missing_both"):
+        del finding.numbers["op_id"]
+    if scope == "null_setup":
+        finding.numbers["setup_id"] = None
+    elif scope == "null_op":
+        finding.numbers["op_id"] = None
+    elif scope == "wrong_setup":
+        finding.numbers["setup_id"] = "F1b"
+    elif scope == "wrong_op":
+        finding.numbers["op_id"] = 99
+    sheet.findings = [finding]
+    markup, _ = inspection_markup(sheet, setup)
+    (record,) = markup.find("inspection-record")
+    assert (unresolved_marker in content(record)) == (scope != "matching")
+    assert subject_ids(record) == {subject}
+    assert record["attrs"]["data-setup-id"] == setup["id"]
+    assert record["attrs"]["data-op-id"] == str(op["op"])
+    assert record["attrs"]["data-workpiece"] == (member or "")
+    assert json.loads(record["attrs"]["data-covered-workpieces"]) == list(covered)
+    if checkpoint == "member":
+        assert all(clause in content(record) for clause in SLOT_CRITERIA)
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank) == ""
+
+
+@pytest.mark.parametrize("member", ["nut1", "nut2"])
+def test_typed_plan_evidence_cannot_borrow_another_members_identity(member):
+    sheet, _, finals = inspection_job()
+    sheet.findings = [
+        plan_finding(
+            "nut1/part:actual_slot_fit",
+            setup_id="F1a",
+            op_id=10,
+            feature=None,
+            requirement="actual_slot_fit",
+            member=member,
+        )
+    ]
+    for setup in finals:
+        setup["ops"][0]["checks"] = {"actual_slot_fit": "gauges.actual-slot"}
+        markup, _ = inspection_markup(sheet, setup)
+        (record,) = markup.find("inspection-record")
+        matches = setup["id"] == "F1a" and member == "nut1"
+        assert ("?" not in content(record)) == matches
+        owner = record["attrs"]["data-workpiece"]
+        assert subject_ids(record) == {f"{owner}/part:actual_slot_fit"}
+        assert all(clause in content(record) for clause in SLOT_CRITERIA)
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ["nut1/part:actual_slot_fit", "nut2/part:actual_slot_fit", "opaque legacy diagnostic"],
+)
+def test_legacy_plan_evidence_matches_only_the_exact_inspection_subject(subject):
+    sheet, _, finals = inspection_job()
+    setup = finals[0]
+    setup["ops"][0]["checks"] = {"actual_slot_fit": "gauges.actual-slot"}
+    finding = plan_finding(
+        subject,
+        setup_id="F1a",
+        op_id=10,
+        feature=None,
+        requirement="actual_slot_fit",
+        member="nut1",
+    )
+    # Legacy evidence has no typed identity or physical checkpoint fields.
+    for key in ("identity", "setup_id", "op_id", "shared_check_id", "covered_workpieces"):
+        del finding.numbers[key]
+    sheet.findings = [finding]
+    markup, _ = inspection_markup(sheet, setup)
+    (record,) = markup.find("inspection-record")
+    assert ("?" not in content(record)) == (subject == "nut1/part:actual_slot_fit")
+    assert subject_ids(record) == {"nut1/part:actual_slot_fit"}
+    assert all(clause in content(record) for clause in SLOT_CRITERIA)
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank) == ""
+
+
 def test_shared_plan_evidence_stays_at_its_batch_checkpoint_with_a_blank_result():
     sheet, section, finals = inspection_job()
     sheet.findings = [
@@ -447,13 +569,13 @@ def test_shared_plan_evidence_stays_at_its_batch_checkpoint_with_a_blank_result(
     markup, _ = inspection_markup(sheet, section)
     (record,) = markup.find("inspection-record")
     assert subject_ids(record) == SECTION_SUBJECTS
-    assert "?" not in content(record)
+    assert "not established" not in content(record)
     assert content(markup.find("writing-blank", record)[0]) == ""
     assert sheet.setup_findings(section) == sheet.findings
     assert all(sheet.setup_findings(setup) == [] for setup in finals)
     sheet.findings[0].numbers["covered_workpieces"] = ["nut1", "nut2", "nut3"]
     unresolved, _ = inspection_markup(sheet, section)
-    assert "?" in content(unresolved.find("inspection-record")[0])
+    assert "not established" in content(unresolved.find("inspection-record")[0])
 
 
 def test_member_owned_missing_check_does_not_spread_to_another_final_nut():
@@ -470,6 +592,17 @@ def test_member_owned_missing_check_does_not_spread_to_another_final_nut():
     sheet.findings = [finding]
     assert sheet.setup_findings(finals[1]) == [finding]
     assert all(sheet.setup_findings(setup) == [] for setup in [finals[0], finals[2], finals[3]])
+    # Routing a diagnostic to its member is not evidence for an arbitrary
+    # requested checkpoint: both physical IDs remain absent here.
+    for setup in finals:
+        setup["ops"][0]["checks"] = {"length": "gauges.calipers"}
+        markup, _ = inspection_markup(sheet, setup)
+        (record,) = markup.find("inspection-record")
+        assert "not established" in content(record)
+        assert subject_ids(record) == {f"{record['attrs']['data-workpiece']}/end-length:length"}
+        assert "25.350–25.450 mm" in content(record)
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])

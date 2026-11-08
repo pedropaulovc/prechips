@@ -9,6 +9,9 @@ import math
 import re
 
 import pytest
+from historical_examples import copy_historical_examples
+
+# d9425786 retains the assumed-preparation propagation negative control on old rocker geometry.
 from test_cli import copy_examples, traveler
 
 from prechips.inputs import load_bundle
@@ -308,7 +311,7 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
 def test_reference_rocker_arm_binds_the_labelled_export_without_certifying_example_dimensions(
     tmp_path, pilot_kernel_cache
 ):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     authored = inventory.read_text(encoding="utf-8")
     # The shared demo legitimately exercises the measured branch. This negative

@@ -1,7 +1,8 @@
 """Built-up pre-join cuts are judged against their own component's share (#294).
 
-The shipped rocker STEP (exact bytes) as a built-up part: a round-bar ``hub`` pressed
-into a flat-bar ``strap``. S0A faces strap datum B, S0B turns the strap over and faces
+The d9425786 one-piece rocker STEP as a synthetic built-up part retains the component
+partition regression: a round-bar ``hub`` pressed into a flat-bar ``strap``.
+S0A faces strap datum B, S0B turns the strap over and faces
 the other side, T1 drills and reams the strap socket, H1 turns the hub land, J1 presses
 the hub in and R1 reams the pivot bore through the joined hub. The pivot bore lies in
 the hub's share, so before J1 it reserves none of the strap's stock: the facings leave
@@ -14,7 +15,8 @@ import math
 import shutil
 
 import pytest
-from test_cli import copy_examples, run_cli
+from historical_examples import copy_historical_examples
+from test_cli import run_cli
 
 ROCKER_TOP = 3.52825  # finished hub face, model Z (rocker features.hub_faces.upper_z)
 MEASURED = (
@@ -269,7 +271,7 @@ feature = "strap_faces"
 @pytest.fixture(scope="module")
 def built_up_rocker(tmp_path_factory, pilot_kernel_cache):
     tmp_path = tmp_path_factory.mktemp("built-up-rocker")
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     bundle = examples / "rocker-built-up"
     bundle.mkdir()
     shutil.copyfile(examples / "rocker-arm" / "rocker-arm.STEP", bundle / "rocker-arm.STEP")

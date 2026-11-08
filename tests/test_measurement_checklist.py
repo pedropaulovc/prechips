@@ -4,6 +4,7 @@ import json
 import re
 
 import pytest
+from historical_examples import copy_historical_examples
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, run_cli
 
 from prechips import kernel
@@ -342,7 +343,8 @@ def test_default_examples_checklist_needs_no_native_geometry_or_warm_cache(tmp_p
 def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_debt(
     tmp_path, monkeypatch
 ):
-    examples = copy_examples(tmp_path)
+    # P2 and its prepared-blank stock-entry debt belong to the d9425786 rocker route.
+    examples = copy_historical_examples(tmp_path)
     inventory = examples / "inventory" / "pedro-shop.toml"
     # The other inventory facts are trusted controls. Remove only the spindle
     # maximum; an unavailable derived stock box is geometry debt, not a measurement.

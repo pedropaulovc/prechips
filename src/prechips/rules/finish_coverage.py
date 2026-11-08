@@ -8,11 +8,15 @@ an unmeasured one is unknown, whether or not a later setup consumes that stock.
 from prechips.findings import Finding
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
+    MANUAL_RASTER,
     ROTARY,
     approach,
     approach_model_reason,
     cutting_action,
     finishing_subjects,
+    manual_raster_candidates,
+    manual_raster_gap_text,
+    manual_raster_union,
     mapped_feature,
     op_claims,
     provenance,
@@ -48,11 +52,21 @@ def evaluate(bundle):
     facts = run_geometry(bundle)
     finishers = finishing_subjects(bundle)
     claimed, rotary, invalid_refs, debt = set(), set(), [], False
+    raster = set()
     unsupported = set()
     doubtful = set()  # faces an unresolved claim may finish: debt only for their features
     unformed, cap_pending = set(), {}  # cap index -> why its formation is unknown
     mapping, op_facts = face_mapping(bundle, facts), record(facts.get("ops"))
     for setup, op in operations(bundle):
+        if record(op.get("contour")).get("method") == MANUAL_RASTER:
+            if f"{setup['id']}:{op['op']}" in finishers:
+                invalid_refs.extend(op_claims(bundle, facts, setup, op)[2])
+                indices = manual_raster_candidates(bundle, facts, setup, op)
+                if indices is None:
+                    debt = _unresolved(bundle, mapping, setup, op, doubtful) or debt
+                else:
+                    raster.update(indices)
+            continue
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation finishes only the final STEP faces the kernel certifies.
             if f"{setup['id']}:{op['op']}" in finishers:
@@ -92,7 +106,11 @@ def evaluate(bundle):
             # finishing ops' window union finishes a face, and as-stock never does.
             (rotary if approach(bundle, setup, op) == ROTARY else claimed).update(indices)
     complete, gaps, unresolved = rotary_union(facts, "finish", rotary - claimed)
-    claimed |= complete
+    raster_complete, raster_gaps, raster_unresolved = manual_raster_union(
+        facts, "finish", raster - claimed
+    )
+    # Either independent union can prove the whole face, but their partials cannot mix.
+    claimed |= complete | raster_complete
     rows = []
     for name, feature in bundle.features["features"].items():
         cite = provenance(bundle, "finish_coverage", feature=name)
@@ -128,8 +146,20 @@ def evaluate(bundle):
                 rotary_pending = [
                     unresolved[index] for index in sorted(missing) if index in unresolved
                 ]
+                raster_partial = {
+                    index: raster_gaps[index] for index in sorted(missing) if index in raster_gaps
+                }
+                raster_pending = [
+                    raster_unresolved[index]
+                    for index in sorted(missing)
+                    if index in raster_unresolved
+                ]
                 uncovered = sorted(
-                    missing - set(partial) - {row["index"] for row in rotary_pending}
+                    missing
+                    - set(partial)
+                    - {row["index"] for row in rotary_pending}
+                    - set(raster_partial)
+                    - {row["index"] for row in raster_pending}
                 )
                 values.update(required_faces=sorted(indices), uncovered_faces=uncovered)
                 if rotary & indices:
@@ -137,15 +167,32 @@ def evaluate(bundle):
                         "kernel rotary_coverage.finish: exact union of finishing rotary "
                         "window portions per face"
                     ]
+                if raster & indices:
+                    cite = cite + [
+                        "kernel manual_raster_coverage.finish: exact union of finishing "
+                        "authored raster sweeps"
+                    ]
+                if raster_partial:
+                    values["manual_raster_gaps"] = list(raster_partial.values())
+                if raster_pending:
+                    values["manual_raster_unresolved"] = raster_pending
                 if partial:
                     values["rotary_gaps"] = list(partial.values())
                 if rotary_pending:
                     values["rotary_unresolved"] = rotary_pending
-                    status, message = (
-                        "unknown",
-                        "rotary finishing window coverage is unresolved for "
-                        + "; ".join(map(rotary_debt_text, rotary_pending)),
-                    )
+                if rotary_pending or raster_pending:
+                    problems = []
+                    if rotary_pending:
+                        problems.append(
+                            "rotary finishing window coverage is unresolved for "
+                            + "; ".join(map(rotary_debt_text, rotary_pending))
+                        )
+                    if raster_pending:
+                        problems.append(
+                            "manual raster finishing coverage is unresolved for "
+                            + "; ".join(map(rotary_debt_text, raster_pending))
+                        )
+                    status, message = "unknown", "; ".join(problems)
                 elif missing and missing <= unsupported:
                     status, message = "unsupported", LATHE_APPROACH_REASON
                 else:
@@ -161,6 +208,12 @@ def evaluate(bundle):
                         values.pop("rotary_gaps", None)
                         if partial:
                             values["rotary_gaps"] = list(partial.values())
+                        raster_partial = {
+                            i: gap for i, gap in raster_partial.items() if i not in unsupported
+                        }
+                        values.pop("manual_raster_gaps", None)
+                        if raster_partial:
+                            values["manual_raster_gaps"] = list(raster_partial.values())
                     formless = missing & unformed
                     if formless:
                         values["unformed_caps"] = sorted(formless)
@@ -177,6 +230,12 @@ def evaluate(bundle):
                         problems.append(
                             "rotary finishing windows leave part of a finish-required face "
                             "unfinished: " + "; ".join(map(rotary_gap_text, partial.values()))
+                        )
+                    if raster_partial:
+                        problems.append(
+                            "manual raster sweeps leave part of a finish-required face "
+                            "unfinished: "
+                            + "; ".join(map(manual_raster_gap_text, raster_partial.values()))
                         )
                     if problems:
                         status, message = "error", "; ".join(problems)

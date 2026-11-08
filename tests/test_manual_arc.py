@@ -13,6 +13,7 @@ import itertools
 import math
 import re
 from html import unescape
+from pathlib import Path
 
 import pytest
 
@@ -2474,6 +2475,171 @@ TEMPLATE_FILING = (
 )
 
 
+SPATIAL_CYLINDER = (
+    "kind = 'cylinder'\nrequirements = ['dia']\ndia = [19.8, 20.2]\n"
+    "dia_nominal = 20.0\nz_mm = [-3.0, 8.0]\n"
+)
+SPATIAL_FILE = bench_op(
+    30, "file_to_line", guide="{ template = 'template', gauge = 'radius-gauge' }"
+)
+
+
+def spatial_bundle(tmp_path):
+    return load_bundle(scratch(tmp_path, SPATIAL_FILE, target=SPATIAL_CYLINDER))
+
+
+def assert_spatial_unknown(row):
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["representation"] == "spatial_profile"
+    text = " ".join(row.numbers["debts"])
+    for required in (
+        "planar reduction",
+        "remaining-stock removal",
+        "hand-tool access",
+        "conformance",
+        "HOLD",
+    ):
+        assert required in text
+    for false_claim in ("centre, radius or ends", "no scribe op", "no stairs", "scribed line"):
+        assert false_claim not in text
+    for claim in (
+        "centre_setup_xy",
+        "centre_on",
+        "ends_setup_xy",
+        "radius_mm",
+        "radius_band_mm",
+        "layout_op",
+        "rough_op",
+        "stock_cap_mm",
+        "files_to_mm",
+        "removal",
+        "coverage",
+        "after_stock",
+    ):
+        assert claim not in row.numbers
+
+
+@pytest.mark.parametrize("subject", ["S2F:10", "S2F:20", "S2F:30", "S2F:40", "S2RF:5", "S2RF:10"])
+def test_actual_cone_filing_retains_source_not_an_operative_centre(subject):
+    plan = Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/integral.toml"
+    bundle = load_bundle(plan)
+    row = next(row for row in manual_arc.evaluate(bundle) if row.subject == subject)
+    assert_spatial_unknown(row)
+    feature = bundle.feature_definitions[row.numbers["feature"]]
+    assert row.numbers["source"]["feature"] == feature
+    assert row.numbers["source"]["frame"] == bundle.features["frames"][feature["frame"]]
+    assert row.numbers["source"]["dia_nominal"] == feature["dia_nominal"]
+    assert row.numbers["guide"]["kit"] == "cone-root-profile-masters"
+    assert row.numbers["gauge"]["ref"] == "cone-root-profile-masters"
+    assert any("cone-root-profile-masters" in citation for citation in row.cite)
+    if subject == "S2F:40":
+        # This cylinder is parallel to setup Z: obliquity is not the discriminator.
+        setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S2F")
+        assert row.numbers["source"]["frame"]["z"] == manual_arc.setup_frame(bundle, setup)["z"]
+        assert row.numbers["source"]["frame"]["origin"][1] == 81.19564350289599
+        assert "centre_setup_xy" not in row.numbers
+
+
+@pytest.mark.parametrize("kind", ["boss", "cylinder"])
+@pytest.mark.parametrize("nominal_key", ["dia_nominal", "nominal_dia", "dia"])
+def test_spatial_recognition_uses_existing_nominal_accessor(tmp_path, kind, nominal_key):
+    bundle = spatial_bundle(tmp_path)
+    feature = bundle.feature_definitions["target"]
+    feature["kind"] = kind
+    del feature["dia_nominal"]
+    feature[nominal_key] = 20.0
+    row = manual_arc.evaluate(bundle)[0]
+    assert_spatial_unknown(row)
+    assert row.numbers["source"]["dia_nominal"] == 20.0
+
+
+@pytest.mark.parametrize(
+    "where,key,value",
+    [
+        ("feature", "frame", None),
+        ("feature", "frame", "absent"),
+        ("feature", "frame", {"origin": [0, 0, 0]}),
+        ("frame", "origin", None),
+        ("frame", "origin", [0, 0, math.inf]),
+        ("frame", "x", None),
+        ("frame", "x", [1, 0]),
+        ("frame", "x", [2, 0, 0]),
+        ("frame", "y", [1, 0, 0]),
+        ("frame", "z", [0, 0, math.nan]),
+        ("frame", "z", [0, "unknown", 1]),
+        ("feature", "z_mm", None),
+        ("feature", "z_mm", [0]),
+        ("feature", "z_mm", [0, 1, 2]),
+        ("feature", "z_mm", [3, 3]),
+        ("feature", "z_mm", [0, "unknown"]),
+        ("feature", "z_mm", [0, math.inf]),
+        ("feature", "z_mm", [math.nan, 1]),
+        ("feature", "dia_nominal", None),
+        ("feature", "dia_nominal", "20"),
+        ("feature", "dia_nominal", True),
+        ("feature", "dia_nominal", 0),
+        ("feature", "dia_nominal", -1),
+        ("feature", "dia_nominal", math.inf),
+        ("feature", "dia_nominal", math.nan),
+        ("feature", "at", "unknown"),
+        ("feature", "arc_centre", "unknown"),
+    ],
+)
+def test_invalid_spatial_facts_do_not_reclassify_missing_planar_geometry(
+    tmp_path, where, key, value
+):
+    # Mutate the loaded rule input to cover malformed facts independently of loader rejection.
+    bundle = spatial_bundle(tmp_path)
+    feature = bundle.feature_definitions["target"]
+    target = feature if where == "feature" else bundle.features["frames"]["model"]
+    if value is None:
+        target.pop(key, None)
+    else:
+        target[key] = value
+    row = manual_arc.evaluate(bundle)[0]
+    assert row.status == "unknown", row.sentence
+    assert "representation" not in row.numbers
+    assert "centre, radius or ends" in " ".join(row.numbers["debts"])
+
+
+def test_spatial_source_does_not_grant_a_scribe_or_invalid_guide_a_pass(tmp_path):
+    bundle = spatial_bundle(tmp_path)
+    bundle.plan["setups"][0]["ops"][0]["do"] = "scribe"
+    row = manual_arc.evaluate(bundle)[0]
+    assert row.status == "unknown"
+    assert "representation" not in row.numbers
+    bundle.plan["setups"][0]["ops"][0]["do"] = "file_to_line"
+    bundle.plan["setups"][0]["ops"][0]["guide"]["gauge"] = "small-gauge"
+    row = manual_arc.evaluate(bundle)[0]
+    assert row.status == "error", row.sentence
+    assert row.numbers["representation"] == "spatial_profile"
+    assert "not R10" in " ".join(row.numbers["errors"])
+    assert "remaining-stock removal" in " ".join(row.numbers["debts"])
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        ARC + "z_mm = [-3.0, 8.0]\n",
+        "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+        "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\n"
+        "arc = 'upper_semicircle'\nz_mm = [-3.0, 8.0]\n",
+    ],
+)
+def test_explicit_planar_layouts_keep_pass_and_real_guide_errors(tmp_path, target):
+    plan = scratch(tmp_path, TEMPLATE_FILING, target=target)
+    bundle = load_bundle(plan)
+    row = next(row for row in manual_arc.evaluate(bundle) if row.subject == "S1:30")
+    assert row.status == "pass", row.sentence
+    assert "representation" not in row.numbers
+    assert row.numbers["centre_setup_xy"] == [15.0, 8.0]
+    bundle.plan["setups"][0]["ops"][-1]["guide"]["gauge"] = "small-gauge"
+    row = next(row for row in manual_arc.evaluate(bundle) if row.subject == "S1:30")
+    assert row.status == "error", row.sentence
+    assert "representation" not in row.numbers
+    assert "not R10" in " ".join(row.numbers["errors"])
+
+
 _LIMITS = (
     "button_dia_limits_mm = [19.99, 20.0]\nbutton_bore_limits_mm = [6.0, 6.01]\n"
     "pin_dia_limits_mm = [5.99, 6.0]\nbutton_runout_mm = 0.004\n"
@@ -3569,3 +3735,34 @@ def test_rotary_rows_under_half_a_turn_apart_keep_the_cut_sense(tmp_path, target
     if ends:
         assert (rows[0], rows[-1]) == ends
     assert table["rotary"]["rotation"] == ("clockwise" if target == ARC else "counterclockwise")
+
+
+@pytest.mark.parametrize("units", ["mm", "in", "unknown"])
+def test_spatial_source_units_are_retained_without_implicit_mm(tmp_path, units):
+    bundle = spatial_bundle(tmp_path)
+    bundle.features["units"] = units
+    # Keep the inventory check independent of the source-unit test.
+    bundle.plan["setups"][0]["ops"][0]["guide"] = {"template": "absent", "gauge": "absent"}
+    row = manual_arc.evaluate(bundle)[0]
+    assert_spatial_unknown(row)
+    assert row.numbers["source"]["units"] == units
+    assert row.numbers["source"]["dia_nominal"] == 20.0
+    assert ("source dimension units are unknown" in row.numbers["debts"]) == (units == "unknown")
+
+
+@pytest.mark.parametrize("extent", [[-3.0, 8.0], [8.0, -3.0]])
+def test_spatial_frame_and_extent_are_source_facts_not_setup_placement(tmp_path, extent):
+    bundle = spatial_bundle(tmp_path)
+    feature = bundle.feature_definitions["target"]
+    feature["z_mm"] = extent
+    frame = bundle.features["frames"]["model"]
+    frame.update(
+        origin=[1.0, 2.0, 3.0],
+        x=[0.0, 0.0, -1.0],
+        y=[0.0, 1.0, 0.0],
+        z=[1.0, 0.0, 0.0],
+    )
+    row = manual_arc.evaluate(bundle)[0]
+    assert_spatial_unknown(row)
+    assert row.numbers["source"]["feature"]["z_mm"] == extent
+    assert row.numbers["source"]["frame"] == frame

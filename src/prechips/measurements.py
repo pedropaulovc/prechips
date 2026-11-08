@@ -439,6 +439,12 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
             else "shank diameter"
         )
         instrument = "micrometer or calipers"
+    elif field == "body_envelope_dia":
+        description = (
+            "qualified maximum outside diameter over the entire noncutting body, neck "
+            "and transitions from flute end to tool back, not merely local shank diameter"
+        )
+        instrument = "full-length micrometer/caliper survey or qualified dimensional drawing"
     elif field == "reach":
         description = "usable cutting reach"
         instrument = "calipers or optical comparator"
@@ -588,6 +594,20 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
             "trammel pin stations along each rail, nearest and farthest from the spindle axis"
         )
         instrument = "steel rule from the spindle axis with each carriage on its end stops"
+    elif field == "rail_span":
+        description = "trammel physical rail endpoints, nearest and farthest from the spindle axis"
+        instrument = "steel rule from the spindle axis to each physical rail end"
+    elif field == "rail_base_height":
+        description = "trammel rail bottom height above the table"
+        instrument = "height gauge from the table to the rail mounting face"
+    elif field.startswith("carrier_offset.") or field == "carrier_offset":
+        description = (
+            "trammel carrier centre signed offset left of the directed pin 1 to pin 2 chord"
+        )
+        instrument = "height gauge or calipers from the pin chord to both carrier edges"
+    elif field == "carrier_seat_drop":
+        description = "trammel carrier top distance below the fixture work-support seat"
+        instrument = "height gauge from carrier top to work-support seat"
     elif field == "pin_dia":
         description = "trammel carrier pin diameter"
         instrument = "micrometer or calipers"

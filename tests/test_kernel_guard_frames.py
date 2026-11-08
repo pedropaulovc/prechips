@@ -3,7 +3,7 @@
 The cone pivot post has tangent zero-height lands (journal pads and the crank land tangent
 to their cylinders); its whole finished-part offset by 0.3 mm fails with both join types.
 A small authored solid with the same features offsets fine, so the stock test drives the
-tracked example STEP; the skin's edge and Boolean judgements are probed on authored solids.
+paired historical STEP; the skin's edge and Boolean judgements are probed on authored solids.
 """
 
 import hashlib
@@ -91,8 +91,8 @@ with open(out + "/skin.json", "w") as handle:
     json.dump(result, handle)
 """
 
-STEP = Path(__file__).resolve().parents[1] / "examples/cone-pivot-post/cone-pivot-post.STEP"
-# The user's pnos6 plan for that part, setups S1-S5 verbatim.
+STEP = Path(__file__).resolve().parent / "data/kernel/cone-pivot-post/cone-pivot-post.STEP"
+# The historical STEP and user's pnos6 setups S1-S5 are one inseparable regression fixture.
 PNOS6 = Path(__file__).resolve().parent / "data/kernel/cone-pivot-post/pnos6-s1-s5.json"
 BOSS = ["#247/ADVANCED_FACE[6]/HAF_CRANK_BOSS__P02", "#313/ADVANCED_FACE[8]/HAF_CRANK_BOSS__P02"]
 TOP = ["#291/ADVANCED_FACE[7]/HAF_CRANK_BOSS_FACES__P02"]

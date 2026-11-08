@@ -1072,14 +1072,16 @@ def _operation_texts(markup, css, setup_id):
 def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before_the_cut(
     tmp_path,
 ):
-    from test_cli import copy_examples
+    # The retired d9425786 route isolates safe follow-rest stop/restart instructions,
+    # not the current shaft's CAD or operation wiring.
+    from historical_examples import copy_historical_examples
 
     from prechips.findings import Finding
     from prechips.inputs import load_bundle
     from prechips.sheet import render_traveler
 
     bundle = dataclasses.replace(
-        load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
+        load_bundle(copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
         kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
     )
     engage = {**_ENGAGE, "engage_z_mm": 155.474, "declared_z_mm": 152.0}
@@ -1123,14 +1125,16 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
-    from test_cli import copy_examples
+    # The retired d9425786 route isolates per-operation follow-rest side selection,
+    # not the current shaft's CAD or operation wiring.
+    from historical_examples import copy_historical_examples
 
     from prechips.findings import Finding
     from prechips.inputs import load_bundle
     from prechips.sheet import render_traveler
 
     bundle = dataclasses.replace(
-        load_bundle(copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
+        load_bundle(copy_historical_examples(tmp_path) / "pivot-shaft" / "plan.toml"),
         kernel={"status": "ok", "ops": {}, "setups": {}, "mapping": {}},
     )
     # The same rest, ridden behind the tool on op 10 and ahead of it on op 30.
@@ -1337,7 +1341,10 @@ def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(
     (plunge,) = [str(part) for part in parts if str(part).startswith("X ")]
     assert "→" in plunge and "radial" in plunge, parts
     assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
-    assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
+    if depth == "unknown":
+        before, after = plunge.split("→", 1)
+        assert _numbers(before) == (), parts
+        assert _numbers(after) == tuple(Decimal(value) for value in expected_values), parts
 
 
 def test_a_parting_row_with_an_unknown_endpoint_stops():
@@ -1374,7 +1381,10 @@ def test_a_parting_row_prints_its_x_only_on_a_known_dro_display(
         (plunge,) = [part for part in parts if part.startswith("X ")]
         assert "→" in plunge and "radial" in plunge, parts
         assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
-        assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
+        if depth == "unknown":
+            before, after = plunge.split("→", 1)
+            assert _numbers(before) == (), parts
+            assert _numbers(after) == tuple(Decimal(value) for value in expected_values), parts
         return
     assert not any(part.startswith("X") for part in parts), parts
     assert any(part.startswith("STOP") and "radius or diameter" in part for part in parts), parts

@@ -1,4 +1,4 @@
-"""Offset cutter/holder cylinders, or revolved turning tools, never zero-radius ray claims.
+"""Sampled cutter/holder poses or exact authored raster sweeps, never zero-radius ray claims.
 
 Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel (rule A′): a
 checkpoint whose cutter meets the finished part, the op's rough leave, a fixture component or
@@ -24,6 +24,8 @@ from prechips.rules.geometry_common import (
     op_contexts,
     with_measurement_debts,
 )
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+from prechips.rules.manual_raster import motion_finding
 from prechips.rules.resolution import (
     HAND_FINISH,
     SAW_OPS,
@@ -211,6 +213,13 @@ def evaluate(bundle):
     for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "accessibility", required, fixture=True, turning=turning
     ):
+        if isinstance(op.get("contour"), dict) and op["contour"].get("method") == MANUAL_RASTER:
+            rows.append(
+                motion_finding(
+                    "accessibility", f"{setup['id']}:{op['op']}", detail, inputs, cite, blocked
+                )
+            )
+            continue
         if op.get("do") in SAW_OPS:
             # The shared finite result is not an axial sample/hit record.
             rows.append(blocked)

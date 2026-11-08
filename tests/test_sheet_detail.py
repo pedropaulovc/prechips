@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 from test_batch_material_routes import batch
 from test_bench_hold_fields import handling_bundle
 from test_geometry_rules import rules_bundle
@@ -183,6 +184,19 @@ def finding_has_kind(node, finding, kind):
         and entry["status"] in ("", str(finding.status))
         and entry["kind"] == kind
         for entry in decision_evidence(node)
+    )
+
+
+def criterion_is_unresolved(node):
+    """Recognize uncertainty, without requiring a glyph or a particular sentence."""
+    return bool(
+        re.search(
+            r"\?|\b(?:unknown|unresolved|missing|unavailable|incomplete)\b"
+            r"|\bnot\s+(?:established|set|known|specified|available)\b"
+            r"|\bno\s+(?:drawing\s+)?limits?\b",
+            content(node),
+            re.IGNORECASE,
+        )
     )
 
 
@@ -599,7 +613,13 @@ def test_missing_drawing_requirements_stay_visible_without_acquiring_a_result(de
         if missing.subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     text = content(criterion).casefold()
-    assert all(word in text for word in ("body", "depth", "?"))
+    assert json.loads(criterion["attrs"]["data-inspection-ids"]) == [missing.subject]
+    identity = missing.numbers["identity"]
+    assert identity["feature_owner"] == "body" and identity["requirement"] == "depth"
+    assert all(identity[key] in text for key in ("feature_owner", "requirement"))
+    assert re.search(r"\bmic(?:rometer)?\b", text)
+    assert criterion_is_unresolved(criterion)
+    assert not numeric_values(text)
     assert not markup.find("writing-blank", criterion)
     assert any("body:dia" == identity for identity in identities)
     text = visible_text(render_traveler(data, findings, report, detail=detail))
@@ -758,7 +778,10 @@ def datum_sharing_job():
             "fixture": "vise",
             "parallels": "parallel-pair",
             "grip_mm": 7.62,
-            "clamp": "Seat stock firmly against the stop",
+            "clamp": (
+                "Seat stock firmly against the stop; Tighten the vise; "
+                "Remove the vise handle; Check that stock remains seated against the stop"
+            ),
         }
         setup["zero"]["x"].update(
             edge="Primer left reference" if index == 0 else "Shared left reference",
@@ -778,8 +801,7 @@ def datum_sharing_output(data, findings, detail):
     flows = {
         member: node
         for node in markup.nodes
-        if node["tag"] == "section"
-        and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
+        if {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
         for member in json.loads(node["attrs"]["data-setup-members"])
     }
     assert flows.keys() == {"S1", "S2", "S3"}
@@ -817,15 +839,51 @@ def test_equal_proved_references_print_once_with_exact_physical_setup_owners(det
     assert json.loads(parallel_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
     assert parallel_grip_values(content(parallel_reference)) == [(12.7, 7.62)]
     assert parallel_grip_values(content(job_page(markup))) == [(12.7, 7.62)]
-    clamps = [
-        node
-        for node in markup.nodes
-        if node["attrs"].get("data-reference-kind") == "holding"
-        and "seat stock firmly against the stop" in content(node).casefold()
-    ]
-    (clamp_reference,) = clamps
-    assert json.loads(clamp_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
-    assert content(job_page(markup)).casefold().count("seat stock firmly against the stop") == 1
+    # Equal datum facts may be shared; the executed holding procedure may not.
+    # Compare authored actions, not renderer connective prose or container tags.
+    fixture_id = data.plan["setups"][0]["hold"]["fixture"]
+    fixture_name = data.inventory["fixtures"][fixture_id]["name"]
+
+    def action_text(node):
+        # Registered inventory names may expand authored fixture references.
+        # Normalize only that exact label, never any part of the procedure.
+        text = " ".join(content(node).split()).casefold()
+        return re.sub(
+            rf"(?<!\w){re.escape(fixture_name.casefold())}(?!\w)",
+            fixture_id.casefold(),
+            text,
+        )
+
+    for setup in data.plan["setups"]:
+        sid = setup["id"]
+        actions = [step.strip().casefold() for step in setup["hold"]["clamp"].split(";")]
+        flow_text = action_text(flows[sid])
+        positions = [flow_text.index(action) for action in actions]
+        assert positions == sorted(positions)
+        assert all(flow_text.count(action) == 1 for action in actions)
+        assert all(action_text(job_page(markup)).count(action) == 3 for action in actions)
+        local_steps = [
+            node
+            for node in descendants(markup, flows[sid])
+            if node["attrs"].get("data-setup-id") == sid
+            and json.loads(node["attrs"].get("data-setup-members", "[]")) == [sid]
+            and all(action in action_text(node) for action in actions)
+        ]
+        assert local_steps
+        # The complete sequence precedes this setup's machining, not a later
+        # setup or an operation that has already begun.
+        operations = operation_nodes(markup, flows[sid])
+        assert operations
+        assert all(
+            markup.nodes.index(local_steps[0]) < markup.nodes.index(operation)
+            for operation in operations
+        )
+        assert all(
+            action not in action_text(node)
+            for node in markup.nodes
+            if node["attrs"].get("data-reference-kind") == "holding"
+            for action in actions
+        )
     orientations = [
         node
         for node in markup.nodes
@@ -1072,6 +1130,35 @@ def ancestor_with_class(node, css):
     return None
 
 
+def criterion_gauge(markup, criterion, gauges):
+    """Resolve a visible label only within this criterion's enclosing inspection.
+
+    Compact criteria inherit the last explicit gauge prefix in their inspection,
+    not a gauge mentioned by a sibling operation or an authored method.
+    """
+    group = ancestor_with_class(criterion, "route-inspection")
+    candidates = markup.find("inspection-criterion", group) if group is not None else [criterion]
+    selected = None
+    for candidate in candidates:
+        text = content(candidate).strip()
+        labels = [
+            reference
+            for reference, label in gauges.items()
+            if re.search(
+                rf"(?:^{re.escape(label)}(?:\s*\([^)]*\))?\s*:|:\s*{re.escape(label)}\s*$)",
+                text,
+                re.IGNORECASE,
+            )
+        ]
+        assert len(labels) <= 1, text
+        if labels:
+            selected = labels[0]
+        if candidate is criterion:
+            assert selected is not None, text
+            return selected
+    raise AssertionError("Criterion is outside its inspection group")
+
+
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
 def test_family_union_preserves_a_later_only_fact_and_member_caution(detail):
     data, _, finals = inspection_family_job()
@@ -1292,10 +1379,10 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
 @pytest.mark.parametrize(
-    ("part", "expected"),
+    ("plan", "expected"),
     [
         (
-            "pivot-bracket",
+            Path(__file__).resolve().parents[1] / "examples/pivot-bracket/plan.toml",
             (
                 ("S1", "30", "foot_profile", "width", "foot profile width"),
                 ("S1", "30", "foot_profile", "length", "foot profile length"),
@@ -1308,7 +1395,7 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
             ),
         ),
         (
-            "pivot-shaft",
+            HISTORICAL_EXAMPLES / "pivot-shaft/plan.toml",
             (
                 ("S1", "30", "pivot_bearing", "dia", "pivot bearing Ø"),
                 ("S1", "30", "pivot_bearing", "finish_ra", "pivot bearing Ra"),
@@ -1323,9 +1410,12 @@ def test_public_later_member_datum_group_precedes_family_operations_in_source_or
     ],
 )
 def test_public_checkpoint_results_distinguish_criteria_without_internal_ids(
-    detail, part, expected
+    detail, plan, expected
 ):
-    data = load_bundle(Path(__file__).resolve().parents[1] / "examples" / part / "plan.toml")
+    # Historical shaft source: d942578676695ebad530856b16e84e734a397d67.
+    # Multiple criteria on one checkpoint exercise label disambiguation; the
+    # reliefs are not current CAD features. The bracket uses current examples.
+    data = load_bundle(plan)
     markup = Markup(rendered(data, detail=detail))
     records = markup.find("checkpoint-result")
     labels = []
@@ -1339,7 +1429,9 @@ def test_public_checkpoint_results_distinguish_criteria_without_internal_ids(
             and node["attrs"]["data-requirement"] == requirement
         ]
         (label,) = markup.find("field-label", record)
-        assert content(label) == f"{sid} op {op} — {criterion}"
+        text = " ".join(content(label).split())
+        assert re.search(rf"\b{re.escape(sid)}\s+op\s+{op}\b", text)
+        assert criterion in text
         assert feature not in content(label)
         assert "finish_ra" not in content(label)
         labels.append(content(label))
@@ -1987,7 +2079,7 @@ def assert_terminal_results(markup, *, reading_owned=False):
         (blank,) = markup.find("writing-blank", record)
         assert content(blank) == ""
         (label,) = markup.find("field-label", record)
-        assert content(label) == member
+        assert re.search(rf"\b{re.escape(member)}\b", content(label))
     return records
 
 
@@ -2652,7 +2744,30 @@ def test_hand_tap_mapping_projection_leaves_other_messages_unchanged(
     setup["ops"][0]["do"] = operation
     scope = f"{setup['id']}:{setup['ops'][0]['op']}"
     sheet = _Traveler(data, [], {}, None, detail=detail)
-    assert sheet.plain_error(rule, message, scope) == sheet.bench(message)
+    assert sheet.plain_error(rule, message, scope, "unknown") == sheet.bench(message)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_authored_process_acceptance_bounds_keep_their_numeric_values(detail):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    source_bounds = (10.18286, 10.19302)
+    text = sheet.bench("Accept 10.18286–10.19302 mm.", setup)
+    bounds = tuple(float(n) for n in re.findall(r"\d+\.\d+", text))
+    assert bounds == source_bounds
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_authored_depth_of_cut_preserves_its_physical_value(compact):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    op = {**setup["ops"][0], "do": "finish_turn", "doc_mm": 0.105}
+    sheet = _Traveler(data, [], {}, None)
+    facts = sheet.cut_depths(setup, op, True)
+    text = " ".join(sheet.cut_depth_text(facts, compact=compact))
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:mm\s+)?radial per pass", text)
+    assert match and float(match[1]) == op["doc_mm"]
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
@@ -3330,6 +3445,143 @@ def test_compact_settings_keep_exact_selected_holder_projection_and_qualificatio
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    ("computed_feed", "rpm", "feed_basis"),
+    [
+        (163.8, 1300.0, {}),
+        (163.8, 650.0, {"feed_direction": "axial", "axial_feed_mm_rev": 0.252}),
+        ("unknown", 1300.0, {}),
+    ],
+    ids=["calculated", "axial-calculated", "unproved"],
+)
+def test_compact_operation_locally_keeps_selected_pair_and_canonical_fractional_feed(
+    detail, computed_feed, rpm, feed_basis
+):
+    from test_envelope_m5 import measured
+
+    data = mill_job(setups=2)
+    data.plan["dro"]["units"] = "mm"
+    data.inventory["holders"] = {
+        "tailstock": {"kind": "drill_chuck", "name": "Selected tailstock chuck"},
+        "r8": {"kind": "collet", "name": "Selected R8 collet"},
+    }
+    data.inventory["tools"]["pair-drill"] = {
+        "kind": "drill",
+        "name": "Selected precision drill",
+        "dia_mm": measured(5.0),
+        "flute_len_mm": measured(25.0),
+        "projection_mm": {"tailstock": measured(30.0), "r8": measured(31.0)},
+    }
+    findings = []
+    for setup, holder in zip(data.plan["setups"], ("tailstock", "r8"), strict=True):
+        setup["ops"] = [
+            {
+                "op": 70,
+                "do": "drill",
+                "tool": "pair-drill",
+                "holder": holder,
+                "feed_mm_min": 90.0,
+            }
+        ]
+        findings.append(
+            Finding(
+                "speeds_feeds",
+                setup["id"] + ":70",
+                "pass" if computed_feed != "unknown" else "unknown",
+                {"rpm": rpm, "feed_mm_min": computed_feed, **feed_basis},
+                [],
+                "Controlled canonical settings fixture",
+            )
+        )
+    markup = Markup(rendered(data, findings, detail=detail))
+    for setup, holder, projection, other in zip(
+        data.plan["setups"], ("tailstock", "r8"), (30, 31), (31, 30), strict=True
+    ):
+        # A job-wide tool key is not a substitute for the operation's own settings.
+        instructions = [
+            operation_owner(node)
+            for node in markup.find("route-operation")
+            if any(
+                owner["setup_id"] == setup["id"] and str(owner["op_id"]) == "70"
+                for owner in operation_owners(operation_owner(node))
+            )
+        ]
+        assert instructions
+        # The shared parser concatenates text nodes without inserting paragraph
+        # boundaries; read the operation and its settings as separate visible blocks.
+        local = " ".join(
+            content(block)
+            for node in instructions
+            for css in ("route-operation", "operation-installation", "operation-settings")
+            for block in markup.find(css, node)
+        )
+        assert "Selected precision drill" in local
+        assert data.inventory["holders"][holder]["name"] in local
+        assert re.search(r"Ø\s*5(?:\.0+)?\s*mm\b", local)
+        assert re.search(r"\bflute\s+25(?:\.0+)?\s*mm\b", local)
+        assert re.search(rf"\bprojection\s+{projection}(?:\.0+)?\s+mm\b", local)
+        assert not re.search(rf"\bprojection\s+{other}(?:\.0+)?\s+mm\b", local)
+        assert re.search(rf"\b{rpm:g}\s+rpm\b", local)
+        if feed_basis:
+            assert re.search(r"\baxial\s+0\.252\s+mm/rev\b", local)
+        assert not re.search(r"\b164(?:\.0+)?\s+mm/min\b", local)
+        if computed_feed == "unknown":
+            assert "Candidate settings (unproved)" in local
+            assert re.search(r"Authored candidate feed\s+90(?:\.0+)?\s+mm/min.*unproved", local)
+            assert "Calculated starting settings" not in local
+            assert "163.8" not in local
+        else:
+            assert "Calculated starting settings" in local
+            assert re.search(r"\b163\.8\s+mm/min\b", local)
+            assert re.search(r"\b90(?:\.0+)?\s+mm/min.*not the effective setting", local)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("mixed", [False, True], ids=["bench", "mixed-machine"])
+@pytest.mark.parametrize("tool", [None, "unknown"], ids=["omitted-tool", "unknown-tool"])
+def test_manual_sever_renderer_is_locally_unmodeled_and_never_a_machine_cut(detail, mixed, tool):
+    from prechips.rules.resolution import MANUAL_SEVER_REASON
+
+    data = mill_job(setups=1) if mixed else bench_job()
+    setup = data.plan["setups"][0]
+    instruction = "Support both pieces; stop for a separate manual separation decision."
+    sever = {"op": 70, "do": "manual_sever", "feature": "body", "note": instruction}
+    if tool is not None:
+        sever["tool"] = tool
+    setup["ops"] = ([{"op": 60, "do": "drill", "tool": "finder"}] if mixed else []) + [sever]
+    # A stray machining finding must not turn this unmodeled action into a cut.
+    findings = [
+        Finding(
+            "speeds_feeds",
+            setup["id"] + ":70",
+            "pass",
+            {"rpm": 2345.0, "feed_mm_min": 163.8},
+            [],
+            "Inapplicable machining settings fixture",
+        )
+    ]
+    markup = Markup(rendered(data, findings, detail=detail))
+    owners = [
+        node
+        for node in operation_nodes(markup)
+        if any(
+            owner["setup_id"] == setup["id"] and str(owner["op_id"]) == "70"
+            for owner in operation_owners(node)
+        )
+    ]
+    assert owners
+    local = " ".join(content(node) for node in owners)
+    assert instruction in local
+    assert "UNMODELED" in local
+    assert "HOLD" in local
+    assert _Traveler(data, findings, {}, None, detail=detail).bench(MANUAL_SEVER_REASON) in local
+    assert "2345" not in local and "163.8" not in local
+    assert not re.search(r"\b(?:rpm|mm/min|mm/rev)\b", local, re.IGNORECASE)
+    assert not re.search(r"\b(?:tool axis|Axis Set|Z target)\b", local)
+    assert not any(markup.find("result-field", node) for node in owners)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
 def test_compact_saw_projection_uses_body_midplane_to_selected_holder_gauge(detail):
     from test_envelope_m5 import measured
 
@@ -3807,9 +4059,10 @@ def test_inspection_methods_keep_scoped_owners_and_only_share_actual_flat_entrie
         assert {(entry["setup_id"], str(entry["op_id"])) for entry in operation_owners(owner)} == {
             (setup["id"], "10")
         }
-        if requirement == "thread" and procedure != shared:
+        if procedure != shared:
             feature_owner = next(key for key, value in procedures.items() if value == procedure)
-            assert feature_owner in content(method)
+            heading = content(method).replace(procedure, "")
+            assert re.search(rf"\b{re.escape(feature_owner)}\b", heading)
     assert "no gauge chosen" in text
     if requirement == "thread":
         assert not markup.find("checkpoint-result", flow)
@@ -4056,7 +4309,13 @@ def test_authored_rough_turn_note_does_not_replace_canonical_numeric_operation_f
         "speeds_feeds",
         "S1:10",
         "pass",
-        {"rpm": 600.0, "feed_mm_rev": 0.05, "feed_mm_min": 30.0, "diameter_in": 6.55 / 25.4},
+        {
+            "rpm": 600.0,
+            "feed_mm_rev": 0.05,
+            "feed_mm_min": 30.0,
+            "diameter_in": 12.7 / 25.4,
+            "commanded_diameter_mm": 6.55,
+        },
         [],
         "Evaluated turning settings",
     )
@@ -4066,9 +4325,12 @@ def test_authored_rough_turn_note_does_not_replace_canonical_numeric_operation_f
     assert note in text
     divisor = 25.4 if display_units == "in" else 1.0
     assert_coordinate(text, "Ø", 6.55 / divisor)
+    # The RPM reference diameter is not the commanded roughing target.
+    assert not re.search(rf"Ø\s*{re.escape(f'{12.7 / divisor:g}')}(?![\d.])", text)
     for value in (0.2, 0.5):
         assert_number(text, value / divisor)
-    assert "on Ø" in text and "radial per pass" in text and "4 passes" in text
+    assert re.search(r"\bradial\b[^,;]*\bper pass\b", text)
+    assert re.search(r"\b4\s+passes\b", text)
     if display_units == "in":
         assert " mm" not in text
 
@@ -4134,7 +4396,7 @@ def test_compact_doc_qualifier_does_not_repeat_owned_paths_or_tables(detail, own
         }
     markup = Markup(sheet.route_operation(setup, rows[0]))
     text = " ".join(content(node) for node in markup.find("route-operation"))
-    assert "axial per pass" not in text
+    assert not re.search(r"\baxial\b[^,;]*\bper pass\b", text)
     assert "leave 0.01" in text
 
 
@@ -4192,8 +4454,10 @@ def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(de
             owner["setup_id"] == first["id"] for owner in operation_owners(operation_owner(node))
         )
     ]
-    assert "axial per pass" in content(first_instruction)
-    assert_number(content(first_instruction), 0.25)
+    (doc,) = re.findall(
+        r"(\d+(?:\.\d+)?)\s+axial\b[^,;]*\bper pass\b", content(first_instruction)
+    )
+    assert float(doc) == pytest.approx(0.25)
     (owner,) = operation_owners(operation_owner(first_instruction))
     assert owner["setup_id"] == first["id"] and str(owner["op_id"]) == "10"
 
@@ -4208,13 +4472,13 @@ def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(de
         )
     )
     (instruction,) = projected.find("route-operation")
-    assert "axial per pass" in content(instruction)
-    assert_number(content(instruction), 0.25)
+    (doc,) = re.findall(r"(\d+(?:\.\d+)?)\s+axial\b[^,;]*\bper pass\b", content(instruction))
+    assert float(doc) == pytest.approx(0.25)
 
     later_row = sheet._rows_by_setup[later["id"]][0]
     later_markup = Markup(sheet.route_operation(later, later_row))
     (later_instruction,) = later_markup.find("route-operation")
-    assert "axial per pass" not in content(later_instruction)
+    assert not re.search(r"\baxial\b[^,;]*\bper pass\b", content(later_instruction))
     assert_owned_path(later_instruction)
 
 
@@ -4381,8 +4645,22 @@ def test_mounted_saw_positions_keep_contact_and_arbor_distinct_and_pro_axis_sets
         assert float(setting.replace("−", "-")) == pytest.approx(
             findings[0].numbers["axes"][axis]["axis_set"] / divisor, abs=0.0001
         )
-    if detail == "pro":
-        assert "reversed" not in text
+    if not shared or detail == "hobby":
+        for axis, record in findings[0].numbers["axes"].items():
+            (jog,) = re.findall(
+                rf"([+−-]){axis.upper()}\s*(\d+(?:\.\d+)?)([^;]*);([^;]*?\bSTOP\b)",
+                text,
+            )
+            signed = record["check_jog_mm"]
+            assert jog[0] == ("−" if signed < 0 else "+")
+            assert float(jog[1]) == pytest.approx(abs(signed) / divisor, abs=0.0001)
+            assert numeric_values(jog[2]) == pytest.approx(
+                [record["check_reading"] / divisor], abs=0.0001
+            )
+            assert numeric_values(jog[3]) == pytest.approx(
+                [record["mirrored_reading"] / divisor], abs=0.0001
+            )
+            assert re.search(r"\bSTOP\b", jog[3])
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
@@ -4499,7 +4777,7 @@ def test_tap_chamfer_and_threaded_cutting_labels_do_not_relabel_reamer_geometry(
     assert re.search(r"chamfer/lead length\s+0\.5\b", tap)
     assert re.search(r"threaded cutting length\s+1\.25\b", tap)
     assert re.search(r"\blead\s+0\.5\b", reamer)
-    assert re.search(r"\bcutting\s+1\.25\b", reamer)
+    assert re.search(r"\b(?:cutting|flute)(?:\s+length)?\s+1\.25\b", reamer)
     assert "threaded cutting length" not in reamer and "chamfer/lead length" not in reamer
 
 
@@ -4595,13 +4873,19 @@ def test_one_members_unknown_criterion_does_not_lend_its_marker_to_known_sibling
         if unknown_subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     assert set(json.loads(unknown["attrs"]["data-inspection-ids"])) == {unknown_subject}
-    assert "?" in content(unknown)
+    assert criterion_is_unresolved(unknown)
     assert ancestor_with_class(unknown, "family-common") is None
     owner = ancestor_with_class(unknown, "setup-variant")
     assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
     (known,) = [node for node in length_criteria if node is not unknown]
     assert set(json.loads(known["attrs"]["data-inspection-ids"])) == known_subjects
-    assert "?" not in content(known)
+    assert not criterion_is_unresolved(known)
+    for criterion in (unknown, known):
+        assert "calipers" in content(criterion).casefold()
+        assert "end-length" in content(criterion).casefold()
+        assert not markup.find("writing-blank", criterion)
+    assert numeric_values(content(unknown)) == numeric_values(content(known))
+    assert numeric_values(content(known))
     assert len(markup.find("checkpoint-result")) == len(finals)
     assert [finding.to_dict() for finding in findings] == original
 
@@ -4717,7 +5001,14 @@ def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requir
         if debt.subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     text = content(criterion).casefold()
-    assert "width" in text and "depth" not in text and "?" in text
+    assert "width" in text and "depth" not in text and "calipers" in text
+    assert criterion_is_unresolved(criterion)
+    assert not numeric_values(text)
+    assert not markup.find("writing-blank", criterion)
+    assert all(
+        debt.subject not in json.loads(record["attrs"]["data-inspection-ids"])
+        for record in [*markup.find("inspection-record"), *markup.find("checkpoint-result")]
+    )
     if detail == "pedantic":
         owner = ancestor_with_class(criterion, "setup-variant")
         assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
@@ -4751,7 +5042,10 @@ def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requir
         assert len(depths) == 1
     for depth in depths:
         assert json.loads(depth["attrs"]["data-inspection-ids"]) == []
-        assert "?" in content(depth)
+        assert criterion_is_unresolved(depth)
+        assert "calipers" in content(depth).casefold()
+        assert not numeric_values(content(depth))
+        assert not markup.find("writing-blank", depth)
     assert len(markup.find("checkpoint-result")) == len(finals)
 
 
@@ -4813,6 +5107,8 @@ def test_interleaved_gauges_keep_visible_criterion_ids_and_member_unknowns_toget
         "gauges.calipers",
     ]
     expected, findings, statuses = {}, [], {}
+    gauges = {f"gauges.{key}": gauge["name"] for key, gauge in data.inventory["gauges"].items()}
+    expected_gauges = {target["subject"]: target["gauge"] for _, target in targets}
     unknown_subject = None
     for setup, target in targets:
         identity = target["identity"]
@@ -4854,10 +5150,49 @@ def test_interleaved_gauges_keep_visible_criterion_ids_and_member_unknowns_toget
         assert requirement in text
         states = {statuses[subject] for subject in subjects}
         assert len(states) == 1
-        assert ("?" in text) is (states == {"unknown"})
+        assert criterion_is_unresolved(criterion) is (states == {"unknown"})
+        assert {expected_gauges[subject] for subject in subjects} == {
+            criterion_gauge(markup, criterion, gauges)
+        }
+        # The printed screen and its exact CAD source are distinct bands;
+        # source annotations must not be scraped as extra screen endpoints.
+        number = r"[+−-]?(?:\d+(?:\.\d+)?|\.\d+)"
+        bands = re.findall(rf"({number})\s*[–—…]\s*({number})", text)
+        assert bands
+        lower, upper = (float(value.replace("−", "-")) for value in bands[0])
+        expected_lower, expected_upper = data.features["features"][feature][requirement]
+        quantum = 10 ** -data.features["precision"]
+        assert expected_lower <= lower < upper <= expected_upper
+        assert lower - expected_lower < quantum
+        assert expected_upper - upper < quantum
+        if (lower, upper) != (expected_lower, expected_upper):
+            (source,) = re.findall(
+                rf"\bcad\s+limits\s+({number}\s*[–—…]\s*{number})\s+mm\b", text
+            )
+            assert numeric_values(re.sub(r"[–—…]", " ", source)) == pytest.approx(
+                [expected_lower, expected_upper]
+            )
+            assert len(bands) == 2
+        assert not markup.find("writing-blank", criterion)
         observed.extend(subjects)
     assert sorted(observed) == sorted(expected)
-    assert len(markup.find("checkpoint-result")) == len(finals)
+    for setup in finals:
+        op = setup["ops"][0]
+        (member,) = operation_members(data, setup, op)
+        (record,) = [
+            node
+            for node in markup.find("checkpoint-result")
+            if node["attrs"]["data-setup-id"] == setup["id"]
+            and node["attrs"]["data-op-id"] == str(op["op"])
+            and node["attrs"]["data-workpiece"] == member
+        ]
+        assert set(json.loads(record["attrs"]["data-inspection-ids"])) == {
+            target["subject"] for owner, target in targets if owner is setup
+        }
+        assert record["attrs"]["data-shared-check"] == ""
+        assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
     if one_unknown:
         (unknown,) = [
             criterion

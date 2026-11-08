@@ -6,11 +6,17 @@
 # plain carbon steel row. Diameter ranges are mm, inclusive at both ends, one row
 # per diameter within a (material, tool, operation); drill rows break at 1/8 in
 # (3.175 mm) and 1/2 in (12.7 mm), the handbook's drill-feed size steps.
+# Reconciled demonstration tooling keeps its deliberate lower starting values in
+# pedro-shop.toml tool charts: long carbide milling/boring and the thin shoulder
+# blade. Those charts take precedence; do not add overlapping face rows to this
+# table or treat the lathe carbide-face feed as an end-mill chip load.
 revision = 5
 
 [aliases]
 "1018 CRS" = "low_carbon_steel"
 "1018 low-carbon steel" = "low_carbon_steel"
+"1018 cold-finish carbon steel" = "low_carbon_steel"
+"AISI 1018 low-carbon steel" = "low_carbon_steel"
 "AISI 1018 cold-finished steel bar, Ø10" = "low_carbon_steel"
 "Plain Carbon Steel" = "low_carbon_steel"
 

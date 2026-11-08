@@ -40,6 +40,7 @@ On this page:
 | `verification` | `"checked"` when `expected_exit` is 0; `"planned"` otherwise. |
 | `hash` | The canonical report digest described below. |
 | `renders` | Present only when the kernel returned a setup render. |
+| `manufacturing_shape` | Present only for a nonempty plan `axis_placements` declaration; binds the requested manufacturing variant and its native proof to the source STEP. See below. |
 
 Each finding has `rule`, `subject`, `status`, `numbers`, `cite` and `message`.
 The serialized field is `message`, not `sentence`; there is no separate severity
@@ -73,6 +74,50 @@ op-named picture cuts, and one-fact consistency across tables and pictures.
 Changing the operative catalogue changes the bound report and invalidates prior
 approvals. Reports from earlier catalogues, including `m5-rev10` and `m5-rev11`,
 need regeneration and approval against the current report before reuse.
+
+### Shared-axis manufacturing shape
+
+For a nonempty plan `axis_placements` declaration, `manufacturing_shape` records
+`source_step_sha256` (the exact manifest STEP digest) and
+`requested_axis_placements` (the complete resolved placement specifications).
+It does not replace the source `step_sha256` or any input record.
+
+Its `status` is `pass` only when the native kernel succeeded, every requested
+placement has matching `pass` evidence under the same guard used by coordinate
+publication, and the evidence count equals the request count. The native
+`process_shape.source_step_sha256` must match the manifest digest, and its
+`sha256` must be a valid 64-hex digest equal to the kernel's
+`process_shape_sha256`. Complete native proof/provenance, a shape summary and a
+valid feature-manifest file digest (`bundle.hashes["features"]`) are also required.
+A passing section contains `feature_manifest_sha256`,
+`definition_contract = "shared_cylindrical_axis_v1"` and
+`process_definition_sha256`, plus the complete native `axis_placements` facts
+(including exact request, proof quantities, source and provenance), `bbox_mm`,
+`volume_mm3` and `face_count`.
+
+The public `process_definition_sha256` is SHA-256 of the canonical bytes of
+exactly `{definition_contract, source_step_sha256, feature_manifest_sha256,
+requested_axis_placements}`. It identifies the bound manufacturing definition,
+not geometry equivalence or the bytes of a native BREP serialization. The raw
+native process digest remains internal native/cache evidence: it must be
+consistent before success is published, but is not included in the report.
+Changing only that consistently supplied serialization digest does not change
+the public definition identity or canonical report.
+
+Missing, stale, mismatched or incomplete evidence produces `unknown`; native
+kernel `status = "error"` produces `error`. Both failure forms retain the source
+digest and full requested specifications with a nonempty `reason`, but publish
+no definition identity or native proof. With no placement declaration, or an empty
+one, the section is absent even if kernel facts are present.
+
+The projection copies these facts without diagnostic rounding. Their exact
+values enter canonical report bytes, so changing a proof quantity changes the
+report hash and stales approval. The full process BREP, its serialization hash
+and process face records are not serialized; the summary includes only their
+face count. Changing the feature-manifest digest or resolved placement
+specifications changes the public definition digest. This is a
+reporting contract for native construction evidence, not independent shop
+measurement or first-article acceptance.
 
 ### Canonical bytes and input binding
 
@@ -320,7 +365,7 @@ A specification with nominal geometry requires the explicit fine field. A
 missing field is an error, with no silent legacy painting fallback. Absence of
 nominal geometry remains legitimate.
 
-Finished-outline callouts preserve the accepted placement and selection
+`FINAL CAD REFERENCE` callouts preserve the accepted placement and selection
 algorithm: the original primary point assigns the lane, and every original
 ordinary-tolerance vertex remains eligible. The guide view likewise retains the
 original projected primary point and all legacy vertices, including offscreen
@@ -350,6 +395,19 @@ callout's point, it is drawn straight. An end label stays in the lane on its
 own end's side. These checks do not alter geometry or turn unresolved machining
 facts into passes.
 
+Nominal overlays and their legend use `FINAL CAD REFERENCE`; profile footers
+use `DASHED: FINAL CAD REF`. Non-end datum labels use the compact `REF …`
+prefix, replacing an existing `DATUM` prefix rather than duplicating it.
+End labels are unchanged. The accompanying note defines `REF` as a CAD datum
+reference, not a current setup pickup or proof of an attained final feature.
+
+Generic clearance witnesses use `MODELED GAP <distance> FROM <holding solid>`,
+retaining the owning operation and original witness geometry. Their note limits
+the value to modeled removal/tool envelopes versus holding: neither commanded
+cut depth nor physical clearance proof. Machining-trajectory saw phase and
+stopped-setting labels retain their distinct meanings. Contact detail subtitles
+read `CONTACT FACES: SOLID = SEEN / DASHED = HIDDEN`.
+
 A checked, posed chuck front not parallel to setup Z has no single jaw-front Z.
 `scene.jaw_front_oblique` records that distinction without a printed note or a
 missing-datum warning.
@@ -367,6 +425,14 @@ is the declared radius/diameter DRO target and whose Z is the table station.
 The same `P1`, `P2`, … keys annotate the profile inset and traveler coordinate
 rows. Both mirrored sides remain explicit. Dense mill sketches use separate
 operation panels so repeated corners retain legible coordinate keys.
+
+Ordinary profile captions say `SCHEMATIC / USE OP TABLE`. A caption names
+`OPS n: FIRST/LAST PASSES ONLY` only for operations with more than eight raster
+passes and no keep-out; up to eight passes remain drawn individually. Keep-out
+rasters retain independent pass segments without filling their clearance gaps.
+`SHADED BANDS: PASS ENVELOPES` appears only when a band is actually drawn
+(more than two raster passes without keep-out), not for every raster. These
+captions do not replace operation-table coordinates or claim physical execution.
 
 Shallow contour panels label Y-only graphic magnification with `Y EXAG X…`.
 Coordinate values, waypoint identities and setup-view axes do not change. The
@@ -638,6 +704,8 @@ Applicable receipt checks and actual shop-made construction obligations remain
 at their first-use setup, with later-use references; a receipt reference is not
 evidence of acceptance. Compact holding retains locating-fixture placement and
 alignment when due, not exhaustive model-pose coordinates or clearance tables.
+Standalone supports without a geometry table also retain a named first-use
+make-operation reference on later setups; the construction steps are not repeated.
 Hobby DRO guidance is shared once per applicable machine family, so a lathe
 lesson cannot replace milling guidance. A setup without pickup rows retains
 its unknowns and stops, not a link to an absent or inapplicable guide. Pro
@@ -666,6 +734,22 @@ holder face to a cutting tip. Tap chamfer/lead and threaded cutting length
 labels do not relabel a reamer's geometry. Compact hand-tap warnings retain
 the unchecked movement; the report and pedantic detail retain the unidentified
 bore-surface cause.
+
+Each compact working operation also carries its resolved selected tool name and
+dimensions, selected holder and that exact pair's installed projection. A
+30 mm tailstock installation and a 31 mm R8 installation are separate settings,
+even when they use the same tool number. Local dimensions preserve the same
+measurement qualifications as the tool key; a missing or conflicting selected
+projection cannot borrow another holder's value.
+
+Local speed/feed values come from the canonical operation row, not an independent
+rendering of authored inputs. Fractional feeds remain fractional: a calculated
+163.8 mm/min does not become 164 mm/min or an authored 90 mm/min. A differing
+authored mill feed is explicitly `not the effective setting`. The source label
+is `Calculated starting settings` or `Candidate settings (unproved)`; when the
+computed feed is unknown, an authored feed is only an unproved candidate.
+Neither a calculation nor a candidate clears a HOLD, establishes physical
+clearance or gives permission to operate.
 
 Measurement-debt labels use the current setup's tool identity, not a list of all
 setups sharing the measurement. Compact labels use the same job-wide tool number
@@ -1053,6 +1137,11 @@ picture section. Without a render the overview says
 table gives grip length, stickout and jaw-front Z; a lathe also has centre tip Z
 and quill extension. Pose vectors and planner field names do not print.
 
+Compact routes likewise show holding and datum instructions as ordered visible
+steps, with the setup's HOLD notice separate. Authored clamp sequences stay
+local: chuck-key removal is not hoisted away from tightening into shared
+references. Successive tool-specific zero settings keep their authored order.
+
 Coolant does not print for bench setups. The drawing edge break appears once
 on the job page. A setup with a different `deburr_mm` prints that limit and the
 author's reason, for example
@@ -1074,6 +1163,10 @@ One tool/holder pair gets one `T#`, based on selected identity: `tools.drill` an
 `drill` name one drill; `holders.er20` and `er20` name one holder. A lathe pair
 keeps its number across all setups on that machine regardless of reference
 spelling.
+Compact tool settings retain the resolved member's inherited material and
+explicit cutting-length units. A dead-centre support's taper, point angle and
+body diameter are distinct identity fields; other lathe supports are not
+automatically labelled as tailstocks.
 
 Spindle-stopped `die_thread` and `hand_tap` selections also appear in this
 pull list with their selected die stock, tap wrench or follower. Their
@@ -1095,6 +1188,19 @@ follow. Changes to one touch print once with their operations, for example
 `Tool changes before ops 20, 30 and 40: install the op's tool (the T number in its row), then …`.
 Tools remain in the TOOLS table and operation rows. Authored indicating/transfer
 prerequisites precede the zero table without changing words, methods or limits.
+Compact setup instructions retain each applicable computed check jog, expected
+display and reversed-axis STOP comparison at that setup. These are planned
+checks, not records that a safe physical jog has been performed.
+An indicated target is not automatically an observable pickup surface. A
+concrete cylindrical sweep needs supplied surface kind, resolved orientation
+and matching current pickup evidence; otherwise the sheet keeps a scoped
+pickup HOLD and labels the desired setting as a target only. A seated plane
+is not a cylinder crest, and an unproved future bore is not a direct contact.
+Unknown orientation does not print competing standing and lying recipes.
+The held contact still identifies the selected indicator. A pickup HOLD does
+not hide a keep-clamped obligation: the authored recovery remains visible,
+and a missing recovery remains a hard STOP. Pickup evidence from another setup
+cannot qualify the current transfer.
 
 For a mill X/Y side pickup, the check jog would take the finder over the work.
 The printed sequence therefore raises Z only until the finder/indicator clears
@@ -1157,6 +1263,21 @@ A lathe table containing an operation measured in the chuck adds
 Turning feed prints in `mm/rev` with resulting `mm/min` in brackets. Drill feed
 prints axial `mm/min` with `mm/rev` for hand feeding. Other mill and saw feeds
 print in `mm/min`. Unknown feed cells start with `STOP`.
+Authored numeric speed, feed and Z requests whose checked setting/path remains
+unproved are labelled as candidates, alongside the existing STOP and HOLD.
+Presence of a requested number is not qualification or material-removal proof.
+Boring depth of cut is radial even when the boring spindle is on a mill;
+facing direction stays within the stated X limits, not an assumed OD-to-centre
+traverse. Rough-turn allowance is labelled against CAD nominal, separately from
+the subsequent process aim. Setup-specific edge-break maxima retain their
+authored values rather than rounding outward to a display grid.
+Explicit endpoint and turning commands come from their canonical command
+facts, not from a speed/deflection reference diameter or an inverted stock
+bound. The commanded endpoint, independent minimum/far-face references and
+actual-stock uncertainty remain separate. An explicit unknown command has no
+geometry-derived replacement. Cutter-axial depth and work-radial depth are
+different bases: rotary milling labels the radial interpretation conditionally
+on established top-dead-centre position, not merely an authored target.
 
 Crash-relevant values stay with the operation: jaw front within 3 mm of nearest
 tool approach, dead centre at the work end, tool tip within 3 mm of jaw top,
@@ -1170,6 +1291,12 @@ groove extent prints only when it differs from the operation's Z window; the
 diameter's drawing limits print there only when absent from the inspection
 record.
 
+A part-off endpoint may be known while the incoming diameter and radial travel
+remain unproved; the sheet states those separately and retains the stock HOLD.
+An unresolved inspection selection is labelled for its current operation,
+rather than shown as a bare question mark. A selection established at a later
+inspection does not establish an earlier checkpoint or a measured part result.
+
 A setup whose operations are all bench steps, including `inspect`, `deburr`,
 `coating`, `fit`, `scribe`, `release` and hand finishing, prints
 `ASSEMBLY / FINISHING`. Its five cells are step, feature, material/consumable,
@@ -1179,6 +1306,13 @@ fields do not print. Mixed machining/manual setups retain the machining ledger;
 manual-only groups keep these five authored cells without invented speeds,
 targets or checks. Manual finishing has a short Step heading and the unchanged
 action in normal working text grouped into sentences.
+
+`manual_sever` always carries a local `UNMODELED` / `HOLD` warning: stock after
+manual severing is unknown, and manual tool selection, retention and access
+remain unresolved. It is a material-changing action, not an ordinary release
+step. Its authored procedure may print, but no machine target, rpm, feed,
+modeled geometry or separation/release credit is supplied, including in a mixed
+machining/manual setup.
 
 ### Attached pictures, clearance and feature maps
 
@@ -1275,6 +1409,18 @@ fits beside original source progress on a continuation. Inspection view figures
 belong only to that original note or worksheet. Continuations do not copy
 figures, reading boxes or calculation/result fields. A figure-only continuation
 still carries original source content.
+
+Feature-scoped inspection methods name their feature owner, including methods
+for selected numeric requirements; identical requirement names do not make
+distinct feature procedures interchangeable. When an inward-rounded criterion
+differs from the source, the working check retains the conservative displayed
+band and appends `CAD limits …; conservative screen only`, with exact source
+values in native source units. Scalar zones instead identify `CAD max …`.
+Different exact source bands stay separate even if their displayed bands match.
+The conservative screen is not a replacement CAD tolerance: missing its tighter
+band does not by itself prove a CAD violation, and passing it does not prove
+measurement uncertainty or a measured part's acceptance. See
+[inspection limits](rules-inspection.md#banded-dimensions-and-radius-max-leaves).
 
 The contours section appears only for contour operations. Each operation has a
 block titled with setup, operation, tool and direction, for example

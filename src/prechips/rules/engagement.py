@@ -1,4 +1,9 @@
-"""Selected endmill projection / diameter proxy; PLAN §4.4 owns the 4×D limit."""
+"""Selected endmill projection / diameter proxy; PLAN §4.4 owns the 4×D limit.
+
+An authored manual raster's DOC/WOC is not measured engagement for flat or ball-end
+cutters. Without per-segment stock engagement proof, it stays unknown rather than
+certifying a pass or recommending a reduced depth from an unproved declaration.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +13,14 @@ from ..findings import Finding
 from ..measurements import length_debt, record_debt
 from ._envelope import selected_item, tool_projection
 from .geometry_common import with_measurement_debts
+from .manual_raster import METHOD as MANUAL_RASTER
 from .resolution import (
     UNKNOWN,
     length_mm,
     number,
     operations,
     projection_holder,
+    record,
     resolve,
     same_length,
     uncertain,
@@ -43,14 +50,16 @@ def evaluate(bundle):
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
         action = op.get("do", UNKNOWN)
+        manual_raster = record(op.get("contour")).get("method") == MANUAL_RASTER
         tool_ref, holder_ref = op.get("tool", UNKNOWN), op.get("holder", UNKNOWN)
         tool = resolve(bundle, "tools", tool_ref)
         kind = (tool or {}).get("kind", UNKNOWN)
         numbers = {"operation": action, "tool": tool_ref, "holder": holder_ref, "tool_kind": kind}
         cite = [_PROXY_CITE]
         # An endmill cutting op without its axial depth per pass is unresolved, never exempt.
-        if (action != UNKNOWN and action not in _CUTTING_OPS) or (
-            kind != UNKNOWN and kind not in _ENDMILL_KINDS
+        if not manual_raster and (
+            (action != UNKNOWN and action not in _CUTTING_OPS)
+            or (kind != UNKNOWN and kind not in _ENDMILL_KINDS)
         ):
             result.append(
                 Finding(
@@ -105,7 +114,7 @@ def evaluate(bundle):
         missing = []
         if action == UNKNOWN:
             missing.append("known cutting operation")
-        if kind not in _ENDMILL_KINDS:
+        if kind not in _ENDMILL_KINDS and not (manual_raster and kind == "ball_endmill"):
             missing.append("known endmill family")
         if not tool or uncertain(tool):
             missing.append("resolved/verified selected tool")
@@ -125,12 +134,18 @@ def evaluate(bundle):
             and not same_length(projection, _LIMIT_LD * diameter)
         )
         scale = recommended = UNKNOWN
-        if number(ratio):
+        if number(ratio) and not manual_raster:
             scale = _DOC_SCALE if over_limit else 1
             if _positive(doc):
                 recommended = doc * scale
         if not _positive(doc):
             missing.append("positive authored axial depth per pass (doc_mm)")
+        if manual_raster:
+            missing.append(
+                "per-segment actual DOC/WOC proof for manual_raster against sequential "
+                "stock; authored doc_mm/woc_mm alone do not bound engagement"
+            )
+            cite.append(f"plan.setups[{setup['id']}].ops[{op['op']}].contour.raster")
         numbers.update(
             diameter_mm=diameter,
             projection_mm=projection,
@@ -160,9 +175,15 @@ def evaluate(bundle):
             status = "unknown"
             message = "Engagement proxy needs " + ", ".join(missing) + "."
             if over_limit:
-                message = (
-                    f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; "
-                    "DOC reduction is unknown without a positive authored axial depth per pass."
+                message = f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; " + (
+                    "manual raster engagement remains unknown. "
+                    + "Engagement proxy needs "
+                    + ", ".join(missing)
+                    + "."
+                    if manual_raster
+                    else (
+                        "DOC reduction is unknown without a positive authored axial depth per pass."
+                    )
                 )
         elif over_limit:
             status = "warn"

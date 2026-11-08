@@ -1261,3 +1261,123 @@ def test_printed_cutter_path_still_governs_an_explicit_removal_scope(tmp_path, r
     assert "plan.setups.S1.ops.10.xy_geometry" not in {
         entry["id"] for entry in finding.numbers["measurements"]
     }
+
+
+def manual_raster_bundle():
+    data = bundle()
+    op = setup(data)["ops"][0]
+    op.pop("to_z")
+    op.pop("approach_mm")
+    raster = {
+        "start_mm": [-10, -20, 12],
+        "safe_z_mm": 12,
+        "moves": [
+            {"to_mm": [-10, -20, -4], "mode": "clear"},
+            {"to_mm": [40, -20, -4], "mode": "cut"},
+            {"to_mm": [40, -20, 20], "mode": "clear"},
+            {"to_mm": [40, 50, 20], "mode": "clear"},
+            {"to_mm": [-30, 50, 20], "mode": "clear"},
+        ],
+    }
+    op["contour"] = {"method": "manual_raster", "raster": raster}
+    rows = {
+        "coordinates": [
+            Finding(
+                "coordinates",
+                "S1",
+                "pass",
+                {"operations": [{"op": 10, "manual_raster": deepcopy(raster)}]},
+                [],
+                "",
+            )
+        ]
+    }
+    return data, rows
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_manual_raster_bounds_include_all_clear_moves_without_unit_rescaling(units):
+    data, rows = manual_raster_bundle()
+    data.features["units"] = units
+    setup(data)["stock_state"].pop("top_z")
+    with lend_rows(data, rows):
+        finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    operation = finding.numbers["operations"][0]
+    assert operation["xy_cutter_bounds_mm"] == {"x": [-30, 40], "y": [-20, 50]}
+    assert operation["tip_z_bounds_mm"] == [-4, 20]
+    assert operation["z_bounds_mm"] == [66, 90]
+    checks = finding.numbers["travel_checks"]
+    assert [checks[axis]["required_mm"] for axis in "xyz"] == [70, 70, 24]
+    assert checks["x"]["basis"] == checks["y"]["basis"] == "cutter-centre path"
+    assert not finding.numbers["measurements"]
+
+
+@pytest.mark.parametrize("axis,limit", [("x", 69), ("y", 69), ("z", 23)])
+def test_manual_raster_clear_move_overtravel_remains_an_error(axis, limit):
+    data, rows = manual_raster_bundle()
+    machine(data)["envelope"]["travel_mm"][axis] = measured(limit)
+    with lend_rows(data, rows):
+        finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["travel_checks"][axis]["margin_mm"] == -1
+
+
+@pytest.mark.parametrize("has_feature_bounds", [True, False])
+def test_invalid_manual_raster_cannot_fall_back_to_axial_targets_or_broad_boxes(has_feature_bounds):
+    data, rows = manual_raster_bundle()
+    op = setup(data)["ops"][0]
+    op.update(to_z=-2, approach_mm=3, depth_mm=2)
+    op["contour"]["raster"]["moves"][0]["to_mm"] = [0, 0, -4]
+    rows["coordinates"][0].numbers["operations"][0]["manual_raster"] = {"reason": "diagonal"}
+    if not has_feature_bounds:
+        data.feature_definitions["outline"].pop("bounds")
+    with lend_rows(data, rows):
+        finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    operation = finding.numbers["operations"][0]
+    assert operation["xy_cutter_bounds_mm"] == {"x": "unknown", "y": "unknown"}
+    assert operation["tip_z_bounds_mm"] == "unknown"
+    assert operation["conservative_stock_spans_mm"] == "not_applicable"
+    assert all(
+        finding.numbers["travel_checks"][axis]["minimum_required_mm"] == "unknown" for axis in "xyz"
+    )
+    assert "contour.raster" in finding.sentence
+    assert "commanded to_z" not in finding.sentence
+
+
+@pytest.mark.parametrize("field", ["projection", "gauge", "diameter", "machine"])
+def test_manual_raster_preserves_real_measurement_debt(field):
+    data, rows = manual_raster_bundle()
+    if field == "projection":
+        data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = 40
+    elif field == "gauge":
+        data.inventory["holders"]["holder"]["gauge_len_mm"] = 30
+    elif field == "diameter":
+        data.inventory["tools"]["cutter"]["dia_mm"] = 6
+    else:
+        machine(data)["envelope"]["travel_mm"]["x"] = 100
+    with lend_rows(data, rows):
+        finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert finding.numbers["measurements"]
+    assert not any("z_geometry" in debt["id"] for debt in finding.numbers["measurements"])
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_manual_raster_horizontal_screens_use_setup_mm_clear_move_extrema(units):
+    from prechips.rules.headroom import _span
+    from prechips.rules.swivel import _reach
+
+    data, rows = manual_raster_bundle()
+    data.features["units"] = units
+    op = setup(data)["ops"][0]
+    numbers = rows["coordinates"][0].numbers
+    assert _span(op, numbers, 0) == [-30, 40]
+    assert _span(op, numbers, 1, 90) == pytest.approx([-40, 30])
+    assert _reach(data, setup(data), op, {"S1": numbers}) == pytest.approx(math.hypot(40, 50))
+    op["stock_removal_bounds"] = {"x": [0, 1], "y": [0, 1], "z": [-2, 0]}
+    numbers["operations"][0]["manual_raster"] = {"reason": "invalid"}
+    assert _span(op, numbers, 0) is None
+    assert _span(op, numbers, 1, 90) is None
+    assert _reach(data, setup(data), op, {"S1": numbers}) == "unknown"

@@ -152,8 +152,53 @@ to the frame's other numeric axes. Otherwise it is unknown, as is every
 coordinate along it and every direction compared with it.
 
 Tolerance-band midpoints never define nominal geometry: explicit `*_nominal`
-values take precedence; otherwise only scalar dimensions are usable as nominal
-geometry.
+or `nominal_*` values take precedence; otherwise only scalar dimensions are
+usable as nominal geometry.
+
+#### Machining targets versus model nominals
+
+A valid drawing baseline can lie outside its finished-size limits. It remains
+model geometry, but cannot silently become a machining target. A lathe diameter
+inferred from such a nominal has its `x_target_mm` withheld; the feature map
+keeps the drawing band, prints `?` for the target and adds a STOP. A nominal-based
+boss/cylinder diameter or arc radius outside its explicit band likewise withholds
+the cutter-centre paths rather than shifting the geometry or widening the band.
+These cases are unresolved process-target debt, not invalid-CAD findings.
+
+An explicit final `to_dia` outside its diameter limits is an error and is withheld
+from the feature-map target column. Explicit rough diameters and intermediate
+diameters before a later nonrough radial operation on the same feature and known
+workpiece members remain process stages, not finished-size claims. An in-band
+explicit target does not change the exported nominal or establish a physical
+DRO pickup. Face-only operations do not acquire a diameter command from geometry.
+
+`target_band_checks` records the consumed requirement, target, limits, feature
+and operation. `target_band_debts` identifies nominal-derived unresolved targets;
+`target_band_errors` identifies contradictory final commands. Boundary comparisons
+are inclusive and use the actual values, without display rounding or an epsilon.
+This check applies to consumed targets, not every nominal field in a manifest.
+
+
+#### Shared boss/bore manufacturing axes
+
+A plan [`axis_placements`](plan.md#shared-manufacturing-axis-placements)
+entry supplies one resolved process target for the named boss, through bore
+and annular caps. Its reference axis comes from the bore's `height_from`
+feature; it does not replace source geometry with a tolerance-band midpoint.
+The authored target must be inside the printed separation band. In the cone
+route, 43.2735 mm is the printed-band midpoint and moves the shared axis
++0.177856497104 mm in model Y.
+
+The placement is bounded to one concentric cylindrical boss/through-bore
+assembly with planar annular caps on an analytic cylindrical support.
+Ambiguous references, unrelated intersecting geometry, unknown source
+locations and conflicting aims cannot use this placement. Missing or refused
+placed native geometry is unresolved evidence, never permission to issue the
+nominal boss/bore coordinates as a substitute. A process target and a numeric
+coordinate are not proof of collision clearance, face coverage or physical
+measurement. STEP bytes, manifest geometry and source identity remain
+unchanged; native manufacturing geometry and coordinate consumers share the
+same resolved placement rather than independently deriving different axes.
 
 Worked holes (including threaded holes and counterbores), bosses, and features
 used by point/hole operations are located by a numeric three-component `at`
@@ -373,6 +418,15 @@ share that top arc. Mirrored −X/+X lands must agree after reflection; an
 unknown or inconsistent linked join leaves the top table unknown. The lower
 outline also supplies its line-line miter and bottom line-circle intersection,
 with mirrored sides explicit. Degenerate joins do not become invented paths.
+
+An explicit `op.faces` proper subset does not inherit the whole feature's linked
+straight joins. Its source analytic circle supplies a candidate arc only; the
+native kernel must associate every selected face with that circle and its complete
+finite sector before the coordinates rule publishes the table. Planar or mixed
+straight/circular selections are not circular subsets, and missing native association
+remains unknown. Face labels and list positions never identify surface types.
+Selecting the complete feature keeps all joins. Unselected faces remain subject to
+ordinary cutting and finishing coverage; this does not remove them from the manifest.
 
 ### Manual arc methods
 
@@ -1011,6 +1065,24 @@ levels do not duplicate the final-depth checkpoint identities or the drawn
 outline, and an unresolved final tip or any unresolved cutting path keeps
 the complete native checkpoint request unknown.
 
+#### Authored raster rows and explicit transitions
+
+`manual_raster` is separate from the generated `linear_table` raster
+above. Its [trajectory input](plan.md#authored-manual-raster) supplies
+every setup-frame millimetre tool-tip endpoint and clear/cut mode. Normalized
+operation values retain that cycle under `operations[i].manual_raster`.
+No common final Z, axial pass schedule, inferred plunge, rounded replacement
+point or automatic lifted return is substituted for the authored coordinates.
+
+The public table prints each explicit move, including clear entry/retract and
+single-axis indexes; its trajectory diagram uses the same points and labels
+clear versus cutting motion. Travel and envelope bounds include all those
+moves, not only the cutting rows. A malformed trajectory or unknown endpoint
+has no usable path and remains a hold. A stated safe height is a constraint,
+not proof of stock or fixture clearance; the native sequential swept-tool
+checks establish the bounded geometric result. Tool shape alone does not
+prove per-move DOC/WOC or cutting force for either supported cutter profile.
+
 #### Safe-side raster and outline rounding
 
 Every raster value sits on the DRO grid on the safe side:
@@ -1622,12 +1694,19 @@ they remain errors and retain `mounted_saw_trajectory` evidence.
 The rough stage of an `axial_table` op (a `form_*` op with
 `rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
 finished table. Each row faces in at a finish-table Z below the apex to the X
-where the sphere grown by half the diametral allowance crosses it, so every
-stair corner (the imaginary-tip reading) stays that far off the dome; rows at or
-past the base radius are dropped. An apex toward the chuck, or a window whose
+where the sphere grown by half the diametral-equivalent allowance crosses it.
+The stair leaves at least half that allowance normal to the nominal reference
+sphere, not a constant radial offset; rows at or past the base radius are dropped.
+An apex toward the chuck, or a window whose
 base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
+
+When the coordinate facts include that finish table for a `form_dome` op with
+a rough allowance, its operation heading describes roughing then finishing.
+The stated allowance belongs to the rough stage before that finish, not to
+the completed dome. A declared finish table does not establish physical
+acceptance or waive unresolved stock and clearance findings.
 
 #### Lathe X display mode
 
@@ -1962,6 +2041,19 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+A lathe tailstock touch also sets Z only: `x_axis_set` and `x_face_status`
+are `not_applicable`, with `tool_setting_state = "tailstock_axis"`. This
+requires every cutting operation using that tool to declare
+`tool_mount = "tailstock"`, use an axial role (`spot`, `drill`, `ream`,
+`tap`, `center`, or `center_drill`), and select a known, unflagged holder
+whose taper matches the declared tailstock quill. Each feature's known mouth
+and axis must transform onto the setup spindle axis and −Z feed, with its
+mouth at the touched Z. Tool names, role names, or compatible tapers alone
+do not prove the mount: unknown, toolpost, turret and off-axis cases retain
+the radial X requirement. The quill touch does not replace either carriage
+Axis Set. Its Z contact surface, edge and paper still need proof, and a
+turning/facing tool in the same setup still needs its own radial X touch.
 
 #### Lathe X touch surfaces
 
@@ -2335,20 +2427,25 @@ within the physical length tolerance of 0.000001 mm, in the manifest's units.
 Only the touch's authored edge may alternatively name the proven AS-CUT height.
 Entering that AS-CUT height in both fields would apply the producer offset
 twice: it is a deterministic `error` naming the authored stock-state field,
-with no numeric operative entry, tip or through exit offered. Unknown native
+with no numeric operative entry or derived tip/through exit offered. Unknown native
 evidence or an unknown entry stays unknown, not a mismatch. An entry advanced
 by a cut in this same setup already belongs to its own DRO and keeps that
 local producer's endpoint rather than being shifted as imported stock.
 
-Every later operation's operative entry, depth, exit and breakthrough uses
-the actual typed Axis Set; physical face height remains separate evidence.
+Every later operation's operative entry, depth, exit and breakthrough proof
+uses the actual typed Axis Set; physical face height remains separate evidence.
 Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.
+An explicit `to_z` is an absolute command: its endpoint does not receive another
+carried-touch shift. Unknown entry or stock evidence is not repaired by a known
+command, nor does the command establish safe execution.
+
 For a through hole, `physical_exit_bound_z` is physical entry minus the
 declared `local_thickness`: a dimension-derived worst-case exit boundary,
 not evidence of an independently identified native exit plane. Its operative
-`dro_exit_face`, tip and breakthrough margin remain conservatively anchored
-to the typed entry. A longest allowed thickness does not establish the
-actual opposite face's AS-CUT height.
+`dro_exit_face` remains conservatively anchored to the typed entry. Without an
+explicit command, the derived tip follows that bound; with a command,
+`required_tip_z` and breakthrough remain independent guards. A longest allowed
+thickness does not establish the actual opposite face's AS-CUT height.
 
 ### Zero-check finding messages
 

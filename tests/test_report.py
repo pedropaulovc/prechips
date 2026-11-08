@@ -42,7 +42,7 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
     )
     section, field = "[[setups.ops]]", "note"
     examples = copy_examples(tmp_path)
-    plan = examples / "rocker-arm" / "plan.toml"
+    plan = examples / "pivot-shaft" / "plan.toml"
     before, marker, remainder = plan.read_text(encoding="utf-8").partition(section)
     assert marker
     contents, next_section, after = remainder.partition("\n[")

@@ -1,15 +1,15 @@
-"""A part-off onto a plan process end face leaves that face at its ``to_z`` (#292).
+"""Check placement of a part-off at a plan process end face's ``to_z`` (#292).
 
-The parted end is stock preparation a later setup faces to length: the blade parts the
-disc at ``to_z``, the piece toward the exposed end (the side the end face's ``axis``
-points into) is kept and the remainder stays in the chuck with the bar. Only part-offs
-onto a process ``end_face`` get a row; one that names a finished drawing face is judged
-by the face rules as before.
+The parted end is stock preparation a later setup faces to length. For an explicit
+positive stop diameter this rule checks placement only: it does not prove a complete
+face, separation or release of the exposed piece. Only part-offs onto a process
+``end_face`` get a row; one that names a finished drawing face is judged by the face
+rules as before.
 """
 
 from prechips.findings import Finding
 from prechips.process_features import label, parting_plane, parts_off
-from prechips.rules.resolution import UNKNOWN, operations
+from prechips.rules.resolution import UNKNOWN, number, operations
 
 RULE = "parting_face"
 
@@ -33,7 +33,16 @@ def evaluate(bundle):
             f"plan.process_features.{name}.axis",
             "docs/plan.md: process features",
         ]
-        if plane["status"] == "pass":
+        endpoint = op.get("to_dia")
+        if plane["status"] == "pass" and number(endpoint) and endpoint > 0:
+            numbers.update(to_dia=endpoint, separation=UNKNOWN)
+            cite.append(f"plan.setups.{setup['id']}.ops.{op['op']}.to_dia")
+            sentence = (
+                f"{subject}: part_off is placed at {label(name)}, setup Z {op['to_z']:g}, "
+                f"and stops at diameter {endpoint:g}; separation and retained-piece release "
+                "are not established by this placement check."
+            )
+        elif plane["status"] == "pass":
             sentence = (
                 f"{subject}: part_off leaves {label(name)} at setup Z {op['to_z']:g}, keeping "
                 "the piece toward the exposed end; the remainder stays in the chuck."

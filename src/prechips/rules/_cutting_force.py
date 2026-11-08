@@ -11,9 +11,10 @@ Kienzle, peripheral milling, every engaged tooth at the maximum chip:
     F_z   = F_t·tan β               lift when the helix hand equals the cutting hand
 
 The model covers endmill-family tools on facing, pocketing and profile actions that
-enter from the side. A plunge or an unproven entry, a drill-family tool and any other
-cutting op stay unknown; a noncutting action is not applicable. A missing input is never
-replaced by a default: only ``ae`` has a bound (a full slot, ``ae = D``).
+enter from the side. A manual raster has no proved per-move stock engagement bound here,
+for either flat or ball-end cutters, even with proven side entry. A plunge or an unproven
+entry, a drill-family tool and any other cutting op stay unknown; a noncutting action is
+not applicable. Only ``ae`` has a default bound (a full slot, ``ae = D``).
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from ..measurements import cited_fact
+from .manual_raster import METHOD as MANUAL_RASTER
 from .resolution import (
     HAND_THREAD,
     MANUAL,
@@ -162,6 +164,16 @@ def milling_force(bundle, op, entry: Entry) -> CuttingForce:
     tool = resolve(bundle, "tools", op.get("tool", UNKNOWN)) or {}
     kind = tool.get("kind", UNKNOWN)
     inputs = {"operation": action, "tool": op.get("tool", UNKNOWN), "tool_kind": kind}
+    if mapping(op.get("contour")).get("method") == MANUAL_RASTER:
+        return CuttingForce(
+            "unknown",
+            inputs=inputs,
+            debts=[
+                "operation: no manual raster force bound without actual per-move stock "
+                "engagement proof; authored DOC/WOC and side entry do not establish "
+                "cylindrical peripheral engagement for flat or ball-end cutters"
+            ],
+        )
     scoped = _scope(action, kind)
     if scoped is not None:
         status, reason = scoped

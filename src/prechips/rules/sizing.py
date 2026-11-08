@@ -9,6 +9,7 @@ from .resolution import (
     _citations,
     length_mm,
     number,
+    op_entry,
     operations,
     record,
     resolve,
@@ -16,6 +17,112 @@ from .resolution import (
     select,
     uncertain,
 )
+
+
+def _adjustable_finish(bundle, name, feature, route, nums, cite):
+    """An adjustable cutter's setting is not its shank, range, or a part reading."""
+    from .inspection import requirement_check
+
+    actions = {"drill", "ream", "counterbore", "bore", "hone"}
+    stages = [(i, setup, op) for i, (setup, op) in enumerate(route) if op["do"] in actions]
+    index, setup, final = stages[-1]
+    band = feature.get("dia")
+    unit = bundle.features.get("units")
+    errors, debts, evidence = [], [], []
+    valid_band = (
+        unit == "mm"
+        and isinstance(band, list)
+        and len(band) == 2
+        and all(number(value) for value in band)
+    )
+    if not valid_band:
+        debts.append("drawing diameter limits or units are unresolved")
+    previous = None
+    for _, stage_setup, op in stages:
+        tool = resolve(bundle, "tools", op.get("tool"))
+        adjustable = op["do"] in {"bore", "hone"}
+        diameter = (
+            op.get("to_dia", "unknown")
+            if adjustable
+            else (length_mm(tool, "dia") if tool and not uncertain(tool) else "unknown")
+        )
+        label = f"{stage_setup['id']}:{op['op']}"
+        evidence.append({"op": label, "action": op["do"], "diameter_mm": diameter})
+        if not number(diameter):
+            debts.append(f"{label} diameter target or fixed cutter size is unresolved")
+            previous = None
+            continue
+        if diameter <= 0:
+            errors.append(f"{label} diameter must be positive")
+        if previous is not None and diameter < previous and not same_length(diameter, previous):
+            errors.append(f"{label} cannot shrink an already enlarged bore")
+        if valid_band and diameter > band[1]:
+            errors.append(f"{label} removes material beyond the drawing high limit")
+        previous = diameter
+    tool_ref = final.get("tool")
+    tool = resolve(bundle, "tools", tool_ref)
+    adjustable = final["do"] in {"bore", "hone"}
+    target = evidence[-1]["diameter_mm"]
+    setting = length_mm(tool, "dia") if tool else "unknown"
+    nums.update(
+        tool=tool_ref or "unknown",
+        finishing_op=f"{setup['id']}:{final['op']}",
+        finishing_action=final["do"],
+        stages=evidence,
+        commanded_dia_mm=target,
+        tool_dia_mm=setting,
+        tool_dia_basis="configured working diameter, not a part measurement"
+        if adjustable
+        else "inventory geometry",
+        unit=unit,
+    )
+    if valid_band:
+        nums.update(lo_mm=band[0], hi_mm=band[1])
+        if number(target) and not band[0] <= target <= band[1]:
+            errors.append("final commanded diameter is outside the drawing limits")
+    if adjustable:
+        expected_kind = "boring_bar" if final["do"] == "bore" else "hone"
+        if not tool or uncertain(tool) or not number(setting):
+            debts.append("final configured working diameter needs verified evidence")
+        elif tool.get("kind") != expected_kind:
+            errors.append("selected tool is not the stated adjustable finishing tool")
+        elif number(target) and not same_length(setting, target):
+            errors.append("final configured working diameter differs from the command")
+        if valid_band and number(setting) and not band[0] <= setting <= band[1]:
+            errors.append("final configured working diameter is outside the drawing limits")
+        for field in ("rough_allowance_mm", "stock_to_leave_mm"):
+            allowance = final.get(field, 0)
+            if not number(allowance):
+                debts.append("final stock allowance is unresolved")
+            elif allowance != 0:
+                errors.append("final finishing operation still leaves stock")
+        checks = [
+            (other_setup, op)
+            for other_setup, op in route[index:]
+            if op_entry(op, "checks", name, "dia") is not None
+        ]
+        if not checks:
+            debts.append("no diameter inspection at or after the final adjustable finish")
+        else:
+            check_setup, check = checks[-1]
+            status, message, capability = requirement_check(
+                bundle, name, "dia", check, setup=check_setup
+            )
+            nums["finishing_inspection"] = capability
+            if status == "error":
+                errors.append(message)
+            elif status != "pass":
+                debts.append(message)
+    if feature.get("process") == "ream" and not any(op["do"] == "ream" for _, op in route):
+        debts.append("required reaming operation is missing")
+    nums.update(
+        errors=errors, unresolved=debts, evaluation="inspection_plan", part_result="not_recorded"
+    )
+    status = "error" if errors else "unknown" if debts else "pass"
+    message = "; ".join(errors + debts) or (
+        "last actual finisher and qualified inspection cover the drawing diameter"
+    )
+    return Finding("sizing", name, status, nums, cite, f"{name}: {message}.")
 
 
 def evaluate(bundle):
@@ -116,6 +223,9 @@ def evaluate(bundle):
             )
             continue
         route = operations(bundle, name)
+        if any(op["do"] in {"bore", "hone"} for _, op in route):
+            result.append(_adjustable_finish(bundle, name, feature, route, nums, cite))
+            continue
         actions = [op["do"] for _, op in route]
         finishing = (
             "counterbore"

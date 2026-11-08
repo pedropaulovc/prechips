@@ -17,8 +17,9 @@ STEP with every ADVANCED_FACE named by its feature label, plus the generated
 ``C:/src/dt-logs/features-bundles``: ``tests/data/kernel/pivot-shaft`` (STEP sha256
 c78673d5ab2ac12cf04b43017f0c4f60952488bdbdbd8989ce11e769e0aa003d) and
 ``tests/data/kernel/cone-pivot-post`` (STEP sha256
-a3321157fc48cd8193ba81345611538d9c8c35fe7c6ba35e12fe8dc7a2416036); the rocker-arm
-bundle is read where the repository keeps it, ``examples/rocker-arm``.
+a3321157fc48cd8193ba81345611538d9c8c35fe7c6ba35e12fe8dc7a2416036); the historical
+rocker-arm export is pinned from d9425786 in ``tests/data/historical_examples/rocker-arm``.
+It tests periodic face-label splitting independently of the current assembled rocker export.
 """
 
 import base64
@@ -33,6 +34,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from historical_examples import HISTORICAL_EXAMPLES
 
 from prechips import kernel
 from prechips.kernel.step_faces import FaceRefError, StepFile, face_ref, parse_ref
@@ -43,7 +45,7 @@ ENGINE = ROOT / "src" / "prechips" / "kernel" / "freecad_job.py"
 SUMMING_LEVER = DATA / "summing-lever.STEP"
 # Labelled exports and one label each that the exporter split into periodic patches.
 LABELLED = {
-    "rocker-arm": (ROOT / "examples" / "rocker-arm", "HAF_PIVOT_BORE__P01"),
+    "rocker-arm": (HISTORICAL_EXAMPLES / "rocker-arm", "HAF_PIVOT_BORE__P01"),
     "pivot-shaft": (DATA / "pivot-shaft", "HAF_PIVOT_BEARING__P01"),
     "cone-pivot-post": (DATA / "cone-pivot-post", "HAF_CRANK_BOSS__P01"),
 }

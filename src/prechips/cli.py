@@ -273,7 +273,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 examples / "pivot-shaft" / "plan.toml",
                 examples / "rocker-arm" / "plan.toml",
                 examples / "pivot-bracket" / "plan.toml",
-                examples / "cone-pivot-post" / "built-up.toml",
+                examples / "cone-pivot-post" / "integral.toml",
             ]
         scoped_entries = []
         inventories = set()

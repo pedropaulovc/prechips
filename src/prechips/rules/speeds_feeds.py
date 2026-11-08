@@ -67,7 +67,7 @@ from .resolution import (
     uncertain,
 )
 from .tip_endpoints import mapping, records
-from .turned_profile import feature_span
+from .turned_profile import commanded_diameter, feature_span
 
 
 def nearest50(rpm, minimum, maximum):
@@ -155,6 +155,7 @@ AXIAL_FACING = {"face", "rough_face", "finish_face", "cut_to_fit", "part_off"}
 
 
 def _diameter(bundle, setup, op, tool, lathe):
+    """Existing starting-speed reference, not a commanded or maximum cutting diameter."""
     # A spindle-axis (tailstock) tool on a lathe cuts at its own diameter, as on a mill; a
     # centre drill's is its pilot (Machinery's Handbook 27th ed. p.1132 by drill size).
     if not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS:
@@ -572,6 +573,18 @@ def evaluate(bundle):
                 "cutting_data_row": source,
                 "rpm_range_verify": uncertain(machine),
             }
+            if lathe and op.get("do") not in _AXIAL_LATHE_ACTIONS | AXIAL_FACING:
+                numbers.update(
+                    commanded_diameter_mm=commanded_diameter(bundle, op, diameter),
+                    commanded_diameter_basis=(
+                        "authored to_dia" if "to_dia" in op else "implicit nominal/allowance basis"
+                    ),
+                    diameter_basis_mm=diameter,
+                    diameter_basis=(
+                        "declared nominal/allowance reference; "
+                        "not commanded or maximum cutting diameter"
+                    ),
+                )
             if action == "drill" and tool.get("kind") in DRILL_KINDS:
                 numbers["feed_direction"] = "axial"
                 numbers["axial_feed_mm_rev"] = (

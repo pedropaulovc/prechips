@@ -528,3 +528,40 @@ def test_unresolved_hole_tool_does_not_request_unowned_measurement(action, field
     debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
     assert f"tools.{identity}.{field}" not in debts
     assert debts[f"tools.{identity}.resolve"]["instruction"].startswith("resolve:")
+
+
+def test_manual_raster_envelope_uses_authored_clear_z_not_feature_or_axial_fallback():
+    data = bundle()
+    op = data.plan["setups"][0]["ops"][0]
+    op.pop("to_z")
+    op.pop("approach_mm")
+    op["contour"] = {
+        "method": "manual_raster",
+        "raster": {
+            "start_mm": [0, 0, 12],
+            "safe_z_mm": 12,
+            "moves": [
+                {"to_mm": [0, 0, -4], "mode": "clear"},
+                {"to_mm": [10, 0, -4], "mode": "cut"},
+                {"to_mm": [10, 0, 20], "mode": "clear"},
+            ],
+        },
+    }
+    data.feature_definitions["top"]["bounds"] = {
+        "x": [-100, 100],
+        "y": [-100, 100],
+        "z": [-100, 100],
+    }
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass"
+    assert row.numbers["stacks"][0]["tip_z_bounds_mm"] == [-4, 20]
+    assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"] == [143, 167]
+    assert not row.numbers["measurements"]
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(166)
+    assert envelope.evaluate(data)[0].status == "error"
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(200)
+    data.inventory["holders"]["holder"]["gauge_len_mm"] = 30
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    assert "holders.holder.gauge_len" in {debt["id"] for debt in row.numbers["measurements"]}
+    assert not any("z_geometry" in debt["id"] for debt in row.numbers["measurements"])

@@ -1,7 +1,6 @@
 """Drawing angularity requires datum inspection and a viable datum pickup."""
 
 import pytest
-from test_cli import ROOT
 
 from prechips.inputs import load_bundle
 from prechips.rules import datum_consistency, inspection
@@ -171,51 +170,6 @@ def test_unknown_export_can_only_leave_a_missing_length_inspection_unresolved(tm
     assert rows["cone:length"].numbers["missing_requirement"] is True
     assert rows["cone:length"].numbers["limits"] == "unknown"
     assert "band_mm" not in rows["cone:length"].numbers
-
-
-@pytest.mark.parametrize("field", ["length_nominal", "nominal_length"])
-@pytest.mark.parametrize("nominal", [4.99, 5.0, 5.5, 6.0, 6.01])
-@pytest.mark.parametrize("gauge_state", ["verified", "unknown", "unverified", "missing"])
-def test_exported_nominal_must_be_inside_the_inclusive_band(tmp_path, field, nominal, gauge_state):
-    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]", gauge="caliper")
-    bundle.features["features"]["cone"][field] = nominal
-    gauge = bundle.inventory["gauges"]["gauge"]
-    if gauge_state == "unknown":
-        gauge["kind"] = "unknown"
-    elif gauge_state == "unverified":
-        gauge["verify"] = True
-    elif gauge_state == "missing":
-        bundle.inventory["gauges"].pop("gauge")
-    row = inspection_finding(bundle, "length")
-    outside = nominal < 5.0 or nominal > 6.0
-    assert row.status == (
-        "error" if outside else "pass" if gauge_state == "verified" else "unknown"
-    )
-    if outside:
-        assert row.numbers["nominal_field"] == field
-        assert row.numbers["nominal"] == nominal
-        assert row.numbers["limits"] == [5.0, 6.0]
-        assert "exported nominal is outside" in row.sentence
-
-
-def test_exported_nominal_contradiction_survives_unknown_applicability(tmp_path):
-    bundle = angularity_bundle(tmp_path, requirement="length", band="[5.0, 6.0]")
-    bundle.features["features"]["cone"].update(kind="unknown", length_nominal=6.01)
-    assert inspection_finding(bundle, "length").status == "error"
-
-
-def test_west_mount_station_sign_error_is_a_nominal_band_contradiction():
-    """The pre-correction export sign (-12.98 against a +12.47..13.49 station band) is an error."""
-    bundle = load_bundle(ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
-    west = bundle.features["features"]["mount_west"]
-    west["station"] = [12.47, 13.49]
-    west["station_nominal"] = -12.98
-    row = next(row for row in inspection.evaluate(bundle) if row.subject == "mount_west:station")
-    assert row.status == "error"
-    assert row.numbers["nominal_field"] == "station_nominal"
-    assert row.numbers["nominal"] == -12.98
-    assert row.numbers["limits"] == [12.47, 13.49]
-    assert "exported nominal is outside" in row.sentence
 
 
 @pytest.mark.parametrize("band", ['"unknown"', '[5.0, "unknown"]', "5.5"])

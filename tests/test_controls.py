@@ -5,7 +5,11 @@ import re
 import tomllib
 
 import pytest
-from test_cli import copy_examples, rocker_s1_alone, traveler
+
+# Historical d9425786 one-piece rocker: prep, S1 zero, position checks and
+# the clean inspection control are not part of the current built-up route.
+from historical_examples import copy_historical_examples
+from test_cli import rocker_s1_alone, traveler
 from test_sheet_ops import Markup, content
 
 from prechips.findings import exit_code
@@ -37,7 +41,7 @@ def swap(text, old, new):
 
 
 def test_removed_reamer_is_named_inventory_error(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     inventory = examples / "inventory" / "pedro-shop.toml"
     original = inventory.read_text(encoding="utf-8")
@@ -77,7 +81,7 @@ def test_removed_reamer_is_named_inventory_error(tmp_path):
 
 
 def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
     authored = tomllib.loads(text)
@@ -190,7 +194,7 @@ POSITION_VIEW = re.compile(
 
 
 def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
     _, _, baseline = control_rows(plan, inspection)
@@ -238,7 +242,7 @@ def test_removed_position_check_is_named_error_not_size_coverage(tmp_path):
 
 
 def clean_inspection_bundle(tmp_path):
-    examples = copy_examples(tmp_path)
+    examples = copy_historical_examples(tmp_path)
     plan = examples / "rocker-arm" / "plan.toml"
     prefix = rocker_s1_alone(plan.read_text(encoding="utf-8"))
     # The synthetic manifest below replaces the export whose faces the plan's aims name.

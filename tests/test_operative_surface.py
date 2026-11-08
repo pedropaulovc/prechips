@@ -167,7 +167,7 @@ def compact_datum(html, setup_id, name):
         "setting": rf"\bAxis Set Z\s*({NUMBER})",
     }
     for node in markup.nodes:
-        if node["tag"] not in {"p", "span", "tr"}:
+        if node["tag"] not in {"p", "span", "tr", "li"}:
             continue
         owner = node
         while owner is not None:

@@ -8,6 +8,8 @@ from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules import tip_endpoints
 from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+from prechips.rules.manual_raster import normalize as normalize_manual_raster
 from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
@@ -18,6 +20,7 @@ from prechips.rules.resolution import (
     projection_holder,
     record,
     resolve,
+    same_length,
     select,
     setup_frame_ref,
 )
@@ -355,6 +358,54 @@ def stock_extents(bundle, setup):
     ]
 
 
+def supported_height_datum(bundle, setup):
+    """Reject a contradicted bottom-on-bed scalar stack, not infer a contact plane.
+
+    Missing declarations retain their existing debt policy. Only known custom-fixture
+    pose facts can invalidate this assumption; geometry and prose do not supply it.
+    """
+    hold = record(setup.get("hold"))
+    fixture = resolve(bundle, "workholding", hold.get("fixture")) or {}
+    if fixture.get("kind") != "custom":
+        return {}
+    pose = record(hold.get("pose"))
+    origin = pose.get("origin_mm")
+    state = record(setup.get("stock_state"))
+    field = "retained_rail_bottom_z" if "retained_rail_bottom_z" in state else "bottom_z"
+    bottom = state.get(field)
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if not (
+        isinstance(origin, list)
+        and len(origin) == 3
+        and all(_known(value) for value in origin)
+        and _known(bottom)
+        and scale is not None
+    ):
+        return {}
+    bottom_mm = bottom * scale
+    z = _unit3(pose.get("z"))
+    mismatch = not same_length(bottom_mm, origin[2])
+    tilted = z is not None and any(
+        abs(a - b) > UNIT_TOLERANCE for a, b in zip(z, (0, 0, 1), strict=True)
+    )
+    if not (mismatch or tilted):
+        return {}
+    reason = (
+        f"Custom fixture scalar stack is unproved: stock_state.{field} = {bottom_mm:g} mm "
+        f"in setup Z, hold.pose.origin_mm Z = {origin[2]:g} mm"
+        + (f", hold.pose.z = {z}" if tilted else "")
+        + "; these declarations do not establish stock bottom on the fixture bed. "
+        "No table-relative stock height or vertical clearance is inferred from the pose"
+    )
+    return {
+        "stock_bottom_field": field,
+        "stock_bottom_setup_mm": bottom_mm,
+        "fixture_origin_setup_mm": origin,
+        "fixture_z": pose.get("z", UNKNOWN),
+        "reason": reason,
+    }
+
+
 def fixture_height(bundle, setup, debts, cite):
     """Primary fixture bed plus declared bearing layers, never posed auxiliaries."""
     hold = record(setup.get("hold"))
@@ -431,6 +482,16 @@ def fixture_height(bundle, setup, debts, cite):
             nominal = support_height(support, orientation)
         values.append(nominal)
         verified &= value["verified"]
+    datum = supported_height_datum(bundle, setup)
+    if datum:
+        path = f"plan.setups.{setup['id']}"
+        authoring_entry(
+            debts,
+            path + ".supported_height_datum",
+            "resolve: " + datum["reason"],
+            path + ".stock_state; " + path + ".hold.pose",
+        )
+        return UNKNOWN, False
     return sum(values) if all(number(v) for v in values) else UNKNOWN, verified
 
 
@@ -461,6 +522,15 @@ def _z_extent(
 ):
     """Bound the commanded tip, touched top and explicitly authored safe approach.
     ``selected_tool`` is the op tool's :func:`selected_item`."""
+    if record(op.get("contour")).get("method") == MANUAL_RASTER:
+        trajectory = normalize_manual_raster(record(op["contour"]).get("raster"))
+        if "reason" in trajectory:
+            missing.append(f"Author {label}.contour.raster: {trajectory['reason']}")
+            return UNKNOWN, False
+        # These are already setup-mm tip coordinates, including every authored clear
+        # move. Neither a feature box nor stock top/approach adds commanded motion.
+        heights = [trajectory["start_mm"][2], *(move["to_mm"][2] for move in trajectory["moves"])]
+        return [min(heights), max(heights)], True
     tool_category, tool_ref, tool = selected_tool
     values = []
     complete = True
@@ -507,6 +577,19 @@ def _z_extent(
                 value = endpoint.get(field, UNKNOWN)
                 if _known(value):
                     targets.append(value)
+            if endpoint.get("endpoint_source") == "to_z":
+                # A known command does not supply its missing material/depth
+                # evidence. Previously a derived tip implicitly needed it.
+                endpoint_complete &= _known(endpoint.get("entry_z"))
+                if endpoint.get("exit_face") != "not_applicable":
+                    endpoint_complete &= (
+                        _known(endpoint.get("exit_face"))
+                        and _known(endpoint.get("exit_mm"))
+                        and endpoint.get("actual_stock_status") != UNKNOWN
+                        and endpoint.get("breakthrough_status") == "pass"
+                    )
+                else:
+                    endpoint_complete &= _known(endpoint.get("depth_mm"))
         action = op.get("do")
         if not tool or tool.get("kind") == UNKNOWN:
             endpoint_complete = False
@@ -537,7 +620,9 @@ def _z_extent(
                 "drill point or reamer lead with an optical comparator, and exit allowance "
                 "in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm"
             )
-    if "depth_mm" in op:
+    if "depth_mm" in op and not (
+        endpoint is not None and endpoint.get("endpoint_source") == "to_z"
+    ):
         depth = op["depth_mm"]
         entry = before["entry_z"].get(op_feature(op), top)
         if _known(depth) and depth >= 0 and _known(entry):
@@ -612,10 +697,11 @@ def spindle_nose_band(bundle, op, before, extent, endpoint, debts, cite, missing
     if len(missing) > missing_start:
         authoring_entry(debts, f"{label}.z_geometry", "; ".join(missing[missing_start:]), label)
     action = op.get("do")
+    manual_raster = record(op.get("contour")).get("method") == MANUAL_RASTER
     complete &= (
         isinstance(action, str)
         and action not in {UNKNOWN, ""}
-        and bundle.features.get("units") == "mm"
+        and (manual_raster or bundle.features.get("units") == "mm")
         and not unresolved
     )
     if not complete and not unresolved and len(missing) == missing_start:
@@ -625,13 +711,16 @@ def spindle_nose_band(bundle, op, before, extent, endpoint, debts, cite, missing
             f"Author {label}.do and setup-datum Z geometry with features.units = mm",
             label,
         )
-    cite.extend(
-        [
-            f"{label}.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-            f"{label}: stock_states current top and local entry; hole tip/exit endpoints",
-            "plan.setups.stock_state.top_z/entry_z/local_thickness",
-        ]
-    )
+    if manual_raster:
+        cite.append(f"{label}.contour.raster: exact setup-mm tip trajectory, including clear moves")
+    else:
+        cite.extend(
+            [
+                f"{label}.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+                f"{label}: stock_states current top and local entry; hole tip/exit endpoints",
+                "plan.setups.stock_state.top_z/entry_z/local_thickness",
+            ]
+        )
     dimensions = (gauge["value"], projection["value"])
     length = sum(dimensions) if all(_known(value) for value in dimensions) else UNKNOWN
     measured = gauge["verified"] and projection["verified"] and _known(length)

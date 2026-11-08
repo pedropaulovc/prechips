@@ -223,18 +223,19 @@ def test_exported_requirement_cannot_be_declared_missing(tmp_path, value):
         load_bundle(bundle_files(tmp_path, plan_text, feature_text))
 
 
-def test_shaft_cut_to_fit_length_check_on_south_dome_is_bad_input(tmp_path):
+def test_current_shaft_overall_length_is_inspected_on_south_dome(tmp_path):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    authored = plan.read_text(encoding="utf-8")
-    plan.write_text(
-        authored.replace(
-            'do = "cut_to_fit"\n',
-            'do = "cut_to_fit"\nchecks = {length = "calipers"}\n',
-            1,
-        ),
-        encoding="utf-8",
+    bundle = load_bundle(plan)
+    features = bundle.features["features"]
+    assert features["south_dome"]["requirements"] == ["height", "length"]
+    assert features["south_dome"]["length"] == [162.306, 162.814]
+    assert features["pivot_bearing"]["dia"] == [6.32968, 6.35]
+    assert {"north_flat", "south_flat"} <= features.keys()
+    assert not {"shoulder_od", "north_relief", "south_relief"} & features.keys()
+    operations = [op for setup in bundle.plan["setups"] for op in setup["ops"]]
+    assert all(op["do"] != "cut_to_fit" for op in operations)
+    assert any(
+        op.get("checks", {}).get("south_dome", {}).get("length") == "height-gauge"
+        for op in operations
+        if isinstance(op.get("checks"), dict) and isinstance(op["checks"].get("south_dome"), dict)
     )
-    with pytest.raises(
-        BadInput, match=r"south_dome checks\.length is not in the exported requirements"
-    ):
-        load_bundle(plan)

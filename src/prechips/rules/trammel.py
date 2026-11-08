@@ -943,6 +943,7 @@ _PICTURE_FACTS = (
     ("pin_dia", "pin diameter"),
     ("rail_width", "rail width"),
     ("rail_height", "rail height"),
+    ("rail_base_height", "rail bottom above table"),
     ("bed_height", "bed height"),
 )
 
@@ -951,11 +952,11 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
     """({"rails": [...], "pins": [...], "carriers": [...]}, picture notes) for one trammel
     op's ``guided`` record:
     drawn render-only at the sweep's middle pose (the setup frame), never hit-tested
-    (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box along its pin-line from
-    the spindle axis, over its measured ``rail_travel`` stations, standing ``rail_height``
-    from the table (the work's seat less the supports under it and the fixture's
-    ``bed_height``); each pin a cylinder of ``pin_dia`` at its place on the carrier, from
-    the rail tops to the work's seat. ``lift`` is the supports' height under the work (None:
+    (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box over its measured
+    physical ``rail_span`` stations, distinct from usable pin travel, with its bottom
+    ``rail_base_height`` above the table. The table is the work's seat less its supports
+    and ``bed_height``; each pin is a cylinder of ``pin_dia`` at its carrier station.
+    ``lift`` is the supports' height under the work (None:
     unknown). A missing or unmeasured fact leaves them undrawn, named in a note with its
     ``measure:`` instruction. The carrier plate is drawn as :func:`_carrier_scene` says, or
     named in its own note."""
@@ -970,20 +971,24 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
     values, missing = {}, []
     for field, _ in _PICTURE_FACTS:
         fact = length_fact(item, field, require_measured=True)
-        if fact["verified"] and number(fact["value"]) and fact["value"] > 0:
+        value = fact["value"]
+        valid = number(value) and (value >= 0 if field == "rail_base_height" else value > 0)
+        if fact["verified"] and valid:
             values[field] = fact["value"]
         else:
             missing.append(measurement_entry(category, key, field, item=item)["instruction"])
-    travel = limits_fact(item, "rail_travel", require_measured=True)
-    if not travel["verified"]:
-        missing.append(measurement_entry(category, key, "rail_travel", item=item)["instruction"])
+    span = limits_fact(item, "rail_span", require_measured=True)
+    if not span["verified"] or span["value"][0] >= span["value"][1]:
+        missing.append(measurement_entry(category, key, "rail_span", item=item)["instruction"])
     spindle, pins = guided.get("spindle_setup_xy"), guided.get("pins_setup_xy")
     directions = guided.get("rails_dir")
     placed = (
         _pair(spindle)
         and isinstance(pins, list)
+        and len(pins) == 2
         and all(map(_pair, pins))
         and isinstance(directions, list)
+        and len(directions) == 2
         and all(map(_pair, directions))
         and number(bottom)
     )
@@ -991,13 +996,14 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
         missing.append("its pins' places on the carrier or the stock bottom are unknown")
     if lift is None:
         missing.append("the parallels' or support blocks' height under the work is unknown")
-    if not missing and values["bed_height"] <= values["rail_height"]:
-        missing.append(f"{key}'s bed_height does not stand above its rail_height")
+    if not missing and values["bed_height"] <= (values["rail_base_height"] + values["rail_height"]):
+        missing.append(f"{key}'s bed_height does not stand above its rail top")
     if missing:
         return {}, [f"NOT SHOWN: op {op}'s trammel rails and pins — " + "; ".join(missing) + "."]
     table = bottom * scale - lift - values["bed_height"]
-    top = table + values["rail_height"]
-    near, far = travel["value"]
+    base = table + values["rail_base_height"]
+    top = base + values["rail_height"]
+    near, far = span["value"]
     origin = [v * scale for v in spindle]
     rails_ = [
         {
@@ -1006,7 +1012,7 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
             "from_mm": [origin[i] + near * d[i] for i in range(2)],
             "to_mm": [origin[i] + far * d[i] for i in range(2)],
             "width_mm": values["rail_width"],
-            "z_mm": [table, top],
+            "z_mm": [base, top],
         }
         for index, d in enumerate(directions, start=1)
     ]
@@ -1020,7 +1026,9 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
         }
         for index, pin in enumerate(pins, start=1)
     ]
-    carriers, notes = _carrier_scene(item, category, key, op, pins_, top, bottom * scale - lift)
+    carriers, notes = _carrier_scene(
+        item, category, key, op, pins_, top, bottom * scale - lift, guided.get("pin_pair")
+    )
     return {"rails": rails_, "pins": pins_, **carriers}, notes
 
 
@@ -1033,16 +1041,23 @@ _CARRIER_FACTS = (
 )
 
 
-def _carrier_scene(item, category, key, op, pins, top, seat):
-    """({"carriers": [box]}, []) or ({}, [note]): the carrier plate the work sits on, drawn
-    render-only as a box centred on its pins' chord, ``carrier_length`` along it and
-    ``carrier_width`` across, its top at the work's ``seat`` and ``carrier_thickness``
-    deep, so the pins show between it and the rail tops (``top``). No fact places the plate
-    off the chord's middle; a missing or contradicting fact names itself in the note."""
+def _carrier_scene(item, category, key, op, pins, top, seat, pair):
+    """Render-only plate, with explicit pair-relative transverse centre and seat drop.
+
+    Positive offset is left of pin 1 -> pin 2; no offset or stack height is guessed.
+    Missing or contradictory facts omit only the carrier, with a picture note."""
     from ..measurements import length_fact, measurement_entry
     from .resolution import number
 
     values, missing = {}, []
+    pair = pair if isinstance(pair, str) else "unknown"
+    for field in ("carrier_seat_drop", ("carrier_offset", pair)):
+        fact = length_fact(item, field, require_measured=True)
+        value = fact["value"]
+        if fact["verified"] and number(value) and (isinstance(field, tuple) or value >= 0):
+            values["carrier_offset" if isinstance(field, tuple) else field] = value
+        else:
+            missing.append(measurement_entry(category, key, field, item=item)["instruction"])
     for field, _ in _CARRIER_FACTS:
         fact = length_fact(item, field, require_measured=True)
         if fact["verified"] and number(fact["value"]) and fact["value"] > 0:
@@ -1051,14 +1066,21 @@ def _carrier_scene(item, category, key, op, pins, top, seat):
             missing.append(measurement_entry(category, key, field, item=item)["instruction"])
     (x1, y1), (x2, y2) = (pin["at_mm"] for pin in pins)
     chord = math.hypot(x2 - x1, y2 - y1)
+    if not missing and chord <= 1e-12:
+        missing.append(f"{key}'s carrier pins coincide")
     if not missing and values["carrier_length"] <= chord:
         missing.append(f"{key}'s carrier_length does not reach across its pins")
-    if not missing and seat - values["carrier_thickness"] <= top:
+    if not missing and abs(values["carrier_offset"]) >= values["carrier_width"] / 2:
+        missing.append(f"{key}'s carrier_width does not reach its pin chord")
+    if not missing and seat - values["carrier_seat_drop"] - values["carrier_thickness"] <= top:
         missing.append(f"{key}'s carrier_thickness leaves no room above its rails")
     if missing:
         return {}, [f"NOT SHOWN: op {op}'s trammel carrier — " + "; ".join(missing) + "."]
     middle = [(x1 + x2) / 2, (y1 + y2) / 2]
     along = [(x2 - x1) / chord, (y2 - y1) / chord]
+    offset = values["carrier_offset"]
+    middle = [middle[0] - offset * along[1], middle[1] + offset * along[0]]
+    seat -= values["carrier_seat_drop"]
     half = values["carrier_length"] / 2
     carrier = {
         "name": f"trammel carrier (op {op})",

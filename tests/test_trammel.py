@@ -710,10 +710,14 @@ PICTURE = (
     f"pin_dia_mm = {{ value = 12.0, {MEASURED} }}\n"
     f"rail_width_mm = {{ value = 15.0, {MEASURED} }}\n"
     f"rail_height_mm = {{ value = 24.0, {MEASURED} }}\n"
+    f"rail_span_mm = {{ value = [15.0, 465.0], {MEASURED} }}\n"
+    f"rail_base_height_mm = {{ value = 0.0, {MEASURED} }}\n"
     f"bed_height_mm = {{ value = 40.0, {MEASURED} }}\n"
     f"carrier_length_mm = {{ value = 520.0, {MEASURED} }}\n"
     f"carrier_width_mm = {{ value = 160.0, {MEASURED} }}\n"
     f"carrier_thickness_mm = {{ value = 12.0, {MEASURED} }}\n"
+    f"carrier_offset_mm.inner = {{ value = 0.0, {MEASURED} }}\n"
+    f"carrier_seat_drop_mm = {{ value = 0.0, {MEASURED} }}\n"
 )
 
 
@@ -736,7 +740,7 @@ def test_the_setup_picture_draws_the_rails_and_pins_where_the_pose_puts_them(tmp
     spindle = sweep["spindle_setup_xy"]
     for rail, direction in zip(drawn["rails"], sweep["rails_dir"], strict=True):
         assert rail["width_mm"] == 15.0
-        for end, station in (("from_mm", 40.0), ("to_mm", 420.0)):
+        for end, station in (("from_mm", 15.0), ("to_mm", 465.0)):
             want = [spindle[i] + station * direction[i] for i in range(2)]
             assert rail[end] == pytest.approx(want)
         assert rail["z_mm"][1] - rail["z_mm"][0] == pytest.approx(24.0)
@@ -787,6 +791,85 @@ def test_an_unmeasured_picture_fact_leaves_the_rails_undrawn_with_a_note(tmp_pat
     (note,) = notes
     assert note.startswith("NOT SHOWN: op 20's trammel rails and pins — measure: tram")
     assert "pin diameter" in note and "rail width" in note
+
+
+@pytest.mark.parametrize(
+    ("pair", "offset", "chord_y", "spacing"),
+    [
+        ("inner", 19.812, 0.0, 450.1354159477101),
+        ("outer", -4.66852, 24.48052, 464.5835606743677),
+    ],
+)
+def test_cad_carrier_bounds_and_physical_rail_stack_are_not_pin_travel(
+    tmp_path, pair, offset, chord_y, spacing
+):
+    """HA carrier_spec:152-179 / trammel_spec:375-456, nominal demo, not shop proof."""
+    from prechips.inputs import load_bundle
+
+    picture = (
+        PICTURE.replace("value = 24.0,", "value = 15.0,")
+        .replace("value = 40.0,", "value = 99.243,")
+        .replace("value = 520.0,", "value = 520.7,")
+        .replace("value = 160.0,", "value = 129.54,")
+        .replace("value = 12.0,", "value = 11.938,")
+        .replace("pin_dia_mm = { value = 11.938,", "pin_dia_mm = { value = 9.525,")
+        .replace(
+            "rail_base_height_mm = { value = 0.0,",
+            "rail_base_height_mm = { value = 11.938,",
+        )
+        .replace(
+            "carrier_seat_drop_mm = { value = 0.0,",
+            "carrier_seat_drop_mm = { value = 6.096,",
+        )
+        .replace(
+            "carrier_offset_mm.inner = { value = 0.0,",
+            f"carrier_offset_mm.{pair} = {{ value = {offset},",
+        )
+    )
+    inventory = TRAMMEL.replace("verify = false\n", picture + "verify = false\n")
+    bundle = load_bundle(trammel_plan(tmp_path, inventory=inventory))
+    # A1 -> B1 is CAD +X, +left normal is CAD +Y. Work seat is table Z99.243.
+    guided = {
+        "fixture": "tram",
+        "pin_pair": pair,
+        "spindle_setup_xy": [0.0, 0.0],
+        "pins_setup_xy": [[-spacing / 2, chord_y], [spacing / 2, chord_y]],
+        "rails_dir": [[-1.0, 0.0], [1.0, 0.0]],
+    }
+    drawn, notes = trammel.guide_scene(bundle, guided, 20, 99.243, 0.0, 1.0)
+    assert notes == []
+    (carrier,) = drawn["carriers"]
+    assert carrier["from_mm"] == pytest.approx([-260.35, 19.812])
+    assert carrier["to_mm"] == pytest.approx([260.35, 19.812])
+    assert carrier["from_mm"][1] - carrier["width_mm"] / 2 == pytest.approx(-44.958)
+    assert carrier["from_mm"][1] + carrier["width_mm"] / 2 == pytest.approx(84.582)
+    assert carrier["z_mm"] == pytest.approx([81.209, 93.147])
+    left, right = drawn["rails"]
+    assert left["from_mm"] == [-15.0, 0.0]
+    assert left["to_mm"] == [-465.0, 0.0]
+    assert right["from_mm"] == [15.0, 0.0]
+    assert right["to_mm"] == [465.0, 0.0]
+    assert all(rail["z_mm"] == pytest.approx([11.938, 26.938]) for rail in drawn["rails"])
+
+
+@pytest.mark.parametrize("field", ["carrier_offset_mm.inner", "carrier_seat_drop_mm"])
+def test_missing_carrier_placement_is_not_silently_centred_or_seated(tmp_path, field):
+    picture = PICTURE.replace(field, "# " + field)
+    _, (drawn, notes) = scene(
+        tmp_path, TRAMMEL.replace("verify = false\n", picture + "verify = false\n")
+    )
+    assert drawn["rails"] and drawn["pins"] and "carriers" not in drawn
+    assert len(notes) == 1 and notes[0].startswith("NOT SHOWN: op 20's trammel carrier")
+
+
+@pytest.mark.parametrize("field", ["rail_span_mm", "rail_base_height_mm"])
+def test_missing_physical_rail_fact_never_falls_back_to_pin_travel_or_table(tmp_path, field):
+    picture = PICTURE.replace(field, "# " + field)
+    _, (drawn, notes) = scene(
+        tmp_path, TRAMMEL.replace("verify = false\n", picture + "verify = false\n")
+    )
+    assert drawn is None
+    assert len(notes) == 1 and notes[0].startswith("NOT SHOWN: op 20's trammel rails and pins")
 
 
 def test_measured_alpha_seats_the_pins_not_the_plans_rounding(tmp_path):

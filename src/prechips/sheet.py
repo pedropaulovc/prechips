@@ -49,6 +49,7 @@ from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
+    diameter_target_conflict,
     dro_grid,
     dro_grid_debt,
     dro_grid_measurements,
@@ -71,6 +72,7 @@ from .rules.resolution import (
     LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
     MANUAL,
+    MANUAL_SEVER_REASON,
     NAMED_REFERENCE,
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
@@ -380,12 +382,6 @@ body:is([data-detail="pro"], [data-detail="hobby"]) h2,
 body:is([data-detail="pro"], [data-detail="hobby"]) .setup-flow > h2,
 body:is([data-detail="pro"], [data-detail="hobby"]) .setup-family > h2 {
 line-height: var(--line-working); margin: 4pt 0 0; padding-top: 1pt; }
-body:is([data-detail="pro"], [data-detail="hobby"])
-:is(.setup-flow, .setup-family):has(> h2 + .route-prelude) > h2 {
-display: inline; margin: 0; }
-body:is([data-detail="pro"], [data-detail="hobby"])
-:is(.setup-flow, .setup-family):has(> h2 + .route-prelude) > h2::after {
-content: ": "; }
 body:is([data-detail="pro"], [data-detail="hobby"]) h3 { line-height: var(--line-working); }
 body:is([data-detail="pro"], [data-detail="hobby"]) table:not(.operations) :is(th, td) {
 padding: 0 3pt; }
@@ -490,8 +486,8 @@ _TOPICS = {
     "purchased_tooling": "purchased tooling receipt check",
 }
 _DIRECTIONS = {
-    "radially_inward": "face from OD to centre",
-    "radially_outward": "face outward from the inner corner to the OD",
+    "radially_inward": "face radially inward within the stated X limits",
+    "radially_outward": "face radially outward within the stated X limits",
     "toward_chuck": "toward chuck",
     "toward_shoulder": "toward shoulder",
     "plunge_radial": "plunge straight in",
@@ -1311,7 +1307,7 @@ class _CutDepths:
     """Operation facts only; audience formatting never parses authored prose."""
 
     verb: str
-    rough_diameter_mm: float | None
+    commanded_diameter_mm: float | str | None
     allowances: tuple
     passes: tuple
     doc: tuple | None
@@ -1732,7 +1728,7 @@ def _checkpoint_results(records):
             owner += " — " + criterion
         cells.append(
             f'<div class="checkpoint-result" {_inspection_attributes(check)}>'
-            + _writing_field(owner, "result-field")
+            + _writing_field("Result / observations — " + owner, "result-field")
             + "</div>"
         )
     return "".join(
@@ -2077,14 +2073,23 @@ def _item(item):
     )
 
 
-def _list(items, ordered=True):
+def _list(items, ordered=True, *, setup_ids=()):
     tag = "ol" if ordered else "ul"
+    resolved_owners = bool(setup_ids) and all(
+        isinstance(sid, str) and sid.strip() and sid != "unknown" for sid in setup_ids
+    )
+    ownership = (
+        f' data-setup-members="{escape(json.dumps(list(setup_ids)))}"'
+        + (f' data-setup-id="{escape(setup_ids[0])}"' if len(setup_ids) == 1 else "")
+        if resolved_owners
+        else ""
+    )
     rendered = []
     for item in items:
         context = item[0] if isinstance(item, _Steps) else getattr(item, "context", None)
         attribute = f' data-page-context="{escape(context)}"' if context else ""
-        rendered.append(f"<li{attribute}>{_item(item)}</li>")
-    return f"<{tag}>" + "".join(rendered) + f"</{tag}>"
+        rendered.append(f"<li{ownership}{attribute}>{_item(item)}</li>")
+    return f"<{tag}{ownership}>" + "".join(rendered) + f"</{tag}>"
 
 
 def _box(css, heading, lines):
@@ -2199,16 +2204,6 @@ class _Traveler:
         self.fit_places = {}
         # Why a fit position printed ``?`` on the shop-made table being written.
         self.fixture_unknowns = set()
-        # Shop policy decimals for making and setting fixtures; a verify flag withholds it.
-        decimals = _mapping(bundle.policy.get("numbers")).get("fixture_make_decimals")
-        verify = bundle.policy.get("numbers_verify", False)
-        if isinstance(verify, dict):
-            verify = verify.get("fixture_make_decimals", False)
-        self.make_decimals = (
-            int(decimals)
-            if verify is False and _known(decimals) and decimals >= 0 and decimals == int(decimals)
-            else None
-        )
 
     def record_decision(self, setup, *, source, status, scope, text, kind="block", notice_group=""):
         if not hasattr(self, "producer_decisions"):
@@ -2307,6 +2302,11 @@ class _Traveler:
     def keep_note(self, setup, op):
         """An op's ``keep``: which separated piece the operator keeps and that every other
         is scrap, with the count the kernel discarded when ``keep_piece`` passed."""
+        if op.get("do") == "part_off" and _known(op.get("to_dia")) and op["to_dia"] > 0:
+            return (
+                f"Powered cut stops at diameter {_declared(op['to_dia'])} {self.units}; "
+                "separation and retained-piece release are not established."
+            )
         feature = op.get("keep")
         if not feature:
             return None
@@ -2415,62 +2415,68 @@ class _Traveler:
             words = _MILL_SHORT_SENSE.get((axis, sign), words)
         return words or self.bench(value)
 
-    def indicate_recipe(self, setup, axis, feature, authored, tool=None):
-        """How to centre on an indicated cylinder: swept all round when it stands along
-        setup Z (its declared axis, or both X and Y picked up on it), over its crest when
-        it lies along the table (its declared axis, or a part held on a dividing head);
-        then Axis Set."""
+    def indicate_recipe(self, setup, axis, feature, computed, tool=None):
+        """An indication recipe only for a supplied current cylindrical pickup."""
         name = re.sub(r" axis$", "", self.feature_name(feature)) if feature else "feature"
         letter = axis.upper()
-        definition = self.features.get(feature, {}) if isinstance(feature, str) else {}
-        declared = definition.get("axis")
-        standing = None
-
-        def indicated(recipe):
-            recipe = _mapping(recipe)
-            on = recipe.get("feature", recipe.get("edge"))
-            picked = recipe.get("method") == "indicate_axis" or recipe.get("from") == "indicated"
-            return picked and on == feature
-
-        if isinstance(declared, list) and len(declared) == 3 and all(map(_known, declared)):
-            standing = self.along_setup_z(setup, definition)
-        elif all(indicated(authored.get(a)) for a in ("x", "y")):
-            standing = True
-        elif "index" in _mapping(setup.get("hold")):
-            standing = False
         tool = tool or "DTI"
-        sweep_round = (
-            f"{tool} in the spindle; turn the spindle by hand to sweep the {name} all round and "
-            "move the table until the reading is the same all round"
+        definition = _mapping(self.features.get(feature)) if isinstance(feature, str) else {}
+        kind = str(definition.get("kind", ""))
+        cylindrical = kind in {"hole", "boss", "cylinder", "shaft", "cylinder_spigot"} or (
+            "bore" in kind
         )
-        sweep_crest = (
-            f"{tool} in the spindle; sweep across the {name} in {letter} and move the table "
-            "until the highest reading (the crest) is under the spindle"
+        alignment = self.axis_alignment(setup, definition)
+        proof = _mapping(computed.get("pickup_proof"))
+        reason = (
+            "the desired datum does not identify a cylindrical pickup surface"
+            if not cylindrical
+            else "the pickup surface orientation is not established"
+            if alignment is None or 0.001 < alignment < 0.999
+            else "a qualified observable pickup on the current work is not established"
+            if proof.get("status") != "pass" or proof.get("setup_id") != setup.get("id")
+            else ""
         )
-        if standing is True:
-            recipe = sweep_round
-        elif standing is False:
-            recipe = sweep_crest
-        else:
-            recipe = f"standing up: {sweep_round}; lying along the table: {sweep_crest}"
-        return f"indicate: {recipe}; then Axis Set {letter}"
+        if reason:
+            return _Box(
+                f"STOP: {letter} pickup target {name} with {tool} — {reason}; qualify the "
+                "transfer before Axis Set. Target coordinates are not an observed contact.",
+                source="zero_check",
+                status="unknown",
+                scope=f"{setup.get('id')}:{axis}",
+            )
+        recipe = (
+            f"{tool} in the spindle; turn the spindle by hand to sweep the {name} all round "
+            "and move the table until the reading is the same all round"
+            if alignment >= 0.999
+            else f"{tool} in the spindle; sweep across the {name} in {letter} and move the "
+            "table until the highest reading (the crest) is under the spindle"
+        )
+        return f"Planned indication: {recipe}; then Axis Set {letter}"
 
     def along_setup_z(self, setup, definition):
-        """Whether a feature's declared ``axis`` (in its own frame) lies along the setup
-        frame's Z; None when either is not known."""
+        """Whether a declared feature axis is parallel to setup Z; None if unresolved."""
+        alignment = self.axis_alignment(setup, definition)
+        return alignment >= 0.999 if alignment is not None else None
+
+    def axis_alignment(self, setup, definition):
+        """Absolute axis/Z cosine from supplied feature and setup frames, else None."""
         declared = definition.get("axis")
         if not (isinstance(declared, list) and len(declared) == 3 and all(map(_known, declared))):
             return None
         frames = _mapping(self.bundle.features.get("frames"))
         source = _mapping(frames.get(definition.get("frame", "model")))
         basis = [source.get(k) for k in ("x", "y", "z")]
-        if all(isinstance(b, list) and len(b) == 3 for b in basis):
+        if all(isinstance(b, list) and len(b) == 3 and all(map(_known, b)) for b in basis):
             declared = [sum(declared[j] * basis[j][i] for j in range(3)) for i in range(3)]
+        elif definition.get("frame", "model") != "model" or any(b is not None for b in basis):
+            return None
         z = _mapping(setup_frame(self.bundle, setup)).get("z")
         if not (isinstance(z, list) and len(z) == 3 and all(map(_known, z))):
             return None
-        norm = math.sqrt(sum(v * v for v in declared)) or 1.0
-        return abs(sum(a * b for a, b in zip(declared, z, strict=True))) / norm > 0.999
+        norm = math.sqrt(sum(v * v for v in declared))
+        return (
+            abs(sum(a * b for a, b in zip(declared, z, strict=True))) / norm if norm > 0 else None
+        )
 
     @property
     def decimals(self):
@@ -3507,7 +3513,7 @@ class _Traveler:
         return f" (from {self.zero_name(setup)})"
 
     def bench(self, text, setup=None):
-        """Plan / rule prose in shop words: no ids, files, hashes or long decimals.
+        """Plan / rule prose in shop words, preserving every written numeric literal.
         Registered bare names replace whole reference tokens, never a word's substring."""
         setup = setup or self.setup
         text = str(text) if text is not None else "?"
@@ -3551,13 +3557,6 @@ class _Traveler:
             text,
         )
         text = text.replace("PLAN.md", "approved plan")
-        # Computed residue (0.470333, -2.07825) prints at DRO resolution; an authored
-        # value of up to four decimals (a 1.9875 pin, a 0.0254 limit) is a fact, kept as is.
-        text = re.sub(
-            r"(?<![\w.])(-?\d+\.\d{5,})(?![\w.])",
-            lambda m: _number(float(m[1]), self.decimals),
-            text,
-        )
         for rule in {key[0] for key in self.records}:
             text = text.replace(rule, _text(rule))
         text = re.sub(r"(?<=[a-z])(?=\d+(?:\.\d+)?mm\b)|(?<=\d)(?=mm\b)", " ", text)
@@ -3606,7 +3605,7 @@ class _Traveler:
             return f"Setup {_text(sid)}" + (f" op {op}" if op else "")
         return ""
 
-    def plain_error(self, rule, message, subject):
+    def plain_error(self, rule, message, subject, status):
         message = str(message)
         for prefix in (subject + ":", subject.replace(":", " ") + ":"):
             if message.startswith(prefix):
@@ -3627,7 +3626,12 @@ class _Traveler:
                 return "Hand-tap movement is not checked."
         if "point away from the setup approach" in message:
             return "faces to cut point away from the tool; they cannot be cut in this setup"
-        if rule == "fixture_interference":
+        if rule == "fixture_interference" and status in ("unknown", "unsupported"):
+            return (
+                "holding clearance is not verified; resolve the required in-process stock "
+                "and holding information before execution"
+            )
+        if rule == "fixture_interference" and status == "error":
             message = message.removeprefix(
                 "fixture interpenetrates the work or another fixture:"
             ).strip()
@@ -3667,7 +3671,7 @@ class _Traveler:
                 label = self.subject_label(subject, setup)
             on_op = bool(setup) and label.startswith("op ")
             if status == "error":
-                text = self.plain_error(rule, _field(finding, "message", "?"), subject)
+                text = self.plain_error(rule, _field(finding, "message", "?"), subject, status)
                 stops.setdefault(text, []).append(label)
             elif status == "warn":
                 if skip_ops and on_op:
@@ -3893,6 +3897,8 @@ class _Traveler:
             shared = common[1] if common else {}
             mount = "" if common else "Mount the " + reference(fixture, "workholding")
             pointer = self.shop_made_pointer(setup, fixture, uses)
+            if common and pointer:
+                mount = "Fixture: " + reference(fixture, "workholding")
             mount += pointer
             if stated("chuck"):
                 mount += (" with the " if mount else "Chuck: ") + reference(
@@ -4012,13 +4018,28 @@ class _Traveler:
                     line += " set on and backed off every pass as printed under each op"
             steps.append(line + ".")
         if stated("support"):
-            label = "Tailstock: " if lathe else "Support: "
+            label = "Support: "
             if hold["support"] == "unknown":
                 steps.append(
                     _Box("STOP: support / restraint not chosen — do not run.", source="hold_fields")
                 )
             else:
                 line = label + reference(hold["support"], "fixtures")
+                support = _mapping(resolve(self.bundle, "fixtures", hold["support"]))
+                if support.get("kind") == "dead_centre":
+                    taper = support.get("taper")
+                    if isinstance(taper, str) and taper not in ("", "unknown"):
+                        line += f", {taper}"
+                    diameter = length_fact(support, "dia", require_measured=True)
+                    point = angle_fact(support, "point_angle", require_measured=True)
+                    for fact, description in (
+                        (point, lambda value: f"{_declared(value)}° point"),
+                        (diameter, lambda value: f"body Ø{_declared(value)} mm"),
+                    ):
+                        if _known(fact["value"]):
+                            line += ", " + description(fact["value"])
+                            if not fact["verified"]:
+                                line += " (not verified)"
                 if _known(hold.get("quill_extension_mm")):
                     line += f", quill out {self.operative(hold['quill_extension_mm'])} mm"
                 steps.append(line + ".")
@@ -4043,12 +4064,12 @@ class _Traveler:
                 prefix = "" if compact and key == "stop" and hold[key] != UNKNOWN else f"{label}: "
                 steps.append(prefix + self.bench(hold[key], setup).rstrip(".") + ".")
         if stated("clamp"):
+            # Keep the authored clamp procedure local and ordered: sharing an individual
+            # step can detach key removal from the tightening that requires it.
             for step in str(hold["clamp"]).split(";"):
                 step = self.bench(step, setup)
                 if step:
                     steps.append(step[:1].upper() + step[1:] + ".")
-                    if compact and not _FIELD.search(step):
-                        shared_steps[("clamp", step)] = steps[-1]
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
         for label, clamp in zip(clamp_labels(hold), clamps, strict=True):
             clamp = _mapping(clamp)
@@ -4116,7 +4137,9 @@ class _Traveler:
             self._route_hold_steps[setup["id"]] = tuple(steps)
             self._route_hold_facts[setup["id"]] = shared_steps
             return (
-                "<p><strong>Hold.</strong> " + _fields(" ".join(steps)) + "</p>" if steps else "",
+                "<p><strong>Holding.</strong></p>" + _list(steps, setup_ids=(setup["id"],))
+                if steps
+                else "",
                 self.indexing(setup),
             )
         below = (
@@ -4292,12 +4315,12 @@ class _Traveler:
             if touch.get("measure_before_hold") is not True or not touch.get("measure"):
                 continue
             gauge = touch.get("gauge")
-            line = f"Before clamping, measure {axis.upper()} M = " + self.bench(
+            line = f"Before clamping — {axis.upper()} measurement M: " + self.bench(
                 touch["measure"], setup
-            )
+            ).rstrip(". ")
             if gauge not in (None, "unknown"):
-                line += " with the " + self.short_reference(gauge, "gauges")
-            steps.append(line + "; write it down for the DRO table. " + "{" + axis.upper() + " M}")
+                line += ". Gauge: " + self.short_reference(gauge, "gauges")
+            steps.append(line + ". Record for the DRO table: " + "{" + axis.upper() + " M}")
         return steps
 
     def blank_checks(self, setup):
@@ -4560,6 +4583,12 @@ class _Traveler:
             key = self.holding_identity(setup, reference)
             if self.shop_made(setup, reference) is None or (pose in (None, LOOSE) and key in uses):
                 continue
+            if pose not in (None, LOOSE) and key in uses:
+                # A loose riser/support reference describes the same inventory item,
+                # not another copy in addition to its explicitly posed placement.
+                uses[key][1][:] = [
+                    placement for placement in uses[key][1] if placement[1] not in (None, LOOSE)
+                ]
             uses.setdefault(key, (reference, []))[1].append((label, pose))
         return uses
 
@@ -4599,21 +4628,20 @@ class _Traveler:
         return next(iter(grids)) if len(grids) == 1 else None
 
     def fixture_number(self, value, fit=False, axis=None):
-        """A shop-made fixture size or position on the DRO grid it is made and set on (the
-        shop's mill, :attr:`mill_grid`, else the setup's own): at the shop policy's make
-        precision (``numbers.fixture_make_decimals``), a fit that locates the part at the
-        drawing's precision, and either undeclared, finer than the grid or off it at the
-        grid step. A position on ``axis`` at the place of a fit on this sheet
-        (:attr:`fit_places`) prints as that fit: one place, one value. A fit the grid moves
-        beyond the drawing's general tolerance at its precision, or with that tolerance
-        undeclared, prints ``?``: the hole is never moved silently. No trailing zeros: a
-        make sheet."""
+        """A manufacturing dimension, never a rounded picture label.
+
+        Preserve the source value, suppressing only floating-point calculation residue.
+        Fits retain the mill-grid feasibility check; a fit outside its declared tolerance
+        remains unknown rather than silently moving the target onto that grid.
+        """
         if not _known(value):
             return "?"
         if not fit and axis is not None:
             fit = any(abs(value - place) <= 1e-6 for place in self.fit_places.get(axis, ()))
+        if not fit:
+            return format(value, ".12g") if value else "0"
         step, decimals = self.mill_grid or dro_grid(self.bundle, self.setup or {})
-        places = self.general_precision if fit else self.make_decimals
+        places = self.general_precision
         declared = isinstance(places, int) and not isinstance(places, bool) and places >= 0
         wanted = 10.0**-places if declared else None
         coarser = declared and abs(wanted / step - round(wanted / step)) <= 1e-9 * wanted / step
@@ -4637,7 +4665,7 @@ class _Traveler:
                     "fixture design or declare the tolerance."
                 )
                 return "?"
-        return _number(printed)
+        return format(value, ".12g") if value else "0"
 
     def fixture_setting(self, setup, hold, uses):
         """Placement of a posed angle plate or shop-made fixture body: the base on the
@@ -4913,21 +4941,27 @@ class _Traveler:
         return first_use, first_table
 
     def make_operation_lists(self, setup, uses):
-        """The make operations (:meth:`make_lines`) of each shop-made item this setup is the
-        first to hold with, through any slot, when no make table on this sheet carries them
-        (``uses``: this setup's :meth:`shop_made_uses`), under the item's name and a
-        pointer to its later make table, if any: a declared operation prints once, before
-        the item is first needed."""
+        """Print standalone make operations at first use and named pointers thereafter.
+        A setup's make table owns its own operations/reference when the item is in
+        ``uses``; other holding slots still retain the item's first-use location."""
         first_use, first_table = self.make_homes
         html = ""
+        seen = set()
         for category, reference, *_ in setup_items(self.bundle, setup):
             key = (category, reference)
-            if category not in WORKHOLDING_CATEGORIES or first_use.get(key) != setup["id"]:
+            if category not in WORKHOLDING_CATEGORIES or key in seen:
                 continue
+            seen.add(key)
             if key in uses:
                 continue
             lines = self.make_lines(shop_made_item(self.bundle, reference, category), {})
             if not lines:
+                continue
+            home = first_use.get(key)
+            if home != setup["id"]:
+                html += _p(
+                    f"Make operations: {self.reference(reference, category)}, Setup {_text(home)}."
+                )
                 continue
             table = first_table.get(key)
             title = f"SHOP-MADE FIXTURE — {self.reference(reference, category)}"
@@ -4939,10 +4973,21 @@ class _Traveler:
                     if table
                     else ""
                 )
-                + _p("Make operations, in order:")
-                + "".join(_p(line) for line in lines)
+                + self.make_operation_block(title, lines)
             )
         return html
+
+    def make_operation_block(self, title, lines):
+        """Keep a fixture's ordered make operations in their named continuation context."""
+        if not lines:
+            return ""
+        context = title + " — make operations"
+        return (
+            f'<section class="fixture-make" data-page-context="{escape(context)}">'
+            f'<h3 class="page-context">{escape(context)}</h3>'
+            + "".join(_p(line) for line in lines)
+            + "</section>"
+        )
 
     def shop_made_parts(self, setup, reference):
         """The item's solids, made solids, withheld solids (id -> why), holes per parent
@@ -5154,7 +5199,8 @@ class _Traveler:
                 if loose
                 else f"Positions are in the Setup {_text(sid)} frame"
             )
-            + ": boxes give their X / Y / Z extents, cylinders their axis."
+            + ": boxes give their posed bounding extents, cylinders their axis. "
+            "Size mm gives component-frame make dimensions, not the posed bounding envelope."
         )
         hardware = self.hardware(
             [s for s in solids if not s.get("void") and _supply(s) == "bought"], len(placed)
@@ -5176,10 +5222,12 @@ class _Traveler:
             )
             + (_p(f"Bought hardware (not made): {hardware}.") if hardware else "")
             + (_p(f"Make: {_make_notes(notes)}.") if notes else "")
-            + (_p("Make operations, in order:") if operations else "")
-            + "".join(_p(line) for line in operations)
+            + self.make_operation_block(title, operations)
             + (
-                _p(f"Make operations: Setup {_text(first)}.")
+                _p(
+                    f"Make operations: see the named SHOP-MADE FIXTURE section for "
+                    f"{self.shop_made_name(setup, reference)}, before Setup {_text(first)}."
+                )
                 if first != sid and make_ops(item)
                 else ""
             )
@@ -5299,10 +5347,37 @@ class _Traveler:
                 )
             )
             groups.setdefault(key, []).append(solid)
+        geometry_groups = {}
+        for key, members in groups.items():
+            for solid in members:
+                shape = (
+                    solid.get("shape"),
+                    repr(solid.get("size_mm")),
+                    solid.get("dia_mm"),
+                    solid.get("length_mm"),
+                )
+                geometry_groups.setdefault(shape, set()).add(key)
         parts = []
         for (fastener, *_), members in groups.items():
             if fastener:
                 count, what = _touching_groups(members), self.bench(fastener)
+                ambiguous = any(
+                    len(
+                        geometry_groups[
+                            (
+                                solid.get("shape"),
+                                repr(solid.get("size_mm")),
+                                solid.get("dia_mm"),
+                                solid.get("length_mm"),
+                            )
+                        ]
+                    )
+                    > 1
+                    for solid in members
+                )
+                if ambiguous:
+                    names = dict.fromkeys(_solid_name(solid.get("name", "?")) for solid in members)
+                    what = " / ".join(names) + " — " + what
             else:
                 names = [_solid_name(solid.get("name", "?")) for solid in members]
                 stem, _ = _name_group(names)
@@ -5790,7 +5865,7 @@ class _Traveler:
                     else "hand feed past it; check the cutter clears it"
                 )
                 text = (
-                    f"{cut[1].upper()} SWEPT GAP {o(cut[0])} mm — {check}"
+                    f"{cut[1].upper()} MODELED SWEPT GAP {o(cut[0])} mm — {check}"
                     if self.detail != "pedantic" and not hand
                     else f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}"
                 )
@@ -5938,6 +6013,8 @@ class _Traveler:
     def cut_span(self, setup, op):
         """(start Z, tip Z) of ``op`` as its op row prints them (:meth:`tip`); a start the
         row does not print is None, an unknown stays unknown."""
+        if self.manual_raster(setup, op) is not None:
+            return None, "unknown"
         endpoint = self.endpoint(setup, op)
         if endpoint:
             return endpoint.get("dro_entry_z", "unknown"), endpoint.get("dro_tip_z", "unknown")
@@ -6279,7 +6356,7 @@ class _Traveler:
             )
             boxes.append(
                 _Box(
-                    f"{cut[1].upper()} SWEPT GAP {o(cut[0])} mm — {check}"
+                    f"{cut[1].upper()} MODELED SWEPT GAP {o(cut[0])} mm — {check}"
                     if self.detail != "pedantic" and not hand
                     else f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}",
                     source="cut_clearance",
@@ -6366,15 +6443,43 @@ class _Traveler:
         recovery = recovery.strip() if isinstance(recovery, str) and recovery != "unknown" else ""
         clamped = transfer.get("keep_clamped") is True
         centring = not self.lathe(setup) and self.centring(items)
-        if not _known(limit):
-            line = (
-                f"Before zeroing: indicate the {features}{with_gauge}; runout limit not set "
-                "— ? confirm the allowed runout"
-            )
-        elif clamped and not recovery:
+        pickup_hold = ""
+        if not self.lathe(setup):
+            axes = _mapping(self.records.get(("zero_check", setup["id"]), {}).get("axes"))
+            proofs = [
+                _mapping(_mapping(computed).get("pickup_proof")) for computed in axes.values()
+            ]
+            if (
+                not all(isinstance(self.features.get(feature), dict) for feature in items)
+                or not proofs
+                or any(
+                    proof.get("status") != "pass" or proof.get("setup_id") != setup.get("id")
+                    for proof in proofs
+                )
+            ):
+                pickup_hold = (
+                    f"HOLD: desired datum transfer on {features}{with_gauge}; qualify a current "
+                    f"observable contact, orientation and transfer before zeroing. Required "
+                    f"comparison: {reading}. No direct sweep or alignment is established."
+                )
+        if clamped and not recovery:
             line = (
                 f"STOP: the {features} must read {reading} or less with the work left "
                 "clamped, and no recovery is planned for a sweep that reads more"
+            )
+            if pickup_hold:
+                line += ". " + pickup_hold
+        elif pickup_hold:
+            line = pickup_hold
+            if clamped:
+                line += (
+                    " Do not loosen the work. Planned recovery: "
+                    + self.bench(recovery, setup)
+                )
+        elif not _known(limit):
+            line = (
+                f"Before zeroing: indicate the {features}{with_gauge}; runout limit not set "
+                "— ? confirm the allowed runout"
             )
         elif clamped and centring:
             # Centring moves the table, never the work; the recovery is for a sweep that
@@ -6418,14 +6523,13 @@ class _Traveler:
         return re.sub(r"\.+$", "", line)
 
     def centring(self, items):
-        """True when a transfer indicates one round feature (a hole, bore or boss, or a
-        named non-feature such as a pin head): the sweep goes all round it and the table
-        centres on it. Surfaces, or several features, are an alignment instead."""
+        """Whether the supplied target is one declared round feature; an unresolved
+        identity is not evidence of a round, currently observable contact."""
         if len(items) != 1:
             return False
         definition = self.features.get(items[0])
         if not isinstance(definition, dict):
-            return True
+            return False
         kind = str(definition.get("kind", ""))
         return kind == "hole" or "bore" in kind or kind in ("boss", "cylinder_spigot")
 
@@ -6994,6 +7098,7 @@ class _Traveler:
             method = touch.get("method")
             opposed = method == "opposed_edge_midpoint"
             indicate = method == "indicate_axis" or touch.get("from") == "indicated"
+            pickup_held = False
             tool = None
             if "tool" in touch:
                 tool = (
@@ -7043,7 +7148,19 @@ class _Traveler:
                     contact.append(message)
                     unresolved(message, scope, midpoint_status)
             elif indicate:
-                contact.append(self.indicate_recipe(setup, axis, target, authored, tool))
+                recipe = self.indicate_recipe(setup, axis, target, computed, tool)
+                contact.append(recipe)
+                if isinstance(recipe, _Box):
+                    pickup_held = True
+                    unresolved(str(recipe), scope, recipe.status)
+            elif method == "unknown" or touch.get("from") == "unknown":
+                pickup_held = True
+                message = (
+                    f"STOP: {axis.upper()} desired datum target {self.feature_name(target)} — "
+                    "the actual pickup/transfer method is not established."
+                )
+                contact.append(message)
+                unresolved(message, scope)
             elif method == "mounted_saw_side":
                 contact.append(self.mounted_saw_contact(computed))
             elif method not in (None, "paper", "touch"):
@@ -7152,7 +7269,10 @@ class _Traveler:
                 # The HOLD measured M before clamping (:meth:`bench_measures`).
                 contact.append("M measured before clamping (HOLD)")
             elif touch.get("measure"):
-                contact.append("M = " + self.bench(touch["measure"]))
+                measurement = self.bench(touch["measure"])
+                contact.append(
+                    measurement if re.match(r"^M\s*=", measurement) else "M = " + measurement
+                )
             if method == "measure_then_set" and setup.get("id") not in (None, "", "unknown"):
                 owner = f"{setup['id']} {axis.upper()} M"
                 if before_hold:
@@ -7313,10 +7433,15 @@ class _Traveler:
                         brief.append(explanation)
                     if procedure and _FIELD.search(procedure):
                         brief.append(self.bench(procedure, setup))
-                brief.append(f"Axis Set {axis.upper()}{setting}")
-                if detail == "hobby" and mounted_setup and axis in ("x", "y"):
+                brief.append(
+                    f"Desired {axis.upper()} setting {setting}; pickup HOLD"
+                    if pickup_held
+                    else f"Axis Set {axis.upper()}{setting}"
+                )
+                if _known(jog):
                     brief.append(
-                        f"{jog_direction}{axis.upper()} "
+                        ("Desired-target check only; pickup HOLD: " if pickup_held else "")
+                        + f"{jog_direction}{axis.upper()} "
                         f"{o(abs(jog)) if _known(jog) else '?'} jog "
                         f"reads {expected}; {mirrored} reversed: STOP"
                     )
@@ -7326,7 +7451,7 @@ class _Traveler:
                 (
                     axis.upper(),
                     "; ".join(contact),
-                    setting,
+                    f"desired target {setting}; pickup HOLD" if pickup_held else setting,
                     f"{jog_direction}{axis.upper()} {o(abs(jog)) if _known(jog) else '?'}",
                     expected,
                     mirrored,
@@ -8304,6 +8429,12 @@ class _Traveler:
         if saw_setup(self.bundle, setup):
             return ""
         numbers = self.records.get(("coordinates", setup["id"]), {})
+        if numbers.get("axis_placement_debt"):
+            return _p(
+                "STOP: the common boss, bore and cap placement has not been proved. "
+                "No nominal or shifted machining coordinates are released.",
+                "stop",
+            )
         display = numbers.get("x_display")
         lathe = "x_display" in numbers or self.lathe(setup)
         # The size each surface turns to, as the DRO's X display reads it; unread, the
@@ -8330,7 +8461,6 @@ class _Traveler:
         aims = []
         # A lathe map gives the size each surface is turned to and the Zs its cuts run
         # between: a surface this setup only inspects (an as-supplied diameter) has none.
-        cut = {op.get("feature") for op in setup.get("ops", []) if op.get("do") not in MANUAL}
         for record in numbers.get("rows", []):
             feature = record.get("feature")
             # A mill target prints where the DRO stops: on its grid, aims applied.
@@ -8340,7 +8470,7 @@ class _Traveler:
             if lathe:
                 x = record.get("x_target_mm")
                 size = x if prefix is not None else record.get("dia_nominal")
-                if feature not in cut or not _known(size):
+                if feature not in surface_ops or not _known(size):
                     continue
                 # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
                 first = [
@@ -8376,9 +8506,10 @@ class _Traveler:
             # unknown. A feature point or finished/native span is not a cut window.
             for op in setup.get("ops", []):
                 feature = op.get("feature")
-                if not isinstance(feature, str) or feature not in cut or feature in grouped:
+                if not isinstance(feature, str) or feature not in surface_ops or feature in grouped:
                     continue
-                diameter = _mapping(self.features.get(feature)).get("dia_nominal")
+                definition = _mapping(self.features.get(feature))
+                diameter = definition.get("dia_nominal", definition.get("nominal_dia"))
                 if not _known(diameter) and feature not in staged:
                     continue
                 x = diameter / 2 if _known(diameter) and display == "radius" else diameter
@@ -8425,6 +8556,7 @@ class _Traveler:
             drawing = _mapping(self.bundle.features.get("features"))
             rows = []
             unknown_stage = nominal_stage = False
+            target_band_stop = False
             for feature, entry in targets:
                 band = _mapping(drawing.get(feature)).get("dia")
                 drawn = "—"
@@ -8457,7 +8589,15 @@ class _Traveler:
                 if "ops" in entry:
                     owners = ", ".join(str(op["op"]) for op in cutting)
                     label += f" — {'op' if len(cutting) == 1 else 'ops'} {owners}"
-                if "ops" in entry and not _known(entry["nominal_dia"]):
+                conflicts = [
+                    conflict
+                    for op in cutting
+                    if (conflict := diameter_target_conflict(self.bundle, setup, op)) is not None
+                ]
+                if conflicts:
+                    target = "?"
+                    target_band_stop = True
+                elif "ops" in entry and not _known(entry["nominal_dia"]):
                     target = "?"
                     unknown_stage = True
                 elif entry.get("nominal_only"):
@@ -8531,6 +8671,13 @@ class _Traveler:
             note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         table = _table(headings, rows, css="feature-map", widths=widths, context=note)
+        if lathe and target_band_stop:
+            table += _p(
+                "STOP: diameter target outside the drawing limits. The model nominal "
+                "is reference geometry, not an acceptable finished size. Establish a valid "
+                "process target within the displayed limits before cutting.",
+                "stop",
+            )
         if lathe and unknown_stage:
             table += _p(
                 "STOP: operation diameter target not set; the finished-feature diameter "
@@ -8587,6 +8734,21 @@ class _Traveler:
         """A located target moved off its drawing nominal (plan ``aims``): the target, the
         intentional offset and the dimension to inspect; empty for an unaimed target. The
         aim's authored reason stays in the plan."""
+        placement = record.get("axis_placement")
+        if isinstance(placement, dict):
+            bore = placement["bore"]
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            if scale is None:
+                return ""
+            return (
+                f"{self.feature_name(placement['boss']).capitalize()}, "
+                f"{self.feature_name(bore)} and {self.feature_name(placement['caps'])}: "
+                "machine on the same intentionally placed axis. "
+                f"Inspect the separation from {self.feature_name(placement['reference'])} "
+                f"to {self.band(placement['printed_band'], bore, 'separation')} "
+                f"(process target {_number(placement['separation_mm'] / scale)}). "
+                "The checked plan geometry is not a measurement of the finished part."
+            )
         aim = record.get("aim") or {}
         nominal = record.get("nominal_setup")
         if "shift_mm" not in aim or not isinstance(nominal, list):
@@ -8691,6 +8853,8 @@ class _Traveler:
 
     # ------------------------------------------------------------- operations
     def tip(self, setup, op):
+        if self.manual_raster(setup, op) is not None:
+            return [self.z_target(setup, op)]
         o = self.readout
         endpoint = self.endpoint(setup, op)
         if endpoint and endpoint.get("depth_scale") == "manual":
@@ -8729,13 +8893,49 @@ class _Traveler:
             # Consume checked operative endpoints, including the actual carried Axis Set;
             # never re-round their raw native entry or exit face in the renderer.
             entry = endpoint.get("dro_entry_z")
+            explicit = endpoint.get("endpoint_source") == "to_z"
             parts = [
                 f"tip Z{o(endpoint.get('dro_tip_z'))}"
                 if self.detail != "pedantic" and _known(entry) and entry == 0
                 else f"Z {o(entry)} → {o(endpoint.get('dro_tip_z'))}"
             ]
+            if explicit:
+                parts = [f"Commanded tip Z{o(endpoint.get('dro_tip_z'))}"]
+                if _known(entry):
+                    parts.append(f"Independent entry reference Z{o(entry)}")
+                minimum = endpoint.get("required_tip_z")
+                if _known(minimum):
+                    parts.append(
+                        f"Independent minimum tip bound Z{minimum} {self.units} "
+                        "(reference, not actual-stock proof)"
+                    )
+                if endpoint.get("actual_stock_status") == "unknown":
+                    parts.append(
+                        _Box(
+                            "HOLD: actual arriving stock and breakthrough remain unproved; "
+                            "a commanded endpoint is not geometry or clearance proof.",
+                            source="blind_depth",
+                            status="unknown",
+                            scope=f"{setup['id']}:{op.get('op')}",
+                        )
+                    )
+                breakthrough = endpoint.get("breakthrough_status")
+                if breakthrough in ("unknown", "error"):
+                    parts.append(
+                        _Box(
+                            "STOP: commanded endpoint does not establish the independent "
+                            "breakthrough requirement.",
+                            source="blind_depth",
+                            status=breakthrough,
+                            scope=f"{setup['id']}:{op.get('op')}",
+                        )
+                    )
             if endpoint.get("exit_face", "not_applicable") != "not_applicable":
-                parts.append(f"breaks through at {o(endpoint.get('dro_exit_face'))}")
+                parts.append(
+                    f"Independent far-face reference Z{o(endpoint.get('dro_exit_face'))}"
+                    if explicit
+                    else f"breaks through at {o(endpoint.get('dro_exit_face'))}"
+                )
                 left = endpoint.get("dro_exit_mm")
                 if _known(left) and left < -SAME_Z:
                     # Rounded up, the DRO tip leaves the full diameter short of the exit.
@@ -8755,9 +8955,17 @@ class _Traveler:
                 ):
                     parts.append(_Box("STOP: DRO depth rounded; feature depth band unknown"))
             if not _known(endpoint.get("tip_z")):
-                parts[0] = f"Z {o(entry)} → depth not set"
+                parts[0] = (
+                    "Authored Z command is not established"
+                    if explicit
+                    else f"Z {o(entry)} → depth not set"
+                )
                 geometry = (
-                    "establish hand-tap penetration, allowing for tap lead and bottom clearance"
+                    "authored Z command is unknown; no geometry-derived replacement is commanded"
+                    if explicit
+                    else (
+                        "establish hand-tap penetration, allowing for tap lead and bottom clearance"
+                    )
                     if op.get("do") == "hand_tap"
                     else "reamer chamfer / lead length unknown"
                     if op.get("do") == "ream" and not _known(endpoint.get("lead_mm"))
@@ -8787,6 +8995,13 @@ class _Traveler:
         for key, value in (("z_from", start), ("z_to", end)):
             if key in op and not ("z_from" in op and "z_to" in op):
                 parts.append(f"{'from' if key == 'z_from' else 'to'} Z {o(value)}")
+        for key, label in (("z_from", "start"), ("z_to", "end"), ("to_z", "target")):
+            candidate = op.get(key)
+            if _known(candidate) and not _known(self.op_z(setup, op, key)):
+                parts.append(
+                    f"Authored candidate {label} Z{_declared(candidate)} "
+                    f"{self.units} (unproved; not a checked toolpath)"
+                )
         parts.extend(self.plunge_x(setup, op))
         if any("?" in part for part in parts):
             parts.append(_Box("STOP: Z target not set"))
@@ -8819,7 +9034,7 @@ class _Traveler:
         )
         o = self.readout
         if not (_known(depth) and scale):
-            return [f"X → {o(to_dia * half)} (radial plunge unknown)"]
+            return [f"X → {o(to_dia * half)}; starting diameter and radial travel not established"]
         radial = depth / scale
         start = (to_dia + 2 * radial) * half
         return [f"X {o(start)} → {o(to_dia * half)} ({o(radial)} radial)"]
@@ -8869,8 +9084,19 @@ class _Traveler:
                 return entry
         return {}
 
+    def manual_raster(self, setup, op):
+        """The normalized authored tool-tip trajectory, never a scalar depth fallback."""
+        entry = self.coordinates_entry(setup, op)
+        if "manual_raster" in entry:
+            return entry["manual_raster"]
+        if _mapping(op.get("contour")).get("method") == "manual_raster":
+            return {"reason": "normalized motion not established"}
+        return None
+
     def z_levels(self, setup, op):
         """The axial levels coordinates stepped an op authoring ``doc_mm`` down in, or None."""
+        if self.manual_raster(setup, op) is not None:
+            return None
         levels = self.coordinates_entry(setup, op).get("z_levels")
         return levels if isinstance(levels, dict) else None
 
@@ -8881,6 +9107,14 @@ class _Traveler:
         that pass, ``Z → depth``, while levels it could not establish keep their ``?``. A
         grooving/parting blade's target is the DRO reading of the corner its Z touch set
         (coordinates ``blade``), named."""
+        raster = self.manual_raster(setup, op)
+        if raster is not None:
+            if raster.get("reason"):
+                return _Box(
+                    "STOP: manual raster motion unknown — " + str(raster["reason"]),
+                    source="coordinates",
+                )
+            return "tool-tip X/Y/Z: follow the authored setup-mm move table"
         o = self.readout
         levels = self.z_levels(setup, op)
         if levels is not None:
@@ -9089,6 +9323,18 @@ class _Traveler:
         endpoint = self.endpoint(setup, op)
         if not endpoint or endpoint.get("exit_face", "not_applicable") == "not_applicable":
             return None
+        if endpoint.get("endpoint_source") == "to_z":
+            margin = endpoint.get("dro_exit_mm")
+            if (
+                endpoint.get("actual_stock_status") == "unknown"
+                or endpoint.get("breakthrough_status") != "pass"
+                or not _known(margin)
+            ):
+                return None
+            return (
+                f"Independent design exit margin {_declared(margin)} mm "
+                "(not a measured breakthrough or actual-stock proof)."
+            )
         exit_face, tip = endpoint.get("dro_exit_face"), endpoint.get("dro_tip_z")
         if not (_known(endpoint.get("tip_z")) and _known(tip) and _known(exit_face)):
             return None
@@ -9286,7 +9532,7 @@ class _Traveler:
                 ]
                 method = first["method"]
                 note = (
-                    method_note(requirement, owners, method, len(partitions) > 1)
+                    method_note(requirement, owners, method, len(partitions) > 1, label_owners=True)
                     if method and method != "unknown"
                     else None
                 )
@@ -9340,6 +9586,31 @@ class _Traveler:
             rows.append(self.note("Inspection", note))
         return rows
 
+    def inspection_source_note(self, feature, requirement):
+        """Distinguish a conservative printed screen from the exact CAD requirement."""
+        value = self.features.get(feature, {}).get(requirement)
+        pair = isinstance(value, (list, tuple)) and len(value) == 2
+        limits = list(value) if pair else [value] if requirement in ZONES else []
+        if not limits or not all(map(_known, limits)):
+            return None
+        band, unit = self.inspection_band(feature, requirement)
+        shown = band.removesuffix(" " + unit) if unit else band
+        parts = shown.split("–")
+        if len(parts) != len(limits) or not all(_NUMBER.fullmatch(part) for part in parts):
+            return None
+        source_unit = "°" if requirement.endswith("_deg") else self.units
+        if source_unit not in ("mm", "in", "°") or unit not in ("mm", "in", "°"):
+            return None
+        shown_scale = Decimal("25.4") if unit == "in" else Decimal(1)
+        source_scale = Decimal("25.4") if source_unit == "in" else Decimal(1)
+        if all(
+            Decimal(part) * shown_scale == Decimal(str(limit)) * source_scale
+            for part, limit in zip(parts, limits, strict=True)
+        ):
+            return None
+        source = "–".join(_declared(limit) for limit in limits)
+        return f"CAD {'limits' if pair else 'max'} {source} {source_unit}; conservative screen only"
+
     def inspection_rows(
         self, requirement, owners, reference, pair, absent, note, targets, *, debt_subjects=()
     ):
@@ -9356,8 +9627,8 @@ class _Traveler:
                         identity == target["identity"]
                         and evidence.get("shared_check_id") == target["shared_check_id"]
                         and evidence.get("covered_workpieces", []) == target["covered_workpieces"]
-                        and evidence.get("setup_id", target["setup_id"]) == target["setup_id"]
-                        and evidence.get("op_id", target["op_id"]) == target["op_id"]
+                        and evidence.get("setup_id") == target["setup_id"]
+                        and evidence.get("op_id") == target["op_id"]
                     ):
                         return finding
                 elif _field(finding, "subject") == target["subject"]:
@@ -9392,6 +9663,24 @@ class _Traveler:
                 for feature, band in zip(owners, bands, strict=True)
             )
         )
+        if requirement == "separation" and not absent:
+            from prechips.axis_placements import resolve_placements
+            from prechips.rules.coordinates import _placement_debt
+
+            placements = [
+                placement
+                for placement in resolve_placements(self.bundle)
+                if placement["bore"] in owners
+            ]
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            if placements and scale and _placement_debt(self.bundle) is None:
+                target += (
+                    " (process target "
+                    + ", ".join(
+                        _number(placement["separation_mm"] / scale) for placement in placements
+                    )
+                    + ")"
+                )
         gauge = (
             "no gauge chosen"
             if reference in (None, "unknown")
@@ -9407,7 +9696,13 @@ class _Traveler:
                 for finding in findings
             )
         )
-        line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
+        unresolved_label = (
+            "Drawing limit not established"
+            if absent
+            else "Inspection selection not established for this operation"
+        )
+        prefix = unresolved_label + ": " if unresolved else ""
+        line = f"{prefix}{name} {target}: {gauge}"
         if pair == "unknown":
             line += ", GO / NO-GO sizes not set"
         elif pair and owners:
@@ -9460,7 +9755,7 @@ class _Traveler:
                             identity(self.bundle, reference, "gauges"),
                             gauge,
                             _Criterion(
-                                f"{'? ' if unresolved else ''}{name}: "
+                                f"{prefix}{name}: "
                                 + "; ".join(self.bench(clause) for clause in clauses)
                                 + (
                                     "; inspection method not set"
@@ -9493,6 +9788,13 @@ class _Traveler:
         groups = (
             [(owners, target)]
             if len(set(bands)) == 1
+            and len(
+                {
+                    json.dumps(self.features.get(feature, {}).get(requirement), sort_keys=True)
+                    for feature in owners
+                }
+            )
+            == 1
             else [([feature], band) for feature, band in zip(owners, bands, strict=True)]
         )
         rows = []
@@ -9516,6 +9818,12 @@ class _Traveler:
                 and (part_identity.get("workpiece") or first.get("shared_check_id"))
                 else band
             )
+            source_note = self.inspection_source_note(group[0], requirement)
+            if source_note:
+                shown_band += (
+                    f" ({source_note}; rounding alone is not an uncertainty budget; "
+                    "a failed screen is not by itself a CAD violation)"
+                )
             text += " — " + line.replace(target, shown_band, 1)
             subjects = tuple(
                 target["subject"]
@@ -9552,7 +9860,7 @@ class _Traveler:
                             identity(self.bundle, reference, "gauges"),
                             gauge,
                             _Criterion(
-                                ("? " if unresolved else "")
+                                prefix
                                 + heading
                                 + " "
                                 + shown_band
@@ -9570,6 +9878,7 @@ class _Traveler:
                                     if not unresolved
                                     and not pair
                                     and not datums
+                                    and not source_note
                                     and not any(isinstance(value, str) for value in values)
                                     else None
                                 ),
@@ -9717,7 +10026,20 @@ class _Traveler:
         )
         kind = self.features.get(feature, {}).get("kind")
         verb = "passes over" if kind in ("boss", "shaft") else "enters"
-        return f", GO {go} {verb}, NO-GO {no_go} does not"
+        text = f", GO {go} {verb}, NO-GO {no_go} does not"
+        limits = self.features.get(feature, {}).get(requirement)
+        if (
+            isinstance(limits, (list, tuple))
+            and len(limits) == 2
+            and all(map(_known, [*limits, *sizes]))
+            and limits[0] <= min(sizes) < max(sizes) <= limits[1]
+            and (min(sizes) > limits[0] or max(sizes) < limits[1])
+        ):
+            text += (
+                " (conservative GO / NO-GO subset of the CAD band; "
+                "a failed screen requires disposition, not an automatic CAD rejection)"
+            )
+        return text
 
     def coating(self, op):
         """A coating op's tool cell: its outside service or in-house consumables."""
@@ -9973,9 +10295,7 @@ class _Traveler:
                 else (_number(rpm, 0) + " rpm")
                 if _known(rpm)
                 else blocked("STOP: no starting rpm"),
-                (_number(feed, 0) + " mm/min")
-                if _known(feed)
-                else blocked("STOP: no starting feed"),
+                (_number(feed) + " mm/min") if _known(feed) else blocked("STOP: no starting feed"),
                 rpm_stop or not (_known(rpm) and _known(feed)),
             )
         if not authored:
@@ -9984,7 +10304,7 @@ class _Traveler:
         if numbers.get("feed_direction") == "axial":
             axial = numbers.get("axial_feed_mm_rev")
             feed = (
-                f"axial {_number(per_min, 0)} mm/min ({axial:.3f} mm/rev)"
+                f"axial {_number(per_min)} mm/min ({axial:.3f} mm/rev)"
                 if _known(per_min) and _known(axial)
                 else blocked("STOP: no starting feed")
             )
@@ -9997,13 +10317,34 @@ class _Traveler:
             if _known(per_rev) and per_rev * 100 == int(per_rev * 100):
                 feed = [f"{per_rev:.2f} mm/rev"]
             if _known(per_min):
-                feed.append(f"({_number(per_min, 0)} mm/min)")
+                feed.append(f"({_number(per_min)} mm/min)")
         else:
             feed = (
-                _number(per_min, 0) + " mm/min"
+                _number(per_min) + " mm/min"
                 if _known(per_min)
                 else blocked("STOP: no starting feed")
             )
+        unproved = rpm_stop or self.finding_statuses.get(
+            ("speeds_feeds", f"{setup['id']}:{op['op']}")
+        ) not in ("pass", "warn")
+        if unproved:
+            requested = op.get("rpm")
+            if _known(requested):
+                speed = [
+                    f"Authored candidate {_declared(requested)} rpm (unproved)",
+                    speed,
+                ]
+            feed_parts = feed if isinstance(feed, list) else [feed]
+            feed = [
+                part if isinstance(part, _Box) else f"Candidate feed (unproved): {part}"
+                for part in feed_parts
+            ]
+            if not any(not isinstance(part, _Box) for part in feed_parts):
+                for field, unit in (("feed_mm_rev", "mm/rev"), ("feed_mm_min", "mm/min")):
+                    if _known(op.get(field)):
+                        feed.insert(
+                            0, f"Authored candidate feed {_declared(op[field])} {unit} (unproved)"
+                        )
         return speed, feed, rpm_stop or not (_known(rpm) and (_known(per_rev) or _known(per_min)))
 
     def unset_z(self, setup, op, target):
@@ -10038,20 +10379,43 @@ class _Traveler:
 
     def cut_depths(self, setup, op, lathe):
         """Structured action, explicit allowances, passes and depth-of-cut basis."""
+        if op.get("do") == "manual_sever":
+            return _CutDepths(
+                "planned manual sever — UNMODELED material change", None, (), (), None
+            )
+        if self.manual_raster(setup, op) is not None:
+            return _CutDepths("manual raster", None, (), (), None)
         do = str(op.get("do", ""))
+        finishes_dome = do == "form_dome" and self.contour_tips(setup, op) is not None
         basis = "on the face" if do in FACING else "on Ø" if lathe else "per side"
         allowances = tuple(
-            (key, op[key], basis)
+            (
+                key,
+                op[key],
+                "diametral-equivalent allowance to the nominal reference sphere "
+                "for finish (minimum normal stock is half; rough stage)"
+                if finishes_dome and key == "rough_allowance_mm"
+                else "declared CAD-nominal/allowance reference; not residual to the process aim"
+                if lathe and do == "rough_turn" and key == "rough_allowance_mm"
+                else basis,
+            )
             for key in ("rough_allowance_mm", "stock_to_leave_mm")
             if key in op
         )
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
-        rough = numbers.get("diameter_in")
-        rough = rough * 25.4 if lathe and do == "rough_turn" and _known(rough) else None
+        command = (
+            numbers.get("commanded_diameter_mm", "unknown")
+            if lathe and do == "rough_turn"
+            else None
+        )
         doc = None
         if "doc_mm" in op and do not in {"part_off", "cut_to_fit"}:
             kind = (
-                "axial per pass"
+                "radial per pass"
+                if do == "bore"
+                else "axial to cutter per pass; radial into work only at an established TDC"
+                if not lathe and op.get("approach") == "rotary"
+                else "axial to cutter per pass"
                 if not lathe
                 else "axial per pass (facing)"
                 if do in FACING
@@ -10063,8 +10427,8 @@ class _Traveler:
             )
             doc = (op["doc_mm"], kind)
         return _CutDepths(
-            _text(do),
-            rough if allowances else None,
+            "rough then finish dome" if finishes_dome and "rough_allowance_mm" in op else _text(do),
+            command,
             allowances,
             (op["passes"],) if "passes" in op else (),
             doc,
@@ -10083,17 +10447,20 @@ class _Traveler:
 
         unit = "" if compact and scale and display_units in ("mm", "in") else " mm"
         parts = [facts.verb]
+        if facts.commanded_diameter_mm is not None:
+            parts[0] += f" (commanded target Ø{length(facts.commanded_diameter_mm)})"
         for key, value, basis in facts.allowances:
             if not compact and key == "stock_to_leave_mm" and value == 0:
                 continue
-            if facts.rough_diameter_mm is not None and (not compact or len(parts) == 1):
-                parts[0] += f" to Ø{length(facts.rough_diameter_mm)}"
             parts.append(f"leave {length(value)}{unit} {basis}")
         if facts.passes:
             parts.append(f"{_text(facts.passes[0])} passes")
         if facts.doc is not None and not omit_doc:
             value, kind = facts.doc
-            parts.append(f"{length(value)}{unit} {kind}")
+            if compact and scale and display_units in ("mm", "in"):
+                amount = _amount(value)
+                value = readout_value(self.bundle, amount / scale) if _known(amount) else "?"
+            parts.append(f"{_declared(value)}{unit} {kind}")
         return parts if not compact or len(parts) > 1 else []
 
     def manual_arc_lines(self, setup, op):
@@ -10119,7 +10486,11 @@ class _Traveler:
             reasons = [self.bench(debt) for debt in debts] if isinstance(debts, list) else []
             lines.append(
                 _Box(
-                    "STOP: manual arc not proven"
+                    (
+                        "STOP: spatial-profile hand finishing not proven"
+                        if numbers.get("representation") == "spatial_profile"
+                        else "STOP: manual arc not proven"
+                    )
                     + (f" — {'; '.join(reasons)}" if reasons else "")
                     + " — do not run."
                 )
@@ -10151,6 +10522,14 @@ class _Traveler:
 
     def manual_arc_steps(self, op, numbers, proven):
         """The layout or bench-filing line itself; ``proven`` says whether the rule passed it."""
+        if numbers.get("representation") == "spatial_profile":
+            return [
+                _Box(
+                    "Spatial-profile hand finishing remains unproved; qualify the authored "
+                    "profile/master procedure, tool access and material removal before execution.",
+                    source="manual_arc",
+                )
+            ]
         o = self.operative
         if op.get("do") == "scribe" and numbers.get("layout") == "ends":
             return [_Plain(self.arc_end_marks(op, numbers))]
@@ -10331,8 +10710,11 @@ class _Traveler:
                     else "keep " + _text(plane.get("keep"))
                 )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
-            rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
-            if scribed:
+            raster = self.manual_raster(setup, op) is not None
+            rest_cells, rest_lines = ([], []) if saw or raster else self.rest_steps(setup, op)
+            if op.get("do") == "manual_sever":
+                target = []
+            elif scribed:
                 target = [self.saw_leave(op, ""), self.saw_ends(setup, op)]
                 target = [part for part in target if part]
             elif saw:
@@ -10347,6 +10729,8 @@ class _Traveler:
                 if physical_target is not None:
                     target = [physical_target[0]]
                     direction = physical_target[1]
+            elif raster:
+                target = self.tip(setup, op)
             else:
                 target = (
                     self.hole_xy(setup, op)
@@ -10375,7 +10759,18 @@ class _Traveler:
                         for line in target
                     ]
             target = self.unset_z(setup, op, target)
-            boxes = self.crash_boxes(setup, op)
+            boxes = (
+                [
+                    _Box(
+                        "HOLD — UNMODELED material change: " + self.bench(MANUAL_SEVER_REASON),
+                        source="op_contexts",
+                        status="unknown",
+                        scope=f"{setup['id']}:{op['op']}",
+                    )
+                ]
+                if op.get("do") == "manual_sever"
+                else self.crash_boxes(setup, op)
+            )
             contours = self.records.get(("coordinates", setup["id"]), {}).get("contours", [])
             if any(
                 isinstance(c, dict)
@@ -10859,6 +11254,9 @@ class _Traveler:
 
     def level_path(self, setup, op_id):
         """The coordinates level-entry record of op ``op_id`` (rules/level_entry.py), or {}."""
+        op = next((op for op in setup.get("ops", []) if str(op.get("op")) == str(op_id)), {})
+        if self.manual_raster(setup, op) is not None:
+            return {}
         numbers = self.records.get(("coordinates", setup["id"]), {})
         for record in numbers.get("level_paths") or []:
             if str(_mapping(record).get("op")) == str(op_id):
@@ -11070,6 +11468,23 @@ class _Traveler:
                         reasons = " — ".join(dict.fromkeys(entry["stops"]))
                         stops.setdefault(_Box(reasons, source="coordinates"), []).append(op_id)
                 continue
+            if entry.get("manual_raster"):
+                if entry["stops"]:
+                    text = "manual raster motion unknown — " + "; ".join(entry["stops"])
+                    if stops is not None:
+                        stops.setdefault(_Box(text, source="coordinates"), []).append(op_id)
+                    paths[op_id] = ("", _p("STOP: " + text + " — do not run.", "stop"))
+                else:
+                    _, description, headings, rows, after = entry["parts"][0]
+                    paths[op_id] = (
+                        "",
+                        '<div class="route-path">'
+                        + _p(description)
+                        + _table(headings, rows, css="coords")
+                        + _p(after)
+                        + "</div>",
+                    )
+                continue
             levels = self.z_levels(setup, op) or {}
             path = self.level_path(setup, op.get("op"))
             depths = levels.get("levels", path.get("levels"))
@@ -11217,10 +11632,67 @@ class _Traveler:
             sequence = table.get("sequence")
             return (stage, sequence if isinstance(sequence, int) else -1, len(entry["parts"]))
 
+        manual_ops = {
+            op_id
+            for op_id, op in operations.items()
+            if _mapping(op.get("contour")).get("method") == "manual_raster"
+        }
+        manual_tables = {
+            str(row.get("op")): row["manual_raster"]
+            for row in numbers.get("operations", [])
+            if isinstance(row, dict) and "manual_raster" in row
+        }
+        manual_ops.update(manual_tables)
+        for op_id in sorted(manual_ops):
+            entry = block(op_id)
+            entry["manual_raster"] = True
+            raster = manual_tables.get(op_id, {"reason": "normalized motion not established"})
+            if raster.get("reason"):
+                entry["stops"].append(str(raster["reason"]))
+                continue
+            start = raster["start_mm"]
+            rows = [["0", "START", "—", *(str(v) for v in start)]]
+            previous = start
+            for index, move in enumerate(raster["moves"], 1):
+                point = move["to_mm"]
+                axis = next(
+                    axis for axis, a, b in zip("XYZ", previous, point, strict=True) if a != b
+                )
+                action = "CUT"
+                if move["mode"] == "clear":
+                    action = (
+                        "CLEAR lift"
+                        if axis == "Z" and point[2] > previous[2]
+                        else "CLEAR approach"
+                        if axis == "Z"
+                        else "CLEAR index"
+                    )
+                rows.append([str(index), action, axis, *(str(v) for v in point)])
+                previous = point
+            description = (
+                "Manual raster: authored tool-tip coordinates in setup-frame mm, "
+                f"safe Z {raster['safe_z_mm']} mm. Start at row 0; follow every "
+                "numbered move in order, moving only the named handwheel axis. "
+                "CUT rows feed at constant Z; CLEAR rows are explicit approach, lift or index "
+                "moves, not a cutting pass"
+            )
+            entry["parts"].append(
+                (
+                    order(entry),
+                    description,
+                    ["move", "motion", "axis", "X mm", "Y mm", "Z mm"],
+                    rows,
+                    "No additional return or depth cycle is implied. Motion and physical "
+                    "clearance holds still apply; this table alone does not authorize cutting.",
+                )
+            )
+
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             entry = block(arc.get("op"))
+            if str(arc.get("op")) in manual_ops:
+                continue
             method = arc.get("method")
             samples = arc.get("rows", [])
             subject = f"{setup['id']}:{arc.get('op')}"
@@ -11441,6 +11913,8 @@ class _Traveler:
             )
             entry["parts"].append((order(entry, arc), description, headings, rows, after))
         for line in numbers.get("line_table", []):
+            if str(line.get("op")) in manual_ops:
+                continue
             entry = block(line.get("op"))
             rows = []
             subject = f"{setup['id']}:{line.get('op')}"
@@ -11516,7 +11990,7 @@ class _Traveler:
                 raster_stages.setdefault(str(profile.get("op")), set()).add(profile.get("stage"))
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
-            if op in table_ops:
+            if op in table_ops or op in manual_ops:
                 continue
             points = profile.get("cutter_centre")
             entry = block(op)
@@ -11592,7 +12066,11 @@ class _Traveler:
         x_unit = {"radius": "radius", "diameter": "Ø"}.get(numbers.get("x_display"))
         unread = _X_DISPLAY_STOP.removeprefix("STOP: ")
         for contour in numbers.get("contours", []):
-            if not isinstance(contour, dict) or contour.get("method") != "axial_table":
+            if (
+                not isinstance(contour, dict)
+                or str(contour.get("op")) in manual_ops
+                or contour.get("method") != "axial_table"
+            ):
                 continue
             entry = block(contour.get("op"))
             if x_unit is None:
@@ -11677,9 +12155,13 @@ class _Traveler:
                 [str(index), o(r.get("z_mm")), o(r.get("x_target_mm"))]
                 for index, r in enumerate(stair.get("rows", []), 1)
             ]
+            allowance = stair.get("allowance_mm")
+            normal = allowance / 2 if _known(allowance) else "unknown"
             description = (
-                f"Rough stair, leaves {o(stair.get('allowance_mm'))} mm on diameter for the "
-                "finish table: for each row, from outside the work at the row's Z, face in to "
+                f"Rough stair: {_declared(allowance)} mm diametral-equivalent allowance, "
+                f"at least {_declared(normal)} mm normal stock to the nominal reference sphere "
+                "before finishing; not a constant radial offset. For each row, "
+                "from outside the work at the row's Z, face in to "
                 f"X, then back out radially. X ({x_unit}) / Z are the DRO readings of the "
                 "imaginary tip, touched off on an outside diameter and a +Z end face"
             )
@@ -11713,7 +12195,7 @@ class _Traveler:
             tool = self.setup_tool(tools, op.get("tool"))
             if tool:
                 title += f" · {tool}"
-            levels = self.z_levels(setup, op) if op else None
+            levels = self.z_levels(setup, op) if op and not entry.get("manual_raster") else None
             depths = levels.get("levels") if levels else None
             stepped = isinstance(depths, list) and len(depths) > 1
             if stepped:
@@ -11728,7 +12210,11 @@ class _Traveler:
                 f'<span data-title-source="{escape(title_owner)}">{_numeric_html(title)}</span>'
                 "</h3>"
             )
-            note = self.level_entries(setup, op, waypoints) if op else ""
+            note = (
+                self.level_entries(setup, op, waypoints)
+                if op and not entry.get("manual_raster")
+                else ""
+            )
             if note:
                 content += note
             elif stepped:
@@ -11859,6 +12345,10 @@ class _Traveler:
                 if self.lathe(setup)
                 else "guided sweep: X / Y locked, the fixture moves the work"
                 if set(blocks) <= self.sweep_ops
+                else "tool-tip X / Y / Z in setup mm"
+                if set(blocks) <= manual_ops
+                else "coordinate paths"
+                if manual_ops
                 else "cutter-centre X / Y"
             )
             + "</h2>"
@@ -12589,7 +13079,7 @@ class _Traveler:
             ).strip()
             if reason and reason != "unknown":
                 reasons.append(self.bench(reason).rstrip("."))
-        text = f"Break edges {self.operative(deburr)} mm max in this setup"
+        text = f"Break edges {_declared(deburr)} mm max in this setup"
         text += f", not the drawing's {self.cap(min(drawing))}" if drawing else ""
         return _p(text + (": " + "; ".join(reasons) if reasons else "") + ".")
 
@@ -12742,7 +13232,9 @@ class _Traveler:
         message, text = _field(finding, "message", "?"), None
         if self.detail != "pedantic":
             text, message = self.compact_finding(finding)
-        text = text if text is not None else self.plain_error(rule, message, subject)
+        text = (
+            text if text is not None else self.plain_error(rule, message, subject, _status(finding))
+        )
         notice_group = ""
         if self.detail != "pedantic" and _status(finding) == "unknown":
             label, needs = self.not_computed(rule, text)
@@ -13048,9 +13540,103 @@ class _Traveler:
             if not any(group is other for other in folded)
         ]
 
+    def setting_values(self, setup, op, row, *, labelled=False):
+        """The same effective evidence for the job key and each physical operation."""
+        unit = readout_units(self.bundle)
+
+        def millimetres(value):
+            return _number(value / 25.4 if unit == "in" else value)
+
+        def parts(value):
+            if isinstance(value, (list, tuple)):
+                for child in value:
+                    yield from parts(child)
+            elif (
+                value not in ("", "—", None)
+                and not isinstance(value, _Box)
+                and value not in _SPINDLE_TURNS
+            ):
+                yield str(value)
+
+        values = tuple(parts(row[4:6])) if len(row) == 9 else ()
+        evidence = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
+        per_rev = evidence.get(
+            "axial_feed_mm_rev" if evidence.get("feed_direction") == "axial" else "feed_mm_rev"
+        )
+        if _known(evidence.get("rpm")) and _known(per_rev):
+            feed = millimetres(per_rev) + f" {unit}/rev"
+            if evidence.get("feed_direction") == "axial":
+                feed = "axial " + feed
+            if _known(evidence.get("feed_mm_min")):
+                feed += f" ({millimetres(evidence['feed_mm_min'])} {unit}/min)"
+            values = (_number(evidence["rpm"]), feed)
+        elif (
+            "feed_mm_rev" not in evidence
+            and _known(evidence.get("rpm"))
+            and _known(evidence.get("feed_mm_min"))
+        ):
+            values = (_number(evidence["rpm"]), millimetres(evidence["feed_mm_min"]))
+        elif _known(evidence.get("blade_speed_sfm")) and _known(evidence.get("feed_mm_min")):
+            values = (
+                _number(evidence["blade_speed_sfm"]) + " sfm",
+                "descent " + millimetres(evidence["feed_mm_min"]) + f" {unit}/min",
+            )
+        # Packing eligibility is numeric, before labels and unproved-candidate prefixes.
+        numeric_values = bool(values) and all(
+            _NUMBER.fullmatch(value) or _WHOLE.fullmatch(value) for value in values
+        )
+        if labelled and _known(evidence.get("rpm")) and values:
+            values = tuple(
+                value + (" rpm" if index == 0 else f" {unit}/min")
+                if _NUMBER.fullmatch(value) or _WHOLE.fullmatch(value)
+                else value
+                for index, value in enumerate(values)
+            )
+        unproved = self.finding_statuses.get(("speeds_feeds", f"{setup['id']}:{op['op']}")) not in (
+            "pass",
+            "warn",
+        ) or evidence.get("rpm_status") in (
+            "unknown",
+            "unsupported",
+            "error",
+        )
+        if unproved:
+            if not values:
+                candidates = []
+                if _known(op.get("rpm")):
+                    candidates.append(f"{_declared(op['rpm'])} rpm")
+                for field, suffix in (
+                    ("feed_mm_rev", f"{unit}/rev"),
+                    ("feed_mm_min", f"{unit}/min"),
+                ):
+                    if _known(op.get(field)):
+                        candidates.append(millimetres(op[field]) + " " + suffix)
+                values = tuple(candidates)
+            values = tuple("Candidate (unproved): " + value for value in values)
+        if not values and op.get("do") not in MANUAL:
+            values = ("settings not established",)
+        return values, numeric_values, not values and op.get("do") in MANUAL, unproved
+
+    def ineffective_feed_note(self, setup, op):
+        """A mill's authored feed is not an override of the canonical calculation."""
+        evidence = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
+        requested, effective = op.get("feed_mm_min"), evidence.get("feed_mm_min")
+        if (
+            not self.lathe(setup)
+            and _known(requested)
+            and _known(effective)
+            and not math.isclose(requested, effective, rel_tol=1e-9, abs_tol=1e-9)
+        ):
+            return (
+                f"Authored feed {_declared(requested)} mm/min is not the effective setting; "
+                "use the calculated starting feed only after resolving all HOLDs."
+            )
+        return None
+
     def settings_key(self):
         """One job key for operative settings; manual tools stay at their operation."""
         settings, coolants, projections = {}, {}, {}
+        numeric_settings = {}
         unit = readout_units(self.bundle)
 
         def millimetres(value):
@@ -13069,40 +13655,10 @@ class _Traveler:
                 item = _mapping(resolve(self.bundle, "tools", reference))
                 if len(row) != 9 and not _known(_amount(item.get("lead_mm"))):
                     continue
-                values = tuple(
-                    str(value)
-                    for cell in (row[4:6] if len(row) == 9 else ())
-                    for value in (cell if isinstance(cell, (list, tuple)) else [cell])
-                    if value not in ("", "—", None)
-                    and not isinstance(value, _Box)
-                    and not (isinstance(value, str) and value in _SPINDLE_TURNS)
-                )
-                evidence = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
-                if _known(evidence.get("rpm")) and _known(evidence.get("feed_mm_rev")):
-                    feed = millimetres(evidence["feed_mm_rev"]) + f" {unit}/rev"
-                    if evidence.get("feed_direction") == "axial":
-                        feed = "axial " + feed
-                    if _known(evidence.get("feed_mm_min")):
-                        feed += f" ({millimetres(evidence['feed_mm_min'])} {unit}/min)"
-                    values = (_number(evidence["rpm"]), feed)
-                elif (
-                    "feed_mm_rev" not in evidence
-                    and _known(evidence.get("rpm"))
-                    and _known(evidence.get("feed_mm_min"))
-                ):
-                    values = (
-                        _number(evidence["rpm"]),
-                        millimetres(evidence["feed_mm_min"]),
-                    )
-                elif _known(evidence.get("blade_speed_sfm")) and _known(
-                    evidence.get("feed_mm_min")
-                ):
-                    values = (
-                        _number(evidence["blade_speed_sfm"]) + " sfm",
-                        "descent " + millimetres(evidence["feed_mm_min"]) + f" {unit}/min",
-                    )
-                manual_unset = not values and op.get("do") in MANUAL
+                values, numeric_values, manual_unset, _ = self.setting_values(setup, op, row)
                 facts = []
+                if feed_note := self.ineffective_feed_note(setup, op):
+                    facts.append(feed_note)
                 if item.get("kind") == "slitting_saw" and _known(item.get("flutes")):
                     facts.append(f"{_number(item['flutes'])}T")
                 if (
@@ -13123,8 +13679,13 @@ class _Traveler:
                     _known(_amount(item.get("lead_mm")))
                     or reach_status in ("error", "unknown", "unsupported", "warn")
                 ) and _known(length := _amount(item.get("flute_len_mm"))):
-                    label = "threaded cutting length" if item.get("kind") == "tap" else "cutting"
-                    facts.append(f"{label} {millimetres(length)}")
+                    label = (
+                        "threaded cutting length" if item.get("kind") == "tap" else "cutting length"
+                    )
+                    facts.append(f"{label} {millimetres(length)} {unit}")
+                material = item.get("material")
+                if isinstance(material, str) and material not in ("", "unknown"):
+                    facts.append(material)
                 if manual_unset and not facts:
                     continue
                 holder = op.get("holder")
@@ -13160,6 +13721,7 @@ class _Traveler:
                     tuple(facts),
                 )
                 settings.setdefault(key, []).append(f"{setup['id']}:{row[0]}")
+                numeric_settings[key] = numeric_values
         rows = []
         variants = {}
         for reference, _holder, _values, _facts in settings:
@@ -13179,8 +13741,7 @@ class _Traveler:
             packable = (
                 variants[reference] == 1
                 and packed_kind in ("endmill", "drilling")
-                and values
-                and all(_NUMBER.fullmatch(value) or _WHOLE.fullmatch(value) for value in values)
+                and numeric_settings[(reference, holder, values, facts)]
             )
             key = (packed_kind,) if packable else (reference, holder, values, facts)
             setting = "; ".join(
@@ -13593,6 +14154,49 @@ class _Traveler:
             return None
         return next(iter(tails))
 
+    def local_operation_settings(self, setup, op, row):
+        """Name the selected installation and effective settings at their operation."""
+        if op.get("do") in MANUAL or hand_saw(self.bundle, op):
+            return ""
+        reference, holder = op.get("tool"), op.get("holder")
+        parts = []
+        if reference not in (None, "unknown"):
+            parts.append(self.tool_name(reference))
+            details = self.tool_detail(
+                reference, holder, length_format=lambda value: f"{_number(value)} mm"
+            )
+            parts.extend(
+                detail
+                for detail in details
+                if str(detail).startswith(
+                    ("Ø", "pilot Ø", "nose R", "projection ", "flute ", "cutting length ")
+                )
+            )
+            item = _mapping(resolve(self.bundle, "tools", reference))
+            if item.get("kind") == "endmill" and item.get("center_cutting") is True:
+                parts.append("centre-cutting")
+            if holder not in (None, "unknown", "not_applicable"):
+                parts.append(self.reference(holder, "holders"))
+                if not any(str(detail).startswith("projection ") for detail in details):
+                    parts.append("projection not established for the selected holder")
+            elif holder != "not_applicable":
+                parts.append("holder not established")
+        values, _, _, unproved = self.setting_values(setup, op, row, labelled=True)
+        label = "Candidate settings (unproved)" if unproved else "Calculated starting settings"
+        source = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
+        if source.get("rpm_basis") == "authored":
+            label += " (authored RPM request)"
+        content = (
+            _p("Tool installation: " + "; ".join(dict.fromkeys(parts)), "operation-installation")
+            if parts
+            else ""
+        )
+        if values:
+            content += _p(label + ": " + "; ".join(values), "operation-settings")
+        if note := self.ineffective_feed_note(setup, op):
+            content += _p(note, "operation-settings")
+        return content
+
     def route_operation(
         self, setup, row, *, layout="block", lead_in="", keep_together=False, shared=None
     ):
@@ -13639,8 +14243,10 @@ class _Traveler:
             tool = (
                 self.route_tool_label(op["tool"]) if op.get("tool") not in (None, "unknown") else ""
             )
-            target_parts = self.route_target_parts(
-                setup, op, row, cycle=cycle, path_owned=path_owned
+            target_parts = (
+                []
+                if op.get("do") == "manual_sever"
+                else self.route_target_parts(setup, op, row, cycle=cycle, path_owned=path_owned)
             )
             if shared_tail is not None:
                 # The run's lead carries the common Z/depth/endpoint parts once; each op
@@ -13733,6 +14339,7 @@ class _Traveler:
             + (" " + _fields(path_text) if path_text else "")
             + f"</{tag}>"
         )
+        content += self.local_operation_settings(setup, op, row)
         if shared_lead:
             # The paginator moves a keep box whole: the procedure never ends a page
             # apart from its first op.
@@ -13960,19 +14567,21 @@ class _Traveler:
         if self.detail != "pedantic" and not bench:
             procedure = _mapping(setup.get("zero")).get("procedure")
             if isinstance(procedure, str) and procedure not in ("", "unknown"):
-                tag = "p" if _FIELD.search(procedure) else "span"
+                procedure_steps = re.split(r";\s*|(?<=[.!?])\s+", self.bench(procedure, setup))
                 add(
                     "datum-procedure",
-                    f"<{tag}>" + _fields(self.bench(procedure, setup)) + f"</{tag}> ",
-                    layout="block" if tag == "p" else "inline",
+                    "<p><strong>Tool and zero sequence.</strong></p>"
+                    + _list(
+                        [step for step in procedure_steps if step],
+                        setup_ids=(sid,),
+                    ),
                 )
         datum_axes = self._route_datum_axes.get(sid, {})
         if datum_axes:
             add(
                 "datum-references",
-                "<p>"
-                + _fields("; ".join(text.rstrip(".") for text in datum_axes.values()) + ".")
-                + "</p>",
+                "<p><strong>Datum settings.</strong></p>"
+                + _list(datum_axes.values(), setup_ids=(sid,)),
                 comparison=(
                     sid if any(_FIELD.search(text) for text in datum_axes.values()) else None,
                     tuple(datum_axes.items()),
@@ -14481,11 +15090,8 @@ class _Traveler:
                         blocks.append(
                             replace(
                                 block,
-                                html="<p>"
-                                + _fields(
-                                    "; ".join(text.rstrip(".") for text in axes.values()) + "."
-                                )
-                                + "</p>",
+                                html="<p><strong>Datum settings.</strong></p>"
+                                + _list(axes.values(), setup_ids=(sid,)),
                                 comparison=(
                                     sid
                                     if any(_FIELD.search(text) for text in axes.values())
@@ -14497,7 +15103,7 @@ class _Traveler:
                 elif block.key == "holding":
                     steps = self._route_hold_steps[sid]
                     if steps:
-                        html = _p(" ".join(steps))
+                        html = "<p><strong>Holding.</strong></p>" + _list(steps, setup_ids=(sid,))
                         blocks.append(replace(block, html=html, comparison=html))
                 else:
                     blocks.append(block)
@@ -14828,17 +15434,40 @@ class _Traveler:
                 signature = tuple(
                     (key, mapping[key].comparison) for key in prelude_keys if key in mapping
                 )
-                preludes.append((text, signature))
+                preludes.append(
+                    (text, signature, self.bench(note, setup) if note else "", holding, datums)
+                )
             if (
                 preludes[0][0]
                 and all(prelude == preludes[0] for prelude in preludes)
                 and not _FIELD.search(preludes[0][0])
                 and not any(self.indexing(setup) for setup in group)
             ):
+                note_text_value, holding_steps, datum_steps = preludes[0][2:]
+                ownership = f' data-setup-members="{escape(json.dumps(ids))}"' + (
+                    f' data-setup-id="{escape(ids[0])}"'
+                    if len(ids) == 1 and isinstance(ids[0], str)
+                    else ""
+                )
                 prelude_html = (
-                    f'<span class="route-prelude" data-setup-members="{escape(json.dumps(ids))}">'
-                    + _fields(preludes[0][0])
-                    + "</span> "
+                    f'<div class="route-prelude"{ownership}>'
+                    + (
+                        f"<p{ownership}>" + _fields(note_text_value) + "</p>"
+                        if note_text_value
+                        else ""
+                    )
+                    + (
+                        "<p><strong>Holding.</strong></p>" + _list(holding_steps, setup_ids=ids)
+                        if holding_steps
+                        else ""
+                    )
+                    + (
+                        "<p><strong>Datum settings.</strong></p>"
+                        + _list(datum_steps.values(), setup_ids=ids)
+                        if datum_steps
+                        else ""
+                    )
+                    + "</div>"
                 )
                 inspection_blocks = [
                     mapping.get(f"operation:{setup['ops'][0]['op']}")
@@ -14873,7 +15502,8 @@ class _Traveler:
             result.append(
                 '<table class="facing-paths" aria-label="Facing cutter centres"><tbody>'
                 + "".join(
-                    f'<tr data-setup-id="{escape(sid)}"><th scope="row">{escape(sid)}</th>'
+                    f'<tr data-setup-id="{escape(sid if isinstance(sid, str) else "")}">'
+                    f'<th scope="row">{escape(_text(sid))}</th>'
                     + "<td>"
                     + " ".join(paths)
                     + "</td></tr>"

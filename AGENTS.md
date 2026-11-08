@@ -30,8 +30,8 @@ about it is a shop migration instruction — a real shop sets
 ([migration rule](docs/inventory.md#measured-envelopes-and-installed-tool-stacks-m5)).
 Never copy example values into a real shop file. A few recorded facts are
 deliberately left `status = "assumed"` so their local `?` rows stay
-instructive; [examples/README.md](examples/README.md) lists their exact ids
-and consuming rows. A plain field the public schema cannot wrap in a record
+instructive; the historical cone reamer leads are no longer consumed by the
+current integral route. A plain field the public schema cannot wrap in a record
 (item roots, `Number`/`Vector` capability fields) stays a bare nominal under
 the existing nominal allowance, with a real citation or a source comment
 carrying the demo marker, never a fabricated record wrapper or an artificial
@@ -78,20 +78,16 @@ retain concrete `measure:` instructions keyed by the exact fact consumed; an
 unresolved holder asks to be added or resolved, not measured.
 
 The shipped reference bundles are under `examples/`, with authored plans and
-shared inventory, policy and cutting data. `rocker-arm`, `pivot-shaft` and
-`cone-pivot-post` start from consumer-generated `features.toml` and retain their
-exact adjacent STEP bytes. Approved, documented example corrections are allowed;
-the patched manifests are not verbatim exports. The rocker example permits
-source-backed land-angle limits `[89.0, 91.0]` with whole-degree display
-precision `0`, material thickness `2.5` from drawing note 2, and plan revision
-`v40`; these are source bindings, not measured shop facts or release approval.
-The cone permits built-up construction, fixes `mount_west` `station_nominal`
-to `12.98` (harmonic-analyzer issue #1214), applies the title-block R0.25 limit to
-the CAD-sharp body/head step corner, and copies the cap-to-cap length and
-foot-to-top height bands onto the second face that terminates each dimension
-without adding a requirement (harmonic-analyzer issue #1215). The validator pins
-each copied band to its exported source band. Keep other source facts and
-citations.
+shared inventory, policy and cutting data. The `rocker-arm`, `pivot-shaft` and
+`cone-pivot-post` examples reconcile against harmonic-analyzer CAD source
+`441290434f34f62faba176ef576af6879189c5e7` and the exact v47 release pairs.
+The shaft is plain with two flats and no cut-to-fit; the rocker uses a built-up
+hub and strap with component manufacturing branches; the cone is integral
+solid stock, with its finish instruction held pending an owner ruling.
+Earlier v40 example patches, including built-up cone permission and copied
+bands, are historical rather than current CAD authority. Preserve source facts
+and citations; authored process choices are not measured shop facts or release
+approval.
 `pivot-bracket/features.toml` is hand-authored on the copied consumer v39
 `pivot-bracket.STEP` (SHA
 `6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`,
@@ -226,7 +222,7 @@ physical printed paper acceptance remains separate.
 The validator validates bundle contracts and expected report integrity; it does
 not certify machining. Its successful exit is 0 even when checker/traveler
 outputs correctly stop with 2 or 4. See the
-[expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits);
+[consumer routes and holds](examples/README.md#consumer-routes-and-holds);
 these illustrative examples remain PLANNED and are not evidence of measured
 shop readiness.
 Approved source-backed example corrections must retain their documented
@@ -238,9 +234,8 @@ unknown. Consult PLAN §8 M3 for upstream follow-ups identified at
 harmonic-analyzer `b11124ecf` (current HA status not observed) and the combined gate.
 Use the CLI examples in [README.md](README.md) and isolated output directories
 to exercise behavior.
-The cone's built-up candidate (turned body with two bonded sleeves) also remains
-PLANNED. Indexing uses one angular
-setting for the inclined journal, never a fictional
+The cone's integral candidate remains PLANNED, with its finish unresolved.
+Indexing uses one angular setting for the inclined journal, never a fictional
 shaft cross-hole. Closure is checked only for a full pattern: `positions >= 2`
 with `angle_deg` omitted (step exactly `360 / positions`). Authored angles are
 open patterns: every landing is checked, with no closure. One setting also has

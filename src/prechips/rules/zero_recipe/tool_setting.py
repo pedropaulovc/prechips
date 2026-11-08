@@ -192,6 +192,53 @@ def same_tool(bundle, first, second):
     )
 
 
+def tailstock_axis_touch(bundle, setup, touch):
+    """A declared quill-mounted axial tool sets its own Z, not carriage X/Z.
+
+    Operation names and a compatible taper alone cannot distinguish a turret
+    drilling tool from a tailstock tool. Require the explicit mount, its actual
+    compatible interface, and the feature's setup-frame spindle-axis feed.
+    """
+    from ..tip_endpoints import _centre_mouth
+
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    tailstock = mapping(machine.get("tailstock"))
+    taper = tailstock.get("taper")
+    if (
+        machine.get("kind") != "lathe"
+        or uncertain(tailstock)
+        or not isinstance(taper, str)
+        or taper in ("", UNKNOWN)
+    ):
+        return False
+    ops = [
+        op
+        for op in records(setup.get("ops"))
+        if same_tool(bundle, op.get("tool"), touch.get("tool"))
+        and op.get("do") not in MANUAL | SAW_OPS
+    ]
+    if not ops:
+        return False
+    for op in ops:
+        holder = resolve(bundle, "holders", op.get("holder")) or {}
+        if (
+            op.get("tool_mount") != "tailstock"
+            or approach(bundle, setup, op) != "axial"
+            or not holder
+            or uncertain(holder)
+            or holder.get("taper") != taper
+        ):
+            return False
+        name = op.get("feature")
+        feature = (
+            mapping(mapping(bundle.feature_definitions).get(name)) if isinstance(name, str) else {}
+        )
+        errors, debt, _ = _centre_mouth(bundle, setup, feature, touch.get("edge_mm"))
+        if errors or debt:
+            return False
+    return True
+
+
 def tool_changes(bundle, setup, zero, lathe, x_scale, touches, *, mounted=None):
     """One DRO per setup: each cutting op runs on Axis Sets its own tool made.
 
@@ -333,6 +380,9 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches, *, mounted=None):
             } and not unsupported_touch(recipe.get("tool")):
                 z_event(index, face or UNKNOWN, zero_z, paper, "zero", z_by)
         for touch, touch_index in placed.get(index, []):
+            if lathe and touch.get("tool_setting_state") == "tailstock_axis":
+                # The quill depth collar is not the carriage DRO's setter.
+                continue
             if unsupported_touch(touch.get("tool")) or touch.get("method") == "mounted_saw_side":
                 mounted_setter = (touch_index, touch) if touch_index is not None else None
                 pending, spindle = None, UNKNOWN

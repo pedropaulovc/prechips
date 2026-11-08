@@ -2138,7 +2138,7 @@ BUNDLES = {
     "examples/pivot-shaft/plan.toml": ("examples/pivot-shaft/expected", 0),
     "examples/rocker-arm/plan.toml": ("examples/rocker-arm/expected", 0),
     "examples/pivot-bracket/plan.toml": ("examples/pivot-bracket/expected", 0),
-    "examples/cone-pivot-post/built-up.toml": ("examples/cone-pivot-post/expected/built-up", 4),
+    "examples/cone-pivot-post/integral.toml": ("examples/cone-pivot-post/expected/integral", 4),
 }
 
 

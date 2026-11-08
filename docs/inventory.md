@@ -445,6 +445,19 @@ tolerance leaves the check unknown at best. Omitted tolerance is zero; declared
 unknown or untrusted tolerance leaves the limit check unknown. See
 [inspection rules](rules-inspection.md).
 
+An optical comparator uses `gauges.<id>.kind = "optical_comparator"`, not
+`profile_gauge`. Its calibrated linear stage reads external silhouette
+`height`, `length`, `station`, `width` and `thickness` using `range_mm` and
+`resolution_mm` (or their supported inch equivalents). Each check requires an
+authored inspection method and the gauge requires `cite` evidence for its
+declared capability. A magnified contour can read `radius` or `bottom_radius`,
+but needs a separate fact-local `profile_resolution_mm` or `_in`: linear stage
+readout resolution does not establish contour discrimination. Radius bands,
+including `R MAX`, are read across the band, not as fixed gauge leaves.
+This classification does not grant internal-feature access, diameter, depth,
+angular, roughness or datum-frame/GD&T capability. Missing or untrusted
+capability remains unresolved; inadequate range or discrimination fails.
+
 A guided sweep's master is a gauge with `kind = "setting_bar"` or
 `"master_arc"`. A setting bar seats on a swing-arm pivot pin and is for pivot
 guides only. A master arc is a template edge pinned on the arm or sled.
@@ -523,13 +536,31 @@ Any missing entry, including any part of `make_document`, is debt and the
 card prints only a STOP. Otherwise the card prints those pointers; it never
 prints the trammel build.
 
-For the setup picture, measured `pin_dia`, `rail_width`, `rail_height` and
-`bed_height` draw render-only rails and pins. A missing fact gets its own
-picture note. Measured `carrier_length` (along the pin chord), `carrier_width`
-and `carrier_thickness` draw the plate carrying the work. No fact offsets it
-from the pin chord, so it is centred on that chord with its top at the work
-seat. A missing carrier dimension leaves only the carrier undrawn, with a
-separate note.
+For the setup picture, measured `pin_dia`, `rail_width`, `rail_height`,
+`rail_base_height`, `rail_span` and `bed_height` draw render-only rails and pins.
+`rail_span` is the positive, increasing pair of **physical rail endpoint stations**
+from the spindle along each rail direction; it is not `rail_travel`, which remains
+the usable pin stations at carriage stops. The rail bottom is `rail_base_height`
+above the table, including any mounting base; rail height is its physical section.
+A missing fact leaves these components undrawn with a measurement note.
+
+Measured `carrier_length` (along the pin chord), `carrier_width`,
+`carrier_thickness`, `carrier_offset.<pin_pair>` and `carrier_seat_drop` draw the
+carrier. The signed offset locates the plate centre transversely from the selected
+pin chord's midpoint: positive is the left normal `[-dy, dx]` of the unit direction
+from the first to second pin in `pins_deg` order. Its top is `carrier_seat_drop`
+below the fixture's work-support seat (`bed_height` above the table). Record an
+explicit measured zero for a centred plate, table-mounted rail or carrier-top work
+seat; missing values never imply zero. Missing or contradictory carrier facts leave
+only the carrier undrawn, with a separate note.
+
+The rocker demonstration follows HA `ch_rocker_arm_tl_oblique_carrier_spec.py`
+(plate bounds and hole pairs) and `ch_rocker_arm_tl_oblique_trammel_spec.py`
+(rail stack): inner/outer offsets are +19.812 / −4.66852 mm, physical rails run
+15–465 mm and stand on 11.938 mm bases, and the carrier top is 6.096 mm below
+the work seat. These explicitly labelled demonstration records are not installed
+shop measurements. None of these render-only facts proves guided-sweep travel,
+headroom, contact or collision clearance; those existing unknowns remain.
 
 ## Edge finder
 
@@ -733,6 +764,16 @@ A `void = true` primitive is cut from the same list's other primitives.
 item's or member's solids. An untrusted or malformed void withholds the solids
 it would cut, with named debt, instead of drawing them uncut.
 
+For provably constant-section box or cylinder solids with parallel,
+through-all voids, native construction subtracts the exact planar sections
+and extrudes the result through the positive solid's full axial extent.
+Qualification checks the axes and each void's complete axial coverage before
+using this construction; blind or angled cuts retain the ordinary 3D path.
+This is an exact representation of the same declared operands, not a
+fixture-name exception or a fallback that omits a failed cut. Disconnected
+pieces remain separate material obstacles. Invalid or unresolved construction
+stays debt and never grants collision clearance.
+
 A strap member models its whole assembly in one list: beam, slot void
 (`cuts = ["beam"]`), stud, heel, nut and washer, with washer bore
 `cuts = ["washer"]`. Primitives in one list are one part and are not checked
@@ -795,20 +836,33 @@ Per-primitive `supply` is:
 - `existing`: already in the shop, so not listed unless holes are made in it.
   Such a row says "(existing part: make the holes only)" and its size is "—".
 
+A loose riser or support reference is a fallback for the same inventory item
+when that item also has an explicit posed support placement; it is not an
+additional fabricated copy. Explicit simultaneous placements remain separate
+copies. Hole quantities follow those physical placements and source parent
+solids, and authored hole fastener callouts are retained without inferring a
+thread pitch or tap-drill size from a geometric void.
+Bought components with equal geometric sizes but different fastener
+descriptions retain their individual source identities and quantities.
+Fixture make-operation sections carry the fixture's name on continuations;
+later tables point to that named section before first use.
+
 #### Make-table precision and notes
 
-Sizes and positions use the DRO grid on which they are made: the shop mill
-grid when all machines of kind `mill` share one grid, otherwise the setup
-machine grid. Ordinary dimensions use policy `numbers.fixture_make_decimals`.
-A primitive with `locates`, every bore cut in it and shim nominals use drawing
-precision, or grid-step precision if drawing precision is missing, finer than
-the grid or off-grid. Either a primitive or its bore may be the locating
-surface.
+Make-table sizes and positions preserve the source dimensions, including fine
+seat depths, gaps and bore diameters. Display precision and the DRO grid do not
+round a manufacturing target into a different dimension. Calculation residue
+from placing a solid is suppressed, not its meaningful digits.
+The table's Size column is component-frame make size; its Position column
+shows posed box bounding extents or cylinder axes, not a second component size.
 
-A position coincident with a fit on the same sheet uses the fit value, such as
-a pin's hole or a bolt hole above a locating pad. If grid rounding moves a fit
-beyond `general_tolerances.linear_<n>pl`, or that tolerance is undeclared, the
-table prints `?` and a reason. It never silently moves the hole.
+A primitive with `locates`, every bore cut in it and shim nominals retain the
+fit feasibility check against the fixture-making mill grid (the setup grid
+when the shop's mills do not share one). A position coincident with a fit uses
+the same source value. If grid rounding would move a fit beyond
+`general_tolerances.linear_<n>pl`, or that tolerance is undeclared, the table
+prints `?` and a reason. A feasible fit still prints its original target, not
+the rounded grid point.
 
 `locates = "<part face>"` and `fastener = "<thread / fastener>"` populate the
 Locates and Fastener columns. `shim = true` marks an adjustable shim stack.
@@ -1205,8 +1259,10 @@ printed settings may still use it.
 `prechips tools --measure [--plan PLAN ...]` evaluates applicable findings and
 lists their unresolved `numbers.measurements`, including host-only facts
 refused by the kernel job. It defaults to the four pilot plans for shaft,
-rocker, bracket and the sole built-up cone. It may need native in-process
-stock facts. See the [CLI catalog](reference/cli.md) for invocation and output
+rocker, bracket and the integral cone (`examples/cone-pivot-post/integral.toml`).
+The cone's finish remains unresolved; listing measurements does not resolve
+that requirement. The command may need native in-process stock facts.
+See the [CLI catalog](reference/cli.md) for invocation and output
 options.
 
 Entries sort and deduplicate by scoped report id, including set-member and
@@ -1555,6 +1611,7 @@ permits one authored spelling, not simultaneous copies.
 | `oal` / `oal_mm` / `oal_in` | `MeasuredLength` |
 | `shank_mm` | `MeasuredLength`, tool body past its flutes; [`reach`](rules-geometry.md#reach) checks it against retained stock |
 | `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]`; tool shank as above, or set label/size map |
+| `body_envelope_dia_mm` | `MeasuredLength`, qualified enclosing diameter over every noncutting body, neck and transition from flute end to tool back; required by `manual_raster`. A local shank/collet diameter alone is not this bound. |
 | `flutes` | `int \| list[int]` |
 | `helix_deg` | `{ value, cite, measured, verify }`, end-mill helix angle 0 ≤ β < 90; cited vendor nominal is enough, bare numbers are bad input, uncited/flagged records remain debt |
 | `helix_hand` | `"right"` / `"left"`, flute hand |
@@ -1714,6 +1771,10 @@ schema.
 | `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits`, nearest/farthest pin stations from spindle axis; measured |
 | `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength`, trammel picture only; measured |
 | `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength`, trammel carrier-plate picture only; measured |
+| `rail_span_mm` / `rail_span_in` | `MeasuredLimits`, positive increasing physical rail endpoint stations, not usable pin travel; measured, picture only |
+| `rail_base_height_mm` / `rail_base_height_in` | `MeasuredLength`, nonnegative rail bottom height above table; measured, picture only |
+| `carrier_offset_mm` / `carrier_offset_in` | Map from pin-pair name to signed `MeasuredLength`, plate centre left of the directed first-to-second pin chord; measured, picture only |
+| `carrier_seat_drop_mm` / `carrier_seat_drop_in` | `MeasuredLength`, nonnegative work-support seat height above carrier top; measured, picture only |
 | `make_document` | `{ id, revision, cite }`, document used to build and commission the trammel outside the setup sheet |
 | `commissioning_record` | `str`, location of rail-alignment installation record |
 | `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength`, largest commissioning miss from predicted carriage-dowel stations; measured |

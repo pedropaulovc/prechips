@@ -6,7 +6,7 @@ Use the pivot-shaft example to trace an authored operation into a checker findin
 
 Complete the [quickstart](quickstart.md), including the local FreeCAD installation. Run the PowerShell commands here from the checkout root. You can reuse the quickstart's output directory.
 
-The [example bundle](../../examples/pivot-shaft/plan.toml) is an illustrative route for drawing MHA-065, revision v40. Its stock dimensions, holding choices and much of its inventory are demonstration values. The [examples policy](../../examples/README.md#examples-policy-plausible-labelled-values) identifies the deliberately nonphysical measurement metadata and the separately recorded real shop measurements. Leave those disclosures and the supplied files unchanged.
+The [example bundle](../../examples/pivot-shaft/plan.toml) is an illustrative route for drawing MHA-CH-05, exact v47 CAD source commit `441290434f34f62faba176ef576af6879189c5e7`. The shaft is plain with two flats: the earlier reliefs, shoulder and cut-to-fit route are not current requirements. Its stock dimensions, holding choices and much of its inventory are demonstration values. The [examples policy](../../examples/README.md#examples-policy-plausible-labelled-values) identifies the deliberately nonphysical measurement metadata and the separately recorded real shop measurements. Leave those disclosures and the supplied files unchanged.
 
 ## 1. Identify the five inputs
 
@@ -29,13 +29,13 @@ policy = "../shop-policy.toml"
 cutting_data = "../cutting-data.toml"
 ```
 
-Those paths are relative to the plan directory. The plan's `features = "features.toml"` resolves there too. The manifest names `pivot-shaft.STEP` and its SHA-256 digest; STEP is an adjacent geometry asset, not another authored process plan. Prechips checks the asset's bytes against that digest.
+Those paths are relative to the plan directory. The plan's `features = "features.toml"` resolves there too. The current manifest names `ch-pivot-shaft.STEP` and its SHA-256 digest; STEP is an adjacent geometry asset, not another authored process plan. Prechips checks the asset's bytes against that digest.
 
 For this run, you do not need shop-file flags. If you later use them, explicit CLI overrides take precedence over known plan paths. CLI paths are relative to your working directory. See [input selection in the CLI catalog](../reference/cli.md#bundle-paths-and-overrides) for environment fallbacks and containment rules.
 
 ## 2. Follow the preparation into the next setup
 
-In `plan.toml`, find `[process_features.plain_end_centre]`. It declares the centre hole made for supporting later work. It is a plan-owned stock-preparation feature, not a dimension added to the finished-part drawing.
+In `plan.toml`, find `[process_features.north_end_centre]`. It declares the centre hole made for supporting later work. It is a plan-owned stock-preparation feature, not a dimension added to the finished-part drawing.
 
 Under the first setup, `id = "S0"`, find this operation. The exact fragment stops before the operation's explanatory note:
 
@@ -43,14 +43,14 @@ Under the first setup, `id = "S0"`, find this operation. The exact fragment stop
 [[setups.ops]]
 op = 20
 do = "center_drill"
-feature = "plain_end_centre"
+feature = "north_end_centre"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-tailstock-mt3"
 ```
 
 The feature points back to the preparation declaration. The tool selects member `2` of the named inventory set, and the holder selects the tailstock drill chuck. Open the inventory file and locate those identities to see the facts the checks consume.
 
-Next, find setup `S1`. Its hold selects `dead_centre_tailstock_mt3`, names `centre_hole = "plain_end_centre"` and declares a `3.0` mm mouth. This creates a dependency: S0 op 20 must make the seat before S1 uses it.
+Next, find setup `S1`. Its hold selects `dead_centre_tailstock_mt3`, names `centre_hole = "north_end_centre"` and declares a `3.0` mm mouth, with follow-rest support also declared. This creates a dependency: S0 op 20 must make the seat before S1 uses it.
 
 Follow the file's setup and operation array order. Operation numbers identify steps; prechips does not sort the route numerically.
 
@@ -63,7 +63,7 @@ uv run prechips traveler examples/pivot-shaft/plan.toml --out out/docs-smoke/piv
 $LASTEXITCODE
 ```
 
-With FreeCAD available, the recorded run exited `0` and wrote `report.json`, `traveler.html` and four setup images. Its report has `verification = "checked"`. The [demonstration](demo.md) pairs the source fragments with actual output from this invocation.
+The earlier v40 run recorded exit `0`, `report.json`, `traveler.html`, four setup images and `verification = "checked"`. The [demonstration](demo.md) preserves that historical evidence. It does not establish a result for the current v47 inputs, whose route has five setups, S0–S4. Read the exit code and findings from your own invocation; no new current pass is asserted here.
 
 `traveler` always evaluates the current inputs. It does not use a checked-in expected report as its answer. Keep the generated files in `out/` so you can compare them with the source without overwriting the source bundle.
 
@@ -79,11 +79,9 @@ uv run prechips explain out/docs-smoke/pivot-shaft/report.json centre_support:S1
 
 The first colon separates the rule from its subject. This command selects the exact `centre_support` finding for `S1`, validates the saved report's hash and prints that finding as JSON. It does not rerun geometry or approve the report. A successful lookup exits `0`, even when the selected finding describes a failure or unresolved fact.
 
-In this run, its message is:
+Inspect the current finding's `message`, `numbers` and `cite` entries. For this dependency, look for the named `north_end_centre` preparation and S0 op 20 as the operation that makes it. The [historical demonstration](demo.md) preserves an earlier `plain_end_centre` finding; that old name and recorded passing status must not be substituted for the current report.
 
-> S1: the centre rides in plain_end_centre, drilled in S0 op 20.
-
-Its `numbers` identify the support and preparation, including `made_by = ["S0 op 20"]`. Its citation points to the holding-field contract. The finding connects a later support to the earlier operation that makes its seat; it is not evidence that the physical hole has been drilled or inspected.
+The finding connects a later support to the earlier operation that makes its seat; it is not evidence that the physical hole has been drilled or inspected.
 
 When reading other findings, distinguish these states:
 
@@ -117,7 +115,7 @@ Never change a measurement status, remove a required rule or copy the example's 
 
 ## 6. Read the printable sheet separately
 
-Open `out/docs-smoke/pivot-shaft/traveler.html` in a browser. Start with `JOB STATUS`. This example says that no first article is recorded and the stock must be obtained. The banner remains `PLANNED` and `NOT APPROVED`, although the report's checker result is `"checked"`.
+Open `out/docs-smoke/pivot-shaft/traveler.html` in a browser. Start with `JOB STATUS` and read the current stock prerequisites and first-article status. Without an approval record the banner remains `PLANNED` and `NOT APPROVED`, independently of whether the report's checker result is `"checked"` or unresolved.
 
 Find setup S0 and compare it with the plan:
 

@@ -1,13 +1,17 @@
 """Plan process features: stock preparation a later setup relies on (docs/plan.md).
 
-The pivot-shaft example faces its plain end and centre-drills it in S0 so S1's dead centre
-has a seat. Each test perturbs that route structurally and reads the consumer verdict.
+The pinned historical shaft faces its plain end and centre-drills it in S0 so S1's dead
+centre has a seat. These generic process-feature regressions are independent of the
+current reconciled shaft and built-up rocker routes.
 """
 
 import math
 
 import pytest
-from test_cli import copy_examples
+
+# Retired routes from d9425786 isolate centre preparation/support and process-vs-drawing
+# feature coverage; they are not current CAD contracts.
+from historical_examples import copy_historical_examples as copy_examples
 from test_envelope_m5 import measured
 from test_process_route import HEADER, blocks, drop_setup_key, evaluate, rewrite, setups
 

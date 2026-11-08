@@ -11,8 +11,10 @@ import re
 from dataclasses import replace
 
 import pytest
-from test_cli import copy_examples, rocker_s1_alone
+from historical_examples import copy_historical_examples as copy_examples
+from test_cli import rocker_s1_alone
 
+# d9425786 supplies waste-ear geometry for generic tooling-hole ownership regressions.
 from prechips import kernel
 from prechips.findings import ALWAYS_REQUIRED, is_required
 from prechips.inputs import BadInput, load_bundle

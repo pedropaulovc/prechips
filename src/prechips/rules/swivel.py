@@ -19,6 +19,7 @@ import math
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import cutting_action
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
 from prechips.rules.resolution import (
     SAW_OPS,
     UNKNOWN,
@@ -207,9 +208,10 @@ def _reach(bundle, setup, op, memo):
     from prechips.rules.coordinates import UNIT_MM, printed_xy
     from prechips.rules.headroom import _setup_coordinates
 
-    scale = UNIT_MM.get(bundle.features.get("units"))
+    manual_raster = record(op.get("contour")).get("method") == MANUAL_RASTER
+    scale = 1.0 if manual_raster else UNIT_MM.get(bundle.features.get("units"))
     points = printed_xy(_setup_coordinates(bundle, setup, memo), op["op"])
-    if points is None:
+    if points is None and not manual_raster:
         bounds = record(op.get("stock_removal_bounds"))
         x, y = bounds.get("x"), bounds.get("y")
         if all(isinstance(v, list) and len(v) == 2 and all(map(number, v)) for v in (x, y)):

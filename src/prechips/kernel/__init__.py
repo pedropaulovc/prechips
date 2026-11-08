@@ -527,12 +527,25 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         complete_form_subjects,
         finishing_subjects,
     )
+    from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+    from prechips.rules.manual_raster import normalize
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
     declared = {key: op[key] for key in ("faces", "workpiece_faces") if key in op}
+    if "contour" in op:
+        # Even specialized early-return operations must preserve unsupported intent.
+        declared["contour_method"] = record(op.get("contour")).get("method", UNKNOWN)
     if isinstance(op.get("outputs"), dict):
         declared["outputs"] = _retained_output_inputs(op["outputs"], bundle.features.get("units"))
+    if op.get("do") == "manual_sever":
+        # A material-state barrier, not a tool model or a final-face claim.
+        return {
+            "subject": subject,
+            "feature": op.get("feature", UNKNOWN),
+            "do": "manual_sever",
+            "finishing": False,
+        }
     if op.get("do") in HAND_THREAD:
         return {
             "subject": subject,
@@ -607,6 +620,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         return result
     if op.get("do") in HAND_FINISH:
         return {**_hand_inputs(bundle, setup, op, subject, finishing), **declared}
+    contour = record(op.get("contour"))
+    manual_raster = contour.get("method") == MANUAL_RASTER
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -614,26 +629,38 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     else:
         tool = measurement_item(bundle, "tools", op.get("tool"))
         holder = measurement_item(bundle, "holders", op.get("holder"))
-        projection = _projection(bundle, op)
+        projection = _projection(bundle, op, require_measured=manual_raster)
+        length = _measured_length if manual_raster else _accepted_length
         values = {
-            "radius_mm": _accepted_length(tool, "dia"),
-            "flute_len_mm": _accepted_length(tool, "flute_len"),
-            "oal_mm": _accepted_length(tool, "oal"),
-            "holder_radius_mm": _accepted_length(holder, "gauge_dia"),
-            "holder_gauge_len_mm": _accepted_length(holder, "gauge_len"),
+            "radius_mm": length(tool, "dia"),
+            "flute_len_mm": length(tool, "flute_len"),
+            "oal_mm": length(tool, "oal"),
+            "holder_radius_mm": length(holder, "gauge_dia"),
+            "holder_gauge_len_mm": length(holder, "gauge_len"),
             "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
             # The tool body past its cutting length: only a reach past the flute needs it.
-            "shank_radius_mm": _accepted_length(tool, "shank"),
+            "shank_radius_mm": length(tool, "shank"),
         }
+        if manual_raster:
+            values["nose_radius_mm"] = _measured_length(tool, "nose_radius", positive=False)
+            body_envelope = _measured_length(tool, "body_envelope_dia")
+            values["shank_envelope_radius_mm"] = (
+                body_envelope / 2 if number(body_envelope) else UNKNOWN
+            )
         for key in ("radius_mm", "holder_radius_mm", "shank_radius_mm"):
             if number(values[key]):
                 values[key] /= 2
-        values["shank_from_mm"] = _shank_from(tool, values)
+        values["shank_from_mm"] = (
+            values["flute_len_mm"] if manual_raster else _shank_from(tool, values)
+        )
         missing = [
             key
             for key, value in values.items()
             if not (number(value) and value > 0)
-            and key not in {"oal_mm", "shank_radius_mm", "shank_from_mm"}
+            # Measured projection bounds the exposed body; OAL only constrains
+            # mounting when available (or when projection must be derived from it).
+            and key != "oal_mm"
+            and (manual_raster or key not in {"shank_radius_mm", "shank_from_mm"})
         ]
     result = {
         "subject": subject,
@@ -642,6 +669,33 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
         **declared,
     }
+    if manual_raster:
+        trajectory = normalize(contour.get("raster"))
+        if tables is not None:
+            printed = next(
+                (
+                    entry.get("manual_raster")
+                    for entry in tables.get("operations", [])
+                    if entry.get("op") == op["op"]
+                ),
+                None,
+            )
+            if printed != trajectory:
+                trajectory = {
+                    "reason": "manual raster printed/native trajectory is missing or differs"
+                }
+        result["manual_raster"] = trajectory
+        result["tool_kind"] = record(measurement_item(bundle, "tools", op.get("tool"))).get(
+            "kind", UNKNOWN
+        )
+        # The qualified whole-body bound encloses necks and transitions, not just
+        # the locally measured shank diameter.
+        # This can prove clearance, but an overlap is not a certain physical hit.
+        result["shank_geometry"] = "enclosing_cylinder"
+        # Preserve measured idealized/invalid corners for explicit native refusal;
+        # never turn a zero corner into an inferred physically sharp endmill.
+        if number(values.get("nose_radius_mm")):
+            result["nose_radius_mm"] = values["nose_radius_mm"]
     pickup_key = _top_pickup_key(bundle, setup, op)
     if pickup_key is not None:
         # A command dependency, never material evidence from an authored numeric top.
@@ -699,7 +753,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                     f"{process_cut['label']} is not the face part_off {subject} leaves: "
                     + "; ".join(plane["reasons"])
                 )
-        elif process_cut.get("kind") == "end_face" and not turned and "reason" not in process_cut:
+        elif (
+            process_cut.get("kind") == "end_face"
+            and not turned
+            and not manual_raster
+            and "reason" not in process_cut
+        ):
             process_cut.update(face_sweep(op, tables, bundle.features.get("units", UNKNOWN)))
         elif process_cut.get("kind") == "tooling_hole" and "reason" not in process_cut:
             tooling = _tooling_inputs(bundle, setup, op, process_cut)
@@ -716,7 +775,16 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     if "to_z" in op:
         # The op's floor in its setup frame bounds the material it removes from the stock.
         result["to_z"] = op["to_z"] * scale if number(op["to_z"]) and scale else UNKNOWN
-    if not turned and str(op.get("do", "")).startswith("rough_"):
+    if (
+        not turned
+        and str(op.get("do", "")).startswith("rough_")
+        and (
+            model != ROTARY
+            or "to_dia" not in op
+            or "rough_allowance_mm" in op
+            or "stock_to_leave_mm" in op
+        )
+    ):
         # Always machine mm per side, independent of feature units; a negative leave is
         # unknown here (the coordinates rule reports it as an error).
         result["rough_allowance_mm"] = rough_leave(op)[0]
@@ -765,7 +833,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             result["hole"]["point_angle_deg"] = _accepted_angle(tool, "point_angle")
     if "stock_removal_bounds" in op:
         result["stock_removal_bounds"] = removal_bounds(op["stock_removal_bounds"], units)
-    if tables is not None and not turned:
+    if tables is not None and not turned and not manual_raster:
         table = table_checkpoints(
             subject,
             tables,
@@ -778,7 +846,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         sweep = tool_paths(op, tables, units)
         if sweep is not None:
             result["tool_paths"] = sweep
-    if not turned and "keep_out" in record(op.get("contour")):
+    if not turned and not manual_raster and "keep_out" in contour:
         result["keep_out"], result["keep_out_passes"] = raster_keep_out(tables, op["op"], units)
     if model in (TURNING, ROTARY):
         # Turning: the declared span on setup Z bounds and extends the revolved removal.
@@ -787,16 +855,42 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             if key in op:
                 result[key] = op[key] * scale if number(op[key]) and scale else UNKNOWN
     if turned:
-        # Facing, parting and cutting to length sweep radially to an explicit to_dia (0:
-        # the axis; a part_off omitting it parts to the axis); a bore is never inferred
-        # from the finished part, so a later-drilled bore does not leave a core behind.
-        if op.get("do") in {"face", "rough_face", "finish_face", "part_off", "cut_to_fit"} and (
-            "to_dia" in op or op.get("do") == "part_off"
-        ):
+        # Preserve an explicit radial target, including unresolved intent: the native
+        # model validates each action's window and tool geometry, never silently
+        # falling back to the final profile. Only part_off defaults to the axis; a
+        # later-drilled bore must not leave an inferred core behind.
+        if op.get("do") in {
+            "face",
+            "rough_face",
+            "finish_face",
+            "part_off",
+            "cut_to_fit",
+            "rough_turn",
+            "finish_turn",
+        } and ("to_dia" in op or op.get("do") == "part_off"):
             to_dia = op.get("to_dia", 0.0)
             result["to_dia_mm"] = (
                 to_dia * scale if number(to_dia) and to_dia >= 0 and scale else UNKNOWN
             )
+            if op.get("do") in {"rough_turn", "finish_turn"}:
+                from prechips.rules.coordinates import diameter_target_conflict
+
+                conflict = diameter_target_conflict(bundle, setup, op)
+                if conflict is not None:
+                    result["to_dia_mm"] = UNKNOWN
+                    result["to_dia_reason"] = (
+                        f"{conflict['feature']} to_dia target {conflict['target']:g} "
+                        f"is outside its diameter limits "
+                        f"{conflict['limits'][0]:g}-{conflict['limits'][1]:g} {units}"
+                    )
+    if model == ROTARY and "to_dia" in op:
+        # An explicit rotary radius is enough target intent without inventing an
+        # omitted rough leave. Native validation reconciles any authored pair.
+        value = op["to_dia"]
+        diameter = value * scale if number(value) and math.isfinite(value) and scale else UNKNOWN
+        result["to_dia_mm"] = (
+            diameter if number(diameter) and math.isfinite(diameter) and diameter > 0 else UNKNOWN
+        )
     if model == ROTARY and "angle_window_deg" in op:
         window = op["angle_window_deg"]
         result["angle_window_deg"] = window if all(number(v) for v in window) else UNKNOWN
@@ -1156,6 +1250,24 @@ def _exact_arc(arc, scale):
     return {"exact_arc_mm": {"centre": [v * scale for v in centre], "radius": radius * scale}}
 
 
+def _profile_subset_arc(arc, scale):
+    """Carry a candidate wall sector to native association, not a claimed face type."""
+    if arc is None:
+        return {}
+    circle = _exact_arc(arc, scale).get("exact_arc_mm")
+    if circle is None or not all(
+        number(record(arc).get(key)) for key in ("start_deg", "sweep_deg")
+    ):
+        return {"profile_subset_arc_mm": UNKNOWN}
+    return {
+        "profile_subset_arc_mm": {
+            **circle,
+            "start_deg": arc["start_deg"],
+            "sweep_deg": arc["sweep_deg"],
+        }
+    }
+
+
 def table_checkpoints(subject, tables, op, units, *, profile_model=None):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
@@ -1233,6 +1345,7 @@ def table_checkpoints(subject, tables, op, units, *, profile_model=None):
                         else {}
                     ),
                     **_exact_arc(path.get("exact_arc"), scale),
+                    **_profile_subset_arc(path.get("profile_subset_arc"), scale),
                 }
             )
         elif len(points) == len(path["rows"]):
@@ -1292,7 +1405,7 @@ def scribed_profile(bundle, setup, op):
         # An ends-only layout marks a guided sweep's stops: no line for a saw to follow.
         return {"reason": f"the scribe op lays out only {name}'s two ends, not its line"}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
-    layout = arc_layout(bundle, setup, name)
+    layout = arc_layout(bundle, setup, name, pre_kernel=True)
     if layout is None or scale is None:
         return {"reason": f"the scribed arc {name}'s layout in setup {setup['id']} is unknown"}
     # The arc lies in its feature frame's XY plane; the kernel clips with a setup-Z
@@ -2585,7 +2698,9 @@ def inspection_preservation_ledger(setup):
         {
             "subject": f"{setup['id']}:{op['op']}",
             "do": op.get("do", UNKNOWN),
-            "effect": "metadata"
+            "effect": "unmodeled"
+            if op.get("do") == "manual_sever"
+            else "metadata"
             if op.get("do") in PRESERVATION_METADATA
             else "native"
             if cutting_action(op) is not False or op.get("do") in HAND_FINISH
@@ -2603,7 +2718,9 @@ def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners
     units = bundle.features.get("units", UNKNOWN)
     ledger = inspection_preservation_ledger(setup)
     sent = [
-        op for op, entry in zip(setup["ops"], ledger, strict=True) if entry["effect"] == "native"
+        op
+        for op, entry in zip(setup["ops"], ledger, strict=True)
+        if entry["effect"] == "native" or op.get("do") == "manual_sever"
     ]
     keeps = _keeps(setup, sent)
     return {
@@ -2694,6 +2811,7 @@ def _pickup_lineage_inputs(bundle, setup, prepared=None):
 
 def _model_inputs(bundle):
     """The shared native model projection, without rendering-only metadata."""
+    from prechips.axis_placements import resolve_placements
     from prechips.joint_features import dia_bands_mm, primitives_mm
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import faced_aims
@@ -2720,6 +2838,7 @@ def _model_inputs(bundle):
         "joint_features": primitives_mm(bundle),
         "dia_bands": dia_bands_mm(bundle),
         "process_features": process_primitives_mm(bundle),
+        "axis_placements": resolve_placements(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
@@ -2881,6 +3000,9 @@ _ENGINE_OP = (
     "mounted_saw",
     "feature",
     "profile_model",
+    "contour_method",
+    "manual_raster",
+    "tool_kind",
     "zero_pickup_key",
     "tool",
     "holder",
@@ -2893,12 +3015,16 @@ _ENGINE_OP = (
     "finishing",
     "hole",
     "radius_mm",
+    "nose_radius_mm",
     "flute_len_mm",
+    "oal_mm",
     "holder_radius_mm",
     "holder_gauge_len_mm",
     "projection_mm",
     "shank_radius_mm",
     "shank_from_mm",
+    "shank_geometry",
+    "shank_envelope_radius_mm",
     "to_z",
     "checkpoints",
     "tool_paths",
@@ -2914,6 +3040,7 @@ _ENGINE_OP = (
     "guide_owner",
     "guide_rim_dia_mm",
     "to_dia_mm",
+    "to_dia_reason",
     *TURNING_TOOL_KEYS,
     *TURNING_HOLDER_KEYS,
     "corners",
@@ -3061,6 +3188,7 @@ def engine_job(job):
         "joint_features": job.get("joint_features", {}),
         **({"dia_bands": job["dia_bands"]} if job.get("dia_bands") else {}),
         "process_features": job.get("process_features", {}),
+        "axis_placements": job.get("axis_placements", []),
         "as_is_faces": job["as_is_faces"],
         **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],

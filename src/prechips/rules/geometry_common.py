@@ -9,12 +9,14 @@ from dataclasses import replace
 from prechips.findings import Finding
 from prechips.material_routes import setup_lineage
 from prechips.rules.datum_consistency import _cuts
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
 from prechips.rules.resolution import (
     COMPLETE_FORM,
     HAND_FED,
     HAND_FINISH,
     HAND_THREAD,
     MANUAL,
+    MANUAL_SEVER_REASON,
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
     TAP_OPS,
@@ -33,6 +35,7 @@ from prechips.rules.resolution import (
     record,
     registered_workpieces,
     resolve,
+    same_length,
     select,
     setup_frame,
     slitting_saw,
@@ -41,7 +44,7 @@ from prechips.rules.resolution import (
 from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
-_NONCUTTING = (MANUAL - HAND_THREAD) | {"transfer"}
+_NONCUTTING = (MANUAL - HAND_THREAD - {"manual_sever"}) | {"transfer"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
@@ -87,8 +90,11 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'hand' (manual material cutting), 'turning', 'rotary' (dividing-head milling),
-    'axial' (-Z cutter cylinders) or None when no approach model applies."""
+    """Select the physical approach model; authored rasters never use axial cylinders."""
+    if op.get("do") == "manual_sever":
+        return "manual_sever"
+    if record(op.get("contour")).get("method") == MANUAL_RASTER:
+        return MANUAL_RASTER
     if op.get("do") in HAND_FINISH | HAND_THREAD:
         return HAND
     machine = record(resolve(bundle, "machines", setup.get("machine")))
@@ -109,10 +115,9 @@ def approach_model_reason(bundle, setup, op):
 
 
 def approach_facts(bundle, facts, setup, op):
-    """Whether a hand/turning/rotary op's kernel facts come from its own model (never raw -Z
-    facts); axial ops always do."""
+    """Non-axial facts must identify their own physical model, never legacy -Z facts."""
     model = approach(bundle, setup, op)
-    if model not in (HAND, TURNING, ROTARY):
+    if model not in (HAND, TURNING, ROTARY, MANUAL_RASTER, "manual_sever"):
         return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     return detail.get("approach") == model
@@ -140,7 +145,7 @@ def finishing_subjects(bundle):
         if not record(record(definition).get("preparation"))
         for _, setup, op in _cuts(bundle, name, workpiece_id=member)
         if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
-        and op.get("do") not in SAW_OPS | {"coating"}
+        and op.get("do") not in SAW_OPS | {"coating", "manual_sever"}
     }
 
 
@@ -291,6 +296,9 @@ def op_claims(bundle, facts, setup, op):
     only the kernel's ``certified_indices``, the exported faces its accepted finishing cut
     measurably leaves as its own surface, and otherwise an empty set (never debt). A plan
     process-feature op (stock preparation) credits no finished face at all.
+    A bounded non-facing profile credits only accepted native whole-face window
+    attainment. An explicit turn target additionally binds that evidence to the
+    current normalized diameter, never just the axial window.
     """
     refs = claim_refs(bundle, op, setup)
     if record(record(bundle.feature_definitions.get(op_feature(op))).get("preparation")):
@@ -341,7 +349,58 @@ def op_claims(bundle, facts, setup, op):
             or not set(indices) <= {mapped[ref] for ref in refs}
         ):
             return None, away, []
+    if op.get("do") in {"rough_turn", "finish_turn"} and "to_dia" in op and op.get("to_z") is None:
+        return _turn_attained(bundle, setup, op, detail, indices), away, []
+    if (
+        op.get("do") in PROFILE_OPS
+        and approach(bundle, setup, op) == TURNING
+        and op.get("to_z") is None
+        and ("z_from" in op or "z_to" in op)
+    ):
+        return _turn_attained(bundle, setup, op, detail, indices, radial=False), away, []
     return set(indices), away, []
+
+
+def _turn_attained(bundle, setup, op, detail, candidates, *, radial=True):
+    """Consume native whole-face attainment, never infer it from candidate claims."""
+    from prechips.kernel import op_inputs
+
+    # Passing the subject sets avoids recomputing finishing/complete-form ownership;
+    # neither ownership flag affects the commanded cylinder or its setup-frame window.
+    prepared = op_inputs(bundle, setup, op, finishing=set(), complete=set())
+    target = record(detail.get("turn_target" if radial else "turn_window"))
+    diameter = prepared.get("to_dia_mm")
+    ends = [prepared.get("z_from"), prepared.get("z_to")]
+    reported_diameter = target.get("diameter_mm")
+    window = target.get("z_mm")
+    if (
+        target.get("status") != "accepted"
+        or not all(number(v) and math.isfinite(v) for v in ends)
+        or ends[0] == ends[1]
+        or not isinstance(window, list)
+        or len(window) != 2
+        or not all(number(v) and math.isfinite(v) for v in window)
+        or window[0] >= window[1]
+        or not all(same_length(a, b) for a, b in zip(sorted(ends), window, strict=True))
+    ):
+        return None
+    if radial and (
+        not number(diameter)
+        or not math.isfinite(diameter)
+        or diameter < 0
+        or not number(reported_diameter)
+        or not math.isfinite(reported_diameter)
+        or not same_length(diameter, reported_diameter)
+    ):
+        return None
+    attained = target.get("attained_indices")
+    if (
+        not isinstance(attained, list)
+        or not all(_face_index(index) for index in attained)
+        or len(attained) != len(set(attained))
+    ):
+        return None
+    return set(candidates) & set(attained)
 
 
 def _certified(facts, detail):
@@ -432,6 +491,95 @@ def rotary_union(facts, category, indices):
                 "reason": "the kernel reported no rotary window union for it",
             }
     return complete, uncovered, unresolved
+
+
+def manual_raster_candidates(bundle, facts, setup, op):
+    """Selected exact owners are union candidates, never whole-face cutting credit."""
+    feature = record(bundle.feature_definitions.get(op_feature(op)))
+    if feature.get("preparation") or feature.get("joint"):
+        return set()
+    if not approach_facts(bundle, facts, setup, op):
+        return None
+    refs = claim_refs(bundle, op, setup)
+    mapping = face_mapping(bundle, facts, setup)
+    if not known_refs(refs) or any(not _face_index(mapping.get(ref)) for ref in refs):
+        return None
+    if registered_workpieces(bundle):
+        members = operation_members(bundle, setup, op)
+        if not members or any(
+            member_protection_status(bundle, setup, member, facts) is not True for member in members
+        ):
+            return None
+    return {mapping[ref] for ref in refs}
+
+
+def manual_raster_union(facts, category, indices):
+    """Read exact authored-path coverage, independently of rotary window coverage.
+
+    All three lists are required. Missing/malformed packets stay unresolved; within a
+    valid packet unknown outranks gaps, and gaps outrank complete. Selection and per-op
+    partial/complete lists cannot replace this category-specific native union proof.
+    """
+    entry = record(record(facts.get("manual_raster_coverage")).get(category))
+    faces = {row["index"]: row for row in _face_rows(facts.get("faces"))}
+    listed, gap_rows, unknown_rows = (
+        entry.get("complete_indices"),
+        entry.get("gaps"),
+        entry.get("unknown"),
+    )
+    valid = (
+        isinstance(listed, list)
+        and all(_face_index(i) and i in faces for i in listed)
+        and isinstance(gap_rows, list)
+        and isinstance(unknown_rows, list)
+    )
+    if valid:
+        valid = all(
+            isinstance(row, dict)
+            and _face_index(row.get("index"))
+            and row["index"] in faces
+            and isinstance(row.get("ref"), str)
+            and bool(row["ref"].strip())
+            and (
+                number(row.get("uncovered_area_mm2"))
+                and math.isfinite(row["uncovered_area_mm2"])
+                and row["uncovered_area_mm2"] > 0
+                if kind == "gap"
+                else isinstance(row.get("reason"), str) and bool(row["reason"].strip())
+            )
+            for kind, rows in (("gap", gap_rows), ("unknown", unknown_rows))
+            for row in rows
+        )
+    gaps = {row["index"]: row for row in gap_rows} if valid else {}
+    unknown = {row["index"]: row for row in unknown_rows} if valid else {}
+    covered = set(listed) if valid else set()
+    complete, uncovered, unresolved = set(), {}, {}
+    for index in sorted(indices):
+        face = faces.get(index, {})
+        ref = face.get("ref") or f"imported face index {index}"
+        if face.get("workpiece_id"):
+            ref = face_identity_text((face["workpiece_id"], face.get("canonical_ref") or ref))
+        if index in unknown:
+            unresolved[index] = {**unknown[index], "ref": ref}
+        elif index in gaps:
+            uncovered[index] = {**gaps[index], "ref": ref}
+        elif index in covered:
+            complete.add(index)
+        else:
+            unresolved[index] = {
+                "index": index,
+                "ref": ref,
+                "reason": (
+                    "manual raster union packet is missing or malformed"
+                    if not valid
+                    else "the kernel reported no manual raster union for it"
+                ),
+            }
+    return complete, uncovered, unresolved
+
+
+def manual_raster_gap_text(gap):
+    return f"{gap['ref']} ({gap['uncovered_area_mm2']:g} mm² uncovered)"
 
 
 def rotary_gap_text(gap):
@@ -1035,6 +1183,31 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
         cite = provenance(bundle, rule, setup, op, op_feature(op))
+        if op.get("do") == "manual_sever":
+            detail = record(record(facts.get("ops")).get(subject))
+            inputs = {
+                **jobs.get(subject, {}),
+                "operation": "manual_sever",
+                "material_effect": "unmodeled",
+                "model_reason": MANUAL_SEVER_REASON,
+            }
+            yield (
+                setup,
+                op,
+                facts,
+                detail,
+                inputs,
+                cite,
+                Finding(
+                    rule,
+                    subject,
+                    UNKNOWN,
+                    inputs,
+                    cite,
+                    f"{subject}: {MANUAL_SEVER_REASON}.",
+                ),
+            )
+            continue
         if op.get("do") in SAW_OPS:
             disk = spindle_saw(bundle, setup, op) and rule in {"accessibility", "reach"}
             inputs = jobs.get(subject, {})

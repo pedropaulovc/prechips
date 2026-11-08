@@ -1427,6 +1427,16 @@ class _Diagram:
             notes.append("Z0: not declared")
         if "datums" not in self.spec:
             notes.append("Datums: not declared")
+        if any(datum.get("kind") != "end" for datum in self.spec.get("datums", [])):
+            notes.append(
+                "REF: final CAD datum, not a setup pickup or proof of an attained feature."
+            )
+        cut = self.spec.get("closest_cut")
+        if cut and cut.get("scope") != "machining_trajectory":
+            notes.append(
+                "MODELED GAP: nearest removal/tool-envelope distance to holding, "
+                "not cut depth or verified physical clearance."
+            )
         if self.is_chuck and self.spec.get("stickout_mm") is None:
             notes.append("Stickout: not declared")
         add = self.spec.get("stickout_add_mm")
@@ -1453,7 +1463,7 @@ class _Diagram:
             ("holding", "WORKHOLDING", "fixture"),
             ("tool", "TOOL / APPROACH", "tool"),
             ("context", "MACHINE OUTLINE", "context"),
-            ("nominal", "FINISHED OUTLINE, THIS SETUP", "nominal"),
+            ("nominal", "FINAL CAD REFERENCE", "nominal"),
         )
         for supplied in self.spec.get("legend", []):
             text = _plain(supplied)
@@ -1479,7 +1489,7 @@ class _Diagram:
         if any("pad" in _plain(c.get("label") or c["name"]).lower() for c in self.components):
             rows.append(("PAD BADGES: POSITIONS", "text"))
         if self.nominal and "nominal" not in kinds:
-            rows.append(("FINISHED OUTLINE, THIS SETUP", "nominal"))
+            rows.append(("FINAL CAD REFERENCE", "nominal"))
         self.legend_entries = rows
         wrapped, self.legend_ends = [], []
         for label, kind in rows:
@@ -1508,7 +1518,7 @@ class _Diagram:
             self._nominal_overlay(self.canvas.project)
             self.callouts.append(
                 _Callout(
-                    "FINISHED OUTLINE",
+                    "FINAL CAD REFERENCE",
                     [self.canvas.project(self.nominal[0][0])],
                     _BLUE,
                     along=tuple(self.canvas.project(p) for line in self.nominal for p in line),
@@ -1622,9 +1632,6 @@ class _Diagram:
                     dashed=True,
                 )
                 self.obstacles.append((x - 100, y - _TEXT_HEIGHT - 16, x + 200, y + 130))
-                self.context_labels.append(
-                    (x + 47, y - _TEXT_HEIGHT - 10, "HEADSTOCK", _BODY_SCALE)
-                )
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres:
                 # A tailstock is drawn only where a centre actually supports the work.
@@ -1731,6 +1738,10 @@ class _Diagram:
             if not points:
                 self._hidden(label.upper())
                 continue
+            if self.view == "lathe" and all(_role(item) == "chuck_jaw" for item in components):
+                # Equivalent jaws need one key, not one in each callout lane.
+                # Keep a visible jaw anchor at the working end of the chuck.
+                points = [max(points, key=lambda point: point[0])]
             self.callouts.append(_Callout(label.upper(), points, _FIXTURE, targets=targets))
         badges = []
         for index, component in enumerate(pads, 1):
@@ -1817,8 +1828,10 @@ class _Diagram:
         for datum in self.spec.get("datums", []):
             point = c.project(datum["point_mm"])
             label = _plain(datum["label"]).upper()
-            if datum.get("kind") != "end" and not label.startswith("DATUM "):
-                label = "DATUM " + label
+            if datum.get("kind") != "end":
+                # Keep the reference role explicit without repeating a long common
+                # prefix in every fixed-width callout lane. The notes define REF.
+                label = "REF " + label.removeprefix("DATUM ")
             if datum.get("workpiece_id"):
                 label = _plain(datum["workpiece_id"]).upper() + ": " + label
             facing = []
@@ -1935,7 +1948,7 @@ class _Diagram:
                     phase = "SAW CYCLE MINIMUM"
                 label = f"{phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         else:
-            label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+            label = f"MODELED GAP {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
         if op not in (None, "", "unknown"):
             label += f" (OP {_plain(op).upper()})"
@@ -2565,8 +2578,37 @@ class _Diagram:
         paths = self.spec.get("paths", [])
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
-        _text(c, left, top, "PROFILE SKETCH / XY", scale=_TITLE_SCALE)
-        caption = _wrap(c, f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm", right - left)
+        manual = self.spec.get("manual_raster_sketch")
+        title = "AUTHORED TOOL-TIP / ISOMETRIC" if manual else "PROFILE SKETCH / XY"
+        _text(c, left, top, title, scale=_TITLE_SCALE)
+        raster_ops = {
+            op: [p for p in paths if str(p.get("op", "")) == op and p.get("raster")] for op in ops
+        }
+        extremes = [
+            op
+            for op, raster in raster_ops.items()
+            if len(raster) > _EVERY_PASS and not any(p["raster"].get("keep_out") for p in raster)
+        ]
+        caption = _wrap(
+            c,
+            f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm"
+            + (
+                f" / SAFE Z {manual['safe_z_mm']} / MOVES "
+                f"{self.spec['manual_move_range'][0]}-{self.spec['manual_move_range'][1]}"
+                if manual
+                else " / SCHEMATIC / USE OP TABLE"
+            )
+            + (
+                " / SHADED BANDS: PASS ENVELOPES"
+                if any(
+                    len(raster) > 2 and not any(p["raster"].get("keep_out") for p in raster)
+                    for raster in raster_ops.values()
+                )
+                else ""
+            )
+            + (f" / OPS {', '.join(extremes)}: FIRST/LAST PASSES ONLY" if extremes else ""),
+            right - left,
+        )
         for index, line in enumerate(caption):
             _text(
                 c,
@@ -2577,7 +2619,7 @@ class _Diagram:
                 align="right",
             )
         before = self.arrows_drawn
-        legend = _LEADING if _lifted_returns(paths) else 0
+        legend = _LEADING if manual or _lifted_returns(paths) else 0
         self._operation_panels(
             left,
             right,
@@ -2589,13 +2631,17 @@ class _Diagram:
         )
         if self.inset_overflow > 0 or self.width_overflow > 0:
             return
-        self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
+        if manual:
+            _text(c, left, bottom - _TEXT_HEIGHT - _LEADING, "SOLID: CUT / DASHED: CLEAR")
+            _text(c, left, bottom - _TEXT_HEIGHT, "M: AUTHORED MOVE END / Z: TOOL-TIP HEIGHT")
+        else:
+            self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
         if self.nominal:
             _text(
                 c,
                 right,
                 bottom - _TEXT_HEIGHT,
-                "FINISHED OUTLINE, THIS SETUP",
+                "DASHED: FINAL CAD REF",
                 _BLUE,
                 align="right",
             )
@@ -2610,7 +2656,8 @@ class _Diagram:
         factor = (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM)
         lines = 0
         if (
-            0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
+            not self.spec.get("manual_raster_sketch")
+            and 0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
             and span_x * factor >= _SKETCH_Y_EXAG_MIN_WIDTH_PX
         ):
             lines = len(_wrap(self.canvas, f"Y EXAG x{_SKETCH_Y_EXAG_MAX}", width - 16))
@@ -2727,6 +2774,12 @@ class _Diagram:
                 if path.get("hidden") is True:
                     # Only its ends are keyed (``ends``): where the cut meets the outline.
                     continue
+                if path.get("manual_mode") == "clear":
+                    _dashed(c, [path["xy"]], project, _MUTED)
+                    self._ordered_path(
+                        [project(p) for p in path["xy"]], _MUTED, arrows=True, line=False
+                    )
+                    continue
                 if path.get("dashed") is True:
                     # A line the cut follows, not a travelled path: dashed, no arrows.
                     _dashed(c, [path["xy"]], project, colour)
@@ -2746,7 +2799,8 @@ class _Diagram:
                     colour,
                     # A line bounding a shaded waste is the one heavier line.
                     width=3 if "waste_xy" in path else 2,
-                    arrows=directed and (only or path_index in direction_keys),
+                    arrows=directed
+                    and (only or "manual_mode" in path or path_index in direction_keys),
                     clip=inside,
                     line=not only,
                 )
@@ -3378,6 +3432,8 @@ class _AnnotationDetail(_Diagram):
         self.canvas.scale = main_scale
 
     def _title(self):
+        if self.spec.get("manual_raster_sketch"):
+            return "AUTHORED TOOL-TIP / ISOMETRIC"
         return "JAW-END PROFILE" if self.role == "profile_detail" else "PROFILE SKETCH / XY"
 
     def render(self):
@@ -3426,6 +3482,62 @@ def _annotation_detail(spec, role, main_scale, height, colours=None):
     return None
 
 
+def _manual_raster_sketch(spec, raster, first=0, last=None):
+    """Project the exact authored XYZ polyline, separately from all source/placed solids.
+
+    Every segment and endpoint survives, including coincident XY at different heights.
+    No raster-band compression, synthetic return, contour offset or swept area applies.
+    """
+    camera = _CAMERAS["isometric"]
+
+    def project(point):
+        return [sum(a * b for a, b in zip(point, axis, strict=True)) for axis in camera[:2]]
+
+    op = str(raster["op"])
+    last = len(raster["moves"]) if last is None else last
+    previous = raster["start_mm"] if first == 0 else raster["moves"][first - 1]["to_mm"]
+    initial = "START" if first == 0 else raster["moves"][first - 1]["mode"].upper()
+    paths = []
+    waypoints = [
+        {
+            "op": op,
+            "xy": project(previous),
+            "label": f"M{first} {initial} Z{previous[2]}",
+            "plain": True,
+        }
+    ]
+    for index in range(first, last):
+        move = raster["moves"][index]
+        point = move["to_mm"]
+        paths.append(
+            {
+                "op": op,
+                "xy": [project(previous), project(point)],
+                "directed": True,
+                "manual_mode": move["mode"],
+            }
+        )
+        waypoints.append(
+            {
+                "op": op,
+                "xy": project(point),
+                "label": f"M{index + 1} {move['mode'].upper()} Z{point[2]}",
+                "plain": True,
+            }
+        )
+        previous = point
+    return {
+        **spec,
+        "manual_raster_sketch": raster,
+        "manual_move_range": (first + 1, last),
+        "paths": paths,
+        "waypoints": waypoints,
+        "nominal_outline_mm": [],
+        "nominal_render_outline_mm": [],
+        "stock_box": None,
+    }
+
+
 def _annotation_details(spec, main_scale):
     details = []
     if spec["view"] == "lathe" and (
@@ -3461,6 +3573,19 @@ def _annotation_details(spec, main_scale):
                 "one complete authored operation exceeds its printable band at body size"
             )
         details.append(detail)
+    for raster in spec.get("manual_rasters", []):
+        batches = [(0, len(raster["moves"]))]
+        while batches:
+            first, last = batches.pop(0)
+            local = _manual_raster_sketch(spec, raster, first, last)
+            detail = _annotation_detail(local, "path_detail", main_scale, 980)
+            if detail is None:
+                if last - first == 1:
+                    raise ValueError("one authored manual raster move exceeds its printable band")
+                middle = (first + last) // 2
+                batches[:0] = [(first, middle), (middle, last)]
+                continue
+            details.append(detail)
     return details
 
 
@@ -3983,7 +4108,7 @@ class _HoldingDetail(_Diagram):
         for index, line in enumerate(title_lines):
             _text(c, 32, 22 + index * 9 * _TITLE_SCALE, line, scale=_TITLE_SCALE)
         note_y = 22 + len(title_lines) * 9 * _TITLE_SCALE + 10
-        _text(c, 34, note_y, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
+        _text(c, 34, note_y, "CONTACT FACES: SOLID = SEEN / DASHED = HIDDEN", _CONTACT)
         groups = self._contact_groups()
         self._contact_outline(
             [line for _, _, members in groups for _, _, lines in members for line in lines]
@@ -4241,7 +4366,7 @@ class _GuideView(_HoldingDetail):
         if self.nominal:
             self.callouts.append(
                 _Callout(
-                    "FINISHED OUTLINE",
+                    "FINAL CAD REFERENCE",
                     [c.project(self.nominal[0][0])],
                     _BLUE,
                     along=tuple(c.project(p) for line in self.nominal for p in line),

@@ -8,6 +8,8 @@ projection; holder clearance is the shank and toolpost body clear of remaining w
 
 Mounted disks consume the shared finite kerf-coverage and assembly-clearance result;
 neither axial flute depth nor diameter minus flange radius establishes their reach.
+Authored manual rasters consume their finite sequential tool-body sweep evidence,
+not an invented axial reach depth or a count of sampled face poses.
 """
 
 import math
@@ -20,6 +22,8 @@ from prechips.rules.geometry_common import (
     op_contexts,
     with_measurement_debts,
 )
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+from prechips.rules.manual_raster import motion_finding
 from prechips.rules.resolution import number, op_feature, record, same_length
 
 # A radial gap this close to the cutter's own radius is the bore the op itself cuts.
@@ -175,6 +179,11 @@ def evaluate(bundle):
     for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "reach", ("flute_len_mm",)
     ):
+        if isinstance(op.get("contour"), dict) and op["contour"].get("method") == MANUAL_RASTER:
+            rows.append(
+                motion_finding("reach", f"{setup['id']}:{op['op']}", detail, inputs, cite, blocked)
+            )
+            continue
         represented = _represented_hand_tap_reach(bundle, setup, op, facts, inputs, cite, blocked)
         if represented is not None:
             rows.append(represented)
@@ -194,6 +203,11 @@ def evaluate(bundle):
             "projection_mm": inputs.get("projection_mm", "unknown"),
             "holder_wall_hits": hits,
         }
+        radial_bound = turning and detail.get("reach_depth_basis") == (
+            "entry_stock_radial_upper_bound"
+        )
+        if "reach_depth_basis" in detail:
+            values["reach_depth_basis"] = detail["reach_depth_basis"]
         if "reach_top_z_mm" in detail:
             # The Z of the highest retained stock the reach is measured from.
             values["reach_top_z_mm"] = detail["reach_top_z_mm"]
@@ -223,8 +237,18 @@ def evaluate(bundle):
         )
         if number(depth) and depth >= 0:
             within = depth <= flute or same_length(depth, flute)
-            if number(oal) and depth > oal and not same_length(depth, oal):
-                status, message = "error", "entry-to-floor depth exceeds the selected tool OAL"
+            if radial_bound and number(hits) and hits > 0:
+                status, message = "error", "the sampled turning holder intersects remaining walls"
+            elif number(oal) and depth > oal and not same_length(depth, oal):
+                if radial_bound:
+                    status, message = (
+                        "unknown",
+                        "setup-entry radial reduction exceeds the selected tool OAL; "
+                        "instantaneous turning reach is unresolved because roughing "
+                        "progression is not modeled",
+                    )
+                else:
+                    status, message = "error", "entry-to-floor depth exceeds the selected tool OAL"
             elif number(shank) and shank > 0:
                 status, message = (
                     "error",

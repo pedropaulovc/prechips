@@ -3,7 +3,6 @@
 Engine tests run ``freecad_job.py`` on solids authored here and read only its JSON.
 """
 
-import math
 import subprocess
 
 import pytest
@@ -42,6 +41,10 @@ tail.fuse(body).fuse(boss).removeSplitter().exportStep(out + "/bossed.step")
 shelf = Part.makeBox(5, 2, 3, V(33, -1, 11))
 tail.fuse(body).fuse(boss).fuse(shelf).removeSplitter().exportStep(out + "/overhung.step")
 tail.fuse(Part.makeCone(10, 8, 60, V(0, 0, 0), X)).exportStep(out + "/conical.step")
+# A cylindrical source parallel to, but displaced from, the dividing-head axis.
+tail.fuse(Part.makeCylinder(10, 60, V(0, 3, 0), X)).removeSplitter().exportStep(
+    out + "/offset.step"
+)
 """
 
 # Head axis along setup +X, jaw face at x = -5: the jaws grip the tail at x -15..-5.
@@ -100,6 +103,17 @@ def _window_result(engine, step, body, windows, stock=None):
     return result, index
 
 
+def _assert_unproved_coverage(result, index, categories=("cut", "finish")):
+    for category in categories:
+        coverage = result["rotary_coverage"][category]
+        assert coverage["complete_indices"] == [] and coverage["gaps"] == [], coverage
+        records = [item for item in coverage["unknown"] if item["index"] == index]
+        assert records, coverage
+        assert any(
+            "sampled rotary poses do not prove executed cuts" in item["reason"] for item in records
+        ), coverage
+
+
 def test_rotary_floor_beside_an_unclaimed_proud_pad_clears_it(engine, parts):
     step = parts["padded"]
     body = engine.refs(step, *BODY, kind="Cylinder")
@@ -110,10 +124,8 @@ def test_rotary_floor_beside_an_unclaimed_proud_pad_clears_it(engine, parts):
     assert op["tool_hits"] == 0 and op["holder_hits"] == 0, op
 
 
-def test_rotary_floor_beside_a_round_boss_cuts_the_stock_over_it(engine, parts):
-    # Round R15 bar: the boss keeps a fanned stock column; the cutter tangent to the boss
-    # wall cuts that stock where it stands and clears the finished boss. The window runs
-    # from the jaw face so the relieved bar ends ahead of the body's convex end edge.
+def test_rotary_round_stock_is_not_removed_by_diagnostic_boss_poses(engine, parts):
+    # Both windows retain the R15 entry bar: sampled poses prove no removal.
     step = parts["bossed"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     assert len(body) == 1
@@ -121,16 +133,16 @@ def test_rotary_floor_beside_a_round_boss_cuts_the_stock_over_it(engine, parts):
     stock = {**bar, "origin_mm": [-15.0, 0.0, 0.0], "axis": [1.0, 0.0, 0.0]}
     op = _rotary(engine, step, body, _head(), stock, z_from=0.0, z_to=70.0)
     assert op["claim_errors"] == []
-    assert op["tool_hits"] == 0, op
-    # Restricting removal to the finished body's axial extent retains raw bar
-    # beside its convex end. That stock is an obstacle even though no finished
-    # pad or boss occupies it.
+    assert op["tool_hits"] == "unknown", op
+    assert op["obstacles"]["tool"] == ["part"], op
+    assert op["rotary_target"]["attained_indices"] == []
     restricted = _rotary(engine, step, body, _head(), stock, z_from=5.0, z_to=65.0)
     assert restricted["claim_errors"] == []
-    assert restricted["tool_hits"] > 0 and restricted["obstacles"]["tool"] == ["part"]
+    assert restricted["tool_hits"] == "unknown"
+    assert restricted["obstacles"]["tool"] == ["part"]
 
 
-def test_rotary_wall_column_preserves_a_finished_overhang(engine, parts):
+def test_rotary_diagnostic_column_preserves_a_finished_overhang(engine, parts):
     step = parts["overhung"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     stock = {
@@ -142,7 +154,7 @@ def test_rotary_wall_column_preserves_a_finished_overhang(engine, parts):
     }
     op = _rotary(engine, step, body, _head(), stock, z_from=0.0, z_to=70.0)
     assert op["claim_errors"] == []
-    assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op
+    assert op["tool_hits"] == "unknown" and op["obstacles"]["tool"] == ["part"], op
     assert op["hit_refs"]["tool"], op
 
 
@@ -161,11 +173,13 @@ def test_rotary_cutter_hits_a_pad_or_boss_lying_in_its_path(engine, parts, part)
 def test_rotary_partial_angle_window_excludes_outside_obstacles(engine, parts):
     step = parts["overhung"]
     body = engine.refs(step, *BODY, kind="Cylinder")
-    full = _rotary(engine, step, body, _head(), angle_window_deg=[-180.0, 180.0])
+    full = _rotary(engine, step, body, _head(), to_dia_mm=22.0, angle_window_deg=[-180.0, 180.0])
     assert full["claim_errors"] == [] and full["tool_hits"] > 0, full
-    quarter = _rotary(engine, step, body, _head(), angle_window_deg=[90.0, 180.0])
+    quarter = _rotary(engine, step, body, _head(), to_dia_mm=22.0, angle_window_deg=[90.0, 180.0])
     assert quarter["claim_errors"] == [] and quarter["claimed_indices"] == full["claimed_indices"]
     assert quarter["tool_hits"] == 0, quarter
+    assert quarter["rotary_target"]["angle_deg"] == [90.0, 180.0]
+    assert quarter["rotary_target"]["sampled_tip_z_mm"] == pytest.approx([11.001, 11.001], abs=1e-5)
 
 
 def test_head_axis_not_perpendicular_to_setup_z_is_unsupported(engine, parts):
@@ -230,8 +244,7 @@ def test_rotary_op_after_an_underivable_rotary_removal_keeps_only_its_certain_fi
     assert alone["tool_hits"] > 0 and alone["obstacles"]["tool"] == ["part"], alone
     result = run("cone", "band")
     stopped, later = result["ops"]["S1:10"], result["ops"]["S1:20"]
-    # The cone claim resolves, so its removal (not its claim) is what stops the builder,
-    # because a cone is not a surface whose rotary removal is derived (not a boolean failure).
+    # A valid cone claim also withholds removal: poses are not executed cuts.
     assert stopped["claim_errors"] == [], stopped
     assert stopped["claimed_indices"] == result["features"]["cone"], stopped
     # Its clear flute meets the known before-stock, an upper bound on every after-stock.
@@ -239,22 +252,20 @@ def test_rotary_op_after_an_underivable_rotary_removal_keeps_only_its_certain_fi
     assert "tool_hits" not in stopped.get("reasons", {}), stopped
     assert later["tool_hits"] == "unknown", later
     why = later["reasons"]["tool_hits"]
-    assert "S1:10" in why and "Cone" in why, later
+    assert "S1:10" in why and "sampled rotary poses do not prove executed cuts" in why, later
     assert later["min_hits"]["tool"] == "unknown", later
     assert later["obstacles"]["tool"] == ["part"], later
 
 
 @pytest.mark.parametrize(
-    "ends, gap",
+    "ends",
     [
-        ([(5.0, 30.0), (40.0, 65.0)], [30.0, 40.0]),
-        ([(5.0, 45.0), (25.0, 60.0)], [60.0, 65.0]),
-        ([(5.0, 34.999), (35.001, 65.0)], [34.999, 35.001]),
+        [(5.0, 30.0), (40.0, 65.0)],
+        [(5.0, 45.0), (25.0, 60.0)],
+        [(5.0, 34.999), (35.001, 65.0)],
     ],
 )
-def test_rotary_axial_union_reports_exact_gap_not_sample_or_overlap_credit(
-    engine, parts, ends, gap
-):
+def test_rotary_axial_windows_withhold_union_and_gap_credit(engine, parts, ends):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -262,22 +273,11 @@ def test_rotary_axial_union_reports_exact_gap_not_sample_or_overlap_credit(
     )
     for op in result["ops"].values():
         assert op["claim_errors"] == [] and op["claimed_indices"] == [index], op
-    for category in ("cut", "finish"):
-        coverage = result["rotary_coverage"][category]
-        assert coverage["complete_indices"] == [] and coverage["unknown"] == [], coverage
-        assert len(coverage["gaps"]) == 1
-        missing = coverage["gaps"][0]
-        assert missing["index"] == index and missing["ref"] == body[0]
-        assert missing["area_mm2"] == pytest.approx(20 * math.pi * (gap[1] - gap[0]), abs=1e-5)
-        assert all(span["setup"] == "S1" for span in missing["spans"])
-        assert min(span["z_mm"][0] for span in missing["spans"]) == pytest.approx(gap[0])
-        assert max(span["z_mm"][1] for span in missing["spans"]) == pytest.approx(gap[1])
+    _assert_unproved_coverage(result, index)
 
 
 @pytest.mark.parametrize("join", [(35.0, 35.0), (40.0, 30.0)])
-def test_rotary_mixed_three_eighth_and_one_eighth_cutters_cover_adjacent_or_overlapping_windows(
-    engine, parts, join
-):
+def test_rotary_mixed_cutters_withhold_adjacent_or_overlapping_window_credit(engine, parts, join):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -296,23 +296,16 @@ def test_rotary_mixed_three_eighth_and_one_eighth_cutters_cover_adjacent_or_over
             "axis": [1.0, 0.0, 0.0],
         },
     )
-    for category in ("cut", "finish"):
-        assert result["rotary_coverage"][category] == {
-            "complete_indices": [index],
-            "gaps": [],
-            "unknown": [],
-        }
-    # Coverage is not clearance. The first op is never credited the later op's cut, so it
-    # meets raw stock beyond its own clipped boundary; the second meets the stock the
-    # first op's accepted cut left, which already cleared what lies beyond its boundary.
+    _assert_unproved_coverage(result, index)
+    # Entry stock is retained for diagnostics; the second op has unknown stock.
     first, second = result["ops"]["S1:10"], result["ops"]["S1:20"]
     for op in (first, second):
         assert op["claim_errors"] == [] and op["claimed_indices"] == [index]
-    assert first["tool_hits"] > 0 and first["obstacles"]["tool"] == ["part"], first
-    assert second["tool_hits"] == 0 and second["obstacles"]["tool"] == [], second
+    assert first["tool_hits"] == "unknown" and first["obstacles"]["tool"] == ["part"], first
+    assert second["tool_hits"] == "unknown", second
 
 
-def test_rotary_rough_portion_provides_cut_but_not_finish_credit(engine, parts):
+def test_rotary_rough_and_finish_portions_both_withhold_attainment(engine, parts):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -324,17 +317,10 @@ def test_rotary_rough_portion_provides_cut_but_not_finish_credit(engine, parts):
             {"z_from": 30.0, "z_to": 65.0, "finishing": True},
         ],
     )
-    assert result["rotary_coverage"]["cut"]["complete_indices"] == [index]
-    finish = result["rotary_coverage"]["finish"]
-    assert finish["complete_indices"] == [] and finish["unknown"] == []
-    missing = finish["gaps"][0]
-    assert missing["index"] == index
-    assert missing["area_mm2"] == pytest.approx(20 * math.pi * 25, abs=1e-5)
-    assert min(span["z_mm"][0] for span in missing["spans"]) == pytest.approx(5.0)
-    assert max(span["z_mm"][1] for span in missing["spans"]) == pytest.approx(30.0)
+    _assert_unproved_coverage(result, index)
 
 
-def test_rotary_gap_area_respects_the_actual_trimmed_floor_not_its_cylinder_span(engine, parts):
+def test_rotary_trimmed_floor_claims_withhold_gap_area(engine, parts):
     step = parts["padded"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -343,25 +329,21 @@ def test_rotary_gap_area_respects_the_actual_trimmed_floor_not_its_cylinder_span
         body,
         [{"z_from": 5.0, "z_to": 30.0}, {"z_from": 40.0, "z_to": 65.0}],
     )
-    # In model x 25..35 the pad replaces the cylinder's top arc y -3..3.
-    expected = 100 * (2 * math.pi - 2 * math.asin(3 / 10))
-    missing = result["rotary_coverage"]["cut"]["gaps"][0]
-    assert missing["index"] == index
-    assert missing["area_mm2"] == pytest.approx(expected, abs=1e-5)
+    for op in result["ops"].values():
+        assert op["claimed_indices"] == [index] and op["claim_errors"] == []
+    _assert_unproved_coverage(result, index)
 
 
 @pytest.mark.parametrize(
-    "angles, fraction, uncovered_angle",
+    "angles",
     [
-        ([[0.0, 90.0]], 0.75, -90.0),
-        ([[150.0, 210.0]], 5 / 6, 0.0),
-        ([[-180.0, 120.0], [-120.0, 150.0]], 1 / 12, 165.0),
-        ([[-180.0, 0.0], [0.0, 180.0]], 0, None),
+        [[0.0, 90.0]],
+        [[150.0, 210.0]],
+        [[-180.0, 120.0], [-120.0, 150.0]],
+        [[-180.0, 0.0], [0.0, 180.0]],
     ],
 )
-def test_rotary_angular_portions_are_valid_claims_and_union_geometrically(
-    engine, parts, angles, fraction, uncovered_angle
-):
+def test_rotary_angular_portions_are_valid_claims_without_union_credit(engine, parts, angles):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -371,21 +353,7 @@ def test_rotary_angular_portions_are_valid_claims_and_union_geometrically(
         op["claim_errors"] == [] and op["claimed_indices"] == [index]
         for op in result["ops"].values()
     )
-    for category in ("cut", "finish"):
-        coverage = result["rotary_coverage"][category]
-        assert coverage["unknown"] == [], coverage
-        if fraction:
-            assert coverage["complete_indices"] == []
-            missing = coverage["gaps"][0]
-            assert missing["area_mm2"] == pytest.approx(1200 * math.pi * fraction, abs=1e-5)
-            assert min(span["z_mm"][0] for span in missing["spans"]) == pytest.approx(5.0)
-            assert max(span["z_mm"][1] for span in missing["spans"]) == pytest.approx(65.0)
-            assert any(
-                span["angle_deg"][0] <= uncovered_angle <= span["angle_deg"][1]
-                for span in missing["spans"]
-            )
-        else:
-            assert coverage["complete_indices"] == [index] and coverage["gaps"] == []
+    _assert_unproved_coverage(result, index)
 
 
 def test_rotary_axial_and_angular_extrema_do_not_certify_an_uncovered_corner(engine, parts):
@@ -400,16 +368,10 @@ def test_rotary_axial_and_angular_extrema_do_not_certify_an_uncovered_corner(eng
             {"z_from": 5.0, "z_to": 35.0, "angle_window_deg": [0.0, 180.0]},
         ],
     )
-    coverage = result["rotary_coverage"]["cut"]
-    assert coverage["complete_indices"] == [] and coverage["unknown"] == [], coverage
-    missing = coverage["gaps"][0]
-    assert missing["index"] == index
-    assert missing["area_mm2"] == pytest.approx(300 * math.pi, abs=1e-5)
-    assert min(span["z_mm"][0] for span in missing["spans"]) == pytest.approx(35.0)
-    assert max(span["z_mm"][1] for span in missing["spans"]) == pytest.approx(65.0)
+    _assert_unproved_coverage(result, index)
 
 
-def test_rotary_union_transforms_half_windows_from_different_setup_frames(engine, parts):
+def test_rotary_half_windows_in_different_frames_do_not_prove_a_union(engine, parts):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     op = {
@@ -430,12 +392,7 @@ def test_rotary_union_transforms_half_windows_from_different_setup_frames(engine
     result = engine.run(engine.job(step, {"body": body}, setups))
     assert result["status"] == "ok", result
     index = result["features"]["body"][0]
-    for category in ("cut", "finish"):
-        assert result["rotary_coverage"][category] == {
-            "complete_indices": [index],
-            "gaps": [],
-            "unknown": [],
-        }
+    _assert_unproved_coverage(result, index)
 
 
 @pytest.mark.parametrize("span", [(70.0, 80.0), (65.0, 70.0)])
@@ -461,7 +418,7 @@ def test_rotary_positive_area_end_plane_at_window_boundary_is_not_an_empty_claim
     result, index = _window_result(engine, step, end, [{"z_from": 65.0, "z_to": 70.0}])
     assert result["ops"]["S1:10"]["claimed_indices"] == [index]
     assert result["ops"]["S1:10"]["claim_errors"] == []
-    assert result["rotary_coverage"]["cut"]["complete_indices"] == [index]
+    _assert_unproved_coverage(result, index)
 
 
 def test_rotary_clipped_boundary_keeps_a_nearby_finished_pad_as_an_obstacle(engine, parts):
@@ -474,6 +431,7 @@ def test_rotary_clipped_boundary_keeps_a_nearby_finished_pad_as_an_obstacle(engi
         step,
         body,
         _head(),
+        to_dia_mm=21.0,
         z_from=34.9,
         z_to=34.95,
         angle_window_deg=[-2.0, 2.0],
@@ -503,21 +461,13 @@ def test_unresolved_rotary_contribution_is_unknown_not_a_definite_gap(
     assert failed["claimed_indices"] == "unknown" and failed["claim_errors"] == []
     cut = result["rotary_coverage"]["cut"]
     finish = result["rotary_coverage"]["finish"]
-    if complete:
-        for coverage in (cut, finish):
-            assert coverage["complete_indices"] == [index]
-            assert coverage["unknown"] == [] and coverage["gaps"] == []
-    else:
-        assert cut["complete_indices"] == [] and cut["gaps"] == []
-        assert cut["unknown"][0]["index"] == index
-        assert cut["unknown"][0]["ref"] == body[0]
-        assert "S1:20" in cut["unknown"][0]["reason"]
-        assert "z_from/z_to is unknown" in cut["unknown"][0]["reason"]
-        if finishing:
-            assert finish["gaps"] == [] and finish["unknown"][0]["index"] == index
-        else:
-            assert finish["unknown"] == [] and finish["gaps"][0]["index"] == index
-            assert finish["gaps"][0]["area_mm2"] == pytest.approx(600 * math.pi, abs=1e-5)
+    _assert_unproved_coverage(result, index)
+    assert any(
+        "S1:20" in item["reason"] and "z_from/z_to is unknown" in item["reason"]
+        for item in cut["unknown"]
+    ), cut
+    if finishing:
+        assert any("S1:20" in item["reason"] for item in finish["unknown"]), finish
 
 
 def test_unusable_rotary_setup_contribution_does_not_become_a_definite_union_gap(engine, parts):
@@ -552,12 +502,13 @@ def test_unusable_rotary_setup_contribution_does_not_become_a_definite_union_gap
     for category in ("cut", "finish"):
         coverage = result["rotary_coverage"][category]
         assert coverage["complete_indices"] == [] and coverage["gaps"] == []
-        assert coverage["unknown"][0]["index"] == index
-        assert "S2:10" in coverage["unknown"][0]["reason"]
-        assert "frame" in coverage["unknown"][0]["reason"]
+        assert any(item["index"] == index for item in coverage["unknown"])
+        assert any(
+            "S2:10" in item["reason"] and "frame" in item["reason"] for item in coverage["unknown"]
+        ), coverage
 
 
-def test_empty_rotary_claim_does_not_poison_a_known_partial_union_gap(engine, parts):
+def test_empty_rotary_claim_adds_no_unknown_beyond_valid_sampled_claim(engine, parts):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -567,8 +518,186 @@ def test_empty_rotary_claim_does_not_poison_a_known_partial_union_gap(engine, pa
         [{"z_from": 5.0, "z_to": 35.0}, {"z_from": 70.0, "z_to": 80.0}],
     )
     assert result["ops"]["S1:20"]["claim_errors"] == body
+    _assert_unproved_coverage(result, index)
     for category in ("cut", "finish"):
-        coverage = result["rotary_coverage"][category]
-        assert coverage["complete_indices"] == [] and coverage["unknown"] == []
-        assert coverage["gaps"][0]["index"] == index
-        assert coverage["gaps"][0]["area_mm2"] == pytest.approx(600 * math.pi, abs=1e-5)
+        assert all(
+            "S1:20" not in item["reason"] for item in result["rotary_coverage"][category]["unknown"]
+        )
+
+
+@pytest.mark.parametrize(
+    "controls, expected_radius",
+    [
+        ({"to_dia_mm": 22.0}, 11.0),
+        ({"rough_allowance_mm": 0.5}, 10.5),
+        ({"to_dia_mm": 21.0, "rough_allowance_mm": 0.5}, 10.5),
+        ({"to_dia_mm": 20.0, "rough_allowance_mm": 0.0}, 10.0),
+    ],
+)
+def test_rotary_rough_target_moves_actual_diagnostic_tips(engine, parts, controls, expected_radius):
+    step = parts["plain"]
+    body = engine.refs(step, *BODY, kind="Cylinder")
+    result, index = _window_result(
+        engine, step, body, [{"do": "rough_profile", "finishing": False, **controls}]
+    )
+    op = result["ops"]["S1:10"]
+    target = op["rotary_target"]
+    assert op["sample_count"] > 0, op
+    assert target["status"] == "unknown" and target["attained_indices"] == []
+    assert target["faces"] == [{"index": index, "radius_mm": expected_radius}]
+    # Native positive LIFT is 0.001 mm; this is not a target/source self-comparison.
+    assert target["sampled_tip_z_mm"] == pytest.approx(
+        [expected_radius + 0.001, expected_radius + 0.001], abs=1e-5
+    )
+    assert "sampled rotary poses do not prove executed cuts" in target["reason"]
+    _assert_unproved_coverage(result, index, categories=("cut",))
+    assert result["rotary_coverage"]["finish"] == {
+        "complete_indices": [],
+        "gaps": [],
+        "unknown": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "controls, reason",
+    [
+        ({"to_dia_mm": 22.0, "rough_allowance_mm": 0.5}, "disagree"),
+        ({"to_dia_mm": 19.0}, "inside protected source cylinder"),
+        *[
+            ({"to_dia_mm": value}, "not a known positive diameter")
+            for value in (
+                0.0,
+                -1.0,
+                float("nan"),
+                float("inf"),
+                -float("inf"),
+                True,
+                "22",
+                None,
+                [],
+            )
+        ],
+        *[
+            ({"rough_allowance_mm": value}, "rough_allowance_mm")
+            for value in (-0.5, float("nan"), float("inf"), -float("inf"), True, "0.5", None, [])
+        ],
+    ],
+)
+def test_rotary_invalid_target_rejects_diagnostic_measurements(engine, parts, controls, reason):
+    step = parts["plain"]
+    body = engine.refs(step, *BODY, kind="Cylinder")
+    op = _rotary(engine, step, body, _head(), do="rough_profile", finishing=False, **controls)
+    target = op["rotary_target"]
+    assert target["status"] == "unknown" and target["attained_indices"] == []
+    assert reason in target["reason"], target
+    assert "sampled_tip_z_mm" not in target
+    assert op["sample_count"] == op["tool_hits"] == op["holder_hits"] == "unknown", op
+
+
+@pytest.mark.parametrize(
+    "part, bounds, kind",
+    [
+        ("conical", BODY, "Cone"),
+        ("plain", ((60, -10, -10), (60, 10, 10)), "Plane"),
+        ("offset", ((0, -7, -10), (60, 13, 10)), "Cylinder"),
+    ],
+)
+def test_rotary_intermediate_target_requires_coaxial_cylinder(engine, parts, part, bounds, kind):
+    step = parts[part]
+    body = engine.refs(step, *bounds, kind=kind)
+    assert len(body) == 1
+    op = _rotary(engine, step, body, _head(), to_dia_mm=22.0)
+    assert "require coaxial cylindrical claims" in op["rotary_target"]["reason"], op
+    assert op["rotary_target"]["attained_indices"] == []
+    assert "sampled_tip_z_mm" not in op["rotary_target"]
+    assert op["sample_count"] == op["tool_hits"] == op["holder_hits"] == "unknown", op
+
+
+def test_rotary_target_bounded_pose_window_does_not_clip_collision_geometry(engine, parts):
+    step = parts["overhung"]
+    body = engine.refs(step, *BODY, kind="Cylinder")
+    op = _rotary(
+        engine,
+        step,
+        body,
+        _head(),
+        to_dia_mm=22.0,
+        z_from=40.1,
+        z_to=40.2,
+        angle_window_deg=[-2.0, 2.0],
+    )
+    assert op["claim_errors"] == [] and op["sample_count"] > 0, op
+    target = op["rotary_target"]
+    assert target["z_mm"] == pytest.approx([40.1, 40.2])
+    assert target["angle_deg"] == pytest.approx([-2.0, 2.0])
+    assert target["sampled_tip_z_mm"] == pytest.approx([11.001, 11.001], abs=1e-5)
+    # Source x35.1..35.2 poses reach the shelf at x33..38 outside the narrow tip window.
+    assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op
+    assert op["hit_refs"]["tool"], op
+    assert target["attained_indices"] == []
+
+
+@pytest.mark.parametrize("diameter, radius", [(None, 10.0), (22.0, 11.0)])
+def test_rotary_finishing_target_withholds_attainment_and_downstream_stock(
+    engine, parts, diameter, radius
+):
+    step = parts["plain"]
+    body = engine.refs(step, *BODY, kind="Cylinder")
+    op = {
+        **_op("S1:10", "body", 3.0, 10.0, 30.0),
+        "approach": "rotary",
+        # On finishing this is the prior leave to remove, not another target offset.
+        "rough_allowance_mm": 0.5,
+    }
+    if diameter is not None:
+        op["to_dia_mm"] = diameter
+    later = {**op, "subject": "S1:20"}
+    result = engine.run(
+        engine.job(
+            step,
+            {"body": body},
+            [_setup([op, later], _head()), _setup([], _head(), setup_id="S2")],
+        )
+    )
+    assert result["status"] == "ok", result
+    index = result["features"]["body"][0]
+    first, second = result["ops"]["S1:10"], result["ops"]["S1:20"]
+    for measured in (first, second):
+        target = measured["rotary_target"]
+        assert target["faces"] == [{"index": index, "radius_mm": radius}]
+        assert target["sampled_tip_z_mm"] == pytest.approx(
+            [radius + 0.001, radius + 0.001], abs=1e-5
+        )
+        assert target["status"] == "unknown" and target["attained_indices"] == []
+    _assert_unproved_coverage(result, index)
+    assert second["tool_hits"] == second["reach_depth_mm"] == "unknown", second
+    assert "S1:10" in second["reasons"]["tool_hits"], second
+    assert "S1:10" in result["setups"]["S2"]["stock_reason"]
+
+
+def test_rejected_rotary_undersize_preserves_source_pad_for_later_diagnostics(engine, parts):
+    step = parts["stepped"]
+    body = engine.refs(step, (0, -10, -10), (30, 10, 10), kind="Cylinder")
+    result, index = _window_result(
+        engine,
+        step,
+        body,
+        [
+            {"to_dia_mm": 19.0},
+            {
+                "to_dia_mm": 21.0,
+                "z_from": 34.9,
+                "z_to": 34.95,
+                "angle_window_deg": [-2.0, 2.0],
+            },
+        ],
+    )
+    rejected, later = result["ops"]["S1:10"], result["ops"]["S1:20"]
+    assert "inside protected source cylinder" in rejected["rotary_target"]["reason"]
+    assert rejected["sample_count"] == "unknown"
+    assert "sampled_tip_z_mm" not in rejected["rotary_target"]
+    assert later["claimed_indices"] == [index] and later["sample_count"] > 0
+    assert later["rotary_target"]["sampled_tip_z_mm"] == pytest.approx([10.501, 10.501], abs=1e-5)
+    assert later["obstacles"]["tool"] == ["part"] and later["hit_refs"]["tool"], later
+    assert later["tool_hits"] == "unknown", later
+    assert later["rotary_target"]["attained_indices"] == []

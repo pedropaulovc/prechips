@@ -83,6 +83,7 @@ plans. They require the surrounding root fields, setups, features and inventory.
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
 | `workpieces` | `dict[str, WorkpieceInstance] \| Unknown` | Optional; explicit registered copies of the canonical target |
 | `aims` | `dict[str, Aim]` | Optional |
+| `axis_placements` | `dict[str, AxisPlacement]` | Optional; bounded shared boss/bore manufacturing-axis placement |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
 | `process_features` | `dict[str, ProcessFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
@@ -160,6 +161,49 @@ several members arrive together. An unqualified claim selects a registered
 member only when exactly one member is carried. Explicit unknown registration
 is debt, never an inferred empty batch.
 
+
+## Shared manufacturing-axis placements
+
+`[axis_placements.<name>]` declares one shared process placement for a
+concentric cylindrical boss and its through bore. It is not an edit to the
+source model and is not a measurement of a finished part.
+
+```toml
+[axis_placements.crank]
+boss = "crank_boss"
+bore = "crank_bore"
+caps = "crank_boss_faces"
+support = "head"
+separation_mm = 43.2735
+```
+
+`boss`, `bore`, `caps` and `support` are feature-name strings, not face lists
+or inline geometry. `separation_mm` must be finite and positive. The target
+must lie within the bore's printed separation band; a band midpoint is a
+permitted authored process target, never inferred source nominal geometry.
+For the cone route, 43.2735 mm is that printed-band midpoint; its shared
+model-Y displacement is +0.177856497104 mm.
+
+The supported domain is a single concentric cylindrical boss with a through
+bore and planar annular end caps on an analytic cylindrical support. The
+source facts must unambiguously identify those features and their reference
+axis; unrelated intersecting or ambiguous geometry is not supported.
+The fixed reference is the located hole axis named by `bore.height_from`.
+Boss and support axes must intersect perpendicularly; the translation must
+run along the support axis. Both old and new boss radial envelopes must stay
+strictly inside the support's axial ends, and both boss caps must extend
+beyond the support cylinder. Native source-surface and trimming evidence
+must independently establish this geometry.
+Unknown, missing, conflicting or unsupported references refuse placement:
+there is no fallback to the nominal boss or bore. Faced aims, registered
+workpieces and multi-solid interactions are outside this bounded contract.
+
+The plan target is resolved once for coordinate and native manufacturing
+geometry consumers. The source STEP bytes, manifest geometry, face identities
+and their hashes remain unchanged. Native geometry evidence must bind the
+resolved placement before it can establish placed geometry; a declared target
+alone proves neither collision clearance nor coverage. Existing inspection,
+physical pickup, workholding and approval requirements remain in force.
 
 ## Aims
 
@@ -1763,6 +1807,14 @@ Entries in `zero.tool_touches` declare the surfaces and offsets used to set
 tools before their listed operations. They do not supply a measured diameter
 unless the procedure explicitly obtains one.
 
+For a lathe quill tool, declare `tool_mount = "tailstock"` on its operations.
+`tool_mount` accepts `"tailstock"`, `"toolpost"`, `"turret"`, or `"unknown"`;
+omitting it does not establish a mounting. Only a declared tailstock mount
+with a known matching holder/quill taper, an axial operation role, and a
+feature on the setup spindle axis feeding in −Z can omit the tool touch's
+radial X fields. Its Z contact, edge and paper remain required. This declares
+the planned mounting; it is not evidence of physical commissioning.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `tool` | `str` |
@@ -1836,6 +1888,7 @@ execution order; `op` is its within-setup identity.
 | `go_no_go` | `dict[str, GoNoGo \| Unknown \| dict[str, GoNoGo \| Unknown]]` (each entry needs its feature's `checks` gauge) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str] \| dict[str, str \| list[str]]]` |
+| `inspection_readings` | Requirement → `InspectionReading`, or feature → requirement → `InspectionReading` |
 | `inspection_views` | `dict[str, list[InspectionView]]` (flat only) |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
@@ -1850,6 +1903,40 @@ execution order; `op` is its within-setup identity.
 | `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
 | `outputs` | `dict[str, RetainedOutput]`: exactly two named pieces on terminal `part_off` or registered mounted `cut_off`; see [retained outputs](#retained-part-off-outputs) |
 | `prerequisites` | `{ spot = "<setup>:<op>" }`: typed prior preparation witness, or `spot = "unknown"` |
+
+### Manual severing
+
+`do = "manual_sever"` is a typed **material-changing, unmodeled** action.
+It records an unresolved manual separation after, for example, a partial
+`part_off`; it does not model the remaining web's removal or release a
+detached piece.
+
+Use only the operation identity, affected feature and authored note; `tool`
+must be omitted or `"unknown"`. No modeled cutting geometry, cutter settings,
+`keep` selector or named `outputs` may be declared on this action.
+
+```toml
+[[setups.ops]]
+op = 20
+do = "manual_sever"
+feature = "part"
+tool = "unknown"
+note = "HOLD: manual tool, retention, access and separation procedure are unresolved."
+```
+
+The preceding modeled partial cut and the connected stock immediately before
+the manual action remain evidence. The stock after it is unknown, not the
+unchanged input stock and not an inferred detached part. That debt propagates
+to downstream operations, inspections and component joins; neither dimensions
+nor material survival gain credit across it. Independent earlier positive
+collision evidence remains valid. See
+[unmodeled manual severing](rules-operations.md#unmodeled-manual-severing) for
+the HOLD boundary. This declaration is not physical machining approval.
+
+Known inspection-instrument capacity can still be evaluated independently and
+may pass. A planned check or capable gauge does not restore unknown material
+state, preparation, dimensional attainment or survival after manual severing.
+
 
 ### Authored spindle speed
 
@@ -1938,6 +2025,28 @@ list, exported or plan-owned. Otherwise loading raises `BadInput`, even if
 another feature owns the name. A wholly unknown requirements list cannot
 authorize arbitrary checks. A missing check is distinct from
 `checks.dia = "unknown"`. Multi-feature inspection uses the scoping rules below.
+
+`inspection_readings` optionally qualifies how a signed `station` is read with
+a height gauge or CMM. It does not change the gauge's physical range. Declare
+`kind = "relative_coordinate"`, `offset_mm`, a qualification `method`, and `cite`;
+the coordinate is **physical reading − offset**. For example:
+
+```toml
+[setups.ops.inspection_readings.station]
+kind = "relative_coordinate"
+offset_mm = 104.0
+method = "Qualify the reference axis 100 mm above the plate and the 4 mm stem radius by blocks and reversal."
+cite = ["Authored datum stand and stem qualification"]
+```
+
+The inspection rule adds the qualified offset to both station limits, then
+checks those physical readings against the unchanged gauge range and checks
+its resolution against the original band width. Keep the datum setup,
+corrections, uncertainty/guarded acceptance, and signed recording instructions
+in `inspection_methods`. This declares a capable plan, not a calibration or
+measured part result. Missing/unknown qualification remains unresolved; a
+mapped reading outside physical travel still fails. Entries may be scoped to
+listed features like `checks`; each requires its own `checks` entry.
 
 `inspection_methods` supplies the authored procedure for datum/geometric
 checks and missing requirements. Each `inspection_methods.<requirement>` or
@@ -2225,43 +2334,47 @@ known removal. See [Manual arcs](#manual-arcs).
 
 ### Rotary approach and claim windows
 
-`approach = "rotary"` mills on a horizontal dividing head: each sample of the
-claimed faces' windowed portions is turned about the head axis to top dead
-centre under the vertical spindle
-(see [Approach models](rules-geometry.md#approach-models)). For such an op
-`z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from the
-pose origin, and `angle_window_deg = [from, to]` is the head rotation in
+`approach = "rotary"` supplies diagnostic target poses on a horizontal
+dividing head, not an executed cutting path. Claimed surface samples are
+presented at top dead centre under the vertical spindle
+(see [Approach models](rules-geometry.md#approach-models)).
+`z_from`/`z_to` are positions along the head axis (the chuck `pose` z) from
+the pose origin, and `angle_window_deg = [from, to]` is head rotation in
 degrees, right-handed about that axis (from < to; a span of 360 or more is
-unbounded). Together they are a partial-face claim window: the op samples and
-removes only the part of each claimed face inside it, and points outside are
-excluded, not claim errors. A window holding no positive-area part of a
-claimed face makes that face a claim error. Claims must be supported external
-surfaces of revolution about the head axis (coaxial cylinders or planar
-annuli normal to it). The setup's `hold.index` declares
-`rotation = "continuous"` without `positions` or `angle_deg`, and its
-`hold.pose`, `hold.chuck` and inventory solids establish the head/chuck
-geometry, not an inferred fixture.
+unbounded). The source polar angle has the opposite sign. These geometric
+angles do not establish actual dial readings. Bounds clip sample targets,
+not cutter solids: a tool extending outside the window can still collide.
+A window holding no positive-area part of a claimed face is a claim error.
+Supported claims are coaxial external cylinders or planar annuli normal to
+the head axis. The setup's `hold.pose`, `hold.chuck` and inventory solids
+establish fixture geometry; they are not inferred.
 
-A face claimed through rotary windows is covered only when the exact union of
-every rotary op's window portion of it covers the whole face: several ops,
-cutters and setups may contribute (for example a larger cutter on the body
-and a smaller one into a shoulder), and `finish_coverage` unions only the
-finishing ops' portions. An uncovered remainder is a `coverage` /
-`finish_coverage` error naming its area and spans; an undecided union stays
-unknown. A whole-face non-rotary claim, or `stock.as_is_faces` for
-`coverage` only, covers the face regardless. See
+For a controlled cylindrical target, `to_dia` must be positive and finite in
+feature units. On `rough_*` actions, `rough_allowance_mm` is radial leave in
+machine millimetres, added to the source cylinder radius; if both are
+authored, the resulting radii must agree. A compatible intermediate diameter
+shifts diagnostic poses radially from the claimed source cylinder. Conflicting,
+undersize, nonfinite, noncoaxial or noncylindrical controlled targets are
+refused without changing the source or producing diagnostic measurements.
+On finishing actions, `rough_allowance_mm` instead describes incoming leave
+to remove, not a target offset.
+
+Sampled rotary poses prove neither executed cuts nor finished attainment.
+Native rotary stock removal and coverage remain unknown for valid nonempty
+claims, even when windows together span a whole face; only finishing rotary
+claims enter the finishing unknowns. Empty/away claims add no such unknown.
+A whole-face non-rotary claim, or `stock.as_is_faces` for `coverage` only,
+may independently establish coverage. See
 [`coverage`](rules-geometry.md#coverage).
 
-Own-removal combines each claimed cylinder's radial sweep with the actual
-vertical cutter columns at concave wall-tangent sample poses. Each volume is
-clipped to the axial/angular window, the finished solid is subtracted, and the
-volumes are cut from the stock one by one in order, never fused: finished
-bosses/pads and material outside that derivable allowance remain obstacles.
-The flute meets the stock left after this removal; an underivable removal
-credits none of it. Accessibility holder obstacles retain setup-entry stock;
-reach, holder-wall and shank screens meet the stock earlier ops leave. This is
-one top-dead-centre pose per sample,
-not a continuous toolpath or proof of clearance while rotating between poses.
+Diagnostic collision checks retain before-op stock and protected geometry as
+obstacles; no radial fan or wall-column removal is inferred. Stock after the
+rotary stage is unknown, so later operations cannot claim proven residual
+leave from it. Sampling establishes no radial layers, axial stations, indexed
+or continuous motion, clearance between poses, or head torque/locking.
+The schema's `hold.index` declaration `rotation = "continuous"` (without
+`positions` or `angle_deg`) is not physical authorization to rotate the head
+under cut, nor an instruction to hand-crank it.
 
 ### Depth of cut and approach distance
 
@@ -2302,6 +2415,13 @@ as do later ops' flutes in the same setup; their holders still see the
 setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
 The op's traveler row tells the operator which piece to keep and to discard the
 rest. Without `keep`, a held split retains every piece.
+
+A waste-only `part_off` with explicit known `keep` and no `outputs` may be
+followed by cutting in the same setup only when native proof identifies a unique
+kept feature carrier without discarding finished material and proves the
+original chuck grip retained. Missing or unsupported proof does not authorize
+continued cutting. See [`order`](rules-operations.md#order) for the grip proof
+and its limits.
 
 ### Retained part-off outputs
 
@@ -2409,14 +2529,14 @@ requirements.
 
 ## Contour
 
-`contour` declares a linear raster or one supported manual-arc method.
+`contour` declares a generated linear raster, an authored manual raster, or one supported manual-arc method.
 Linear pockets and faces may use `sweep_bounds`, `sweep_frame`, `open_side`
-and circular `keep_out` islands; a raster also needs `step_mm`.
+and circular `keep_out` islands; a generated linear raster also needs `step_mm`.
 See [coordinates](rules-coordinates.md).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
+| `method` | `str`: `linear_table`, `manual_raster`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
 | `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing; `guided_sweep` under 180) |
@@ -2431,6 +2551,7 @@ See [coordinates](rules-coordinates.md).
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 | `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
+| `raster` | `ManualRaster` (`manual_raster`: explicit setup-frame tool-tip trajectory) |
 
 A profile action with explicit `contour.sweep_bounds` and no
 `stock_removal_bounds` removes only its complete native-validated printed
@@ -2441,6 +2562,65 @@ Missing or unsupported guided paths stay unknown. An authored
 `stock_removal_bounds` still takes precedence as a full multipass clearing
 volume; it is not merely a clipping fence around the guide. See
 [explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
+
+### Authored manual raster
+
+`method = "manual_raster"` consumes a finite authored trajectory for
+`profile`, `rough_profile`, or `finish_profile` operations. It does
+not calculate a toolpath from CAD, fill a selected face, or authorize
+simultaneous two-axis milling. `contour.raster` contains:
+
+| Field | Meaning |
+|---|---|
+| `start_mm` | Initial tool-tip `[X, Y, Z]`, in setup-frame millimetres |
+| `safe_z_mm` | Authored minimum tool-tip height for horizontal clear/index moves |
+| `moves` | Nonempty ordered list of `{ to_mm = [X, Y, Z], mode = "cut" }` or `mode = "clear"` |
+
+Every move changes exactly one axis. A cutting move changes X or Y at
+constant Z. Every retract, vertical entry, and horizontal index is an explicit
+`clear` move; horizontal clear moves stay at or above `safe_z_mm`, and the
+trajectory starts and ends at that height or above. No return, plunge,
+intermediate point, feed direction, or cut level is supplied by the checker.
+Coordinates retain their stated millimetre units even in an inch-based plan.
+The operation table and diagram use the same normalized values as native proof.
+
+The tool has a registered supported kind and qualified tip geometry: a
+`ball_endmill` has nose radius equal to half its cutting diameter; an `endmill`
+has a rounded-flat tip with a positive corner radius smaller than half that
+diameter. Both require known cutting diameter, nose/corner radius, flute length,
+shank diameter, projection and holder dimensions. Missing or contradictory
+geometry remains unknown; neither a bare tool kind nor an idealized zero-radius
+corner silently supplies physical proof. A nominally square-end tool's actual
+edge hone is not a mathematical-zero measurement. No unmeasured relieved neck
+is assumed. A separate qualified `body_envelope_dia_mm` must bound every
+noncutting body, neck and transition from flute end to tool back. The resulting
+enclosing cylinder is conservative, not an exact neck model; it must be at
+least as large as both the cutter and shank diameters. A local shank diameter
+does not establish this whole-region bound. Missing or unverified bounds
+leave clearance unknown even when a guessed cylinder would not intersect.
+An envelope-only overlap stays unknown rather than a certain physical collision.
+The native sweep includes the stated rounded tip, flute, shank envelope
+and holder throughout every move.
+Entry is noncutting: it must already be clear in the stock left by preceding
+operations and moves, not in stock a later pass promises to remove.
+Overall tool length is not needed to construct this visible envelope when
+projection and the other mounted dimensions are measured. It is never invented:
+a supplied measured overall length must accommodate the projection, and
+separate mounting/measurement requirements remain in force.
+
+An operation on an existing validated transient `process_features.end_face`
+can author bulk-preparation rows without selecting finished STEP faces. Use
+`profile` and zero rough allowance: only the literal cutting moves remove
+stock, the real finished material remains protected, and no finished-face
+coverage is credited. A transient plane does not establish a normal rough
+leave on a finished face or authorize clearing its whole footprint.
+
+Unsupported methods fail closed rather than falling back to axial milling.
+Face selections identify the requested source faces, not completed machining:
+the actual bounded sweeps can leave partial coverage, scallops and source-corner
+debt. Filing, scraping and honing that have no represented proof remain
+explicit holds. No tolerance, root blend or finishing allowance is inferred
+from raster spacing. See [bounded raster proof](rules-geometry.md#bounded-manual-raster).
 
 ### Chain-drilling cutting data
 
@@ -2506,7 +2686,19 @@ arc, rough outside the line and file to it, or use one of the milling and
 guided-fixture alternatives below.
 
 Manual-arc features use `mm` or `in`; other units remain unknown.
-`method = "arc_table"` is an error.
+`method = "arc_table"` is an error. When a `file_to_line` boss/cylinder has
+no explicit `at` or `arc_centre`, no planar layout, but does have a named,
+finite orthonormal source frame with finite origin, a finite nonzero two-end
+`z_mm` extent and a positive known nominal diameter, `manual_arc` reports
+`representation = "spatial_profile"` as UNKNOWN. It retains source dimensions,
+frame/provenance and selected master references, not a new operative centre.
+This recognizes source geometry only: planar reduction, remaining-stock
+removal, full hand-tool access and resulting conformance remain unproved.
+HOLD for qualification of the master, actual stock, access and completed
+profile; no removal, coverage or after-stock credit follows. The rule does not
+invent planar missing-centre, scribe or rough-op debts for this representation.
+Independent guide errors remain errors; explicit planar layouts and unknown
+planar centres retain their existing checks.
 
 ### Layout
 

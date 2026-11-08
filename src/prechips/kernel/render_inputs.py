@@ -48,6 +48,11 @@ def contour_annotations(numbers, scale, setup_id):
     its cutting order; otherwise its point order is geometric, not a travel claim.
     """
     paths, waypoints = [], []
+    manual_ops = {
+        str(operation.get("op"))
+        for operation in numbers.get("operations", [])
+        if "manual_raster" in operation
+    }
 
     def add_path(op, points, candidates, directed, ids=None, raster=None):
         points = [_xy(value, scale) for value in points]
@@ -82,6 +87,8 @@ def contour_annotations(numbers, scale, setup_id):
         for table in numbers.get(kind, [])
     }
     for arc in numbers.get("arc_table", []):
+        if str(arc.get("op")) in manual_ops:
+            continue
         rows = arc.get("rows", [])
         if not rows or arc.get("kernel_clip") is True:
             continue
@@ -94,7 +101,7 @@ def contour_annotations(numbers, scale, setup_id):
             [row_id(subject, "arc_table", arc, i) for i in range(len(rows))],
         )
     for line in numbers.get("line_table", []):
-        if line.get("kernel_clip") is True:
+        if str(line.get("op")) in manual_ops or line.get("kernel_clip") is True:
             continue
         points = line.get("dro_xy", [])
         subject = f"{setup_id}:{line.get('op')}"
@@ -112,7 +119,7 @@ def contour_annotations(numbers, scale, setup_id):
         )
     linear_ids = {}
     for profile_index, profile in enumerate(numbers.get("profiles", [])):
-        if str(profile.get("op")) in table_ops:
+        if str(profile.get("op")) in table_ops | manual_ops:
             continue
         points = profile.get("cutter_centre", [])
         if not isinstance(points, list) or not points:
@@ -512,6 +519,28 @@ def setup_annotations(bundle, setup, numbers):
     result["paths"], result["waypoints"] = (
         contour_annotations(numbers, scale, setup["id"]) if scale else ([], [])
     )
+    # These already are setup-mm tool-tip coordinates, independent of manifest/DRO units.
+    # Keep XYZ intact for the authored-motion sketch; never infer returns from cut passes.
+    manual_tables = {
+        str(operation.get("op")): operation["manual_raster"]
+        for operation in numbers.get("operations", [])
+        if "manual_raster" in operation
+    }
+    for operation in setup["ops"]:
+        if record(operation.get("contour")).get("method") == "manual_raster":
+            manual_tables.setdefault(
+                str(operation["op"]), {"reason": "normalized motion not established"}
+            )
+    for key in ("paths", "waypoints"):
+        result[key] = [item for item in result[key] if str(item.get("op")) not in manual_tables]
+    result["manual_rasters"] = []
+    for op, raster in manual_tables.items():
+        if raster.get("reason"):
+            result["notes"].append(
+                f"STOP OP {op}: MANUAL RASTER MOTION UNKNOWN - {raster['reason']}"
+            )
+        else:
+            result["manual_rasters"].append({"op": op, **raster})
     # A hand-fed cut's saw path, scribed line, keys and saw-side scene (#335).
     scene = hand_fed_scene(bundle, setup, scale)
     result["paths"] += scene["paths"]
@@ -522,6 +551,8 @@ def setup_annotations(bundle, setup, numbers):
         result["feed_lines"] = scene["feed_lines"]
     result["axial_paths"] = []
     for contour in numbers.get("contours", []):
+        if str(contour.get("op")) in manual_tables:
+            continue
         rows = contour.get("rows", [])
         points = [_xy(row.get("setup_xz"), scale) for row in rows] if scale else []
         if len(points) < 2 or any(point is None for point in points):

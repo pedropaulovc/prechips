@@ -114,7 +114,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+            "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
           },
           "features": {
             "path": "examples/geometry/fixture-holds/features.toml",
@@ -3408,11 +3408,11 @@
       "subject": "S3"
     }
   ],
-  "hash": "f48bb41f293e6123c011185b78c0062d5ed3fbae67d2fc608da03af608de99cb",
+  "hash": "a7a573900ddf950ac14fee082fe9cda550e64445878b4b894e9ba469d541a3a6",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+      "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
     },
     "features": {
       "path": "examples/geometry/fixture-holds/features.toml",
@@ -3432,7 +3432,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "9e5d61cf30157bb1074ce58b496f8e54ee2312a6946519a551395320fc6e8962"
+      "sha256": "1fad44f2224a3d97dd5f676312c7408c611080595d1e45069934647bd9263c14"
     },
     "render:S3": {
       "path": "setup-S3.png",
@@ -3703,7 +3703,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "9e5d61cf30157bb1074ce58b496f8e54ee2312a6946519a551395320fc6e8962"
+      "sha256": "1fad44f2224a3d97dd5f676312c7408c611080595d1e45069934647bd9263c14"
     },
     "S3": {
       "fixture": "modeled",

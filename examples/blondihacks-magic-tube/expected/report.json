@@ -15360,7 +15360,7 @@
           },
           "shop_policy": {
             "path": "examples/blondihacks-magic-tube/shop-policy.toml",
-            "sha256": "3cb114fbae8a5b879ffab27407cbb9296d896c86110270ee49e5648f06d5c4ea"
+            "sha256": "9f357463c3bdcc8d074913db601471997da8119f4633a5361df241d286d821f2"
           },
           "step": {
             "path": "examples/blondihacks-magic-tube/magic-tube.STEP",
@@ -57447,7 +57447,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "6a6e67fd9b275d3daf71ede5531d01285dc84b9d732a3007e97cd7bb57f85987",
+  "hash": "a346d3c1e58d6965509e52ffce824e38a2044adb6120529a6223271f2b313008",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57467,7 +57467,7 @@
     },
     "shop_policy": {
       "path": "examples/blondihacks-magic-tube/shop-policy.toml",
-      "sha256": "3cb114fbae8a5b879ffab27407cbb9296d896c86110270ee49e5648f06d5c4ea"
+      "sha256": "9f357463c3bdcc8d074913db601471997da8119f4633a5361df241d286d821f2"
     },
     "step": {
       "path": "examples/blondihacks-magic-tube/magic-tube.STEP",

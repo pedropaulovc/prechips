@@ -350,10 +350,10 @@ def test_missing_or_unknown_verb_is_bad_input(args, tmp_path):
 
 def test_empty_operations_rejects_before_outputs(tmp_path):
     examples = copy_examples(tmp_path)
-    plan = examples / "rocker-arm" / "plan.toml"
+    plan = examples / "pivot-shaft" / "plan.toml"
     text = plan.read_text(encoding="utf-8")
-    # Keep a complete S1 as the only setup, but remove every operation.
-    plan.write_text(rocker_s1_alone(text), encoding="utf-8")
+    # Keep the first complete setup header, but remove its operations and later setups.
+    plan.write_text(text.split("[[setups.ops]]", 1)[0], encoding="utf-8")
     out = tmp_path / "out"
     result = run_cli("traveler", plan, "--out", out)
     assert result.returncode == 3, result.stderr

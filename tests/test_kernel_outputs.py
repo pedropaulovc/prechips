@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from test_cli import copy_examples
 
 from prechips.cli import _output_paths, _write_outputs
 from prechips.inputs import BadInput, load_bundle
@@ -105,7 +106,7 @@ def test_refused_image_replacement_rolls_back_report_sheet_and_prior_image(tmp_p
 def test_kernel_absent_run_removes_stale_setup_images(tmp_path, verb):
     import json
 
-    from test_cli import copy_examples, run_cli
+    from test_cli import run_cli
 
     # Use an otherwise complete plan: an unrelated holding error must not mask kernel debt.
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
@@ -200,7 +201,6 @@ marks = [{label = "S", at_mm = [6.0, 0.0, 20.0], reads = true}]
 
 
 def _inspection_bundle(tmp_path, first_height=512, second_height=512):
-    from test_cli import copy_examples
     from test_process_route import append_op
 
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
@@ -224,7 +224,6 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
 ):
     import json
 
-    from test_cli import copy_examples
     from test_process_route import append_op
     from test_sheet_ops import Markup, content
 
@@ -318,7 +317,6 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
 def test_an_inspection_sketch_is_sent_with_the_cut_it_follows_in_the_route(tmp_path):
     # The kernel draws a sketch on the stock as the route stands at its inspect op: the
     # job names the last cut before it (op order, not op number), or none.
-    from test_cli import copy_examples
     from test_process_route import append_op
 
     import prechips.kernel as kernel

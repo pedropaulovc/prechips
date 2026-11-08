@@ -122,9 +122,11 @@ Repeat `--plan TOML` for each plan to include. Without `--plan`, the command loo
 - `examples/pivot-shaft/plan.toml`
 - `examples/rocker-arm/plan.toml`
 - `examples/pivot-bracket/plan.toml`
-- `examples/cone-pivot-post/built-up.toml`
+- `examples/cone-pivot-post/integral.toml`
 
 Those defaults are a source-checkout convenience. An installation without the example tree needs explicit `--plan` arguments; missing default files are bad input, not an empty checklist.
+
+The current cone default is integral, not the superseded built-up route. Its unresolved finish requirements are not cleared by listing measurement debt; success of this command is not a passing evaluation of the plan.
 
 The inventory flag or `PRECHIPS_INVENTORY`, when present, overrides each plan's inventory. Otherwise the normal bundle loader can use each plan's declaration. The loader still needs each plan's cutting-data path and applies its policy/default rules; this verb accepts no `--policy` or `--cutting-data` override. Referenced files and STEP hashes are still validated.
 

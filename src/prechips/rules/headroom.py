@@ -36,11 +36,18 @@ spindle stack or travel.
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
-from prechips.rules._envelope import _band, entry_stock, fixture_height, stock_extents
+from prechips.rules._envelope import (
+    _band,
+    entry_stock,
+    fixture_height,
+    stock_extents,
+    supported_height_datum,
+)
 from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import printed_xy
 from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -151,9 +158,11 @@ def _setup_coordinates(bundle, setup, memo):
 def _span(op, coordinates, axis, angle=0.0):
     """[low, high] of ``op``'s cutter-centre sweep along ``axis`` (0 = X, 1 = Y) of the
     jaw frame (the setup frame turned by the swivel ``angle``): its printed cutter-centre
-    path (:func:`coordinates.printed_xy`), else its stock_removal_bounds (under a swivel, the turned
-    corners of that box, which bound the sweep)."""
+    path (:func:`coordinates.printed_xy`), else its stock_removal_bounds (under a swivel,
+    the turned corners of that box). An explicit manual raster never falls back to a box."""
     printed = printed_xy(coordinates, op["op"])
+    if not printed and _mapping(op.get("contour")).get("method") == MANUAL_RASTER:
+        return None
     bounds = _mapping(op.get("stock_removal_bounds"))
     if not printed and angle:
         x, y = bounds.get("x"), bounds.get("y")
@@ -273,6 +282,7 @@ def evaluate(bundle):
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
         top = state.get("top_z", _UNKNOWN)
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
+        datum = supported_height_datum(bundle, setup)
         head = fixture.get("kind") == "dividing_head"
         jaw_fixture = fixture.get("kind") in {"vise", "chuck_3jaw", "chuck_4jaw"}
         bed = (
@@ -300,6 +310,7 @@ def evaluate(bundle):
             "stock_bottom_z": state.get("bottom_z", _UNKNOWN),
             "retained_rail_bottom_z": bottom,
             "stock_height_mm": stock_height,
+            **({"supported_height_datum": datum} if datum else {}),
             "insertion_mm": 25,
             "spindle_to_table_max_mm": spindle["value"],
             "tool_oal_mm": _UNKNOWN,
@@ -327,12 +338,15 @@ def evaluate(bundle):
                 }
             )
         else:
-            work_top = _sum(bed, parallel_height, bearing_height, stock_height)
+            work_top = (
+                _UNKNOWN if datum else _sum(bed, parallel_height, bearing_height, stock_height)
+            )
         unknown = (
             not fixture
             or not machine
             or any(uncertain(item) for item in (fixture, parallels) if item)
             or support_unverified
+            or bool(datum)
         )
         unknown |= not _numeric(work_top if head else stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
@@ -425,6 +439,7 @@ def evaluate(bundle):
             )
             verified = (
                 not support_unverified
+                and not datum
                 and not any(uncertain(item) for item in (fixture, parallels, tool, holder) if item)
                 and bool(tool and holder and fixture)
             )
@@ -550,6 +565,7 @@ def evaluate(bundle):
                         else []
                     )
                     + conflicts
+                    + ([datum["reason"]] if datum else [])
                     + swept
                     + ([saw_debt] if saw_debt else [])
                 )

@@ -109,6 +109,16 @@ Evidence: `span_mm`, `span_model` (`stickout`/`follow_rest`/`steady_rest`),
 `rests` rows (reference, kind, ops, capacity, ridden diameter, span, status
 `pass`/`outside_capacity`/`unknown`) and `turned_diameter_mm`.
 
+For radial profiles, `commanded_diameter_mm` is a separate control target:
+explicit `to_dia` takes precedence, and an explicit unknown stays unknown.
+It does not replace the nominal loaded-section diameter, the existing
+`turned_diameter_mm` rest basis,
+inertia, force, span or rough-allowance threshold. In particular, a commanded
+partial cylinder is not evidence of a complete section or material under rest
+jaws. The target and the physical proxy must not be printed as interchangeable
+diameters; neither proves the instantaneous maximum cutting diameter or attained
+stock.
+
 ### Acceptance threshold
 
 The comparison follows the PLAN §4.4 turning-deflection row's ± tolerance

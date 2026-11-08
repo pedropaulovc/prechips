@@ -297,6 +297,20 @@ def test_manual_map_uses_setup_diameter_not_final_feature_geometry(with_rows, un
         }
         for number, action in [(10, "rough_turn"), (20, "finish_turn")]
     ]
+    # This setup deliberately stops oversize; a later radial finish owns final size.
+    final = deepcopy(bundle.plan["setups"][0])
+    final["id"] = "S2"
+    final["ops"] = [
+        {
+            "op": 10,
+            "do": "finish_turn",
+            "feature": "journal",
+            "to_dia": 17.4625,
+            "z_from": 12.7,
+            "z_to": 0.0,
+        }
+    ]
+    bundle.plan["setups"].append(final)
     sheet, setup = _sheet(bundle)
     numbers = sheet.records[("coordinates", "S1")]
     assert any(row.get("dia_nominal") == 17.4625 for row in numbers["rows"])
@@ -352,7 +366,7 @@ def test_unknown_turning_diameter_never_uses_final_geometry_or_facing_endpoint(
 @pytest.mark.parametrize("last_target", [{"to_dia": "unknown"}, {}])
 def test_different_turning_stages_keep_their_own_target_and_cut_window(with_rows, last_target):
     bundle = _manual(radius_mode=True)
-    bundle.features["features"]["journal"].update(dia_nominal=17.4625)
+    bundle.features["features"]["journal"].update(dia_nominal=17.4625, dia=[17.45, 17.48])
     bundle.plan["setups"][0]["ops"] = [
         {
             "op": 30,
@@ -402,6 +416,7 @@ def test_digital_stage_does_not_relabel_a_final_reference_as_a_new_dro_setting(
     bundle = _manual(kind="digital", units="mm", radius_mode=radius_mode)
     op = bundle.plan["setups"][0]["ops"][0]
     op["to_dia"] = 17.78
+    op["do"] = "rough_turn"
     sheet, setup = _sheet(bundle)
     numbers = sheet.records[("coordinates", "S1")]
     if not with_rows:

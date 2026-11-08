@@ -19,11 +19,15 @@ from prechips.material_routes import MaterialGraph, feature_material_status, set
 from prechips.rules import blank_credit, inspection
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
+    MANUAL_RASTER,
     ROTARY,
     approach,
     approach_model_reason,
     cutting_action,
     finite_saw_evidence,
+    manual_raster_candidates,
+    manual_raster_gap_text,
+    manual_raster_union,
     op_claims,
     provenance,
     rotary_debt_text,
@@ -733,6 +737,7 @@ def evaluate(bundle):
         ]
     all_faces = {face["index"] for face in faces}
     claimed, rotary, errors, debt = set(), set(), [], False
+    raster = set()
     unsupported = set()
     represented, represented_rows = set(), []
     saw_rows, saw_refusals = [], {}
@@ -769,6 +774,14 @@ def evaluate(bundle):
                     ] or evidence.get("reasons", [])
                     cause = "; ".join(reasons) or "complete causal boundary proof is absent"
                     saw_refusals.setdefault(index, []).append(f"{setup['id']}:{op['op']}: {cause}")
+            continue
+        if record(op.get("contour")).get("method") == MANUAL_RASTER:
+            errors.extend(op_claims(bundle, facts, setup, op)[2])
+            indices = manual_raster_candidates(bundle, facts, setup, op)
+            if indices is None:
+                debt = True
+            else:
+                raster.update(indices)
             continue
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation, even with an explicit face override, credits only the
@@ -843,13 +856,31 @@ def evaluate(bundle):
     # Explicit cosmetic thread faces never acquire exact machining/as-stock credit,
     # including when the native representation proof is missing or unresolved.
     claimed -= representation_faces
-    # Whole-face claims and as-stock supersede any rotary portion of the same face.
+    # Independent whole-face proofs supersede partials; never combine unlike portions.
     complete, gaps, unresolved = rotary_union(facts, "cut", rotary - claimed - representation_faces)
-    claimed |= complete
+    raster_complete, raster_gaps, raster_unresolved = manual_raster_union(
+        facts, "cut", raster - claimed - representation_faces
+    )
+    claimed |= complete | raster_complete
+    gaps = {i: row for i, row in gaps.items() if i not in claimed}
+    unresolved = {i: row for i, row in unresolved.items() if i not in claimed}
+    raster_gaps = {i: row for i, row in raster_gaps.items() if i not in claimed}
+    raster_unresolved = {i: row for i, row in raster_unresolved.items() if i not in claimed}
     if rotary:
         cite.append("kernel rotary_coverage.cut: exact union of rotary window portions per face")
+    if raster:
+        cite.append("kernel manual_raster_coverage.cut: exact union of authored raster sweeps")
     # A formed feature's faces whose credit is debt are judged by that debt, not as missing.
-    unclaimed = sorted(all_faces - claimed - represented - set(gaps) - set(unresolved) - pending)
+    unclaimed = sorted(
+        all_faces
+        - claimed
+        - represented
+        - set(gaps)
+        - set(unresolved)
+        - set(raster_gaps)
+        - set(raster_unresolved)
+        - pending
+    )
     values = {
         "face_count": len(all_faces),
         "claimed_face_count": len(all_faces & claimed),
@@ -874,11 +905,15 @@ def evaluate(bundle):
         values["rotary_gaps"] = list(gaps.values())
     if unresolved:
         values["rotary_unresolved"] = list(unresolved.values())
+    if raster_gaps:
+        values["manual_raster_gaps"] = list(raster_gaps.values())
+    if raster_unresolved:
+        values["manual_raster_unresolved"] = list(raster_unresolved.values())
     if withheld:
         values["as_is_withheld"] = withheld
     if formed_rows:
         values["joint_formed"] = formed_rows
-    uncovered = set(unclaimed) | set(gaps)
+    uncovered = set(unclaimed) | set(gaps) | set(raster_gaps)
     if errors:
         values["mapping_errors"] = sorted(set(errors))
         status, message = (
@@ -890,12 +925,19 @@ def evaluate(bundle):
             "unknown",
             "; ".join(([CLAIM_DEBT] if debt else []) + formed_debts),
         )
-    elif unresolved:
-        status, message = (
-            "unknown",
-            "rotary window coverage is unresolved for "
-            + "; ".join(map(rotary_debt_text, unresolved.values())),
-        )
+    elif unresolved or raster_unresolved:
+        problems = []
+        if unresolved:
+            problems.append(
+                "rotary window coverage is unresolved for "
+                + "; ".join(map(rotary_debt_text, unresolved.values()))
+            )
+        if raster_unresolved:
+            problems.append(
+                "manual raster coverage is unresolved for "
+                + "; ".join(map(rotary_debt_text, raster_unresolved.values()))
+            )
+        status, message = "unknown", "; ".join(problems)
     elif uncovered and uncovered <= unsupported:
         status, message = "unsupported", LATHE_APPROACH_REASON
     elif uncovered:
@@ -915,6 +957,12 @@ def evaluate(bundle):
             values.pop("rotary_gaps", None)
             if gaps:
                 values["rotary_gaps"] = list(gaps.values())
+            raster_gaps = {
+                index: gap for index, gap in raster_gaps.items() if index not in unsupported
+            }
+            values.pop("manual_raster_gaps", None)
+            if raster_gaps:
+                values["manual_raster_gaps"] = list(raster_gaps.values())
         problems = []
         if unclaimed:
             names = []
@@ -936,6 +984,11 @@ def evaluate(bundle):
             problems.append(
                 "rotary windows leave part of a claimed face uncut: "
                 + "; ".join(map(rotary_gap_text, gaps.values()))
+            )
+        if raster_gaps:
+            problems.append(
+                "manual raster sweeps leave part of a claimed face uncut: "
+                + "; ".join(map(manual_raster_gap_text, raster_gaps.values()))
             )
         status, message = "error", "; ".join(problems)
     else:

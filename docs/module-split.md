@@ -261,8 +261,8 @@ Each split PR must retain both manifests and use a persistent
 snapshot must recompute geometry rather than reuse the old engine's cache.
 
 At `f5c7414`, pivot-shaft, rocker-arm and pivot-bracket exited 0 and the cone
-exited 4 for both verbs. The cone's stop was documented under
-[expected consumer CLI exits](../examples/README.md#expected-consumer-cli-exits).
+exited 4 for both verbs. The cone's historical stop is described in the
+[earlier example guide](https://github.com/pedropaulovc/prechips/blob/dfcee1b4432dfa04c371620765bbc884754941a6/examples/README.md).
 All four traveler outputs matched `expected/` exactly. These are historical results,
 not the expected exits of every current checkout.
 

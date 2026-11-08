@@ -254,6 +254,8 @@ def evaluate(bundle):
             diameter_name = "feature nominal diameter"
             diameter_basis = f"features.features.{feature_name}: declared nominal diameter"
         allowance = op.get("rough_allowance_mm", UNKNOWN)
+        # Keep the existing section/rest proxy independent of any authored target.
+        # A command does not establish full cylindrical material or an attained surface.
         turned = diameter
         if rough and not axial and not dome:
             turned = (
@@ -349,6 +351,16 @@ def evaluate(bundle):
             tolerance_basis=threshold_basis,
             missing_inputs=missing,
         )
+        if not axial:
+            numbers.update(
+                commanded_diameter_mm=turned_profile.commanded_diameter(bundle, op, turned),
+                commanded_diameter_basis=(
+                    "authored to_dia" if "to_dia" in op else "implicit nominal/allowance basis"
+                ),
+                turned_diameter_basis=(
+                    "nominal/allowance rest proxy; not commanded or attained diameter"
+                ),
+            )
         if debts:
             numbers["measurements"] = list(debts.values())
         cite.extend(

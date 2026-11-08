@@ -520,6 +520,20 @@ Physical stock height (`stock_height_mm`) is
 `top_z - bottom_z`. Support-block orientation must explicitly select a listed
 height; the rule does not choose an arbitrary block dimension.
 
+This scalar stack assumes the declared stock bottom seats on the fixture bed.
+For a custom primary fixture with known pose and stock-bottom coordinates, M5
+refuses that assumption when the bottom differs from the pose-origin Z or the
+known fixture Z axis is not setup +Z. The comparison converts stock coordinates
+from the feature manifest units; `hold.pose.origin_mm` is already setup-frame mm.
+Both `headroom` and `envelope` then report the underlying declarations in
+`numbers.supported_height_datum`, retain unrelated known errors and measurement
+debt, and leave table-relative vertical stacks and margins unknown (HOLD), rather
+than asserting either clearance or a spindle-limit violation. A matching datum
+retains the existing scalar calculation, including each declared bearing layer
+once. This is an uncertainty boundary, not a contact-plane, custom-fixture or
+motion model: no offset is inferred to repair the mismatch. Omitted pose/stock
+facts retain their existing debt semantics; they are not a new blanket refusal.
+
 Tool projection comes from the selected tool's `projection_mm` entry for the
 selected holder. Only an absent pair entry permits `tool OAL - holder grip`
 when both facts are known. An explicit unknown projection, or conflicting
