@@ -8304,6 +8304,12 @@ class _Traveler:
         if saw_setup(self.bundle, setup):
             return ""
         numbers = self.records.get(("coordinates", setup["id"]), {})
+        if numbers.get("axis_placement_debt"):
+            return _p(
+                "STOP: the common boss, bore and cap placement has not been proved. "
+                "No nominal or shifted machining coordinates are released.",
+                "stop",
+            )
         display = numbers.get("x_display")
         lathe = "x_display" in numbers or self.lathe(setup)
         # The size each surface turns to, as the DRO's X display reads it; unread, the

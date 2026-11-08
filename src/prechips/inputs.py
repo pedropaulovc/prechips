@@ -172,6 +172,37 @@ def _workpiece_faces(bundle: Bundle) -> None:
         raise BadInput(f"Cannot bind qualified workpiece faces to the source STEP: {exc}") from exc
 
 
+def _axis_placements(bundle: Bundle) -> None:
+    """Bind a shared-axis contract to the immutable single-solid source STEP."""
+    from prechips.axis_placements import resolve_placements
+    from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
+
+    placements = resolve_placements(bundle)
+    if not placements:
+        return
+    path = bundle.paths.get("step")
+    if path is None:
+        raise BadInput("axis_placements requires the exact source STEP bytes.")
+    try:
+        source = StepFile(path.read_bytes().decode("latin-1"))
+        solids = source.solid_refs()
+        if len(solids) != 1:
+            raise BadInput("axis_placements requires exactly one source MANIFOLD_SOLID_BREP.")
+        owned_faces = set(source.solid_faces(solids[0]))
+        for placement in placements:
+            for role in ("boss", "bore", "caps", "support", "reference"):
+                name = placement[role]
+                for ref in bundle.features["features"][name]["faces"]:
+                    source.resolve(ref)
+                    if ref not in owned_faces:
+                        raise BadInput(
+                            f"axis_placements.{placement['name']}: {name} face "
+                            f"{ref!r} is outside the source solid."
+                        )
+    except (OSError, StepError, FaceRefError) as exc:
+        raise BadInput(f"Cannot bind axis_placements to the source STEP: {exc}") from exc
+
+
 def _placed_supports(plan: dict, inventory: dict) -> None:
     """Known posed inventory sources must resolve; incomplete geometry remains debt."""
     from prechips.rules.resolution import select
@@ -238,12 +269,12 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
 def _inspection_tables(
     where: str, op: dict, names: list[str], definitions: dict, acceptance: dict | None = None
 ) -> None:
-    """An op's ``checks``, ``go_no_go`` and ``inspection_methods``: requirement-keyed, or on
-    a multi-feature inspect op scoped to one listed feature (``{ <feature> = { <requirement>
-    = ... } }``). A scoped requirement is one its feature exports, a requirement is flat or
-    scoped in one table, never both, and a GO / NO-GO pair or scoped method has a checks gauge
-    for every feature it applies to. Typed part relationships are flat, never cloned under
-    their participating features."""
+    """Validate requirement-keyed or feature-scoped inspection tables.
+
+    A scoped requirement must be exported, never duplicated as a flat entry. Gauge
+    pairs, methods and relative readings need their checks gauge. Typed part
+    relationships remain flat, never cloned under participating features.
+    """
     from prechips.rules.resolution import INSPECTION_TABLES, op_entries, op_entry
 
     exported = {name: set(_exported(definitions[name])) for name in names}
@@ -276,7 +307,14 @@ def _inspection_tables(
                     )
             # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
             scoping = isinstance(value, dict) and not (
-                table == "go_no_go" and {"go", "no_go"} & set(value)
+                table == "go_no_go"
+                and {"go", "no_go"} & set(value)
+                or table == "inspection_readings"
+                and (
+                    {"kind", "offset_mm", "method", "cite"} & set(value)
+                    or key in every
+                    and not value
+                )
             )
             if key not in names and scoping:
                 raise BadInput(
@@ -330,14 +368,17 @@ def _inspection_tables(
                     f"{where} {table}.{scope}.{requirement} names no checks gauge for "
                     f"{scope}; it needs a checks entry for that feature's {requirement}."
                 )
-        for requirement in flat if table == "go_no_go" else ():
+        for requirement in flat if table in {"go_no_go", "inspection_readings"} else ():
             owners = [name for name in names if requirement in exported[name]]
             if not owners or any(
                 op_entry(op, "checks", name, requirement) is None for name in owners
             ):
+                reader = (
+                    "a GO / NO-GO pair" if table == "go_no_go" else "a relative-coordinate reading"
+                )
                 raise BadInput(
-                    f"{where} go_no_go.{requirement} names no checks gauge; a GO / NO-GO pair "
-                    "needs its checks entry."
+                    f"{where} {table}.{requirement} names no checks gauge; "
+                    f"{reader} needs its checks entry."
                 )
 
 
@@ -831,6 +872,7 @@ def load_bundle(
     )
     # Seed the cached operative mapping already resolved above; it is built once.
     bundle.__dict__["feature_definitions"] = definitions
+    _axis_placements(bundle)
     owners = bundle.finished_feature_owners
     _workpiece_faces(bundle)
     for setup in setups:

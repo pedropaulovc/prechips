@@ -5,8 +5,9 @@ components propagate only through nonzero basis coefficients. Local authored Z
 can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry: a plan
 ``aims`` entry moves only a located feature's DRO target along its height-like band to a
-stated value, and the geometry stays nominal; one naming a ``face`` instead moves that
-faced plane of the part the kernel cuts (:func:`faced_aims`), never the STEP.
+stated value. A faced aim or shared cylindrical ``axis_placements`` family instead changes
+the checked manufacturing shape, never the source STEP. Shared-axis targets and contours
+are withheld from public findings until the native family construction is proven.
 A basis axis is known only when orthonormal with its frame's other numeric axes
 (:func:`frame_axes`): loading checks only a complete frame.
 
@@ -547,6 +548,128 @@ def _aimed(bundle, name, points, seen=()):
     return moved, aim, None
 
 
+def _placement_geometry(bundle):
+    """Local operative feature/frame projection; exported dictionaries stay untouched.
+
+    A placement translates each member's own frame, not the shared source frame and not
+    the setup. A cylindrical boss without an explicit point is located at its declared
+    frame origin. The same projection drives its profile, the bore target and cap rows.
+    These are candidate coordinates until :func:`_placement_debt` accepts native proof.
+    """
+    from prechips.axis_placements import resolve_placements
+
+    features = bundle.feature_definitions
+    frames = mapping(bundle.features.get("frames"))
+    placements = resolve_placements(bundle)
+    if not placements:
+        return features, frames
+    features, frames = dict(features), dict(frames)
+    scale = UNIT_MM[bundle.features["units"]]
+    for placement in placements:
+        delta = [value / scale for value in placement["delta_mm"]]
+        for role in ("boss", "bore", "caps"):
+            name = placement[role]
+            feature = dict(features[name])
+            source = frames[feature.get("frame", "model")]
+            frame_name = f"axis_placements.{placement['name']}.{name}"
+            frames[frame_name] = {
+                **source,
+                "origin": [
+                    value + move for value, move in zip(source["origin"], delta, strict=True)
+                ],
+            }
+            feature["frame"] = frame_name
+            if role == "boss":
+                feature.setdefault("at", [0.0, 0.0, 0.0])
+            features[name] = feature
+    return features, frames
+
+
+def _placement_debt(bundle):
+    """Why the requested manufacturing variant has no matching native proof, else None."""
+    from prechips.axis_placements import resolve_placements
+
+    requested = resolve_placements(bundle)
+    if not requested:
+        return None
+    kernel = mapping(getattr(bundle, "kernel", None))
+    evidence = kernel.get("axis_placements")
+    shape = mapping(kernel.get("process_shape"))
+    digest = kernel.get("process_shape_sha256")
+    source_digest = bundle.features.get("step_sha256")
+
+    def sha256(value):
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+        )
+
+    def source_matches(request, fact):
+        # Numeric primitives alone do not identify the selected source patches.
+        # Reassignment of a feature's faces must invalidate previously stored proof.
+        source = {
+            role: bundle.features["features"][request[role]]["faces"]
+            for role in ("boss", "bore", "caps", "support", "reference")
+        }
+        if fact.get("source") != source:
+            return False
+        provenance = fact.get("provenance")
+        faces = shape.get("faces")
+        if (
+            not isinstance(provenance, list)
+            or not isinstance(faces, list)
+            or not faces
+            or len(provenance) != len(faces)
+        ):
+            return False
+        roles = {ref: role for role, refs in source.items() for ref in refs}
+        seen = set()
+        for item in provenance:
+            if not isinstance(item, dict):
+                return False
+            ref, index = item.get("ref"), item.get("index")
+            if (
+                not isinstance(ref, str)
+                or ref in seen
+                or type(index) is not int
+                or not 0 <= index < len(faces)
+                or not isinstance(faces[index], dict)
+                or faces[index].get("ref") != ref
+                or type(faces[index].get("index")) is not int
+                or faces[index]["index"] != index
+                or item.get("role") != roles.get(ref, "unchanged")
+            ):
+                return False
+            seen.add(ref)
+        return roles.keys() <= seen
+
+    if (
+        kernel.get("status") == "ok"
+        and isinstance(evidence, list)
+        and len(evidence) == len(requested)
+        and sha256(source_digest)
+        and shape.get("source_step_sha256") == source_digest
+        and sha256(digest)
+        and shape.get("sha256") == digest
+    ):
+        if all(
+            isinstance(fact, dict)
+            and fact.get("status") == "pass"
+            and fact.get("request") == request
+            and isinstance(fact.get("proof"), dict)
+            and bool(fact["proof"])
+            and source_matches(request, fact)
+            for request, fact in zip(requested, evidence, strict=True)
+        ):
+            return None
+    return (
+        "shared manufacturing-axis placement is unproved; no nominal or shifted "
+        "machining targets are released"
+        + (f": {kernel['reason']}" if isinstance(kernel.get("reason"), str) else "")
+    )
+
+
 def planned_point(bundle, name, seen=()):
     """``(point, aims, why)``: ``name``'s planned model point, the plan aims that bear on it
     (row fields, below; empty without any) and why the point is unknown or one of those
@@ -558,9 +681,13 @@ def planned_point(bundle, name, seen=()):
     parent's aim. An aim of the child's own would take it off that axis: ``aims`` holds it
     as ``refused_aim`` with that reason and it moves nothing, so the child still stands on
     its parent's target.
+
+    A shared-axis family uses its translated operative frame and carries
+    ``axis_placement`` metadata. This function also supplies pre-native requests: a known
+    point is a candidate, not native proof or physical metrology. Public coordinate and
+    layout findings separately require :func:`_placement_debt` to clear.
     """
-    features = bundle.feature_definitions
-    frames = mapping(bundle.features.get("frames"))
+    features, frames = _placement_geometry(bundle)
     locator, locator_frame, locator_name = located_by(features, name, mapping(features.get(name)))
     point = model_point(locator.get("at"), frames.get(locator_frame))
     (point,), aim, why = _aimed(bundle, locator_name, [point], seen)
@@ -573,6 +700,22 @@ def planned_point(bundle, name, seen=()):
         )
         aims["refused_aim"] = own
         why = why or own["why"]
+    from prechips.axis_placements import member_placement
+
+    placement = member_placement(bundle, name)
+    if placement is not None:
+        scale = UNIT_MM[bundle.features["units"]]
+        aims["axis_placement"] = {
+            "name": placement["name"],
+            "boss": placement["boss"],
+            "bore": placement["bore"],
+            "caps": placement["caps"],
+            "reference": placement["reference"],
+            "separation_mm": placement["separation_mm"],
+            "printed_band": [value / scale for value in placement["band_mm"]],
+            "delta_mm": placement["delta_mm"],
+            "delta": [value / scale for value in placement["delta_mm"]],
+        }
     if why is None and not all(number(v) for v in point):
         why = f"{name} has no known point"
     return point, aims, why
@@ -603,11 +746,19 @@ def _planned_rows(rows, planned, aims, frame, grid):
             errors.append(record["error"])
         elif "why" in record:
             unknown = True
-    placed = "aim" in aims and "why" not in aims["aim"]
+    placed = ("aim" in aims and "why" not in aims["aim"]) or "axis_placement" in aims
     for row, point in zip(rows, planned, strict=True):
         row.update({key: dict(record) for key, record in aims.items()})
         if placed:
-            row["nominal_setup"] = row["setup"]
+            placement = aims.get("axis_placement")
+            if placement is not None:
+                source = [
+                    value - move for value, move in zip(point, placement["delta"], strict=True)
+                ]
+                row["source_model"] = source
+                row["nominal_setup"] = frame_point(source, frame)
+            else:
+                row["nominal_setup"] = row["setup"]
             row["setup"] = frame_point(point, frame)
     for row in rows:
         if all(number(v) for v in row["setup"]):
@@ -3941,14 +4092,17 @@ def _made_before(bundle, op, name):
     return False
 
 
-def arc_layout(bundle, setup, name):
+def arc_layout(bundle, setup, name, *, pre_kernel=False):
     """The line a layout scribes for arc feature ``name``, in ``setup``'s frame, or None
     when it is no arc or its geometry is unknown: ``centre_setup_xy``, ``radius_mm``
     (nominal), ``convex`` (the part inside the circle), ``full_circle``, ``ends_setup_xy``
-    (None for a full circle) and ``centre_on``, the hole whose axis is the arc centre."""
-    features = bundle.feature_definitions
+    (None for a full circle) and ``centre_on``, the hole whose axis is the arc centre.
+    ``pre_kernel`` supplies candidate layout to the native request; public layout requires
+    the checked manufacturing-axis placement when one is declared."""
+    if not pre_kernel and _placement_debt(bundle) is not None:
+        return None
+    features, frames = _placement_geometry(bundle)
     feature = mapping(features.get(name))
-    frames = mapping(bundle.features.get("frames"))
     frame = setup_frame(bundle, setup)
     grid = dro_grid(bundle, setup)
     probe = {"op": UNKNOWN, "contour": {"step_deg": 360.0}}
@@ -4349,9 +4503,8 @@ def evaluate(bundle, *, pre_kernel=False):
     and without one leaves them unprinted and unknown, never cuttable unclipped.
     """
     result = []
-    features = bundle.feature_definitions
-    # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
-    frames = mapping(bundle.features.get("frames"))
+    features, frames = _placement_geometry(bundle)
+    placement_debt = None if pre_kernel else _placement_debt(bundle)
     dro = mapping(bundle.plan.get("dro"))
     units = bundle.features.get("units")
     for setup in bundle.plan["setups"]:
@@ -4360,6 +4513,27 @@ def evaluate(bundle, *, pre_kernel=False):
             result.append(
                 not_applicable(
                     "coordinates", setup, bench, "coordinates", "DRO target or cutter-centre table"
+                )
+            )
+            continue
+        if placement_debt is not None:
+            result.append(
+                Finding(
+                    "coordinates",
+                    setup["id"],
+                    UNKNOWN,
+                    {
+                        "rows": [],
+                        "profiles": [],
+                        "arc_table": [],
+                        "line_table": [],
+                        "contours": [],
+                        "operations": [],
+                        "entry_surfaces": [],
+                        "axis_placement_debt": placement_debt,
+                    },
+                    ["plan.axis_placements", "kernel shared-axis manufacturing-shape proof"],
+                    placement_debt,
                 )
             )
             continue
@@ -4640,6 +4814,8 @@ def evaluate(bundle, *, pre_kernel=False):
             for key in ("aim", "refused_aim"):
                 if key in rows[0]:
                     aim_cites.append(f"plan.aims.{rows[0][key]['feature']}")
+            if "axis_placement" in rows[0]:
+                aim_cites.append(f"plan.axis_placements.{rows[0]['axis_placement']['name']}")
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))

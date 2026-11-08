@@ -9,9 +9,9 @@ reference-only dimension (``<name>_ref``, a CUT TO FIT span) has no drawing band
 ``not_applicable``, its cited ``measure`` being the only limit. Each hold is read with its
 own gauge, graded like a drawing check against the hold band.
 
-An op's ``checks``, ``go_no_go`` and ``inspection_methods`` are read per feature through
-:func:`.resolution.op_entry`: a multi-feature inspect op's entry scoped to the feature,
-else its flat requirement entry, so each listed feature is judged with its own gauge.
+An op's ``checks``, ``go_no_go``, ``inspection_methods`` and ``inspection_readings`` are
+read per feature through :func:`.resolution.op_entry`: a multi-feature inspect op's entry
+scoped to the feature, else its flat requirement entry.
 
 Inspection-plan passes describe a capable declared checkpoint, never an observed part:
 ``evaluation="inspection_plan"`` and ``part_result="not_recorded"``. Physical results stay
@@ -58,6 +58,11 @@ gauge reads no height, and a caliper has no reference plane to read it square to
 datum, only a nearest-point distance. The setup is debt until both the datum
 (``height_from`` naming another exported manifest feature) and an authored procedure are
 declared.
+
+A qualified ``relative_coordinate`` reading translates a signed station's acceptance band
+to physical height-gauge or CMM readings. Its finite offset, procedure and citation must
+be known; instrument range, resolution and verification still apply. It changes neither
+the drawing coordinate nor the recorded part result, and cannot replace a GO / NO-GO pair.
 """
 
 import math
@@ -407,8 +412,55 @@ def _height_datum(bundle, name, feature):
     return datum if datum in record(bundle.features.get("features")) else None
 
 
+def _declared_reading(op, name, requirement):
+    if op.get("inspection_readings") == UNKNOWN:
+        return UNKNOWN
+    return op_entry(op, "inspection_readings", name, requirement)
+
+
+def _physical_reading(requirement, value, kind, method, reading, nums):
+    """Translate a qualified signed station to actual instrument readings, never travel."""
+    if reading is None:
+        return value, None
+    nums["inspection_reading"] = reading
+    if requirement != "station" or kind not in {"height_gauge", "cmm"}:
+        return value, ("error", "relative-coordinate reading is unsupported for this check")
+    qualification = record(reading)
+    offset = qualification.get("offset_mm")
+    if not (
+        qualification.get("kind") == "relative_coordinate"
+        and number(offset)
+        and math.isfinite(offset)
+        and procedure_known(method)
+        and procedure_known(qualification.get("method"))
+        and _citations(qualification.get("cite"))
+    ):
+        return value, ("unknown", "relative-coordinate datum qualification is unresolved")
+    if not (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(number(v) and math.isfinite(v) for v in value)
+    ):
+        return value, ("unknown", "relative-coordinate requirement band is unresolved")
+    physical = [v + offset for v in value]
+    if not all(math.isfinite(v) for v in physical):
+        return value, ("unknown", "relative-coordinate physical readings are unresolved")
+    nums["physical_reading_band_mm"] = physical
+    return physical, None
+
+
 def _capability(
-    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None, name=None
+    bundle,
+    feature,
+    requirement,
+    value,
+    gauge_ref,
+    method,
+    nums,
+    limits=None,
+    tilt=None,
+    name=None,
+    reading=None,
 ):
     """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability of the
     feature ``name`` (``feature`` its definition).
@@ -440,8 +492,16 @@ def _capability(
             maximum = length_mm(gauge, "range")
             span = [0, maximum] if number(maximum) else "unknown"
         nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
-        if pair is not None:
+        physical_band, reading_refusal = _physical_reading(
+            requirement, value, kind, method, reading, nums
+        )
+        if pair is not None and reading is None:
             return _go_no_go(bundle, feature, requirement, accept, pair, gauge, gauge_ref, nums)
+        if pair is not None and reading_refusal is None:
+            reading_refusal = (
+                "error",
+                "relative-coordinate reading is unsupported for a GO / NO-GO check",
+            )
         angular = (
             requirement.endswith("_deg")
             and isinstance(value, list)
@@ -522,6 +582,8 @@ def _capability(
             status, message = "error", "named gauge cannot measure this requirement"
         elif value == "unknown" or bundle.features.get("units") != "mm":
             message = "requirement limits or units are unresolved"
+        elif reading_refusal is not None:
+            status, message = reading_refusal
         elif geometric and (
             not method_known
             or (requirement == "angularity_dia" and not angularity_geometry_known)
@@ -641,7 +703,7 @@ def _capability(
                     )
             else:
                 nums["band_mm"] = value[1] - value[0]
-                if span[0] > value[0] or span[1] < value[1]:
+                if span[0] > physical_band[0] or span[1] < physical_band[1]:
                     status, message = (
                         "error",
                         "gauge does not span the requirement band",
@@ -714,6 +776,7 @@ def requirement_check(bundle, name, requirement, op, *, setup=None, workpiece=No
         (go_no_go_pair(op, name, requirement), accept),
         tilt,
         name=name,
+        reading=_declared_reading(op, name, requirement),
     )
     if setup is not None:
         nums.update(setup_id=setup["id"], op_id=op["op"], op=f"{setup['id']}:{op['op']}")
@@ -1125,6 +1188,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                     limits,
                     tilt,
                     name=name,
+                    reading=_declared_reading(op, name, requirement),
                 )
                 if target["selection_status"] == UNKNOWN and status != "error":
                     status, message = UNKNOWN, "inspection workpiece identity is unresolved"
@@ -1151,6 +1215,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                     (pair, accept),
                     tilt,
                     name=name,
+                    reading=_declared_reading(other, name, requirement),
                 )
                 others.append(row)
             if others:

@@ -1292,7 +1292,7 @@ def scribed_profile(bundle, setup, op):
         # An ends-only layout marks a guided sweep's stops: no line for a saw to follow.
         return {"reason": f"the scribe op lays out only {name}'s two ends, not its line"}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
-    layout = arc_layout(bundle, setup, name)
+    layout = arc_layout(bundle, setup, name, pre_kernel=True)
     if layout is None or scale is None:
         return {"reason": f"the scribed arc {name}'s layout in setup {setup['id']} is unknown"}
     # The arc lies in its feature frame's XY plane; the kernel clips with a setup-Z
@@ -2694,12 +2694,14 @@ def _pickup_lineage_inputs(bundle, setup, prepared=None):
 
 def _model_inputs(bundle):
     """The shared native model projection, without rendering-only metadata."""
+    from prechips.axis_placements import resolve_placements
     from prechips.joint_features import dia_bands_mm, primitives_mm
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import faced_aims
 
     solids = bundle.features.get("solids")
     aimed = faced_aims(bundle)
+    placements = resolve_placements(bundle)
     units = bundle.features.get("units", UNKNOWN)
     return {
         "step_sha256": bundle.features.get("step_sha256", UNKNOWN),
@@ -2720,6 +2722,7 @@ def _model_inputs(bundle):
         "joint_features": primitives_mm(bundle),
         "dia_bands": dia_bands_mm(bundle),
         "process_features": process_primitives_mm(bundle),
+        **({"axis_placements": placements} if placements else {}),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         **({"aimed_faces": aimed} if aimed else {}),
         "stock": stock_inputs(bundle),
@@ -3061,6 +3064,7 @@ def engine_job(job):
         "joint_features": job.get("joint_features", {}),
         **({"dia_bands": job["dia_bands"]} if job.get("dia_bands") else {}),
         "process_features": job.get("process_features", {}),
+        **({"axis_placements": job["axis_placements"]} if job.get("axis_placements") else {}),
         "as_is_faces": job["as_is_faces"],
         **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],

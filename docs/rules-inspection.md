@@ -148,6 +148,17 @@ a plan joint or process feature) and `inspection_methods.height_above_pivot` dec
 procedure; otherwise it is `unknown` (`datum height setup (height_from datum or
 inspection method) unresolved`), never a pass. The rule does not parse the
 procedure for a pin. Evidence adds `height_from` and `inspection_method`.
+
+For a signed `station`, a qualified
+[`inspection_readings`](plan.md#qualified-relative-coordinate-readings) entry
+can translate the coordinate band into the physical reading band of a height
+gauge or CMM. Qualification requires finite offset, method and citation; debt
+remains unknown. Range checks use the translated band, while resolution uses
+the original width and verification remains mandatory. A GO/NO-GO pair cannot
+substitute for this physical reading. Findings preserve the original limits,
+reading declaration and physical band; `part_result` stays `not_recorded`.
+This structured contract has no relative-reading setup-sheet presentation yet.
+
 Other dimensions use the capable dimensional gauge kinds. For `dia` and
 `nominal_dia`, the current implementation rejects gauge kinds `micrometer` and
 `micrometer_set` on `hole`, `thread`, and `threaded_hole` features.

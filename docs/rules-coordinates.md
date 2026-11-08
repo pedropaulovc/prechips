@@ -176,6 +176,16 @@ A known point still needs a usable model-to-setup frame transform. Bounds-only
 face, rectangular profile and pocket features do not acquire an invented centre
 requirement.
 
+### Shared-axis proof gate
+
+An [`axis_placements`](plan.md#shared-axis-placements) contract moves copied
+boss/bore/caps geometry together; it does not rewrite source feature frames or
+turn a bore-only DRO aim into manufacturing proof. Candidate coordinates may
+feed the native job, but public machining tables require passing native proof
+for the exact current placement request. Missing, stale or failed proof leaves
+`axis_placement_debt`, empty machining tables and a setup-sheet STOP rather than
+nominal or shifted fallback coordinates.
+
 ### Mill targets and aims
 
 Off a lathe, a located row with a known setup point also carries `dro`. This
@@ -1962,6 +1972,15 @@ the mill X/Y read the spindle axis whatever the tool. A touch with
 `z_gauge` as `z_measure`. Missing tools, unverified finder/gauge facts, missing
 recipes and unknown frame binding preserve unknown. A lathe does not require a
 Y zero recipe.
+
+An explicitly tailstock-mounted axial tool can instead qualify for
+`tool_setting_state = "tailstock_axis"`. Every cutting operation using that tool
+must state `tool_mount = "tailstock"` and resolve on the spindle axis; the
+machine tailstock and selected holder need known compatible unflagged tapers.
+Only then are X setting and X face checks not applicable. Z face, edge and
+paper remain required, and the quill touch cannot replace the carriage DRO
+setter. Missing mounting, geometry or interface evidence retains normal lathe
+X debt; a compatible taper alone grants no exemption.
 
 #### Lathe X touch surfaces
 

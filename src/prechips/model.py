@@ -737,6 +737,25 @@ class Aim(InputModel):
         return self
 
 
+class AxisPlacement(InputModel):
+    """Move a source boss, through bore and caps together within its separation band."""
+
+    boss: str
+    bore: str
+    caps: str
+    support: str
+    separation_mm: Annotated[float, Field(gt=0)]
+
+    @model_validator(mode="after")
+    def members(self) -> AxisPlacement:
+        names = (self.boss, self.bore, self.caps, self.support)
+        for name in names:
+            _known_text(name, "An axis placement feature")
+        if len(set(names)) != len(names):
+            raise ValueError("Axis placement boss, bore, caps and support must be distinct.")
+        return self
+
+
 type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
 # Authored unit vectors carry trig residue; the kernel's pose tolerance applies.
 UNIT_TOLERANCE = 1e-6
@@ -896,6 +915,15 @@ class InspectionScope(InputModel):
         return self
 
 
+class InspectionReading(InputModel):
+    """A qualified datum translation, coordinate = physical reading - offset_mm."""
+
+    kind: Literal["relative_coordinate"] | Unknown = UNKNOWN
+    offset_mm: Number = UNKNOWN
+    method: Procedure = UNKNOWN
+    cite: Citations = UNKNOWN
+
+
 Operation = record(
     "Operation",
     {
@@ -905,6 +933,7 @@ Operation = record(
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
         **texts("tool holder direction layout"),
+        "tool_mount": Literal["tailstock", "toolpost", "turret"] | Unknown,
         "note": AuthoredNote,
         "prerequisites": PreparationWitness,
         # The finished feature whose piece stays when the work is in pieces after this op:
@@ -934,6 +963,10 @@ Operation = record(
         "missing_requirements": dict[str, str],
         # Requirement -> procedure; scoped per listed feature like `checks`.
         "inspection_methods": dict[str, Procedure | dict[str, Procedure]],
+        # A qualified physical reading for a signed coordinate, flat or feature-scoped.
+        "inspection_readings": dict[
+            str, InspectionReading | dict[str, InspectionReading | Unknown] | Unknown
+        ],
         # Inspection targets are independent of geometry ownership / workpiece_faces.
         "inspect_workpieces": Annotated[list[str], Field(min_length=1)],
         "inspection_scope": InspectionScope,
@@ -1360,6 +1393,14 @@ class Plan(InputModel):
     process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
+    # One shared source-axis translation; never a mutation of the exported manifest.
+    axis_placements: dict[str, AxisPlacement] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def named_axis_placements(self) -> Plan:
+        for name in self.axis_placements:
+            _known_text(name, "An axis placement name")
+        return self
 
     @model_validator(mode="after")
     def named_setups(self) -> Plan:
