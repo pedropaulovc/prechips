@@ -66,7 +66,7 @@ Use the [CLI catalog](https://github.com/pedropaulovc/prechips/blob/main/docs/re
 
 The [documentation index](https://github.com/pedropaulovc/prechips/blob/main/docs/README.md#look-up-an-interface) links the five input formats, rule families and output contracts. Use [troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md) to resolve an input error or unresolved finding, and the [FAQ](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/faq.md) for product capabilities and limits.
 
-The plan interface supports explicit tailstock mounting, qualified relative
+The 0.3.0 plan interface supports explicit tailstock mounting, qualified relative
 inspection readings and source-bound shared-axis placements. Placements require
 matching native construction proof before machining coordinates are released;
 unknown metrology remains debt. These contracts do not qualify held plans or

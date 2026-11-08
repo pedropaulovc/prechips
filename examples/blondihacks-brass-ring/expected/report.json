@@ -20869,7 +20869,7 @@
       "subject": "L1"
     }
   ],
-  "hash": "f00a5063230c039a22efd9f1f16447cdf5637051e724e3775e043bd6ddbbe128",
+  "hash": "f8aa685cfd71e9879b057bbc76efb662e18162a55badf707e67e2d822a4b49ac",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-brass-ring/cutting-data.toml",
@@ -20896,7 +20896,7 @@
       "sha256": "5e1fc38ebade5d85d47ab662b184b09d688fb75962f169483059d47526796ed7"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.3.0",
   "rules_version": "m5-rev12",
   "step_sha256": "5e1fc38ebade5d85d47ab662b184b09d688fb75962f169483059d47526796ed7",
   "verification": "planned"
