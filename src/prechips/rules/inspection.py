@@ -1487,7 +1487,9 @@ def _profile_owned_findings(bundle, findings, members):
                                     "requirement": "surface_profile",
                                 },
                                 "status": UNKNOWN,
-                                "reason": "no governing surface-profile checkpoint covers this member",
+                                "reason": (
+                                    "no governing surface-profile checkpoint covers this member"
+                                ),
                             }
                         )
                     checks.extend(
@@ -1576,10 +1578,7 @@ def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, work
                 }
             )
             continue
-        if (
-            owner not in op_features(op)
-            or op_entry(op, "checks", owner, "surface_profile") is None
-        ):
+        if owner not in op_features(op) or op_entry(op, "checks", owner, "surface_profile") is None:
             checks.append(
                 {
                     "subject": f"{owner}:surface_profile",

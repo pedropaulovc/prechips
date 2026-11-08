@@ -525,9 +525,7 @@ def test_a_process_hold_on_a_tilt_keeps_linear_zone_resolution_checks(
         'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
         f'band = {json.dumps(limits)}, gauge = "gauge", reason = "tilt process control" }}]\n'
     )
-    loaded = bundle(
-        tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold
-    )
+    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold)
     (row,) = inspection.process_holds(
         loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
     ).numbers["process_holds"]
@@ -544,9 +542,7 @@ def test_a_tilt_process_hold_uses_resolution_never_the_gauge_span(tmp_path):
         'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
         'band = [10.0, 11.0], gauge = "gauge", reason = "land square fit" }]\n'
     )
-    loaded = bundle(
-        tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold
-    )
+    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold)
     loaded.inventory["gauges"]["gauge"]["range_mm"] = [8.0, 817.0]
     (row,) = inspection.process_holds(
         loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]

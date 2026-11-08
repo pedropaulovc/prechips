@@ -105,9 +105,7 @@ def test_intermediate_46_mm_stock_is_real_and_consumed_by_the_next_setup(command
 def test_explicit_cylinder_removes_only_the_commanded_axial_window(commanded_engine, ends):
     engine, step, features = commanded_engine
     op = _command("S1:10", 46.0, z_from=ends[0], z_to=ends[1])
-    result = engine.run(
-        engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=_RAW)
-    )
+    result = engine.run(engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=_RAW))
     after = result["setups"]["S2"]
     assert "stock_reason" not in after, after.get("stock_reason")
     nose, radius = 0.4, 23.0
@@ -129,9 +127,7 @@ def test_explicit_cylinder_removes_only_the_commanded_axial_window(commanded_eng
 def test_explicit_undersize_is_refused_not_clipped_back_to_the_nominal_part(commanded_engine):
     engine, step, features = commanded_engine
     op = _command("S1:10", 41.8)
-    result = engine.run(
-        engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=_RAW)
-    )
+    result = engine.run(engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=_RAW))
     after = result["setups"]["S2"]
     assert "protected finished material" in after["stock_reason"]
     assert "stock_volume_mm3" not in after
@@ -228,9 +224,7 @@ def test_leading_stop_retains_real_blend_without_an_extra_out_of_travel_pose(com
     engine, step, features = commanded_engine
     stock = {**_RAW, "origin_mm": [-55.0, -30.0, -20.0], "length_mm": 100.0}
     op = _command("S1:10", 41.91, 0.0, 80.0, do="finish_turn")
-    result = engine.run(
-        engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=stock)
-    )
+    result = engine.run(engine.job(step, features, [_lathe([op]), _lathe([], "S2")], stock=stock))
     facts = result["ops"]["S1:10"]
     target = facts["turn_target"]
     assert target["z_mm"] == [0.0, 80.0]

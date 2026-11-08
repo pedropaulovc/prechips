@@ -7559,7 +7559,7 @@
           },
           "shop_policy": {
             "path": "examples/blondihacks-brass-ring/shop-policy.toml",
-            "sha256": "66f7967ef689bbceecd72147456060e49dcc5f85af17cf39001e8197225ad824"
+            "sha256": "a60d88b31114bf66d6575b60a0be25e8f7618183d843c35fc5cb7e43822f3bcd"
           },
           "step": {
             "path": "examples/blondihacks-brass-ring/brass-ring.STEP",
@@ -8030,15 +8030,21 @@
         "kernel: STEP SHA-256 5e1fc38ebade5d85d47ab662b184b09d688fb75962f169483059d47526796ed7; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
       ],
-      "message": "blondihacks-brass-ring: every imported face is claimed by a cutting op or declared as-stock.",
+      "message": "blondihacks-brass-ring: cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.",
       "numbers": {
-        "claimed_face_count": 4,
+        "claimed_face_count": 2,
         "face_count": 4,
-        "unclaimed_faces": [],
-        "unclaimed_indices": []
+        "unclaimed_faces": [
+          "#17/ADVANCED_FACE[1]/",
+          "#70/ADVANCED_FACE[3]/"
+        ],
+        "unclaimed_indices": [
+          0,
+          2
+        ]
       },
       "rule": "coverage",
-      "status": "pass",
+      "status": "unknown",
       "subject": "blondihacks-brass-ring"
     },
     {
@@ -18376,7 +18382,6 @@
         "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in",
         "https://www.youtube.com/watch?v=t9NGty1CVII&t=341s",
         "https://www.youtube.com/watch?v=t9NGty1CVII&t=880s",
-        "kernel: setups.L1.revolved.outer-diameter (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "No measured permissible chuck stickout ratio published in the video"
       ],
       "message": "L1: stick-out or held diameter is unresolved.",
@@ -18388,19 +18393,7 @@
         "held_diameter_mm": 25.4,
         "held_diameter_source": "plan.setups.stock_state.od_mm",
         "off_axis": {},
-        "segments": [
-          {
-            "base_diameter_mm": 18.415,
-            "diameter_mm": 18.415,
-            "features": [
-              "outer-diameter"
-            ],
-            "z_mm": [
-              -2.54,
-              0.0
-            ]
-          }
-        ],
+        "segments": [],
         "stickout_ld_max": "unknown",
         "stickout_mm": "unknown",
         "stock_reason": null,
@@ -18408,10 +18401,12 @@
         "supports": [],
         "uncovered_z_mm": [],
         "unresolved": [
-          "back-face"
+          "back-face",
+          "outer-diameter"
         ],
         "unresolved_reasons": {
-          "back-face": "its axial span has no length"
+          "back-face": "its axial span has no length",
+          "outer-diameter": "explicit turning stage lacks accepted command/current-stock proof: the kernel reports no stock profile for this setup"
         },
         "unsupported_limit_mm": "unknown"
       },
@@ -20193,7 +20188,6 @@
         "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in",
         "https://www.youtube.com/watch?v=t9NGty1CVII&t=341s",
         "https://www.youtube.com/watch?v=t9NGty1CVII&t=880s",
-        "kernel: setups.L1.revolved.outer-diameter (finished faces of revolution about setup Z; FreeCAD B-rep)",
         "plan.frames.lathe-front: author-declared setup frame",
         "AUTHOR'S CHOICE",
         "https://www.youtube.com/watch?v=t9NGty1CVII&t=881s",
@@ -20204,38 +20198,17 @@
         "direction": "+setup Z toward exposed end",
         "exposed_z_mm": "unknown",
         "frame": "lathe-front",
-        "intervals": [
-          {
-            "diameter_mm": 18.415,
-            "feature": "outer-diameter",
-            "kind": "cylinder",
-            "source": "kernel",
-            "z_mm": [
-              -2.54,
-              0.0
-            ]
-          }
-        ],
+        "intervals": [],
         "off_axis": {},
-        "segments": [
-          {
-            "base_diameter_mm": 18.415,
-            "diameter_mm": 18.415,
-            "features": [
-              "outer-diameter"
-            ],
-            "z_mm": [
-              -2.54,
-              0.0
-            ]
-          }
-        ],
+        "segments": [],
         "transitions": [],
         "unresolved": [
-          "back-face"
+          "back-face",
+          "outer-diameter"
         ],
         "unresolved_reasons": {
-          "back-face": "its axial span has no length"
+          "back-face": "its axial span has no length",
+          "outer-diameter": "explicit turning stage lacks accepted command/current-stock proof: the kernel reports no stock profile for this setup"
         }
       },
       "rule": "turned_profile",
@@ -20869,7 +20842,7 @@
       "subject": "L1"
     }
   ],
-  "hash": "f00a5063230c039a22efd9f1f16447cdf5637051e724e3775e043bd6ddbbe128",
+  "hash": "09eea7db764b4c0e2ca2338bf64a269ad64c47c5cc0ceacbf906f24212bafe5d",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-brass-ring/cutting-data.toml",
@@ -20889,7 +20862,7 @@
     },
     "shop_policy": {
       "path": "examples/blondihacks-brass-ring/shop-policy.toml",
-      "sha256": "66f7967ef689bbceecd72147456060e49dcc5f85af17cf39001e8197225ad824"
+      "sha256": "a60d88b31114bf66d6575b60a0be25e8f7618183d843c35fc5cb7e43822f3bcd"
     },
     "step": {
       "path": "examples/blondihacks-brass-ring/brass-ring.STEP",

@@ -37,7 +37,8 @@ from ..measurements import (
 from ..model import tolerance_requirements
 from ._bench import manual_bench, manual_thread_setup, not_applicable
 from .datum_consistency import _cuts
-from .manual_raster import METHOD as MANUAL_RASTER, normalize as normalize_manual_raster
+from .manual_raster import METHOD as MANUAL_RASTER
+from .manual_raster import normalize as normalize_manual_raster
 from .resolution import (
     HAND_FINISH,
     LENGTH_TOLERANCE_MM,
@@ -2261,8 +2262,7 @@ def _arc(
     _printed([arc], lines, grid, walls, offset)
     if subset and wall_geometry:
         arc["profile_subset_arc"] = {
-            key: wall_geometry[0][key]
-            for key in ("centre", "radius", "start_deg", "sweep_deg")
+            key: wall_geometry[0][key] for key in ("centre", "radius", "start_deg", "sweep_deg")
         }
     for line in lines:
         line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]

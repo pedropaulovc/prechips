@@ -36,7 +36,13 @@ spindle stack or travel.
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
-from prechips.rules._envelope import _band, entry_stock, fixture_height, stock_extents
+from prechips.rules._envelope import (
+    _band,
+    entry_stock,
+    fixture_height,
+    stock_extents,
+    supported_height_datum,
+)
 from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import printed_xy
 from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
@@ -276,6 +282,7 @@ def evaluate(bundle):
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
         top = state.get("top_z", _UNKNOWN)
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
+        datum = supported_height_datum(bundle, setup)
         head = fixture.get("kind") == "dividing_head"
         jaw_fixture = fixture.get("kind") in {"vise", "chuck_3jaw", "chuck_4jaw"}
         bed = (
@@ -303,6 +310,7 @@ def evaluate(bundle):
             "stock_bottom_z": state.get("bottom_z", _UNKNOWN),
             "retained_rail_bottom_z": bottom,
             "stock_height_mm": stock_height,
+            **({"supported_height_datum": datum} if datum else {}),
             "insertion_mm": 25,
             "spindle_to_table_max_mm": spindle["value"],
             "tool_oal_mm": _UNKNOWN,
@@ -330,12 +338,15 @@ def evaluate(bundle):
                 }
             )
         else:
-            work_top = _sum(bed, parallel_height, bearing_height, stock_height)
+            work_top = (
+                _UNKNOWN if datum else _sum(bed, parallel_height, bearing_height, stock_height)
+            )
         unknown = (
             not fixture
             or not machine
             or any(uncertain(item) for item in (fixture, parallels) if item)
             or support_unverified
+            or bool(datum)
         )
         unknown |= not _numeric(work_top if head else stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
@@ -428,6 +439,7 @@ def evaluate(bundle):
             )
             verified = (
                 not support_unverified
+                and not datum
                 and not any(uncertain(item) for item in (fixture, parallels, tool, holder) if item)
                 and bool(tool and holder and fixture)
             )
@@ -553,6 +565,7 @@ def evaluate(bundle):
                         else []
                     )
                     + conflicts
+                    + ([datum["reason"]] if datum else [])
                     + swept
                     + ([saw_debt] if saw_debt else [])
                 )

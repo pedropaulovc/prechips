@@ -306,7 +306,7 @@ def cylinder(name, x, z, dia, length, **extra):
     }
 
 
-def bridge_page(*extra, precision=3, mill=None, tolerances=None, **policy_numbers):
+def bridge_page(*extra, precision=3, mill=None, tolerances=None):
     """A shop-made two-stud bridge: a made beam and locating pad, bought studs, washers
     and nuts, clearance holes through beam and washers, nut threads, and the machine's
     vise jaw drawn for clearance."""
@@ -315,7 +315,6 @@ def bridge_page(*extra, precision=3, mill=None, tolerances=None, **policy_number
     if tolerances is not None:
         data.features["general_tolerances"] = tolerances
     data.inventory["machines"]["mill"].update(mill or {})
-    data.policy["numbers"] = policy_numbers
     bought = {"supply": "bought"}
     data.inventory["fixtures"]["bridge"] = {
         "kind": "custom",
@@ -1053,12 +1052,14 @@ def test_existing_tapped_feature_identity_and_coordinates_keep_their_original_ow
     ]
 
 
-def test_fixture_numbers_print_at_policy_make_precision_and_fits_at_drawing_precision():
-    table = bridge_page(fixture_make_decimals=1)
-    assert table.row("beam")["Size mm"] == "60 × 10 × 8.3"
-    assert "Ø20.6 × 1.6" in table.line("Bought hardware")
-    # The locating pad is a fit: drawing precision (3), not the make precision.
-    assert table.row("pad")["Size mm"] == "10 × 10 × 2.346"
+def test_fixture_manufacturing_dimensions_preserve_source_values():
+    table = bridge_page()
+
+    def numbers(text):
+        return [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", text)]
+
+    assert numbers(table.row("beam")["Size mm"]) == [60, 10, 8.26]
+    assert numbers(table.row("pad")["Size mm"]) == [10, 10, 2.3456]
 
 
 def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
@@ -1066,7 +1067,7 @@ def test_a_locating_solid_with_a_bore_in_it_is_a_fit_as_well_as_its_bore():
     # face a make-precision number.
     stand = cylinder("stand", 0, -17, 9.94, 9.94, locates="hub face")
     bore = cylinder("stand-bore", 0, -18, 4.5, 12, void=True, cuts=["stand"])
-    table = bridge_page(stand, bore, fixture_make_decimals=1)
+    table = bridge_page(stand, bore)
     assert table.row("stand")["Size mm"] == "Ø9.94 × 9.94"
     assert "Z -17…-7.06" in table.position("stand")
     assert "Ø9.9 × 9.9" not in table.text and "-7.1" not in table.text
@@ -1077,27 +1078,24 @@ FIVE_MICRON = {"resolution_mm": 0.005}
 DIAL = (
     cylinder("pin", -0.368, 8.26, 4, 6, locates="cap bore"),
     cylinder("pin-hole", -0.368, -1, 4, 12, void=True, cuts=["beam"]),
-    # A 3/4 in rail: half a 0.1 make step rounds up, whatever the float noise.
+    # A 3/4 in rail remains its authored width, not a coarse display-grid value.
     {"name": "rail", "shape": "box", "at_mm": [60, -5, 0], "size_mm": [19.05, 5, 5]},
 )
 
 
-def test_fixture_positions_print_on_the_mill_grid_one_value_per_place():
-    table = bridge_page(*DIAL, precision="unknown", mill=FIVE_MICRON, fixture_make_decimals=1)
-    # The pin is a fit: on the mill's 0.005 grid, not 3 places off it.
-    assert "axis at X -0.37, Y 0; Z 8.26…14.26" in table.position("pin")
-    # The hole the pin stands in prints the same X, not the 0.1 make precision.
-    assert "with 1 × Ø4 hole: axis at X -0.37, Y 0; Z -1…11" in table.position("beam")
-    assert "-0.368" not in table.text and "X -0.4," not in table.text
-    # The locating pad's 2.3456 thickness and underside are on the grid too.
-    assert table.row("pad")["Size mm"] == "10 × 10 × 2.345"
-    assert "Z -2.345…0" in table.position("pad")
-    assert table.row("rail")["Size mm"] == "19.1 × 5 × 5"
+def test_fixture_positions_and_mating_holes_preserve_one_source_value_per_place():
+    table = bridge_page(*DIAL, precision="unknown", mill=FIVE_MICRON)
+    assert "axis at X -0.368, Y 0; Z 8.26…14.26" in table.position("pin")
+    assert "with 1 × Ø4 hole: axis at X -0.368, Y 0; Z -1…11" in table.position("beam")
+    assert "X -0.37," not in table.text and "X -0.4," not in table.text
+    assert table.row("pad")["Size mm"] == "10 × 10 × 2.3456"
+    assert "Z -2.3456…0" in table.position("pad")
+    assert table.row("rail")["Size mm"] == "19.05 × 5 × 5"
 
 
 @pytest.mark.parametrize(
     ("tolerances", "printed"),
-    [({"linear_3pl": 0.13}, "X -0.37,"), ({"linear_3pl": 0.001}, "X ?,"), ({}, "X ?,")],
+    [({"linear_3pl": 0.13}, "X -0.368,"), ({"linear_3pl": 0.001}, "X ?,"), ({}, "X ?,")],
 )
 def test_a_fit_the_mill_grid_moves_beyond_the_drawing_tolerance_is_unknown(tolerances, printed):
     table = bridge_page(*DIAL, precision=3, mill=FIVE_MICRON, tolerances=tolerances)

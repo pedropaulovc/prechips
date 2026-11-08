@@ -10,7 +10,6 @@ from test_surface_profile import write_bundle
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import inspection
 
-
 QUALIFICATION = {
     "kind": "relative_coordinate",
     "offset_mm": 104.0,

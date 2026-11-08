@@ -14,10 +14,10 @@ from prechips.rules.geometry_common import (
     approach_model_reason,
     cutting_action,
     finishing_subjects,
-    mapped_feature,
     manual_raster_candidates,
     manual_raster_gap_text,
     manual_raster_union,
+    mapped_feature,
     op_claims,
     provenance,
     rotary_debt_text,
@@ -151,11 +151,15 @@ def evaluate(bundle):
                 }
                 raster_pending = [
                     raster_unresolved[index]
-                    for index in sorted(missing) if index in raster_unresolved
+                    for index in sorted(missing)
+                    if index in raster_unresolved
                 ]
                 uncovered = sorted(
-                    missing - set(partial) - {row["index"] for row in rotary_pending}
-                    - set(raster_partial) - {row["index"] for row in raster_pending}
+                    missing
+                    - set(partial)
+                    - {row["index"] for row in rotary_pending}
+                    - set(raster_partial)
+                    - {row["index"] for row in raster_pending}
                 )
                 values.update(required_faces=sorted(indices), uncovered_faces=uncovered)
                 if rotary & indices:

@@ -32,8 +32,12 @@ class Plane:
 @pytest.fixture
 def classify():
     tree = ast.parse(ENGINE.read_text(encoding="utf-8"))
-    setup = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup")
-    method = next(node for node in setup.body if isinstance(node, ast.FunctionDef) and node.name == "_corners")
+    setup = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup"
+    )
+    method = next(
+        node for node in setup.body if isinstance(node, ast.FunctionDef) and node.name == "_corners"
+    )
     namespace = {
         "Part": SimpleNamespace(Plane=Plane, Cylinder=Cylinder),
         "Z": object(),

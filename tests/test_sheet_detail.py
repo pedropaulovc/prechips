@@ -187,6 +187,19 @@ def finding_has_kind(node, finding, kind):
     )
 
 
+def criterion_is_unresolved(node):
+    """Recognize uncertainty, without requiring a glyph or a particular sentence."""
+    return bool(
+        re.search(
+            r"\?|\b(?:unknown|unresolved|missing|unavailable|incomplete)\b"
+            r"|\bnot\s+(?:established|set|known|specified|available)\b"
+            r"|\bno\s+(?:drawing\s+)?limits?\b",
+            content(node),
+            re.IGNORECASE,
+        )
+    )
+
+
 def job_page(markup):
     (page,) = [node for node in markup.find("page") if node["attrs"].get("data-sheet") == "job"]
     return page
@@ -600,7 +613,9 @@ def test_missing_drawing_requirements_stay_visible_without_acquiring_a_result(de
         if missing.subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     text = content(criterion).casefold()
-    assert all(word in text for word in ("body", "depth", "?"))
+    assert all(word in text for word in ("body", "depth", "micrometer"))
+    assert criterion_is_unresolved(criterion)
+    assert not numeric_values(text)
     assert not markup.find("writing-blank", criterion)
     assert any("body:dia" == identity for identity in identities)
     text = visible_text(render_traveler(data, findings, report, detail=detail))
@@ -759,7 +774,10 @@ def datum_sharing_job():
             "fixture": "vise",
             "parallels": "parallel-pair",
             "grip_mm": 7.62,
-            "clamp": "Seat stock firmly against the stop",
+            "clamp": (
+                "Seat stock firmly against the stop; Tighten the vise; "
+                "Remove the vise handle; Check that stock remains seated against the stop"
+            ),
         }
         setup["zero"]["x"].update(
             edge="Primer left reference" if index == 0 else "Shared left reference",
@@ -779,8 +797,7 @@ def datum_sharing_output(data, findings, detail):
     flows = {
         member: node
         for node in markup.nodes
-        if node["tag"] == "section"
-        and {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
+        if {"setup-flow", "setup-family"} & set(node["attrs"].get("class", "").split())
         for member in json.loads(node["attrs"]["data-setup-members"])
     }
     assert flows.keys() == {"S1", "S2", "S3"}
@@ -818,15 +835,51 @@ def test_equal_proved_references_print_once_with_exact_physical_setup_owners(det
     assert json.loads(parallel_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
     assert parallel_grip_values(content(parallel_reference)) == [(12.7, 7.62)]
     assert parallel_grip_values(content(job_page(markup))) == [(12.7, 7.62)]
-    clamps = [
-        node
-        for node in markup.nodes
-        if node["attrs"].get("data-reference-kind") == "holding"
-        and "seat stock firmly against the stop" in content(node).casefold()
-    ]
-    (clamp_reference,) = clamps
-    assert json.loads(clamp_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
-    assert content(job_page(markup)).casefold().count("seat stock firmly against the stop") == 1
+    # Equal datum facts may be shared; the executed holding procedure may not.
+    # Compare authored actions, not renderer connective prose or container tags.
+    fixture_id = data.plan["setups"][0]["hold"]["fixture"]
+    fixture_name = data.inventory["fixtures"][fixture_id]["name"]
+
+    def action_text(node):
+        # Registered inventory names may expand authored fixture references.
+        # Normalize only that exact label, never any part of the procedure.
+        text = " ".join(content(node).split()).casefold()
+        return re.sub(
+            rf"(?<!\w){re.escape(fixture_name.casefold())}(?!\w)",
+            fixture_id.casefold(),
+            text,
+        )
+
+    for setup in data.plan["setups"]:
+        sid = setup["id"]
+        actions = [step.strip().casefold() for step in setup["hold"]["clamp"].split(";")]
+        flow_text = action_text(flows[sid])
+        positions = [flow_text.index(action) for action in actions]
+        assert positions == sorted(positions)
+        assert all(flow_text.count(action) == 1 for action in actions)
+        assert all(action_text(job_page(markup)).count(action) == 3 for action in actions)
+        local_steps = [
+            node
+            for node in descendants(markup, flows[sid])
+            if node["attrs"].get("data-setup-id") == sid
+            and json.loads(node["attrs"].get("data-setup-members", "[]")) == [sid]
+            and all(action in action_text(node) for action in actions)
+        ]
+        assert local_steps
+        # The complete sequence precedes this setup's machining, not a later
+        # setup or an operation that has already begun.
+        operations = operation_nodes(markup, flows[sid])
+        assert operations
+        assert all(
+            markup.nodes.index(local_steps[0]) < markup.nodes.index(operation)
+            for operation in operations
+        )
+        assert all(
+            action not in action_text(node)
+            for node in markup.nodes
+            if node["attrs"].get("data-reference-kind") == "holding"
+            for action in actions
+        )
     orientations = [
         node
         for node in markup.nodes
@@ -2656,7 +2709,30 @@ def test_hand_tap_mapping_projection_leaves_other_messages_unchanged(
     setup["ops"][0]["do"] = operation
     scope = f"{setup['id']}:{setup['ops'][0]['op']}"
     sheet = _Traveler(data, [], {}, None, detail=detail)
-    assert sheet.plain_error(rule, message, scope) == sheet.bench(message)
+    assert sheet.plain_error(rule, message, scope, "unknown") == sheet.bench(message)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_authored_process_acceptance_bounds_keep_their_numeric_values(detail):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    source_bounds = (10.18286, 10.19302)
+    text = sheet.bench("Accept 10.18286–10.19302 mm.", setup)
+    bounds = tuple(float(n) for n in re.findall(r"\d+\.\d+", text))
+    assert bounds == source_bounds
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_authored_depth_of_cut_preserves_its_physical_value(compact):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    op = {**setup["ops"][0], "do": "finish_turn", "doc_mm": 0.105}
+    sheet = _Traveler(data, [], {}, None)
+    facts = sheet.cut_depths(setup, op, True)
+    text = " ".join(sheet.cut_depth_text(facts, compact=compact))
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(?:mm\s+)?radial per pass", text)
+    assert match and float(match[1]) == op["doc_mm"]
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
@@ -4599,13 +4675,19 @@ def test_one_members_unknown_criterion_does_not_lend_its_marker_to_known_sibling
         if unknown_subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     assert set(json.loads(unknown["attrs"]["data-inspection-ids"])) == {unknown_subject}
-    assert "?" in content(unknown)
+    assert criterion_is_unresolved(unknown)
     assert ancestor_with_class(unknown, "family-common") is None
     owner = ancestor_with_class(unknown, "setup-variant")
     assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
     (known,) = [node for node in length_criteria if node is not unknown]
     assert set(json.loads(known["attrs"]["data-inspection-ids"])) == known_subjects
-    assert "?" not in content(known)
+    assert not criterion_is_unresolved(known)
+    for criterion in (unknown, known):
+        assert "calipers" in content(criterion).casefold()
+        assert "end-length" in content(criterion).casefold()
+        assert not markup.find("writing-blank", criterion)
+    assert numeric_values(content(unknown)) == numeric_values(content(known))
+    assert numeric_values(content(known))
     assert len(markup.find("checkpoint-result")) == len(finals)
     assert [finding.to_dict() for finding in findings] == original
 
@@ -4721,7 +4803,14 @@ def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requir
         if debt.subject in json.loads(node["attrs"]["data-inspection-ids"])
     ]
     text = content(criterion).casefold()
-    assert "width" in text and "depth" not in text and "?" in text
+    assert "width" in text and "depth" not in text and "calipers" in text
+    assert criterion_is_unresolved(criterion)
+    assert not numeric_values(text)
+    assert not markup.find("writing-blank", criterion)
+    assert all(
+        debt.subject not in json.loads(record["attrs"]["data-inspection-ids"])
+        for record in [*markup.find("inspection-record"), *markup.find("checkpoint-result")]
+    )
     if detail == "pedantic":
         owner = ancestor_with_class(criterion, "setup-variant")
         assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
@@ -4755,7 +4844,10 @@ def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requir
         assert len(depths) == 1
     for depth in depths:
         assert json.loads(depth["attrs"]["data-inspection-ids"]) == []
-        assert "?" in content(depth)
+        assert criterion_is_unresolved(depth)
+        assert "calipers" in content(depth).casefold()
+        assert not numeric_values(content(depth))
+        assert not markup.find("writing-blank", depth)
     assert len(markup.find("checkpoint-result")) == len(finals)
 
 
@@ -4858,7 +4950,17 @@ def test_interleaved_gauges_keep_visible_criterion_ids_and_member_unknowns_toget
         assert requirement in text
         states = {statuses[subject] for subject in subjects}
         assert len(states) == 1
-        assert ("?" in text) is (states == {"unknown"})
+        assert criterion_is_unresolved(criterion) is (states == {"unknown"})
+        assert "calipers" in text
+        assert ("alternate calipers" in text) is (requirement == "width")
+        # Printed limits round inward at the authored precision.
+        lower, upper = numeric_values(text)
+        expected_lower, expected_upper = data.features["features"][feature][requirement]
+        quantum = 10 ** -data.features["precision"]
+        assert expected_lower <= lower < upper <= expected_upper
+        assert lower - expected_lower < quantum
+        assert expected_upper - upper < quantum
+        assert not markup.find("writing-blank", criterion)
         observed.extend(subjects)
     assert sorted(observed) == sorted(expected)
     assert len(markup.find("checkpoint-result")) == len(finals)

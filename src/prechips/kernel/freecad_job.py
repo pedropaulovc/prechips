@@ -3261,9 +3261,9 @@ def _profile_subset_geometry(faces, indices, arc):
             # its increasing-u interval into setup XY before comparing sectors.
             mid = face.valueAt((u0 + u1) / 2, (v0 + v1) / 2)
             probe = face.valueAt((u0 + u1) / 2 + min(width / 4, 0.1), (v0 + v1) / 2)
-            cross = (mid.x - centre[0]) * (probe.y - centre[1]) - (
-                mid.y - centre[1]
-            ) * (probe.x - centre[0])
+            cross = (mid.x - centre[0]) * (probe.y - centre[1]) - (mid.y - centre[1]) * (
+                probe.x - centre[0]
+            )
             if abs(cross) <= 1e-15:
                 return stop("unknown", "profile subset cylinder angular direction is unresolved")
             forward = 1 if cross > 0 else -1
@@ -3280,7 +3280,9 @@ def _profile_subset_geometry(faces, indices, arc):
                     intervals.append((0.0, end - math.tau))
             else:
                 if offset + width > target + tolerance:
-                    return stop("error", "profile subset surface extends outside the authored sector")
+                    return stop(
+                        "error", "profile subset surface extends outside the authored sector"
+                    )
                 intervals.append((offset, offset + width))
     except Exception as exc:
         return stop("unknown", f"profile subset native surface is unresolved ({exc})")
@@ -4082,16 +4084,20 @@ def _straight_sweep(shape, vector):
 
 
 _CONTOUR_METHODS = {
-    "stairs", "chain_drill", "chords", "rotary_table", "guided_sweep",
-    "linear_table", "axial_table", "manual_raster",
+    "stairs",
+    "chain_drill",
+    "chords",
+    "rotary_table",
+    "guided_sweep",
+    "linear_table",
+    "axial_table",
+    "manual_raster",
 }
 
 
 def _contour_reason(op):
     method = op.get("contour_method")
-    if method is not None and (
-        not isinstance(method, str) or method not in _CONTOUR_METHODS
-    ):
+    if method is not None and (not isinstance(method, str) or method not in _CONTOUR_METHODS):
         return f"unsupported contour method {method!r}; no axial fallback is permitted"
     return None
 
@@ -4106,7 +4112,8 @@ def _raster_segments(op):
     if not isinstance(table, dict) or table.get("reason"):
         raise _Unknown(
             table.get("reason", "manual raster trajectory is unknown")
-            if isinstance(table, dict) else "manual raster trajectory is missing"
+            if isinstance(table, dict)
+            else "manual raster trajectory is missing"
         )
 
     def point(value):
@@ -4147,19 +4154,24 @@ def _raster_cylinder(radius, bottom, top, start, end):
         return None
     if start[2] != end[2]:
         return Part.makeCylinder(
-            radius, top - bottom + abs(end[2] - start[2]),
+            radius,
+            top - bottom + abs(end[2] - start[2]),
             V(start[0], start[1], min(start[2], end[2]) + bottom),
         )
     z, height = start[2] + bottom, top - bottom
     caps = [Part.makeCylinder(radius, height, V(p[0], p[1], z)) for p in (start, end)]
     if start[0] != end[0]:
         middle = Part.makeBox(
-            abs(end[0] - start[0]), 2 * radius, height,
+            abs(end[0] - start[0]),
+            2 * radius,
+            height,
             V(min(start[0], end[0]), start[1] - radius, z),
         )
     else:
         middle = Part.makeBox(
-            2 * radius, abs(end[1] - start[1]), height,
+            2 * radius,
+            abs(end[1] - start[1]),
+            height,
             V(start[0] - radius, min(start[1], end[1]), z),
         )
     return middle.multiFuse(caps).removeSplitter()
@@ -4171,9 +4183,7 @@ def _raster_ball(radius, flute, start, end):
     centre = V(low[0], low[1], low[2] + radius)
     if start[2] != end[2]:
         hemisphere = Part.makeSphere(radius, centre, V(0, 0, 1), -90, 0, 360)
-        cylinder = Part.makeCylinder(
-            radius, max(start[2], end[2]) + flute - centre.z, centre
-        )
+        cylinder = Part.makeCylinder(radius, max(start[2], end[2]) + flute - centre.z, centre)
         return hemisphere.fuse(cylinder).removeSplitter()
     other = V(end[0], end[1], end[2] + radius)
     direction = other - centre
@@ -4231,7 +4241,8 @@ def _raster_rounded(radius, corner, flute, start, end, profile):
         low = start if start[2] < end[2] else end
         first.translate(V(*low))
         cylinder = Part.makeCylinder(
-            radius, max(start[2], end[2]) + flute - low[2] - corner,
+            radius,
+            max(start[2], end[2]) + flute - low[2] - corner,
             V(low[0], low[1], low[2] + corner),
         )
         return first.fuse(cylinder).removeSplitter()
@@ -4254,17 +4265,24 @@ def _raster_sweeps(op):
     if kind not in {"ball_endmill", "endmill"}:
         raise _Unknown("manual raster requires explicit ball_endmill or rounded endmill geometry")
     if kind == "endmill" and _number(op.get("nose_radius_mm")) and op["nose_radius_mm"] == 0:
-        raise _Unknown("zero corner radius is an idealized sharp tool, not proven physical geometry")
+        raise _Unknown(
+            "zero corner radius is an idealized sharp tool, not proven physical geometry"
+        )
     shank_geometry = op.get("shank_geometry")
     if shank_geometry not in {"cylinder", "enclosing_cylinder"}:
         raise _Unknown("manual raster shank geometry provenance is unknown")
     keys = (
-        "radius_mm", "flute_len_mm", "shank_radius_mm", "shank_from_mm",
-        "projection_mm", "holder_radius_mm", "holder_gauge_len_mm",
+        "radius_mm",
+        "flute_len_mm",
+        "shank_radius_mm",
+        "shank_from_mm",
+        "projection_mm",
+        "holder_radius_mm",
+        "holder_gauge_len_mm",
         "nose_radius_mm",
     )
     dimensions = [_positive(op, key) for key in keys]
-    missing = [key for key, value in zip(keys, dimensions) if value is None]
+    missing = [key for key, value in zip(keys, dimensions, strict=True) if value is None]
     if missing:
         raise _Unknown("manual raster tool dimensions are unknown: " + ", ".join(missing))
     radius, flute, shank, shank_from, projection, holder, gauge, nose = dimensions
@@ -4272,8 +4290,10 @@ def _raster_sweeps(op):
     # the host. A supplied OAL must nevertheless agree with that projection.
     oal = _positive(op, "oal_mm")
     if (
-        flute < nose or (kind == "endmill" and flute == nose)
-        or flute > projection or shank_from != flute
+        flute < nose
+        or (kind == "endmill" and flute == nose)
+        or flute > projection
+        or shank_from != flute
         or ("oal_mm" in op and (oal is None or projection > oal))
         or (kind == "ball_endmill" and abs(nose - radius) > PLANE_TOL)
         or (kind == "endmill" and not 0 < nose < radius)
@@ -4292,7 +4312,8 @@ def _raster_sweeps(op):
     for start, end, mode in segments:
         pieces = {
             "cutter": (
-                _raster_ball(radius, flute, start, end) if kind == "ball_endmill"
+                _raster_ball(radius, flute, start, end)
+                if kind == "ball_endmill"
                 else _raster_rounded(radius, nose, flute, start, end, profile)
             ),
             "shank": _raster_cylinder(shank, flute, projection, start, end),
@@ -4300,7 +4321,9 @@ def _raster_sweeps(op):
         }
         for shape in pieces.values():
             if shape is not None and (
-                not shape.isValid() or not shape.Solids or shape.Volume <= 0
+                not shape.isValid()
+                or not shape.Solids
+                or shape.Volume <= 0
                 or not all(math.isfinite(value) for value in _bbox(shape))
             ):
                 raise _Unknown("manual raster generated an invalid occupied sweep")
@@ -4737,9 +4760,7 @@ def _prismatic_owner_cut(spec, voids):
             continue
         try:
             section = (
-                _planar_box_cut(section, void)
-                if void["shape"] == "box"
-                else section.cut(footprint)
+                _planar_box_cut(section, void) if void["shape"] == "box" else section.cut(footprint)
             )
         except (Part.OCCError, ValueError) as exc:
             raise _Unknown(
@@ -6614,20 +6635,29 @@ class _Job:
                 if remaining.Area <= CONTACT_MM2:
                     facts["complete_indices"].append(index)
                 elif reasons:
-                    facts["unknown"].append({
-                        "index": index, "ref": self.labels[index],
-                        "reason": "; ".join(sorted(set(reasons))),
-                    })
+                    facts["unknown"].append(
+                        {
+                            "index": index,
+                            "ref": self.labels[index],
+                            "reason": "; ".join(sorted(set(reasons))),
+                        }
+                    )
                 else:
-                    facts["gaps"].append({
-                        "index": index, "ref": self.labels[index],
-                        "uncovered_area_mm2": _r(remaining.Area),
-                    })
+                    facts["gaps"].append(
+                        {
+                            "index": index,
+                            "ref": self.labels[index],
+                            "uncovered_area_mm2": _r(remaining.Area),
+                        }
+                    )
             except Exception as exc:
-                facts["unknown"].append({
-                    "index": index, "ref": self.labels[index],
-                    "reason": f"manual raster coverage failed ({exc})",
-                })
+                facts["unknown"].append(
+                    {
+                        "index": index,
+                        "ref": self.labels[index],
+                        "reason": f"manual raster coverage failed ({exc})",
+                    }
+                )
         return facts
 
     def _supplies(self):
@@ -7126,8 +7156,7 @@ class _Job:
                         and abs(2 * other.Surface.Radius - actual) > 2 * STOCK_TOL
                     ]
                     if nominal_neighbours and all(
-                        -STOCK_TOL <= (vertex.Point - at).dot(axis)
-                        <= spec["depth_mm"] + STOCK_TOL
+                        -STOCK_TOL <= (vertex.Point - at).dot(axis) <= spec["depth_mm"] + STOCK_TOL
                         for face in faces
                         for vertex in face.Vertexes
                     ):
@@ -7897,6 +7926,7 @@ class _Setup(ThreadMaterialMixin):
         self.joint_errors = {}
         # Diagnostic uncertainty only: these skins are never removed or accepted as stock.
         self.turn_target_holds = {}
+        self.turn_entry_holds = {}
         # Subject -> finished STEP face indices an accepted finishing spigot turn leaves as
         # its own cut surface (:meth:`_certify_joint`); no entry certifies nothing.
         self.certified = {}
@@ -9778,7 +9808,7 @@ class _Setup(ThreadMaterialMixin):
             removal, why = self._joint_removal(op, stock)
             return (None, why) if why is not None else ((removal, []), None)
         if _turned(op):
-            removal, why = self._turn_removal(op, valid, stock)
+            removal, why = self._turn_removal(op, valid, stock, diagnose_entry=True)
             return (None, why) if why is not None else ((removal, []), None)
         if _rotary(op):
             removals, why = self._rotary_removal(op, valid)
@@ -10712,8 +10742,10 @@ class _Setup(ThreadMaterialMixin):
         name = cut.get("process_feature")
         declared = self.owner.job.get("process_features", {}).get(name)
         if (
-            not isinstance(declared, dict) or declared.get("kind") != "end_face"
-            or cut.get("kind") != "end_face" or op.get("feature") != name
+            not isinstance(declared, dict)
+            or declared.get("kind") != "end_face"
+            or cut.get("kind") != "end_face"
+            or op.get("feature") != name
             or cut.get("action") != op.get("do")
             or cut.get("label") != declared.get("label")
             or any(key in op for key in ("faces", "workpiece_faces", "joint_cut"))
@@ -10730,9 +10762,7 @@ class _Setup(ThreadMaterialMixin):
             raise _Unknown("transient-only raster cannot infer a finished-face rough allowance")
         plane_z = self.matrix.multVec(point).z
         cuts = [start[2] for start, _, mode in _raster_segments(op) if mode == "cut"]
-        if min(cuts) < plane_z - PLANE_TOL or not any(
-            abs(z - plane_z) <= PLANE_TOL for z in cuts
-        ):
+        if min(cuts) < plane_z - PLANE_TOL or not any(abs(z - plane_z) <= PLANE_TOL for z in cuts):
             raise _Unknown("manual raster cut depths do not terminate at the declared end_face")
         return name
 
@@ -10744,9 +10774,15 @@ class _Setup(ThreadMaterialMixin):
         clearance. Fixture witnesses are independent of the material sequence.
         """
         record = {
-            "reason": None, "accepted": False, "portions": {}, "sweeps": [],
-            "checked": 0, "errors": [],
-            "shank_bound_reason": None, "shank_bound_hits": 0, "possible_shank_obstacles": set(),
+            "reason": None,
+            "accepted": False,
+            "portions": {},
+            "sweeps": [],
+            "checked": 0,
+            "errors": [],
+            "shank_bound_reason": None,
+            "shank_bound_hits": 0,
+            "possible_shank_obstacles": set(),
             "hits": {"tool": 0, "shank": 0, "holder": 0},
             "obstacles": {"tool": set(), "shank": set(), "holder": set()},
         }
@@ -10759,7 +10795,9 @@ class _Setup(ThreadMaterialMixin):
                     if shape is None:
                         continue
                     kind = "tool" if name == "cutter" else name
-                    hits = self._fixture_hits(shape, self._subject(op)) if self.fixture_ready else []
+                    hits = (
+                        self._fixture_hits(shape, self._subject(op)) if self.fixture_ready else []
+                    )
                     if name == "shank" and op["shank_geometry"] == "enclosing_cylinder":
                         if hits:
                             record["shank_bound_hits"] += 1
@@ -10773,7 +10811,8 @@ class _Setup(ThreadMaterialMixin):
                     record["obstacles"][kind].update(hits)
                     if hits:
                         record["errors"].append(
-                            f"manual raster move {number} {name} collides with fixture: {', '.join(hits)}"
+                            f"manual raster move {number} {name} collides with fixture: "
+                            f"{', '.join(hits)}"
                         )
             process = self._manual_raster_process(op)
             record["process_feature"] = process
@@ -10786,7 +10825,9 @@ class _Setup(ThreadMaterialMixin):
                 index < self.finished_face_count or index not in self.owner.process_planes
                 for index in valid
             ):
-                raise _Unknown("manual raster transient claims do not identify the declared end_face")
+                raise _Unknown(
+                    "manual raster transient claims do not identify the declared end_face"
+                )
             leave, why = _leave(op)
             if self.protection_reason is not None or why is not None:
                 raise _Unknown(self.protection_reason or why)
@@ -10804,7 +10845,9 @@ class _Setup(ThreadMaterialMixin):
                     if shape is None:
                         continue
                     kind = "tool" if name == "cutter" else name
-                    obstacles = guard_boxes if name == "cutter" and mode == "cut" else [(rest, stock_box)]
+                    obstacles = (
+                        guard_boxes if name == "cutter" and mode == "cut" else [(rest, stock_box)]
+                    )
                     box = _bbox(shape)
                     hit = any(
                         _boxes_overlap(box, obstacle_box)
@@ -10824,9 +10867,11 @@ class _Setup(ThreadMaterialMixin):
                         record["obstacles"][kind].add("part")
                         failures.append(
                             f"manual raster move {number} {name} "
-                            + ("gouges protected finished material or normal leave"
-                               if name == "cutter" and mode == "cut"
-                               else "collides with stock before this move")
+                            + (
+                                "gouges protected finished material or normal leave"
+                                if name == "cutter" and mode == "cut"
+                                else "collides with stock before this move"
+                            )
                         )
                 record["checked"] = number
                 if failures:
@@ -10841,7 +10886,9 @@ class _Setup(ThreadMaterialMixin):
             if record["shank_bound_reason"]:
                 raise _Unknown(record["shank_bound_reason"])
             if not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
-                raise _Unknown(self.fixture_reason or "manual raster fixture geometry is incomplete")
+                raise _Unknown(
+                    self.fixture_reason or "manual raster fixture geometry is incomplete"
+                )
             # Each common is an exact subset of a claimed immutable source face.
             # Subtract from its residual: overlaps cannot double-credit an area.
             for index in valid if process is None else ():
@@ -10864,14 +10911,17 @@ class _Setup(ThreadMaterialMixin):
                 try:
                     record["portions"][index] = self._manual_raster_source_portion(index, portion)
                 except Exception as exc:
-                    record["portion_reasons"][index] = f"source coverage transfer is unknown ({exc})"
+                    record["portion_reasons"][index] = (
+                        f"source coverage transfer is unknown ({exc})"
+                    )
                     del record["portions"][index]
             removal = _valid(stock.cut(rest), "manual raster exact removal")
             record["accepted"] = True
             return removal, None
         except Exception as exc:
             record["reason"] = (
-                str(exc) if isinstance(exc, _Unknown)
+                str(exc)
+                if isinstance(exc, _Unknown)
                 else f"manual raster geometry is unknown ({exc})"
             )
             return None, record["reason"]
@@ -10919,11 +10969,21 @@ class _Setup(ThreadMaterialMixin):
                 try:
                     sweeps = _raster_sweeps(op)
                     facts["manual_raster_moves"] = len(sweeps)
-                    for kind, name in (("tool", "cutter"), ("shank", "shank"), ("holder", "holder")):
-                        hits = {
-                            hit for _, pieces in sweeps if pieces[name] is not None
-                            for hit in self._fixture_hits(pieces[name], self._subject(op))
-                        } if self.fixture_ready else set()
+                    for kind, name in (
+                        ("tool", "cutter"),
+                        ("shank", "shank"),
+                        ("holder", "holder"),
+                    ):
+                        hits = (
+                            {
+                                hit
+                                for _, pieces in sweeps
+                                if pieces[name] is not None
+                                for hit in self._fixture_hits(pieces[name], self._subject(op))
+                            }
+                            if self.fixture_ready
+                            else set()
+                        )
                         if name == "shank" and op["shank_geometry"] == "enclosing_cylinder":
                             facts.setdefault("min_hits", {})[kind] = 0
                             facts["possible_shank_obstacles"] = sorted(hits)
@@ -10933,7 +10993,8 @@ class _Setup(ThreadMaterialMixin):
                         if hits:
                             facts["manual_raster_status"] = "error"
                             facts["manual_raster_errors"].append(
-                                f"manual raster {name} collides with fixture: {', '.join(sorted(hits))}"
+                                f"manual raster {name} collides with fixture: "
+                                f"{', '.join(sorted(hits))}"
                             )
                 except Exception as exc:
                     facts["reasons"]["manual_raster"] = str(exc)
@@ -10941,12 +11002,18 @@ class _Setup(ThreadMaterialMixin):
         why = record["reason"]
         if id(op) == self.stopped_cut and why is None:
             why = self.built[1] or "manual raster stock removal was not accepted"
-        facts = self._op_unknown(op, why) if why else {
-            "reasons": {
-                "corner_radii_mm": "exact raster motion does not infer source corner radii",
-            },
-            "claimed_indices": [], "claim_errors": [], "corner_radii_mm": UNKNOWN,
-        }
+        facts = (
+            self._op_unknown(op, why)
+            if why
+            else {
+                "reasons": {
+                    "corner_radii_mm": "exact raster motion does not infer source corner radii",
+                },
+                "claimed_indices": [],
+                "claim_errors": [],
+                "corner_radii_mm": UNKNOWN,
+            }
+        )
         facts.update(
             approach="manual_raster",
             manual_raster_status="error" if record["errors"] else UNKNOWN if why else "pass",
@@ -10971,10 +11038,14 @@ class _Setup(ThreadMaterialMixin):
             for index, portion in record["portions"].items():
                 face = self.owner.raster_source_solid.Faces[index]
                 remaining = face.cut(portion) if not portion.isNull() else face
-                facts["manual_raster_coverage"].append({
-                    "index": index, "ref": self.owner.labels[index],
-                    "area_mm2": _r(face.Area), "covered_area_mm2": _r(face.Area - remaining.Area),
-                })
+                facts["manual_raster_coverage"].append(
+                    {
+                        "index": index,
+                        "ref": self.owner.labels[index],
+                        "area_mm2": _r(face.Area),
+                        "covered_area_mm2": _r(face.Area - remaining.Area),
+                    }
+                )
                 if remaining.Area <= CONTACT_MM2:
                     facts["claimed_indices"].append(index)
                 else:
@@ -12019,7 +12090,8 @@ class _Setup(ThreadMaterialMixin):
             reason = "profile subset requires explicit selected op faces"
         elif any(arc != arcs[0] for arc in arcs[1:]):
             return {
-                "status": "error", "claimed_indices": indices,
+                "status": "error",
+                "claimed_indices": indices,
                 "reason": "profile subset paths disagree on the authored arc",
             }
         elif self.matrix is None:
@@ -15064,9 +15136,12 @@ class _Setup(ThreadMaterialMixin):
         facts = {"reason": reason, "reasons": {}}
         if _manual_raster(op):
             facts.update(
-                approach="manual_raster", manual_raster_status=UNKNOWN,
-                manual_raster_moves=0, manual_raster_checked_moves=0,
-                manual_raster_errors=[], shank_hits=UNKNOWN,
+                approach="manual_raster",
+                manual_raster_status=UNKNOWN,
+                manual_raster_moves=0,
+                manual_raster_checked_moves=0,
+                manual_raster_errors=[],
+                shank_hits=UNKNOWN,
             )
             for key in ("claimed_indices", "tool_hits", "holder_hits", "shank_hits"):
                 facts[key] = UNKNOWN
@@ -18426,8 +18501,10 @@ class _Setup(ThreadMaterialMixin):
     def _turn_window_op(op):
         """The spindle window carried by an analytic spigot, without changing op identity."""
         cut = op.get("joint_cut")
-        if isinstance(cut, dict) and cut.get("kind") == "cylinder_spigot" and (
-            "z_from" in cut or "z_to" in cut
+        if (
+            isinstance(cut, dict)
+            and cut.get("kind") == "cylinder_spigot"
+            and ("z_from" in cut or "z_to" in cut)
         ):
             return {**op, "z_from": cut.get("z_from"), "z_to": cut.get("z_to")}
         return op
@@ -18496,8 +18573,10 @@ class _Setup(ThreadMaterialMixin):
     def _turn_cylindrical_target(self, op, indices):
         """A proved constant terminal radius, or explicit unsupported curved geometry."""
         window_op = self._turn_window_op(op)
-        if op.get("to_z") is not None or op.get("corners") == 2 or not (
-            "z_from" in window_op or "z_to" in window_op
+        if (
+            op.get("to_z") is not None
+            or op.get("corners") == 2
+            or not ("z_from" in window_op or "z_to" in window_op)
         ):
             return None, None
         ends = window_op.get("z_from"), window_op.get("z_to")
@@ -18533,7 +18612,8 @@ class _Setup(ThreadMaterialMixin):
             return target, why
         terminal = sorted((motion["stop_z_mm"], motion["centre_stop_z_mm"]))
         relevant = [
-            index for index in indices
+            index
+            for index in indices
             if self.faces[index].BoundBox.ZMax > terminal[0] + PLANE_TOL
             and self.faces[index].BoundBox.ZMin < terminal[1] - PLANE_TOL
         ]
@@ -18570,7 +18650,9 @@ class _Setup(ThreadMaterialMixin):
             return None, "explicit cylindrical to_dia requires a single-point turning tool"
         diameter = op["to_dia_mm"]
         if not _number(diameter) or diameter <= 0:
-            return None, op.get("to_dia_reason") or "profile to_dia is not a known positive diameter"
+            return None, op.get(
+                "to_dia_reason"
+            ) or "profile to_dia is not a known positive diameter"
         ends = op.get("z_from"), op.get("z_to")
         if not all(_number(end) for end in ends):
             return None, "explicit cylindrical to_dia requires known z_from/z_to"
@@ -18591,8 +18673,10 @@ class _Setup(ThreadMaterialMixin):
         if why is not None:
             return [], why
         cut = op.get("joint_cut")
-        if isinstance(cut, dict) and cut.get("kind") == "cylinder_spigot" and (
-            "z_from" in window_op or "z_to" in window_op
+        if (
+            isinstance(cut, dict)
+            and cut.get("kind") == "cylinder_spigot"
+            and ("z_from" in window_op or "z_to" in window_op)
         ):
             target, why = self._turn_cylindrical_target(op, indices)
             if why is not None:
@@ -18605,8 +18689,7 @@ class _Setup(ThreadMaterialMixin):
             low, high = motion["centre_z_mm"]
             steps = max(1, math.ceil(high - low))
             samples = [
-                ((radius, low + (high - low) * k / steps), (1.0, 0.0))
-                for k in range(steps + 1)
+                ((radius, low + (high - low) * k / steps), (1.0, 0.0)) for k in range(steps + 1)
             ]
             return [(indices[0], samples)], None
         ends = window_op.get("z_from"), window_op.get("z_to")
@@ -18727,7 +18810,63 @@ class _Setup(ThreadMaterialMixin):
         self.turn_target_holds[id(op)] = hold
         return hold
 
-    def _turn_removal(self, op, valid, stock):
+    def _turn_entry_hold(self, op, terminal, stock):
+        """Diagnostic raw entry stock, never an entry sweep or accepted after-stock."""
+        if (
+            terminal is None
+            or op.get("do") not in {"rough_turn", "finish_turn"}
+            or isinstance(op.get("joint_cut"), dict)
+            or op.get("to_z") is not None
+        ):
+            return None
+        radius, low, high = terminal
+        tool, missing, _ = self._turn_tool(op)
+        if missing or tool["corners"] != 1:
+            return None
+        motion, why = self._turn_cylinder_motion(op, low, high)
+        if why is not None or motion is None:
+            return None
+        entry = high if tool["feed_z"] < 0 else low
+        box = _bbox(stock)
+        limits = (entry, box[5]) if tool["feed_z"] < 0 else (box[2], entry)
+        if limits[1] - limits[0] <= PLANE_TOL:
+            return None
+        raw = stock.common(_band(0.0, self._outer(), *limits))
+        if self.protected.Solids:
+            raw = raw.cut(self.protected)
+        if raw.isNull() or raw.Volume <= HIT_MM3 or not raw.isValid():
+            return None
+        centre = (radius + tool["radius_mm"], entry + motion["against"] * tool["radius_mm"])
+        cutting = _revolved(_hull(self._turn_insert_points(tool, centre)))
+        if cutting is None or cutting.common(raw).Volume <= HIT_MM3:
+            return None
+        return {
+            "raw": raw,
+            "entry_z_mm": entry,
+            "z_mm": [low, high],
+            "reason": (
+                "bounded turning entry meets raw material beyond its axial window "
+                "with the nose or insert edge; entry removal is unrepresented, "
+                "so after-stock and attainment are unknown"
+            ),
+        }
+
+    def _turn_entry_independent(self, op, common, tool, centre):
+        """Keep every certain intersection except the confined raw cutting-entry part."""
+        if common.Volume <= HIT_MM3:
+            return False
+        entry = self.turn_entry_holds.get(id(op))
+        if entry is None:
+            return True
+        raw = common.common(entry["raw"])
+        if raw.Volume <= HIT_MM3:
+            return True
+        cutting = _revolved(_hull(self._turn_insert_points(tool, centre)))
+        if cutting is None:
+            return True
+        return common.cut(raw.common(cutting)).Volume > HIT_MM3
+
+    def _turn_removal(self, op, valid, stock, *, diagnose_entry):
         """(revolved stock outside component-owned finished material removed here or None, why).
 
         A ``to_z`` op faces: everything beyond the plane on its claims' axial side, outside
@@ -18743,6 +18882,9 @@ class _Setup(ThreadMaterialMixin):
         Only material still present after preceding ops is removal: coincident faces and
         zero-volume boolean remnants from a spring pass never become cutting solids.
         """
+        entry = self.turn_entry_holds.get(id(op))
+        if entry is not None:
+            return None, entry["reason"]
         if isinstance(op.get("joint_cut"), dict):
             return self._joint_removal(op, stock)
         target, why = self._turn_command(op)
@@ -18825,7 +18967,11 @@ class _Setup(ThreadMaterialMixin):
                         certain.Area > 0 and 2 * certain.Volume / certain.Area <= precision
                     ):
                         return None, hold["reason"]
-                    spoiled = certain
+                    return None, (
+                        f"{hold['reason']}; nominal-source guard intersects "
+                        f"{_r(certain.Volume)} mm^3 of protected finished material outside "
+                        "the diagnostic skin; actual material removal is unproved"
+                    )
                 return None, (
                     f"explicit to_dia {_r(2 * target[0])} mm removes "
                     f"{_r(spoiled.Volume)} mm^3 of protected finished material"
@@ -18860,6 +19006,12 @@ class _Setup(ThreadMaterialMixin):
             return None, None
         if not all(piece.isValid() for piece in pieces):
             return None, "turned removal boolean is invalid"
+        # Only the stock builder knows the exact arriving stock. Profile replay must
+        # reuse its refusal, never diagnose an entry against setup-entry material.
+        entry = self._turn_entry_hold(op, terminal, stock) if diagnose_entry else None
+        if entry is not None:
+            self.turn_entry_holds[id(op)] = entry
+            return None, entry["reason"]
         return (pieces[0] if len(pieces) == 1 else Part.makeCompound(pieces)), None
 
     def _retained_parting_removal(self, op, meridians, stock, outer):
@@ -18985,7 +19137,7 @@ class _Setup(ThreadMaterialMixin):
         if to_z is not None and not _number(to_z):
             return None, "to_z is unknown"
         try:
-            return self._turn_removal(op, valid, stock)
+            return self._turn_removal(op, valid, stock, diagnose_entry=False)
         except Exception as exc:
             return None, f"turned removal boolean failed ({exc})"
 
@@ -19053,7 +19205,27 @@ class _Setup(ThreadMaterialMixin):
         return tool, missing, holder
 
     @staticmethod
-    def _turn_sections(tool, centre, holder, inset=LIFT):
+    def _turn_insert_points(tool, centre, inset=LIFT):
+        """The existing nose/insert-edge hull vertices, excluding the head extension."""
+        cr, cz = centre
+        inner = tool["radius_mm"] - inset
+        points = [
+            (
+                cr + inner * math.cos(2 * math.pi * k / NOSE_ARC),
+                cz + inner * math.sin(2 * math.pi * k / NOSE_ARC),
+            )
+            for k in range(NOSE_ARC)
+        ]
+        length = tool["edge_len_mm"]
+        entering = math.radians(tool["entering_angle_deg"])
+        for angle in (entering, entering + math.radians(tool["insert_angle_deg"])):
+            dr, dz = math.sin(angle), tool["feed_z"] * math.cos(angle)
+            er, ez = cr + dr * length, cz + dz * length
+            points += [(er - dz * inner, ez + dr * inner), (er + dz * inner, ez - dr * inner)]
+        return points
+
+    @classmethod
+    def _turn_sections(cls, tool, centre, holder, inset=LIFT):
         """(insert/blade + head polygon, [shank, toolpost body] polygons or None) in (r, z)
         for a nose (a blade's leading corner) centred at ``centre``; the insert or blade
         edges stand ``inset`` inside the tool (LIFT for hit tests, 0 for its true extent)."""
@@ -19081,13 +19253,7 @@ class _Setup(ThreadMaterialMixin):
             sides = [(start, cz - against * inner), (start, trail + against * inner)]
             section = _hull(arc(cz) + arc(trail) + sides)
         else:
-            points = arc(cz)
-            length = tool["edge_len_mm"]
-            entering = math.radians(tool["entering_angle_deg"])
-            for angle in (entering, entering + math.radians(tool["insert_angle_deg"])):
-                dr, dz = math.sin(angle), feed * math.cos(angle)
-                er, ez = cr + dr * length, cz + dz * length
-                points += [(er - dz * inner, ez + dr * inner), (er + dz * inner, ez - dr * inner)]
+            points = cls._turn_insert_points(tool, centre, inset)
             section = _hull(points + [(start, lead), (start, back)])
         if not holder:
             return section, None
@@ -19171,8 +19337,10 @@ class _Setup(ThreadMaterialMixin):
             start = (point[0] + nr * nose, point[1] + nz * nose)
         if free(start):
             return start, extent(start)
-        exposed = blend_fit or not _in_material(point, segments) or any(
-            _segment_distance(point, seg) <= 10 * MERIDIAN_DEFLECTION for seg in segments
+        exposed = (
+            blend_fit
+            or not _in_material(point, segments)
+            or any(_segment_distance(point, seg) <= 10 * MERIDIAN_DEFLECTION for seg in segments)
         )
         moved = _nearest_free(free, start, 2 * nose) if exposed else None
         return (moved, extent(moved)) if moved is not None else (start, extent(start))
@@ -19221,8 +19389,7 @@ class _Setup(ThreadMaterialMixin):
                 face = self.faces[index]
                 limit = max(AREA_ABS, face.Area * AREA_REL)
                 if all(
-                    face.cut(within).Area <= limit
-                    for within in (window, self.protected, after)
+                    face.cut(within).Area <= limit for within in (window, self.protected, after)
                 ):
                     attained.append(index)
         except Exception as exc:
@@ -19263,9 +19430,7 @@ class _Setup(ThreadMaterialMixin):
             return record
         attained = []
         try:
-            shell = _band(
-                max(0.0, radius - STOCK_TOL), radius + STOCK_TOL, *motion["contact_z_mm"]
-            )
+            shell = _band(max(0.0, radius - STOCK_TOL), radius + STOCK_TOL, *motion["contact_z_mm"])
             for index in indices:
                 if index >= self.finished_face_count:
                     continue
@@ -19277,10 +19442,7 @@ class _Setup(ThreadMaterialMixin):
                 if not _on_axis(face, V(0, 0, 0), V(0, 0, 1)):
                     continue
                 limit = max(AREA_ABS, face.Area * AREA_REL)
-                if all(
-                    face.cut(within).Area <= limit
-                    for within in (shell, self.protected, after)
-                ):
+                if all(face.cut(within).Area <= limit for within in (shell, self.protected, after)):
                     attained.append(index)
         except Exception as exc:
             record["reason"] = f"explicit cylindrical target attainment failed ({exc})"
@@ -19323,7 +19485,9 @@ class _Setup(ThreadMaterialMixin):
             corner = (
                 []
                 if explicit
-                else self._turn_corners(sampled) if not undefined else reasons["claimed_indices"]
+                else self._turn_corners(sampled)
+                if not undefined
+                else reasons["claimed_indices"]
             )
             facts["corner_radii_mm"] = corner if isinstance(corner, list) else UNKNOWN
             if not isinstance(corner, list):
@@ -19399,6 +19563,15 @@ class _Setup(ThreadMaterialMixin):
         hold = self._turn_target_hold(op, indices)
         if hold is not None:
             facts["unsupported_reason"] = hold["reason"]
+        entry = self.turn_entry_holds.get(id(op))
+        if entry is not None:
+            facts["turn_entry"] = {
+                "status": UNKNOWN,
+                "entry_z_mm": _r(entry["entry_z_mm"]),
+                "z_mm": [_r(end) for end in entry["z_mm"]],
+                "reason": entry["reason"],
+            }
+            facts["unsupported_reason"] = entry["reason"]
         full = {}
         for index in indices:
             for point, normal in self._revolution(index)[1]:
@@ -19461,6 +19634,11 @@ class _Setup(ThreadMaterialMixin):
             tool_part = self.cuts[id(op)][0]
             tool_box = _bbox(tool_part) if tool_part.Solids else self.box
         independent_material = self._stopping_tool_material(op)
+        if entry is not None and independent_material is not None:
+            # An unresolved cutting entry cannot remove the raw stock outside its
+            # window. It remains a certain obstacle to the noncutting holder.
+            part = independent_material
+            part_box = _bbox(part) if part.Solids else self.box
         placed = self.fixture_ready
         outer = self._outer()
         subject = self._subject(op)
@@ -19531,7 +19709,12 @@ class _Setup(ThreadMaterialMixin):
             # A window end cuts nothing: the served rests are set on the work later.
             rest_hits, rest_gap = (
                 self._rest_hits(
-                    posed, tool, point, section, pieces, subject,
+                    posed,
+                    tool,
+                    point,
+                    section,
+                    pieces,
+                    subject,
                     leading_z=(
                         min(self._nose_z(tool, centre))
                         if tool["feed_z"] < 0
@@ -19560,7 +19743,9 @@ class _Setup(ThreadMaterialMixin):
                         independent_part = (
                             kind == "tool"
                             and independent_material is not None
-                            and solid.common(independent_material).Volume > HIT_MM3
+                            and self._turn_entry_independent(
+                                op, solid.common(independent_material), tool, centre
+                            )
                         )
                         if hold is not None:
                             nominal_only = common.cut(hold["skin"]).Volume <= HIT_MM3
@@ -19575,7 +19760,8 @@ class _Setup(ThreadMaterialMixin):
                     if nominal_only:
                         nominal_hits[kind] += 1
                     nominal_independent[kind] += (
-                        independent if kind == "tool"
+                        independent
+                        if kind == "tool"
                         else bool(labels - {"part"}) or ("part" in labels and not nominal_only)
                     )
                     if kind == "tool":
@@ -19635,6 +19821,15 @@ class _Setup(ThreadMaterialMixin):
         for kind in counters:
             if nominal_hits[kind]:
                 facts["min_hits"][kind] = nominal_independent[kind] or UNKNOWN
+        if facts["min_hits"]["tool"] == 0 and (
+            self.stock_reason is not None
+            or id(op) == self.stopped_cut
+            or self.cuts.get(id(op), (None, None, "stock is unbuilt"))[2] is not None
+        ):
+            # Clear protected material is not a clear cutting tool when an earlier
+            # cut or this op's own removal leaves its actual stock unrepresented.
+            # Independent positive collisions keep their measured lower bounds.
+            facts["min_hits"]["tool"] = UNKNOWN
         facts["sample_count"] = checked_samples
         if terminal_reason or (radial_feed and obstacle is None):
             facts["reach_depth_mm"] = UNKNOWN
@@ -19889,19 +20084,35 @@ class _Setup(ThreadMaterialMixin):
         """(jaw solids, physical cut Z, why not drawn) for the representative picture.
 
         A declared engagement is a leading DRO reading, not the radial contact Z.
-        Translate the checked carriage pose to that threshold before looking up its
-        diameter and drawing its jaws. Without engagement, show the checked pose."""
+        Pose the tool's measured nose centre at that threshold on the cylinder; an
+        unrelated first shoulder contact must not change the representative picture.
+        Without engagement, show the checked pose."""
         engage = rest.get("engage_at_z_mm")
         if not _number(engage):
             return jaws, _r(point[1]), None
         if not _number(leading_z):
             return None, _r(point[1]), "engagement lacks a measured leading tool z"
-        cut_z = point[1] + engage - leading_z
+        if (
+            not _number(tool.get("radius_mm"))
+            or tool["radius_mm"] < 0
+            or tool.get("corners") not in (1, 2)
+            or tool.get("feed_z") not in (-1, 1)
+            or (
+                tool["corners"] == 2
+                and (
+                    not _number(tool.get("blade_width_mm"))
+                    or tool["blade_width_mm"] < 2 * tool["radius_mm"]
+                )
+            )
+        ):
+            return None, _r(point[1]), "engagement picture lacks measured nose geometry"
+        relative_nose = self._nose_z(tool, (0.0, 0.0))
+        relative_leading = min(relative_nose) if tool["feed_z"] < 0 else max(relative_nose)
+        cut_z = engage - relative_leading
         radius = _outer_radius(section, cut_z, cut_z)
         if radius is None or radius <= PLANE_TOL:
             why = (
-                f"no work diameter at cut z {_r(cut_z)} mm "
-                f"for its engage z {_r(engage)} mm to ride"
+                f"no work diameter at cut z {_r(cut_z)} mm for its engage z {_r(engage)} mm to ride"
             )
             return None, _r(cut_z), why
         return self._rest_jaws(rest, radius, cut_z, tool["feed_z"])[0], _r(cut_z), None
@@ -20356,8 +20567,7 @@ class _Setup(ThreadMaterialMixin):
                     dx, dy = self._rotary_floor_offset(index, point, phi, presented, radius)
                     ax, ay = ax + dx, ay + dy
                 lift = (
-                    targets[index] - self.faces[index].Surface.Radius
-                    if index in targets else 0.0
+                    targets[index] - self.faces[index].Surface.Radius if index in targets else 0.0
                 )
                 poses.append((index, phi, ax, ay, presented.z + lift + LIFT, radial < -1e-3))
         return poses, "; ".join(problems) if problems else None

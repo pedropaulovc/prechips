@@ -1916,6 +1916,66 @@ def _bench_sheet(ops, *, detail="hobby", **setup):
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("representation", ["spatial_profile", None])
+def test_unknown_manual_finishing_preserves_its_typed_proof_debt(detail, representation):
+    from prechips.findings import Finding
+
+    op = {"op": 20, "do": "file_to_line", "feature": "body"}
+    setup = {"id": "S12", "machine": "bench", "ops": [op]}
+    debts = [
+        "remaining-stock removal is unproved",
+        "full hand-tool access is unproved",
+        "completed profile attainment is unproved",
+    ]
+    source = {"provenance": "SOURCE_ONLY_CYLINDER_AXIS_SENTINEL", "axis": [0, 0, 1]}
+    numbers = {"debts": debts}
+    if representation:
+        numbers.update(representation=representation, source=source)
+    finding = Finding("manual_arc", "S12:20", "unknown", numbers, [], "")
+    before = deepcopy(finding)
+    data = Bundle(
+        plan={"setups": [setup]},
+        inventory={"machines": {"bench": {"kind": "bench"}}},
+        features={"units": "mm", "features": {"body": {"kind": "profile"}}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+        kernel={"status": "ok", "ops": {}},
+    )
+    sheet = _Traveler(data, [finding], {}, None, detail=detail)
+    html, _ = sheet.operations(setup, {})
+    markup = Markup(html)
+    (operation,) = [
+        node for node in markup.find("operation") if node["attrs"].get("data-op") == "20"
+    ]
+    visible = " ".join(content(operation).split()).lower()
+    assert "stop" in visible
+    assert all(debt in visible for debt in debts)
+    assert finding == before
+    assert finding.status == "unknown"
+    assert sheet.finding_statuses[("manual_arc", "S12:20")] == "unknown"
+    assert sheet.records[("manual_arc", "S12:20")] == numbers
+    if representation:
+        assert "spatial" in visible and "unproved" in visible
+        assert "scribed line" not in visible
+        assert "roughing operation not established" not in visible
+        assert "filing guide not established" not in visible
+        assert not re.search(
+            r"(?:centre|radius).{0,30}(?:missing|unknown|not established)", visible
+        )
+        assert source["provenance"] not in html
+        assert "provenance" not in visible
+    else:
+        # The same incomplete planar record still reports its genuine missing inputs.
+        assert "scribed line" in visible
+        assert "roughing operation not established" in visible
+        assert "filing guide not established" in visible
+        assert "spatial-profile" not in visible
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns(detail):
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet(
@@ -2622,7 +2682,6 @@ def test_distinct_owner_bands_keep_their_result_and_method_associations():
         (records[1], "8.010–8.030", "6.330–6.350"),
     ):
         assert expected in content(node) and other not in content(node)
-        assert "? " in content(node)
         assert node["attrs"]["data-setup-id"] == "S1"
         assert node["attrs"]["data-op-id"] == "50"
         assert len(markup.find("result-field", node)) == 1
@@ -4836,12 +4895,16 @@ def test_compact_criterion_deduplicates_only_a_complete_terminal_dimension(
     ((_, _, criterion),) = check.compact_criteria
     expected = feature.replace("_", " ") + " length" if detail == "pedantic" else compact_heading
     assert criterion.heading == expected
-    assert str(criterion).removeprefix("? ").startswith(expected + " ")
+    assert re.search(
+        rf"(?<![\w-]){re.escape(expected)} 25\.300–25\.500(?!\d)", str(criterion)
+    )
+    assert str(criterion).count("25.300–25.500") == 1
     assert check.features == (feature,)
     assert check.requirement == "length"
     assert check.subjects == (f"{feature}:length",)
     (record,) = markup.find("inspection-record")
     assert json.loads(record["attrs"]["data-inspection-ids"]) == [f"{feature}:length"]
+    assert content(record).count("25.300–25.500") == 1
     assert len(markup.find("result-field", record)) == 1
 
 

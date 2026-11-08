@@ -11,7 +11,6 @@ from prechips.inputs import load_bundle
 from prechips.kernel import table_checkpoints
 from prechips.rules import coordinates, coverage, finish_coverage
 
-
 REFS = ["#11", "#22", "#33"]
 
 
@@ -32,9 +31,7 @@ def _row(data, monkeypatch, *, pre_kernel=False):
     # Isolate association from guide commissioning and the independent guide recipe.
     monkeypatch.setattr(coordinates, "_manual", lambda *args: ([], []))
     return next(
-        row
-        for row in coordinates.evaluate(data, pre_kernel=pre_kernel)
-        if row.subject == "S1"
+        row for row in coordinates.evaluate(data, pre_kernel=pre_kernel) if row.subject == "S1"
     )
 
 
@@ -52,8 +49,7 @@ def test_candidate_uses_source_arc_without_guessing_selected_types(tmp_path, mon
     payload = table_checkpoints("S1:20", row.numbers, 20, "mm")
     assert payload["paths"]
     assert all(
-        path["profile_subset_arc_mm"] == arc["profile_subset_arc"]
-        for path in payload["paths"]
+        path["profile_subset_arc_mm"] == arc["profile_subset_arc"] for path in payload["paths"]
     )
     inch_payload = table_checkpoints("S1:20", row.numbers, 20, "in")
     for path in inch_payload["paths"]:

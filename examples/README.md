@@ -253,9 +253,10 @@ are recorded in [PLAN §8 M3](../PLAN.md#8-milestones).
 
 ### Consumer routes and holds
 
-Former frozen exit targets describe older inputs, not results for the
-reconciled routes. Consult the actual generated report and current validation
-contracts after reconciliation; no new exit or approval is asserted here.
+The R3 CLI generation and golden freeze observed exit **4** for each of the
+shaft, rocker and integral cone routes, and **0** for the independent bracket.
+These results describe the generated inputs and findings, not shop readiness
+or permission to machine; inspect each report for its remaining holds.
 
 * **Pivot shaft:** a plain shaft with two aligned same-side flats and domed
   ends. The authored route faces and centre-drills waste, turns with support,

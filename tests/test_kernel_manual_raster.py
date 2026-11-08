@@ -13,7 +13,6 @@ import pytest
 
 from prechips import kernel
 
-
 _PROBE = r"""
 import copy, hashlib, importlib.util, json, math, os, sys
 import FreeCAD, Part
@@ -214,7 +213,11 @@ result['scaled_rounded_shape'] = {
 }
 
 result['process'] = {}
-for case in ['valid','missing_plane','placement_mismatch','nonzero_leave','unknown_leave','missing_leave','negative_leave','nonfinite_leave','boolean_leave','finished_claim','below_plane']:
+for case in [
+    'valid','missing_plane','placement_mismatch','nonzero_leave','unknown_leave',
+    'missing_leave','negative_leave','nonfinite_leave','boolean_leave','finished_claim',
+    'below_plane',
+]:
     runner,index = initialize(process=True)
     op = operation(runner,index)
     op.pop('faces')
@@ -229,7 +232,9 @@ for case in ['valid','missing_plane','placement_mismatch','nonzero_leave','unkno
     elif case=='nonfinite_leave': op['rough_allowance_mm']=float('nan')
     elif case=='boolean_leave': op['rough_allowance_mm']=False
     elif case=='finished_claim': op['faces']=[runner.owner.labels[0]]
-    elif case=='below_plane': op['process_cut']['at_mm'][2]=0; runner.owner.job['process_features']['waste']['at_mm'][2]=0
+    elif case=='below_plane':
+        op['process_cut']['at_mm'][2]=0
+        runner.owner.job['process_features']['waste']['at_mm'][2]=0
     facts = build(runner,[op])[0]
     before,after,_ = runner.cuts[id(op)]
     result['process'][case] = {
@@ -350,7 +355,12 @@ op = operation(runner,index,tip=0)
 result['tangent'] = {'facts':build(runner,[op])[0], 'coverage':coverage(runner), 'index':index}
 
 result['unknown'] = {}
-for name in ['dimension','nose','missing_nose','missing_shank_geometry','missing_body_bound','undersized_body_bound','undersized_transition_bound','short_oal','diagonal','nonfinite','unknown_method','retired_method','missing_path','hand_action','unknown_fixture','unknown_kind','missing_kind','idealized_corner','oversized_corner','endmill_ball_corner']:
+for name in [
+    'dimension','nose','missing_nose','missing_shank_geometry','missing_body_bound',
+    'undersized_body_bound','undersized_transition_bound','short_oal','diagonal','nonfinite',
+    'unknown_method','retired_method','missing_path','hand_action','unknown_fixture',
+    'unknown_kind','missing_kind','idealized_corner','oversized_corner','endmill_ball_corner',
+]:
     runner,index = initialize()
     op = operation(runner,index)
     if name=='dimension': del op['shank_radius_mm']
@@ -446,17 +456,23 @@ def test_rounded_flat_sweep_matches_independent_profile_integrals(raster_native)
 
 def test_rounded_flat_stairs_and_ball_have_distinct_exact_removal_and_coverage(raster_native):
     rounded, ball = raster_native["stairs"]["endmill"], raster_native["stairs"]["ball_endmill"]
-    assert rounded["facts"]["manual_raster_status"] == ball["facts"]["manual_raster_status"] == "pass"
+    assert (
+        rounded["facts"]["manual_raster_status"] == ball["facts"]["manual_raster_status"] == "pass"
+    )
     assert rounded["difference"] == pytest.approx(0, abs=1e-6)
-    assert rounded["removed"] == pytest.approx(60+20*(3.141592653589793/2-2)*.2**2, abs=1e-6)
-    assert ball["removed"] == pytest.approx(20+10*3.141592653589793, abs=1e-6)
+    assert rounded["removed"] == pytest.approx(
+        60 + 20 * (3.141592653589793 / 2 - 2) * 0.2**2, abs=1e-6
+    )
+    assert ball["removed"] == pytest.approx(20 + 10 * 3.141592653589793, abs=1e-6)
     assert ball["difference"] > 8
     assert rounded["coverage"]["finish"]["complete_indices"] == sorted(rounded["floors"])
     assert ball["coverage"]["finish"]["complete_indices"] == []
     assert len(ball["coverage"]["finish"]["gaps"]) == 2
 
 
-def test_transient_end_plane_raster_removes_only_authored_stock_without_source_credit(raster_native):
+def test_transient_end_plane_raster_removes_only_authored_stock_without_source_credit(
+    raster_native,
+):
     row = raster_native["process"]["valid"]
     assert row["reason"] is None
     assert row["facts"]["manual_raster_status"] == "pass"
@@ -465,8 +481,7 @@ def test_transient_end_plane_raster_removes_only_authored_stock_without_source_c
     assert row["difference"] == row["source_loss"] == pytest.approx(0, abs=1e-6)
     assert row["remote_stock_left"] == pytest.approx(10, abs=1e-6)
     assert row["coverage"] == {
-        kind: {"complete_indices": [], "gaps": [], "unknown": []}
-        for kind in ("cut", "finish")
+        kind: {"complete_indices": [], "gaps": [], "unknown": []} for kind in ("cut", "finish")
     }
 
 
@@ -654,7 +669,10 @@ def test_proved_axis_translation_maps_exact_source_portions_not_retrimmed_faces(
     script.write_text(probe, encoding="utf-8")
     process = subprocess.run(
         [freecad_kernel, str(script), "--", str(tmp_path)],
-        capture_output=True, text=True, errors="replace", timeout=300,
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
     )
     report = tmp_path / "raster-placement.json"
     assert report.exists(), process.stdout[-4000:] + process.stderr[-4000:]

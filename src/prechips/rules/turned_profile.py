@@ -458,9 +458,7 @@ def _accepted_preparation(bundle, setup, items, claimed):
     each eventual target's own authored limits.
     """
     preparation = [
-        item
-        for item in items
-        if joint_of(bundle.feature_definitions.get(item["feature"]))
+        item for item in items if joint_of(bundle.feature_definitions.get(item["feature"]))
     ]
     targets = [item for item in items if item not in preparation]
     if not preparation or not targets or not _one_diameter(preparation):
@@ -488,8 +486,7 @@ def _accepted_preparation(bundle, setup, items, claimed):
             or not _pair(band)
             or not band[0] * scale <= diameter <= band[1] * scale
             or any(
-                not _pair(prep)
-                or not band[0] <= prep[0] <= prep[1] <= band[1]
+                not _pair(prep) or not band[0] <= prep[0] <= prep[1] <= band[1]
                 for prep in preparation_bands
             )
         ):
@@ -709,9 +706,7 @@ def exposed_profile(bundle, setup):
     for segment in segments:
         low, high = segment["z_mm"]
         if any(
-            item["kind"] == "dome"
-            and item["z_mm"][0] < high
-            and low < item["z_mm"][1]
+            item["kind"] == "dome" and item["z_mm"][0] < high and low < item["z_mm"][1]
             for item in intervals
         ):
             continue

@@ -11,6 +11,7 @@ from prechips.rules._envelope import (
     machine_envelope,
     spindle_nose_band,
     stock_extents,
+    supported_height_datum,
     transformed_bounds,
     unknown_sentence,
 )
@@ -97,6 +98,7 @@ def evaluate(bundle):
             machine, "envelope.spindle_to_table_min", "machines", machine_ref, debts, cite
         )
         extents, extent_cite = stock_extents(bundle, setup)
+        datum = supported_height_datum(bundle, setup)
         if maximum["verified"] and minimum["verified"]:
             if minimum["value"] < 0 or maximum["value"] < minimum["value"]:
                 errors.append(
@@ -319,6 +321,7 @@ def evaluate(bundle):
                 {
                     "part_extents_mm": extents,
                     "fixture_height_mm": fixture,
+                    **({"supported_height_datum": datum} if datum else {}),
                     "spindle_to_table_max_mm": maximum["value"],
                     "spindle_to_table_min_mm": minimum["value"],
                     "stacks": stacks,

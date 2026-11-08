@@ -8,8 +8,8 @@ from .resolution import (
     SAW_OPS,
     _citations,
     length_mm,
-    op_entry,
     number,
+    op_entry,
     operations,
     record,
     resolve,
@@ -41,8 +41,10 @@ def _adjustable_finish(bundle, name, feature, route, nums, cite):
     for _, stage_setup, op in stages:
         tool = resolve(bundle, "tools", op.get("tool"))
         adjustable = op["do"] in {"bore", "hone"}
-        diameter = op.get("to_dia", "unknown") if adjustable else (
-            length_mm(tool, "dia") if tool and not uncertain(tool) else "unknown"
+        diameter = (
+            op.get("to_dia", "unknown")
+            if adjustable
+            else (length_mm(tool, "dia") if tool and not uncertain(tool) else "unknown")
         )
         label = f"{stage_setup['id']}:{op['op']}"
         evidence.append({"op": label, "action": op["do"], "diameter_mm": diameter})
@@ -70,7 +72,8 @@ def _adjustable_finish(bundle, name, feature, route, nums, cite):
         commanded_dia_mm=target,
         tool_dia_mm=setting,
         tool_dia_basis="configured working diameter, not a part measurement"
-        if adjustable else "inventory geometry",
+        if adjustable
+        else "inventory geometry",
         unit=unit,
     )
     if valid_band:
@@ -112,9 +115,13 @@ def _adjustable_finish(bundle, name, feature, route, nums, cite):
                 debts.append(message)
     if feature.get("process") == "ream" and not any(op["do"] == "ream" for _, op in route):
         debts.append("required reaming operation is missing")
-    nums.update(errors=errors, unresolved=debts, evaluation="inspection_plan", part_result="not_recorded")
+    nums.update(
+        errors=errors, unresolved=debts, evaluation="inspection_plan", part_result="not_recorded"
+    )
     status = "error" if errors else "unknown" if debts else "pass"
-    message = "; ".join(errors + debts) or "last actual finisher and qualified inspection cover the drawing diameter"
+    message = "; ".join(errors + debts) or (
+        "last actual finisher and qualified inspection cover the drawing diameter"
+    )
     return Finding("sizing", name, status, nums, cite, f"{name}: {message}.")
 
 

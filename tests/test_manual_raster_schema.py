@@ -67,6 +67,6 @@ def test_whole_body_bound_is_distinct_from_local_shank_measurement():
         "shank_mm": 6.0,
         "body_envelope_dia_mm": "unknown",
     }
-    assert "body_envelope_dia_mm" not in InventoryItem.model_validate(
-        {"shank_mm": 6.0}
-    ).model_dump(exclude_unset=True)
+    assert "body_envelope_dia_mm" not in InventoryItem.model_validate({"shank_mm": 6.0}).model_dump(
+        exclude_unset=True
+    )

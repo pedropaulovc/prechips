@@ -527,7 +527,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         complete_form_subjects,
         finishing_subjects,
     )
-    from prechips.rules.manual_raster import METHOD as MANUAL_RASTER, normalize
+    from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+    from prechips.rules.manual_raster import normalize
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
@@ -672,11 +673,13 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 None,
             )
             if printed != trajectory:
-                trajectory = {"reason": "manual raster printed/native trajectory is missing or differs"}
+                trajectory = {
+                    "reason": "manual raster printed/native trajectory is missing or differs"
+                }
         result["manual_raster"] = trajectory
-        result["tool_kind"] = record(
-            measurement_item(bundle, "tools", op.get("tool"))
-        ).get("kind", UNKNOWN)
+        result["tool_kind"] = record(measurement_item(bundle, "tools", op.get("tool"))).get(
+            "kind", UNKNOWN
+        )
         # The qualified whole-body bound encloses necks and transitions, not just
         # the locally measured shank diameter.
         # This can prove clearance, but an overlap is not a certain physical hit.
@@ -878,9 +881,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         value = op["to_dia"]
         diameter = value * scale if number(value) and math.isfinite(value) and scale else UNKNOWN
         result["to_dia_mm"] = (
-            diameter
-            if number(diameter) and math.isfinite(diameter) and diameter > 0
-            else UNKNOWN
+            diameter if number(diameter) and math.isfinite(diameter) and diameter > 0 else UNKNOWN
         )
     if model == ROTARY and "angle_window_deg" in op:
         window = op["angle_window_deg"]

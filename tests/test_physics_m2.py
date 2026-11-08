@@ -422,7 +422,9 @@ def test_manual_raster_engagement_requires_actual_segment_proof(projection, doc,
     if projection > 40:
         assert "above 4×D" in finding.sentence
     if doc in (0, -1, "unknown"):
-        assert "positive authored axial depth per pass (doc_mm)" in finding.numbers["missing_inputs"]
+        assert (
+            "positive authored axial depth per pass (doc_mm)" in finding.numbers["missing_inputs"]
+        )
     assert exit_code([finding], {"required": {"engagement": "*"}}, data) == 4
 
 
@@ -434,7 +436,9 @@ def test_manual_raster_engagement_keeps_missing_selected_projection_debt():
     finding = engagement.evaluate(data)[0]
     assert finding.status == "unknown"
     assert finding.numbers["projection_ld"] == "unknown"
-    assert any("selected tool/holder projection" in value for value in finding.numbers["missing_inputs"])
+    assert any(
+        "selected tool/holder projection" in value for value in finding.numbers["missing_inputs"]
+    )
     assert any("per-segment actual DOC/WOC" in value for value in finding.numbers["missing_inputs"])
 
 

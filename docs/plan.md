@@ -2652,7 +2652,19 @@ arc, rough outside the line and file to it, or use one of the milling and
 guided-fixture alternatives below.
 
 Manual-arc features use `mm` or `in`; other units remain unknown.
-`method = "arc_table"` is an error.
+`method = "arc_table"` is an error. When a `file_to_line` boss/cylinder has
+no explicit `at` or `arc_centre`, no planar layout, but does have a named,
+finite orthonormal source frame with finite origin, a finite nonzero two-end
+`z_mm` extent and a positive known nominal diameter, `manual_arc` reports
+`representation = "spatial_profile"` as UNKNOWN. It retains source dimensions,
+frame/provenance and selected master references, not a new operative centre.
+This recognizes source geometry only: planar reduction, remaining-stock
+removal, full hand-tool access and resulting conformance remain unproved.
+HOLD for qualification of the master, actual stock, access and completed
+profile; no removal, coverage or after-stock credit follows. The rule does not
+invent planar missing-centre, scribe or rough-op debts for this representation.
+Independent guide errors remain errors; explicit planar layouts and unknown
+planar centres retain their existing checks.
 
 ### Layout
 

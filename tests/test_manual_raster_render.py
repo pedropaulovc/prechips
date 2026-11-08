@@ -3,7 +3,7 @@
 from copy import deepcopy
 
 import pytest
-from test_sheet_ops import Markup, POCKET, content, contour_records, shop
+from test_sheet_ops import POCKET, Markup, content, contour_records, shop
 
 from prechips.kernel.render_diagram import (
     _CAMERAS,
@@ -34,9 +34,7 @@ def raster():
 
 def inputs(raster, detail="pedantic"):
     setup = deepcopy(POCKET)
-    setup["ops"][0].update(
-        contour={"method": "manual_raster"}, to_z=-20.0, doc_mm=2.0, passes=50
-    )
+    setup["ops"][0].update(contour={"method": "manual_raster"}, to_z=-20.0, doc_mm=2.0, passes=50)
     # Deliberately stale scalar/profile records must never invent extra motions.
     records = contour_records([-2.0, -4.0, -20.0])
     numbers = records[("coordinates", "S1")]
@@ -69,7 +67,9 @@ def test_sheet_prints_every_authored_move_in_setup_mm(raster, detail):
     for index, (row, move) in enumerate(zip(data[1:], raster["moves"], strict=True), 1):
         assert row[0] == str(index)
         assert row[1].startswith(move["mode"].upper())
-        assert row[2] == next(a for a, x, y in zip("XYZ", previous, move["to_mm"]) if x != y)
+        assert row[2] == next(
+            a for a, x, y in zip("XYZ", previous, move["to_mm"], strict=True) if x != y
+        )
         assert row[3:] == [str(value) for value in move["to_mm"]]
         previous = move["to_mm"]
     text = " ".join(content(node) for node in markup.nodes if node["parent"] is None)
@@ -153,11 +153,11 @@ def test_authored_diagram_projects_every_transition_and_pass_height(raster):
     local = _manual_raster_sketch(original, trajectory)
     points = [raster["start_mm"], *(move["to_mm"] for move in raster["moves"])]
     projected = [
-        [sum(a * b for a, b in zip(point, axis)) for axis in _CAMERAS["isometric"][:2]]
+        [sum(a * b for a, b in zip(point, axis, strict=True)) for axis in _CAMERAS["isometric"][:2]]
         for point in points
     ]
     assert [path["xy"] for path in local["paths"]] == [
-        [a, b] for a, b in zip(projected, projected[1:])
+        [a, b] for a, b in zip(projected, projected[1:], strict=False)
     ]
     assert [path["manual_mode"] for path in local["paths"]] == [
         move["mode"] for move in raster["moves"]
@@ -202,6 +202,6 @@ def test_long_authored_motion_continues_without_generated_or_dropped_moves(raste
     assert [path for band in bands for path in band["paths"]] == complete["paths"]
     assert bands[0]["manual_move_range"][0] == 1
     assert bands[-1]["manual_move_range"][1] == len(raster["moves"])
-    for before, after in zip(bands, bands[1:]):
+    for before, after in zip(bands, bands[1:], strict=False):
         assert before["manual_move_range"][1] + 1 == after["manual_move_range"][0]
         assert before["waypoints"][-1] == after["waypoints"][0]

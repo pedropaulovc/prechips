@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_FILES = {"report.json", "traveler.html"}
 # (bundle under examples/, plan, expected directory under the bundle, exit code)
 PILOT_CASES = (
-    ("pivot-shaft", "plan.toml", "expected", 0),
-    ("rocker-arm", "plan.toml", "expected", 0),
+    ("pivot-shaft", "plan.toml", "expected", 4),
+    ("rocker-arm", "plan.toml", "expected", 4),
     ("pivot-bracket", "plan.toml", "expected", 0),
     ("cone-pivot-post", "integral.toml", "expected/integral", 4),
 )
@@ -19,7 +19,7 @@ PEDANTIC_GOLDEN_FILENAME = "traveler-pedantic.html"
 PEDANTIC_GOLDEN_CASES = (
     ("blondihacks-t-nuts", "plan.toml", "expected", 0),
     ("pivot-bracket", "plan.toml", "expected", 0),
-    ("rocker-arm", "plan.toml", "expected", 0),
+    ("rocker-arm", "plan.toml", "expected", 4),
 )
 STANDALONE_GOLDEN_CASES = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))[
     "STANDALONE_CASES"

@@ -169,9 +169,7 @@ def axial_lathe():
         "paper_mm": 0.0,
         "before_ops": [20],
     }
-    bundle = lathe(
-        touches=[touch, {**TOUCH, "before_ops": [30], "x_method": "trial_cut_measure"}]
-    )
+    bundle = lathe(touches=[touch, {**TOUCH, "before_ops": [30], "x_method": "trial_cut_measure"}])
     bundle.inventory["tools"]["pilot"] = {"kind": "centre_drill"}
     bundle.inventory["holders"] = {"quill": {"kind": "drill_chuck", "taper": "MT3"}}
     bundle.inventory["machines"]["lathe"]["tailstock"] = {"taper": "MT3"}
@@ -296,6 +294,4 @@ def test_operation_mount_is_an_explicit_typed_declaration(mount):
 
 def test_operation_mount_rejects_guessed_free_text():
     with pytest.raises(ValueError, match="tool_mount"):
-        Operation.model_validate(
-            {"op": 20, "do": "center_drill", "tool_mount": "probably on axis"}
-        )
+        Operation.model_validate({"op": 20, "do": "center_drill", "tool_mount": "probably on axis"})

@@ -1341,7 +1341,10 @@ def test_a_parting_row_prints_the_x_it_plunges_to_and_the_radial_plunge(
     (plunge,) = [str(part) for part in parts if str(part).startswith("X ")]
     assert "→" in plunge and "radial" in plunge, parts
     assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
-    assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
+    if depth == "unknown":
+        before, after = plunge.split("→", 1)
+        assert _numbers(before) == (), parts
+        assert _numbers(after) == tuple(Decimal(value) for value in expected_values), parts
 
 
 def test_a_parting_row_with_an_unknown_endpoint_stops():
@@ -1378,7 +1381,10 @@ def test_a_parting_row_prints_its_x_only_on_a_known_dro_display(
         (plunge,) = [part for part in parts if part.startswith("X ")]
         assert "→" in plunge and "radial" in plunge, parts
         assert _numbers(plunge) == tuple(Decimal(value) for value in expected_values), parts
-        assert ("radial plunge unknown" in plunge) is (depth == "unknown"), parts
+        if depth == "unknown":
+            before, after = plunge.split("→", 1)
+            assert _numbers(before) == (), parts
+            assert _numbers(after) == tuple(Decimal(value) for value in expected_values), parts
         return
     assert not any(part.startswith("X") for part in parts), parts
     assert any(part.startswith("STOP") and "radius or diameter" in part for part in parts), parts

@@ -424,8 +424,7 @@ def _polygon(points):
         return []
     area_twice = abs(sum(cross(hull[0], hull[i], hull[i + 1]) for i in range(1, len(hull) - 1)))
     perimeter = sum(
-        math.hypot(b[0] - a[0], b[1] - a[1])
-        for a, b in zip(hull, hull[1:] + hull[:1], strict=True)
+        math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(hull, hull[1:] + hull[:1], strict=True)
     )
     # Reprojected coplanar edges can leave a zero-width floating-point sliver.
     return hull if area_twice > SAME_Z * perimeter else []
@@ -480,12 +479,16 @@ def _process_face_polygon(bundle, setup, target, op=None, *, arriving=True):
         if "stock_removal_bounds" in op:
             region = cut_region(op)
             span = mapping(op.get("stock_removal_bounds")).get("z")
-            if region is None or any(s[0] >= s[1] for s in region) or not (
-                _span(span)
-                and len(span) == 2
-                and all(math.isfinite(v) for v in span)
-                and span[0] < span[1]
-                and span[0] - SAME_Z <= low <= span[1] + SAME_Z
+            if (
+                region is None
+                or any(s[0] >= s[1] for s in region)
+                or not (
+                    _span(span)
+                    and len(span) == 2
+                    and all(math.isfinite(v) for v in span)
+                    and span[0] < span[1]
+                    and span[0] - SAME_Z <= low <= span[1] + SAME_Z
+                )
             ):
                 return None
             x, y = region
@@ -536,25 +539,17 @@ def process_face_union(bundle, setup, target, done=None, *, arriving=True):
     features = bundle.feature_definitions
     current_ops = setup.get("ops", [])
     cuts = [
-        (earlier, op)
-        for earlier in lineage(bundle, setup)
-        for op in earlier.get("ops", [])
+        (earlier, op) for earlier in lineage(bundle, setup) for op in earlier.get("ops", [])
     ] + [(setup, op) for op in current_ops[:done]]
     frame = setup_frame(bundle, setup)
     for producer, op in cuts:
         own = mapping(features.get(op_feature(op)))
         process = process_of(own)
         preparation = process and process.get("kind") == "end_face"
-        native = (
-            not process
-            and own.get("kind") == "face"
-            and "stock_removal_bounds" in op
-        )
+        native = not process and own.get("kind") == "face" and "stock_removal_bounds" in op
         if op.get("do") not in FACING or not (preparation or native):
             continue
-        status = operation_material_status(
-            bundle, setup, producer, op_feature(op), producer_op=op
-        )
+        status = operation_material_status(bundle, setup, producer, op_feature(op), producer_op=op)
         if status is not True:
             uncertain_cut |= status is None
             continue
@@ -588,13 +583,15 @@ def process_face_union(bundle, setup, target, done=None, *, arriving=True):
             # cannot stand in for the plane being proved.
             target_z = frame_point(model_point([*polygon[0], plane], frame), source)[2]
             span = mapping(op.get("stock_removal_bounds")).get("z")
-            if number(target_z) and floor < target_z - SAME_Z and (
-                "stock_removal_bounds" not in op
-                or (_span(span) and span[0] <= target_z <= span[-1])
+            if (
+                number(target_z)
+                and floor < target_z - SAME_Z
+                and (
+                    "stock_removal_bounds" not in op
+                    or (_span(span) and span[0] <= target_z <= span[-1])
+                )
             ):
-                projected = [
-                    frame_point(model_point([*p, target_z], source), frame) for p in cut
-                ]
+                projected = [frame_point(model_point([*p, target_z], source), frame) for p in cut]
                 overlap = polygon
                 cutter = _polygon(projected)
                 for a, b in zip(cutter, cutter[1:] + cutter[:1], strict=True):
@@ -651,6 +648,7 @@ def _setup_footprint(bundle, setup, target, debts=None, *, op=None):
     plane is clipped to the finite removal window; that is not whole-plane credit.
     """
     from prechips.process_features import arriving_bounds, process_of
+
     if op is not None and process_of(target) and op_feature(op) == process_of(target).get("id"):
         finite = _process_face_polygon(bundle, setup, target, op)
         if finite is None or not finite[0]:
@@ -1041,7 +1039,8 @@ def stock_states(bundle, setup):
                     entries[target], origins[target] = UNKNOWN, UNKNOWN
             faced = mapping(features.get(stock.get("top_feature") or name))
             if op.get("do") in FACING and (
-                stock.get("top_feature") is None or name == stock["top_feature"]
+                stock.get("top_feature") is None
+                or name == stock["top_feature"]
                 or (
                     process_of(faced)
                     and process_of(cut)
@@ -1514,7 +1513,9 @@ def _producer(
                 coverage, _ = process_face_union(bundle, setup, surface, boundary)
                 if coverage != "whole":
                     if debts is not None:
-                        debts.append("finite process end-face windows leave a gap or unresolved coverage")
+                        debts.append(
+                            "finite process end-face windows leave a gap or unresolved coverage"
+                        )
                     return UNKNOWN
             matched = [] if credited is not None else None
             if surface.get("kind") == "face" and not mapping(surface.get("bounds")):
@@ -1538,17 +1539,23 @@ def _producer(
             earlier.get("ops", [])[:done] if earlier is setup else earlier.get("ops", [])
         )
     ]
-    if process and process.get("kind") == "end_face" and any(
-        "stock_removal_bounds" in candidate
-        and process_of(mapping(features.get(op_feature(candidate))))
-        for _, candidate in candidates
+    if (
+        process
+        and process.get("kind") == "end_face"
+        and any(
+            "stock_removal_bounds" in candidate
+            and process_of(mapping(features.get(op_feature(candidate))))
+            for _, candidate in candidates
+        )
     ):
         finite = _process_face_polygon(bundle, setup, surface)
         if finite is not None and number(value) and abs(finite[1] - value) <= SAME_Z:
             coverage, maker = process_face_union(bundle, setup, surface, done)
             if coverage != "whole":
                 if debts is not None:
-                    debts.append("finite process end-face windows leave a gap or unresolved coverage")
+                    debts.append(
+                        "finite process end-face windows leave a gap or unresolved coverage"
+                    )
                 return UNKNOWN
             # A differently posed producer travels through existing transfer arithmetic,
             # never returning its old setup Z as a receiving-frame reading.

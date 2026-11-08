@@ -1283,9 +1283,12 @@ def manual_raster_bundle():
     rows = {
         "coordinates": [
             Finding(
-                "coordinates", "S1", "pass",
+                "coordinates",
+                "S1",
+                "pass",
                 {"operations": [{"op": 10, "manual_raster": deepcopy(raster)}]},
-                [], "",
+                [],
+                "",
             )
         ]
     }
@@ -1337,8 +1340,7 @@ def test_invalid_manual_raster_cannot_fall_back_to_axial_targets_or_broad_boxes(
     assert operation["tip_z_bounds_mm"] == "unknown"
     assert operation["conservative_stock_spans_mm"] == "not_applicable"
     assert all(
-        finding.numbers["travel_checks"][axis]["minimum_required_mm"] == "unknown"
-        for axis in "xyz"
+        finding.numbers["travel_checks"][axis]["minimum_required_mm"] == "unknown" for axis in "xyz"
     )
     assert "contour.raster" in finding.sentence
     assert "commanded to_z" not in finding.sentence

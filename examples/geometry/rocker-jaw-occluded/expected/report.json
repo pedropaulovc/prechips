@@ -485,7 +485,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+            "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
           },
           "features": {
             "path": "examples/geometry/rocker-jaw-occluded/features.toml",
@@ -4735,11 +4735,11 @@
       "subject": "S3"
     }
   ],
-  "hash": "afbba693b3a2c82f64505562b1dbe6d2bf83f06aa1b5e02f9e2665d07e52f0e2",
+  "hash": "9c79ebdd77c20dac04d1704a66d19be1c06969355561b51b0587d5e358584d4f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+      "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
     },
     "features": {
       "path": "examples/geometry/rocker-jaw-occluded/features.toml",

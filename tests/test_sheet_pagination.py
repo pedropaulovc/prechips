@@ -373,8 +373,11 @@ def test_compact_job_title_and_local_owners_distinguish_fresh_headings_from_tail
         assert head["title"] == JOB_TITLE + " · qty 4 · EXAMPLE ONLY · PLANNED"
         assert head["copies"] == 0
     unowned = [head for head in details["heads"] if not head["setup"]]
+    assert unowned
     for head in unowned:
-        assert head["familyHeading"] or "E1–E4" in head["context"]
+        # A family heading is not a physical owner. An unowned prelude must not
+        # borrow the later variant's local continuation context.
+        assert head["context"] == ""
         assert head["member"] == head["workpiece"] == ""
     for setup in ("S1", "E1"):
         owned = [head for head in details["heads"] if head["setup"] == setup]
@@ -969,13 +972,96 @@ def test_compact_range_uses_shared_physical_metadata_without_inventing_unknown_o
         }}""",
     )
     assert len(details) == 1
-    assert details[0]["owners"] == [
-        {"setup": item["setup_id"], "member": "", "workpiece": item["workpiece"] or ""}
-        for item in identities
+    # The visible family heading and empty-ID child inherit the nearest member
+    # list, while the shared operation additionally supplies Q2's workpiece.
+    assert [owner["setup"] for owner in details[0]["owners"]] == ["Q1", "Q2", "Q2", "Q4"]
+    assert details[0]["owners"][0] == {"setup": "Q1", "member": "", "workpiece": ""}
+    assert details[0]["owners"][1:3] == [
+        {"setup": "Q2", "member": "", "workpiece": ""},
+        {"setup": "Q2", "member": "", "workpiece": "nut2"},
     ]
+    assert details[0]["owners"][-1] == {"setup": "Q4", "member": "", "workpiece": ""}
     assert not details[0]["continued"] and details[0]["copies"] == 0
     assert details[0]["text"].index("Q1") < details[0]["text"].index("Q4")
     assert "NOT-AN-OWNER" not in details[0]["text"] and "Job" not in details[0]["text"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "boundary,expected",
+    [
+        ('data-setup-id=""', [("Q1", "", ""), ("Q2", "", ""), ("Q4", "", "")]),
+        ('data-setup-members=\'["Q4","Q2"]\'', [("Q2", "", ""), ("Q4", "", "")]),
+        (
+            'data-setup-id="Q2" data-setup-title="Q2 individual record" '
+            'data-member="piece-b" data-workpiece="nut2"',
+            [("Q2", "piece-b", "nut2")],
+        ),
+        (
+            'data-setup-id="Q2" data-physical-ops=\''
+            '[{"setup_id":"Q4","op_id":20,"workpiece":"nut4"}]\'',
+            [("Q4", "", "nut4")],
+        ),
+        ('data-physical-ops="invalid"', []),
+        ('data-setup-members="[]"', []),
+    ],
+)
+def test_nearest_source_boundary_controls_shared_individual_and_unowned_pages(
+    printed_sheet, detail, boundary, expected
+):
+    source = (
+        '<section data-setup-title="Facing holds" data-setup-id="" '
+        'data-setup-members=\'["Q1","Q2","Q4"]\' style="display:contents">'
+        "<h2>Shared facing datum</h2><p>Original common datum before the record.</p>"
+        f'<div {boundary} style="break-before:page">'
+        '<p data-source-position="record">Original boundary reading '
+        + _writing_field("boundary observed")
+        + "</p></div></section>"
+        + '<section data-setup-title="B0 next route hold" data-setup-id="B0" '
+        'data-workpiece="stock" style="break-before:page">'
+        '<h2>B0 next route hold</h2><p data-source-position="route">Original route work.</p>'
+        "</section>"
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          positions:[...document.querySelectorAll('[data-source-position]')]
+            .filter(node => !node.closest('[data-job-print]'))
+            .map(node => ({key:node.dataset.sourcePosition,page:pageOf(node)})),
+          heads:[...document.querySelectorAll('.cont-head')].map(head => ({
+            page:pageOf(head),owners:JSON.parse(head.dataset.pageOwners),
+            context:head.querySelector('.cont-context')?.textContent ?? '',
+            continued:head.dataset.ownerContinued === 'true',
+            copies:head.querySelectorAll('[data-locator-target],.writing-blank').length
+          })),
+          fields:[...document.querySelectorAll('[data-locator-target]')].map(node => ({
+            label:node.closest('.field').querySelector('.field-label').textContent,
+            page:pageOf(node),original:!node.closest('[data-job-print]')
+          }))
+        })""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    pages = {item["key"]: item["page"] for item in details["positions"]}
+    heads = {item["page"]: item for item in details["heads"]}
+    record = heads[pages["record"]]
+    assert record["owners"] == [
+        {"setup": setup, "member": member, "workpiece": workpiece}
+        for setup, member, workpiece in expected
+    ]
+    assert record["continued"] == bool(expected)
+    if expected == [("Q2", "piece-b", "nut2")]:
+        # A genuine nearer individual may retain its own local identity.
+        assert "Q2" in record["context"] and "nut2" in record["context"]
+        assert "Facing holds" not in record["context"]
+    else:
+        assert record["context"] == ""
+    route = heads[pages["route"]]
+    assert route["owners"] == [{"setup": "B0", "member": "", "workpiece": "stock"}]
+    assert not route["continued"]
+    assert all(not head["copies"] for head in details["heads"])
+    assert details["fields"] == [
+        {"label": "boundary observed", "page": pages["record"], "original": True}
+    ]
 
 
 @pytest.mark.parametrize("picture_first", [True, False])
@@ -1024,8 +1110,16 @@ def test_compact_range_orders_relocated_picture_and_shared_owners_by_authored_ro
     assert first["page"] == details["figures"][0]["page"]
     assert (first["start"], first["end"]) == ("Q1", "Q4")
     assert first["text"].index("Q1") < first["text"].index("Q4")
-    assert [owner["setup"] for owner in first["owners"]] == ["Q1", "Q2", "Q3", "Q4"]
-    assert first["owners"][1] == {"setup": "Q2", "member": "", "workpiece": "nut2"}
+    assert list(dict.fromkeys(owner["setup"] for owner in first["owners"])) == [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+    ]
+    assert [owner for owner in first["owners"] if owner["setup"] == "Q2"] == [
+        {"setup": "Q2", "member": "", "workpiece": ""},
+        {"setup": "Q2", "member": "", "workpiece": "nut2"},
+    ]
     assert not first["continued"]
     assert tails and all(
         head["start"] == head["end"] == "Q2"
@@ -1114,16 +1208,20 @@ def test_compact_setup_continues_when_page_opens_on_its_first_member_record(prin
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
-def test_hoisted_final_reference_keeps_records_but_not_physical_setup_ranges(printed_sheet, detail):
+@pytest.mark.parametrize("explicit_context", [False, True])
+def test_local_reference_context_follows_opening_source_without_owning_the_route(
+    printed_sheet, detail, explicit_context
+):
+    reference_context = ' data-page-context="Final inspection after B2"' if explicit_context else ""
     source = (
         '<section class="setup-family" data-setup-title="Final inspection after B2" '
         'data-setup-id="" data-setup-members=\'["F1a","F1b"]\' '
-        'data-page-reference="final-inspection" style="display:contents">'
+        f'data-page-reference="final-inspection"{reference_context} style="display:contents">'
         "<h2>Final inspection after B2</h2>"
         '<div class="setup-variant" data-setup-title="F1a final inspection after B2" '
         'data-setup-id="F1a" data-member="nut1" data-workpiece="nut1" style="display:contents">'
         '<p class="variant-label">F1a final inspection after B2</p>'
-        "<p>Original hoisted record "
+        "<p>Original local reference record "
         + _writing_field("reference observed")
         + '</p><p data-source-position="reference-only" style="break-before:page">'
         "Original final-reference continuation.</p>"
@@ -1167,16 +1265,24 @@ def test_hoisted_final_reference_keeps_records_but_not_physical_setup_ranges(pri
     reference_only = heads[pages["reference-only"]]
     assert reference_only["owners"] == []
     assert reference_only["start"] == reference_only["end"] == reference_only["range"] == ""
-    assert not reference_only["continued"] and "after B2" in reference_only["local"]
+    assert not reference_only["continued"]
+    assert ("after B2" in reference_only["local"]) == explicit_context
+    if not explicit_context:
+        assert reference_only["local"] == ""
     mixed = heads[pages["reference-mixed"]]
     assert [owner["setup"] for owner in mixed["owners"]] == ["B0", "Q4"]
     assert (mixed["start"], mixed["end"]) == ("B0", "Q4")
     assert mixed["range"].index("B0") < mixed["range"].index("Q4")
-    assert not mixed["continued"] and "after B2" in mixed["local"]
+    assert not mixed["continued"]
+    assert ("after B2" in mixed["local"]) == explicit_context
+    if not explicit_context:
+        assert mixed["local"] == ""
     chronological = heads[pages["chronological-final"]]
     assert chronological["owners"] == [{"setup": "F1a", "member": "", "workpiece": "nut1"}]
     assert chronological["start"] == chronological["end"] == "F1a"
     assert not chronological["continued"]
+    # A later physical opening must not retain the earlier reference's context.
+    assert "after B2" not in chronological["local"]
     assert all(not head["copies"] for head in details["heads"])
     assert details["fields"] == [
         {

@@ -590,9 +590,7 @@ def evaluate(bundle):
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
             tool = resolve(bundle, "spindle", record.get("tool")) or {}
-            axial_touch = lathe and tailstock_axis_touch(
-                bundle, setup, {**record, "edge_mm": edge}
-            )
+            axial_touch = lathe and tailstock_axis_touch(bundle, setup, {**record, "edge_mm": edge})
             # A mill's X/Y read the spindle axis whatever the tool: its touches set Z only.
             x_set = (
                 "not_applicable"

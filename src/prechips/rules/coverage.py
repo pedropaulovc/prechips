@@ -872,8 +872,14 @@ def evaluate(bundle):
         cite.append("kernel manual_raster_coverage.cut: exact union of authored raster sweeps")
     # A formed feature's faces whose credit is debt are judged by that debt, not as missing.
     unclaimed = sorted(
-        all_faces - claimed - represented - set(gaps) - set(unresolved)
-        - set(raster_gaps) - set(raster_unresolved) - pending
+        all_faces
+        - claimed
+        - represented
+        - set(gaps)
+        - set(unresolved)
+        - set(raster_gaps)
+        - set(raster_unresolved)
+        - pending
     )
     values = {
         "face_count": len(all_faces),

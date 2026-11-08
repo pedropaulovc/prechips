@@ -109,7 +109,9 @@ def test_target_identity_uses_scaled_current_commands_and_sorted_window(bundle):
     assert op_claims(bundle, bundle.kernel, setup, op)[0] is None
 
 
-@pytest.mark.parametrize("field,value", [("to_dia", "unknown"), ("z_from", "unknown"), ("z_to", 0.0)])
+@pytest.mark.parametrize(
+    "field,value", [("to_dia", "unknown"), ("z_from", "unknown"), ("z_to", 0.0)]
+)
 def test_unresolved_or_degenerate_current_command_cannot_reuse_evidence(bundle, field, value):  # noqa: F811
     setup, op, _ = _turn(bundle)
     op[field] = value
@@ -157,7 +159,9 @@ def test_profile_and_facing_claims_do_not_require_turn_target(bundle, legacy):  
 )
 @pytest.mark.parametrize("attained", [[], [1]])
 def test_bounded_legacy_profiles_credit_only_native_whole_face_attainment(
-    bundle, action, attained  # noqa: F811
+    bundle,  # noqa: F811
+    action,
+    attained,
 ):
     setup, op, detail = _turn(bundle, window=(5.0, 10.0), action=action)
     op.pop("to_dia")

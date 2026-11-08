@@ -118,9 +118,13 @@ def test_initial_and_final_clearance_are_required(end):
 
 
 def test_clear_only_path_cannot_claim_material_removal():
-    authored = {"start_mm": [0, 0, 8], "safe_z_mm": 8, "moves": [
-        {"to_mm": [10, 0, 8], "mode": "clear"},
-    ]}
+    authored = {
+        "start_mm": [0, 0, 8],
+        "safe_z_mm": 8,
+        "moves": [
+            {"to_mm": [10, 0, 8], "mode": "clear"},
+        ],
+    }
     assert set(normalize(authored)) == {"reason"}
 
 
@@ -141,7 +145,9 @@ def test_public_and_native_raster_are_identical_setup_mm_without_axial_fallback(
     assert "z_levels" not in entry
     assert not public.numbers["profiles"]
     assert "axial levels" not in public.sentence
-    prepared = kernel.op_inputs(data, setup, op, finishing=set(), complete=set(), tables=public.numbers)
+    prepared = kernel.op_inputs(
+        data, setup, op, finishing=set(), complete=set(), tables=public.numbers
+    )
     native = kernel._engine_op(prepared)
     assert native["manual_raster"] == entry["manual_raster"]
     assert native["contour_method"] == "manual_raster"
@@ -176,7 +182,9 @@ def test_multiple_operations_keep_separate_authored_trajectories(tmp_path):
     public = coordinates.evaluate(data, pre_kernel=True)[0]
     for entry, operation in zip(public.numbers["operations"], setup["ops"], strict=True):
         assert entry["manual_raster"] == operation["contour"]["raster"]
-        native = kernel.op_inputs(data, setup, operation, finishing=set(), complete=set(), tables=public.numbers)
+        native = kernel.op_inputs(
+            data, setup, operation, finishing=set(), complete=set(), tables=public.numbers
+        )
         assert native["manual_raster"] == entry["manual_raster"]
 
 
@@ -239,7 +247,9 @@ def test_invalid_raster_remains_identically_refused_in_public_and_native_tables(
     printed = public.numbers["operations"][0]["manual_raster"]
     assert set(printed) == {"reason"}
     assert coordinates.printed_xy(public.numbers, op["op"]) is None
-    prepared = kernel.op_inputs(data, setup, op, finishing=set(), complete=set(), tables=public.numbers)
+    prepared = kernel.op_inputs(
+        data, setup, op, finishing=set(), complete=set(), tables=public.numbers
+    )
     assert prepared["manual_raster"] == printed
 
 
@@ -255,7 +265,8 @@ def test_unknown_holder_dimensions_withhold_native_envelope(tmp_path, field):
 def test_unmeasured_pair_projection_does_not_use_nominal_oal_fallback(tmp_path):
     data, setup, op = raster_bundle(tmp_path)
     data.inventory["tools"]["em"]["projection_mm"]["holder"] = {
-        "value": 25.0, "measured": {"status": "assumed"}
+        "value": 25.0,
+        "measured": {"status": "assumed"},
     }
     prepared = kernel.op_inputs(data, setup, op, finishing=set(), complete=set())
     assert "projection_mm" not in kernel._engine_op(prepared)
@@ -340,7 +351,8 @@ def test_unknown_body_bound_never_defaults_to_cutter_or_shank_diameter(tmp_path)
     assert "shank_envelope_radius_mm" not in native
     assert "shank_envelope_radius_mm" in prepared["reason"]
     debt = next(
-        entry for entry in prepared["measurement_debts"]
+        entry
+        for entry in prepared["measurement_debts"]
         if entry["id"].endswith(".body_envelope_dia")
     )
     assert debt["id"] in prepared["refused_fields"]

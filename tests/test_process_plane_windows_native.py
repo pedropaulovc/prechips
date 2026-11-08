@@ -7,14 +7,15 @@ from textwrap import indent
 
 from prechips import kernel
 
-
-_PROBE = r'''
+_PROBE = r"""
 import importlib.util
 import os
 import FreeCAD as App
 import Part
 
-spec = importlib.util.spec_from_file_location("bounded_plane_job", os.environ["PLANE_KERNEL_SOURCE"])
+spec = importlib.util.spec_from_file_location(
+    "bounded_plane_job", os.environ["PLANE_KERNEL_SOURCE"],
+)
 job = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(job)
 V = App.Vector
@@ -129,17 +130,23 @@ for tool in (through, negative_axis):
 
 blind = cylinder_spec("blind", [5, 5, 7], 1, 3, cuts=["plate"])
 assert job._prismatic_owner_cut(plate, [blind]) is None
-blind_result = dict((s["local"], shape) for s, shape in job._owner_primitives([plate, blind]))["plate"]
+blind_result = dict(
+    (s["local"], shape) for s, shape in job._owner_primitives([plate, blind])
+)["plate"]
 assert blind_result.isValid() and abs(blind_result.Volume - (400 - 2 * math.pi)) < 1e-6
 assert blind_result.isInside(V(5, 5, 6), 1e-7, True)  # blind floor is still an obstacle
 side_hole = cylinder_spec("side-hole", [-1, 5, 7], 1, 12,
                           axis=(1, 0, 0), cuts=["plate"])
 assert job._prismatic_owner_cut(plate, [side_hole]) is None
-side_result = dict((s["local"], shape) for s, shape in job._owner_primitives([plate, side_hole]))["plate"]
+side_result = dict(
+    (s["local"], shape) for s, shape in job._owner_primitives([plate, side_hole])
+)["plate"]
 assert side_result.isValid() and abs(side_result.Volume - (400 - 10 * math.pi)) < 1e-6
 tilted = cylinder_spec("tilted", [30, 0, 0], 2, 8, axis=(0.6, 0, 0.8))
 assert job._prismatic_owner_cut(tilted, [through]) is None
-tilted_result = dict((s["local"], shape) for s, shape in job._owner_primitives([tilted, through]))["tilted"]
+tilted_result = dict(
+    (s["local"], shape) for s, shape in job._owner_primitives([tilted, through])
+)["tilted"]
 assert tilted_result.isValid() and abs(tilted_result.Volume - 32 * math.pi) < 1e-6
 other = box_spec("other-owner", [0, 0, 5], [10, 10, 4])
 owned = dict((s["local"], shape) for s, shape in job._owner_primitives([plate, other, through]))
@@ -227,13 +234,14 @@ except job._Unknown:
 else:
     raise AssertionError("invalid/empty fixture must remain debt, never disappear")
 print("BOUNDED_TRANSIENT_PLANES_OK")
-'''
+"""
 
 
 def test_native_process_planes_use_each_operation_window(tmp_path, freecad_kernel):
     script = tmp_path / "prove_process_plane_windows.py"
     script.write_text(
-        "try:\n" + indent(_PROBE, "    ")
+        "try:\n"
+        + indent(_PROBE, "    ")
         + "\nexcept Exception:\n    import traceback\n    traceback.print_exc()\n",
         encoding="utf-8",
     )

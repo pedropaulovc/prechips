@@ -156,7 +156,6 @@ on a whole-map unknown. The discrepancy is tracked in [issue #358](https://githu
 | `saw_min_teeth_in_work` | Fewest teeth of the blade's coarsest pitch in the thickness it crosses; must be positive, cited and explicitly unflagged. A common shop rule is 3; missing evidence leaves `?` |
 | `min_hand_feed_mm` | Finger-to-blade clearance for `hold_fields` on a [hand-fed saw](plan.md#hand-fed-on-the-saw-table). Each blade position along each cut's scribed arc is compared with how far that cut's stock reaches from the blade |
 | `max_filing_stock_mm` | Maximum stock a rough stair or drilled chain may leave for filing; must be nonnegative, cited and unflagged. Missing, negative, uncited or flagged values leave the filing limit unknown |
-| `fixture_make_decimals` | Whole decimal places for printing shop-made fixture sizes and positions; never a pass condition |
 | `near_jaw_mm` | Print-only distance threshold, in mm, for a boxed jaw-clearance line on lathe operation rows. Absent or unknown values fall back to 3 mm. The sheet does not consult citations or verification flags for this field; it is never a pass condition |
 
 For `min_hand_feed_mm`, absent, uncited or flagged values produce `?`; work that
@@ -177,11 +176,13 @@ the example limits as shop evidence.
 Required physics warnings yield exit 4 through the existing gate; proxy warnings
 do not invent hard physical limits.
 
-A fit that locates the part prints at drawing precision instead of
-`fixture_make_decimals`. For other fixture sizes and positions, an absent,
-unknown or flagged precision falls back to the DRO grid of the fixture-making
-machine (the shop's mill, else the setup machine). Every printed value lies on
-that grid. See [inventory](inventory.md).
+Fixture manufacturing dimensions preserve their source values rather than
+rounding to a display precision. Locating fits still retain the fixture-making
+machine's grid-feasibility check; the sheet never silently moves their targets.
+See [inventory](inventory.md#make-table-precision-and-notes).
+Authored process prose, acceptance bounds and depth-of-cut parameters likewise
+retain their stated values; readout display precision must not widen an
+acceptance interval or change the intended cut.
 
 ## Geometry requirements
 

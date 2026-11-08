@@ -1622,9 +1622,6 @@ class _Diagram:
                     dashed=True,
                 )
                 self.obstacles.append((x - 100, y - _TEXT_HEIGHT - 16, x + 200, y + 130))
-                self.context_labels.append(
-                    (x + 47, y - _TEXT_HEIGHT - 10, "HEADSTOCK", _BODY_SCALE)
-                )
             centres = [item for item in self.components if _role(item) in ("centre", "center")]
             if centres:
                 # A tailstock is drawn only where a centre actually supports the work.
@@ -1731,6 +1728,10 @@ class _Diagram:
             if not points:
                 self._hidden(label.upper())
                 continue
+            if self.view == "lathe" and all(_role(item) == "chuck_jaw" for item in components):
+                # Equivalent jaws need one key, not one in each callout lane.
+                # Keep a visible jaw anchor at the working end of the chuck.
+                points = [max(points, key=lambda point: point[0])]
             self.callouts.append(_Callout(label.upper(), points, _FIXTURE, targets=targets))
         badges = []
         for index, component in enumerate(pads, 1):
@@ -3461,7 +3462,7 @@ def _manual_raster_sketch(spec, raster, first=0, last=None):
     camera = _CAMERAS["isometric"]
 
     def project(point):
-        return [sum(a * b for a, b in zip(point, axis)) for axis in camera[:2]]
+        return [sum(a * b for a, b in zip(point, axis, strict=True)) for axis in camera[:2]]
 
     op = str(raster["op"])
     last = len(raster["moves"]) if last is None else last

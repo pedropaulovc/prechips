@@ -17,7 +17,7 @@ from prechips.report import build_report, canonical_bytes, report_hash
 
 
 @pytest.fixture
-def reported_cone(placed_cone):
+def reported_cone(placed_cone):  # noqa: F811 - shared host-only fixture
     """Inject facts at the host consumer boundary; never invoke a native kernel."""
     request = resolve_placements(placed_cone)[0]
     fact = {
@@ -218,9 +218,7 @@ def test_unproved_report_exposes_request_and_reason_but_no_native_success(report
         ("shape", "faces", {}),
     ],
 )
-def test_incomplete_native_evidence_is_not_published_as_success(
-    reported_cone, owner, field, value
-):
+def test_incomplete_native_evidence_is_not_published_as_success(reported_cone, owner, field, value):
     kernel = deepcopy(reported_cone.kernel)
     target = kernel["axis_placements"][0] if owner == "fact" else kernel["process_shape"]
     target[field] = value
@@ -288,9 +286,10 @@ def test_definition_identity_binds_manifest_and_complete_resolved_request(report
         "requested_axis_placements": resolve_placements(bundle),
     }
     assert shape["status"] == "pass"
-    assert shape["process_definition_sha256"] == hashlib.sha256(
-        canonical_bytes(definition)
-    ).hexdigest()
+    assert (
+        shape["process_definition_sha256"]
+        == hashlib.sha256(canonical_bytes(definition)).hexdigest()
+    )
     assert (
         before["manufacturing_shape"]["process_definition_sha256"]
         != shape["process_definition_sha256"]

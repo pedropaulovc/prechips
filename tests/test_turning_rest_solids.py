@@ -89,7 +89,11 @@ def test_follow_rest_jaw_clears_the_toolpost_only_at_its_body_edge(engine, shaft
     results = dict(zip(leads, ops, strict=True))
     count = results[37.4]["sample_count"]
     assert results[36.9]["holder_hits"] == count
-    assert 0 < results[37.39]["holder_hits"] < results[37.0]["holder_hits"] < count
+    # The sharp control has no intermediate CAD-fillet normals. Its four shoulder
+    # poses all shift the nose centre by the full R0.4; journal poses have no Z shift.
+    # Thus both intermediate leads meet exactly those four poses, not a curved ramp.
+    assert results[37.39]["holder_hits"] == results[37.0]["holder_hits"] == 4
+    assert 4 < count
     for lead in (36.9, 37.0, 37.39):
         # The jaw stands beside the toolpost body, above the insert's axial reach.
         assert results[lead]["obstacles"] == {"tool": [], "holder": [REST]}

@@ -346,11 +346,7 @@ def op_claims(bundle, facts, setup, op):
             or not set(indices) <= {mapped[ref] for ref in refs}
         ):
             return None, away, []
-    if (
-        op.get("do") in {"rough_turn", "finish_turn"}
-        and "to_dia" in op
-        and op.get("to_z") is None
-    ):
+    if op.get("do") in {"rough_turn", "finish_turn"} and "to_dia" in op and op.get("to_z") is None:
         return _turn_attained(bundle, setup, op, detail, indices), away, []
     if (
         op.get("do") in PROFILE_OPS
@@ -508,8 +504,7 @@ def manual_raster_candidates(bundle, facts, setup, op):
     if registered_workpieces(bundle):
         members = operation_members(bundle, setup, op)
         if not members or any(
-            member_protection_status(bundle, setup, member, facts) is not True
-            for member in members
+            member_protection_status(bundle, setup, member, facts) is not True for member in members
         ):
             return None
     return {mapping[ref] for ref in refs}
@@ -525,7 +520,9 @@ def manual_raster_union(facts, category, indices):
     entry = record(record(facts.get("manual_raster_coverage")).get(category))
     faces = {row["index"]: row for row in _face_rows(facts.get("faces"))}
     listed, gap_rows, unknown_rows = (
-        entry.get("complete_indices"), entry.get("gaps"), entry.get("unknown")
+        entry.get("complete_indices"),
+        entry.get("gaps"),
+        entry.get("unknown"),
     )
     valid = (
         isinstance(listed, list)
@@ -558,9 +555,7 @@ def manual_raster_union(facts, category, indices):
         face = faces.get(index, {})
         ref = face.get("ref") or f"imported face index {index}"
         if face.get("workpiece_id"):
-            ref = face_identity_text(
-                (face["workpiece_id"], face.get("canonical_ref") or ref)
-            )
+            ref = face_identity_text((face["workpiece_id"], face.get("canonical_ref") or ref))
         if index in unknown:
             unresolved[index] = {**unknown[index], "ref": ref}
         elif index in gaps:

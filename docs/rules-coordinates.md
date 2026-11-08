@@ -1694,12 +1694,19 @@ they remain errors and retain `mounted_saw_trajectory` evidence.
 The rough stage of an `axial_table` op (a `form_*` op with
 `rough_allowance_mm`, or a `rough_*` op) is a `stair_tables` entry, not the
 finished table. Each row faces in at a finish-table Z below the apex to the X
-where the sphere grown by half the diametral allowance crosses it, so every
-stair corner (the imaginary-tip reading) stays that far off the dome; rows at or
-past the base radius are dropped. An apex toward the chuck, or a window whose
+where the sphere grown by half the diametral-equivalent allowance crosses it.
+The stair leaves at least half that allowance normal to the nominal reference
+sphere, not a constant radial offset; rows at or past the base radius are dropped.
+An apex toward the chuck, or a window whose
 base the sphere cannot reach (cap taller than its diameter), has no stair
 (`unknown`). The finish table prints its row-to-row order for an apex-to-base
 convex dome: X out to the next row first, then Z toward the chuck.
+
+When the coordinate facts include that finish table for a `form_dome` op with
+a rough allowance, its operation heading describes roughing then finishing.
+The stated allowance belongs to the rough stage before that finish, not to
+the completed dome. A declared finish table does not establish physical
+acceptance or waive unresolved stock and clearance findings.
 
 #### Lathe X display mode
 

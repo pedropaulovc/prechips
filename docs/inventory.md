@@ -838,18 +838,18 @@ Per-primitive `supply` is:
 
 #### Make-table precision and notes
 
-Sizes and positions use the DRO grid on which they are made: the shop mill
-grid when all machines of kind `mill` share one grid, otherwise the setup
-machine grid. Ordinary dimensions use policy `numbers.fixture_make_decimals`.
-A primitive with `locates`, every bore cut in it and shim nominals use drawing
-precision, or grid-step precision if drawing precision is missing, finer than
-the grid or off-grid. Either a primitive or its bore may be the locating
-surface.
+Make-table sizes and positions preserve the source dimensions, including fine
+seat depths, gaps and bore diameters. Display precision and the DRO grid do not
+round a manufacturing target into a different dimension. Calculation residue
+from placing a solid is suppressed, not its meaningful digits.
 
-A position coincident with a fit on the same sheet uses the fit value, such as
-a pin's hole or a bolt hole above a locating pad. If grid rounding moves a fit
-beyond `general_tolerances.linear_<n>pl`, or that tolerance is undeclared, the
-table prints `?` and a reason. It never silently moves the hole.
+A primitive with `locates`, every bore cut in it and shim nominals retain the
+fit feasibility check against the fixture-making mill grid (the setup grid
+when the shop's mills do not share one). A position coincident with a fit uses
+the same source value. If grid rounding would move a fit beyond
+`general_tolerances.linear_<n>pl`, or that tolerance is undeclared, the table
+prints `?` and a reason. A feasible fit still prints its original target, not
+the rounded grid point.
 
 `locates = "<part face>"` and `fastener = "<thread / fastener>"` populate the
 Locates and Fastener columns. `shim = true` marks an adjustable shim stack.

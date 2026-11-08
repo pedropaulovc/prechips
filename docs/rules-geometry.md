@@ -712,6 +712,13 @@ intersects the actual incoming solid, including an eccentric rectangular blank;
 the blank is never replaced by a cylinder inferred from its swing envelope.
 Subsequent operations consume the resulting real stock.
 
+At a bounded external single-point rough or finish turn's start, raw stock beyond
+the declared entry window may overlap only the actual nose or insert-edge hull.
+If the entry removal is not represented, the result is unknown and held:
+after-stock, attainment and downstream clearance are not credited. No flare or
+sweep is invented. Known collisions with protected core, other features,
+noncutting head, holder, fixture or stock on the opposite side remain errors.
+
 An explicit cylinder is refused if it intrudes into component-owned finished
 material beyond BRep coincidence precision; subtracting that material back out
 must not silently turn an undersize command into a different cut. This source
@@ -3637,6 +3644,13 @@ clash; model the hole as a `void`. Numbers: `clashes` and `undrawn`.
 Unknown in-process stock, frame or hold inputs stay `?` as for `vise`. The
 rule checks declared geometry only: it does not prove the clamp sequence,
 torque, or that the shop's real fixture matches its record.
+
+The setup sheet calls an `error` a holding collision. An `unknown` or
+`unsupported` result instead says that holding clearance is unverified and
+requires the stock and holding information before execution; it does not turn
+an unresolved upstream-stock reason into a physical clash or material-loss
+claim. Independent error findings still block execution, and the report keeps
+the full diagnostic evidence.
 
 ## Renders
 

@@ -742,7 +742,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -2769,7 +2769,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -4796,7 +4796,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -9367,7 +9367,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1a:20",
-                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                    "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                     "setup": "C1a",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -11399,7 +11399,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1a:20",
-                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                      "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                       "setup": "C1a",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -13648,7 +13648,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C1b:10",
-                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                    "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                     "setup": "C1b",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -15680,7 +15680,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C1b:10",
-                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                      "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                       "setup": "C1b",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -17929,7 +17929,7 @@
                 "fixture_clearance": {
                   "binding": {
                     "op": "C2:10",
-                    "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                    "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                     "setup": "C2",
                     "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                   },
@@ -19965,7 +19965,7 @@
                   "fixture_clearance": {
                     "binding": {
                       "op": "C2:10",
-                      "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                      "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                       "setup": "C2",
                       "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                     },
@@ -43401,7 +43401,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -45428,7 +45428,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -47455,7 +47455,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -51064,7 +51064,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1a:20",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1a",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -53091,7 +53091,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C1b:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C1b",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -55118,7 +55118,7 @@
           "fixture_clearance": {
             "binding": {
               "op": "C2:10",
-              "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+              "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
               "setup": "C2",
               "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
             },
@@ -74150,7 +74150,7 @@
                   "stock_top_mm": 113.66500000000002
                 },
                 "reasons": [],
-                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+                "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -74175,9 +74175,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+                  "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                  "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -74238,7 +74238,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+              "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -74263,9 +74263,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+                "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -75382,7 +75382,7 @@
                   "stock_top_mm": 113.66500000000002
                 },
                 "reasons": [],
-                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+                "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -75407,9 +75407,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+                  "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                  "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -75470,7 +75470,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+              "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -75495,9 +75495,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+                "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -75665,7 +75665,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -77720,7 +77720,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -80657,7 +80657,7 @@
                 "stock_top_mm": 113.66500000000002
               },
               "reasons": [],
-              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+              "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -80682,9 +80682,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+                "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -80745,7 +80745,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+            "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -80770,9 +80770,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "e3de03b8a17b8fbc3f2954c6e82778cd08db89185996c7b7acc6c3ff3b2a7a0b",
+              "recipe_id": "5a4462e6cd5c54781476fbb4f0eb45439fd0880a582385f5172a521c155555f7",
               "retract_clearance_mm": 12.7,
-              "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+              "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -81829,7 +81829,7 @@
                 "stock_top_mm": 113.66500000000002
               },
               "reasons": [],
-              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+              "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -81854,9 +81854,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+                "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+                "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -81917,7 +81917,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+            "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -81942,9 +81942,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "c60c95e01364adcbffb4d0d00feae43e2ba2f005778cb6eeb293358f7d5b6e63",
+              "recipe_id": "d300179af25bd8f1e40850edb51517de647030cbd29858734da3b3e284f5ef07",
               "retract_clearance_mm": 12.7,
-              "scene_id": "071e8a826e3cf760c64f5b63de36707629b48263791b82531e9c453625cf552d",
+              "scene_id": "385a85b135bbeb18addb523a28c631093fcb81aeca1c8ffc8a272a370576c4a7",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -83075,7 +83075,7 @@
                   "stock_top_mm": 84.45500000000001
                 },
                 "reasons": [],
-                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+                "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -83100,9 +83100,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+                  "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                  "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -83163,7 +83163,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+              "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -83188,9 +83188,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+                "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -84307,7 +84307,7 @@
                   "stock_top_mm": 84.45500000000001
                 },
                 "reasons": [],
-                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+                "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -84332,9 +84332,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+                  "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                  "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -84395,7 +84395,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+              "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -84420,9 +84420,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+                "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -84590,7 +84590,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -86645,7 +86645,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -89582,7 +89582,7 @@
                 "stock_top_mm": 84.45500000000001
               },
               "reasons": [],
-              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+              "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -89607,9 +89607,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+                "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -89670,7 +89670,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+            "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -89695,9 +89695,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "cab475e9fc105377a497fa65e52087df6cadb92c168ef488e69e3a5ca48542ce",
+              "recipe_id": "8761bd669bf6a18278886884ebb36b13bd5d688ce15f9e166b18f7a3fcbb603b",
               "retract_clearance_mm": 12.7,
-              "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+              "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -90754,7 +90754,7 @@
                 "stock_top_mm": 84.45500000000001
               },
               "reasons": [],
-              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+              "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -90779,9 +90779,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+                "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+                "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -90842,7 +90842,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+            "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -90867,9 +90867,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "b367060fb0acccbd892586260d1c02d7ea2a7360ca8c9db44ab9ea21bdef29c2",
+              "recipe_id": "d834a169d20e54724a088ba47ec141706a1c5060ba6686a8d6a18865b2fdfc7a",
               "retract_clearance_mm": 12.7,
-              "scene_id": "90142fa7a42f9d93e6b0b1d5c72abc74739b4bd6fcdd16a17933a4056a148204",
+              "scene_id": "03f76a6934d08ab88a134f8f0197d5f36ff848bac0cf2e9bb14b5f674565fff2",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -92022,7 +92022,7 @@
                   "stock_top_mm": 55.245000000000005
                 },
                 "reasons": [],
-                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+                "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -92047,9 +92047,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+                  "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                  "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                   "surface": {
                     "face": "stock:-x",
                     "kind": "stock",
@@ -92110,7 +92110,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+              "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -92135,9 +92135,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+                "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -93276,7 +93276,7 @@
                   "stock_top_mm": 55.245000000000005
                 },
                 "reasons": [],
-                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+                "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -93301,9 +93301,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+                  "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                  "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                   "surface": {
                     "face": "stock:-y",
                     "kind": "stock",
@@ -93364,7 +93364,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+              "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -93389,9 +93389,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+                "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -93559,7 +93559,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -95618,7 +95618,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -98581,7 +98581,7 @@
                 "stock_top_mm": 55.245000000000005
               },
               "reasons": [],
-              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+              "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -98606,9 +98606,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+                "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                 "surface": {
                   "face": "stock:-x",
                   "kind": "stock",
@@ -98669,7 +98669,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+            "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -98694,9 +98694,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "96a02671c0275c8fae507175d49e2b6615adab5ff9c9408514867f048f812f59",
+              "recipe_id": "ccd01225c0395023c4acd65ed72367eda164aa068cdd917bb29fb311a34c10a3",
               "retract_clearance_mm": 12.7,
-              "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+              "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
               "surface": {
                 "face": "stock:-x",
                 "kind": "stock",
@@ -99775,7 +99775,7 @@
                 "stock_top_mm": 55.245000000000005
               },
               "reasons": [],
-              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+              "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -99800,9 +99800,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+                "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+                "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
                 "surface": {
                   "face": "stock:-y",
                   "kind": "stock",
@@ -99863,7 +99863,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+            "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -99888,9 +99888,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "ca1d5f8f550aa0f4ee6c9b436a554c8d147756a9ded56944adeefef4fb961e97",
+              "recipe_id": "2a6262eccc1cc76a48394c08abf6ac68375517f2964bd6c71cc351986705e5a3",
               "retract_clearance_mm": 12.7,
-              "scene_id": "0fd1d1c56c621949acb67ae859351d5881749eb4fe2373c733b42ef3be7a1ac7",
+              "scene_id": "708be190e26693315086998517b57914dde816629146ad07e74726d0a73194a6",
               "surface": {
                 "face": "stock:-y",
                 "kind": "stock",
@@ -101435,7 +101435,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+                "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -101460,9 +101460,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+                  "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                  "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -101523,7 +101523,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+              "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -101548,9 +101548,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+                "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -102366,7 +102366,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+                "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -102385,9 +102385,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+                  "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                  "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -102470,7 +102470,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+              "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
               "request": {
                 "at_mm": [
                   0.0,
@@ -102489,9 +102489,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+                "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -103317,7 +103317,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+              "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -103342,9 +103342,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+                "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -103405,7 +103405,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+            "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -103430,9 +103430,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "0bbfc517794c7adf91de7001b03b61f5919b60ee42c8c0340b2884678fd22f87",
+              "recipe_id": "08c10834eec06d63550160aff7fc4f13965bacf5fa0d7c7e6e6a1542ef1ccbc0",
               "retract_clearance_mm": 12.7,
-              "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+              "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -104162,7 +104162,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+              "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
               "request": {
                 "at_mm": [
                   0.0,
@@ -104181,9 +104181,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+                "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+                "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -104266,7 +104266,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+            "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
             "request": {
               "at_mm": [
                 0.0,
@@ -104285,9 +104285,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "d9be341c1cca54f5f945275b0f903226466b42459113845fc893cd774100e47b",
+              "recipe_id": "1943015a8e23167f8f922f79c8224e170fd55d8bc0b5bcb08143ea30e7f6288d",
               "retract_clearance_mm": 12.7,
-              "scene_id": "165e3fd97f30962e9b1ff28243ee4950cbea323273d33d6a4f4333c0afa5fb84",
+              "scene_id": "a5be477af757889ea4f88575f1692caf61ac7c54825a8440d67f729efec3fd92",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -105167,7 +105167,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+                "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -105192,9 +105192,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+                  "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                  "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -105255,7 +105255,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+              "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -105280,9 +105280,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+                "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -106102,7 +106102,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+                "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -106121,9 +106121,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+                  "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                  "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -106206,7 +106206,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+              "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
               "request": {
                 "at_mm": [
                   0.0,
@@ -106225,9 +106225,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+                "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -107053,7 +107053,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+              "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -107078,9 +107078,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+                "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -107141,7 +107141,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+            "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -107166,9 +107166,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "921aafd3f605709a9ac9cff953daf5c6ce2f6100c5c25b2dadf13f8ee4ef290b",
+              "recipe_id": "0fa9f0182aa13ec1f9a7bbc107d435283e2b7203ef5bf1af0479378b47008664",
               "retract_clearance_mm": 12.7,
-              "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+              "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -107902,7 +107902,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+              "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
               "request": {
                 "at_mm": [
                   0.0,
@@ -107921,9 +107921,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+                "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+                "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -108006,7 +108006,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+            "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
             "request": {
               "at_mm": [
                 0.0,
@@ -108025,9 +108025,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "ff3f6100eec841a025f89d51f3711ee92a386d182fc72cb861fd1a0256bf3ddb",
+              "recipe_id": "728f9abf2ed0a2796a643ec56c2321507d8afabe0dd6d447970fc7f46797733a",
               "retract_clearance_mm": 12.7,
-              "scene_id": "0d5c1de6822e6ac109a8ded66714435d98162da72dbff289812c5749dca50a5c",
+              "scene_id": "cdb159c5ca2301d4e3d36b8644d9b693286ba4927343e5b3adc689a96f9f49d8",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -108907,7 +108907,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+                "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -108932,9 +108932,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+                  "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                  "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -108995,7 +108995,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+              "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -109020,9 +109020,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+                "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -109846,7 +109846,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+                "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -109865,9 +109865,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+                  "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                  "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -109950,7 +109950,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+              "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
               "request": {
                 "at_mm": [
                   0.0,
@@ -109969,9 +109969,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+                "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -110797,7 +110797,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+              "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -110822,9 +110822,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+                "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -110885,7 +110885,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+            "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -110910,9 +110910,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "25d6fe15b6fb56ee515c228bce3c83352d98317ab24413453daa23ba0b42d7b3",
+              "recipe_id": "62c8bfd1ea9fd31f4d68d68fb750d7c5e42e36a28ac52306324922ba8071a0bc",
               "retract_clearance_mm": 12.7,
-              "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+              "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -111650,7 +111650,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+              "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
               "request": {
                 "at_mm": [
                   0.0,
@@ -111669,9 +111669,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+                "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+                "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -111754,7 +111754,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+            "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
             "request": {
               "at_mm": [
                 0.0,
@@ -111773,9 +111773,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "a183ae3c980de590b43789ecc6f8635c321185a8d1e9b7533a4358cbd8ee9f5d",
+              "recipe_id": "9983f69e5083b572c9988e8f8e62ccfe5888b6d0e6ca0394fa50f1372f09ed07",
               "retract_clearance_mm": 12.7,
-              "scene_id": "1c0042224f60e8bf8af3f1202f9a33ecc7beda0bdda92a00bccdb771d12530c3",
+              "scene_id": "95dbcb8f3252f65d987d8582e04c0f43c46179c313ac3a085edd9e2ab4fb7b04",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -112655,7 +112655,7 @@
                   "stock_top_mm": 0.0
                 },
                 "reasons": [],
-                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+                "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
                 "request": {
                   "approach_mm": 2.54,
                   "at_mm": [
@@ -112680,9 +112680,9 @@
                   "method": "unknown",
                   "model": "transverse_finder_v1",
                   "reasons": [],
-                  "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+                  "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                  "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                   "surface": {
                     "face": "#304/ADVANCED_FACE[10]/",
                     "kind": "stock",
@@ -112743,7 +112743,7 @@
                 }
               },
               "reasons": [],
-              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+              "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -112768,9 +112768,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+                "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -113594,7 +113594,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+                "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
                 "request": {
                   "at_mm": [
                     0.0,
@@ -113613,9 +113613,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+                  "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                  "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -113698,7 +113698,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+              "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
               "request": {
                 "at_mm": [
                   0.0,
@@ -113717,9 +113717,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+                "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -114545,7 +114545,7 @@
                 "stock_top_mm": 0.0
               },
               "reasons": [],
-              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+              "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
               "request": {
                 "approach_mm": 2.54,
                 "at_mm": [
@@ -114570,9 +114570,9 @@
                 "method": "unknown",
                 "model": "transverse_finder_v1",
                 "reasons": [],
-                "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+                "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                 "surface": {
                   "face": "#304/ADVANCED_FACE[10]/",
                   "kind": "stock",
@@ -114633,7 +114633,7 @@
               }
             },
             "reasons": [],
-            "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+            "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
             "request": {
               "approach_mm": 2.54,
               "at_mm": [
@@ -114658,9 +114658,9 @@
               "method": "unknown",
               "model": "transverse_finder_v1",
               "reasons": [],
-              "recipe_id": "6d188e2473f5e1c3cfda6c566f45e13fd4dc82c8c407f6052489caac002d0755",
+              "recipe_id": "0cda7cdadf4e523df752a5270ac91bd11c1de5f872694417217583bcf57f3fac",
               "retract_clearance_mm": 12.7,
-              "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+              "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
               "surface": {
                 "face": "#304/ADVANCED_FACE[10]/",
                 "kind": "stock",
@@ -115398,7 +115398,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+              "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
               "request": {
                 "at_mm": [
                   0.0,
@@ -115417,9 +115417,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+                "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+                "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -115502,7 +115502,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+            "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
             "request": {
               "at_mm": [
                 0.0,
@@ -115521,9 +115521,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "140af623ea3c11210b05cb8688213c87ff652c0aad7b0e9146396373a29cd774",
+              "recipe_id": "a01ec4da630c4323811900ec0378c072a64c9268384849c8ab722d232f55d65f",
               "retract_clearance_mm": 12.7,
-              "scene_id": "b2889a94f70fdf3fd5080858e78ee3871e88dac535f9d9ba6386737529a1a3fb",
+              "scene_id": "71caedc581bbcf6cbd15acccfc39d312792539712c86312f024ecc62675d1990",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -116342,7 +116342,7 @@
                 },
                 "physical_upper_bound_mm": 1.5875,
                 "reasons": [],
-                "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+                "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -116361,9 +116361,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+                  "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "6cb99153ee421cc29341f93d5671c5012939cd0bf107f9dcffda03220a5bbf0c",
+                  "scene_id": "262c0fea50263a08effe3a2af82f0c882811ef42bd7db6b391df24f4a0fea967",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -116445,7 +116445,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+              "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -116464,9 +116464,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+                "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "6cb99153ee421cc29341f93d5671c5012939cd0bf107f9dcffda03220a5bbf0c",
+                "scene_id": "262c0fea50263a08effe3a2af82f0c882811ef42bd7db6b391df24f4a0fea967",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -117072,7 +117072,7 @@
               },
               "physical_upper_bound_mm": 1.5875,
               "reasons": [],
-              "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+              "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -117091,9 +117091,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+                "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "6cb99153ee421cc29341f93d5671c5012939cd0bf107f9dcffda03220a5bbf0c",
+                "scene_id": "262c0fea50263a08effe3a2af82f0c882811ef42bd7db6b391df24f4a0fea967",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -117175,7 +117175,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+            "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
             "request": {
               "at_mm": [
                 44.1325,
@@ -117194,9 +117194,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "c4bea92c06fb156d0fae8cad3b9484ae3937239d90ad2e81a242fc53886986ed",
+              "recipe_id": "b2221f457d056a642786cf1b38fd0b8228c297d6cf9ae8902b2ef03542aee7e0",
               "retract_clearance_mm": 12.7,
-              "scene_id": "6cb99153ee421cc29341f93d5671c5012939cd0bf107f9dcffda03220a5bbf0c",
+              "scene_id": "262c0fea50263a08effe3a2af82f0c882811ef42bd7db6b391df24f4a0fea967",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -117950,7 +117950,7 @@
                 },
                 "physical_upper_bound_mm": 1.5874999999999986,
                 "reasons": [],
-                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+                "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
                 "request": {
                   "at_mm": [
                     -44.1325,
@@ -117969,9 +117969,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+                  "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
+                  "scene_id": "2c9d4a8cdf7e1f39a0c27765392158ea037f57eaeb4df38e28098946dc4ae77d",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -118053,7 +118053,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+              "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
               "request": {
                 "at_mm": [
                   -44.1325,
@@ -118072,9 +118072,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+                "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
+                "scene_id": "2c9d4a8cdf7e1f39a0c27765392158ea037f57eaeb4df38e28098946dc4ae77d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -118702,7 +118702,7 @@
               },
               "physical_upper_bound_mm": 1.5874999999999986,
               "reasons": [],
-              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+              "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
               "request": {
                 "at_mm": [
                   -44.1325,
@@ -118721,9 +118721,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+                "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
+                "scene_id": "2c9d4a8cdf7e1f39a0c27765392158ea037f57eaeb4df38e28098946dc4ae77d",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -118805,7 +118805,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+            "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
             "request": {
               "at_mm": [
                 -44.1325,
@@ -118824,9 +118824,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "cc0f9c1b4d7aab9f179c77e41ec93dafe91413f2b3615240a3e42449584743f5",
+              "recipe_id": "7569077c39714cae02bbbfe5e5d72afd74932153a20ee33cafbadfdc29223648",
               "retract_clearance_mm": 12.7,
-              "scene_id": "6a707988015919e22541e6edefdb9629709b38439a1329734e739a175b00e1c3",
+              "scene_id": "2c9d4a8cdf7e1f39a0c27765392158ea037f57eaeb4df38e28098946dc4ae77d",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -119558,7 +119558,7 @@
                 },
                 "physical_upper_bound_mm": 1.5875000000000112,
                 "reasons": [],
-                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+                "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -119577,9 +119577,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+                  "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
+                  "scene_id": "70f2b2e1a0fd81c3bcfea686b5d91b705be56f38ac4cc53e6d3cf445eede2377",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -119661,7 +119661,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+              "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -119680,9 +119680,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+                "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
+                "scene_id": "70f2b2e1a0fd81c3bcfea686b5d91b705be56f38ac4cc53e6d3cf445eede2377",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -120288,7 +120288,7 @@
               },
               "physical_upper_bound_mm": 1.5875000000000112,
               "reasons": [],
-              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+              "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -120307,9 +120307,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+                "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
+                "scene_id": "70f2b2e1a0fd81c3bcfea686b5d91b705be56f38ac4cc53e6d3cf445eede2377",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -120391,7 +120391,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+            "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
             "request": {
               "at_mm": [
                 44.1325,
@@ -120410,9 +120410,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "bd92ceafe998225fbb3e7b64f3f1cf71be6cbb8d6e1b9690cad2e07a1cbcefb8",
+              "recipe_id": "b3261d2b91dfd861b2bd5d16bbdb32ec662bf6c2c71449985911ff6a04e01a6d",
               "retract_clearance_mm": 12.7,
-              "scene_id": "ac32ced8944bc18119e4c3c03a9a5aeb8bd42b84dca3ec16c56c1aadf2fb5841",
+              "scene_id": "70f2b2e1a0fd81c3bcfea686b5d91b705be56f38ac4cc53e6d3cf445eede2377",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -121153,7 +121153,7 @@
                 },
                 "physical_upper_bound_mm": 1.5875000000000004,
                 "reasons": [],
-                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+                "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -121172,9 +121172,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+                  "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
+                  "scene_id": "5c9873a0e72e114a26fb9a7204f9808dd21fa3866339c3ef4b87546b5f2358b3",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -121256,7 +121256,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+              "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -121275,9 +121275,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+                "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
+                "scene_id": "5c9873a0e72e114a26fb9a7204f9808dd21fa3866339c3ef4b87546b5f2358b3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -121883,7 +121883,7 @@
               },
               "physical_upper_bound_mm": 1.5875000000000004,
               "reasons": [],
-              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+              "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -121902,9 +121902,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+                "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
+                "scene_id": "5c9873a0e72e114a26fb9a7204f9808dd21fa3866339c3ef4b87546b5f2358b3",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -121986,7 +121986,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+            "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
             "request": {
               "at_mm": [
                 44.1325,
@@ -122005,9 +122005,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "c9832114439d2fe4bdd95195d6dc4b0f038a6fc9980860b82ebab6ee1f84767d",
+              "recipe_id": "8651b5b65fb095704a389d24b0c120baaa6527863249a3f9ec0a2275c265ca93",
               "retract_clearance_mm": 12.7,
-              "scene_id": "f04996f3cf3e1dedc24387c8d87c50dc287a03f3b6584a3f09660085068227e1",
+              "scene_id": "5c9873a0e72e114a26fb9a7204f9808dd21fa3866339c3ef4b87546b5f2358b3",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -122748,7 +122748,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+                "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
                 "request": {
                   "at_mm": [
                     44.1325,
@@ -122767,9 +122767,9 @@
                   "paper_mm": 0.0508,
                   "position": 0,
                   "reasons": [],
-                  "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+                  "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                  "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -122853,7 +122853,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+              "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -122872,9 +122872,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+                "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -123496,7 +123496,7 @@
                 },
                 "physical_upper_bound_mm": 0.0,
                 "reasons": [],
-                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+                "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
                 "request": {
                   "after_op": 10,
                   "at_mm": [
@@ -123519,9 +123519,9 @@
                   "paper_mm": 0.0508,
                   "position": 1,
                   "reasons": [],
-                  "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+                  "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
                   "retract_clearance_mm": 12.7,
-                  "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                  "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                   "surface": {
                     "face": "stock:+z",
                     "kind": "stock",
@@ -123605,7 +123605,7 @@
                 ]
               },
               "reasons": [],
-              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+              "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
               "request": {
                 "after_op": 10,
                 "at_mm": [
@@ -123628,9 +123628,9 @@
                 "paper_mm": 0.0508,
                 "position": 1,
                 "reasons": [],
-                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+                "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -124229,7 +124229,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+              "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
               "request": {
                 "after_op": 10,
                 "at_mm": [
@@ -124252,9 +124252,9 @@
                 "paper_mm": 0.0508,
                 "position": 1,
                 "reasons": [],
-                "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+                "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -124338,7 +124338,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+            "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
             "request": {
               "after_op": 10,
               "at_mm": [
@@ -124361,9 +124361,9 @@
               "paper_mm": 0.0508,
               "position": 1,
               "reasons": [],
-              "recipe_id": "fc5950b9f601807c15a08f81d9f7d80cf2f677447aab18a6b63b37ca0ee817ec",
+              "recipe_id": "8fa689baf6286bdf40a1ac46fa3e23f234ae86d80ec7c3812d378b1c6c76c0bf",
               "retract_clearance_mm": 12.7,
-              "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+              "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -124953,7 +124953,7 @@
               },
               "physical_upper_bound_mm": 0.0,
               "reasons": [],
-              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+              "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
               "request": {
                 "at_mm": [
                   44.1325,
@@ -124972,9 +124972,9 @@
                 "paper_mm": 0.0508,
                 "position": 0,
                 "reasons": [],
-                "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+                "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
                 "retract_clearance_mm": 12.7,
-                "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+                "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
                 "surface": {
                   "face": "stock:+z",
                   "kind": "stock",
@@ -125058,7 +125058,7 @@
               ]
             },
             "reasons": [],
-            "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+            "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
             "request": {
               "at_mm": [
                 44.1325,
@@ -125077,9 +125077,9 @@
               "paper_mm": 0.0508,
               "position": 0,
               "reasons": [],
-              "recipe_id": "67ada1a634bee1f3a143a0aded1aa2e1553caad95a9f352a99118e73f1e10e3c",
+              "recipe_id": "79204d3b15cf0da1b621cd8839862e61570b58b64662f2f8b77801e60dfc0dc5",
               "retract_clearance_mm": 12.7,
-              "scene_id": "c90121da1074c1b7c08b1c7597155c1a3583d8b4091295ac80c324e2ca426a4d",
+              "scene_id": "3fb1e24dd8d912534685654a4f2e207f4d0f33080a60bd5db06cc637b99e7e53",
               "surface": {
                 "face": "stock:+z",
                 "kind": "stock",
@@ -125163,7 +125163,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "61ab52d998f51f269e08b47c7813f14d4a567c8d0a3f93b4aa0b46503c9277fd",
+  "hash": "7ea6fb1a8ce54d846c5af4463d6e1d680802cc34d17366214d492aad6d07c88f",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
@@ -126400,7 +126400,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1a:20",
-            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+            "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
             "setup": "C1a",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -126893,7 +126893,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1a:20",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1a",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -129872,7 +129872,7 @@
         "closest_cut": {
           "binding": {
             "op": "C1b:10",
-            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+            "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
             "setup": "C1b",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -130365,7 +130365,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C1b:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C1b",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },
@@ -133330,7 +133330,7 @@
         "closest_cut": {
           "binding": {
             "op": "C2:10",
-            "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+            "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
             "setup": "C2",
             "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
           },
@@ -133829,7 +133829,7 @@
               "fixture_clearance": {
                 "binding": {
                   "op": "C2:10",
-                  "request_sha256": "9768fa37c732e93c0a67b3b5be90538e0aa7b595244036de28c54260645dd750",
+                  "request_sha256": "80603a5d95d615a7c3123b7643b89425157d95c44355b3d2ad2b0b1b8d479995",
                   "setup": "C2",
                   "step_sha256": "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
                 },

@@ -3861,6 +3861,104 @@ def test_a_wrapped_key_keeps_its_lines_apart_however_its_lane_spaces_the_rows(co
     ), lane
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_lathe_jaws_have_one_visible_solid_key_and_unlabelled_headstock_outline(reverse):
+    """Synthetic solids exercise the real raster; native R3 acceptance is separate."""
+    stock = [-8, -8, -60, 8, 8, 70]
+    boxes = [
+        ("body", "chuck_body", [-30, -20, -90, 30, 20, -65]),
+        ("upper", "chuck_jaw", [10, -20, -60, 22, -12, -45]),
+        ("lower", "chuck_jaw", [-22, -20, -55, -10, -12, -40]),
+        # Farthest right geometrically, but entirely behind the arriving stock.
+        ("hidden", "chuck_jaw", [-5, 10, 10, 5, 15, 20]),
+    ]
+    components = [
+        {
+            "name": name,
+            "role": role,
+            "box_mm": box,
+            "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+            "meshes": [f"fx:{name}"],
+        }
+        for name, role, box in boxes
+    ]
+    meshes = [_block(stock, (160, 175, 185), "part")] + [
+        _block(box, (120, 130, 140), f"fx:{name}") for name, _, box in boxes
+    ]
+    if reverse:
+        components.reverse()
+        meshes.reverse()
+    spec = {
+        "setup_id": "JAWKEY",
+        "view": "lathe",
+        "stock_box": stock,
+        "chuck_name": "CHUCK",
+        "components": components,
+    }
+    diagram, png = _composed_diagram(meshes, spec)
+    width, _, pixels = _decode_png(png)
+    jaws = [item for item in components if item["role"] == "chuck_jaw"]
+    anchors = {
+        item["name"]: diagram._anchor(item["meshes"], diagram.canvas.project(item["center_mm"]))
+        for item in jaws
+    }
+    assert {name for name, point in anchors.items() if point is not None} == {"upper", "lower"}
+    # Either exposed jaw identifies the equivalent solids. Lane routing may move
+    # its landing on that jaw; a rightmost coordinate is not a consumer contract.
+    visible_tags = {
+        tag for item in jaws if anchors[item["name"]] is not None for tag in item["meshes"]
+    }
+    keys = [box for box in diagram.canvas.text_boxes if box[0] == "CHUCK JAWS"]
+    assert len(keys) == 1
+    (leader,) = [path for label, path in diagram.leaders if label == "CHUCK JAWS"]
+    (callout,) = [item for item in diagram.callouts if item.label == "CHUCK JAWS"]
+    assert callout.points == [leader[0]]
+    assert _tag_at(diagram.canvas, *leader[0]) in visible_tags
+    # Independently bound the landing by the named solid's projected geometry,
+    # not merely the number of keys or the anchor selector's own answer.
+    (landed,) = [item for item in jaws if _tag_at(diagram.canvas, *leader[0]) in item["meshes"]]
+    outline = [diagram.canvas.project(point) for point in _corners(landed["box_mm"])]
+    assert min(point[0] for point in outline) < leader[0][0] < max(point[0] for point in outline)
+    assert min(point[1] for point in outline) < leader[0][1] < max(point[1] for point in outline)
+    x, y = (round(value) for value in leader[0])
+    assert tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+    _, left, top, right, bottom = keys[0]
+    assert any(
+        tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) != _WHITE
+        for y in range(top, bottom)
+        for x in range(left, right)
+    )
+    # A recorded endpoint alone is not a leader: its routed stroke reaches the
+    # readable key and has actual fixture-coloured ink between landing and key.
+    assert right < leader[-1][0] < leader[0][0] or leader[0][0] < leader[-1][0] < left
+    assert top <= leader[-1][1] <= bottom
+    a, b = max(zip(leader, leader[1:], strict=False), key=lambda ends: math.dist(*ends))
+    assert math.dist(a, b) > 6  # Beyond the 3 px landing dot.
+    mid_x, mid_y = (round((start + end) / 2) for start, end in zip(a, b, strict=True))
+    assert any(
+        tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3]) == callout.colour
+        for y in range(mid_y - 1, mid_y + 2)
+        for x in range(mid_x - 1, mid_x + 2)
+    )
+    assert not any("HEADSTOCK" in text for text, *_ in diagram.canvas.text_boxes)
+    # The contextual headstock still has its dashed upper edge immediately left
+    # of the chuck envelope: dropping its redundant name must not drop the drawing.
+    chuck_pixels = [
+        diagram.canvas.project(p) for item in components for p in _corners(item["box_mm"])
+    ]
+    edge_x = min(point[0] for point in chuck_pixels) - 100
+    edge_y = (
+        min(point[1] for point in chuck_pixels) + max(point[1] for point in chuck_pixels)
+    ) / 2 - 55
+    strip = [
+        tuple(pixels[(y * width + x) * 3 : (y * width + x) * 3 + 3])
+        for y in range(round(edge_y) - 1, round(edge_y) + 2)
+        for x in range(round(edge_x) + 4, round(edge_x) + 90)
+    ]
+    assert any(pixel != _WHITE for pixel in strip)
+    assert any(pixel == _WHITE for pixel in strip)
+
+
 def test_a_label_naming_points_on_both_sides_leads_from_each_lane_to_its_own_side():
     # One fixture name on both ends of long work: a single key would fan a leader from
     # one lane across the whole picture to the far end.

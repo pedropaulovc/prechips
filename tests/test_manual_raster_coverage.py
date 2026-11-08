@@ -72,8 +72,10 @@ def _row(rule, data):
 
 
 @pytest.mark.parametrize("rule", [coverage, finish_coverage])
-@pytest.mark.parametrize("union,status", [(None, "unknown"), (COMPLETE, "pass"),
-                                         (GAPPED, "error"), (UNRESOLVED, "unknown")])
+@pytest.mark.parametrize(
+    "union,status",
+    [(None, "unknown"), (COMPLETE, "pass"), (GAPPED, "error"), (UNRESOLVED, "unknown")],
+)
 def test_partial_rasters_credit_only_the_exact_union(bundle, rule, union, status):  # noqa: F811
     _rasters(bundle, cut=union)
     row = _row(rule, bundle)
@@ -140,7 +142,13 @@ def test_independent_whole_face_credit_supersedes_partial(bundle, superseder, fi
     _rasters(bundle, cut=GAPPED)
     if superseder == "mill":
         bundle.plan["setups"][0]["ops"].append(
-            {"op": 30, "do": "finish_profile", "feature": "pocket", "tool": "em", "holder": "holder"}
+            {
+                "op": 30,
+                "do": "finish_profile",
+                "feature": "pocket",
+                "tool": "em",
+                "holder": "holder",
+            }
         )
         bundle.kernel["ops"]["S1:30"] = {"claimed_indices": [1], "claim_errors": []}
     else:
@@ -183,13 +191,23 @@ def test_complete_union_for_an_unselected_owner_cannot_credit_it(bundle, rule): 
 def test_rotary_and_manual_partials_never_become_a_combined_union(bundle, rule):  # noqa: F811
     _rasters(bundle, cut=GAPPED)
     bundle.plan["setups"][0]["ops"].append(
-        {"op": 30, "do": "finish_profile", "feature": "pocket", "tool": "em",
-         "holder": "holder", "approach": "rotary", "z_from": 0.0, "z_to": 10.0}
+        {
+            "op": 30,
+            "do": "finish_profile",
+            "feature": "pocket",
+            "tool": "em",
+            "holder": "holder",
+            "approach": "rotary",
+            "z_from": 0.0,
+            "z_to": 10.0,
+        }
     )
     bundle.kernel["ops"]["S1:30"] = {"approach": "rotary", "claimed_indices": [1]}
-    rotary = {"complete_indices": [], "gaps": [
-        {"index": 1, "ref": "#1", "area_mm2": 87.5, "spans": []}
-    ], "unknown": []}
+    rotary = {
+        "complete_indices": [],
+        "gaps": [{"index": 1, "ref": "#1", "area_mm2": 87.5, "spans": []}],
+        "unknown": [],
+    }
     bundle.kernel["rotary_coverage"] = {"cut": rotary, "finish": rotary}
     row = _row(rule, bundle)
     assert row.status == "error"
@@ -229,7 +247,10 @@ def test_raster_approach_requires_its_own_native_model(bundle, reported):  # noq
 def test_unresolved_raster_does_not_poison_an_unrelated_finished_feature(bundle):  # noqa: F811
     _rasters(bundle, cut=UNRESOLVED)
     bundle.features["features"]["other"] = {
-        "kind": "pocket", "faces": ["#2"], "finish_ra": 1.6, "requirements": ["finish_ra"]
+        "kind": "pocket",
+        "faces": ["#2"],
+        "finish_ra": 1.6,
+        "requirements": ["finish_ra"],
     }
     bundle.kernel["features"]["other"] = [2]
     bundle.plan["setups"][0]["ops"].append(

@@ -911,15 +911,24 @@ JOB_PRINT_JS = r"""(() => {
       // inner tbody. That sentinel is not an owner and must not hide the enclosing
       // authored physical-operation list. Nonempty IDs and explicit lists still
       // take precedence at their nearest source boundary.
-      let source = element.closest("[data-setup-id],[data-physical-ops]");
-      while (source && !source.hasAttribute("data-physical-ops") && !source.dataset.setupId) {
-        source = source.parentElement?.closest("[data-setup-id],[data-physical-ops]");
+      const selector = "[data-setup-id],[data-physical-ops],[data-setup-members]";
+      let source = element.closest(selector);
+      while (source && !source.hasAttribute("data-physical-ops")
+          && !source.hasAttribute("data-setup-members") && !source.dataset.setupId) {
+        source = source.parentElement?.closest(selector);
       }
       if (!source) return [];
       const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
         owners = source.hasAttribute("data-physical-ops")
           ? sharedPhysicalOwners(source.dataset.physicalOps)
-          : [physicalOwner(element)].filter((owner) => owner.setup);
+          : source.dataset.setupId ? [physicalOwner(element)].filter((owner) => owner.setup)
+          : (() => {
+            let members;
+            try { members = JSON.parse(source.dataset.setupMembers); } catch { members = []; }
+            return Array.isArray(members) ? members.filter(
+              (setup) => typeof setup === "string" && setup.trim()
+            ).map((setup) => ({ setup, member: "", workpiece: "" })) : [];
+          })();
       return owners.map((owner) => {
         const member = owner.member === owner.workpiece ? "" : owner.member,
           key = JSON.stringify([scope ?? null, owner.setup, member, owner.workpiece]);
@@ -938,7 +947,6 @@ JOB_PRINT_JS = r"""(() => {
         if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
             || !locatorVisible(element)) continue;
         const sourceOwners = sourcePhysicalOwners(element);
-        if (!sourceOwners.length) continue;
         range.selectNode(node);
         if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
         visit(sourceOwners, node, element);
@@ -987,13 +995,19 @@ JOB_PRINT_JS = r"""(() => {
     }
     function finishPageOwners() {
       const starts = [section, ...section.querySelectorAll(".cont-head")],
-        owners = starts.map(() => []), seenSetups = new Set(),
+        owners = starts.map(() => []), openings = starts.map(() => null), seenSetups = new Set(),
         setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
       forEachPhysicalSource((sourceOwners, node, element) => {
         // Retained DOM boundaries, not page-number guesses or interior headings,
         // decide membership. Fragments inherit the original physical metadata.
         const start = starts.findLastIndex((head) => head === element
           || !!(head.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+        // Opening identity headings can be lifted with their nested work. They
+        // identify that work, rather than replacing its operation/member context.
+        if (start >= 0 && !openings[start]
+            && !element.closest("h1,h2,h3,h4,h5,h6,.variant-label")) {
+          openings[start] = { sourceOwners, element };
+        }
         for (const owner of sourceOwners) {
           if (start >= 0 && !owners[start].some((entry) => entry.key === owner.key)) {
             owners[start].push(owner);
@@ -1015,6 +1029,20 @@ JOB_PRINT_JS = r"""(() => {
         head.dataset.ownerRangeStart = first?.setup || "";
         head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
         head.dataset.ownerContinued = String(continued);
+        if (compactRunning) {
+          const context = head.querySelector(".cont-context"), opening = openings[index],
+            openingOwners = opening?.sourceOwners || [],
+            operation = opening?.element.closest("[data-page-context]");
+          // A break can be lifted before a shared or unowned prelude. Its original
+          // setup/op is then not the physical page's opening context. The owner
+          // range below already names all setups; do not repeat an unrelated one.
+          if (context && (context.dataset.pageContext
+              ? operation?.dataset.pageContext !== context.dataset.pageContext
+              : openingOwners.length !== 1
+                || openingOwners[0].setup !== head.dataset.setupId)) {
+            context.remove();
+          }
+        }
         if (!compactRunning) {
           const running = head.querySelector(".cont-title");
           running.querySelector(".cont-physical-title").textContent =

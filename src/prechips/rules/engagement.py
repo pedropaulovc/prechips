@@ -175,13 +175,14 @@ def evaluate(bundle):
             status = "unknown"
             message = "Engagement proxy needs " + ", ".join(missing) + "."
             if over_limit:
-                message = (
-                    f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; "
-                    + (
-                        "manual raster engagement remains unknown. "
-                        + "Engagement proxy needs " + ", ".join(missing) + "."
-                        if manual_raster
-                        else "DOC reduction is unknown without a positive authored axial depth per pass."
+                message = f"Tool projection is {ratio:g}×D, above {_LIMIT_LD}×D; " + (
+                    "manual raster engagement remains unknown. "
+                    + "Engagement proxy needs "
+                    + ", ".join(missing)
+                    + "."
+                    if manual_raster
+                    else (
+                        "DOC reduction is unknown without a positive authored axial depth per pass."
                     )
                 )
         elif over_limit:

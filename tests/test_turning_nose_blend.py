@@ -15,7 +15,6 @@ import pytest
 
 from prechips import kernel
 
-
 _RADIUS = 5.09397
 _NOSE = 0.4
 
@@ -110,9 +109,7 @@ def _excess_primitive(x):
     n, r = _NOSE, _RADIUS
     root = math.sqrt(max(0, n * n - x * x))
     return math.pi * (
-        (2 * r * n + 2 * n * n) * x
-        - x**3 / 3
-        - (r + n) * (x * root + n * n * math.asin(x / n))
+        (2 * r * n + 2 * n * n) * x - x**3 / 3 - (r + n) * (x * root + n * n * math.asin(x / n))
     )
 
 
@@ -141,8 +138,13 @@ def test_terminal_blend_is_exact_retained_excess_not_a_square_or_sharp_end(
     sections = [sign * z for z in (-8.4, -8.3, -8.2, -8.0)]
     bounds = [high, low] if reverse_bounds else [low, high]
     found = _probe(
-        tmp_path, freecad_kernel, op=_op(feed, low, high), bounds=bounds,
-        radius=_RADIUS, geometry=True, sections=sections,
+        tmp_path,
+        freecad_kernel,
+        op=_op(feed, low, high),
+        bounds=bounds,
+        radius=_RADIUS,
+        geometry=True,
+        sections=sections,
     )
     _assert_motion(found, low, high, feed)
     assert found["keep_reason"] is None
@@ -162,9 +164,7 @@ def test_terminal_blend_is_exact_retained_excess_not_a_square_or_sharp_end(
     for section, original_z in zip(found["sections"], (-8.4, -8.3, -8.2, -8.0), strict=True):
         radius = _blend_radius(section["z"], stop, feed) if original_z < -8.1 else _RADIUS
         assert section["area"] == pytest.approx(math.pi * radius**2, abs=1e-6)
-        assert section["excess_area"] == pytest.approx(
-            math.pi * (radius**2 - _RADIUS**2), abs=1e-6
-        )
+        assert section["excess_area"] == pytest.approx(math.pi * (radius**2 - _RADIUS**2), abs=1e-6)
     # The retained part-off plane is inside the blend, and is genuinely oversize.
     assert found["sections"][1]["area"] > math.pi * _RADIUS**2 + 1
     assert found["sections"][-1]["excess_area"] == pytest.approx(0, abs=1e-7)
@@ -177,8 +177,13 @@ def test_real_overtravel_moves_the_blend_into_waste_before_the_kept_plane(
     low, high = (-9.1, -7.0) if feed == -1 else (7.0, 9.1)
     sign = -feed
     found = _probe(
-        tmp_path, freecad_kernel, op=_op(feed, low, high), bounds=[low, high],
-        radius=_RADIUS, geometry=True, sections=[sign * z for z in (-8.9, -8.5, -8.3, -8.0)],
+        tmp_path,
+        freecad_kernel,
+        op=_op(feed, low, high),
+        bounds=[low, high],
+        radius=_RADIUS,
+        geometry=True,
+        sections=[sign * z for z in (-8.9, -8.5, -8.3, -8.0)],
     )
     _assert_motion(found, low, high, feed)
     assert found["keep_reason"] is None
@@ -196,8 +201,13 @@ def test_short_window_has_no_full_radius_contact_and_only_a_truncated_blend(
     low, high = (-8.5, -8.3) if feed == -1 else (8.3, 8.5)
     sign = -feed
     found = _probe(
-        tmp_path, freecad_kernel, op=_op(feed, low, high), bounds=[low, high],
-        radius=_RADIUS, geometry=True, sections=[sign * z for z in (-8.45, -8.4, -8.35)],
+        tmp_path,
+        freecad_kernel,
+        op=_op(feed, low, high),
+        bounds=[low, high],
+        radius=_RADIUS,
+        geometry=True,
+        sections=[sign * z for z in (-8.45, -8.4, -8.35)],
     )
     _assert_motion(found, low, high, feed)
     assert found["motion"]["contact_z_mm"] == []
@@ -212,17 +222,28 @@ def test_short_window_has_no_full_radius_contact_and_only_a_truncated_blend(
     assert found["keep_outside_annulus"] == pytest.approx(0, abs=1e-7)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("radius_mm", None), ("radius_mm", 0), ("radius_mm", "unknown"),
-    ("feed_z", None), ("feed_z", 0), ("feed_z", "unknown"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("radius_mm", None),
+        ("radius_mm", 0),
+        ("radius_mm", "unknown"),
+        ("feed_z", None),
+        ("feed_z", 0),
+        ("feed_z", "unknown"),
+    ],
+)
 def test_unknown_nose_or_feed_is_explicit_not_a_sharp_cylinder(
     tmp_path, freecad_kernel, field, value
 ):
     op = _op(-1, -8.5, -7.0)
     op[field] = value
     found = _probe(
-        tmp_path, freecad_kernel, op=op, bounds=[-8.5, -7.0], radius=_RADIUS,
+        tmp_path,
+        freecad_kernel,
+        op=op,
+        bounds=[-8.5, -7.0],
+        radius=_RADIUS,
     )
     assert found["motion"] is None
     assert found["keep_none"]
@@ -234,8 +255,13 @@ def test_blade_bypasses_single_point_motion_and_retained_blend(tmp_path, freecad
     op = _op(-1, -8.5, -7.0)
     op.update(corners=2, blade_width_mm=2)
     found = _probe(
-        tmp_path, freecad_kernel, op=op, bounds=[-8.5, -7.0], radius=_RADIUS,
-        geometry=True, sections=[-8.3, -8.0],
+        tmp_path,
+        freecad_kernel,
+        op=op,
+        bounds=[-8.5, -7.0],
+        radius=_RADIUS,
+        geometry=True,
+        sections=[-8.3, -8.0],
     )
     assert found["motion"] is None
     assert found["motion_reason"] is None
@@ -259,14 +285,18 @@ def test_corner_fitting_permission_is_only_the_known_terminal_excess(point, expe
     source = Path(kernel.__file__).with_name("freecad_job.py")
     tree = ast.parse(source.read_text(encoding="utf-8"))
     function = next(
-        node for node in ast.walk(tree)
+        node
+        for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name == "_turn_blend_sample"
     )
     function.decorator_list = []
     namespace = {"math": math, "PLANE_TOL": 1e-6}
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), namespace)
     motion = {
-        "nose_mm": 0.4, "against": 1, "centre_z_mm": [20.4, 40.4],
-        "stop_z_mm": 20.0, "centre_stop_z_mm": 20.4,
+        "nose_mm": 0.4,
+        "against": 1,
+        "centre_z_mm": [20.4, 40.4],
+        "stop_z_mm": 20.0,
+        "centre_stop_z_mm": 20.4,
     }
     assert namespace["_turn_blend_sample"](point, 4.0, motion) is expected

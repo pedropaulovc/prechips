@@ -3,7 +3,6 @@
 import pytest
 from test_kernel_retained_outputs import _probe
 
-
 _NATIVE = r"""
 import importlib.util, os
 import FreeCAD, Part
@@ -42,7 +41,8 @@ def run(feed, leading, contact=0, engage=0, diameter=True, malformed=False,
         posed.append((other_rest, profile, rest_section, other))
     polygon = [] if malformed else (clear_section if clear else section)
     kwargs = {} if omit_leading else {"leading_z": leading}
-    hits, gap = setup._rest_hits(posed, {"feed_z": feed}, (5, contact),
+    tool = {"feed_z": feed, "radius_mm": 0.4, "corners": 1}
+    hits, gap = setup._rest_hits(posed, tool, (5, contact),
                                  polygon, [polygon, polygon], "S1:10", **kwargs)
     return {"hits": {kind: sorted(names) for kind, names in hits.items()},
             "gap": gap, "poses": record["poses"], "clashes": record["clashes"],
@@ -92,6 +92,32 @@ for feed in (-1, 1):
     )
     rows["recommendation_record"] = hypothetical_record
     out[str(feed)] = rows
+
+# Two real active contacts, visited in opposite orders, must select the same
+# representative cylindrical engagement picture even when the shoulder is first.
+order_profile = Part.makeCylinder(5, 40)
+order_section = engine._meridian_segments(order_profile)
+order_rest = dict(hypothetical_rest, name="order", engage_at_z_mm=30)
+order_tool = {"feed_z": -1, "radius_mm": 0.4, "corners": 1}
+out["face_order"] = []
+for contacts in (((20, 20), (30.4, 30)), ((30.4, 30), (20, 20))):
+    record = {"poses": 0, "clashes": {}, "gaps": [], "render": None}
+    for contact, leading in contacts:
+        posed_polygon = [(r, z + contact) for r, z in section]
+        setup._rest_hits([(order_rest, order_profile, order_section, record)],
+                         order_tool, (5, contact), posed_polygon, None, "S1:10",
+                         leading_z=leading)
+    jaws, cut_z, why = record["render"]
+    out["face_order"].append({"cut_z": cut_z, "why": why,
+                              "bbox": list(engine._bbox(jaws[0]))})
+out["missing_picture_geometry"] = []
+for key in ("radius_mm", "corners"):
+    missing = dict(order_tool)
+    del missing[key]
+    jaws, cut_z, why = setup._rest_render_pose(
+        order_rest, order_section, missing, [], (5, 20), leading_z=20
+    )
+    out["missing_picture_geometry"].append({"drawn": jaws is not None, "why": why})
 """
 
 
@@ -102,8 +128,7 @@ def native(tmp_path_factory, freecad_kernel):
 
 @pytest.mark.parametrize("feed", ["-1", "1"])
 def test_parked_rest_has_no_geometry_side_effects(native, feed):
-    for name in ("before", "before_no_diameter", "before_bad_prism",
-                 "radial_past_leading_before"):
+    for name in ("before", "before_no_diameter", "before_bad_prism", "radial_past_leading_before"):
         row = native[feed][name]
         assert row["hits"] == {"tool": [], "holder": []}, (name, row)
         assert row["gap"] is None and row["gaps"] == [], (name, row)
@@ -115,13 +140,14 @@ def test_parked_rest_has_no_geometry_side_effects(native, feed):
 def test_equal_and_past_engagement_keep_real_native_collisions(native, feed):
     for name in ("equal", "past", "radial_before_leading_past"):
         row = native[feed][name]
-        assert row["hits"] == {"tool": ["follow rest carriage"],
-                               "holder": ["follow rest carriage"]}, (name, row)
+        assert row["hits"] == {
+            "tool": ["follow rest carriage"],
+            "holder": ["follow rest carriage"],
+        }, (name, row)
         assert row["gap"] is None and row["poses"] == 1, (name, row)
         assert any("meets chuck" in key for key in row["clashes"]), (name, row)
         assert any("larger work" in key for key in row["clashes"]), (name, row)
-        expected_z = {"equal": 0, "past": -int(feed) * 0.5,
-                      "radial_before_leading_past": -int(feed) * 1.4}[name]
+        expected_z = -int(feed) * 0.4
         assert row["render"] is True and row["render_z"] == pytest.approx(expected_z), (name, row)
     assert "no work diameter" in native[feed]["equal_no_diameter"]["gap"]
     assert "tool section could not be built" in native[feed]["equal_bad_prism"]["gap"]
@@ -132,19 +158,24 @@ def test_equal_and_past_engagement_keep_real_native_collisions(native, feed):
 
 @pytest.mark.parametrize("feed", ["-1", "1"])
 def test_render_uses_contact_reference_at_leading_dro_threshold(native, feed):
-    row = native[feed]["render_nose_offset"]
     cut_z = -int(feed) * 0.4
     radius = 7 if feed == "1" else 5
-    assert row["render_z"] == pytest.approx(cut_z)
-    assert row["render_bbox"] == pytest.approx(
-        [radius, -1, cut_z - 2, radius + 4, 1, cut_z + 2]
-    )
+    for name in ("equal", "past", "render_nose_offset", "radial_before_leading_past"):
+        row = native[feed][name]
+        assert row["render_z"] == pytest.approx(cut_z), (name, row)
+        assert row["render_bbox"] == pytest.approx(
+            [radius, -1, cut_z - 2, radius + 4, 1, cut_z + 2]
+        ), (name, row)
 
 
 @pytest.mark.parametrize("feed", ["-1", "1"])
 def test_unknown_leading_reference_keeps_debt_and_independent_collisions(native, feed):
-    for name in ("missing_leading", "unknown_leading", "unknown_leading_bad_prism",
-                 "unknown_leading_no_diameter"):
+    for name in (
+        "missing_leading",
+        "unknown_leading",
+        "unknown_leading_bad_prism",
+        "unknown_leading_no_diameter",
+    ):
         row = native[feed][name]
         assert "lacks a measured leading tool z" in row["gap"]
         assert row["gaps"] == [row["gap"]]
@@ -178,6 +209,17 @@ def test_hypothetical_clearance_reports_leading_dro_without_activating_jaws(nati
     assert entry["start_z_mm"] == pytest.approx(int(feed) * 0.4)
     assert entry["engage_z_mm"] == pytest.approx(int(feed) * 4.4, abs=1e-4)
     assert rows["recommendation_no_work"] == []
-    assert rows["recommendation_record"] == {
-        "poses": 0, "clashes": {}, "gaps": [], "render": None
-    }
+    assert rows["recommendation_record"] == {"poses": 0, "clashes": {}, "gaps": [], "render": None}
+
+
+def test_shoulder_first_and_radial_first_render_the_same_exact_engagement_pose(native):
+    assert native["face_order"][0] == native["face_order"][1]
+    for row in native["face_order"]:
+        assert row["cut_z"] == pytest.approx(30.4)
+        assert row["why"] is None
+        assert row["bbox"] == pytest.approx([5, -1, 28.4, 9, 1, 32.4])
+
+
+def test_engagement_picture_requires_measured_nose_geometry(native):
+    for row in native["missing_picture_geometry"]:
+        assert row == {"drawn": False, "why": "engagement picture lacks measured nose geometry"}

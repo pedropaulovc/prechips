@@ -24,8 +24,8 @@ from ..resolution import (
 from ..tip_endpoints import (
     FACING,
     POCKETING,
-    _setup_footprint,
     _local_cover,
+    _setup_footprint,
     cut_coverage,
     cut_region,
     mapping,

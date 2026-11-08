@@ -93,7 +93,15 @@ def test_huge_integer_coordinate_is_unresolved_not_an_exception():
 
 @pytest.mark.parametrize("module", [accessibility, reach])
 def test_public_rule_consumes_finite_motion_before_axial_fallback(monkeypatch, module):
-    context = ({"id": "S"}, {"op": 1, "contour": {"method": METHOD}}, {}, facts(), inputs(), [], None)
+    context = (
+        {"id": "S"},
+        {"op": 1, "contour": {"method": METHOD}},
+        {},
+        facts(),
+        inputs(),
+        [],
+        None,
+    )
     monkeypatch.setattr(module, "op_contexts", lambda *args, **kwargs: iter([context]))
     result = module.evaluate(object())
     assert len(result) == 1

@@ -784,15 +784,14 @@ def test_a_no_go_plug_that_does_not_enter_is_not_an_error(method):
 
 
 # ------------------------------------------------------------ shop-made make notes
-def jig(*solids, decimals=1):
-    """A setup held on a shop-made jig of ``solids``, made to ``decimals`` places."""
+def jig(*solids):
+    """A setup held on a shop-made jig of ``solids``, at source dimensions."""
     pose = {"origin_mm": [0, 0, 0], "x": [1, 0, 0], "z": [0, 0, 1]}
     data = bundle([{"hold": {"fixture": "jig", "pose": pose}}])
     fixtures = {**INVENTORY["fixtures"], "jig": {"kind": "custom", "solids": list(solids)}}
     return replace(
         data,
         inventory={**INVENTORY, "fixtures": fixtures},
-        policy={"numbers": {"fixture_make_decimals": decimals}},
     )
 
 
@@ -838,11 +837,11 @@ ARM = "1/2 x 3/8 in bar (bought), sawn, then mill the arm to {}; drill the stop 
     ],
 )
 def test_a_make_note_giving_a_named_made_row_s_size_restates_it(size):
-    # The table prints the arm 65.2 × 11 × 10: in any value, unit or order, or with an
-    # unknown edge, the note restates it.
+    # The table prints the source dimensions: in any value, unit or order, or with
+    # an unknown edge, the note restates it.
     row = rows(jig(block("arm", [65.1631, 11, 10], ARM.format(size))))["S1"]
     assert (row.status, row.numbers["claims"]) == ("error", 1)
-    assert f'"the arm to {size}"' in row.sentence and "arm 65.2 × 11 × 10" in row.sentence
+    assert f'"the arm to {size}"' in row.sentence and "arm 65.1631 × 11 × 10" in row.sentence
     assert "drop the restatement" in row.sentence
 
 
@@ -862,7 +861,7 @@ def test_a_make_note_giving_a_named_made_row_s_size_restates_it(size):
 def test_a_named_cylinder_s_diameter_and_length_restate_its_size(note):
     row = rows(jig(rod("screw", 6.35, 13.45, note)))["S1"]
     assert (row.status, row.numbers["claims"]) == ("error", 1)
-    assert "screw Ø6.4 × 13.5" in row.sentence
+    assert "screw Ø6.35 × 13.45" in row.sentence
 
 
 SPACINGS = ("{a} {by} {b}", "{a}{by}{b}", "{a} {by}{b}", "{a}{by} {b}")
@@ -1188,13 +1187,13 @@ def test_a_bought_or_existing_part_s_note_restates_no_printed_size():
 
 
 def test_the_restatement_quotes_the_table_s_own_size_cell():
-    # Made to 2 places the arm prints 65.16: the finding quotes the cell the table prints.
-    data = jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16")), decimals=2)
-    assert "65.16 × 11 × 10" in rows(data)["S1"].sentence
+    # The finding quotes the source-size cell, not the note's rounded restatement.
+    data = jig(block("arm", [65.1631, 11, 10], ARM.format("11 x 10 x 65.16")))
+    assert "65.1631 × 11 × 10" in rows(data)["S1"].sentence
     traveler = _Traveler(data, [], {}, None)
     traveler.setup = data.plan["setups"][0]
     table = unescape(re.sub(r"<[^>]+>", "", traveler.shop_made_tables(traveler.setup)))
-    assert "65.16 × 11 × 10" in table and "11 x 10 x 65.16" in table
+    assert "65.1631 × 11 × 10" in table and "11 x 10 x 65.16" in table
 
 
 # ------------------------------------------------------------ picture cut vs CLEARANCE

@@ -307,7 +307,8 @@ def _inspection_tables(
                     )
             # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
             scoping = isinstance(value, dict) and not (
-                table == "go_no_go" and {"go", "no_go"} & set(value)
+                table == "go_no_go"
+                and {"go", "no_go"} & set(value)
                 or table == "inspection_readings"
                 and {"kind", "offset_mm", "method", "cite"} & set(value)
             )

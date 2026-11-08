@@ -12,13 +12,22 @@ def _stage():
     data = bundle()
     data.features["features"] = {
         "body": {
-            "kind": "shaft", "frame": "model", "dia_nominal": 8.0,
+            "kind": "shaft",
+            "frame": "model",
+            "dia_nominal": 8.0,
             "z_mm": [0.0, 20.0],
         }
     }
     setup(data)["ops"] = [
-        {"op": 10, "do": "rough_turn", "feature": "body", "tool": "turner",
-         "to_dia": 10.0, "z_from": 0.0, "z_to": 20.0}
+        {
+            "op": 10,
+            "do": "rough_turn",
+            "feature": "body",
+            "tool": "turner",
+            "to_dia": 10.0,
+            "z_from": 0.0,
+            "z_to": 20.0,
+        }
     ]
     return dataclasses.replace(
         data,
@@ -28,8 +37,10 @@ def _stage():
             "ops": {
                 "S1:10": {
                     "turn_target": {
-                        "status": "accepted", "diameter_mm": 10.0,
-                        "z_mm": [0.0, 20.0], "attained_indices": [],
+                        "status": "accepted",
+                        "diameter_mm": 10.0,
+                        "z_mm": [0.0, 20.0],
+                        "attained_indices": [],
                     }
                 }
             },

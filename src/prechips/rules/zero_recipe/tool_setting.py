@@ -231,9 +231,7 @@ def tailstock_axis_touch(bundle, setup, touch):
             return False
         name = op.get("feature")
         feature = (
-            mapping(mapping(bundle.feature_definitions).get(name))
-            if isinstance(name, str)
-            else {}
+            mapping(mapping(bundle.feature_definitions).get(name)) if isinstance(name, str) else {}
         )
         errors, debt, _ = _centre_mouth(bundle, setup, feature, touch.get("edge_mm"))
         if errors or debt:

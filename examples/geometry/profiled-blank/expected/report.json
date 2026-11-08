@@ -379,7 +379,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+            "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
           },
           "features": {
             "path": "examples/geometry/profiled-blank/features.toml",
@@ -2107,11 +2107,11 @@
       "subject": "S1"
     }
   ],
-  "hash": "e98ab1d284878c7218e82ff10a590fd35692f35686bf1071093d3de2189138ea",
+  "hash": "399ebff44edb8a22d864010a883167b5163b23a14a31e6bb37cddcf6c88c8016",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+      "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
     },
     "features": {
       "path": "examples/geometry/profiled-blank/features.toml",

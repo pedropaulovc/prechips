@@ -149,8 +149,8 @@ PART_IDENTITIES = {
     "cone-pivot-post": "dt-cone-pivot-post",
 }
 EXPECTED_EXIT = {
-    "pivot-shaft": 0,
-    "rocker-arm": 0,
+    "pivot-shaft": 4,
+    "rocker-arm": 4,
     "pivot-bracket": 0,
     "cone-pivot-post/integral.toml": 4,
 }

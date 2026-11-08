@@ -548,7 +548,9 @@ def test_manual_raster_envelope_uses_authored_clear_z_not_feature_or_axial_fallb
         },
     }
     data.feature_definitions["top"]["bounds"] = {
-        "x": [-100, 100], "y": [-100, 100], "z": [-100, 100]
+        "x": [-100, 100],
+        "y": [-100, 100],
+        "z": [-100, 100],
     }
     row = envelope.evaluate(data)[0]
     assert row.status == "pass"

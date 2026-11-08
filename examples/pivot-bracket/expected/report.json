@@ -126,7 +126,7 @@
         "holder_radius_mm": 15.875,
         "projection_mm": 57.0,
         "radius_mm": 9.525,
-        "sample_count": 41,
+        "sample_count": 39,
         "tool_hits": 0
       },
       "rule": "accessibility",
@@ -1400,7 +1400,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+            "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
           },
           "features": {
             "path": "examples/pivot-bracket/features.toml",
@@ -1408,7 +1408,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
+            "sha256": "bd7573f398dc3bb2cbd66d47590809e2619b4f781b080451e389ff693f00d84f"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -1416,7 +1416,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+            "sha256": "7c93413bc545af5252a6d127f6f7de2625f7b654ebb1512ad55aaf54f3962eed"
           },
           "step": {
             "path": "examples/pivot-bracket/pivot-bracket.STEP",
@@ -23610,11 +23610,11 @@
       "subject": "S5"
     }
   ],
-  "hash": "6d7b3459c491cc8e209f92f5016fd190cfa4c272a396556c4f08b05d133eb0d9",
+  "hash": "f70b9880c11ffabfa07056f481ea627ffb4dad1c30e575e8c678381aeec9b377",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+      "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
     },
     "features": {
       "path": "examples/pivot-bracket/features.toml",
@@ -23622,7 +23622,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
+      "sha256": "bd7573f398dc3bb2cbd66d47590809e2619b4f781b080451e389ff693f00d84f"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
@@ -23634,11 +23634,11 @@
     },
     "render:P2": {
       "path": "setup-S2.png",
-      "sha256": "a2de33acdb80ad90f834924a37be2c3a16fc7847a2cb8863cdaa6de912c7df85"
+      "sha256": "e06c04880519105773648001c3e43a993c1b83f26187866e71588e0ce455a994"
     },
     "render:P3": {
       "path": "setup-S3.png",
-      "sha256": "d99b445eac312cdb00327a4e4f72e3e5607db14aa5f795f3bd0d88b745b324c4"
+      "sha256": "6bb989ed1824ee85838ebb61ff56d02fd1cc954a704249af7b87a309a87c3ef3"
     },
     "render:P4": {
       "path": "setup-S4.png",
@@ -23666,7 +23666,7 @@
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "d877bb8cee7ba326b2d0efeeb95adcba0ea4ea93746d06d6718c1fd0afd82f48"
+      "sha256": "50f22fabc06807e804545a5922fa4b1686025112e511b9945e584fa1d33fbc92"
     },
     "render:S4F": {
       "path": "setup-S11.png",
@@ -23678,7 +23678,7 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+      "sha256": "7c93413bc545af5252a6d127f6f7de2625f7b654ebb1512ad55aaf54f3962eed"
     },
     "step": {
       "path": "examples/pivot-bracket/pivot-bracket.STEP",
@@ -23976,7 +23976,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "a2de33acdb80ad90f834924a37be2c3a16fc7847a2cb8863cdaa6de912c7df85"
+      "sha256": "e06c04880519105773648001c3e43a993c1b83f26187866e71588e0ce455a994"
     },
     "P3": {
       "fixture": "modeled",
@@ -24128,7 +24128,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "d99b445eac312cdb00327a4e4f72e3e5607db14aa5f795f3bd0d88b745b324c4"
+      "sha256": "6bb989ed1824ee85838ebb61ff56d02fd1cc954a704249af7b87a309a87c3ef3"
     },
     "P4": {
       "fixture": "modeled",
@@ -25555,7 +25555,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "d877bb8cee7ba326b2d0efeeb95adcba0ea4ea93746d06d6718c1fd0afd82f48"
+      "sha256": "50f22fabc06807e804545a5922fa4b1686025112e511b9945e584fa1d33fbc92"
     },
     "S4F": {
       "fixture": "modeled",

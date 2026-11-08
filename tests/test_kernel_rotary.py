@@ -42,7 +42,9 @@ shelf = Part.makeBox(5, 2, 3, V(33, -1, 11))
 tail.fuse(body).fuse(boss).fuse(shelf).removeSplitter().exportStep(out + "/overhung.step")
 tail.fuse(Part.makeCone(10, 8, 60, V(0, 0, 0), X)).exportStep(out + "/conical.step")
 # A cylindrical source parallel to, but displaced from, the dividing-head axis.
-tail.fuse(Part.makeCylinder(10, 60, V(0, 3, 0), X)).removeSplitter().exportStep(out + "/offset.step")
+tail.fuse(Part.makeCylinder(10, 60, V(0, 3, 0), X)).removeSplitter().exportStep(
+    out + "/offset.step"
+)
 """
 
 # Head axis along setup +X, jaw face at x = -5: the jaws grip the tail at x -15..-5.
@@ -108,8 +110,7 @@ def _assert_unproved_coverage(result, index, categories=("cut", "finish")):
         records = [item for item in coverage["unknown"] if item["index"] == index]
         assert records, coverage
         assert any(
-            "sampled rotary poses do not prove executed cuts" in item["reason"]
-            for item in records
+            "sampled rotary poses do not prove executed cuts" in item["reason"] for item in records
         ), coverage
 
 
@@ -276,9 +277,7 @@ def test_rotary_axial_windows_withhold_union_and_gap_credit(engine, parts, ends)
 
 
 @pytest.mark.parametrize("join", [(35.0, 35.0), (40.0, 30.0)])
-def test_rotary_mixed_cutters_withhold_adjacent_or_overlapping_window_credit(
-    engine, parts, join
-):
+def test_rotary_mixed_cutters_withhold_adjacent_or_overlapping_window_credit(engine, parts, join):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     result, index = _window_result(
@@ -505,8 +504,7 @@ def test_unusable_rotary_setup_contribution_does_not_become_a_definite_union_gap
         assert coverage["complete_indices"] == [] and coverage["gaps"] == []
         assert any(item["index"] == index for item in coverage["unknown"])
         assert any(
-            "S2:10" in item["reason"] and "frame" in item["reason"]
-            for item in coverage["unknown"]
+            "S2:10" in item["reason"] and "frame" in item["reason"] for item in coverage["unknown"]
         ), coverage
 
 
@@ -523,8 +521,7 @@ def test_empty_rotary_claim_adds_no_unknown_beyond_valid_sampled_claim(engine, p
     _assert_unproved_coverage(result, index)
     for category in ("cut", "finish"):
         assert all(
-            "S1:20" not in item["reason"]
-            for item in result["rotary_coverage"][category]["unknown"]
+            "S1:20" not in item["reason"] for item in result["rotary_coverage"][category]["unknown"]
         )
 
 
@@ -555,7 +552,9 @@ def test_rotary_rough_target_moves_actual_diagnostic_tips(engine, parts, control
     assert "sampled rotary poses do not prove executed cuts" in target["reason"]
     _assert_unproved_coverage(result, index, categories=("cut",))
     assert result["rotary_coverage"]["finish"] == {
-        "complete_indices": [], "gaps": [], "unknown": []
+        "complete_indices": [],
+        "gaps": [],
+        "unknown": [],
     }
 
 
@@ -566,7 +565,17 @@ def test_rotary_rough_target_moves_actual_diagnostic_tips(engine, parts, control
         ({"to_dia_mm": 19.0}, "inside protected source cylinder"),
         *[
             ({"to_dia_mm": value}, "not a known positive diameter")
-            for value in (0.0, -1.0, float("nan"), float("inf"), -float("inf"), True, "22", None, [])
+            for value in (
+                0.0,
+                -1.0,
+                float("nan"),
+                float("inf"),
+                -float("inf"),
+                True,
+                "22",
+                None,
+                [],
+            )
         ],
         *[
             ({"rough_allowance_mm": value}, "rough_allowance_mm")
@@ -608,8 +617,14 @@ def test_rotary_target_bounded_pose_window_does_not_clip_collision_geometry(engi
     step = parts["overhung"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     op = _rotary(
-        engine, step, body, _head(), to_dia_mm=22.0,
-        z_from=40.1, z_to=40.2, angle_window_deg=[-2.0, 2.0],
+        engine,
+        step,
+        body,
+        _head(),
+        to_dia_mm=22.0,
+        z_from=40.1,
+        z_to=40.2,
+        angle_window_deg=[-2.0, 2.0],
     )
     assert op["claim_errors"] == [] and op["sample_count"] > 0, op
     target = op["rotary_target"]
@@ -623,7 +638,9 @@ def test_rotary_target_bounded_pose_window_does_not_clip_collision_geometry(engi
 
 
 @pytest.mark.parametrize("diameter, radius", [(None, 10.0), (22.0, 11.0)])
-def test_rotary_finishing_target_withholds_attainment_and_downstream_stock(engine, parts, diameter, radius):
+def test_rotary_finishing_target_withholds_attainment_and_downstream_stock(
+    engine, parts, diameter, radius
+):
     step = parts["plain"]
     body = engine.refs(step, *BODY, kind="Cylinder")
     op = {
@@ -635,10 +652,13 @@ def test_rotary_finishing_target_withholds_attainment_and_downstream_stock(engin
     if diameter is not None:
         op["to_dia_mm"] = diameter
     later = {**op, "subject": "S1:20"}
-    result = engine.run(engine.job(
-        step, {"body": body},
-        [_setup([op, later], _head()), _setup([], _head(), setup_id="S2")],
-    ))
+    result = engine.run(
+        engine.job(
+            step,
+            {"body": body},
+            [_setup([op, later], _head()), _setup([], _head(), setup_id="S2")],
+        )
+    )
     assert result["status"] == "ok", result
     index = result["features"]["body"][0]
     first, second = result["ops"]["S1:10"], result["ops"]["S1:20"]
@@ -659,11 +679,15 @@ def test_rejected_rotary_undersize_preserves_source_pad_for_later_diagnostics(en
     step = parts["stepped"]
     body = engine.refs(step, (0, -10, -10), (30, 10, 10), kind="Cylinder")
     result, index = _window_result(
-        engine, step, body,
+        engine,
+        step,
+        body,
         [
             {"to_dia_mm": 19.0},
             {
-                "to_dia_mm": 21.0, "z_from": 34.9, "z_to": 34.95,
+                "to_dia_mm": 21.0,
+                "z_from": 34.9,
+                "z_to": 34.95,
                 "angle_window_deg": [-2.0, 2.0],
             },
         ],

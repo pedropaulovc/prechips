@@ -1098,6 +1098,11 @@ picture section. Without a render the overview says
 table gives grip length, stickout and jaw-front Z; a lathe also has centre tip Z
 and quill extension. Pose vectors and planner field names do not print.
 
+Compact routes likewise show holding and datum instructions as ordered visible
+steps, with the setup's HOLD notice separate. Authored clamp sequences stay
+local: chuck-key removal is not hoisted away from tightening into shared
+references. Successive tool-specific zero settings keep their authored order.
+
 Coolant does not print for bench setups. The drawing edge break appears once
 on the job page. A setup with a different `deburr_mm` prints that limit and the
 author's reason, for example
@@ -1119,6 +1124,10 @@ One tool/holder pair gets one `T#`, based on selected identity: `tools.drill` an
 `drill` name one drill; `holders.er20` and `er20` name one holder. A lathe pair
 keeps its number across all setups on that machine regardless of reference
 spelling.
+Compact tool settings retain the resolved member's inherited material and
+explicit cutting-length units. A dead-centre support's taper, point angle and
+body diameter are distinct identity fields; other lathe supports are not
+automatically labelled as tailstocks.
 
 Spindle-stopped `die_thread` and `hand_tap` selections also appear in this
 pull list with their selected die stock, tap wrench or follower. Their
@@ -1140,6 +1149,9 @@ follow. Changes to one touch print once with their operations, for example
 `Tool changes before ops 20, 30 and 40: install the op's tool (the T number in its row), then …`.
 Tools remain in the TOOLS table and operation rows. Authored indicating/transfer
 prerequisites precede the zero table without changing words, methods or limits.
+Compact setup instructions retain each applicable computed check jog, expected
+display and reversed-axis STOP comparison at that setup. These are planned
+checks, not records that a safe physical jog has been performed.
 
 For a mill X/Y side pickup, the check jog would take the finder over the work.
 The printed sequence therefore raises Z only until the finder/indicator clears
@@ -1202,6 +1214,14 @@ A lathe table containing an operation measured in the chuck adds
 Turning feed prints in `mm/rev` with resulting `mm/min` in brackets. Drill feed
 prints axial `mm/min` with `mm/rev` for hand feeding. Other mill and saw feeds
 print in `mm/min`. Unknown feed cells start with `STOP`.
+Authored numeric speed, feed and Z requests whose checked setting/path remains
+unproved are labelled as candidates, alongside the existing STOP and HOLD.
+Presence of a requested number is not qualification or material-removal proof.
+Boring depth of cut is radial even when the boring spindle is on a mill;
+facing direction stays within the stated X limits, not an assumed OD-to-centre
+traverse. Rough-turn allowance is labelled against CAD nominal, separately from
+the subsequent process aim. Setup-specific edge-break maxima retain their
+authored values rather than rounding outward to a display grid.
 
 Crash-relevant values stay with the operation: jaw front within 3 mm of nearest
 tool approach, dead centre at the work end, tool tip within 3 mm of jaw top,
@@ -1214,6 +1234,12 @@ A blade relief's Z field gives each plunge's corner Z and plunge diameter. The
 groove extent prints only when it differs from the operation's Z window; the
 diameter's drawing limits print there only when absent from the inspection
 record.
+
+A part-off endpoint may be known while the incoming diameter and radial travel
+remain unproved; the sheet states those separately and retains the stock HOLD.
+An unresolved inspection selection is labelled for its current operation,
+rather than shown as a bare question mark. A selection established at a later
+inspection does not establish an earlier checkpoint or a measured part result.
 
 A setup whose operations are all bench steps, including `inspect`, `deburr`,
 `coating`, `fit`, `scribe`, `release` and hand finishing, prints

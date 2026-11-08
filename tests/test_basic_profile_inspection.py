@@ -8,7 +8,6 @@ from test_surface_profile import PROFILE_OUTER, TOP_EDGE, bundle
 
 from prechips.rules import inspection
 
-
 CASES = [
     ("top_edge", "radius", TOP_EDGE, 800.0, [799.5, 800.0]),
     ("profile_outer", "bottom_radius", PROFILE_OUTER, 816.0, [815.5, 816.0]),
@@ -16,7 +15,9 @@ CASES = [
 
 
 def profile_bundle(tmp_path, name, requirement, definition):
-    loaded = bundle(tmp_path, {name: definition}, subject=name, requirement=requirement, gauge="cmm")
+    loaded = bundle(
+        tmp_path, {name: definition}, subject=name, requirement=requirement, gauge="cmm"
+    )
     feature = loaded.features["features"][name]
     feature["faces"] = ["#10"]
     gauge = loaded.inventory["gauges"]["gauge"]
@@ -59,7 +60,10 @@ def test_bounded_cmm_accepts_basic_only_through_actual_profile(
     assert dependent.numbers["part_result"] == "not_recorded"
     assert loaded.features == original
     assert loaded.feature_definitions[name][requirement] == basic
-    assert loaded.feature_definitions[name]["surface_profile_governs"] == original["features"][name]["surface_profile_governs"]
+    assert (
+        loaded.feature_definitions[name]["surface_profile_governs"]
+        == original["features"][name]["surface_profile_governs"]
+    )
     assert loaded.feature_definitions[name]["faces"] == ["#10"]
 
 
@@ -86,7 +90,9 @@ def test_dependent_basic_preserves_real_profile_refusals(tmp_path, mutation, sta
     if mutation == "missing-check":
         # A valid independent form gauge cannot substitute for the absent profile.
         loaded.inventory["gauges"]["radius-template"] = {
-            "kind": "profile_gauge", "range_mm": [0.0, 1000.0], "resolution_mm": 0.01
+            "kind": "profile_gauge",
+            "range_mm": [0.0, 1000.0],
+            "resolution_mm": 0.01,
         }
         checkpoint["checks"] = {"radius": "radius-template"}
         checkpoint["inspection_methods"] = {"radius": "Compare the radius to the template."}
@@ -154,7 +160,8 @@ def test_every_actual_governing_profile_owner_is_required(tmp_path, second_check
     if second_checked:
         assert rows["second_zone:surface_profile"].status == "pass"
         assert {check["subject"] for check in dependent.numbers["governing_checks"]} == {
-            "top_edge:surface_profile", "second_zone:surface_profile"
+            "top_edge:surface_profile",
+            "second_zone:surface_profile",
         }
 
 
@@ -174,7 +181,9 @@ def test_sibling_workpiece_profile_checkpoint_cannot_accept_uninspected_member(t
     assert rows["nut1/top_edge:radius"].status == "pass"
     sibling = rows["nut2/top_edge:radius"]
     assert sibling.status != "pass"
-    assert all(check["identity"]["workpiece"] != "nut1" for check in sibling.numbers["governing_checks"])
+    assert all(
+        check["identity"]["workpiece"] != "nut1" for check in sibling.numbers["governing_checks"]
+    )
     status, message, nums = inspection.requirement_check(
         loaded, "top_edge", "radius", checkpoint, setup=setup, workpiece="nut2"
     )
@@ -216,14 +225,21 @@ def test_true_toleranced_size_still_requires_full_instrument_range(tmp_path):
 def test_process_hold_keeps_derived_band_and_independent_size_gauge(tmp_path, span, status):
     loaded, setup, _ = profile_bundle(tmp_path, "top_edge", "radius", TOP_EDGE)
     loaded.inventory["gauges"]["radius-template"] = {
-        "kind": "profile_gauge", "range_mm": span, "resolution_mm": 0.01
+        "kind": "profile_gauge",
+        "range_mm": span,
+        "resolution_mm": 0.01,
     }
     cut = setup["ops"][0]
     cut["inspection_methods"] = {"radius": "Compare the cut radius against the template."}
-    cut["process_holds"] = [{
-        "feature": "top_edge", "requirement": "radius", "band": [799.6, 799.9],
-        "gauge": "radius-template", "reason": "Leave a bounded finishing allowance."
-    }]
+    cut["process_holds"] = [
+        {
+            "feature": "top_edge",
+            "requirement": "radius",
+            "band": [799.6, 799.9],
+            "gauge": "radius-template",
+            "reason": "Leave a bounded finishing allowance.",
+        }
+    ]
     (hold,) = inspection.process_holds(loaded, setup, cut).numbers["process_holds"]
     assert hold["drawing_band"] == pytest.approx([799.5, 800.0])
     assert hold["inside_drawing_band"] is True
@@ -255,7 +271,9 @@ def test_public_requirement_check_uses_actual_same_operation_profile(
 def test_public_requirement_check_cannot_borrow_later_profile_checkpoint(tmp_path, radius_only):
     loaded, setup, _ = profile_bundle(tmp_path, "top_edge", "radius", TOP_EDGE)
     loaded.inventory["gauges"]["radius-template"] = {
-        "kind": "profile_gauge", "range_mm": [0.0, 1000.0], "resolution_mm": 0.01
+        "kind": "profile_gauge",
+        "range_mm": [0.0, 1000.0],
+        "resolution_mm": 0.01,
     }
     earlier = {"op": 45, "do": "inspect", "feature": "top_edge"}
     if radius_only:

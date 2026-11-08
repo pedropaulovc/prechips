@@ -8,7 +8,8 @@ from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules import tip_endpoints
 from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
-from prechips.rules.manual_raster import METHOD as MANUAL_RASTER, normalize as normalize_manual_raster
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
+from prechips.rules.manual_raster import normalize as normalize_manual_raster
 from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
@@ -19,6 +20,7 @@ from prechips.rules.resolution import (
     projection_holder,
     record,
     resolve,
+    same_length,
     select,
     setup_frame_ref,
 )
@@ -356,6 +358,54 @@ def stock_extents(bundle, setup):
     ]
 
 
+def supported_height_datum(bundle, setup):
+    """Reject a contradicted bottom-on-bed scalar stack, not infer a contact plane.
+
+    Missing declarations retain their existing debt policy. Only known custom-fixture
+    pose facts can invalidate this assumption; geometry and prose do not supply it.
+    """
+    hold = record(setup.get("hold"))
+    fixture = resolve(bundle, "workholding", hold.get("fixture")) or {}
+    if fixture.get("kind") != "custom":
+        return {}
+    pose = record(hold.get("pose"))
+    origin = pose.get("origin_mm")
+    state = record(setup.get("stock_state"))
+    field = "retained_rail_bottom_z" if "retained_rail_bottom_z" in state else "bottom_z"
+    bottom = state.get(field)
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if not (
+        isinstance(origin, list)
+        and len(origin) == 3
+        and all(_known(value) for value in origin)
+        and _known(bottom)
+        and scale is not None
+    ):
+        return {}
+    bottom_mm = bottom * scale
+    z = _unit3(pose.get("z"))
+    mismatch = not same_length(bottom_mm, origin[2])
+    tilted = z is not None and any(
+        abs(a - b) > UNIT_TOLERANCE for a, b in zip(z, (0, 0, 1), strict=True)
+    )
+    if not (mismatch or tilted):
+        return {}
+    reason = (
+        f"Custom fixture scalar stack is unproved: stock_state.{field} = {bottom_mm:g} mm "
+        f"in setup Z, hold.pose.origin_mm Z = {origin[2]:g} mm"
+        + (f", hold.pose.z = {z}" if tilted else "")
+        + "; these declarations do not establish stock bottom on the fixture bed. "
+        "No table-relative stock height or vertical clearance is inferred from the pose"
+    )
+    return {
+        "stock_bottom_field": field,
+        "stock_bottom_setup_mm": bottom_mm,
+        "fixture_origin_setup_mm": origin,
+        "fixture_z": pose.get("z", UNKNOWN),
+        "reason": reason,
+    }
+
+
 def fixture_height(bundle, setup, debts, cite):
     """Primary fixture bed plus declared bearing layers, never posed auxiliaries."""
     hold = record(setup.get("hold"))
@@ -432,6 +482,16 @@ def fixture_height(bundle, setup, debts, cite):
             nominal = support_height(support, orientation)
         values.append(nominal)
         verified &= value["verified"]
+    datum = supported_height_datum(bundle, setup)
+    if datum:
+        path = f"plan.setups.{setup['id']}"
+        authoring_entry(
+            debts,
+            path + ".supported_height_datum",
+            "resolve: " + datum["reason"],
+            path + ".stock_state; " + path + ".hold.pose",
+        )
+        return UNKNOWN, False
     return sum(values) if all(number(v) for v in values) else UNKNOWN, verified
 
 

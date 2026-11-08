@@ -44,13 +44,17 @@ def normalize(raster):
         axes = [axis for axis in range(3) if previous[axis] != target[axis]]
         if mode == "cut":
             if len(axes) != 1 or axes[0] == 2:
-                return {"reason": f"raster cut {index} must change exactly one X/Y axis at constant Z"}
+                return {
+                    "reason": f"raster cut {index} must change exactly one X/Y axis at constant Z"
+                }
             cuts += 1
         elif mode == "clear":
             if len(axes) != 1:
                 return {"reason": f"raster clear move {index} must change exactly one axis"}
             if axes[0] != 2 and min(previous[2], target[2]) < safe:
-                return {"reason": f"raster horizontal clear move {index} must be at or above safe_z_mm"}
+                return {
+                    "reason": f"raster horizontal clear move {index} must be at or above safe_z_mm"
+                }
         else:
             return {"reason": f"raster move {index} mode must be cut or clear"}
         normalized.append({"to_mm": list(target), "mode": mode})

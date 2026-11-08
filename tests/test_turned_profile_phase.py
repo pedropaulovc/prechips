@@ -57,9 +57,7 @@ def test_future_phase_without_complete_current_stock_proof_stays_unknown(rows):
 
 def test_current_thin_cut_is_not_hidden_by_raw_entry_or_finished_nominal():
     data = _future_dome()
-    data.kernel["setups"]["S1"]["stock_profile"] = [
-        [0.0, 10.0, 2.0, 6.0], [10.0, 20.0, 4.0, 6.0]
-    ]
+    data.kernel["setups"]["S1"]["stock_profile"] = [[0.0, 10.0, 2.0, 6.0], [10.0, 20.0, 4.0, 6.0]]
     finding = stickout.evaluate(data)[0]
     assert finding.numbers["diameter_mm"] == 4.0
     assert finding.status == "error"
@@ -82,7 +80,9 @@ def test_prejoin_actual_diameter_requires_compatible_complete_acceptance_bands(
     data.features["features"] = {
         "hub_od": {"kind": "boss", "dia_nominal": 10.16, "dia": target_band},
         "hub_land": {
-            "kind": "boss", "dia_nominal": 10.18794, "dia": prep_band,
+            "kind": "boss",
+            "dia_nominal": 10.18794,
+            "dia": prep_band,
             "joint": {"id": "hub_land"},
         },
     }

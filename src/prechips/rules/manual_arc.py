@@ -26,9 +26,11 @@ from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
     ROUGH_METHODS,
+    _nominal,
     _recut_by,
     arc_layout,
     filing_cap,
+    frame_axes,
 )
 from prechips.rules.resolution import (
     HAND_FINISH,
@@ -173,6 +175,103 @@ def _arc_feature(feature):
         or "bottom_radius" in feature
         or ("radius" in feature and ("end" in feature or feature.get("arc") == "upper_semicircle"))
     )
+
+
+def _spatial_profile_source(bundle, feature):
+    """Recognize source cylinders, not a planar reduction or an operative axis."""
+    if feature.get("kind") not in {"boss", "cylinder"} or any(
+        key in feature for key in ("at", "arc_centre")
+    ):
+        return None
+    reference = feature.get("frame")
+    if not isinstance(reference, str):
+        return None
+    frame = record(record(bundle.features.get("frames")).get(reference))
+    if not all(number(v) and math.isfinite(v) for axis in frame_axes(frame) for v in axis):
+        return None
+    origin = frame.get("origin")
+    if not (
+        isinstance(origin, list)
+        and len(origin) == 3
+        and all(number(v) and math.isfinite(v) for v in origin)
+    ):
+        return None
+    extent = feature.get("z_mm")
+    diameter = _nominal(feature, "dia")
+    if not (
+        isinstance(extent, list)
+        and len(extent) == 2
+        and all(number(v) and math.isfinite(v) for v in extent)
+        and extent[0] != extent[1]
+        and number(diameter)
+        and math.isfinite(diameter)
+        and diameter > 0
+    ):
+        return None
+    return {
+        "feature": dict(feature),
+        "frame": dict(frame),
+        "dia_nominal": diameter,
+        "units": bundle.features.get("units", UNKNOWN),
+    }
+
+
+def _spatial_profile(bundle, setup, op, source, scale, numbers, cite):
+    """Refuse unproved spatial finishing without alleging missing planar inputs."""
+    errors, measurements = [], []
+    debts = [
+        "planar reduction and spatial profile-finishing proof are not established",
+        "remaining-stock removal, full hand-tool access and resulting conformance are unproved",
+        "HOLD: qualify the master, actual stock, access and completed profile before execution "
+        "or acceptance",
+    ]
+    numbers.update(representation="spatial_profile", source=source)
+    guide = record(op.get("guide"))
+    radius = source["dia_nominal"] * scale / 2 if scale else UNKNOWN
+    if scale is None:
+        debts.append("source dimension units are unknown")
+    if guide.get("buttons") is not None:
+        ref = guide["buttons"]
+        numbers["guide"] = {"kind": "buttons", "kit": ref, "bore": guide.get("bore")}
+        item = resolve(bundle, "fixtures", ref)
+        if not isinstance(item, dict) or item.get("kind") != BUTTON_KIND:
+            debts.append(
+                f"filing buttons {ref} are not a filing_buttons kit in the fixtures inventory"
+            )
+        elif not _held(bundle, setup, ref):
+            debts.append(f"filing buttons {ref} are not in setup {setup['id']}'s hold")
+        cite.append(f"inventory fixtures.{ref}: filing buttons")
+    elif guide.get("template") is not None:
+        ref = guide["template"]
+        numbers["guide"] = {"kind": "template", "kit": ref}
+        _template(bundle, ref, radius, "filing template", errors, debts, measurements)
+        cite.append(f"inventory gauges.{ref}: filing template")
+    else:
+        numbers["guide"] = {"kind": UNKNOWN}
+        debts.append("no filing guide: name buttons through a bore or a template")
+    ref = guide.get("gauge")
+    if ref is None:
+        numbers["gauge"] = {"ref": UNKNOWN, "range_mm": UNKNOWN}
+        debts.append("no radius gauge checks the filed profile")
+    else:
+        numbers["gauge"] = _template(bundle, ref, radius, "gauge", errors, debts, measurements)
+        cite.append(f"inventory gauges.{ref}: radius gauge")
+    numbers["debts"] = debts
+    if errors:
+        numbers["errors"] = errors
+    elif measurements:
+        by_id = {entry["id"]: entry for entry in measurements}
+        numbers["measurements"] = [by_id[key] for key in sorted(by_id)]
+    status = "error" if errors else UNKNOWN
+    sid = setup["id"]
+    sentence = (
+        f"{sid} op {op['op']}: file to line {op['feature']}. "
+        + ("Error: " + "; ".join(errors) + ". " if errors else "")
+        + "Unknown: "
+        + "; ".join(debts)
+        + "."
+    )
+    return Finding("manual_arc", f"{sid}:{op['op']}", status, numbers, cite, sentence)
 
 
 def _band_key(feature, layout):
@@ -498,6 +597,11 @@ def evaluate(bundle):
                 "docs/plan.md Manual arcs: layout, rough outside the line, file to the line",
                 f"plan.setups.{sid}.ops.{op['op']}: {action}",
             ]
+            if action == "file_to_line" and layout is None:
+                source = _spatial_profile_source(bundle, feature)
+                if source is not None:
+                    result.append(_spatial_profile(bundle, setup, op, source, scale, numbers, cite))
+                    continue
             if layout is None or scale is None:
                 debts.append(f"{name}'s centre, radius or ends in setup {sid} are unknown")
                 layout = {}

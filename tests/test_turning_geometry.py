@@ -256,8 +256,6 @@ def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles
     # unturned journal using that old, overtravelled pose.
     assert detail["tool_hits"] == detail["min_hits"]["tool"] == "unknown"
     assert detail["reach_depth_mm"] == "unknown"
-    assert "bounded curved terminal" in detail["reasons"]["reach_depth_mm"]
-    assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
     # Preserve the original unfaced case: its stub beyond z_from=40 is outside the
     # candidate removal, while hits inside that removal still cannot be credited.
     unfaced = _formed(engine, step, [_turn("S1:10", "dome", z_from=40.0, z_to=36.0)])
@@ -267,32 +265,42 @@ def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles
     _assert_dome_collision_review(
         monkeypatch, unfaced["ops"]["S1:10"], _turn("S1:10", "dome", z_from=40.0, z_to=36.0)
     )
-    # Prepare the supported cylindrical journal and face above the apex to isolate
-    # obstacles outside the dome cut. Preparation cannot make the curved terminal
-    # supported, so its own-removal collision lower bound remains unknown.
+    # Enter journal preparation from the measured raw-stock end, not the middle
+    # of the unturned bar. This supported cylindrical cut preserves the r4 stub
+    # above the dome; only the later curved terminal remains unrepresented.
     journal = engine.refs(step, (-4, -4, 20), (4, 4, 36), kind="Cylinder")
     assert len(journal) == 1
     features = {"journal": journal}
-    prep = _turn("S1:15", "journal", z_from=36.0, z_to=20.0)
+    raw_end = faced["stock"]["bbox_mm"][5]
+    prep = _turn("S1:15", "journal", z_from=raw_end, z_to=20.0)
     clear_facing = _turn("S1:10", "dome", to_z=40.5)
+    assert raw_end > clear_facing["to_z"] > original_form["z_from"]
     form = _turn("S1:20", "dome", z_from=40.5, z_to=36.0)
     clear = _formed(engine, step, [clear_facing, prep, form], features=features)
+    assert clear["ops"]["S1:15"]["turn_window"]["status"] == "accepted"
+    assert "turn_entry" not in clear["ops"]["S1:15"]
     assert clear["ops"]["S1:20"]["min_hits"]["tool"] == "unknown"
     assert clear["ops"]["S1:20"]["reach_depth_mm"] == "unknown"
-    assert "bounded curved terminal" in clear["setups"]["S2"]["stock_reason"]
-    # With the journal prepared but no facing, only the stub past the apex blocks the form.
+    assert "stock_out_volume_mm3" not in clear["setups"]["S1"]
+    assert "stock_volume_mm3" not in clear["setups"]["S2"]
+    # Without facing, the accepted journal cut leaves the r4 stub above the apex.
+    # That retained stock independently blocks the form outside its own removal.
     unfaced = _formed(
         engine,
         step,
         [prep, _turn("S1:20", "dome", z_from=40.0, z_to=36.0)],
         features=features,
     )
+    assert unfaced["ops"]["S1:15"]["turn_window"]["status"] == "accepted"
+    assert "turn_entry" not in unfaced["ops"]["S1:15"]
     assert unfaced["ops"]["S1:20"]["min_hits"]["tool"] > 0
     assert unfaced["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
-    # On the same prepared/faced stock the neutral 60-degree insert's leading flank gouges
-    # the finished dome: neither unknown own removal nor an unturned journal explains it.
+    # With the same requested preparation/facing, the neutral 60-degree insert's
+    # leading flank gouges the protected dome independently of uncredited removal.
     neutral = {**form, "entering_angle_deg": 60.0}
     neutral = _formed(engine, step, [clear_facing, prep, neutral], features=features)
+    assert neutral["ops"]["S1:15"]["turn_window"]["status"] == "accepted"
+    assert "turn_entry" not in neutral["ops"]["S1:15"]
     assert neutral["ops"]["S1:20"]["min_hits"]["tool"] > 0
     assert neutral["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
 
@@ -632,9 +640,7 @@ def _terminal_blend_excess_mm3():
     # area pi * (radius^2 - r^2) gives this closed form, independent of OCC.
     # The full-radius contact starts N againstfeed from the leading stop.
     r, nose = 4.0, 0.4
-    return math.pi * (
-        r * nose**2 * (2 - math.pi / 2) + nose**3 * (5 / 3 - math.pi / 2)
-    )
+    return math.pi * (r * nose**2 * (2 - math.pi / 2) + nose**3 * (5 / 3 - math.pi / 2))
 
 
 def _fillet_ring_mm3():

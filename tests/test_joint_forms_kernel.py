@@ -138,9 +138,10 @@ def test_a_single_component_root_is_not_formed_by_the_join(engine, solids):
     assert refs
     job = _forms(engine, step, refs)
     job["stock"]["components"]["boss"] = _bar(12, 25, at=(0, 0, -5))
-    # The finishing turn runs down to the collar and leaves its root sharp: lost, but the
-    # boss branch alone bounds it, so the join cannot have formed it.
-    job["setups"][1]["ops"][0]["joint_cut"].update(z_from=-1.0, z_to=20.0)
+    # Isolate formation ownership with the analytic preparation used by _joint_job,
+    # not a leading-nose stop at the collar (which leaves a tool-radius blend).
+    # The prepared cylinder reaches the collar exactly and leaves its root sharp.
+    job["setups"][1]["ops"][0]["joint_cut"].update(at_mm=[0, 0, -1.0], depth_mm=21.0)
     row = engine.run(job)["setups"]["join"]
     assert "root is owned by a single component" in row["assembly_error"], row
 
@@ -176,7 +177,10 @@ def _lose_the_cap(engine, step, job):
     """Face the boss top down to z=15 before the join: finished material lost far from the
     root. The spigot owns only z=0..10, so its cap is finished material, not preparation."""
     job["joint_features"]["spigot"]["depth_mm"] = 10.0
-    job["setups"][1]["ops"][0]["joint_cut"].update(depth_mm=10.0, z_from=0.0, z_to=20.0)
+    # Prepare the whole boss analytically, including the cap the later face removes.
+    # A leading-nose window would instead leave an unprepared interface at z=0,
+    # stopping the branch before this independent assembly-loss test reaches its join.
+    job["setups"][1]["ops"][0]["joint_cut"]["depth_mm"] = 20.0
     job["features"]["top"] = engine.refs(step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane")
     job["setups"].insert(
         2,
@@ -346,9 +350,7 @@ def _nonnominal_root(engine, step, exported=(9.7, 9.9), **kwargs):
     land = {"nominal_dia_mm": 9.83, "dia_mm": [9.82, 9.84]}
     job["joint_features"]["spigot"].update(land)
     job["setups"][1]["ops"][0]["joint_cut"].update(land, diameter_mm=9.83)
-    job["features"]["outer"] = engine.refs(
-        step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder"
-    )
+    job["features"]["outer"] = engine.refs(step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder")
     if exported is not None:
         job["dia_bands"] = {"outer": list(exported)}
     return job
@@ -396,9 +398,7 @@ def test_nonnominal_neighbour_does_not_excuse_wrong_root_radius(engine, solids, 
 
 @pytest.mark.parametrize("kind", ["chamfer", "radius"])
 def test_nonnominal_neighbour_does_not_excuse_a_socket_groove(engine, solids, kind):
-    job = _nonnominal_root(
-        engine, solids["filleted"], mouth={"kind": kind, "size_mm": 0.25}
-    )
+    job = _nonnominal_root(engine, solids["filleted"], mouth={"kind": kind, "size_mm": 0.25})
     row = engine.run(job)["setups"]["join"]
     assert "assembly_error" in row, row
     assert "unsupported" not in row["assembly_error"]
@@ -433,7 +433,7 @@ def test_nonnominal_prep_does_not_make_a_single_component_corner_a_join(engine, 
     land = {"nominal_dia_mm": 9.83, "dia_mm": [9.82, 9.84]}
     job["joint_features"]["spigot"].update(land)
     job["setups"][1]["ops"][0]["joint_cut"].update(
-        land, diameter_mm=9.83, z_from=-1.0, z_to=20.0
+        land, diameter_mm=9.83, at_mm=[0, 0, -1.0], depth_mm=21.0
     )
     job["features"]["outer"] = engine.refs(
         step, (-4.9, -4.9, -1.0), (4.9, 4.9, 20), kind="Cylinder"

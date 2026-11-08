@@ -171,7 +171,7 @@
         "inputs": {
           "cutting_data": {
             "path": "examples/cutting-data.toml",
-            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+            "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
           },
           "features": {
             "path": "examples/geometry/pocket-reach/features.toml",
@@ -2509,11 +2509,11 @@
       "subject": "S2"
     }
   ],
-  "hash": "47b83d54c20273c6710554724110559da97f5a1728dd6ba837efb1fa9b0d7755",
+  "hash": "291eceba4b52f0485cc3312f79f26b3085c57ae3147d925bbaa1c996c0397973",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
-      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+      "sha256": "0cf6dc7c78e4fe73eb9a9e87ab4110f61b98bd0d30497c6e1027939ae5bade1f"
     },
     "features": {
       "path": "examples/geometry/pocket-reach/features.toml",
