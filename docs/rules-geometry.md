@@ -398,6 +398,25 @@ a sibling's contact or unannotated legacy row cannot supply blank credit.
 Legacy unqualified lookup remains available only for a uniquely carried member.
 Registrations never rewrite canonical ownership or the source STEP.
 
+### Shared-axis manufacturing geometry
+
+An [`axis_placements`](plan.md#shared-axis-placements) declaration constructs a
+derived boss, bore and cap geometry within the exported separation band. The
+native contract supports the declared intersecting cylinders and preserves the
+support's unrelated openings and faces; it is not a general geometry editor.
+The source STEP and manifest stay unchanged.
+
+Construction checks exact source-face ownership, complete source primitives,
+supported material and the resulting connected solid. A proposed bore that
+enters another void or leaves supported material is refused. Current role
+assignments and native provenance must match before the
+[coordinate proof gate](rules-coordinates.md#shared-axis-proof-gate) releases
+targets or the report credits the manufacturing shape.
+
+This geometry proof does not establish a machining sequence, arriving stock,
+installed workholding, surface completion or physical inspection. Their
+independent obligations remain in force.
+
 ### Joint targets and final-face credit
 
 Plan-owned joint cylinders are separate analytic targets with
