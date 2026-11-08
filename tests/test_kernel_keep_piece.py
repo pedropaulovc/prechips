@@ -296,12 +296,17 @@ out["chuck:unplaced"] = gripped._retained_chuck_grip(shaft)
 gripped.fixture_ready = True
 gripped.fixture_debts = ["jaw position unresolved"]
 out["chuck:debt"] = gripped._retained_chuck_grip(shaft)
+out["chuck:debt_released"] = gripped._retained_chuck_grip(released)
 gripped.fixture_debts = []
 gripped.thread_regions = ["bounded stock"]
 out["chuck:bounded"] = gripped._retained_chuck_grip(shaft)
 gripped.thread_regions = []
 gripped.chuck["matrix"].move(V(0, 0, -20))
 out["chuck:translated"] = gripped._retained_chuck_grip(shaft)
+gripped.part = None
+out["chuck:exception"] = gripped._retained_chuck_grip(shaft)
+gripped.chuck = None
+out["chuck:absent"] = gripped._retained_chuck_grip(shaft)
 with open(target, "w", encoding="utf-8") as stream:
     json.dump(out, stream)
 """
@@ -342,11 +347,18 @@ def test_the_kept_piece_is_the_one_that_carries_the_whole_feature(tmp_path, free
     scrap = out["built:scrap"]
     assert scrap["shape"] == 1 and "error" not in scrap
     assert [row["piece"] for row in scrap["discarded"]] == [2]
-    assert out["chuck:waste"]["retained_chuck_grip"] is True
-    assert out["chuck:released"]["retained_chuck_grip"] is False
-    assert out["chuck:translated"] is True
-    for name in ("nicked", "unplaced", "debt", "bounded"):
-        assert out["chuck:" + name] is False
+    assert out["chuck:waste"]["retained_chuck_grip"]["status"] == "retained"
+    assert out["chuck:released"]["retained_chuck_grip"]["status"] == "released"
+    assert out["chuck:translated"]["status"] == "retained"
+    assert out["chuck:nicked"]["status"] == "released"
+    assert out["chuck:debt_released"]["status"] == "released"
+    detail = {**out["chuck:waste"], "retained_chuck_grip": out["chuck:debt_released"]}
+    assert _parting_order(detail).status == "error"
+    for name in ("unplaced", "debt", "bounded", "exception", "absent"):
+        assert out["chuck:" + name]["status"] == "unknown"
+        assert out["chuck:" + name]["reason"]
+        detail = {**out["chuck:waste"], "retained_chuck_grip": out["chuck:" + name]}
+        assert _parting_order(detail).status == "unknown"
     for later in ("face", "form"):
         assert _parting_order(out["chuck:waste"], later=later).status == "pass"
         assert _parting_order(out["chuck:released"], later=later).status == "error"
@@ -505,7 +517,7 @@ def _retained_keep():
         "after": "S1:5",
         "kept": {"piece": 1},
         "discarded": [],
-        "retained_chuck_grip": True,
+        "retained_chuck_grip": {"status": "retained", "reason": "unchanged placed grip"},
     }
 
 
@@ -523,19 +535,22 @@ def test_waste_parting_may_face_or_form_the_still_chucked_carrier(later):
         {"after": "S1:4"},
         {"feature": "dome"},
         {"reason": "carrier unresolved"},
-        {"error": "discarding finished material"},
+        {"retained_chuck_grip": {"status": "unknown", "reason": "jaw clock unmeasured"}},
     ],
 )
 def test_unsupported_or_unknown_retention_does_not_allow_later_cutting(mutation):
     detail = {**_retained_keep(), **mutation}
-    assert _parting_order(detail).status == "error"
+    row = _parting_order(detail)
+    assert row.status == "unknown"
+    assert row.numbers["violations"] == []
+    assert row.numbers["unresolved"]
 
 
 @pytest.mark.parametrize("missing", ["retained_chuck_grip", "kept"])
 def test_keep_without_positive_native_retention_does_not_allow_cutting(missing):
     detail = deepcopy(_retained_keep())
     detail.pop(missing)
-    assert _parting_order(detail).status == "error"
+    assert _parting_order(detail).status == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -543,9 +558,6 @@ def test_keep_without_positive_native_retention_does_not_allow_cutting(missing):
     [
         {"do": "release"},
         {"outputs": {"left": {}, "right": {}}},
-        {"keep": "unknown"},
-        {"keep": "missing"},
-        {"keep": None},
     ],
 )
 def test_actual_release_or_two_output_split_still_ends_the_holding(fields):
@@ -555,4 +567,40 @@ def test_actual_release_or_two_output_split_still_ends_the_holding(fields):
 
 
 def test_unavailable_kernel_cannot_certify_retained_parting():
-    assert _parting_order(_retained_keep(), kernel_status="unknown").status == "error"
+    assert _parting_order(_retained_keep(), kernel_status="unknown").status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"error": "discarding finished material"},
+        {"retained_chuck_grip": {"status": "released", "reason": "grip material lost"}},
+    ],
+)
+def test_known_carrier_or_grip_loss_remains_an_error(mutation):
+    assert _parting_order({**_retained_keep(), **mutation}).status == "error"
+
+
+@pytest.mark.parametrize("feature", ["unknown", "missing", None])
+def test_unknown_keep_is_retention_debt_not_proved_release(feature):
+    row = _parting_order(_retained_keep(), keep=feature)
+    assert row.status == "unknown"
+    assert row.numbers["violations"] == []
+
+
+def test_actual_missing_kernel_leaves_retention_unknown(tmp_path, monkeypatch):
+    from prechips import kernel
+
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "missing-freecad-retention"))
+    bundle = _rule_bundle({"keep": "south"}, None)
+    bundle.plan["setups"][0]["ops"] = [
+        {"op": 5, "do": "part_off", "keep": "south"},
+        {"op": 10, "do": "face", "feature": "south"},
+    ]
+    # Prepared job isolates executable discovery without native work or disk cache.
+    [facts] = kernel.run_geometries([bundle], jobs=[{"measurement_debts": []}])
+    assert facts["kernel_unavailable"] is True
+    [row] = op_order.evaluate(bundle)
+    assert row.status == "unknown"
+    assert row.numbers["violations"] == []
+    assert "FreeCAD kernel unavailable" in row.sentence

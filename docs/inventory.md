@@ -445,6 +445,19 @@ tolerance leaves the check unknown at best. Omitted tolerance is zero; declared
 unknown or untrusted tolerance leaves the limit check unknown. See
 [inspection rules](rules-inspection.md).
 
+An optical comparator uses `gauges.<id>.kind = "optical_comparator"`, not
+`profile_gauge`. Its calibrated linear stage reads external silhouette
+`height`, `length`, `station`, `width` and `thickness` using `range_mm` and
+`resolution_mm` (or their supported inch equivalents). Each check requires an
+authored inspection method and the gauge requires `cite` evidence for its
+declared capability. A magnified contour can read `radius` or `bottom_radius`,
+but needs a separate fact-local `profile_resolution_mm` or `_in`: linear stage
+readout resolution does not establish contour discrimination. Radius bands,
+including `R MAX`, are read across the band, not as fixed gauge leaves.
+This classification does not grant internal-feature access, diameter, depth,
+angular, roughness or datum-frame/GD&T capability. Missing or untrusted
+capability remains unresolved; inadequate range or discrimination fails.
+
 A guided sweep's master is a gauge with `kind = "setting_bar"` or
 `"master_arc"`. A setting bar seats on a swing-arm pivot pin and is for pivot
 guides only. A master arc is a template edge pinned on the arm or sled.
@@ -523,13 +536,31 @@ Any missing entry, including any part of `make_document`, is debt and the
 card prints only a STOP. Otherwise the card prints those pointers; it never
 prints the trammel build.
 
-For the setup picture, measured `pin_dia`, `rail_width`, `rail_height` and
-`bed_height` draw render-only rails and pins. A missing fact gets its own
-picture note. Measured `carrier_length` (along the pin chord), `carrier_width`
-and `carrier_thickness` draw the plate carrying the work. No fact offsets it
-from the pin chord, so it is centred on that chord with its top at the work
-seat. A missing carrier dimension leaves only the carrier undrawn, with a
-separate note.
+For the setup picture, measured `pin_dia`, `rail_width`, `rail_height`,
+`rail_base_height`, `rail_span` and `bed_height` draw render-only rails and pins.
+`rail_span` is the positive, increasing pair of **physical rail endpoint stations**
+from the spindle along each rail direction; it is not `rail_travel`, which remains
+the usable pin stations at carriage stops. The rail bottom is `rail_base_height`
+above the table, including any mounting base; rail height is its physical section.
+A missing fact leaves these components undrawn with a measurement note.
+
+Measured `carrier_length` (along the pin chord), `carrier_width`,
+`carrier_thickness`, `carrier_offset.<pin_pair>` and `carrier_seat_drop` draw the
+carrier. The signed offset locates the plate centre transversely from the selected
+pin chord's midpoint: positive is the left normal `[-dy, dx]` of the unit direction
+from the first to second pin in `pins_deg` order. Its top is `carrier_seat_drop`
+below the fixture's work-support seat (`bed_height` above the table). Record an
+explicit measured zero for a centred plate, table-mounted rail or carrier-top work
+seat; missing values never imply zero. Missing or contradictory carrier facts leave
+only the carrier undrawn, with a separate note.
+
+The rocker demonstration follows HA `ch_rocker_arm_tl_oblique_carrier_spec.py`
+(plate bounds and hole pairs) and `ch_rocker_arm_tl_oblique_trammel_spec.py`
+(rail stack): inner/outer offsets are +19.812 / −4.66852 mm, physical rails run
+15–465 mm and stand on 11.938 mm bases, and the carrier top is 6.096 mm below
+the work seat. These explicitly labelled demonstration records are not installed
+shop measurements. None of these render-only facts proves guided-sweep travel,
+headroom, contact or collision clearance; those existing unknowns remain.
 
 ## Edge finder
 
@@ -1716,6 +1747,10 @@ schema.
 | `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits`, nearest/farthest pin stations from spindle axis; measured |
 | `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength`, trammel picture only; measured |
 | `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength`, trammel carrier-plate picture only; measured |
+| `rail_span_mm` / `rail_span_in` | `MeasuredLimits`, positive increasing physical rail endpoint stations, not usable pin travel; measured, picture only |
+| `rail_base_height_mm` / `rail_base_height_in` | `MeasuredLength`, nonnegative rail bottom height above table; measured, picture only |
+| `carrier_offset_mm` / `carrier_offset_in` | Map from pin-pair name to signed `MeasuredLength`, plate centre left of the directed first-to-second pin chord; measured, picture only |
+| `carrier_seat_drop_mm` / `carrier_seat_drop_in` | `MeasuredLength`, nonnegative work-support seat height above carrier top; measured, picture only |
 | `make_document` | `{ id, revision, cite }`, document used to build and commission the trammel outside the setup sheet |
 | `commissioning_record` | `str`, location of rail-alignment installation record |
 | `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength`, largest commissioning miss from predicted carriage-dowel stations; measured |

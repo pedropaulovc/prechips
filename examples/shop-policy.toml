@@ -3,6 +3,10 @@
 # ILLUSTRATIVE EXAMPLE NUMBERS: the shop limits below are plausible hobby-shop
 # values chosen for the pilot examples (AGENTS.md "Examples policy"), not
 # logbook measurements or transcribed handbook limits.
+# Reconciled examples supply explicitly labelled fixture and inspection capability
+# observations; they do not waive these limits or the required rules below.
+# An unresolved exported requirement (including the cone FINISH owner ruling)
+# remains unresolved even when all demonstration equipment is present.
 revision = 8
 
 [required]

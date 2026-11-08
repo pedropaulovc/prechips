@@ -47,6 +47,10 @@ Mounted slitting saws have bounded offline support for a measured blade/arbor as
 
 Registered workpieces preserve distinct members through nested named cut outputs and member-qualified face claims. Posed or borrowed supports share the native collision scene, and requested transverse finder pickups check the full installed stack against actual arriving stock. These offline proofs do not establish physical holding or shop execution. Setup sheets support `--detail pro|hobby|pedantic`, defaulting to `hobby`; see the [detail-mode contract](https://github.com/pedropaulovc/prechips/blob/main/docs/report-and-telemetry.md#traveler-detail-modes). Inspection expansion remains separate unfinished work; this support is not CAM or physical safety certification.
 
+Oblique-trammel inventory can describe render-only fixture geometry for setup
+pictures; those fields do not expand clearance or safety proof. See the
+[inventory reference](https://github.com/pedropaulovc/prechips/blob/main/docs/inventory.md#oblique-trammels).
+
 Hobby and pro sheets share repeated procedures and consolidate equivalent setup holds. Recursive datum explanations remain in `report.json`; unresolved settings and required actions stay on the sheet.
 
 ## CLI: five noninteractive verbs
@@ -73,7 +77,11 @@ An authored `op.rpm` is a requested speed, not a verified recommendation. The re
 
 The [geometry reference](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/architecture.md) describes the host/native boundary.
 
+Authored [manual ball-end rasters](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#authored-manual-ball-end-raster) describe finite single-axis cutting rows and explicit lifted transitions. Their bounded native proof uses the measured ball, shank and holder, retains partial source-face coverage debt and refuses unsupported methods. It does not generate a path, clear future-pass stock early, or replace unresolved hand-finishing and inspection requirements.
+
 Named finished solids, retained part-off outputs and removable threaded assembly routes require explicit identities and material ownership. A nominal thread match is not proof of engagement, seating, strength or a collision-free assembled cut. The [plan reference](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md) defines retained outputs and threaded joints; unresolved registration and physical engagement remain debt.
+
+Bounded [shared manufacturing-axis placements](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#shared-manufacturing-axis-placements) let a plan target one concentric cylindrical boss and through bore together, with planar annular caps on an analytic cylindrical support. The source STEP and manifest remain immutable; unknown, conflicting or unsupported references refuse placement rather than falling back to nominal geometry. A process target is not metrology, physical clearance or machining approval.
 
 A missing kernel leaves applicable geometry unresolved and produces exit 4 unless a rule error takes precedence with exit 2. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md#freecad-is-installed-but-geometry-says-the-kernel-is-unavailable).
 

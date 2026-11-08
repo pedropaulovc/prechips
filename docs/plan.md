@@ -172,8 +172,8 @@ source model and is not a measurement of a finished part.
 [axis_placements.crank]
 boss = "crank_boss"
 bore = "crank_bore"
-caps = "crank_caps"
-support = "post"
+caps = "crank_boss_faces"
+support = "head"
 separation_mm = 43.2735
 ```
 
@@ -188,6 +188,12 @@ The supported domain is a single concentric cylindrical boss with a through
 bore and planar annular end caps on an analytic cylindrical support. The
 source facts must unambiguously identify those features and their reference
 axis; unrelated intersecting or ambiguous geometry is not supported.
+The fixed reference is the located hole axis named by `bore.height_from`.
+Boss and support axes must intersect perpendicularly; the translation must
+run along the support axis. Both old and new boss radial envelopes must stay
+strictly inside the support's axial ends, and both boss caps must extend
+beyond the support cylinder. Native source-surface and trimming evidence
+must independently establish this geometry.
 Unknown, missing, conflicting or unsupported references refuse placement:
 there is no fallback to the nominal boss or bore. Faced aims, registered
 workpieces and multi-solid interactions are outside this bounded contract.
@@ -1874,6 +1880,7 @@ execution order; `op` is its within-setup identity.
 | `go_no_go` | `dict[str, GoNoGo \| Unknown \| dict[str, GoNoGo \| Unknown]]` (each entry needs its feature's `checks` gauge) |
 | `missing_requirements` | `dict[str, str]` |
 | `inspection_methods` | `dict[str, str \| list[str] \| dict[str, str \| list[str]]]` |
+| `inspection_readings` | Requirement → `InspectionReading`, or feature → requirement → `InspectionReading` |
 | `inspection_views` | `dict[str, list[InspectionView]]` (flat only) |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
@@ -1976,6 +1983,28 @@ list, exported or plan-owned. Otherwise loading raises `BadInput`, even if
 another feature owns the name. A wholly unknown requirements list cannot
 authorize arbitrary checks. A missing check is distinct from
 `checks.dia = "unknown"`. Multi-feature inspection uses the scoping rules below.
+
+`inspection_readings` optionally qualifies how a signed `station` is read with
+a height gauge or CMM. It does not change the gauge's physical range. Declare
+`kind = "relative_coordinate"`, `offset_mm`, a qualification `method`, and `cite`;
+the coordinate is **physical reading − offset**. For example:
+
+```toml
+[setups.ops.inspection_readings.station]
+kind = "relative_coordinate"
+offset_mm = 104.0
+method = "Qualify the reference axis 100 mm above the plate and the 4 mm stem radius by blocks and reversal."
+cite = ["Authored datum stand and stem qualification"]
+```
+
+The inspection rule adds the qualified offset to both station limits, then
+checks those physical readings against the unchanged gauge range and checks
+its resolution against the original band width. Keep the datum setup,
+corrections, uncertainty/guarded acceptance, and signed recording instructions
+in `inspection_methods`. This declares a capable plan, not a calibration or
+measured part result. Missing/unknown qualification remains unresolved; a
+mapped reading outside physical travel still fails. Entries may be scoped to
+listed features like `checks`; each requires its own `checks` entry.
 
 `inspection_methods` supplies the authored procedure for datum/geometric
 checks and missing requirements. Each `inspection_methods.<requirement>` or
@@ -2454,14 +2483,14 @@ requirements.
 
 ## Contour
 
-`contour` declares a linear raster or one supported manual-arc method.
+`contour` declares a linear raster, an authored ball-end raster, or one supported manual-arc method.
 Linear pockets and faces may use `sweep_bounds`, `sweep_frame`, `open_side`
-and circular `keep_out` islands; a raster also needs `step_mm`.
+and circular `keep_out` islands; a generated linear raster also needs `step_mm`.
 See [coordinates](rules-coordinates.md).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
+| `method` | `str`: `linear_table`, `manual_ball_raster`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
 | `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing; `guided_sweep` under 180) |
@@ -2476,6 +2505,7 @@ See [coordinates](rules-coordinates.md).
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 | `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
+| `raster` | `ManualRaster` (`manual_ball_raster`: explicit setup-frame tool-tip trajectory) |
 
 A profile action with explicit `contour.sweep_bounds` and no
 `stock_removal_bounds` removes only its complete native-validated printed
@@ -2486,6 +2516,41 @@ Missing or unsupported guided paths stay unknown. An authored
 `stock_removal_bounds` still takes precedence as a full multipass clearing
 volume; it is not merely a clipping fence around the guide. See
 [explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
+
+### Authored manual ball-end raster
+
+`method = "manual_ball_raster"` consumes a finite authored trajectory. It does
+not calculate a toolpath from CAD, fill a selected face, or authorize
+simultaneous two-axis milling. `contour.raster` contains:
+
+| Field | Meaning |
+|---|---|
+| `start_mm` | Initial tool-tip `[X, Y, Z]`, in setup-frame millimetres |
+| `safe_z_mm` | Authored minimum tool-tip height for horizontal clear/index moves |
+| `moves` | Nonempty ordered list of `{ to_mm = [X, Y, Z], mode = "cut" }` or `mode = "clear"` |
+
+Every move changes exactly one axis. A cutting move changes X or Y at
+constant Z. Every retract, vertical entry, and horizontal index is an explicit
+`clear` move; horizontal clear moves stay at or above `safe_z_mm`, and the
+trajectory starts and ends at that height or above. No return, plunge,
+intermediate point, feed direction, or cut level is supplied by the checker.
+Coordinates retain their stated millimetre units even in an inch-based plan.
+The operation table and diagram use the same normalized values as native proof.
+
+The tool must be an inventory `ball_endmill` with measured cutting diameter,
+flute length, shank diameter, projection and holder dimensions. A missing
+measurement leaves proof unknown; an end mill is not silently treated as a
+ballnose, nor is an unmeasured relieved neck assumed. The native sweep includes
+the hemispherical cutting tip, flute, shank and holder throughout every move.
+Entry is noncutting: it must already be clear in the stock left by preceding
+operations and moves, not in stock a later pass promises to remove.
+
+Unsupported methods fail closed rather than falling back to axial milling.
+Face selections identify the requested source faces, not completed machining:
+the actual bounded sweeps can leave partial coverage, scallops and source-corner
+debt. Filing, scraping and honing that have no represented proof remain
+explicit holds. No tolerance, root blend or finishing allowance is inferred
+from raster spacing. See [bounded ball-raster proof](rules-geometry.md#bounded-manual-ball-raster).
 
 ### Chain-drilling cutting data
 

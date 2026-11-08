@@ -56,6 +56,22 @@ the original typed witness and any unresolved partition or pose evidence;
 it cannot promote an uncertain preparation to a pass. An explicit
 `prerequisites` declaration on the later drill is validated independently.
 
+A finished hole's ream may instead consume a real earlier drill on a
+plan-owned `cylinder_bore` joint feature. This is physical bore continuation,
+not feature-name equivalence: both axes must describe the same line, the
+actual full-diameter drill stroke must cover the finished bore's full axial
+span, and its selected diameter must leave radial stock below the finished
+diameter band. Opposite axis conventions and trimmed entry faces are allowed.
+For a through feature without declared depth, the consuming operation's
+entry surface and explicit `stock_state.local_thickness` establish its span
+in the setup frame; missing span, pose or tool facts remain unknown. The
+existing depth/native-stock rules still judge those stock declarations.
+Both source and finished feature must survive on the material delivered
+through the branch join, and the source drill retains its real causal spot
+preparation. `preparation_witnesses` names the source drill, both features and
+the coaxial/full-depth result. This path does not infer tapping preparation,
+accept an offset/skewed bore or replace missing material-survival evidence.
+
 For `tap` and `hand_tap`, the selected drill diameter must match the explicit
 `tap_drill_mm` specification using verified tool geometry. Lengths agree
 within absolute 1e-6 mm, so `3/8` in and `9.525` mm agree. The selected tap's
@@ -170,10 +186,14 @@ of the unsplit ancestor. See [retained outputs](plan.md#retained-part-off-output
 An earlier waste-only `part_off` may precede further cutting only with an
 explicit known `keep`, no named `outputs`, successful native proof of a unique
 feature-carrying kept solid with no discarded finished material, and positive
-`retained_chuck_grip` proof. The grip proof requires that one kept solid
+`retained_chuck_grip` proof, reported with `status` (`retained`, `released`
+or `unknown`) and `reason`. The grip proof requires that one kept solid
 contains all positive-volume setup-entry material under the placed chuck jaws,
 unchanged. An unplaced or debted chuck, or bounded thread stock, cannot certify
-that proof. Unknown or unsupported proof remains an order error, not a pass.
+that proof. Known grip or material loss, a keep error, actual release or named
+outputs remain errors. Missing or unavailable kernel, unknown keep or carrier,
+unsupported proof, unmeasured or debted holding, and boolean exceptions leave
+the order unknown, not a pass.
 
 
 For this release-order check, `die_thread` and `hand_tap` count as cutting
@@ -528,6 +548,17 @@ Explicit authored face `bounds` and true round non-face features keep their
 declared-footprint behavior. Authored empty or whole-record unknown face
 `bounds` is debt, not permission to use a disc or native-box fallback.
 Malformed explicit bounds stay debt when containment cannot be established.
+
+A `TRANSIENT` process `end_face` has an explicit construction plane, not
+an infinite touched surface. A bounded operation's finite footprint is that
+plane intersected with its own removal window in the resolved setup frame.
+This lets a real partial cut produce its local surface without claiming the
+rest of the blank. Whole-face entry and top replay require complete coverage:
+coplanar windows may supply a union only when it covers the target without
+gaps. Separate ear windows do not establish a central touch, and partial
+ear cuts do not trim every later process face as though the whole blank
+were faced. Unknown placement or native evidence stays debt. Finished-face
+coverage continues to use the strict declared/native-face rules above.
 
 ### Whole producers and bounded coverage
 

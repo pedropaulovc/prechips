@@ -15,9 +15,7 @@ def test_rocker_strap_faces_are_prepared_on_the_strap_before_pressing():
     assert bundle.plan["construction"] == "built_up"
     assert bundle.plan["stock"]["form"] == "built_up"
     setups = bundle.plan["setups"]
-    (press,) = [
-        setup for setup in setups if setup.get("joint", {}).get("method") == "press"
-    ]
+    (press,) = [setup for setup in setups if setup.get("joint", {}).get("method") == "press"]
     joint = press["joint"]
     assert joint["kind"] == "cylindrical"
     socket = bundle.plan["joint_features"][joint["socket"]]
@@ -52,7 +50,7 @@ def test_rocker_strap_faces_are_prepared_on_the_strap_before_pressing():
     assert prepared == strap_faces
 
 
-def test_rocker_export_maps_the_two_strap_sides_at_the_component_thickness(
+def test_rocker_strap_sides_map_at_thickness_and_are_cuttable_in_the_actual_route(
     monkeypatch, freecad_kernel
 ):
     monkeypatch.setenv("FREECAD_CMD", freecad_kernel)
@@ -66,9 +64,8 @@ def test_rocker_export_maps_the_two_strap_sides_at_the_component_thickness(
     }
     assert planes["strap_datum_b"] == pytest.approx(strap["thickness_nominal"] / 2)
     assert planes["strap_faces"] == pytest.approx(-strap["thickness_nominal"] / 2)
-    # Check the authoritative finished assembly, not a successful cut on an unresolved
-    # fixture. The actual route's strap-only preparation is checked separately above.
-    bundle.plan["setups"] = []
+    # Keep the current component route and its actual holds: mapping the finished
+    # assembly alone cannot prove that either facing operation approaches its near side.
     facts = run_geometry(bundle)
     assert facts["status"] == "ok"
     for name, z in planes.items():
@@ -79,3 +76,27 @@ def test_rocker_export_maps_the_two_strap_sides_at_the_component_thickness(
             face = facts["faces"][facts["mapping"][ref]]
             assert face["kind"] == "Plane"
             assert [face["bbox_mm"][2], face["bbox_mm"][5]] == pytest.approx([z, z])
+
+    prepared = set()
+    for setup in bundle.plan["setups"]:
+        for op in setup.get("ops", []):
+            name = op.get("feature")
+            if not isinstance(name, str) or name not in planes:
+                continue
+            if op["do"] not in {"face", "rough_face", "finish_face"}:
+                continue
+            subject = f"{setup['id']}:{op['op']}"
+            refs = op.get("faces", features[name]["faces"])
+            assert refs and set(refs) <= set(features[name]["faces"]), subject
+            detail = facts["ops"][subject]
+            assert detail["claim_errors"] == [], (subject, detail)
+            assert detail["claimed_indices"] == sorted({facts["mapping"][ref] for ref in refs}), (
+                subject,
+                detail,
+            )
+            assert isinstance(detail["sample_count"], int), (subject, detail)
+            assert detail["sample_count"] > 0, (subject, detail)
+            assert detail["tool_hits"] == 0, (subject, detail)
+            assert detail["holder_hits"] == 0, (subject, detail)
+            prepared.add(name)
+    assert prepared == set(planes)

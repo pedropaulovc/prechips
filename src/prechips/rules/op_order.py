@@ -1,6 +1,7 @@
 """Check authored execution order, not numeric operation sorting."""
 
 from ..findings import Finding
+from .op_chain import _bore_continuation
 from .resolution import (
     HAND_THREAD,
     MANUAL,
@@ -13,34 +14,43 @@ from .resolution import (
 )
 
 
-def _retained_parting(bundle, setup, op):
-    """A waste-only parting may leave the finished carrier in the unchanged chuck grip."""
+def _parting_retention(bundle, setup, op):
+    """Return retained/released/unknown and its evidence, never infer release from debt."""
+    if op["do"] == "release" or op.get("outputs") or "keep" not in op:
+        return "released", "the operation ends this holding"
     feature = op.get("keep")
     if (
-        op["do"] != "part_off"
-        or op.get("outputs")
-        or not isinstance(feature, str)
+        not isinstance(feature, str)
         or feature == "unknown"
         or feature not in bundle.feature_definitions
     ):
-        return False
+        return "unknown", "the kept finished feature is unresolved"
     from prechips.kernel import run_geometry
 
     facts = record(run_geometry(bundle))
     if facts.get("status") != "ok":
-        return False
+        return "unknown", facts.get("reason") or "native retention evidence is unavailable"
     subject = f"{setup['id']}:{op['op']}"
-    detail = record(
-        record(record(record(facts.get("setups")).get(setup["id"])).get("keeps")).get(subject)
-    )
-    return (
-        detail.get("feature") == feature
-        and detail.get("after") == subject
-        and "kept" in detail
-        and "error" not in detail
-        and "reason" not in detail
-        and detail.get("retained_chuck_grip") is True
-    )
+    setup_facts = record(record(facts.get("setups")).get(setup["id"]))
+    detail = record(record(setup_facts.get("keeps")).get(subject))
+    if detail.get("error"):
+        return "released", detail["error"]
+    if (
+        detail.get("feature") != feature
+        or detail.get("after") != subject
+        or "kept" not in detail
+        or detail.get("reason")
+    ):
+        return "unknown", detail.get("reason") or "the kept material carrier is unproved"
+    proof = record(detail.get("retained_chuck_grip"))
+    state, reason = proof.get("status"), proof.get("reason")
+    if (
+        state not in {"retained", "released", "unknown"}
+        or not isinstance(reason, str)
+        or not reason
+    ):
+        return "unknown", "native chuck retention evidence is missing or unsupported"
+    return state, reason
 
 
 def evaluate(bundle):
@@ -79,8 +89,13 @@ def evaluate(bundle):
             )
             if action in TAP_OPS | {"ream", "counterbore"}:
                 if not any(
-                    prev.get("feature") == prerequisite_feature and prev["do"] == "drill"
-                    for _, prev in before
+                    prev["do"] == "drill"
+                    and (
+                        prev.get("feature") == prerequisite_feature
+                        or _bore_continuation(bundle, setup, op, prerequisite_feature, source, prev)
+                        is not False
+                    )
+                    for source, prev in before
                 ):
                     errors.append(f"op {op['op']} {action} precedes its drill")
             if action == "drill" and any(
@@ -128,27 +143,35 @@ def evaluate(bundle):
                     for s, prev in before
                 ):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
-            # A release or unresolved part-off ends this holding. Only a native-proved
-            # waste cut retaining the finished carrier and unchanged chuck grip may continue.
-            if (
-                action in {"release", "part_off"}
-                and any(
-                    s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD
-                    for s, later in after
-                )
-                and not _retained_parting(bundle, setup, op)
+            # Explicit release ends this holding; waste parting may retain it, but
+            # absent physical evidence is debt rather than proof of either outcome.
+            if action in {"release", "part_off"} and any(
+                s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD for s, later in after
             ):
-                errors.append(f"op {op['op']} releases before the final cutting operation")
+                state, reason = _parting_retention(bundle, setup, op)
+                if state == "released":
+                    errors.append(f"op {op['op']} releases before the final cutting operation")
+                elif state == "unknown":
+                    unknown.append(
+                        f"op {op['op']} retention before later cutting is unresolved: {reason}"
+                    )
             if action in TAP_OPS | {"ream", "counterbore"}:
                 earlier = [
                     (s, o)
                     for s, o in before
-                    if o.get("feature") == prerequisite_feature and o["do"] == "drill"
+                    if o["do"] == "drill"
+                    and (
+                        o.get("feature") == prerequisite_feature
+                        or _bore_continuation(bundle, setup, op, prerequisite_feature, s, o)
+                        is not False
+                    )
                 ]
                 prepared = [
                     operation_material_status(
                         bundle, setup, source, prerequisite_feature, op=op, producer_op=cut
                     )
+                    if cut.get("feature") == prerequisite_feature
+                    else _bore_continuation(bundle, setup, op, prerequisite_feature, source, cut)
                     for source, cut in earlier
                 ]
                 if earlier and True not in prepared:

@@ -72,7 +72,11 @@ may instead scope `checks`, `go_no_go` and `inspection_methods` entries to one
 listed feature (`checks = { pivot_bore = { dia = "pin-gauges" }, hub_od = { dia =
 "micrometers/0-1in" } }`, [plan](plan.md#operation)): each feature is then judged
 with its own scoped gauge, pair and method, else the flat one, and a feature the op
-gives no gauge for that requirement is not checked there. To retain
+gives no gauge for that requirement is not checked there. Flat entries apply only
+to the operation's listed features: touching another feature's faces or using
+them as datums does not make its diameter subject to that operation's GO / NO-GO
+pair. Earlier pairs on the selected feature and member still have to accept
+only that feature's band, even when a later capable checkpoint exists. To retain
 an authored inspection for a requirement absent from the export, declare a separate inspect
 operation with `missing_requirements = { length = "calipers" }` and its
 `inspection_methods.length` procedure. A name already exported on the selected
@@ -126,6 +130,20 @@ identifies the replacing final checks. An uncovered member keeps that debt;
 unknown shared scope or gauge capability, bad timing, an incapable gauge, and
 proved destruction remain unresolved or errors even with capable final checks.
 
+### Signed coordinates and physical readings
+
+A signed station is not negative physical travel. An authored
+`inspection_readings` relative-coordinate qualification may translate a station
+to physical height-gauge or CMM readings: `coordinate = reading - offset_mm`.
+The qualification requires its explicit datum/reference `method` and `cite`,
+as well as the ordinary inspection method. Unknown qualification remains
+unknown. The rule records `physical_reading_band_mm` and checks that complete
+band against the instrument's unchanged physical range; its trusted resolution
+must still resolve the original station band. A translated band outside the
+range remains an error. This grants no relative-reading capability to arbitrary
+gauges or requirements and does not infer a calibration or measured part result.
+See [authoring](plan.md#operation).
+
 ### Gauge kinds and datum methods
 
 Gauge kinds must suit the requirement. Roughness needs a roughness gauge,
@@ -134,6 +152,14 @@ gauge. Both scalar and banded geometric requirements additionally need a known,
 nonempty declared datum inspection method; bands also use range/resolution checks.
 Complex shape controls (`radius`, `bottom_radius`, `arc_len`, `bottom_arc_len`,
 `land_angle_deg`) are forms: they need CMM/profile/radius/angle gauges.
+An `optical_comparator` is a separate external-silhouette instrument: it can read
+linear height/length/station/width/thickness and magnified radius/bottom-radius
+contours, with an explicit method and cited capability. Linear readings use the
+stage resolution; contours require independent `profile_resolution` evidence.
+Both use the declared range and band width. It grants no internal, diameter,
+depth, angular, roughness or datum-frame capability; a fixed `profile_gauge`
+does not acquire linear-stage capability by association. See
+[inventory](inventory.md#templates-masters-and-readouts).
 A height from a datum axis (`height_above_pivot`, measured from the feature's
 `height_from`) is a linear height to a surface's lowest point, not a form. A
 `cmm`, a `height_gauge` (the part on a surface plate, a pin gauge in the datum
@@ -242,6 +268,10 @@ Gauge range/resolution, GO / NO-GO acceptance, process-hold containment and
 inspection coverage remain independent requirements. Unknown applicability or
 capability remains unknown. Contradictory geometry needs independent geometry
 evidence; a nominal outside a band alone cannot establish that contradiction.
+This does not release the nominal as a cut target:
+[coordinate target checks](rules-coordinates.md#machining-targets-versus-model-nominals)
+withhold an out-of-band nominal-derived command and reject an explicit invalid
+final-size target independently of inspection capability.
 
 ### Finding messages and evidence
 
@@ -444,7 +474,8 @@ semantics.
 ## Surface profiles
 
 A drawing SURFACE PROFILE ([features](features.md#surface-profiles),
-harmonic-analyzer #1544) creates two inspection obligations. The zone itself,
+harmonic-analyzer #1544) owns the inspection of its zone and any BASIC scalars
+it governs. The zone itself,
 `feature:surface_profile`, is a geometric zone [0, t] inspected like
 `position_dia`: it needs a requirement-keyed `checks.surface_profile` gauge of a
 geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),
@@ -456,24 +487,34 @@ manifest feature through the `datums` table or a feature's `datum`, leaves it
 unknown even with a capable gauge and method; an explicit `[]` (form only) or a
 resolved datum list may pass. Evidence adds `surface_profile_datums`. A feature
 declaring a zone must list `surface_profile` in its requirements (bad input
-otherwise), so a zone never goes uninspected. Each BASIC scalar it governs
-(`surface_profile_governs`) is read against the band the zone derives for it
-instead of its bare BASIC value: `limits` is that band and the gauge must span
-it and resolve its width, as for any drawn band, and evidence adds
-`profile_band` (the governing profiles, or why the band is unknown). The band is
-pointwise from the DRF-located BASIC origin, not a fitted size. An unresolved
-derivation (unknown t, U, DRF or entry, an unresolved DRF datum, an empty DRF, a tilt the zone cannot
-bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
-governed requirement must lie inside the same derived band.
+otherwise), so a zone never goes uninspected.
 
-A BASIC angle a profile governs by `tilt_across` derives a band in degrees, n ±
-asin(t / l), which is the zone read end to end across the face extent l. It is read
-as the linear zone a drawn angle band read across a face is, about n: w = l·(sin(hi −
-n) − sin(lo − n)), the exact inverse (2t for one zone t), judged on resolution
-alone. A process hold on such an angle is read about the same n and l. When the
-governing profiles tilt it across different lengths no single reading reads them
-all: `tilt_across_length = "unknown"` with `tilt_across_reason`, and the band has
-`no angular gauge capability`.
+An ordinary inspection finding for a BASIC scalar in `surface_profile_governs`
+is dependent evidence, not an independent fitted-size range check. Its
+`acceptance_basis` is `"governing_surface_profile"`, `basic_value` preserves the
+source scalar, and `governing_checks` identifies each actual owning profile
+checkpoint by subject, identity and status. Its pass, unknown or error follows
+those checkpoints: the profile's actual method, datum frame, gauge resolution,
+timing, member scope and shared coverage remain authoritative. A separate
+dimension gauge or a best-fit radius within derived limits does not substitute
+for the profile checkpoint. Passing means the authored `inspection_plan` is
+adequate; it is not evidence that an actual measured part passed.
+
+`limits` and `profile_band` retain the derived, pointwise geometry and its
+provenance or reason for being unknown. The band is measured from the
+DRF-located BASIC origin, not a fitted-size tolerance. Unknown t, U, DRF or
+entry, an unresolved or empty DRF, or a tilt the zone cannot bound can leave
+that geometry unknown. It remains useful independently of the dependent
+inspection finding: a process hold on a governed requirement must lie inside
+the derived band.
+
+A BASIC angle governed by `tilt_across` derives a band in degrees, n ± asin(t / l),
+from the zone across face extent l. For a process hold the angular width is
+read as the corresponding linear zone about n:
+w = l·(sin(hi − n) − sin(lo − n)), the exact inverse (2t for one zone t).
+When governing profiles tilt it across different lengths no single reading
+reads them all: `tilt_across_length = "unknown"` with `tilt_across_reason`,
+and the band has `no angular gauge capability`.
 
 `datum_consistency` relates each `surface_profile_datums` datum at the zone t,
 the same tolerance convention as a scalar angularity zone, converted to mm

@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from ..measurements import cited_fact
+from .manual_raster import METHOD as MANUAL_RASTER
 from .resolution import (
     HAND_THREAD,
     MANUAL,
@@ -162,6 +163,15 @@ def milling_force(bundle, op, entry: Entry) -> CuttingForce:
     tool = resolve(bundle, "tools", op.get("tool", UNKNOWN)) or {}
     kind = tool.get("kind", UNKNOWN)
     inputs = {"operation": action, "tool": op.get("tool", UNKNOWN), "tool_kind": kind}
+    if mapping(op.get("contour")).get("method") == MANUAL_RASTER:
+        return CuttingForce(
+            "unknown",
+            inputs=inputs,
+            debts=[
+                "operation: no ball-end raster force model; cylindrical peripheral "
+                "engagement does not bound ball-tip cutting, even with proven side entry"
+            ],
+        )
     scoped = _scope(action, kind)
     if scoped is not None:
         status, reason = scoped

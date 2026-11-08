@@ -261,18 +261,21 @@ contracts after reconciliation; no new exit or approval is asserted here.
   ends. The authored route faces and centre-drills waste, turns with support,
   finishes each end, then mills the flats and inspects. It has no shoulder,
   reliefs or assembly cut-to-fit. The owner selected allocated 3/8-inch stock
-  from the shop inventory despite the CAD stock note. Holding, tooling, DRO and
-  surface-finish inspection still need shop evidence.
+  from the shop inventory despite the CAD stock note. Demonstration holding,
+  tooling, DRO and inspection values are labelled examples, not shop evidence.
 * **Cone pivot post:** integral solid-stock construction, not bonded sleeves.
-  The proposed route preserves the integral bosses during turning, then
-  profiles, bores and inspects them. Its material, holding, tooling and
-  metrology remain unresolved. The finish instruction is held for an owner
-  ruling; an old built-up paint interpretation cannot resolve it.
+  The proposed route preserves the integral bosses during turning, then uses
+  opposing ball-end rasters and hand finishing before boring and inspection.
+  Native replay of the 3D raster, filing and honing is unsupported; this is not
+  proof of those operations. Labelled demonstration values are not shop
+  measurements. The finish instruction remains held for an owner ruling; an
+  old built-up paint interpretation cannot resolve it.
 * **Rocker arm:** the current CAD detail drawings specify a built-up hub and
   strap. One combined route manufactures both components and declares the
   press joint from the CAD details, using the exact assembled v47 STEP; it
-  does not require separate component bundles. Pressing, tooling and stock
-  availability still need resolution. The old one-piece route is not authority.
+  does not require separate component bundles. Labelled demonstration pressing,
+  tooling and stock values do not establish actual shop availability or
+  capability. The old one-piece route is not authority.
 * **Pivot bracket:** the independent v39 illustrative example remains
   hand-authored without a dimensioned drawing.
 

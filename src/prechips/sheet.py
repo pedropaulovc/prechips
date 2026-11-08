@@ -49,6 +49,7 @@ from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
+    diameter_target_conflict,
     dro_grid,
     dro_grid_debt,
     dro_grid_measurements,
@@ -5938,6 +5939,8 @@ class _Traveler:
     def cut_span(self, setup, op):
         """(start Z, tip Z) of ``op`` as its op row prints them (:meth:`tip`); a start the
         row does not print is None, an unknown stays unknown."""
+        if self.manual_raster(setup, op) is not None:
+            return None, "unknown"
         endpoint = self.endpoint(setup, op)
         if endpoint:
             return endpoint.get("dro_entry_z", "unknown"), endpoint.get("dro_tip_z", "unknown")
@@ -8304,6 +8307,12 @@ class _Traveler:
         if saw_setup(self.bundle, setup):
             return ""
         numbers = self.records.get(("coordinates", setup["id"]), {})
+        if numbers.get("axis_placement_debt"):
+            return _p(
+                "STOP: the common boss, bore and cap placement has not been proved. "
+                "No nominal or shifted machining coordinates are released.",
+                "stop",
+            )
         display = numbers.get("x_display")
         lathe = "x_display" in numbers or self.lathe(setup)
         # The size each surface turns to, as the DRO's X display reads it; unread, the
@@ -8330,7 +8339,6 @@ class _Traveler:
         aims = []
         # A lathe map gives the size each surface is turned to and the Zs its cuts run
         # between: a surface this setup only inspects (an as-supplied diameter) has none.
-        cut = {op.get("feature") for op in setup.get("ops", []) if op.get("do") not in MANUAL}
         for record in numbers.get("rows", []):
             feature = record.get("feature")
             # A mill target prints where the DRO stops: on its grid, aims applied.
@@ -8340,7 +8348,7 @@ class _Traveler:
             if lathe:
                 x = record.get("x_target_mm")
                 size = x if prefix is not None else record.get("dia_nominal")
-                if feature not in cut or not _known(size):
+                if feature not in surface_ops or not _known(size):
                     continue
                 # Its ends as its ops print them: cut before its first op (:meth:`op_z`).
                 first = [
@@ -8376,9 +8384,10 @@ class _Traveler:
             # unknown. A feature point or finished/native span is not a cut window.
             for op in setup.get("ops", []):
                 feature = op.get("feature")
-                if not isinstance(feature, str) or feature not in cut or feature in grouped:
+                if not isinstance(feature, str) or feature not in surface_ops or feature in grouped:
                     continue
-                diameter = _mapping(self.features.get(feature)).get("dia_nominal")
+                definition = _mapping(self.features.get(feature))
+                diameter = definition.get("dia_nominal", definition.get("nominal_dia"))
                 if not _known(diameter) and feature not in staged:
                     continue
                 x = diameter / 2 if _known(diameter) and display == "radius" else diameter
@@ -8425,6 +8434,7 @@ class _Traveler:
             drawing = _mapping(self.bundle.features.get("features"))
             rows = []
             unknown_stage = nominal_stage = False
+            target_band_stop = False
             for feature, entry in targets:
                 band = _mapping(drawing.get(feature)).get("dia")
                 drawn = "—"
@@ -8457,7 +8467,15 @@ class _Traveler:
                 if "ops" in entry:
                     owners = ", ".join(str(op["op"]) for op in cutting)
                     label += f" — {'op' if len(cutting) == 1 else 'ops'} {owners}"
-                if "ops" in entry and not _known(entry["nominal_dia"]):
+                conflicts = [
+                    conflict
+                    for op in cutting
+                    if (conflict := diameter_target_conflict(self.bundle, setup, op)) is not None
+                ]
+                if conflicts:
+                    target = "?"
+                    target_band_stop = True
+                elif "ops" in entry and not _known(entry["nominal_dia"]):
                     target = "?"
                     unknown_stage = True
                 elif entry.get("nominal_only"):
@@ -8531,6 +8549,13 @@ class _Traveler:
             note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         table = _table(headings, rows, css="feature-map", widths=widths, context=note)
+        if lathe and target_band_stop:
+            table += _p(
+                "STOP: diameter target outside the drawing limits. The model nominal "
+                "is reference geometry, not an acceptable finished size. Establish a valid "
+                "process target within the displayed limits before cutting.",
+                "stop",
+            )
         if lathe and unknown_stage:
             table += _p(
                 "STOP: operation diameter target not set; the finished-feature diameter "
@@ -8587,6 +8612,21 @@ class _Traveler:
         """A located target moved off its drawing nominal (plan ``aims``): the target, the
         intentional offset and the dimension to inspect; empty for an unaimed target. The
         aim's authored reason stays in the plan."""
+        placement = record.get("axis_placement")
+        if isinstance(placement, dict):
+            bore = placement["bore"]
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            if scale is None:
+                return ""
+            return (
+                f"{self.feature_name(placement['boss']).capitalize()}, "
+                f"{self.feature_name(bore)} and {self.feature_name(placement['caps'])}: "
+                "machine on the same intentionally placed axis. "
+                f"Inspect the separation from {self.feature_name(placement['reference'])} "
+                f"to {self.band(placement['printed_band'], bore, 'separation')} "
+                f"(process target {_number(placement['separation_mm'] / scale)}). "
+                "The checked plan geometry is not a measurement of the finished part."
+            )
         aim = record.get("aim") or {}
         nominal = record.get("nominal_setup")
         if "shift_mm" not in aim or not isinstance(nominal, list):
@@ -8691,6 +8731,8 @@ class _Traveler:
 
     # ------------------------------------------------------------- operations
     def tip(self, setup, op):
+        if self.manual_raster(setup, op) is not None:
+            return [self.z_target(setup, op)]
         o = self.readout
         endpoint = self.endpoint(setup, op)
         if endpoint and endpoint.get("depth_scale") == "manual":
@@ -8869,8 +8911,19 @@ class _Traveler:
                 return entry
         return {}
 
+    def manual_raster(self, setup, op):
+        """The normalized authored tool-tip trajectory, never a scalar depth fallback."""
+        entry = self.coordinates_entry(setup, op)
+        if "manual_raster" in entry:
+            return entry["manual_raster"]
+        if _mapping(op.get("contour")).get("method") == "manual_ball_raster":
+            return {"reason": "normalized motion not established"}
+        return None
+
     def z_levels(self, setup, op):
         """The axial levels coordinates stepped an op authoring ``doc_mm`` down in, or None."""
+        if self.manual_raster(setup, op) is not None:
+            return None
         levels = self.coordinates_entry(setup, op).get("z_levels")
         return levels if isinstance(levels, dict) else None
 
@@ -8881,6 +8934,14 @@ class _Traveler:
         that pass, ``Z → depth``, while levels it could not establish keep their ``?``. A
         grooving/parting blade's target is the DRO reading of the corner its Z touch set
         (coordinates ``blade``), named."""
+        raster = self.manual_raster(setup, op)
+        if raster is not None:
+            if raster.get("reason"):
+                return _Box(
+                    "STOP: manual ball raster motion unknown — " + str(raster["reason"]),
+                    source="coordinates",
+                )
+            return "tool-tip X/Y/Z: follow the authored setup-mm move table"
         o = self.readout
         levels = self.z_levels(setup, op)
         if levels is not None:
@@ -9392,6 +9453,24 @@ class _Traveler:
                 for feature, band in zip(owners, bands, strict=True)
             )
         )
+        if requirement == "separation" and not absent:
+            from prechips.axis_placements import resolve_placements
+            from prechips.rules.coordinates import _placement_debt
+
+            placements = [
+                placement
+                for placement in resolve_placements(self.bundle)
+                if placement["bore"] in owners
+            ]
+            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+            if placements and scale and _placement_debt(self.bundle) is None:
+                target += (
+                    " (process target "
+                    + ", ".join(
+                        _number(placement["separation_mm"] / scale) for placement in placements
+                    )
+                    + ")"
+                )
         gauge = (
             "no gauge chosen"
             if reference in (None, "unknown")
@@ -10038,6 +10117,8 @@ class _Traveler:
 
     def cut_depths(self, setup, op, lathe):
         """Structured action, explicit allowances, passes and depth-of-cut basis."""
+        if self.manual_raster(setup, op) is not None:
+            return _CutDepths("manual ball raster", None, (), (), None)
         do = str(op.get("do", ""))
         basis = "on the face" if do in FACING else "on Ø" if lathe else "per side"
         allowances = tuple(
@@ -10331,7 +10412,8 @@ class _Traveler:
                     else "keep " + _text(plane.get("keep"))
                 )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
-            rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
+            raster = self.manual_raster(setup, op) is not None
+            rest_cells, rest_lines = ([], []) if saw or raster else self.rest_steps(setup, op)
             if scribed:
                 target = [self.saw_leave(op, ""), self.saw_ends(setup, op)]
                 target = [part for part in target if part]
@@ -10347,6 +10429,8 @@ class _Traveler:
                 if physical_target is not None:
                     target = [physical_target[0]]
                     direction = physical_target[1]
+            elif raster:
+                target = self.tip(setup, op)
             else:
                 target = (
                     self.hole_xy(setup, op)
@@ -10859,6 +10943,11 @@ class _Traveler:
 
     def level_path(self, setup, op_id):
         """The coordinates level-entry record of op ``op_id`` (rules/level_entry.py), or {}."""
+        op = next(
+            (op for op in setup.get("ops", []) if str(op.get("op")) == str(op_id)), {}
+        )
+        if self.manual_raster(setup, op) is not None:
+            return {}
         numbers = self.records.get(("coordinates", setup["id"]), {})
         for record in numbers.get("level_paths") or []:
             if str(_mapping(record).get("op")) == str(op_id):
@@ -11070,6 +11159,23 @@ class _Traveler:
                         reasons = " — ".join(dict.fromkeys(entry["stops"]))
                         stops.setdefault(_Box(reasons, source="coordinates"), []).append(op_id)
                 continue
+            if entry.get("manual_raster"):
+                if entry["stops"]:
+                    text = "manual ball raster motion unknown — " + "; ".join(entry["stops"])
+                    if stops is not None:
+                        stops.setdefault(_Box(text, source="coordinates"), []).append(op_id)
+                    paths[op_id] = ("", _p("STOP: " + text + " — do not run.", "stop"))
+                else:
+                    _, description, headings, rows, after = entry["parts"][0]
+                    paths[op_id] = (
+                        "",
+                        '<div class="route-path">'
+                        + _p(description)
+                        + _table(headings, rows, css="coords")
+                        + _p(after)
+                        + "</div>",
+                    )
+                continue
             levels = self.z_levels(setup, op) or {}
             path = self.level_path(setup, op.get("op"))
             depths = levels.get("levels", path.get("levels"))
@@ -11217,10 +11323,65 @@ class _Traveler:
             sequence = table.get("sequence")
             return (stage, sequence if isinstance(sequence, int) else -1, len(entry["parts"]))
 
+        manual_ops = {
+            op_id
+            for op_id, op in operations.items()
+            if _mapping(op.get("contour")).get("method") == "manual_ball_raster"
+        }
+        manual_tables = {
+            str(row.get("op")): row["manual_raster"]
+            for row in numbers.get("operations", [])
+            if isinstance(row, dict) and "manual_raster" in row
+        }
+        manual_ops.update(manual_tables)
+        for op_id in sorted(manual_ops):
+            entry = block(op_id)
+            entry["manual_raster"] = True
+            raster = manual_tables.get(op_id, {"reason": "normalized motion not established"})
+            if raster.get("reason"):
+                entry["stops"].append(str(raster["reason"]))
+                continue
+            start = raster["start_mm"]
+            rows = [["0", "START", "—", *(str(v) for v in start)]]
+            previous = start
+            for index, move in enumerate(raster["moves"], 1):
+                point = move["to_mm"]
+                axis = next(axis for axis, a, b in zip("XYZ", previous, point) if a != b)
+                action = "CUT"
+                if move["mode"] == "clear":
+                    action = (
+                        "CLEAR lift"
+                        if axis == "Z" and point[2] > previous[2]
+                        else "CLEAR approach"
+                        if axis == "Z"
+                        else "CLEAR index"
+                    )
+                rows.append([str(index), action, axis, *(str(v) for v in point)])
+                previous = point
+            description = (
+                "Manual ball raster: authored tool-tip coordinates in setup-frame mm, "
+                f"safe Z {raster['safe_z_mm']} mm. Start at row 0; follow every "
+                "numbered move in order, moving only the named handwheel axis. "
+                "CUT rows feed at constant Z; CLEAR rows are explicit approach, lift or index "
+                "moves, not a cutting pass"
+            )
+            entry["parts"].append(
+                (
+                    order(entry),
+                    description,
+                    ["move", "motion", "axis", "X mm", "Y mm", "Z mm"],
+                    rows,
+                    "No additional return or depth cycle is implied. Motion and physical "
+                    "clearance holds still apply; this table alone does not authorize cutting.",
+                )
+            )
+
         for arc in (
             numbers.get("arc_table", []) if isinstance(numbers.get("arc_table"), list) else []
         ):
             entry = block(arc.get("op"))
+            if str(arc.get("op")) in manual_ops:
+                continue
             method = arc.get("method")
             samples = arc.get("rows", [])
             subject = f"{setup['id']}:{arc.get('op')}"
@@ -11441,6 +11602,8 @@ class _Traveler:
             )
             entry["parts"].append((order(entry, arc), description, headings, rows, after))
         for line in numbers.get("line_table", []):
+            if str(line.get("op")) in manual_ops:
+                continue
             entry = block(line.get("op"))
             rows = []
             subject = f"{setup['id']}:{line.get('op')}"
@@ -11516,7 +11679,7 @@ class _Traveler:
                 raster_stages.setdefault(str(profile.get("op")), set()).add(profile.get("stage"))
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
-            if op in table_ops:
+            if op in table_ops or op in manual_ops:
                 continue
             points = profile.get("cutter_centre")
             entry = block(op)
@@ -11592,7 +11755,11 @@ class _Traveler:
         x_unit = {"radius": "radius", "diameter": "Ø"}.get(numbers.get("x_display"))
         unread = _X_DISPLAY_STOP.removeprefix("STOP: ")
         for contour in numbers.get("contours", []):
-            if not isinstance(contour, dict) or contour.get("method") != "axial_table":
+            if (
+                not isinstance(contour, dict)
+                or str(contour.get("op")) in manual_ops
+                or contour.get("method") != "axial_table"
+            ):
                 continue
             entry = block(contour.get("op"))
             if x_unit is None:
@@ -11713,7 +11880,7 @@ class _Traveler:
             tool = self.setup_tool(tools, op.get("tool"))
             if tool:
                 title += f" · {tool}"
-            levels = self.z_levels(setup, op) if op else None
+            levels = self.z_levels(setup, op) if op and not entry.get("manual_raster") else None
             depths = levels.get("levels") if levels else None
             stepped = isinstance(depths, list) and len(depths) > 1
             if stepped:
@@ -11728,7 +11895,11 @@ class _Traveler:
                 f'<span data-title-source="{escape(title_owner)}">{_numeric_html(title)}</span>'
                 "</h3>"
             )
-            note = self.level_entries(setup, op, waypoints) if op else ""
+            note = (
+                self.level_entries(setup, op, waypoints)
+                if op and not entry.get("manual_raster")
+                else ""
+            )
             if note:
                 content += note
             elif stepped:
@@ -11859,6 +12030,10 @@ class _Traveler:
                 if self.lathe(setup)
                 else "guided sweep: X / Y locked, the fixture moves the work"
                 if set(blocks) <= self.sweep_ops
+                else "tool-tip X / Y / Z in setup mm"
+                if set(blocks) <= manual_ops
+                else "coordinate paths"
+                if manual_ops
                 else "cutter-centre X / Y"
             )
             + "</h2>"

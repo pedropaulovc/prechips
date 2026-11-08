@@ -56,6 +56,9 @@ and a separate `[12.2809, 12.2936]` mm acceptance band. Neither changes the othe
 The checker does not derive fit classes or replace model geometry with a band
 midpoint. Authored process holds and applicable plan aims must satisfy their
 own acceptance checks; a nominal alone proves no manufactured result.
+When a nominal is outside the band, [machining-target checks](rules-coordinates.md#machining-targets-versus-model-nominals)
+withhold nominal-derived diameter or contour commands until a valid process target
+is established; they do not reject the CAD baseline or invent a replacement.
 
 `separation` is a dimension/tolerance field. For example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
@@ -314,7 +317,7 @@ A drawing SURFACE PROFILE `t` (ASME Y14.5 profile of a surface, optionally
 `U` unequal disposition, to a datum reference frame) belongs to the feature
 whose faces its leader names, like `position_dia`/`position_datums`.
 In the earlier rocker example (harmonic-analyzer #1544), the BASIC `radius 800`,
-`height_above_pivot 8.0` and `bottom_radius 816` received their acceptance bands
+`height_above_pivot 8.0` and `bottom_radius 816` had pointwise bands derived
 from the profile zones. Those historical dimensions illustrate the contract;
 use the exact v47 manifest for current rocker requirements.
 
@@ -352,9 +355,9 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
   zone (`position_dia`, `coaxiality_dia`, `angularity_dia`). The band is
   n ± asin(t / l_min) in degrees, l_min being the named band's lower limit or the
   number; it does not depend on U.
-  When t >= l_min the zone bounds no tilt: unknown. Inspection reads the band as
-  the linear zone it is, end to end across l_min (2t wide for one zone), never as
-  degrees against a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
+  When t >= l_min the zone bounds no tilt: unknown. Process holds read angular
+  width as the corresponding linear zone across l_min, never as degrees against
+  a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
 - `"unknown"`: the governed requirement stays unknown.
 
 The band is pointwise: every point of the surface lies in the zone about its
@@ -364,13 +367,21 @@ tolerance: a best-fit radius of the filed edge is not what it bounds. A
 requirement governed by several profiles takes the intersection of their
 bands; every band contains `n`, so the intersection is never empty. The
 derived band is computed where it is read (`rules/_profile.py`
-`requirement_band`); the manifest and every normalised view keep the BASIC
-scalar as exported. The inspection rule (checks and process holds), manual-arc
-`scribe`/`file_to_line` and datum consistency read it; other band readers,
-such as coordinates arc tables, aims and the traveler's printed limits, still
-read the exported BASIC value.
+`requirement_band`); the manifest and every normalised view keep the source BASIC
+scalar and profile declarations as exported. Process holds, manual-arc
+`scribe`/`file_to_line` and datum consistency continue to use the derived
+geometry; other band readers, such as coordinates arc tables, aims and the
+traveler's printed limits, still read the exported BASIC value.
 
-The requirement stays unknown, with the reason, when `t`, `U`, the DRF or the
+Ordinary inspection of the governed scalar is dependent evidence from the
+actual owning `surface_profile` checkpoints, not an independent fitted-size
+range check. The profiles' methods, datums, resolution, timing, member scope and
+shared coverage determine the dependent finding. Its `limits` and `profile_band`
+retain derived geometry as evidence, and `basic_value` retains the source scalar.
+A pass concerns the authored `inspection_plan`, not an actual measured part.
+See [inspection](rules-inspection.md#surface-profiles) for the checkpoint evidence.
+
+The derived geometry stays unknown, with the reason, when `t`, `U`, the DRF or the
 entry is unknown, when a DRF datum resolves to no manifest feature, when the DRF
 is empty (a datumless profile controls form only, never a size, location or
 orientation), when a `tilt_across` band's lower limit is unknown or not

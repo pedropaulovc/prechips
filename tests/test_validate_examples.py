@@ -12,8 +12,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
 from historical_examples import HISTORICAL_EXAMPLES, copy_historical_examples
+from pydantic import ValidationError
 from split_patch import patch_split, split_attr
 from test_cli import copy_examples
 from test_contour_order import carried_entry_bundle
@@ -88,9 +88,7 @@ def test_current_cad_identity_is_not_the_example_folder_alias(folder, identity):
         (None, None),
     ):
         with pytest.raises(ValueError, match="part identity mismatch"):
-            VALIDATOR["check_part_identity"](
-                folder, {"part": plan_part}, {"part": manifest_part}
-            )
+            VALIDATOR["check_part_identity"](folder, {"part": plan_part}, {"part": manifest_part})
 
 
 def validator_test_bundle(data):
@@ -2046,12 +2044,9 @@ def test_dro_oracle_keeps_bare_nominal_step_but_never_certifies_it():
 def test_shared_inventory_uses_exact_demo_markers_and_preserves_real_vise_readings():
     inventory_path = ROOT / "examples" / "inventory" / "pedro-shop.toml"
     inventory = tomllib.loads(inventory_path.read_text(encoding="utf-8"))
-    filename = "cone-pivot-post/integral.toml"
-    plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
-    found = VALIDATOR["check_example_measurements"](inventory, plans)
+    found = VALIDATOR["check_example_measurements"](inventory)
     assert len(found["real"]) == 6
-    assert found["assumed"] == VALIDATOR["EXAMPLE_ASSUMED_LEADS"].keys()
-    assert found["consumers"] == {}
+    assert found["assumed"] == VALIDATOR["EXAMPLE_ASSUMED_LEADS"]
     for path, fact in VALIDATOR["example_measurement_records"](inventory):
         measurement = fact["measured"]
         if path in found["real"]:
@@ -2133,9 +2128,7 @@ def zero_case(part, setup_id):
     folder = zero_example_folder(part)
     bundle = load_bundle(folder / "plan.toml")
     plan, inventory = bundle.plan, bundle.inventory
-    report = json.loads(
-        (HISTORICAL_EXAMPLES / part / "expected" / "report.json").read_bytes()
-    )
+    report = json.loads((HISTORICAL_EXAMPLES / part / "expected" / "report.json").read_bytes())
     setup = next(s for s in plan["setups"] if s["id"] == setup_id)
     finding = next(
         f for f in report["findings"] if f["rule"] == "zero_check" and f["subject"] == setup_id
@@ -5941,7 +5934,9 @@ def coverage_case():
     and the validator's coverage check on its own inventory read and native bundle load."""
     plan, features, inventory, _, report = cone_inputs()
     entries = VALIDATOR["Entries"](inventory)
-    checked = VALIDATOR["checker_findings"](HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml")
+    checked = VALIDATOR["checker_findings"](
+        HISTORICAL_EXAMPLES / "cone-pivot-post" / "built-up.toml"
+    )
 
     def check(policy, plan, features, findings):
         VALIDATOR["check_required_coverage"](policy, plan, features, findings, entries, checked)

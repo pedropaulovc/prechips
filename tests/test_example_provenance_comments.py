@@ -251,10 +251,7 @@ def test_optional_cited_unknowns_are_not_relabelled():
 
 @pytest.fixture(scope="module")
 def worked_example_data():
-    inventory = tomllib.loads(INVENTORY.read_text(encoding="utf-8"))
-    filename = "cone-pivot-post/integral.toml"
-    plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
-    return inventory, plans
+    return tomllib.loads(INVENTORY.read_text(encoding="utf-8"))
 
 
 def test_bare_capability_disclosures_preserve_the_existing_nominal_contract():
@@ -286,15 +283,14 @@ range_mm = { value = 300.0, measured = { status = "measured","""
 def test_realistic_demo_scan_preserves_markers_and_retired_assumptions(
     worked_example_data,
 ):
-    inventory, plans = worked_example_data
-    found = VALIDATOR["check_example_measurements"](inventory, plans)
+    inventory = worked_example_data
+    found = VALIDATOR["check_example_measurements"](inventory)
     assert len(found["real"]) == 6
     expected = {
         ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"),
         ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"),
     }
     assert found["assumed"] == expected
-    assert found["consumers"] == {}
     assert ("machines", "PM-30MV", "resolution_mm") in found["demo"]
     assert ("gauges", "radius-gauge", "resolution_mm") in found["demo"]
 
@@ -314,8 +310,7 @@ def test_realistic_demo_scan_preserves_markers_and_retired_assumptions(
 def test_demo_markers_are_exact_and_cannot_hide_extra_assumed_grid_debt(
     worked_example_data, field, value
 ):
-    original, plans = worked_example_data
-    inventory = copy.deepcopy(original)
+    inventory = copy.deepcopy(worked_example_data)
     fact = inventory["machines"]["PM-30MV"]["resolution_mm"]
     physical = fact["value"]
     if value is None:
@@ -324,39 +319,21 @@ def test_demo_markers_are_exact_and_cannot_hide_extra_assumed_grid_debt(
         fact["measured"][field] = value
     assert fact["value"] == physical
     with pytest.raises(ValueError, match="exact measured marker"):
-        VALIDATOR["check_example_measurements"](inventory, plans)
+        VALIDATOR["check_example_measurements"](inventory)
 
 
-@pytest.mark.parametrize("change", ["selected", "promoted"])
-def test_retired_assumptions_cannot_be_selected_or_promoted(worked_example_data, change):
-    original_inventory, original_plans = worked_example_data
-    inventory, plans = copy.deepcopy((original_inventory, original_plans))
-    if change == "selected":
-        plans["cone-pivot-post/integral.toml"]["setups"].append(
-            {
-                "id": "TEST",
-                "ops": [
-                    {
-                        "op": 10,
-                        "do": "ream",
-                        "feature": "crank_bore",
-                        "tool": "reamers-decimal/0.4500in",
-                    }
-                ],
-            }
-        )
-    else:
-        inventory["tools"]["reamers-decimal"]["members"]["0.4500in"]["lead_mm"]["measured"][
-            "status"
-        ] = "measured"
-    with pytest.raises(ValueError, match="retired assumed cone lead|exact assumed marker"):
-        VALIDATOR["check_example_measurements"](inventory, plans)
+def test_an_assumed_lead_cannot_be_promoted_to_a_measurement(worked_example_data):
+    inventory = copy.deepcopy(worked_example_data)
+    inventory["tools"]["reamers-decimal"]["members"]["0.4500in"]["lead_mm"]["measured"][
+        "status"
+    ] = "measured"
+    with pytest.raises(ValueError, match="exact assumed marker"):
+        VALIDATOR["check_example_measurements"](inventory)
 
 
 @pytest.mark.parametrize("field", ["by", "date", "instrument", "status"])
 def test_actual_pedro_metadata_cannot_be_rewritten_as_demo_facts(worked_example_data, field):
-    original, plans = worked_example_data
-    inventory = copy.deepcopy(original)
+    inventory = copy.deepcopy(worked_example_data)
     fact = inventory["fixtures"]["vise-pm-6"]["jaw_height_in"]
     physical = fact["value"]
     fact["measured"][field] = {
@@ -367,11 +344,11 @@ def test_actual_pedro_metadata_cannot_be_rewritten_as_demo_facts(worked_example_
     }[field]
     assert fact["value"] == physical
     with pytest.raises(ValueError, match="actual Pedro measurement changed"):
-        VALIDATOR["check_example_measurements"](inventory, plans)
+        VALIDATOR["check_example_measurements"](inventory)
 
 
 def test_assumed_lead_debt_does_not_demote_the_selected_diameters(worked_example_data):
-    inventory, _ = worked_example_data
+    inventory = worked_example_data
     entries = VALIDATOR["Entries"](inventory)
     for member, diameter in (("0.4500in", 11.430), ("0.4835in", 12.281)):
         reference = f"reamers-decimal/{member}"

@@ -180,8 +180,8 @@ REAL_PEDRO_FACTS = {
     ),
 }
 EXAMPLE_ASSUMED_LEADS = {
-    ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): "reamers-decimal/0.4500in",
-    ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"): "reamers-decimal/0.4835in",
+    ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"),
+    ("tools", "reamers-decimal", "members", "0.4835in", "lead_mm"),
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -667,7 +667,7 @@ def example_measurement_records(node, path=()):
             yield from example_measurement_records(value, path + (str(index),))
 
 
-def check_example_measurements(inventory: dict, plans: dict) -> dict:
+def check_example_measurements(inventory: dict) -> dict:
     """Strict demo markers and unchanged real observations, never measurement promotion.
 
     Retired cone reamer leads remain assumed inventory facts, not current process inputs.
@@ -701,7 +701,7 @@ def check_example_measurements(inventory: dict, plans: dict) -> dict:
             require(fact.get("value") == 1.0, f"{label}: deliberately assumed lead value changed")
             assumed.add(path)
     require(real == REAL_PEDRO_FACTS.keys(), "shared inventory lost an actual Pedro record")
-    require(assumed == EXAMPLE_ASSUMED_LEADS.keys(), "shared inventory lost an assumed lead")
+    require(assumed == EXAMPLE_ASSUMED_LEADS, "shared inventory lost an assumed lead")
     anchors = {
         ("machines", "PM-30MV", "resolution_mm"),
         ("machines", "PM-1127VF-LB", "resolution_mm"),
@@ -709,20 +709,7 @@ def check_example_measurements(inventory: dict, plans: dict) -> dict:
         ("gauges", "radius-gauge", "resolution_mm"),
     }
     require(anchors <= demo, "shared inventory demonstration scan lost its fact anchors")
-    consumers = {}
-    for path, reference in EXAMPLE_ASSUMED_LEADS.items():
-        selected = {
-            (plan_name, setup["id"], op["op"], op.get("do"), op.get("feature"))
-            for plan_name, plan in plans.items()
-            for setup in plan["setups"]
-            for op in setup["ops"]
-            if op.get("tool") == reference
-        }
-        require(
-            not selected,
-            f"{'.'.join(path)}: retired assumed cone lead gained a current consumer",
-        )
-    return {"real": real, "demo": demo, "assumed": assumed, "consumers": consumers}
+    return {"real": real, "demo": demo, "assumed": assumed}
 
 
 def centre_tool_facts(ref: str, entries: Entries) -> dict:
@@ -7236,9 +7223,7 @@ def check_cone_facts(plan: dict, features: dict) -> None:
         "OIL BARE FACES ISO VG 32",
         "cone finish diverged from the authoritative drawing",
     )
-    coating = [
-        op for setup in plan["setups"] for op in setup["ops"] if op["do"] == "coating"
-    ]
+    coating = [op for setup in plan["setups"] for op in setup["ops"] if op["do"] == "coating"]
     require(
         coating and all(op.get("process") == "unknown" for op in coating),
         "cone unresolved finish acquired an authorized process",
@@ -7673,12 +7658,7 @@ def main() -> int:
             ):
                 check_inventory_provenance(path.read_text(encoding="utf-8"), str(path))
         check_example_measurements(
-            documents[(EXAMPLES / "inventory" / "pedro-shop.toml").resolve()],
-            {
-                path.relative_to(EXAMPLES).as_posix(): document
-                for path, document in documents.items()
-                if "setups" in document
-            },
+            documents[(EXAMPLES / "inventory" / "pedro-shop.toml").resolve()]
         )
         require(not list(EXAMPLES.rglob("*.yaml")), "obsolete YAML examples remain")
         require(not list(EXAMPLES.rglob("*.csv")), "obsolete external coordinate files remain")

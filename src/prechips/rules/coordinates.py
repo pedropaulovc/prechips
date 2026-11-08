@@ -5,8 +5,9 @@ components propagate only through nonzero basis coefficients. Local authored Z
 can substitute only an unknown model transform in an unbound frame, retaining
 local_from operation provenance. No tolerance-band midpoint defines geometry: a plan
 ``aims`` entry moves only a located feature's DRO target along its height-like band to a
-stated value, and the geometry stays nominal; one naming a ``face`` instead moves that
-faced plane of the part the kernel cuts (:func:`faced_aims`), never the STEP.
+stated value. A faced aim or shared cylindrical ``axis_placements`` family instead changes
+the checked manufacturing shape, never the source STEP. Shared-axis targets and contours
+are withheld from public findings until the native family construction is proven.
 A basis axis is known only when orthonormal with its frame's other numeric axes
 (:func:`frame_axes`): loading checks only a complete frame.
 
@@ -36,6 +37,7 @@ from ..measurements import (
 from ..model import tolerance_requirements
 from ._bench import manual_bench, manual_thread_setup, not_applicable
 from .datum_consistency import _cuts
+from .manual_raster import METHOD as MANUAL_RASTER, normalize as normalize_manual_raster
 from .resolution import (
     HAND_FINISH,
     LENGTH_TOLERANCE_MM,
@@ -547,6 +549,70 @@ def _aimed(bundle, name, points, seen=()):
     return moved, aim, None
 
 
+def _placement_geometry(bundle):
+    """Local operative feature/frame projection; exported dictionaries stay untouched.
+
+    A placement translates each member's own frame, not the shared source frame and not
+    the setup. A cylindrical boss without an explicit point is located at its declared
+    frame origin. The same projection drives its profile, the bore target and cap rows.
+    These are candidate coordinates until :func:`_placement_debt` accepts native proof.
+    """
+    from prechips.axis_placements import resolve_placements
+
+    features = bundle.feature_definitions
+    frames = mapping(bundle.features.get("frames"))
+    placements = resolve_placements(bundle)
+    if not placements:
+        return features, frames
+    features, frames = dict(features), dict(frames)
+    scale = UNIT_MM[bundle.features["units"]]
+    for placement in placements:
+        delta = [value / scale for value in placement["delta_mm"]]
+        for role in ("boss", "bore", "caps"):
+            name = placement[role]
+            feature = dict(features[name])
+            source = frames[feature.get("frame", "model")]
+            frame_name = f"axis_placements.{placement['name']}.{name}"
+            frames[frame_name] = {
+                **source,
+                "origin": [
+                    value + move for value, move in zip(source["origin"], delta, strict=True)
+                ],
+            }
+            feature["frame"] = frame_name
+            if role == "boss":
+                feature.setdefault("at", [0.0, 0.0, 0.0])
+            features[name] = feature
+    return features, frames
+
+
+def _placement_debt(bundle):
+    """Why the requested manufacturing variant has no matching native proof, else None."""
+    from prechips.axis_placements import resolve_placements
+
+    requested = resolve_placements(bundle)
+    if not requested:
+        return None
+    kernel = mapping(getattr(bundle, "kernel", None))
+    evidence = kernel.get("axis_placements")
+    if kernel.get("status") == "ok" and isinstance(evidence, list):
+        if all(
+            any(
+                isinstance(fact, dict)
+                and fact.get("status") == "pass"
+                and fact.get("request") == request
+                for fact in evidence
+            )
+            for request in requested
+        ):
+            return None
+    return (
+        "shared manufacturing-axis placement is unproved; no nominal or shifted "
+        "machining targets are released"
+        + (f": {kernel['reason']}" if isinstance(kernel.get("reason"), str) else "")
+    )
+
+
 def planned_point(bundle, name, seen=()):
     """``(point, aims, why)``: ``name``'s planned model point, the plan aims that bear on it
     (row fields, below; empty without any) and why the point is unknown or one of those
@@ -558,9 +624,13 @@ def planned_point(bundle, name, seen=()):
     parent's aim. An aim of the child's own would take it off that axis: ``aims`` holds it
     as ``refused_aim`` with that reason and it moves nothing, so the child still stands on
     its parent's target.
+
+    A shared-axis family uses its translated operative frame and carries
+    ``axis_placement`` metadata. This function also supplies pre-native requests: a known
+    point is a candidate, not native proof or physical metrology. Public coordinate and
+    layout findings separately require :func:`_placement_debt` to clear.
     """
-    features = bundle.feature_definitions
-    frames = mapping(bundle.features.get("frames"))
+    features, frames = _placement_geometry(bundle)
     locator, locator_frame, locator_name = located_by(features, name, mapping(features.get(name)))
     point = model_point(locator.get("at"), frames.get(locator_frame))
     (point,), aim, why = _aimed(bundle, locator_name, [point], seen)
@@ -573,6 +643,22 @@ def planned_point(bundle, name, seen=()):
         )
         aims["refused_aim"] = own
         why = why or own["why"]
+    from prechips.axis_placements import member_placement
+
+    placement = member_placement(bundle, name)
+    if placement is not None:
+        scale = UNIT_MM[bundle.features["units"]]
+        aims["axis_placement"] = {
+            "name": placement["name"],
+            "boss": placement["boss"],
+            "bore": placement["bore"],
+            "caps": placement["caps"],
+            "reference": placement["reference"],
+            "separation_mm": placement["separation_mm"],
+            "printed_band": [value / scale for value in placement["band_mm"]],
+            "delta_mm": placement["delta_mm"],
+            "delta": [value / scale for value in placement["delta_mm"]],
+        }
     if why is None and not all(number(v) for v in point):
         why = f"{name} has no known point"
     return point, aims, why
@@ -603,11 +689,19 @@ def _planned_rows(rows, planned, aims, frame, grid):
             errors.append(record["error"])
         elif "why" in record:
             unknown = True
-    placed = "aim" in aims and "why" not in aims["aim"]
+    placed = ("aim" in aims and "why" not in aims["aim"]) or "axis_placement" in aims
     for row, point in zip(rows, planned, strict=True):
         row.update({key: dict(record) for key, record in aims.items()})
         if placed:
-            row["nominal_setup"] = row["setup"]
+            placement = aims.get("axis_placement")
+            if placement is not None:
+                source = [
+                    value - move for value, move in zip(point, placement["delta"], strict=True)
+                ]
+                row["source_model"] = source
+                row["nominal_setup"] = frame_point(source, frame)
+            else:
+                row["nominal_setup"] = row["setup"]
             row["setup"] = frame_point(point, frame)
     for row in rows:
         if all(number(v) for v in row["setup"]):
@@ -653,10 +747,92 @@ def _band_rows(bundle, name, rows, frame, targets, debt, machined):
 
 
 def _nominal(feature, key):
-    explicit = feature.get(key + "_nominal", UNKNOWN)
-    if number(explicit):
-        return explicit
+    for field in (key + "_nominal", "nominal_" + key):
+        explicit = feature.get(field, UNKNOWN)
+        if number(explicit):
+            return explicit
     return feature.get(key, UNKNOWN) if number(feature.get(key)) else UNKNOWN
+
+
+def target_band_conflict(feature, requirement, value):
+    """An emitted machining target outside its explicit limits, not a CAD validity test.
+
+    No display rounding or epsilon authorizes an out-of-band target. A scalar reference
+    dimension supplies no acceptance band; unresolved limits cannot establish a conflict.
+    """
+    band = feature.get(requirement)
+    if (
+        number(value)
+        and isinstance(band, list)
+        and len(band) == 2
+        and all(number(limit) for limit in band)
+        and not band[0] <= value <= band[1]
+    ):
+        return {"requirement": requirement, "target": value, "limits": list(band)}
+    return None
+
+
+def diameter_target_conflict(bundle, setup, op):
+    """Refuse an invalid implicit diameter or an explicit final-size command.
+
+    Explicit rough/intermediate diameters are process stages, not finished-size claims.
+    A later radial finish can establish that distinction only for the same known members.
+    """
+    from .resolution import operation_members
+    from .turned_profile import PROFILE_OPS
+
+    actions = PROFILE_OPS | {"bore"}
+    name = op.get("feature")
+    if op.get("do") not in actions or not isinstance(name, str):
+        return None
+    feature = mapping(bundle.feature_definitions.get(name))
+    explicit = "to_dia" in op
+    value = op.get("to_dia") if explicit else _nominal(feature, "dia")
+    if not explicit and not number(value) and number(feature.get("base_radius")):
+        value = 2 * feature["base_radius"]
+    conflict = target_band_conflict(feature, "dia", value)
+    if conflict is None:
+        return None
+    if explicit:
+        if op.get("do", "").startswith("rough_"):
+            return None
+        members = operation_members(bundle, setup, op)
+        later = False
+        for current_setup in bundle.plan["setups"]:
+            for current in current_setup["ops"]:
+                if current_setup["id"] == setup["id"] and current["op"] == op["op"]:
+                    later = True
+                elif (
+                    later
+                    and current.get("feature") == name
+                    and current.get("do") in actions
+                    and not current.get("do", "").startswith("rough_")
+                    and members is not None
+                    and operation_members(bundle, current_setup, current) == members
+                ):
+                    return None
+    return {
+        **conflict,
+        "feature": name,
+        "op": op["op"],
+        "status": "error" if explicit else UNKNOWN,
+        "source": "to_dia" if explicit else "model nominal",
+    }
+
+
+def _contour_target_conflict(feature, features):
+    requirement = (
+        "bottom_radius"
+        if "bottom_radius" in feature
+        else "dia"
+        if feature.get("kind") in {"boss", "cylinder"}
+        else "radius"
+    )
+    conflict = target_band_conflict(feature, requirement, _nominal(feature, requirement))
+    if conflict is None and "bottom_radius" in feature:
+        top = mapping(features.get(feature.get("top_edge_feature")))
+        conflict = target_band_conflict(top, "radius", _nominal(top, "radius"))
+    return conflict
 
 
 def _samples(start, end, step):
@@ -1617,6 +1793,37 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
 _STAIR_CANDIDATES = 20000
 
 
+def _profile_face_subset(feature, op):
+    """An explicit proper subset requests a candidate, never a face-type inference.
+
+    Only native geometry may associate the selected faces with the source analytic
+    arc. Equal/full claims retain the complete feature outline, including its joins.
+    """
+    selected, whole = op.get("faces"), feature.get("faces")
+    return (
+        isinstance(selected, list)
+        and bool(selected)
+        and isinstance(whole, list)
+        and all(isinstance(ref, str) for ref in (*selected, *whole))
+        and set(selected) < set(whole)
+    )
+
+
+def _profile_subset_proof(bundle, subject):
+    """Read the native association without treating missing proof as success."""
+    kernel = getattr(bundle, "kernel", None)
+    if not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return UNKNOWN, "selected profile faces have no native circular association"
+    proof = mapping(mapping(mapping(kernel.get("ops")).get(subject)).get("profile_subset"))
+    status = proof.get("status")
+    if status == "ok":
+        return "ok", None
+    return (
+        "error" if status == "error" else UNKNOWN,
+        proof.get("reason") or "selected profile faces have no native circular association",
+    )
+
+
 def _arc(
     feature_name,
     feature,
@@ -1678,18 +1885,28 @@ def _arc(
     start, end = 0.0, 360.0 if full else 180.0
     vertical_angle = False
     joins = None
+    subset = _profile_face_subset(feature, op)
     lands = []  # a top arc's linked land segments (model xy): walls its end rows meet
     if "end" in feature or bottom:
         vertical_angle = True
         if bottom:
-            top = mapping(features.get(feature.get("top_edge_feature")))
-            joins = _joins(top, feature, offset)
-            if joins is None:
-                return [], [], []
-            endpoint = joins[2] if joins else feature.get("bottom_end")
+            if subset:
+                # Source analytic geometry supplies only a candidate. Do not borrow the
+                # linked straight walls; the native selected-face proof gates publication.
+                joins, endpoint = [], feature.get("bottom_end")
+            else:
+                top = mapping(features.get(feature.get("top_edge_feature")))
+                joins = _joins(top, feature, offset)
+                if joins is None:
+                    return [], [], []
+                endpoint = joins[2] if joins else feature.get("bottom_end")
         else:
             cutter_radius = radius - offset
-            linked = [f for f in features.values() if f.get("top_edge_feature") == feature_name]
+            linked = (
+                []
+                if subset
+                else [f for f in features.values() if f.get("top_edge_feature") == feature_name]
+            )
             endpoints = [_top_join(feature, linked_feature, offset) for linked_feature in linked]
             if linked:
                 if any(point is None for point in endpoints):
@@ -2042,6 +2259,11 @@ def _arc(
 
         arc = table(_respaced(angles, space, contour["cusp_mm"], measure))
     _printed([arc], lines, grid, walls, offset)
+    if subset and wall_geometry:
+        arc["profile_subset_arc"] = {
+            key: wall_geometry[0][key]
+            for key in ("centre", "radius", "start_deg", "sweep_deg")
+        }
     for line in lines:
         line["overshoot"] = [any(p is m for m in miters) for p in line["model_xy"]]
         if any(line["overshoot"]):
@@ -2532,6 +2754,7 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
     diameter = _nominal(feature, "dia")
     if not number(diameter) and number(feature.get("base_radius")):
         diameter = 2 * feature["base_radius"]
+    target = UNKNOWN if target_band_conflict(feature, "dia", diameter) else diameter
     stations = feature.get("z_mm", [])
     if isinstance(stations, list):
         for index, z in enumerate(stations):
@@ -2543,8 +2766,8 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
                     "model": model,
                     "setup": frame_point(model, frame),
                     "dia_nominal": diameter,
-                    "x_target_mm": _x_reading(diameter / 2, radius_mode)
-                    if number(diameter)
+                    "x_target_mm": _x_reading(target / 2, radius_mode)
+                    if number(target)
                     else UNKNOWN,
                 }
             )
@@ -2564,9 +2787,7 @@ def _lathe_rows(name, feature, setup, frame, frames, radius_mode):
                 "model": model,
                 "setup": local,
                 "dia_nominal": diameter,
-                "x_target_mm": _x_reading(diameter / 2, radius_mode)
-                if number(diameter)
-                else UNKNOWN,
+                "x_target_mm": _x_reading(target / 2, radius_mode) if number(target) else UNKNOWN,
             }
             if unbound and local[2] == UNKNOWN:
                 row["setup"][2] = z
@@ -2605,7 +2826,9 @@ def _axis_rows(bundle, setup, name, feature, frame, dro, lathe):
         if lathe:
             row["dia_nominal"] = diameter
             row["x_target_mm"] = (
-                _x_reading(diameter / 2, radius_mode) if number(diameter) else UNKNOWN
+                _x_reading(diameter / 2, radius_mode)
+                if number(diameter) and not target_band_conflict(feature, "dia", diameter)
+                else UNKNOWN
             )
         rows.append(row)
     return rows, cite, None
@@ -3068,6 +3291,7 @@ def checkpoints(subject, numbers, op):
                     # A trammel's cutter-centre circle (plan units): the kernel sweeps the
                     # cutter along it exactly, not along the rows' chords (#269).
                     "exact_arc": table.get("exact_arc"),
+                    "profile_subset_arc": table.get("profile_subset_arc"),
                 }
             )
     return result + _linear_checkpoints(subject, numbers, op)
@@ -3400,6 +3624,7 @@ def _diagonal(points):
 ROUGH_METHODS = frozenset({"stairs", "chain_drill"})
 FINISH_METHODS = frozenset({"chords", "rotary_table", "guided_sweep"})
 ARC_METHODS = ROUGH_METHODS | FINISH_METHODS
+CONTOUR_METHODS = ARC_METHODS | {"linear_table", "axial_table", MANUAL_RASTER}
 REMOVED_ARC_TABLE = (
     "contour method arc_table moves two handwheels at once, which a manual mill cannot: "
     "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords, "
@@ -3941,14 +4166,17 @@ def _made_before(bundle, op, name):
     return False
 
 
-def arc_layout(bundle, setup, name):
+def arc_layout(bundle, setup, name, *, pre_kernel=False):
     """The line a layout scribes for arc feature ``name``, in ``setup``'s frame, or None
     when it is no arc or its geometry is unknown: ``centre_setup_xy``, ``radius_mm``
     (nominal), ``convex`` (the part inside the circle), ``full_circle``, ``ends_setup_xy``
-    (None for a full circle) and ``centre_on``, the hole whose axis is the arc centre."""
-    features = bundle.feature_definitions
+    (None for a full circle) and ``centre_on``, the hole whose axis is the arc centre.
+    ``pre_kernel`` supplies candidate layout to the native request; public layout requires
+    the checked manufacturing-axis placement when one is declared."""
+    if not pre_kernel and _placement_debt(bundle) is not None:
+        return None
+    features, frames = _placement_geometry(bundle)
     feature = mapping(features.get(name))
-    frames = mapping(bundle.features.get("frames"))
     frame = setup_frame(bundle, setup)
     grid = dro_grid(bundle, setup)
     probe = {"op": UNKNOWN, "contour": {"step_deg": 360.0}}
@@ -4349,9 +4577,8 @@ def evaluate(bundle, *, pre_kernel=False):
     and without one leaves them unprinted and unknown, never cuttable unclipped.
     """
     result = []
-    features = bundle.feature_definitions
-    # Feature source frames are manifest-only; setups resolve exported or plan-owned frames.
-    frames = mapping(bundle.features.get("frames"))
+    features, frames = _placement_geometry(bundle)
+    placement_debt = None if pre_kernel else _placement_debt(bundle)
     dro = mapping(bundle.plan.get("dro"))
     units = bundle.features.get("units")
     for setup in bundle.plan["setups"]:
@@ -4360,6 +4587,27 @@ def evaluate(bundle, *, pre_kernel=False):
             result.append(
                 not_applicable(
                     "coordinates", setup, bench, "coordinates", "DRO target or cutter-centre table"
+                )
+            )
+            continue
+        if placement_debt is not None:
+            result.append(
+                Finding(
+                    "coordinates",
+                    setup["id"],
+                    UNKNOWN,
+                    {
+                        "rows": [],
+                        "profiles": [],
+                        "arc_table": [],
+                        "line_table": [],
+                        "contours": [],
+                        "operations": [],
+                        "entry_surfaces": [],
+                        "axis_placement_debt": placement_debt,
+                    },
+                    ["plan.axis_placements", "kernel shared-axis manufacturing-shape proof"],
+                    placement_debt,
                 )
             )
             continue
@@ -4425,6 +4673,22 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (entry, (op, before, _)) in enumerate(
             zip(numbers["operations"], states, strict=True)
         ):
+            contour = mapping(op.get("contour"))
+            if contour.get("method") == MANUAL_RASTER:
+                trajectory = normalize_manual_raster(contour.get("raster"))
+                entry["manual_raster"] = trajectory
+                grid_consumed = True
+                if "reason" in trajectory:
+                    plan_debts.append(f"op {op['op']} manual raster: {trajectory['reason']}")
+                # All heights and transitions are explicitly authored in setup mm.
+                # Never manufacture axial levels or consume the legacy common to_z.
+                continue
+            if "contour" in op and contour.get("method") not in CONTOUR_METHODS:
+                plan_debts.append(
+                    f"op {op['op']} contour method {contour.get('method', UNKNOWN)!r} "
+                    "has no registered motion proof"
+                )
+                continue
             if spindle_saw(bundle, setup, op) and not pre_kernel:
                 from .geometry_common import finite_saw_evidence, mounted_saw_inputs
                 from .zero_recipe.tool_setting import mounted_saw_settings
@@ -4622,6 +4886,13 @@ def evaluate(bundle, *, pre_kernel=False):
                 numbers["rows"].extend(
                     _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode"))
                 )
+        target_checks = []
+        if lathe:
+            target_checks = [
+                check
+                for op in setup["ops"]
+                if (check := diameter_target_conflict(bundle, setup, op)) is not None
+            ]
         # Each band is measured where its features stand: one this setup machines (a centre
         # op dials its printed DRO target) at that target; one it only inspects, or works
         # through a child, or machines in another setup, at its planned model point.
@@ -4640,6 +4911,8 @@ def evaluate(bundle, *, pre_kernel=False):
             for key in ("aim", "refused_aim"):
                 if key in rows[0]:
                     aim_cites.append(f"plan.aims.{rows[0][key]['feature']}")
+            if "axis_placement" in rows[0]:
+                aim_cites.append(f"plan.axis_placements.{rows[0]['axis_placement']['name']}")
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
@@ -4652,6 +4925,10 @@ def evaluate(bundle, *, pre_kernel=False):
                 # inside the finished part spoils it, and no stage of it is proven.
                 leave_errors.append(f"op {op['op']}: {refusal}")
             if not contour:
+                continue
+            if contour.get("method") == MANUAL_RASTER:
+                # The operation table is the complete authored path; selecting a face
+                # neither generates cutter offsets nor credits that face as machined.
                 continue
             name = op_feature(op)
             feature = mapping(features.get(name))
@@ -4706,6 +4983,23 @@ def evaluate(bundle, *, pre_kernel=False):
                     profile.update(cutter_centre=UNKNOWN, allowance_reason=refusal)
                     numbers["profiles"].append(profile)
                     continue
+                conflict = (
+                    _contour_target_conflict(feature, features) if method in ARC_METHODS else None
+                )
+                if conflict is not None:
+                    check = {**conflict, "feature": name, "op": op["op"], "status": UNKNOWN}
+                    if check not in target_checks:
+                        target_checks.append(check)
+                    profile.update(
+                        cutter_centre=UNKNOWN,
+                        target_band_conflict=conflict,
+                        arc_reason=(
+                            "model nominal is outside the limits; machining target unresolved"
+                        ),
+                    )
+                    numbers["profiles"].append(profile)
+                    unknown = True
+                    continue
                 if method == "arc_table":
                     arc_errors.append(f"{label}: {REMOVED_ARC_TABLE}")
                     refused = True
@@ -4732,9 +5026,15 @@ def evaluate(bundle, *, pre_kernel=False):
                     for table in (*arcs, *lines):
                         table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                     errors, debts = [], []
+                    if _profile_face_subset(feature, op) and not pre_kernel:
+                        status, reason = _profile_subset_proof(bundle, subject)
+                        profile["profile_subset"] = {"status": status, "reason": reason}
+                        if status != "ok":
+                            (errors if status == "error" else debts).append(f"{label}: {reason}")
+                            arcs, lines, walls = [], [], []
                     clipped_chain = bounded and method == "chain_drill"
                     if scale is None:
-                        debts = [f"{label}: the feature units are not mm or in"]
+                        debts.append(f"{label}: the feature units are not mm or in")
                     elif arcs:
                         if clipped_chain:
                             errors, debts = _chain_preconditions(
@@ -4760,7 +5060,7 @@ def evaluate(bundle, *, pre_kernel=False):
                                 refused, arcs, lines = True, [], []
                                 debts.extend(errors)
                                 errors = []
-                    elif number(offset):
+                    elif number(offset) and not (errors or debts):
                         debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
                     debt = None
                     blocked = errors or any("stair_reason" in t for t in (*arcs, *lines))
@@ -4951,6 +5251,15 @@ def evaluate(bundle, *, pre_kernel=False):
                     *path_measurements,
                 ],
             )
+        target_errors = [check for check in target_checks if check["status"] == "error"]
+        target_debts = [check for check in target_checks if check["status"] == UNKNOWN]
+        if target_checks:
+            numbers["target_band_checks"] = target_checks
+        if target_errors:
+            numbers["target_band_errors"] = target_errors
+        if target_debts:
+            numbers["target_band_debts"] = target_debts
+            unknown = True
         status = (
             "error"
             if residuals
@@ -4961,6 +5270,7 @@ def evaluate(bundle, *, pre_kernel=False):
             or allowed_errors
             or saw_errors
             or leave_errors
+            or target_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven or arc_debts or plan_debts
             else "pass"
@@ -4969,6 +5279,13 @@ def evaluate(bundle, *, pre_kernel=False):
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
         )
+        if target_errors:
+            sentence += " Authored final machining targets lie outside their acceptance bands."
+        if target_debts:
+            sentence += (
+                " Model nominals outside acceptance bands remain reference geometry; "
+                "machining targets are withheld until a valid process target is established."
+            )
         if grid_debt:
             label = (
                 "DRO grid"
@@ -5074,9 +5391,17 @@ def evaluate(bundle, *, pre_kernel=False):
 
 
 def printed_xy(coordinates, op):
-    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
-    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
-    clipped them), or None when it prints none or any is unknown."""
+    """Every printed XY for ``op``, or None when no complete known path is printed.
+
+    Manual raster XY is already setup mm, including all explicit clear moves.
+    Other tables retain the feature units used by their printed DRO rows.
+    """
+    for entry in coordinates.get("operations", []):
+        if entry.get("op") == op and "manual_raster" in entry:
+            raster = normalize_manual_raster(entry["manual_raster"])
+            if "reason" in raster:
+                return None
+            return [raster["start_mm"][:2], *[move["to_mm"][:2] for move in raster["moves"]]]
     points = []
     for arc in coordinates.get("arc_table", []):
         if arc.get("op") == op:

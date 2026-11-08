@@ -1,7 +1,7 @@
 # CAD reconciliation: current plain-shaft design; not the superseded shoulder/cut-to-fit route.
 # EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
 # example value (realistic, not a shop measurement); example fixture (no physical measurement).
-# PLANNED/HOLD: no physical stock, commissioning or inspection approval is asserted.
+# Complete fictional worked demonstration; no physical stock, commissioning, inspection or release approval is asserted.
 # Frozen geometry pair: harmonic-analyzer v47, source cd98207012d02b9b3653287ef8ce18735e12cdff.
 # Current source is next_revision v48; the delivered v47 bytes are not relabelled.
 # Hand-authored reference plan for MHA-CH-05 (pivot shaft), rev 9: a PLAIN
@@ -19,9 +19,9 @@
 # stub off, face to the overall length and dome the south end; S4 mill, both
 # flats in line on one side, each stationed from its own end's tip (the
 # drawing dimensions them from there).
-# Holding, stick-out, allowance and DRO recipe numbers are author's choices,
-# not measurements. RPM remains unknown/derived. Station values below are the
-# nominal model's (rocker_bank_layout.PIVOT_SHAFT_OVERALL_LENGTH /
+# Every authored demonstration setting below is an example value (realistic, not a shop measurement).
+# by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'.
+# Station values below are the nominal model's (rocker_bank_layout.PIVOT_SHAFT_OVERALL_LENGTH /
 # ch_pivot_shaft_spec.FLAT_TIP_STATION); refresh them whenever the layout moves.
 part = "ch-pivot-shaft"
 features = "features.toml"
@@ -40,36 +40,38 @@ cutting_data = "../cutting-data.toml"
 
 [stock]
 form = "round_bar"
-material = "1018 cold-finish carbon steel"  # current HA allocation: OnlineMetals 4792, owner-approved 3/8 in stock
-dia_mm = 9.525               # nominal allocated diameter; not measured
-length_mm = 201.56           # author's choice: north waste 20 + overall 162.56 + south turn-out 1.5 + jaw clearance 2.0 + grip 15.0 + 0.5 to face
-north_allowance_mm = 20.0    # author's choice: S0 centre seat and the S1 follow-rest dwell, parted off in S2
-south_grip_mm = 15.0         # proposed S1 grip; qualify for the actual jaws before execution; not measured
-on_hand = false              # ordered allocation, not confirmed received
-prerequisite = "HOLD: receive and qualify the allocated OnlineMetals 4792 3/8 in 1018 CF bar, ordered 2026-11-03; saw a nominal 201.56 mm blank before S0. Owner approved this larger starting stock on 2026-11-07; CAD's 5/16 in stock note and finished geometry stay unchanged. Qualify the proposed S1 15.0 mm grip for the actual jaws before execution. Measure actual diameter, length and straightness; establish grip/support, DRO installation, tools and inspection methods before machining. Nominal sizes are author's proposed process settings, not measurements."
+material = "1018 cold-finish carbon steel"
+dia_mm = 9.525
+length_mm = 201.56           # north waste20 + finished162.56 + turnout1.5 + clearance2 + grip15 + facing0.5
+north_allowance_mm = 20.0
+south_grip_mm = 15.0
+on_hand = true              # fictional example allocation only; NOT receipt of the real OM4792 order
+prerequisite = "Worked demonstration uses a fictional qualified Ø9.525 x 201.56 mm 1018 CF blank and designed 15 mm S1 jaw grip. by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'. The cited real OnlineMetals 4792 allocation was ordered 2026-11-03, not confirmed received; owner approved the larger 3/8 in starting stock on 2026-11-07. Those procurement facts are not fictional receipt evidence. No physical release is authorized."
 origin_mm = [0.0, 0.0, -179.536]
 axis = [0.0, 0.0, 1.0]
 as_is_faces = []
-material_verify = true
+material_verify = false      # disclosed demonstration grade verification, not verification/receipt of the real order
 material_cite = ["harmonic-analyzer/cad/process/shop/inventory.toml:6705-6712 (OnlineMetals 4792 ordered allocation)", "Owner decision 2026-11-07: use allocated 3/8 in bar, departing from CAD's 5/16 in starting-stock note"]
 
-# The lathe has no DRO listed in the inventory. The EL400 functions below are
-# the manual's; installation on the PM-1127VF-LB is unknown. The authored
-# recipe requires X diametric, X+ away from the spindle axis and Z+ toward the
-# exposed end in every chucking.
+# Fictional installed EL400 demonstration: S0-S3 lathe X diametric/Z axial.
+# S4 changes the installed example controller to mill linear XYZ, X right,
+# Y away, Z up; Axis Set establishes coordinates, never distance-to-go Preset.
+# Installation is a demonstration assumption, not a claim about the real shop.
 # EL400 §9.2.1 p62: trial cut outside, withdraw without disturbing X, measure,
 # enter X; face or touch the end, withdraw without Z motion, enter Z); §6.2 p20
 # Direction and Radial/Diametric; §7.4 p31 Axis Set; §8.1 p37 Preset is
 # distance-to-go and never used for zero.
 [dro]
-controller = "unknown"
+controller = "el400"
 manual = "Electronica EL400 Operation Manual"
 manual_url = "https://www.dropros.com/documents/EL400%20OpManual.pdf"
 mode = "abs"
 radius_mode = false          # author's choice: X diametric; a physical 10 mm X jog displays 20 mm
+procedure = "Fictional installed EL400: S0-S3 ABS metric X diameter/Z axial; physical10 mm X withdrawal reads+20 and Z withdrawal+10. S4 linear XYZ: physical10 mm reads+10, X right/Y away/Z up. Axis Set, never Preset. by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'."
 
 [dro.direction]
 x = "away_from_spindle_axis" # author's choice: positive radial tool withdrawal
+y = "away"                  # S4 mill; lathe has no Y pickup
 z = "toward_exposed_end"     # author's choice: +T0/T1 north, +T2 south; redo sign check after rechuck
 
 # Plan-owned setup frames. The exported manifest declares only `model` and an
@@ -181,7 +183,7 @@ south_end_z = -201.06        # sawn south end, inside the spindle bore
 fixture = "chuck-3jaw-6-d1-4"
 stop_face = "stock_end"
 pose = { origin_mm = [0.0, 0.0, -14.5], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-jaw_clock_deg = "unknown"
+jaw_clock_deg = 0.0
 support = "none"             # the tailstock carries the drill chuck for op 20, not a centre
 grip_on = "plain bar behind the jaw fronts, near the sawn north end"
 grip_mm = 20.0               # author's choice
@@ -212,6 +214,15 @@ paper_mm = 0.0
 check_jog_mm = 10.0          # author's choice: physical axial jog
 retouch_after = []
 
+[[setups.zero.tool_touches]]
+tool = "center-drills-lms-4859/2"
+z_face = "north_end"
+edge_mm = 0.0
+paper_mm = 0.0
+method = "After op10 retract turning tool; spindle stopped bring tailstock centre-drill pilot to faced north_end Z0, set quill depth collar at contact. Feed from this face to the declared Ø3 countersink mouth; spindle-axis tool requires no cross-slide X touch."
+after_op = 10
+before_ops = [20]
+
 [[setups.ops]]
 op = 10
 do = "face"
@@ -221,6 +232,10 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0
 to_dia = 0.0                 # face right across the centre: no pip for the centre drill
 direction = "radially_inward"  # author's choice
+doc_mm = 0.25
+feed_mm_rev = 0.08
+rpm = 900
+note_cite = "../cutting-data.toml: HSS face90 sfm/.08 mm per rev; selected900rpm"
 note = "Two passes of 0.25 from the O.D. to the centre, the second to Z0. The tool point must be on centre height: a pip left at the centre makes the centre drill wander."
 
 [[setups.ops]]
@@ -230,6 +245,9 @@ feature = "north_end_centre"
 tool = "center-drills-lms-4859/2"
 holder = "drill-chuck-tailstock-mt3"
 note = "Lock the carriage clear of the end. Feed the centre drill from the tailstock quill by hand with oil, backing out twice to clear chips, until the countersink mouth is Ø3.0: the dead-centre seat for S1."
+feed_mm_rev = 0.038
+rpm = 1500
+note_cite = "../cutting-data.toml: HSS centre-drill110 sfm/.038 mm per rev hand-feed ceiling"
 
 # ---------------------------------------------------------------- S1
 # T1 stations: faced north end +20.0 (centre seat), north apex 0, south apex
@@ -254,7 +272,7 @@ south_end_z = -181.06
 fixture = "chuck-3jaw-6-d1-4"
 stop_face = "north_end"
 pose = { origin_mm = [0.0, 0.0, -166.06], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-jaw_clock_deg = "unknown"
+jaw_clock_deg = 0.0
 # PM-1127VF-LB standard accessories: the MT3 dead centre in the S0 centre, and
 # the carriage-mounted follow rest riding the freshly turned diameter 8 mm
 # behind the tool on the 26:1 body (between centres alone it would deflect
@@ -263,7 +281,7 @@ jaw_clock_deg = "unknown"
 # mark never reaches the finished body.
 support = "dead_centre_tailstock_mt3"
 supports = [{ ref = "follow_rest", ops = [10, 20], jaw_lead_mm = 8.0, jaw_side = "turned", engage_at_z_mm = 0.0 }]  # AUTHOR'S CHOICE
-grip_on = "south end of the plain bar: the proposed 15.0 mm between a rule mark and the south end; qualify for the actual jaws before execution"
+grip_on = "fictional qualified 15 mm south-end bar engagement in the designed example jaws"
 grip_mm = 15.0               # proposed author's choice, not measured: jaw fronts Z-166.06 to south end Z-181.06
 fixed_jaw = "not_applicable"
 jaws_along = "not_applicable"
@@ -308,8 +326,11 @@ z_to = -164.06               # 1.5 past the south apex, 2.0 clear of the jaws: S
 to_dia = 6.55
 rough_allowance_mm = 0.2     # on diameter: rough Ø6.55
 doc_mm = 0.35                # author's maximum radial roughing depth: four full passes, then 0.0875 at nominal stock size
+feed_mm_rev = 0.10
+rpm = 900
+note_cite = "../cutting-data.toml: HSS rough_turn90 sfm/.10 mm per rev"
 direction = "toward_chuck"   # author's choice: the cutting load pushes into the headstock
-note = "HOLD: measure raw diameter and straightness and establish clean-up allowance and follow-rest engagement. From nominal Ø9.525, rough to diameters 8.825, 8.125, 7.425, 6.725, then 6.550: four 0.35 radial passes and one 0.0875 radial pass. Adapt the initial pass count to actual stock without exceeding 0.35 radial depth. Leave Ø6.550 for the Ø6.340 finish pass (0.105 radial). Set rest jaws on each new diameter with the tool at Z0; S2 removes the dwell. Raw-stock readings are not final O.D. acceptance."
+note = "Demonstration qualified straight Ø9.525 blank: rough diameters 8.825, 8.125, 7.425, 6.725, then 6.550; four 0.35 radial passes and one 0.0875 radial pass. Leave Ø6.550 for the Ø6.340 finish pass (0.105 radial). Set rest jaws on each new diameter with the tool at Z0; S2 removes the dwell. Raw-stock readings are not final O.D. acceptance. Fictional qualification is not real stock acceptance."
 
 [[setups.ops]]
 op = 20
@@ -322,11 +343,14 @@ z_to = -164.06
 to_dia = 6.34
 doc_mm = 0.105                 # Ø6.55 → Ø6.34, mid-band of Ø6.35000 +0/-0.02032 (.2500 +0/-.0008); example (plausible, not measured)
 direction = "toward_chuck"
+feed_mm_rev = 0.05
+rpm = 1200
+note_cite = "../cutting-data.toml: HSS finish_turn110 sfm/.05 mm per rev"
 note = "One pass to the running band, the rest jaws set on the finished diameter with the tool at Z0. Spindle stopped, carriage run back: mic at both ends and the middle for taper. This pass is the drawing's Ra 63 µin running surface."
 
 [setups.ops.checks]
 dia = "micrometers/0-1in"
-finish_ra = "unknown"        # no roughness comparator in the inventory
+finish_ra = "roughness-comparator"
 
 # ---------------------------------------------------------------- S2
 # Part the north waste (centre seat and rest dwell) off, face and dome the
@@ -351,7 +375,7 @@ south_end_z = -181.06        # nominal Ø9.525 grip stub inside spindle bore
 fixture = "chuck-3jaw-6-d1-4"
 stop_face = "north_end"
 pose = { origin_mm = [0.0, 0.0, -5.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-jaw_clock_deg = "unknown"
+jaw_clock_deg = 0.0
 support = "none"             # tailstock withdrawn for dome access
 grip_on = "turned body, 5 mm south of the north apex plane"
 grip_mm = 25.0               # author's choice: grip T1 Z -30 to -5
@@ -386,8 +410,11 @@ retouch_after = []
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
 x_method = "spindle stopped: touch the blade tip on the waste between Z14 and Z20 through cigarette paper (0.05); Axis Set the miked diameter"  # author's choice
+x_face = "pivot_bearing"     # S1 turned this north-waste land before S2 arrival
+x_paper_mm = 0.05            # radial paper stand-off, distinct from the blade's Z paper
 gauge = "micrometers/0-1in"
-z_face = "north end (S0 face)"
+z_face = "north_end"
+corner = "chuck_side"
 edge_mm = 20.0
 paper_mm = 0.05              # author's choice: cigarette paper
 method = "spindle stopped; chuck-side corner to the end through the paper; withdraw along X without moving Z"  # author's choice
@@ -396,6 +423,8 @@ before_ops = [5]
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
 x_method = "touch the turned body just measured by micrometer; Axis Set its measured diameter"  # author's choice
+x_face = "pivot_bearing"
+x_paper_mm = 0.0             # direct touch on the short turned waste stub before facing it away
 gauge = "micrometers/0-1in"
 z_face = "north parted end"
 edge_mm = 1.0
@@ -412,9 +441,13 @@ keep = "pivot_bearing"       # chuck-side shaft stays held; only north centre/re
 tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
 to_dia = 0.0
+doc_mm = 3.175               # full nominal Ø6.35 radial plunge to the spindle axis, not a peck increment
 to_z = 1.0                   # author's choice: chuck-side blade corner 1.0 past the apex plane; op 10 faces the pip and the 1.0 off
 direction = "plunge_radial"  # author's choice
 note = "Part the north waste off, with the S0 centre seat and the S1 follow-rest dwell on it. Peck and clear chips; pick the offcut up only with the spindle stopped."
+feed_mm_rev = 0.025
+rpm = 800
+note_cite = "../cutting-data.toml: HSS part_off70 sfm/.025 mm per rev"
 
 [[setups.ops]]
 op = 10
@@ -426,6 +459,10 @@ to_z = 0.0                   # the north apex plane = T1 origin
 to_dia = 0.0
 direction = "radially_inward"  # author's choice: feed toward spindle axis
 note = "Face the parted end to Z0 in two passes; no pip at the centre."
+doc_mm = 0.5
+feed_mm_rev = 0.08
+rpm = 1000
+note_cite = "../cutting-data.toml: HSS face90 sfm/.08 mm per rev"
 
 [[setups.ops]]
 op = 20
@@ -438,14 +475,17 @@ z_to = -1.524                # apex 0.0, base -1.524, sphere R 4.069 centred at 
 doc_mm = 0.1                 # author's proposed axial rough-stair increment, not a shop observation
 rough_allowance_mm = 0.2     # author's proposed diametral leave before the compensated finish table
 direction = "apex_to_base"   # author's choice: hand traverse from T1 Z0 to -1.524
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: target spherical surface, not nose-compensated toolpath
-note = "Forms the north dome; its apex is the north end of the overall length and the north flat's station datum."
+contour = { method = "axial_table", step_mm = 0.1 }  # generated finish table MUST compensate existing measured-demo noseR0.4; never dial uncorrected sphere points
+note = "Rough axial stairs0.1mm leave0.2mm diametral stock, then hand traverse generated noseR0.4-compensated X/Z finish table from apex toward base with light overlapping cuts and smooth interpolation between rows, not square finish stairs. Repeat a light spring traverse without changing endpoint coordinates. Preserve apex length and base station; optical profile inspection checks R4.069 and1.524 height. No broad full-width form plunge or loose abrasive around rotating shaft."
+feed_mm_rev = 0.05
+rpm = 1000
+note_cite = "../cutting-data.toml: HSS form_dome90 sfm/.05 mm per rev"
 
 [setups.ops.checks]
-height = "calipers"          # author's choice: axial outside-jaw contact at apex and visible base rim
+height = "optical-profile-projector"
 
 [setups.ops.inspection_methods]
-height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim."  # author's choice
+height = "Off machine on inspection supports: align cylinder silhouette parallel optical-profile-projector stageX at20x. Locate dome apex extreme and cylinder/dome tangent rim; subtract axial positions for1.524mm height.50x R4.069 profile overlay; repeat at90deg shaft rotation. No caliper contact across curved apex/rim."
 
 # ---------------------------------------------------------------- S3
 # End for end: part the south grip stub off, face the south end to the
@@ -471,7 +511,7 @@ north_end_z = -162.56        # north apex from S2
 fixture = "chuck-3jaw-6-d1-4"
 stop_face = "stock_end"      # retained south grip-stub end, measured before reversal
 pose = { origin_mm = [0.0, 0.0, -6.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
-jaw_clock_deg = "unknown"
+jaw_clock_deg = 0.0
 support = "none"
 grip_on = "turned body, 6 mm north of the south apex plane"
 grip_mm = 25.0               # author's choice: grip T2 Z -31 to -6
@@ -488,7 +528,7 @@ stickout_mm = 24.5           # author's choice: stub end Z18.5 - jaw front Z(-6)
 from = "S2"
 indicate = "pivot_bearing"
 gauge = "dial-indicator"
-runout_limit_mm = "unknown"
+runout_limit_mm = 0.01
 
 [setups.zero.x]
 feature = "spindle_axis"
@@ -516,8 +556,11 @@ retouch_after = []
 [[setups.zero.tool_touches]]
 tool = "parting-blade-lms-1728"
 x_method = "spindle stopped: touch the blade tip on the stub's trial-cut land through cigarette paper (0.05); Axis Set the miked diameter"  # author's choice
+x_face = "x_zero"            # this setup's trial-cut land on the Ø9.525 waste stub, not the finished bearing
+x_paper_mm = 0.05            # radial paper stand-off on this setup's trial-cut waste land
 gauge = "micrometers/0-1in"
 z_face = "south stub end"
+corner = "chuck_side"        # exposed stub end faces setup +Z
 z_gauge = "height-gauge"
 z_measure = "north apex to south stub end, measured before holding"
 z_offset_mm = -162.56
@@ -529,6 +572,8 @@ before_ops = [5]
 [[setups.zero.tool_touches]]
 tool = "hss-toolbit-3-8-rh"
 x_method = "touch the turned body just measured by micrometer; Axis Set its measured diameter"  # author's choice
+x_face = "pivot_bearing"
+x_paper_mm = 0.0             # direct touch on the short turned waste stub before facing it away
 gauge = "micrometers/0-1in"
 z_face = "south parted end"
 edge_mm = 1.0
@@ -545,9 +590,13 @@ keep = "pivot_bearing"       # chuck-side shaft stays held; discard only south g
 tool = "parting-blade-lms-1728"
 holder = "qctp-axa-lms-2280/7-parting"
 to_dia = 0.0
+doc_mm = 3.175               # parting station Z+1 lies inside the Ø6.35 turned length; full radial plunge
 to_z = 1.0                   # author's choice: chuck-side blade corner 1.0 past the south apex plane, inside the turned length (to +1.5)
 direction = "plunge_radial"  # author's choice
 note = "Part the grip stub off inside the turned length. Peck and clear chips; pick the offcut up only with the spindle stopped."
+feed_mm_rev = 0.025
+rpm = 800
+note_cite = "../cutting-data.toml: HSS part_off70 sfm/.025 mm per rev"
 
 [[setups.ops]]
 op = 10
@@ -558,7 +607,11 @@ holder = "qctp-axa-lms-2280/1-turning-facing"
 to_z = 0.0                   # south apex plane: overall 162.56 tip to tip
 to_dia = 0.0
 direction = "radially_inward"  # author's choice
-note = "Face deterministically to Z0, the nominal 162.560 mm overall tip-to-tip target, before starting the dome at Z0. The drawing acceptance band is inspected separately; it is not an indeterminate tool stop. HOLD until the height-gauge/support method is qualified; the 6 in caliper cannot span this shaft."
+note = "Face deterministically to Z0, the nominal 162.560 mm overall tip-to-tip target, before starting the dome at Z0. Inspect the drawing acceptance band separately with the 12 in height gauge on the surface plate using the guided upright method below; the 6 in caliper cannot span this shaft."
+doc_mm = 0.5
+feed_mm_rev = 0.08
+rpm = 1000
+note_cite = "../cutting-data.toml: HSS face90 sfm/.08 mm per rev"
 
 [setups.ops.checks]
 length = "height-gauge"
@@ -574,13 +627,17 @@ z_to = -1.524                # apex 0.0, base -1.524, sphere R 4.069 centred at 
 doc_mm = 0.1                 # author's proposed axial rough-stair increment, not a shop observation
 rough_allowance_mm = 0.2     # author's proposed diametral leave before the compensated finish table
 direction = "apex_to_base"   # author's choice
-contour = { method = "axial_table", step_mm = 0.1 }  # author's choice: target spherical surface, not nose-compensated toolpath
+contour = { method = "axial_table", step_mm = 0.1 }  # generated noseR0.4-compensated finish table; rough0.1mm steps leave0.2mm diametral stock
+feed_mm_rev = 0.05
+rpm = 1000
+note_cite = "../cutting-data.toml: HSS form_dome90 sfm/.05 mm per rev"
+note = "Finish south dome with existing noseR0.4 compensated table and smooth interpolation, light overlapping hand traverse apex to base; no broad form plunge. Repeat light spring traverse preserving apexZ0 and baseZ−1.524. Inspect local optical profile; no loose abrasive around rotating shaft."
 
 [setups.ops.checks]
-height = "calipers"          # author's choice: axial outside-jaw contact at apex and base rim
+height = "optical-profile-projector"
 
 [setups.ops.inspection_methods]
-height = "With spindle stopped, align outside caliper jaws axially at apex and visible base rim; repeat around rim."  # author's choice
+height = "Local20x optical-profile-projector silhouette: align cylinder axis to stageX, subtract own apex extreme and tangent-rim stations for1.524mm dome height;50x R4.069 overlay and90deg rotation repeat. Inspect ends independently, not across150mm stage travel."
 
 # ---------------------------------------------------------------- S4
 # Both flats in one setup, so they lie in line, one side ("BOTH FLATS IN
@@ -595,43 +652,59 @@ frame = "M3"                 # plan.frames.M3 (author's choice; exported `setup`
 coolant = "CRC cutting oil brushed on"  # author's choice
 deburr_mm = 0.254
 stock_in = "S3"
+note = "S4 EL400 switches to ABS metric linear XYZ;10mm physical jog reads+10 each axis. Stationary flat blade spans dome apex forX; opposed stationary indicator contacts establish cylindrical-side midpointY0; paper tool touch establishesZ."
 
 [setups.stock_state]
 od_mm = 6.35
-top_z = 3.175                # bar top = axis + 6.35/2 (zero.z below)
-bottom_z = -3.175            # nominal cylindrical underside in M3, not a measured V-block seat
-note = "Along M3 X the north apex sits at X0, the south apex at the measured overall length, nominal X162.56."
+top_z = 3.175                # static CAD-MAX screen at D6.350; actual loaded crown is D - 3.175
+bottom_z = -3.175            # fixed lower-saddle bottom datum for the whole drawing diameter band
+top_feature = "pivot_bearing" # untouched middle crown at X70/Y0 remains the measured upper reference through both end-flat cuts
+entry_z = { north_flat = 3.175, south_flat = 3.175 } # conservative independent start planes, up to 0.02032 above the actual crown
+note = "M3 is the nominal CAD-MAX screen, not a claim that the Ø6.340 aim equals the source Ø6.350 geometry. The fixed lower-saddle bottom is Z-3.175. For measured diameter D in 6.32968..6.350, actual axis Z=(D-6.350)/2 and crown Z=D-3.175; caps close down by 6.350-D, at most 0.02032. At D6.340, axis=-0.005 and cap closure=0.010. Flat AF5.334 from the fixed bottom still gives Z2.159. North apex X0, south apex measured overall, nominal X162.56."
 
 [setups.stock_state.local_thickness]
 # no holes on this part
 
 [setups.hold]
-fixture = "vise-pm-6"
-pose = "unknown"
+fixture = "shaft-flat-split-cradle"
+pose = { origin_mm = [0.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 stop_face = "north_dome"
-support = "v-blocks"         # author's choice: bar laid in a matched V-block pair, clamped in the vise
-grip_on = "bar body in two V-blocks, clear of both flats"
-grip_mm = "unknown"          # V-block lengths not recorded in the inventory
-fixed_jaw = "against the V-blocks"
-jaws_along = "x"            # M3 +X = model -Z: jaw length runs along the shaft axis
+support = "none"             # no separate centre/rest; the split cradle below is the primary fixture
+grip_on = "shaft in drawing-MAX Ø6.350 split bores at X25..50 and X112..137; caps adjusted to measured D, not a free-air Ø6.340 grip"
+grip_mm = 50.0
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
 parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
-stop = "north dome apex touched off with the edge finder on the bar axis, set M3 X0"  # author's choice
-clamp = "close the vise on the V-blocks by hand; check the bar cannot roll"  # author's choice
-note = "No stick-out: the bar lies along the vise in V-blocks, not cantilevered from a chuck. HOLD: with spindle stopped, qualify/select a machining V-block pair and mount it in the vise; inspection-only V-blocks are not substitutes. Sweep the fixed jaw parallel to setup X with a DTI over the measured usable span; shim/adjust the vise until the owner-approved alignment limit is met. Verify the supported shaft along X is level and cannot roll before cutting. Grip/pose, alignment limit and span remain unresolved; this is a proposed procedure, not completed alignment."
-align = { indicator = "dti", limit_mm = "unknown", over_mm = "unknown", face = "fixed_jaw", cite = "HOLD: qualify machining V-block grip/pose and author alignment limit/span before mounting" }
+stop = "Seat the 10x10x2mm shaft-apex-contact-blade normal to X, inner flat against the north apex at X0 and outer flat at X-2. With the spindle-mounted edge finder, pick up only the outer FLAT from -X and Axis Set X=-2 minus its measured radius (nominal -4.540); retract/remove blade and stand before machining. Never rotate the finder against the curved dome."
+clamp = "Bolt common base to mill table. Seat shaft at the fixed lower-saddle bottom Z-3.175; adjust upper caps down by 6.350-D for measured diameter D, preserving at least 0.22968 mm split gap. Snug each pair of M6 studs at Y±9 alternately to the demonstration 4 N m; caps contact the actual shaft top and apply friction antiroll. Witness shaft/caps and verify no movement under spindle-stopped hand load before cutting."
+note = "Designed adjustable split cradle: common bore at drawing maximum Ø6.350, split gap0.25. Cap closure0..0.02032 accommodates the diameter band with fixed lower tangent Z-3.175; native rigid solids depict only D6.350/cap closure0, not every adjustment or actual preload. Two 25mm blocks at X25..50/112..137 on their connected base, raised by a positively anchored 20mm spacer: shaft axis is45mm above table in the nominal screen. Highest cap nuts/studs Z15; all crossing moves retract the tool tip to Z20 for5mm clearance. North/south cutter-to-block axial gaps16.364/16.924mm, base gaps11.364/11.924mm. The shortened18mm cutter installation plus6mm holder gauge puts the spindle nose71.159mm above table at the nominal flat floor,10.199mm above the stated60.96mm machine minimum. Actual diameter/preload/contact adjustment is not replaced by an air-gap grip."
+# Cradle load path: shaft -> lower half bores/cap friction -> both blocks -> common bolted base -> mill table; no separate centre/rest.
+align = { indicator = "dti", limit_mm = 0.01, over_mm = 112.0, face = "pivot_bearing", cite = "by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'; sweep X25..137 before cutting" }
 
 [setups.zero.transfer]
 from = "S3"
 indicate = "pivot_bearing"
 gauge = "dial-indicator"
-runout_limit_mm = "unknown"  # no parallelism tolerance on the drawing; sweep the top of the bar level along X
+runout_limit_mm = 0.01
+
+[setups.zero]
+procedure = "X: spindle stopped while seating the flat blade against the north apex; then edge-find only its stationary outer flat from -X, set -2 minus measured finder radius, retract and remove blade/stand. Y: use the same unchanged finder for both contacts at X70, without resetting; move to their midpoint and Axis Set Y0. The sensing cylinder must span the shaft's widest section. Retract the tool tip to Z20 before crossing any caps or studs (maximum Z15). Z: measure D at the untouched middle crown X70/Y0, touch paper and Axis Set D-3.175+0.05 using the fixed bottom datum; at D6.340 this reads Z3.215, while the nominal CAD-MAX screen reads3.225. Remove paper and retract Z20; keep installed tool/zero unchanged between flats. This middle crown is not cut by either end-flat operation and remains the top reference. All values are disclosed demonstration settings, not shop observations."
 
 [setups.zero.x]
 feature = "north_dome"
-edge_mm = 0.0                # the apex is M3 X0
+edge_mm = -2.0               # outer flat of the 2mm blade; its inner flat contacts the dome apex at X0
 from = "-x"
-method = "edge_find"         # author's choice: edge finder on the dome apex, on the bar axis
+method = "edge_find"
+tool = "edge-finder"
+gauge = "shaft-apex-contact-blade"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+feature = "pivot_bearing"
+edge_mm = 0.0
+from = "unknown"             # two opposed contacts, not one approach direction
+method = "opposed_edge_midpoint"
 tool = "edge-finder"
 check_jog_mm = 10.0
 
@@ -639,45 +712,75 @@ check_jog_mm = 10.0
 face = "pivot_bearing"
 edge_mm = 3.175              # bar top = axis + 6.35/2
 from = "+z"
-method = "touch_then_set"    # author's choice: end mill touched on paper on the bar top
+method = "measure_then_set"
+gauge = "micrometers/0-1in"
+measure = "measured shaft diameter D with fixed cradle bottom Z-3.175"
+offset_mm = -3.175
 tool = "endmills-lms-6784/3-16in-2fl"
 paper_mm = 0.05              # author's choice: cigarette paper
 check_jog_mm = 10.0
 retouch_after = []
+
+[[setups.zero.tool_touches]]
+tool = "endmills-lms-6784/3-16in-2fl"
+z_face = "pivot_bearing"
+edge_mm = 3.175
+paper_mm = 0.05
+method = "measure_then_set"
+z_gauge = "micrometers/0-1in"
+z_measure = "measured shaft diameter D with fixed cradle bottom Z-3.175"
+z_offset_mm = -3.175
+before_ops = [10, 20]
 
 [[setups.ops]]
 op = 10
 do = "face"
 feature = "north_flat"
 tool = "endmills-lms-6784/3-16in-2fl"
-holder = "r8-collets-lms-4860/3-8in"
+holder = "shaft-flat-r8-collet"
 faces = ["#22/ADVANCED_FACE[4]/HAF_NORTH_FLAT__P01", "#17/ADVANCED_FACE[3]/NONE", "#285/ADVANCED_FACE[11]/NONE"]
 to_z = 2.159                 # flat plane = AF 5.334 - 6.35/2 above the axis
+z_from = 3.175               # untouched north crown; independent of the later south flat
+approach_mm = 16.825         # nominal crown3.175 +16.825 = tool-tip Z20, 5mm above the highest nuts/studs
+contour = { method = "linear_table", step_mm = 0.665, open_side = "-x", sweep_frame = "model", sweep_bounds = { x = [-3.61875, 3.61875], y = [2.159, 3.175], z = [-4.726, -3.401] } }
 stock_removal_bounds = { x = [2.540, 8.636], y = [-3.175, 3.175], z = [2.159, 3.175] }
-direction = "positive_setup_x"
-note = "Side passes across the bar from M3 X2.540 to X8.636 (station 5.588 -/+ length 6.096/2): flat 6.096 long centred 5.588 from the north tip."
+direction = "conventional"
+note = "Demonstration Ø4.7625 cutter in the explicit18mm projection installation. Traverse Y+6 to-6 at centre X4.925..6.250, retract tip Z20, then return through air before stepping X. The0.005mm grid leaves small axial wall allowance rather than overcutting exact source faces; inspect flat length/station independently. Start Z3.175 is conservative above the actual crown. Final displayed Z2.160 lies within the AF band, not exact sub-grid nominal2.159 generation."
+# Inward grid limits leave 0.00375/0.00475 mm nominal axial wall allowance; they do not prove generation of the exact immutable CAD endwall planes.
+doc_mm = 0.25                # conservative engagement with the explicit18mm projection installation
+rpm = 1200
+feed_mm_min = 60.0
+note_cite = "../cutting-data.toml: HSS milling90 sfm/.025mm per tooth;2fl x1200 x.025=60mm/min"
 
 [setups.ops.checks]
 height = "micrometers/0-1in"
-length = "calipers"
-station = "calipers"
+length = "optical-profile-projector"
+station = "optical-profile-projector"
 
 [[setups.ops]]
 op = 20
 do = "face"
 feature = "south_flat"
 tool = "endmills-lms-6784/3-16in-2fl"
-holder = "r8-collets-lms-4860/3-8in"
+holder = "shaft-flat-r8-collet"
 faces = ["#45/ADVANCED_FACE[5]/HAF_SOUTH_FLAT__P01", "#114/ADVANCED_FACE[7]/NONE", "#4/ADVANCED_FACE[1]/NONE"]
 to_z = 2.159
+z_from = 3.175               # op10 cuts only the north flat; the south crown remains at its entry height
+approach_mm = 16.825         # tool-tip Z20 for all returns and the between-flat transfer
+contour = { method = "linear_table", step_mm = 0.665, open_side = "-x", sweep_frame = "model", sweep_bounds = { x = [-3.61875, 3.61875], y = [2.159, 3.175], z = [-156.111, -154.786] } }
 stock_removal_bounds = { x = [153.924, 160.020], y = [-3.175, 3.175], z = [2.159, 3.175] }
-direction = "positive_setup_x"
-note = "Nominal CAD centre M3 X156.972, from X153.924 to X160.020; verify the station from the actual south tip before cutting and do not use the nominal bounds if that station falls outside its drawing band, at the same Z as op 10 without moving the knee: the two flats are in line, each 5.588 from its own tip."
+direction = "conventional"
+note = "Same Ø4.7625 cutter in the18mm installation and unchanged measured-D zero. Traverse Y+6 to-6 at centre X156.310..157.635; retract tip Z20 before every return or between-flat move, then step X through air. Translate south stations by measured overall minus162.560 to reference its own tip. Fixed-bottom AF datum remains unchanged. Inward grid rounding leaves small wall allowance; independently inspect length/station and AF. Displayed Z2.160 is within the AF band, not exact nominal2.159 generation."
+# Inward grid limits leave 0.00475/0.00375 mm nominal axial wall allowance; exact sub-grid CAD endwall generation remains unsupported, despite dimensional-band fit.
+doc_mm = 0.25                # same reduced engagement as the north flat
+rpm = 1200
+feed_mm_min = 60.0
+note_cite = "../cutting-data.toml: same HSS milling recipe as op10"
 
 [setups.ops.checks]
 height = "micrometers/0-1in"
-length = "calipers"
-station = "calipers"
+length = "optical-profile-projector"
+station = "optical-profile-projector"
 
 
 [[setups.ops]]
@@ -708,15 +811,18 @@ note = "Spindle stopped: remove burrs at the south dome base rim without changin
 op = 40
 do = "inspect"
 feature = ["north_flat", "south_flat", "pivot_bearing", "north_dome", "south_dome"]
-note = "Final inspection after both flats and deburring: confirm both flats lie in line on the same side, each stationed from its own tip. Inspect diameter at both ends and the middle clear of the flats; inspect both dome heights and overall tip-to-tip length. No assembly cut-to-fit or shoulder applies. HOLD for an established practical station/dome method and the Ra 1.6 inspection capability; appearance is not roughness acceptance."
+note = "Final demonstration inspection after both flats/deburring: both flats in line on the same side, each from its own tip. Inspect O.D. at both ends and middle clear of flats, both dome heights and overall length; compare turned surface with Ra1.6 turned reference on roughness-comparator under matching light/lay. Comparison is a demonstration method, not claimed shop acceptance or traceable physical release. No assembly cut-to-fit or shoulder applies."
 [setups.ops.checks]
-north_flat = { height = "micrometers/0-1in", length = "calipers", station = "calipers" }
-south_flat = { height = "micrometers/0-1in", length = "calipers", station = "calipers" }
-pivot_bearing = { dia = "micrometers/0-1in", finish_ra = "unknown" }
-north_dome = { height = "calipers" }
-south_dome = { height = "calipers", length = "height-gauge" }
+north_flat = { height = "micrometers/0-1in", length = "optical-profile-projector", station = "optical-profile-projector" }
+south_flat = { height = "micrometers/0-1in", length = "optical-profile-projector", station = "optical-profile-projector" }
+pivot_bearing = { dia = "micrometers/0-1in", finish_ra = "roughness-comparator" }
+north_dome = { height = "optical-profile-projector" }
+south_dome = { height = "optical-profile-projector", length = "height-gauge" }
 [setups.ops.inspection_methods]
-south_dome = { length = "HOLD until vertical support and contact repeatability are qualified. On the surface plate, guide the shaft upright without axial clamping load, one dome apex contacting the plate; sweep the opposite apex with the 12 in height gauge. Reverse and repeat; compare tip-to-tip length to the drawing band. The 6 in caliper is not suitable." }
+north_flat = { height = "Micrometer flat anvil centred on flat, opposite anvil on cylindrical underside, spindle normal to shaft; nominal5.334.", length = "Optical-profile-projector20x local view: align shaft axis with stageX, difference of planar endwall positions6.096.", station = "Same local optical view: mean of flat endwall positions minus own north apex extreme5.588." }
+south_flat = { height = "Micrometer across flat centre to cylindrical underside5.334; clear endwalls.", length = "Optical-profile-projector20x local south-end silhouette, endwall difference6.096.", station = "Own south apex extreme minus mean south-flat endwall positions5.588; measure independently, not from far tip." }
+north_dome = { height = "Optical-profile-projector20x own apex extreme to cylinder/dome tangent rim1.524;50x R4.069 overlay,90deg rotation repeat." }
+south_dome = { height = "Same independent local optical silhouette method as north.", length = "Surface plate and shaft-upright-inspection-guide: sleeveZ15..40 lightly guides lower body, no axial clamp. Lower dome apex seats on exposed plate datum, not guide base.12in height-gauge contact atX0/Y0 sweeps upper apex for maximum162.560; reverse and repeat. Pre-S3 M181.060 uses square stub on plate and guided body, sweep north apex. Not6in calipers. by='example value (realistic, not a shop measurement)', date='2026-10-11', instrument='example fixture (no physical measurement)'." }
 
 [[setups.ops]]
 op = 50

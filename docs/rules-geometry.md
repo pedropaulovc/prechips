@@ -27,6 +27,8 @@ debt cannot substitute for the required geometry.
 - For cutting findings, see [accessibility](#accessibility), [reach](#reach),
   [corner radii](#internal_corner_radius), [face coverage](#coverage),
   [blank credit](#blank_credit) and [finish coverage](#finish_coverage).
+- For authored single-axis ball-end passes, exact swept tools and partial
+  source-face debt, see [bounded manual ball raster](#bounded-manual-ball-raster).
 - For holding and pictures, see [vise contact](#vise),
   [loaded wall thickness](#thin_wall_under_clamp),
   [fixture interference](#fixture_interference), [renders](#renders) and
@@ -1592,6 +1594,16 @@ setup's final stock with the same contact test, without the `to_z` clip (see
 
 #### Bounded clearing and protected leave
 
+A bounded facing operation on a `TRANSIENT` process `end_face` queries only
+the finite section of that process plane inside its own setup-frame
+`stock_removal_bounds`. The plane's explicit position and inward axis still
+define the cut; its whole blank section is not a claim to machine the central
+stock between separate windows. Setup rotations and flips transform both the
+plane and the window before intersection. This restriction does not relax
+finished-face coverage or clip the physical cutter and holder envelopes:
+fixtures within the real cut window, cutter overrun and holder collisions
+remain failures.
+
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
 to clear only outside-finished material inside that volume. The box is the
 explicit cleared footprint the author declares, for example the envelope of
@@ -2365,6 +2377,44 @@ same solid count. It is conservative and leaves extra material at convex
 corners, never less than the leave, and there is never a fallback to the
 nominal finished solid or a zero leave.
 
+#### Bounded manual ball raster
+
+`contour.method = "manual_ball_raster"` is a bounded verification method, not
+CAM. The [authored trajectory](plan.md#authored-manual-ball-end-raster) states
+every tool-tip endpoint, cutting row, vertical entry/retract and lifted index
+in setup-frame millimetres. Native proof consumes those same normalized values
+that the operation table and diagram print. One horizontal cutting axis moves
+at a time; the checker neither generates rows from CAD nor invents connecting
+motions.
+
+The cutting shape is the measured ball-end hemisphere plus cylindrical flute.
+The noncutting shank starts at the measured flute end, and the holder starts at
+the measured projection. No flat-tool substitute, inferred reduced neck, or
+missing dimension can establish clearance. Each straight segment has an exact
+occupied sweep. The proof checks finished-part preservation, noncutting body
+and holder collisions, and independent placed fixtures. Clear motions include
+vertical entry and must not remove arriving stock. Motion order matters:
+an earlier entry or holder cannot borrow clearance from a later cutting pass.
+Actual removal updates the arriving stock only in the authored order.
+
+Coverage uses the exact source-face ownership carried through process
+placement. Covered regions are mapped back to that source and subtracted from
+its original face geometry; selecting a face does not credit its entirety.
+The `manual_raster_coverage` result keeps independent `cut` and `finish`
+unions, complete indices, remaining areas, and unresolved geometry.
+Overlapping rows do not add their areas twice. Partial or uncertain proof
+remains coverage debt, including scallops, uncut root corners and gaps between
+passes. A complete union of independently proven regions does not establish
+an unmodelled finish, dimensional tolerance or inspection result.
+
+Unknown or unregistered contour methods refuse proof before generic axial
+fallback. Invalid paths and missing measurements confer neither material
+removal nor coverage credit. Hand filing, scraping, and unsupported honing
+are not raster moves and cannot be used as implicit completion of the face.
+The original source STEP and its hashes remain unchanged; the separately
+axis-placed process geometry is the collision/proof operand, not a replacement
+source artifact.
+
 #### Explicit guided profiles
 
 A profile with authored `contour.sweep_bounds` and no
@@ -2913,7 +2963,8 @@ Reach is never printed as a cut depth.
 
 ### Verdict boundaries
 
-- depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error)
+- depth > OAL: `entry-to-floor depth exceeds the selected tool OAL.` (error),
+  except the single-point turning radial-reduction upper bound described below.
 - shank hits: `the tool shank past its flutes meets the retained stock.`
   (error, at any depth)
 - depth ≤ flute with zero shank hits (turning: no shank check):
@@ -2945,6 +2996,23 @@ plunges between the part and the slug, so its depth is measured in setup-entry
 stock and reaches the bar radius. Turning and profile ops also use setup-entry
 stock.
 
+For a bounded non-facing single-point `rough_turn`, the native fact also records
+`reach_depth_basis = "entry_stock_radial_upper_bound"`. A bounded `finish_turn`
+shares this basis only when a preceding rough turn in the same setup covers
+all its claimed faces and its entire axial interval. The numeric depth is
+retained as a conservative setup-entry radial-reduction bound; it is not proof
+that the entire reduction must be cut in one pass. Roughing progression is not
+modeled, and neither authored depth-of-cut prose nor `rough_allowance_mm`
+establishes intermediate turning stock. If this bound exceeds the selected
+tool OAL/projection, `reach` is **unknown**, not a certain unreachability error
+or a pass. Proving the progression requires represented intermediate cutting
+states; the checker does not replace the bound with depth of cut or post-op
+stock. A fitting bound can still establish the existing necessary-condition
+pass. Known sampled holder-wall collisions remain errors at any bound, and
+tool/holder collisions in `accessibility`, including commanded endpoint hits,
+are unchanged. Unbounded turns, standalone finishing/one-pass cuts, facing,
+parting and blade-plunge facts retain their existing direct-depth verdicts.
+
 A sample without an evaluable surface normal makes the sampled face's
 accessibility and reach unresolved, with the face and missing-normal count
 named. It is never silently dropped to produce a clearance or reach pass.
@@ -2965,6 +3033,13 @@ not an `internal_corner_radius` limit. Likewise its own known matched point
 cap (see accessibility) is its actual tool shape, not an internal corner;
 any other claimed concave cone or sphere, including a wider countersink or an
 unrelated cap, remains the unreduced curved surface below.
+A `hone` likewise excludes only concave tool-axis cylindrical faces matched to
+its own named feature. An oversize configured working radius within the drawing
+acceptance band is not rejected merely because the nominal CAD aperture is smaller:
+[`sizing`](rules-tools.md#sizing) owns the command, setting and inspection contract.
+Unknown/unmatched ownership, other claimed bores, transverse cylinders, caps and
+sharp wall/wall edges receive no hone exemption. This changes corner classification
+only, not accessibility/removal geometry or physical acceptance.
 Floor-only claims do not certify a wall/wall corner radius. A sharp wall/wall
 corner is checked when the op claims both walls; legal-centre floor poses do not
 expand this rule's claimed-face scope.
@@ -3536,17 +3611,23 @@ leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` not
 naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
 off the part, so a note names where it stands instead of drawing it. A trammel's
 rails (`guides.rails`: `from_mm`/`to_mm` along each rail's centre line from the
-spindle axis over its measured `rail_travel`, `width_mm`, `z_mm` table to rail top)
+spindle axis over measured physical `rail_span`, `width_mm`, and `z_mm` from
+`rail_base_height` above the table to that bottom plus `rail_height`)
 and carrier pins (`guides.pins`, cylinders at their places on the carrier from the
 rail tops to the work's seat) are drawn the same way, render-only, with `TRAMMEL
-RAILS (TABLE)` and `CARRIER PINS` callouts (per op, as the rollers') and roles `guide_rail` and `guide_pin`;
-a missing or unmeasured `pin_dia`, `rail_width`, `rail_height`, `bed_height` or
-`rail_travel`, or an unknown support height, leaves them undrawn with a `NOT SHOWN` note.
-The carrier plate (`guides.carriers`, a box centred on its pins' chord, `carrier_length`
-along it and `carrier_width` across, from `carrier_thickness` below the work's seat up
-to it) is drawn the same way with a `TRAMMEL CARRIER` callout and role `guide_carrier`;
-a missing or unmeasured carrier fact, a plate shorter than its pins' chord or one too
-thick to clear the rail tops leaves only the carrier undrawn, with its own note.
+RAILS (TABLE)` and `CARRIER PINS` callouts (per op, as the rollers') and roles
+`guide_rail` and `guide_pin`. Physical rail extent is never inferred from usable
+pin-stop `rail_travel`. A missing or unmeasured rail/pin fact or an unknown support
+height leaves them undrawn with a `NOT SHOWN` note.
+The carrier plate (`guides.carriers`) has `carrier_length` along its pin chord and
+`carrier_width` across it. Its centre is offset by the selected pair's signed
+`carrier_offset` along the left normal from pin 1 to pin 2; its top is
+`carrier_seat_drop` below the work's seat, with `carrier_thickness` below that.
+It has a `TRAMMEL CARRIER` callout and role `guide_carrier`. Explicit measured zero
+is required for centred/zero-drop geometry. A missing or unmeasured carrier fact,
+a plate not reaching its pin chord or one too thick to clear the rail tops leaves
+only the carrier undrawn, with its own note. These facts change the picture only,
+not the travel/headroom proof or its unresolved debts.
 
 ### Stock, removal and fixture annotations
 

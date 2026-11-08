@@ -16,6 +16,9 @@ horizontal dividing-head top-dead-centre poses and window-clipped radial
 plus wall-tangent vertical cutter-column own-removal outside the finished
 part. Exact per-face unions decide coverage and finish coverage for
 partial-face windows. This is not continuous toolpath proof.
+Oblique-trammel inventory also supports render-only fixture geometry for setup
+pictures; it adds no clearance or physical safety proof. See
+[inventory](docs/inventory.md#oblique-trammels).
 Current CAD authority is harmonic-analyzer source
 `441290434f34f62faba176ef576af6879189c5e7`, exact release **v47**.
 The current routes are: `pivot-shaft`, plain shaft with two flats, allocated
@@ -660,7 +663,7 @@ not exist.
 | rule | inputs | tier | on the sheet it reads like |
 |---|---|---|---|
 | tool resolves; holder's taper = machine spindle; shank fits holder | plan.ops.tool, inventory.tools/holders/machines | M1 | "No R8 drill chuck listed." |
-| sizing: selected finishing tool's size within the feature's limits; unit mismatch reported, never converted | plan.ops.tool, features.dia, inventory.tools.dia | M1 | "Nearest reamer 6.375 mm, 0.125 under the low limit." |
+| sizing: selected fixed finisher's size within feature limits; adjustable bore/hone routes use the last actual diameter cut, causal nonshrinking stage targets, matching verified final working setting and a capable final diameter inspection; unit mismatch reported, never converted | plan.ops.tool/to_dia/checks, features.dia, inventory.tools.dia, inventory.gauges | M1 | "Final hone command or configured setting is unresolved; pilot diameter is not the finished bore." |
 | op chain per feature kind: hole = spot→drill→(ream\|tap); counterbore after its hole; tap drill from thread spec | plan.ops, features.kind/thread | M1 | "Pivot bore is reamed without a drill op." |
 | order: rough→finish, drill→ream/tap, face→spot, release last | plan.ops | M1 | "Op 40 reams before op 30 drills." |
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
@@ -684,7 +687,7 @@ not exist.
 |---|---|---|---|
 | accessibility: sample each claimed face with the prescribed cutter/holder pose below. Obstacles are stock minus a 0.001 mm inward shell of this sampled face (an own matched point cap uses unmodified stock instead), plus fixture solids: holders see setup-entry stock; a milling or hole flute sees the stock left by the setup's earlier derived cuts (never a later cut's) and excludes this op's derivable outside-finished allowance or own hole cutter volume (spot/drill: point cone and body). After an underivable earlier cut, a flute keeps only certain finished-material hits and its tool hits are unknown. Other finished faces and holder obstacles remain. A hit means this prescribed pose is occluded, not that no pose cuts the point. Missing pose/stock/inputs prevent passes, but observed certain hits remain errors; far-side claims error by name, and invalid clearing removals are named stock debt. A bounded op is judged only where its cutter stands without meeting stock outside its `stock_removal_bounds` box; claimed-face samples beyond it are carried to a later op that cuts or files the face (never a saw), else error (#236) | STEP faces, stock/setup order/op face claims, five cutter/holder dimensions (not OAL), spot/drill `point_angle`, rough `rough_allowance_mm`, fixture dimensions and pose, authored op depth/entry/through extent | M4 | "Ø10 cutter intersects the opposite wall of a 6 mm groove." |
 | reach: floor depth below the highest stock the op meets ≤ flute length, else ≤ OAL with the holder cylinder clear of that stock; at any depth the shank past the flutes clears the stock the op leaves (a reamer's own finished bore included); body, shank and holder-face clearances are reported numbers | features.faces, inventory.tools (flute_len, OAL, shank dia, holder dia) | M4 | "The 0.4500 in reamer's Ø10.05 shank clears the Ø11.43 bore it leaves by 0.69 mm; the 3/8 in spotter's chuck face stops 3.2 mm above the Z27.2 crown." |
-| internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
+| internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool; hone excludes only its own matched concave tool-axis bore wall, leaving unrelated corners/caps checked and diameter acceptance with sizing | features.faces, plan.ops.feature/tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock ∪ faces of a joint's `forms` feature (kernel-admitted joined corner and a passing post-join band check, else debt) = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | blank_credit: an as-is face of a profiled blank (a bought laser/waterjet-cut STEP) counts only when it lies on the blank within 1e-3 mm and every band of its owning features holds the vendor's ± t about the nominal (a governed BASIC scalar reads its governing profiles' band; a position zone needs 2√2·t, a profile zone t√2 on each side of its disposition); a face failing either check stays uncovered | plan.stock.blank, plan.stock.as_is_faces, features requirements and nominals, kernel as_is_contact | M4 | "end_faces length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
@@ -1173,6 +1176,16 @@ report/traveler pairs across two generations. Counts and frozen report hashes
 are recorded in the [example output evidence](examples/README.md#frozen-standalone-output-evidence).
 This is not full-suite, full-validator, independent blind, physical paper or
 first-article acceptance.
+Shared boss/bore manufacturing-axis placements are bounded by the
+[plan contract](docs/plan.md#shared-manufacturing-axis-placements): one
+concentric cylindrical boss/through bore, planar annular caps and analytic
+cylindrical support, with no ambiguous or unrelated intersecting features.
+The cone's 43.2735 mm printed-band midpoint is an authored target, not source
+nominal geometry or a measurement. STEP/manifest identity remains immutable;
+invalid or unsupported placement refuses nominal fallback. Dedicated host and
+native geometry regressions are authored in `tests/test_axis_placements.py`;
+no execution or fresh acceptance result is asserted by this note.
+
 
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
 1. **M1 — local implementation deliverable completed.** Five strict TOML
@@ -1358,6 +1371,12 @@ first-article acceptance.
      A sign contradiction now requires independent source/geometry evidence,
      not nominal-band membership alone. Regression coverage is in
      `tests/test_nominal_tolerance_semantics.py`.
+     Machining-target guards separately withhold an out-of-band nominal-derived
+     lathe diameter or contour, and reject an explicit out-of-band final-size
+     command without rejecting legitimate rough/intermediate stages. The sheet
+     retains drawing limits and shows `?` plus STOP rather than releasing an
+     invalid target. These boundaries are covered by
+     `tests/test_machining_target_bands.py`.
 
    **Upstream M3 follow-ups identified at harmonic-analyzer `b11124ecf`:**
    these describe that delivery, not observed current HA status. Example
@@ -1854,6 +1873,18 @@ first-article acceptance.
    Corner comparisons allow 0.005 mm numeric STEP/kernel round-off, not a
    shop machining allowance: a 0.004 mm radius deficit passes, 0.006 mm errors.
    The rocker's 0.99695 mm corner against a 0.997 mm cutter therefore passes.
+
+   Authored `manual_ball_raster` contours carry a finite setup-mm tool-tip
+   trajectory with explicit safe lifts, entries and single-axis indexes.
+   Bounded proof uses exact straight sweeps of the measured ball-end flute,
+   shank and holder in the authored order, not a flat-cutter fallback or
+   CAD-generated path. Stock is removed only by actual cutting moves; early
+   motions cannot borrow later clearance. Source STEP identity remains
+   separate from axis-placed process geometry. Exact covered source-face
+   regions retain partial cut/finish debt; selected faces, hand-finishing
+   notes and unsupported methods confer no blanket coverage. Missing tool
+   measurements and malformed motion remain unresolved. Focused and combined
+   validation evidence is separate from this implementation status.
 
    Rotary milling is delivered through `approach = "rotary"` and
    `hold.index.rotation = "continuous"` on a horizontal dividing head with an

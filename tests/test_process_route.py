@@ -10,6 +10,7 @@ import re
 import tomllib
 
 import pytest
+
 # Retired routes from d9425786 isolate finish routing, shared inspection, stop faces and
 # process-hold/gauge behavior; they are not current CAD contracts.
 from historical_examples import copy_historical_examples as copy_examples

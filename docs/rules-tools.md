@@ -259,12 +259,31 @@ compatible selection; verifying the same incompatible dimensions does not fix it
 
 ### Finishing-tool selection and limits
 
-Subject: every manifest feature. Hole/counterbore selected finishing tool is
+Subject: every manifest feature. Fixed-tool hole/counterbore routes select
 counterbore, ream when route/process requests reaming, otherwise drill. Only a
 verified selected diameter can pass the inclusive drawing band. The rule does
 not substitute an unselected nearest candidate. Threaded/path-set features are
 not applicable. Drawing units other than mm remain unresolved rather than
 implicitly converting their tolerance limits.
+
+When a route contains adjustable `bore` or `hone` operations, its last actual
+drill/ream/counterbore/bore/hone is the size-setting operation, not the pilot
+drill. Each adjustable stage declares `to_dia` in drawing units; intermediate
+undersize is allowed, but a later internal cut cannot shrink an earlier bore,
+and no stage may exceed the unchanged drawing high limit. The final command
+must lie inside the unchanged inclusive acceptance band. A final adjustable
+tool's verified inventory `dia` is its explicitly configured swept working
+diameter and must match that command: shank/head diameter and a hone's nominal
+expansion range are never substitutes. The selected tool kind must be
+`boring_bar` or `hone`, respectively. Missing targets/settings remain unknown;
+positive final stock allowance cannot claim completion.
+
+A final adjustable finish also requires a diameter check at that operation or
+later, judged by the existing inspection capability contract (including gauge
+kind, verified range/resolution and any declared method or GO/NO-GO limits).
+An earlier inspection cannot qualify later removal. These are planned commands,
+configured tool states and instrument capability, never recorded physical bore
+results. Fixed drill/reamer checks are not relaxed.
 An explicitly unknown feature kind or route action is unknown, not not-applicable.
 
 Grooves compare selected nose radius to the feature's own

@@ -434,6 +434,90 @@ def rotary_union(facts, category, indices):
     return complete, uncovered, unresolved
 
 
+def manual_raster_candidates(bundle, facts, setup, op):
+    """Selected exact owners are union candidates, never whole-face cutting credit."""
+    feature = record(bundle.feature_definitions.get(op_feature(op)))
+    if feature.get("preparation") or feature.get("joint"):
+        return set()
+    refs = claim_refs(bundle, op, setup)
+    mapping = face_mapping(bundle, facts, setup)
+    if not known_refs(refs) or any(not _face_index(mapping.get(ref)) for ref in refs):
+        return None
+    if registered_workpieces(bundle):
+        members = operation_members(bundle, setup, op)
+        if not members or any(
+            member_protection_status(bundle, setup, member, facts) is not True
+            for member in members
+        ):
+            return None
+    return {mapping[ref] for ref in refs}
+
+
+def manual_raster_union(facts, category, indices):
+    """Read exact authored-path coverage, independently of rotary window coverage.
+
+    All three lists are required. Missing/malformed packets stay unresolved; within a
+    valid packet unknown outranks gaps, and gaps outrank complete. Selection and per-op
+    partial/complete lists cannot replace this category-specific native union proof.
+    """
+    entry = record(record(facts.get("manual_raster_coverage")).get(category))
+    faces = {row["index"]: row for row in _face_rows(facts.get("faces"))}
+    listed, gap_rows, unknown_rows = (
+        entry.get("complete_indices"), entry.get("gaps"), entry.get("unknown")
+    )
+    valid = (
+        isinstance(listed, list)
+        and all(_face_index(i) and i in faces for i in listed)
+        and isinstance(gap_rows, list)
+        and isinstance(unknown_rows, list)
+    )
+    if valid:
+        valid = all(
+            isinstance(row, dict)
+            and _face_index(row.get("index"))
+            and row["index"] in faces
+            and isinstance(row.get("ref"), str)
+            and bool(row["ref"].strip())
+            and (
+                number(row.get("uncovered_area_mm2"))
+                and math.isfinite(row["uncovered_area_mm2"])
+                and row["uncovered_area_mm2"] > 0
+                if kind == "gap"
+                else isinstance(row.get("reason"), str) and bool(row["reason"].strip())
+            )
+            for kind, rows in (("gap", gap_rows), ("unknown", unknown_rows))
+            for row in rows
+        )
+    gaps = {row["index"]: row for row in gap_rows} if valid else {}
+    unknown = {row["index"]: row for row in unknown_rows} if valid else {}
+    covered = set(listed) if valid else set()
+    complete, uncovered, unresolved = set(), {}, {}
+    for index in sorted(indices):
+        face = faces.get(index, {})
+        ref = face.get("ref") or f"imported face index {index}"
+        if index in unknown:
+            unresolved[index] = {**unknown[index], "ref": ref}
+        elif index in gaps:
+            uncovered[index] = {**gaps[index], "ref": ref}
+        elif index in covered:
+            complete.add(index)
+        else:
+            unresolved[index] = {
+                "index": index,
+                "ref": ref,
+                "reason": (
+                    "manual raster union packet is missing or malformed"
+                    if not valid
+                    else "the kernel reported no manual raster union for it"
+                ),
+            }
+    return complete, uncovered, unresolved
+
+
+def manual_raster_gap_text(gap):
+    return f"{gap['ref']} ({gap['uncovered_area_mm2']:g} mm² uncovered)"
+
+
 def rotary_gap_text(gap):
     """``#5 (12.5 mm² at S1 z 10..20 mm, angle 0..90°)``: the portion of a face outside
     every claiming window; angles may be conservative enclosing bounds of that portion."""

@@ -152,8 +152,32 @@ to the frame's other numeric axes. Otherwise it is unknown, as is every
 coordinate along it and every direction compared with it.
 
 Tolerance-band midpoints never define nominal geometry: explicit `*_nominal`
-values take precedence; otherwise only scalar dimensions are usable as nominal
-geometry.
+or `nominal_*` values take precedence; otherwise only scalar dimensions are
+usable as nominal geometry.
+
+#### Machining targets versus model nominals
+
+A valid drawing baseline can lie outside its finished-size limits. It remains
+model geometry, but cannot silently become a machining target. A lathe diameter
+inferred from such a nominal has its `x_target_mm` withheld; the feature map
+keeps the drawing band, prints `?` for the target and adds a STOP. A nominal-based
+boss/cylinder diameter or arc radius outside its explicit band likewise withholds
+the cutter-centre paths rather than shifting the geometry or widening the band.
+These cases are unresolved process-target debt, not invalid-CAD findings.
+
+An explicit final `to_dia` outside its diameter limits is an error and is withheld
+from the feature-map target column. Explicit rough diameters and intermediate
+diameters before a later nonrough radial operation on the same feature and known
+workpiece members remain process stages, not finished-size claims. An in-band
+explicit target does not change the exported nominal or establish a physical
+DRO pickup. Face-only operations do not acquire a diameter command from geometry.
+
+`target_band_checks` records the consumed requirement, target, limits, feature
+and operation. `target_band_debts` identifies nominal-derived unresolved targets;
+`target_band_errors` identifies contradictory final commands. Boundary comparisons
+are inclusive and use the actual values, without display rounding or an epsilon.
+This check applies to consumed targets, not every nominal field in a manifest.
+
 
 #### Shared boss/bore manufacturing axes
 
@@ -1031,6 +1055,24 @@ schedule. Those remain separate coordinate/tool-path debts. Multiple axial
 levels do not duplicate the final-depth checkpoint identities or the drawn
 outline, and an unresolved final tip or any unresolved cutting path keeps
 the complete native checkpoint request unknown.
+
+#### Authored ball-end rows and explicit transitions
+
+`manual_ball_raster` is separate from the generated `linear_table` raster
+above. Its [trajectory input](plan.md#authored-manual-ball-end-raster) supplies
+every setup-frame millimetre tool-tip endpoint and clear/cut mode. Normalized
+operation values retain that cycle under `operations[i].manual_raster`.
+No common final Z, axial pass schedule, inferred plunge, rounded replacement
+point or automatic lifted return is substituted for the authored coordinates.
+
+The public table prints each explicit move, including clear entry/retract and
+single-axis indexes; its trajectory diagram uses the same points and labels
+clear versus cutting motion. Travel and envelope bounds include all those
+moves, not only the cutting rows. A malformed trajectory or unknown endpoint
+has no usable path and remains a hold. A stated safe height is a constraint,
+not proof of stock or fixture clearance; the native sequential swept-tool
+checks establish the bounded geometric result. A ball-end force model is not
+inferred from a flat-end cylindrical engagement calculation.
 
 #### Safe-side raster and outline rounding
 

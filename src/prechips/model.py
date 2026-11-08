@@ -597,6 +597,23 @@ GuidedSweep = record(
         "pins_deg": Vector,
     },
 )
+
+
+class ManualRasterMove(InputModel):
+    """One explicitly authored tool-tip move in setup-frame millimetres."""
+
+    to_mm: Point3
+    mode: Literal["cut", "clear"]
+
+
+class ManualRaster(InputModel):
+    """Finite single-axis ball-end milling motions, including every lifted index."""
+
+    start_mm: Point3
+    safe_z_mm: Number
+    moves: Annotated[list[ManualRasterMove], Field(min_length=1)]
+
+
 # A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
 # line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter,
 # ``guided_sweep`` sweeps it under a locked cutter on a pivot or rail fixture (``sweep``).
@@ -609,6 +626,7 @@ Contour = record(
         "sweep_bounds": Bounds,
         "keep_out": list[KeepOut],
         "sweep": GuidedSweep,
+        "raster": ManualRaster,
     },
 )
 # A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
@@ -734,6 +752,25 @@ class Aim(InputModel):
         _known_text(self.reason, "An aim reason")
         if self.face is not None:
             _known_text(self.face, "An aim face")
+        return self
+
+
+class AxisPlacement(InputModel):
+    """Move a source boss, through bore and caps together within its separation band."""
+
+    boss: str
+    bore: str
+    caps: str
+    support: str
+    separation_mm: Annotated[float, Field(gt=0)]
+
+    @model_validator(mode="after")
+    def members(self) -> AxisPlacement:
+        names = (self.boss, self.bore, self.caps, self.support)
+        for name in names:
+            _known_text(name, "An axis placement feature")
+        if len(set(names)) != len(names):
+            raise ValueError("Axis placement boss, bore, caps and support must be distinct.")
         return self
 
 
@@ -896,6 +933,15 @@ class InspectionScope(InputModel):
         return self
 
 
+class InspectionReading(InputModel):
+    """A qualified datum translation, coordinate = physical reading - offset_mm."""
+
+    kind: Literal["relative_coordinate"] | Unknown = UNKNOWN
+    offset_mm: Number = UNKNOWN
+    method: Procedure = UNKNOWN
+    cite: Citations = UNKNOWN
+
+
 Operation = record(
     "Operation",
     {
@@ -934,6 +980,10 @@ Operation = record(
         "missing_requirements": dict[str, str],
         # Requirement -> procedure; scoped per listed feature like `checks`.
         "inspection_methods": dict[str, Procedure | dict[str, Procedure]],
+        # A qualified physical reading for a signed coordinate, flat or feature-scoped.
+        "inspection_readings": dict[
+            str, InspectionReading | dict[str, InspectionReading] | Unknown
+        ],
         # Inspection targets are independent of geometry ownership / workpiece_faces.
         "inspect_workpieces": Annotated[list[str], Field(min_length=1)],
         "inspection_scope": InspectionScope,
@@ -1360,6 +1410,14 @@ class Plan(InputModel):
     process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
+    # One shared source-axis translation; never a mutation of the exported manifest.
+    axis_placements: dict[str, AxisPlacement] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def named_axis_placements(self) -> Plan:
+        for name in self.axis_placements:
+            _known_text(name, "An axis placement name")
+        return self
 
     @model_validator(mode="after")
     def named_setups(self) -> Plan:
@@ -2613,7 +2671,10 @@ InventoryItem = record(
             ),
             MeasuredLength,
         ),
-        **dict.fromkeys(("resolution_mm", "resolution_in"), MeasuredResolution),
+        **dict.fromkeys(
+            ("resolution_mm", "resolution_in", "profile_resolution_mm", "profile_resolution_in"),
+            MeasuredResolution,
+        ),
         # Turning tools (insert holder) and toolpost holder bodies: docs/rules-lathe.md.
         **dict.fromkeys(
             (
@@ -2743,6 +2804,15 @@ InventoryItem = record(
             + ("carrier_thickness_mm", "carrier_thickness_in"),
             MeasuredLength,
         ),
+        # Render-only placement: signed transverse plate-centre offsets by pin pair,
+        # physical rail endpoints (not usable pin travel), and stack elevations.
+        **dict.fromkeys(("carrier_offset_mm", "carrier_offset_in"), ProjectionMap),
+        **dict.fromkeys(
+            ("rail_base_height_mm", "rail_base_height_in")
+            + ("carrier_seat_drop_mm", "carrier_seat_drop_in"),
+            MeasuredLength,
+        ),
+        **dict.fromkeys(("rail_span_mm", "rail_span_in"), MeasuredLimits),
         **dict.fromkeys(("rail_angle_deg", "rail_angle_error_deg"), MeasuredAngle),
         **dict.fromkeys(("pin_spacing_mm", "pin_spacing_in"), ProjectionMap),
         **dict.fromkeys(
@@ -2785,6 +2855,8 @@ _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
 # A radius/profile gauge leaf's own ± tolerance.
 _INVENTORY_LENGTH_STEMS |= {"leaf_tolerance"}
+# Optical contour discrimination is independent of the linear stage scale.
+_INVENTORY_LENGTH_STEMS |= {"profile_resolution"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
 # Filing buttons' runout and receipt limits: one fact each, in mm or in, never both.
@@ -2803,6 +2875,7 @@ _INVENTORY_LENGTH_STEMS |= {"pin_spacing", "pin_spacing_error", "pin_clearance",
 _INVENTORY_LENGTH_STEMS |= {"rail_travel", "pin_dia", "rail_width", "rail_height"}
 _INVENTORY_LENGTH_STEMS |= {"dowel_reading", "carrier_length", "carrier_width"}
 _INVENTORY_LENGTH_STEMS |= {"carrier_thickness"}
+_INVENTORY_LENGTH_STEMS |= {"rail_span", "rail_base_height", "carrier_offset", "carrier_seat_drop"}
 _INVENTORY_LENGTH_STEMS |= {"root_dia", "kerf_offset", "bore_dia_limits"}
 _INVENTORY_LENGTH_STEMS |= {"finder_tip_length"}
 

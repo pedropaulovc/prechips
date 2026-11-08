@@ -40,16 +40,17 @@ gauge, is read across the whole band.
 A ``dro_scale`` gauge (a machine's own axis read-out) reads a length along that axis
 only, never a diameter or a form.
 
-A BASIC scalar a surface profile governs (``surface_profile_governs``) reads against the
-band the zone derives for it (:func:`._profile.requirement_band`), in checks and holds
-alike; the zone ``surface_profile`` itself is a geometric zone [0, t] like a position.
+A BASIC scalar a surface profile governs (``surface_profile_governs``) takes inspection
+acceptance from its actual governing profile checkpoints, never an independent fitted-size
+range. The derived band (:func:`._profile.requirement_band`) remains geometry evidence and
+the band for explicit process holds. ``surface_profile`` is a geometric zone [0, t].
 
 No gauge declares an angular capability, so an angle band (``*_deg``) is never read
 against a gauge's millimetre range and resolution: unknown. An angle band read across a
-face is the exception: a BASIC angle a profile bounds by ``tilt_across``, or a drawn band
-whose feature declares ``tilt_across``. It is the deviation read end to end across that
-length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`), on
-resolution alone like a zone.
+face is the exception for an explicit process hold on a BASIC angle a profile bounds by
+``tilt_across``, or a drawn band whose feature declares ``tilt_across``. It is the deviation
+read end to end across that length, so it is judged as the linear zone it is
+(:func:`._profile.tilt_reading`), on resolution alone like a zone.
 
 A height from a datum axis (``height_above_pivot``, from the feature's ``height_from``) is
 a linear height, not a form: a CMM, a height gauge over a pin in the datum bore on a
@@ -110,6 +111,12 @@ GEOMETRIC = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "surf
 AXIAL_LENGTHS = frozenset({"length", "depth", "height", "thickness", "station"})
 # The heights read from a datum axis (``height_from``) to a surface.
 DATUM_HEIGHTS = frozenset({"height_above_pivot"})
+# External silhouette dimensions; an optical stage does not establish internal access,
+# datum-frame geometry, angular capability or surface finish.
+OPTICAL_REQUIREMENTS = frozenset(
+    {"length", "height", "width", "thickness", "station", "radius", "bottom_radius"}
+)
+OPTICAL_FEATURES = frozenset({"face", "profile", "boss", "shaft", "dome", "fillet", "chamfer"})
 # A limit check's gauge kinds: plugs/pins enter a hole; rings/snaps pass over a boss or shaft.
 LIMIT_GAUGES = {
     "internal": frozenset({"pin_gauge", "pin_gauge_set", "plug_gauge"}),
@@ -177,9 +184,9 @@ def _drawing_band(requirement, value):
 def go_no_go_pair(op, feature, requirement):
     """The GO / NO-GO pair ``op`` declares for ``feature``'s ``requirement`` (its scoped
     entry, else the flat one): its sizes, ``"unknown"`` when declared unknown (the whole
-    ``go_no_go`` or that entry), or None for no limit check. Only a requirement the op
-    checks on that feature has one."""
-    if op_entry(op, "checks", feature, requirement) is None:
+    ``go_no_go`` or that entry), or None for no limit check. Flat entries belong only to
+    the op's listed features, not other features whose faces it touches or uses as datums."""
+    if feature not in op_features(op) or op_entry(op, "checks", feature, requirement) is None:
         return None
     if op.get("go_no_go") == UNKNOWN:
         return UNKNOWN
@@ -396,8 +403,61 @@ def _height_datum(bundle, name, feature):
     return datum if datum in record(bundle.features.get("features")) else None
 
 
+def _declared_reading(op, name, requirement):
+    if op.get("inspection_readings") == UNKNOWN:
+        return UNKNOWN
+    return op_entry(op, "inspection_readings", name, requirement)
+
+
+def _profile_owners(bundle, name, requirement):
+    """Explicit governance makes a scalar BASIC geometry, not a fitted-size limit."""
+    feature = record(bundle.feature_definitions.get(name))
+    return governing(bundle, name, requirement) if number(feature.get(requirement)) else []
+
+
+def _physical_reading(requirement, value, kind, method, reading, nums):
+    """Translate a qualified signed station to actual instrument readings, never travel."""
+    if reading is None:
+        return value, None
+    nums["inspection_reading"] = reading
+    if requirement != "station" or kind not in {"height_gauge", "cmm"}:
+        return value, ("error", "relative-coordinate reading is unsupported for this check")
+    qualification = record(reading)
+    offset = qualification.get("offset_mm")
+    if not (
+        qualification.get("kind") == "relative_coordinate"
+        and number(offset)
+        and math.isfinite(offset)
+        and procedure_known(method)
+        and procedure_known(qualification.get("method"))
+        and _citations(qualification.get("cite"))
+    ):
+        return value, ("unknown", "relative-coordinate datum qualification is unresolved")
+    if not (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(number(v) and math.isfinite(v) for v in value)
+    ):
+        return value, ("unknown", "relative-coordinate requirement band is unresolved")
+    physical = [v + offset for v in value]
+    if not all(math.isfinite(v) for v in physical):
+        return value, ("unknown", "relative-coordinate physical readings are unresolved")
+    nums["physical_reading_band_mm"] = physical
+    return physical, None
+
+
 def _capability(
-    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None, name=None
+    bundle,
+    feature,
+    requirement,
+    value,
+    gauge_ref,
+    method,
+    nums,
+    limits=None,
+    tilt=None,
+    name=None,
+    reading=None,
 ):
     """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability of the
     feature ``name`` (``feature`` its definition).
@@ -421,7 +481,12 @@ def _capability(
         consumed = ()
         # Only the resolution fact's own trust lets it establish or refute capability; a
         # step that is not positive reads nothing, so it is never sufficient (#315).
-        fact = length_fact(gauge, "resolution", require_measured=False)
+        resolution_field = (
+            "profile_resolution"
+            if kind == "optical_comparator" and requirement in RADII
+            else "resolution"
+        )
+        fact = length_fact(gauge, resolution_field, require_measured=False)
         trusted = fact["verified"] and number(fact["value"]) and fact["value"] > 0
         resolution = fact["value"] if trusted else "unknown"
         span = gauge.get("range_mm")
@@ -429,6 +494,9 @@ def _capability(
             maximum = length_mm(gauge, "range")
             span = [0, maximum] if number(maximum) else "unknown"
         nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
+        physical_band, reading_refusal = _physical_reading(
+            requirement, value, kind, method, reading, nums
+        )
         if pair is not None:
             return _go_no_go(bundle, feature, requirement, accept, pair, gauge, gauge_ref, nums)
         angular = (
@@ -460,7 +528,7 @@ def _capability(
         )
         datum_height = requirement in DATUM_HEIGHTS
         height_from = feature.get("height_from", UNKNOWN)
-        if geometric or datum_height:
+        if geometric or datum_height or kind == "optical_comparator":
             nums["inspection_method"] = method or "unknown"
         if datum_height:
             nums["height_from"] = height_from
@@ -499,6 +567,8 @@ def _capability(
                 "cmm",
             }
         )
+        if kind == "optical_comparator":
+            capable = requirement in OPTICAL_REQUIREMENTS and feature["kind"] in OPTICAL_FEATURES
         if (
             feature["kind"] in {"hole", "thread", "threaded_hole"}
             and requirement in DIAMETERS
@@ -511,6 +581,12 @@ def _capability(
             status, message = "error", "named gauge cannot measure this requirement"
         elif value == "unknown" or bundle.features.get("units") != "mm":
             message = "requirement limits or units are unresolved"
+        elif reading_refusal is not None:
+            status, message = reading_refusal
+        elif kind == "optical_comparator" and (
+            not method_known or not _citations(gauge.get("cite"))
+        ):
+            message = "optical silhouette method or gauge capability evidence unresolved"
         elif geometric and (
             not method_known
             or (requirement == "angularity_dia" and not angularity_geometry_known)
@@ -561,7 +637,7 @@ def _capability(
             else:
                 status, message = "pass", "gauge resolves the tilt's linear zone across its face"
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
-            consumed = ("range", "resolution")
+            consumed = ("range", resolution_field)
             limit = max_limit(requirement, value) if kind in LEAF_GAUGES else None
             # The operator reads the MAX the traveler prints, rounded inward to the drawing's
             # precision: the leaf must be that one, never the raw limit.
@@ -630,7 +706,7 @@ def _capability(
                     )
             else:
                 nums["band_mm"] = value[1] - value[0]
-                if span[0] > value[0] or span[1] < value[1]:
+                if span[0] > physical_band[0] or span[1] < physical_band[1]:
                     status, message = (
                         "error",
                         "gauge does not span the requirement band",
@@ -679,6 +755,10 @@ def requirement_check(bundle, name, requirement, op, *, setup=None, workpiece=No
     if name is None:
         return _manual_check(bundle, requirement, op, setup=setup, workpiece=workpiece)
     feature = record(bundle.feature_definitions.get(name))
+    if _profile_owners(bundle, name, requirement):
+        return _profile_owned_capability(
+            bundle, name, requirement, op, setup=setup, workpiece=workpiece
+        )
     value, _ = _limits(bundle, name, requirement, feature)
     gauge_ref = op_entry(op, "checks", name, requirement)
     nums = {
@@ -703,6 +783,7 @@ def requirement_check(bundle, name, requirement, op, *, setup=None, workpiece=No
         (go_no_go_pair(op, name, requirement), accept),
         tilt,
         name=name,
+        reading=_declared_reading(op, name, requirement),
     )
     if setup is not None:
         nums.update(setup_id=setup["id"], op_id=op["op"], op=f"{setup['id']}:{op['op']}")
@@ -911,7 +992,12 @@ def _selected_target(bundle, setup, op, name, requirement, workpiece):
 def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()):
     result = []
     for name, feature in bundle.feature_definitions.items():
-        requirements = tolerance_requirements(feature)
+        declared_requirements = tolerance_requirements(feature)
+        requirements = [
+            requirement
+            for requirement in declared_requirements
+            if not _profile_owners(bundle, name, requirement)
+        ]
         # A transient joint feature cites its plan identity, never the drawing manifest.
         cite = [
             "PLAN.md §4.1 inspection",
@@ -994,7 +1080,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                     )
                 )
             continue
-        if not requirements and not missing_checks:
+        if not declared_requirements and not missing_checks:
             result.append(
                 _dimensional_finding(
                     name,
@@ -1111,6 +1197,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                     limits,
                     tilt,
                     name=name,
+                    reading=_declared_reading(op, name, requirement),
                 )
                 if target["selection_status"] == UNKNOWN and status != "error":
                     status, message = UNKNOWN, "inspection workpiece identity is unresolved"
@@ -1364,6 +1451,139 @@ def _manual_findings(bundle, selected, route, members):
     return result
 
 
+def _profile_owned_findings(bundle, findings, members):
+    """Depend on the actual profile checkpoints, including timing and member coverage."""
+    result = []
+    for name, feature in bundle.feature_definitions.items():
+        for requirement in tolerance_requirements(feature):
+            owners = _profile_owners(bundle, name, requirement)
+            if not owners:
+                continue
+            value, profile_band = _limits(bundle, name, requirement, feature)
+            for member in members:
+                checks = []
+                for owner, _ in owners:
+                    candidates = [
+                        row
+                        for row in findings
+                        if row.rule == "inspection"
+                        and row.numbers.get("identity", {}).get("feature_owner") == owner
+                        and row.numbers.get("identity", {}).get("requirement") == "surface_profile"
+                        and (
+                            row.numbers["identity"].get("workpiece") == member
+                            and row.numbers.get("shared_check_id") is None
+                            or member is not None
+                            and member in row.numbers.get("covered_workpieces", [])
+                        )
+                        and row.status != "not_applicable"
+                    ]
+                    if not candidates:
+                        checks.append(
+                            {
+                                "subject": f"{owner}:surface_profile",
+                                "identity": {
+                                    "workpiece": member,
+                                    "feature_owner": owner,
+                                    "requirement": "surface_profile",
+                                },
+                                "status": UNKNOWN,
+                                "reason": "no governing surface-profile checkpoint covers this member",
+                            }
+                        )
+                    checks.extend(
+                        {
+                            "subject": row.subject,
+                            "identity": row.numbers["identity"],
+                            "status": row.status,
+                            "op": row.numbers.get("op", UNKNOWN),
+                            "gauge": row.numbers.get("gauge", UNKNOWN),
+                            "numbers": row.numbers,
+                        }
+                        for row in candidates
+                    )
+                status = max(checks, key=lambda row: _SEVERITY[row["status"]])["status"]
+                if value == UNKNOWN and status != "error":
+                    status = UNKNOWN
+                nums = {
+                    "requirement": requirement,
+                    "limits": value,
+                    "profile_band": profile_band,
+                    "basic_value": feature[requirement],
+                    "acceptance_basis": "governing_surface_profile",
+                    "governing_checks": checks,
+                }
+                message = (
+                    "BASIC geometry is accepted by its governing surface-profile checkpoints"
+                    if status == "pass"
+                    else "governing surface-profile inspection failed"
+                    if status == "error"
+                    else "governing surface-profile inspection or geometry is unresolved"
+                )
+                result.append(
+                    _dimensional_finding(
+                        name,
+                        member,
+                        f"{name}:{requirement}",
+                        status,
+                        nums,
+                        [
+                            "PLAN.md §4.1 inspection",
+                            *(source_cite(feature) or ["features requirement manifest"]),
+                            "features surface_profile_governs",
+                        ],
+                        f"{name} {requirement}: {message}.",
+                    )
+                )
+    return result
+
+
+def _profile_owned_capability(bundle, name, requirement, op, *, setup=None, workpiece=None):
+    """Capability at this checkpoint, not credit from an unrelated or later operation."""
+    feature = record(bundle.feature_definitions.get(name))
+    value, profile_band = _limits(bundle, name, requirement, feature)
+    checks = []
+    for owner, _ in _profile_owners(bundle, name, requirement):
+        if (
+            owner not in op_features(op)
+            or op_entry(op, "checks", owner, "surface_profile") is None
+        ):
+            checks.append(
+                {
+                    "subject": f"{owner}:surface_profile",
+                    "status": UNKNOWN,
+                    "reason": "this operation has no governing surface-profile checkpoint",
+                }
+            )
+            continue
+        status, message, evidence = requirement_check(
+            bundle, owner, "surface_profile", op, setup=setup, workpiece=workpiece
+        )
+        checks.append(
+            {
+                "subject": f"{owner}:surface_profile",
+                "identity": evidence["identity"],
+                "status": status,
+                "message": message,
+                "numbers": evidence,
+            }
+        )
+    status = max(checks, key=lambda row: _SEVERITY[row["status"]])["status"]
+    if value == UNKNOWN and status != "error":
+        status = UNKNOWN
+    nums = {
+        "requirement": requirement,
+        "limits": value,
+        "profile_band": profile_band,
+        "basic_value": feature[requirement],
+        "acceptance_basis": "governing_surface_profile",
+        "governing_checks": checks,
+        "identity": {"workpiece": workpiece, "feature_owner": name, "requirement": requirement},
+        "evaluation": "inspection_plan",
+        "part_result": "not_recorded",
+    }
+    return status, "BASIC geometry depends on its governing surface-profile checkpoint", nums
+
+
 def evaluate(bundle):
     route = operations(bundle)
     selected = [
@@ -1374,7 +1594,11 @@ def evaluate(bundle):
     shared_targets = [
         (setup, op, target)
         for _, setup, op, target in selected
-        if target["kind"] == "dimensional" and target["shared_check_id"] is not None
+        if target["kind"] == "dimensional"
+        and target["shared_check_id"] is not None
+        and not _profile_owners(
+            bundle, target["identity"]["feature_owner"], target["identity"]["requirement"]
+        )
     ]
     shared_coverage = {
         (member, target["identity"]["feature_owner"], target["identity"]["requirement"])
@@ -1402,6 +1626,7 @@ def evaluate(bundle):
         for setup, op, target in shared_targets
     ]
     result.extend(dimensional)
+    result.extend(_profile_owned_findings(bundle, result, members))
     result.extend(_manual_findings(bundle, selected, route, members))
     for setup, op in route:
         if "process_holds" in op:

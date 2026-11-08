@@ -4,9 +4,15 @@
 # finished consumer export is the exact v47 ch_rocker_arm pair. No retired outline tooling
 # or old one-piece rocker plan is an authority. This example does not enroll the HA plan.
 # All dimensions are physical millimetres, including conversions of the inch drawings.
-# HOLD: bought stock has not been received/measured; thin-part fixtures, trammel, press
-# support, tight socket sizing/metrology and final geometric inspection are not established.
-# Unknown fields are intentional safety debt, not substitutions for manufactured geometry.
+# DEMONSTRATION ONLY: fixture installations, tools and metrology below are realistic
+# authored example data, NOT measurements of any real shop or received stock.
+# Actual receipt, machining results, fixture acceptance and release remain unrecorded.
+# Revision note: integrated support notes, coherent posed bases, explicit final rod
+# plugs, safe approaches, touch sides and typed roughing press clamps with scrap release.
+# P1/P1E/P2/P2E use conventional mechanical restraint and complete both full blank faces
+# before P3; no adhesive capacity or physical machining/inspection result is asserted.
+# Shared physical-input examples use by="example value (realistic, not a shop measurement)"
+# and instrument="example fixture (no physical measurement)"; they are NOT real results.
 # A guided trammel sweep cannot pass travel/headroom in the current model (docs/plan.md
 # 2829-2831); commissioning and full moving-envelope acceptance remain mandatory.
 # Component process facts below are not fabricated CAD exports or finished-face identities.
@@ -33,7 +39,8 @@ cutting_data = "../cutting-data.toml"
 form = "built_up"
 material = "AISI 1018 low-carbon steel"
 drawing_material = "AISI 1018 low-carbon steel"
-material_verify = true
+material_verify = false # EXAMPLE premise accepted for cutting-data selection, not receipt verification.
+material_cite = ["AUTHOR'S CHOICE: illustrative AISI 1018 low-carbon-steel material premise; not a received-stock measurement", "harmonic-analyzer/cad/config/parts/ch-rocker-arm.yaml"]
 on_hand = false
 as_is_faces = []
 prerequisite = "Confirm receipt, grade and actual section before sawing: OM4807 1/8 x 1-1/2 in flat for each strap, and ordered OM4793 1/2 in 1018 round for each hub. Catalogue nominal is not an on-hand measurement. Saw strap blanks 354 mm long and hub blanks 42 mm long; remove saw burrs. Use the bandsaw and blade only after stock section, tooth engagement, speed and holding are confirmed."
@@ -47,7 +54,7 @@ dia_mm = 12.7
 length_mm = 42.0
 origin_mm = [0.0, 8.0, -35.75]
 axis = [0.0, 0.0, 1.0]
-note = "Ordered 1/2 in 1018 round, not the unpurchased 7/16 alternative. Author blank42: raw front Z6.25, face to4.25; supply extends to-4.25; back25 mm is chuck grip. Supply length8.50 exceeds .32 MIN8.128. Nominal dimensions only; receipt is held."
+note = "Ordered 1/2 in 1018 round, not the unpurchased 7/16 alternative. Author blank 42: raw front Z6.25, face to 4.25; supply extends to -4.25; back 25 mm is chuck grip. Supply length 8.50 exceeds .32 MIN 8.128. Nominal dimensions only; receipt is held."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/process/shop/inventory.toml:6687-6694"]
 
 [[stock.components]]
@@ -58,7 +65,7 @@ length_mm = 354.0
 origin_mm = [-177.0, -4.402679940547773, -1.5875]
 axis = [1.0, 0.0, 0.0]
 section_axis = [0.0, 1.0, 0.0]
-note = "OM4807 ordered nominal1/8 x1-1/2. Face both broad surfaces to .098; square ends to350. Keep nominal38.1 raw long edges until outline cutting: they are waste, not final faces. Prepared350x38.1 blank matches trammel CAD; do not invent width-cleanup stock. Blank centring about the nominal strap Y extent is an authored placement; actual locator registration is held until fixture commissioning."
+note = "OM4807 ordered nominal 1/8 x 1-1/2. Face both broad surfaces to .098; square ends to 350. Keep nominal 38.1 raw long edges until outline cutting: they are waste, not final faces. Prepared 350x 38.1 blank matches trammel CAD; do not invent width-cleanup stock. Blank centring about the nominal strap Y extent is an authored placement; actual locator registration is held until fixture commissioning."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/process/shop/inventory.toml:6480-6489", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_trammel_spec.py:263-286"]
 
 [dro]
@@ -76,7 +83,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.STRAP_UP]
@@ -85,7 +92,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.STRAP_DOWN]
@@ -94,7 +101,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.STRAP_END]
@@ -103,7 +110,7 @@ x = [-1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.ASSEMBLY]
@@ -112,7 +119,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.FINISH_UP]
@@ -121,7 +128,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [frames.FINISH_DOWN]
@@ -130,14 +137,14 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "Author nominal model registration only. Establish physical datum by the setup instructions; unknown fixture acceptance is not resolved by this transform."
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Nominal model registration; recover the physical datum by the setup pickup, never by assumed reclamp repeatability."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:40-74,141-165"]
 
 [aims.hub_faces]
 requirement = "length"
 value_mm = 7.08
 face = "#357/ADVANCED_FACE[14]/HAF_HUB_FACES__P01"
-reason = "Author process aim7.080 within7.0565–7.1073. Keep upper face at+3.52825 and finish lower face at-3.55175; preserves nominal strap mid-plane with .01175mm offset. Not a revision to the drawing."
+reason = "Author process aim 7.080 within 7.0565–7.1073. Keep upper face at +3.52825 and finish lower face at -3.55175; preserves nominal strap mid-plane with .01175 mm offset. Not a revision to the drawing."
 
 [process_features.hub_supply_front]
 kind = "end_face"
@@ -169,8 +176,8 @@ cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or ap
 
 [process_features.cl_waste]
 kind = "tooling_hole"
-at = [-160.8948959654355, 24.176124429503016, 1.2446]
-axis = [0.0, 0.0, -1.0]
+at = [-160.8948959654355, 24.176124429503016, -1.2446]
+axis = [0.0, 0.0, 1.0]
 dia = [6.3754, 6.4008]
 thru = true
 note = "Author .251-.252 clearance to actual .2501-.2503 CL dowel. Confirm locating error and actual pin before use. Waste removed in T4; never final rod hole."
@@ -178,12 +185,26 @@ cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or ap
 
 [process_features.cr_waste]
 kind = "tooling_hole"
-at = [160.8948959654355, 24.176124429503016, 1.2446]
-axis = [0.0, 0.0, -1.0]
+at = [160.8948959654355, 24.176124429503016, -1.2446]
+axis = [0.0, 0.0, 1.0]
 dia = [6.74624, 6.84784]
 thru = true
-note = "Author17/64 drilled clearance for actual1/4-20 CR clamp screw; clamp head bearing/support must be proved. Waste removed in T4; never final rod hole."
+note = "Author 17/64 drilled clearance for actual 1/4-20 CR clamp screw; clamp head bearing/support must be proved. Waste removed in T4; never final rod hole."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_trammel_spec.py:276-286", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_jig_assembly_spec.py:1751-1771"]
+
+[process_features.upper_ear_face]
+kind = "end_face"
+at = [0.0, 8.0, 1.2446]
+axis = [0.0, 0.0, -1.0]
+note = "Authored transient upper plane on sacrificial end ears only, not an exported finished-face identity. P1E bounds select the two ears outside central |X|150."
+cite = ["AUTHOR'S CHOICE: mechanically clamped example blank preparation; not a shop measurement"]
+
+[process_features.lower_ear_face]
+kind = "end_face"
+at = [0.0, 8.0, -1.2446]
+axis = [0.0, 0.0, 1.0]
+note = "Authored transient lower plane on sacrificial end ears only, not an exported finished-face identity. P2E completes uniform 2.4892 mm blank thickness before P3."
+cite = ["AUTHOR'S CHOICE: mechanically clamped example blank preparation; not a shop measurement"]
 
 [joint_features.strap_socket]
 kind = "cylinder_bore"
@@ -211,7 +232,7 @@ depth = 8.5
 thru = false
 requirements = ["dia"]
 precision = { "dia" = 5 }
-note = "MHA-CH-12 .400 nominal +.0013/+.0009 land, over full8.50mm supply length. Whole land is turned before press; joined end faces are finished later."
+note = "MHA-CH-12 .400 nominal +.0013/+.0009 land, over full 8.50 mm supply length. Whole land is turned before press; joined end faces are finished later."
 cite = ["harmonic-analyzer/cad/scripts/ch_rocker_hub_spec.py:1-13,40-68", "harmonic-analyzer/cad/scripts/ch_rocker_hub_fit.py:9-20"]
 
 [joint_features.hub_supply_bore]
@@ -221,11 +242,11 @@ at = [0.0, 8.0, 4.25]
 axis = [0.0, 0.0, -1.0]
 dia = [6.2484, 6.35]
 nominal_dia = 6.2484
-depth = 10.0
+depth = 12.0
 thru = false
 requirements = ["dia"]
 precision = { "dia" = 4 }
-note = "Letter-D supply drilling before part-off: full-diameter10mm depth leaves the separated8.50mm supply through. This transient preparation cylinder is NOT a press interface and earns no final pivot-bore credit. Supply .246 DRILLED +.004/0; postpress ream remains mandatory."
+note = "Letter-D supply drilling: full-diameter 10 mm depth leaves the separated 8.50 mm supply through. The 12 mm transient blind-depth guard includes the 1.87721 mm 118 deg drill point, not 12 mm of full-diameter bore; it ends in sacrificial bar ahead of the nominal chuck front at supply Z-15. Confirm actual point, stickout and jaw clearance. This preparation is NOT a press interface or final pivot-bore credit. Supply .246 DRILLED +.004/0; postpress ream remains mandatory."
 cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_hub_spec.py:43-49"]
 
 # H1 — Manufacture MHA-CH-12 hub supply from ordered1/2in1018 round; not from finished purchased hub.
@@ -234,13 +255,14 @@ id = "H1"
 machine = "PM-1127VF-LB"
 frame = "H_FRONT"
 stock_in = "stock.hub"
-note = "Manufacture MHA-CH-12 hub supply from ordered1/2in1018 round; not from finished purchased hub."
+note = "Manufacture MHA-CH-12 hub supply from ordered 1/2 in 1018 round; not from finished purchased hub."
 coolant = "cutting oil brushed on"
+deburr_mm = 0.0 # Preserve sharp press land; remove loose burrs without an edge break.
 
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
-support = "unknown"
-grip_on = "last25mm of raw1/2in bar; no finished thin sleeve clamping"
+support = "not_applicable"
+grip_on = "last 25 mm of raw 1/2 in bar; no finished thin sleeve clamping"
 grip_mm = 25.0
 stickout_mm = 17.0
 fixed_jaw = "not_applicable"
@@ -249,8 +271,9 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 pose = { "origin_mm" = [0.0, 0.0, -15.0], "x" = [1.0, 0.0, 0.0], "z" = [0.0, 0.0, 1.0] }
 jaw_clock_deg = 0.0
-stop = "Rule-set17mm raw stickout; confirm actual blank length42 before this authored grip."
-clamp = "Tighten chuck pinions, remove key; indicate raw OD. HOLD part-off until captured separated sleeve handling/support is established."
+stop = "Rule-set 17 mm raw stickout; confirm actual blank length 42 before this authored grip."
+clamp = "Tighten chuck pinions, remove key; indicate raw OD. Place catch tray clear below cut; stop spindle before final breakthrough, finish the remaining thin web by hand with the bar stationary and remove sleeve only after isolation."
+note = "Short rigid chuck-held bar; stopped-spindle retrieval of parted sleeve on a nonrotating catch tray, never a finger or a captive mandrel. Support is integral to the chuck; no separate support fixture."
 
 [setups.stock_state]
 od_mm = 12.7
@@ -259,7 +282,7 @@ south_end_z = -40.0
 
 [setups.zero.x]
 method = "trial_cut_measure"
-gauge = "micrometers/0-1in"
+gauge = "outside-micrometer-0-25mm"
 tool = "hss-toolbit-3-8-rh"
 check_jog_mm = 0.5
 
@@ -311,9 +334,9 @@ to_dia = 10.18794
 doc_mm = 0.10603
 feed_mm_rev = 0.04
 direction = "toward_chuck"
-checks = { "dia" = "unknown" }
-inspection_methods = { "dia" = "HOLD: establish calibrated outside measurement uncertainty suitable for10.18286–10.19302 before finishing. Measure both ends/middle in two directions; every reading, with uncertainty, must fit. Existing example micrometer identity is not proof of this10.16micrometre band." }
-note = "Finish supply press land .4009-.4013in. Preserve it through all later handling; no compound or brazing substitute."
+checks = { "dia" = "outside-micrometer-0-25mm" }
+inspection_methods = { "dia" = "DEMONSTRATION: calibrated 0.001 mm outside micrometer, masters bracketing 10.188 mm, expanded uncertainty<=0.003 mm. Clean/cool land; read both ends/middle in two directions, guard-band every result inside 10.18286–10.19302. Actual readings not recorded." }
+note = "Finish supply press land .4009-.4013 in. Preserve it through all later handling; no compound or brazing substitute."
 
 [[setups.ops]]
 op = 40
@@ -333,17 +356,17 @@ tool = "drill-index-115/D"
 holder = "drill-chuck-tailstock-mt3"
 depth_mm = 10.0
 feed_mm_rev = 0.08
-note = "Full diameter to10mm below faced supply end; drill-point travel requires actual118deg point and tool reach. Never call the under-size supply bore final datum A."
-checks = { "dia" = "unknown" }
-inspection_methods = { "dia" = "After separation, gauge supply bore6.2484–6.3500 through the full8.50mm; establish the actual plug/bore-gauge capability before machining." }
+note = "Full diameter to 10 mm; 118 deg letter-D point reaches 11.87721 mm within the 12 mm guard, beyond the 8.50 mm kept sleeve but ahead of the nominal chuck front at 15 mm. Confirm actual point/reach and chuck clearance. Never call this under-size supply bore final datum A."
+checks = { "dia" = "small-bore-comparator-6-10mm" }
+inspection_methods = { "dia" = "DEMONSTRATION: small-bore comparator set with traceable master; uncertainty<=0.005 mm. Read both mouths/middle in two directions, guarded 6.2484–6.3500 over full 8.50 supply length after separation." }
 
 [[setups.ops]]
 op = 60
 do = "inspect"
 feature = "hub_land"
-checks = { "dia" = "unknown" }
-inspection_note = "Record land sizes and verify planned supply length8.50 >=8.128mm (.32 MIN), with stock at both final faces. Supply wall from smallest land/largest supply bore is at least1.91643mm before final ream. Reject taper, scored land or out-of-band bore; retain lot identification."
-inspection_methods = { "dia" = "Repeat the qualified land diameter check after cooling and before part-off. No caliper substitution for the .0004in supply band." }
+checks = { "dia" = "outside-micrometer-0-25mm" }
+inspection_note = "Record land sizes and verify planned supply length 8.50 >=8.128 mm (.32 MIN), with stock at both final faces. Supply wall from smallest land/largest supply bore is at least 1.91643 mm before final ream. Reject taper, scored land or out-of-band bore; retain lot identification."
+inspection_methods = { "dia" = "DEMONSTRATION: calibrated 0.001 mm outside micrometer, masters bracketing 10.188 mm, expanded uncertainty<=0.003 mm. Clean/cool land; read both ends/middle in two directions, guard-band every result inside 10.18286–10.19302. Actual readings not recorded." }
 
 [[setups.ops]]
 op = 70
@@ -354,7 +377,8 @@ holder = "qctp-axa-lms-2280/7-parting"
 to_z = -8.5
 feed_mm_rev = 0.025
 doc_mm = 0.1
-note = "Set kept/front blade edge at supply Z-8.50; blade width lies toward chuck. Stop before retrieval; no reaching into rotating chuck. HOLD until positive sleeve capture/support is established. Parting end is supply, not final hub length."
+direction = "toward_axis"
+note = "Set kept/front blade edge at supply Z-8.50; blade width lies toward chuck. Catch tray below, not touching rotating work. Stop spindle with a thin remaining web, isolate, sever web by hand and retrieve; stone only the sacrificial parted end. Parting end is supply, not final hub length."
 
 # P1 — Face +Z broad face to strap datum B; raw long edges are waste.
 [[setups]]
@@ -363,16 +387,20 @@ machine = "PM-30MV"
 frame = "STRAP_UP"
 stock_in = "stock.strap"
 note = "Face +Z broad face to strap datum B; raw long edges are waste."
-coolant = "cutting_oil_brush"
+coolant = "cutting_oil_brush" # Mechanical clamps, not an adhesive hold.
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD: supported full-length thin-strip facing fixture/soft jaws and anti-lift clamping must be bound; existing6in vise alone is not a proven hold for354mm x3.175mm strip."
+fixture = "rocker-strip-mechanical-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Set strip centre from raw edges and sawn ends; removable registration stops withdrawn before facing."
+clamp = "Two supported end-ear press clamps at X+/-165; tighten gradually and equally without bow. Face only central |X|<=150 before moving restraint."
+clamps = [{ ref = "rocker-strip-face-clamp-raw", pose = { origin_mm = [-165.0, 0.0, 0.3429], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-strip-face-clamp-raw", pose = { origin_mm = [165.0, 0.0, 0.3429], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
+pose = { origin_mm = [0.0, 0.0, -2.8321], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -24.8321], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION table-aligned base meets mechanical plate local Z-22 bottom; seat and torque matching recessed mounts before pickups." }]
+note = "Flat raw underside seats continuously at local Z0, no tape or preload. Raw end ears remain 3.175 mm under the clamps. Central final face is milled first; P1E transfers restraint to that face and finishes both upper ears before reversal."
 
 [setups.stock_state]
 top_z = 0.3429
@@ -393,6 +421,7 @@ tool = "edge-finder"
 check_jog_mm = 5.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
@@ -403,6 +432,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "face"
+approach_mm = 15.0 # Authored retract above standing stock; no physical clearance acceptance.
 feature = "strap_datum_b"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
@@ -411,27 +441,111 @@ to_z = 0.0
 doc_mm = 0.15
 feed_mm_min = 60.0
 direction = "conventional"
-stock_removal_bounds = { "x" = [-177.0, 177.0], "y" = [-12.402679940547772, 25.697320059452224], "z" = [0.0, 0.3429] }
+stock_removal_bounds = { "x" = [-152.0, 152.0], "y" = [-17.402679940547772, 30.697320059452224], "z" = [0.0, 0.3429] }
 contour = { "method" = "linear_table", "step_mm" = 5.0 }
-note = "Face whole raw width/length, not just eventual strap. Support underside continuously; no unsupported thin-strip milling. Retain raw side edges, do not credit as-is finished material."
+note = "Face the central region with cutter overrun bounded by model X -152..152 and 5 mm past each raw longitudinal edge; this reaches every final strap-face point, including the cutter radius beyond the 292.509136 mm finished span. Keep the raw 3.175 mm end ears under supported clamps. P1E moves restraint onto this finished central area and faces the ears before reversal; no adhesive qualification is credited."
+
+# P1E — Transfer restraint onto finished central B, then face both upper ears.
+[[setups]]
+id = "P1E"
+machine = "PM-30MV"
+frame = "STRAP_UP"
+stock_in = "P1"
+note = "Finish sacrificial upper ears while raw underside remains flat; every final B face was already faced in P1."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.1
+
+[setups.hold]
+fixture = "rocker-strip-mechanical-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, fit central clamps over supported finished B before removing end clamps. Recover raw ends and edge; do not assume rehold repeatability."
+clamp = "Two central press clamps at X+/-80, directly over continuous seat; tighten gradually/equally, remove end clamps only after central restraint is established."
+clamps = [{ ref = "rocker-strip-face-clamp-intermediate", pose = { origin_mm = [-80.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-strip-face-clamp-intermediate", pose = { origin_mm = [80.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
+pose = { origin_mm = [0.0, 0.0, -2.8321], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -24.8321], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION table-aligned base meets mechanical plate local Z-22 bottom; verify seating before pickups." }]
+note = "Same flat raw underside support as P1; no bending to compensate a step. Finished central upper surface is local Z2.8321; remaining ear tops are local Z3.175."
+
+[setups.stock_state]
+top_z = 0.3429
+bottom_z = -2.8321
+
+[setups.zero.x]
+edge = "raw sawn left end"
+edge_mm = -177.0
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "raw near long edge"
+edge_mm = -12.402679940547772
+from = "-y"
+tool = "edge-finder"
+check_jog_mm = 5.0
+
+[setups.zero.z]
+face = "strap_datum_b"
+edge_mm = 0.0
+from = "+z"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "upper_ear_face"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 15.0
+to_z = 0.0
+doc_mm = 0.15
+feed_mm_min = 60.0
+direction = "conventional"
+stock_removal_bounds = { x = [-177.0, -150.0], y = [-12.402679940547772, 25.697320059452224], z = [0.0, 0.3429] }
+contour = { method = "linear_table", step_mm = 5.0 }
+note = "Face the negative-X sacrificial ear to central B height; central clamps remain clear. Retract above standing stock before any return or transfer."
+
+[[setups.ops]]
+op = 20
+do = "face"
+feature = "upper_ear_face"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 15.0
+to_z = 0.0
+doc_mm = 0.15
+feed_mm_min = 60.0
+direction = "conventional"
+stock_removal_bounds = { x = [150.0, 177.0], y = [-12.402679940547772, 25.697320059452224], z = [0.0, 0.3429] }
+contour = { method = "linear_table", step_mm = 5.0 }
+note = "Face the positive-X sacrificial ear to central B height. Before reversal verify the entire upper blank face is coplanar and clean, without pulling a bowed strip flat."
 
 # P2 — Reverse; finish -Z strap face to .098 +/- .001in, never re-face after press.
 [[setups]]
 id = "P2"
 machine = "PM-30MV"
 frame = "STRAP_DOWN"
-stock_in = "P1"
-note = "Reverse; finish -Z strap face to .098 +/- .001in, never re-face after press."
-coolant = "cutting_oil_brush"
+stock_in = "P1E"
+note = "Reverse; finish -Z strap face to .098 +/- .001 in, never re-face after press."
+coolant = "cutting_oil_brush" # Mechanical clamps, not an adhesive hold.
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "Seat cleaned datum B on a qualified flat support; distribute hold-downs on waste outside final outline. HOLD until fixture seats/clamps and swept cutter clearance are established."
+fixture = "rocker-strip-mechanical-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Register raw ends/edges afresh after reversal; withdraw stops before cutter enters."
+clamp = "Two supported end-ear press clamps at X+/-165; tighten gradually/equally without bow. P1E made the complete upper face flat before reversal."
+clamps = [{ ref = "rocker-strip-face-clamp-intermediate", pose = { origin_mm = [-165.0, 0.0, 0.3429], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-strip-face-clamp-intermediate", pose = { origin_mm = [165.0, 0.0, 0.3429], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -24.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION table-aligned base meets mechanical plate local Z-22 bottom; seat and torque matching mounts before pickups." }]
+note = "Complete upper B-side blank face, including ears finished in P1E, seats flat at fixture local Z0; no stepped supports or clamp preload. Face central |X|<=150 while end ears retain the raw lower-side allowance."
 
 [setups.stock_state]
 top_z = 0.3429
@@ -452,6 +566,7 @@ tool = "edge-finder"
 check_jog_mm = 5.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
@@ -462,6 +577,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "face"
+approach_mm = 15.0 # Authored retract above standing stock; no physical clearance acceptance.
 feature = "strap_faces"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
@@ -470,29 +586,112 @@ to_z = 0.0
 doc_mm = 0.15
 feed_mm_min = 60.0
 direction = "conventional"
-stock_removal_bounds = { "x" = [-177.0, 177.0], "y" = [-25.697320059452224, 12.402679940547772], "z" = [0.0, 0.3429] }
+stock_removal_bounds = { "x" = [-152.0, 152.0], "y" = [-30.697320059452224, 17.402679940547772], "z" = [0.0, 0.3429] }
 contour = { "method" = "linear_table", "step_mm" = 5.0 }
-checks = { "thickness" = "micrometers/0-1in" }
-inspection_methods = { "thickness" = "Micrometer across both cleaned broad faces at both ends, middle and each future arm tip, clear of burrs. Every reading2.4638–2.5146mm. Sweep the supported face with DTI to find lift/warp; do not force it flat to obtain a thickness pass." }
-note = "Full finished thickness2.4892mm; no broad-face stock remains for postjoin cutting."
+checks = { "thickness" = "outside-micrometer-0-25mm" }
+inspection_methods = { "thickness" = "DEMONSTRATION0.001 mm micrometer at ends/middle/arm tips, unforced, clean faces: guard-band 2.4638–2.5146. Check lift separately, do not flatten a bowed part to get a reading." }
+note = "All final strap faces are finished to 2.4892 mm; no final broad-face stock remains for postjoin cutting. End ears under the clamps still measure 2.8321 mm until P2E faces them with central restraint, yielding a uniform 2.4892 mm blank before P3."
+
+# P2E — Transfer to central restraint and finish lower ears before any blank drilling.
+[[setups]]
+id = "P2E"
+machine = "PM-30MV"
+frame = "STRAP_DOWN"
+stock_in = "P2"
+note = "Finish both lower sacrificial ears so the complete blank is uniform 2.4892 mm before P3 and trammel preparation."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.1
+
+[setups.hold]
+fixture = "rocker-strip-mechanical-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, establish central restraint on the finished lower face before removing end clamps; recover raw end/edge pickups."
+clamp = "Two central press clamps at X+/-80 over continuous support; tighten gradually/equally, do not bow the finished strip."
+clamps = [{ ref = "rocker-strip-face-clamp-finished", pose = { origin_mm = [-80.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }, { ref = "rocker-strip-face-clamp-finished", pose = { origin_mm = [80.0, 0.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5 }]
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -24.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION table-aligned base meets mechanical plate local Z-22 bottom; verify seating before pickups." }]
+note = "Upper blank face remains flat on local Z0. Central finished lower face is local Z2.4892; remaining lower ear tops are local Z2.8321. Complete ears without cutting under clamps."
+
+[setups.stock_state]
+top_z = 0.3429
+bottom_z = -2.4892
+
+[setups.zero.x]
+edge = "raw sawn left end"
+edge_mm = -177.0
+from = "-x"
+tool = "edge-finder"
+check_jog_mm = 10.0
+
+[setups.zero.y]
+edge = "raw near long edge"
+edge_mm = -25.697320059452225
+from = "-y"
+tool = "edge-finder"
+check_jog_mm = 5.0
+
+[setups.zero.z]
+face = "strap_faces"
+edge_mm = 0.0
+from = "+z"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/3-8in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "lower_ear_face"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 15.0
+to_z = 0.0
+doc_mm = 0.15
+feed_mm_min = 60.0
+direction = "conventional"
+stock_removal_bounds = { x = [-177.0, -150.0], y = [-25.697320059452224, 12.402679940547772], z = [0.0, 0.3429] }
+contour = { method = "linear_table", step_mm = 5.0 }
+note = "Finish negative-X lower ear to the central finished face; retract above standing stock before return or transfer."
+
+[[setups.ops]]
+op = 20
+do = "face"
+feature = "lower_ear_face"
+tool = "endmills-lms-6784/3-8in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+approach_mm = 15.0
+to_z = 0.0
+doc_mm = 0.15
+feed_mm_min = 60.0
+direction = "conventional"
+stock_removal_bounds = { x = [150.0, 177.0], y = [-25.697320059452224, 12.402679940547772], z = [0.0, 0.3429] }
+contour = { method = "linear_table", step_mm = 5.0 }
+note = "Finish positive-X lower ear. Inspect complete blank thickness and flat seating before P3: all central faces and both ears are now 2.4892 mm nominal. No downstream stepped-seat or raw-ear allowance is assumed."
 
 # P3 — Square sawn ends to350mm trammel blank, retaining raw38.1mm nominal long edges.
 [[setups]]
 id = "P3"
 machine = "PM-30MV"
 frame = "STRAP_END"
-stock_in = "P2"
-note = "Square sawn ends to350mm trammel blank, retaining raw38.1mm nominal long edges."
+stock_in = "P2E"
+note = "Square sawn ends to 350 mm trammel blank, retaining raw 38.1 mm nominal long edges."
 coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "Support broad datum B on a sacrificial plate and clamp the strip over its full span. Both ends must project clear without movement during each cutter approach."
+fixture = "rocker-strip-window-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Locate rough blank centred before first end; retain same clamping for second end and verify 350 mm prepared length."
+clamp = "Integrated end-waste clamps at fixture X+/-160, Y0, clear of both end-milling envelopes."
+pose = { origin_mm = [175.0, 0.0, -2.4892], x = [-1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [175.0, 0.0, -24.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at the end-squaring fixture bottom, local Z-22 after the actual 10 mm base thickening. Nominated example central T-slot attachment and recessed M6 fixture mounts; torque and verify seating before pickups. Not a vendor observation." }]
+note = "Full broad-face sacrificial seat integral to the fixture, with both ends projecting 4 mm beyond plate X ends. DEMONSTRATION fixture seat at strap underside; sacrificial layer accepts 0.2108 mm cutter breakthrough. End clamp noses remain at local Y0; heels and studs are on the negative-Y side, outside the raw strip. The 10 mm thicker metal base raises the real table stack without changing the work seating datum."
 
 [setups.stock_state]
 top_z = 0.0
@@ -513,10 +712,11 @@ tool = "edge-finder"
 check_jog_mm = 5.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-lms-6784/1-4in-4fl"
 check_jog_mm = 5.0
 retouch_after = []
 
@@ -524,29 +724,31 @@ retouch_after = []
 op = 10
 do = "profile"
 feature = "strap_end_pos"
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-lms-6784/1-4in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.7
 doc_mm = 0.5
+approach_mm = 3.0
 feed_mm_min = 60.0
 direction = "conventional"
 stock_removal_bounds = { "x" = [-2.0, 0.0], "y" = [-25.697320059452224, 12.402679940547772], "z" = [-2.4892, 0.0] }
 contour = { "method" = "linear_table", "step_mm" = 2.0, "open_side" = "-x" }
-note = "Side-mill square end from air; after both ends verify350mm length, squareness and nominal38.1 raw-width envelope against actual jig support/CL/CR positions. No prepared_blank on built_up root: schema forbids it."
+note = "Side-mill from air with existing 1/4 in four-flute cutter in its 3/8 in-shank collet. Radius 3.175 mm lies exactly on the 0.005 mm DRO grid: final centre X-3.175 reaches the +X prepared plane, unlike the 3/8 in cutter's rounded path leaving 0.0025 mm end skin. Cross the full raw width, lift 3 mm above B before each return, step down from B to Z-2.7 below the 2.4892 mm strap. HOLD real support/clamp and sacrificial relief through the full envelope. Verify 350 mm length and squareness after both ends; raw long edges remain waste."
 
 [[setups.ops]]
 op = 20
 do = "profile"
 feature = "strap_end_neg"
-tool = "endmills-lms-6784/3-8in-4fl"
+tool = "endmills-lms-6784/1-4in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.7
 doc_mm = 0.5
+approach_mm = 3.0
 feed_mm_min = 60.0
 direction = "conventional"
 stock_removal_bounds = { "x" = [350.0, 352.0], "y" = [-25.697320059452224, 12.402679940547772], "z" = [-2.4892, 0.0] }
 contour = { "method" = "linear_table", "step_mm" = 2.0, "open_side" = "+x" }
-note = "Side-mill square end from air; after both ends verify350mm length, squareness and nominal38.1 raw-width envelope against actual jig support/CL/CR positions. No prepared_blank on built_up root: schema forbids it."
+note = "Side-mill opposite end from air with same 1/4 in cutter: final centre X353.175 reaches the -X prepared plane on the 0.005 mm DRO grid without residual skin. Cross full raw width, lift 3 mm above B before each return, step down to Z-2.7. HOLD real support/clamp and sacrificial relief for both projecting ends; verify 350 mm length, squareness and CL/CR support registration. No prepared_blank on built_up root."
 
 # T1 — Prepare actual MHA-CH-13 press socket and CL/CR waste tooling holes before arc cutting.
 [[setups]]
@@ -559,12 +761,15 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.0
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "Datum B seated flat; both end wastes supported and clamped. HOLD: bind actual prepared-blank locating/sizing fixture and prove every breakthrough clears support."
+fixture = "rocker-strip-drill-plate"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Centre prepared 350 mm blank by both end readings; recover raw near edge and verify blank width."
+clamp = "Integrated waste clamps at X+/-145, Y8; no clamp over socket or CL/CR."
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -14.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Continuous sacrificial broad-face seat integral to the selected fixture, with through reliefs under socket and both waste holes. DEMONSTRATION: datum B down, reliefs at X0, Y0 and X+/-160.894895965, Y-16.1761244295; isolated spindle dry traverse each drill/reamer including point before cutting."
 
 [setups.stock_state]
 top_z = 0.0
@@ -586,6 +791,7 @@ tool = "edge-finder"
 check_jog_mm = 5.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
@@ -596,6 +802,7 @@ retouch_after = [20, 30, 50, 60, 80]
 [[setups.ops]]
 op = 10
 do = "spot"
+approach_mm = 15.0 # Retract above clamp heads before traversing between holes.
 feature = "strap_socket"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
@@ -605,28 +812,31 @@ feed_mm_rev = 0.03
 [[setups.ops]]
 op = 20
 do = "drill"
+approach_mm = 15.0
 feature = "strap_socket"
-tool = "unknown"
+tool = "rocker-socket-drill-10mm"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.08
-note = "HOLD: select actual undersize drill that leaves the purchased .4000 reamer maker allowance, with qualified point/reach/shank; do not use13/32 (larger than final socket)."
+note = "DEMONSTRATION10 mm drill leaves 0.16 mm diametral stock for .4000 in reamer; verify actual maker allowance/runout before real cutting. Never 13/32 oversize drill."
 
 [[setups.ops]]
 op = 30
 do = "ream"
+approach_mm = 15.0
 feature = "strap_socket"
-tool = "unknown"
+tool = "rocker-socket-reamer-0p4000"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.12
-checks = { "dia" = "unknown" }
-inspection_methods = { "dia" = "HOLD: register the actual .4000in reamer and qualified10.1600–10.1727 socket measurement. Check both mouths and full thickness in two directions. Both mouths SHARP, NO BURR; remove raised burr with flat stone only, never countersink/chamfer." }
-note = "Exact .4000-.4005in socket, completed on strap ancestor before press. Existing6.5mm reamer is not this tool. A named joint is not preparation."
+checks = { "dia" = "bore-gauge-small" }
+inspection_methods = { "dia" = "DEMONSTRATION:10..18 mm bore comparator with 10.16 mm master, expanded uncertainty<=0.003 mm; short-contact head spans 2.4892 wall. Read both mouths and mid-thickness in two directions; guarded 10.1600–10.1727. Flat-stone raised burr only: sharp mouths, no countersink." }
+note = "Exact .4000-.4005 in socket, completed on strap ancestor before press. Existing 6.5 mm reamer is not this tool. A named joint is not preparation."
 
 [[setups.ops]]
 op = 40
 do = "spot"
+approach_mm = 15.0
 feature = "cl_waste"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
@@ -636,26 +846,29 @@ feed_mm_rev = 0.025
 [[setups.ops]]
 op = 50
 do = "drill"
+approach_mm = 15.0
 feature = "cl_waste"
 tool = "drill-index-115/D"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.06
-note = "Drill waste locator only. CL is subsequently sized to authored clearance; CR requires actual17/64 drill registration."
+note = "Drill waste locator only. CL is subsequently sized to authored clearance; CR requires actual 17/64 drill registration."
 
 [[setups.ops]]
 op = 60
 do = "ream"
+approach_mm = 15.0
 feature = "cl_waste"
-tool = "unknown"
+tool = "rocker-cl-reamer-0p2510"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.1
-note = "HOLD actual .251in clearance reamer and pin-fit verification. The fixture CL dowel is .2501-.2503; the .2490 press bore is in the carrier, not the work."
+note = "DEMONSTRATION .251 in clearance reamer; check actual CL .2501-.2503 dowel slides without force. Carrier .2490 press bore is not work socket."
 
 [[setups.ops]]
 op = 70
 do = "spot"
+approach_mm = 15.0
 feature = "cr_waste"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
@@ -665,20 +878,21 @@ feed_mm_rev = 0.025
 [[setups.ops]]
 op = 80
 do = "drill"
+approach_mm = 15.0
 feature = "cr_waste"
-tool = "unknown"
+tool = "rocker-cr-drill-17-64in"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.06
-note = "Drill waste locator only. CL is subsequently sized to authored clearance; CR requires actual17/64 drill registration."
+note = "Drill waste locator only. CL is subsequently sized to authored clearance; CR requires actual 17/64 drill registration."
 
 [[setups.ops]]
 op = 90
 do = "inspect"
 feature = "strap_socket"
-checks = { "dia" = "unknown" }
+checks = { "dia" = "bore-gauge-small" }
 inspection_note = "Before installing on trammel, verify finished thickness, flat seating, full socket band, sharp mouths, waste-hole fit and preserved end waste. Fit actual HUB locator/CL pin without forcing; check CR head bearing on supported waste. Record completed preparation; no stand-alone component bundle or export assumed."
-inspection_methods = { "dia" = "Repeat qualified socket diameter check after complete waste drilling and cleaning; damaged mouths or distorted socket stop assembly." }
+inspection_methods = { "dia" = "DEMONSTRATION:10..18 mm bore comparator with 10.16 mm master, expanded uncertainty<=0.003 mm; short-contact head spans 2.4892 wall. Read both mouths and mid-thickness in two directions; guarded 10.1600–10.1727. Flat-stone raised burr only: sharp mouths, no countersink." }
 
 # R1 — Rough outside finished top_edge with single-axis DRO stairs, leaving stock for the trammel/manual finish.
 [[setups]]
@@ -691,12 +905,16 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD: actual supported blank fixture clamping in end waste, with free cutter access and scrap retained until intentional removal."
+fixture = "rocker-rough-support"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Indicate socket centre; clock CL/CR tooling line to table X, then re-indicate socket."
+clamp = "Two separately declared end-waste press clamps at |X|165 retain the kept strap and CL/CR wastes; the independent centre scrap clamp retains the upper offcut until spindle-stopped removal."
+clamps = [{ ref = "rocker-rough-end-clamp", pose = { origin_mm = [-165.0, 16.1761244295, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5, note = "Tighten gradually with the other end clamp, nose above anchored end pad; no strap bow." }, { ref = "rocker-rough-end-clamp", pose = { origin_mm = [165.0, 16.1761244295, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5, note = "Tighten gradually with the other end clamp, nose above anchored end pad; no strap bow." }, { ref = "rocker-rough-scrap-clamp", pose = { origin_mm = [0.0, 23.0, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5, note = "Toe retains upper scrap over its dedicated anchored pad; keep installed throughout the separating cut and stop spindle before removal." }]
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -18.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Five integral discrete pads inside finished strap plus two supported end-waste pads; base below cutter breakthrough. DEMONSTRATION pad hold, not a cutter-clearance result. Rough swept path must preserve CL/CR end-waste load paths and clear clamps; a nominal profile cannot certify those invariants."
 
 [setups.stock_state]
 top_z = 0.0
@@ -705,6 +923,7 @@ bottom_z = -2.4892
 [setups.zero.x]
 feature = "strap_socket"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
@@ -712,11 +931,13 @@ check_jog_mm = 1.0
 [setups.zero.y]
 feature = "strap_socket"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
@@ -727,6 +948,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "rough_profile"
+approach_mm = 15.0 # Full retract before return; does not certify chip/offcut restraint.
 feature = "top_edge"
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
@@ -736,7 +958,14 @@ feed_mm_min = 50.0
 direction = "conventional"
 rough_allowance_mm = 0.25
 contour = { "method" = "stairs", "cusp_mm" = 0.15 }
-note = "No simultaneous XY arc feed. Retain0.25mm radial stock plus at most0.15mm stair cusp. Stay outside final lands/tapers and retain CL/CR wastes for positive trammel location. HOLD native residual/start-clearance proof; neither rough nor a bounding box may erase retained clamps/waste by assertion."
+note = "No simultaneous XY arc feed. Retain 0.25 mm radial stock plus at most 0.15 mm stair cusp. Stay outside final lands/tapers and retain CL/CR wastes for positive trammel location. HOLD native residual/start-clearance proof; neither rough nor a bounding box may erase retained clamps/waste by assertion."
+
+[[setups.ops]]
+op = 20
+do = "release"
+keep = "strap_datum_b"
+feature = "strap_datum_b"
+note = "Stop spindle and isolate before releasing only the upper-scrap clamp and removing the separated top offcut. Keep the piece carrying the complete strap socket and both CL/CR end wastes; leave both end-waste press clamps engaged. Do not carry the scrap clamp into the next setup unsupported."
 
 # R2 — Rough outside finished profile_outer with single-axis DRO stairs, leaving stock for the trammel/manual finish.
 [[setups]]
@@ -749,12 +978,16 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD: actual supported blank fixture clamping in end waste, with free cutter access and scrap retained until intentional removal."
+fixture = "rocker-rough-support"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Indicate socket centre; clock CL/CR tooling line to table X, then re-indicate socket."
+clamp = "Two separately declared end-waste press clamps at |X|165 retain the kept strap and CL/CR wastes; upper scrap and its independent clamp were removed with the spindle isolated after roughing the top edge."
+clamps = [{ ref = "rocker-rough-end-clamp", pose = { origin_mm = [-165.0, 16.1761244295, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5, note = "Tighten gradually with the other end clamp, nose above anchored end pad; no strap bow." }, { ref = "rocker-rough-end-clamp", pose = { origin_mm = [165.0, 16.1761244295, 0.0], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, restraint = "press", torque_nm = 0.5, note = "Tighten gradually with the other end clamp, nose above anchored end pad; no strap bow." }]
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -18.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Five integral discrete pads inside finished strap plus two supported end-waste pads; base below cutter breakthrough. DEMONSTRATION pad hold; verify residual support/load paths after R1 before second rough. No assertion of clearance from fixture dimensions alone."
 
 [setups.stock_state]
 top_z = 0.0
@@ -763,6 +996,7 @@ bottom_z = -2.4892
 [setups.zero.x]
 feature = "strap_socket"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
@@ -770,11 +1004,13 @@ check_jog_mm = 1.0
 [setups.zero.y]
 feature = "strap_socket"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
 
 [setups.zero.z]
+from = "+z"
 face = "top"
 method = "paper"
 paper_mm = 0.05
@@ -785,7 +1021,9 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "rough_profile"
+approach_mm = 15.0
 feature = "profile_outer"
+faces = ["#318/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02"]
 tool = "endmills-lms-6784/3-8in-4fl"
 holder = "r8-collets-lms-4860/3-8in"
 to_z = -2.7
@@ -794,13 +1032,13 @@ feed_mm_min = 50.0
 direction = "conventional"
 rough_allowance_mm = 0.25
 contour = { "method" = "stairs", "cusp_mm" = 0.15 }
-note = "No simultaneous XY arc feed. Retain0.25mm radial stock plus at most0.15mm stair cusp. Stay outside final lands/tapers and retain CL/CR wastes for positive trammel location. HOLD native residual/start-clearance proof; neither rough nor a bounding box may erase retained clamps/waste by assertion."
+note = "No simultaneous XY arc feed. Retain 0.25 mm radial stock plus at most 0.15 mm stair cusp. Stay outside final lands/tapers and retain CL/CR wastes for positive trammel location. HOLD native residual/start-clearance proof; neither rough nor a bounding box may erase retained clamps/waste by assertion."
 
 # T2 — Finish circular edge on extant oblique trammel, dedicated holding state; no rough back-off.
 [[setups]]
 id = "T2"
 machine = "PM-30MV"
-frame = "STRAP_UP"
+frame = "STRAP_DOWN"
 stock_in = "R2"
 note = "Finish circular edge on extant oblique trammel, dedicated holding state; no rough back-off."
 coolant = "cutting_oil_brush"
@@ -808,18 +1046,22 @@ deburr_mm = 0.0
 
 [setups.hold]
 fixture = "rocker-oblique-trammel"
-support = "unknown"
-clamp = "unknown"
-stop = "unknown"
-grip_mm = "unknown"
-note = "HOLD actual MHA-CH-06-TL-00 oblique jig: TL-21 carrier, self-cut TL-22 riser, bonded HUB locator, CL dowel, CR clamp, captured shoulder pivots and commissioned rails/feed/stop assemblies. No retired rocker-profile-fixture/template substitution. Shared fixture identity now names the current v47 drawing, but actual presence, posed solids, metrology and commissioning remain unresolved."
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+clamp = "Bonded HUB locator, CL slip dowel and supported CR screw/head, both captured shoulder pivots in selected inner pair; isolate spindle before pair change."
+stop = "Illustrative commissioned carriage end stops at rail stations 70..395 mm; isolate/dry sweep first, lower cutter only in clear air."
+grip_mm = "not_applicable"
+note = "Integral TL-21 carrier and self-cut TL-22 riser support finished strap; no replacement flat blank/template fixture. DEMONSTRATION installed MHA-CH-06-TL-00 v47 with independent illustrative commissioning facts in shared inventory. Fixture local origin is A1-B1 chord midpoint at carrier top, HUB registration from current CAD. This pose does NOT prove moving clearance/travel/headroom; native guided motion remains unsupported."
+pose = { origin_mm = [0.0, -45.53045359957228, -8.5852], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 
 [setups.stock_state]
 top_z = 0.0
 bottom_z = -2.4892
 
 [setups.zero.z]
+from = "+z"
 face = "top"
+procedure = "Expose actual model -Z strap face at setup Z0; finished datum B (+model Z) seats on riser. This is a rigid 180-degree rotation about model X, not a Y-only reflection: CL and CR retain their named X sides and both lie at setup Y-16.1761244295. Touch exposed clean face with spindle isolated, take up backlash, set paper correction and jog upward before retracting."
 method = "paper"
 paper_mm = 0.05
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -829,6 +1071,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "finish_profile"
+approach_mm = 15.0 # Commissioned dry sweep remains required; moving native envelope unsupported.
 feature = "top_edge"
 faces = ["#328/ADVANCED_FACE[11]/HAF_TOP_EDGE__P01"]
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -837,15 +1080,15 @@ to_z = -2.7
 doc_mm = 0.5
 feed_mm_min = 40.0
 direction = "conventional"
-contour = { "method" = "guided_sweep", "step_deg" = 1.0, "sweep" = { "guide" = "trammel", "fixture" = "rocker-oblique-trammel", "touch_axis" = "-Y", "sweep_deg" = 22.03867661433644, "pin_pair" = "inner", "pins_deg" = [-16.4405, 16.4405] } }
-note = "HOLD commissioned jig and start/end clearance proof. Use real cutter9.525mm, rail16.4405deg nominal; pin pair spacing 450.1354159477101mm is CAD nominal, NOT measured. Register actual measured spacing/angle/play/offset/travel and locator error budget. With spindle isolated seat/capture both shoulder pivots on A1-B1; stop positions must allow cutter to lower in air. Dry sweep full envelope first. Lock X/Y at rail crossing (NO X/Y edge pickup); set Z, feed by actual handwheel/lever per TL-00, retract between levels. Change pair only spindle isolated, both screws removed, carrier lifted then reseated/captured. No master/touch-off bar, no new machining of finished strap faces. Native guided-sweep travel/headroom remain unresolved by contract."
+contour = { "method" = "guided_sweep", "step_deg" = 1.0, "sweep" = { "guide" = "trammel", "fixture" = "rocker-oblique-trammel", "sweep_deg" = 22.03867661433644, "pin_pair" = "inner", "pins_deg" = [-16.4405, 16.4405] } }
+note = "DEMONSTRATION commissioning values are explicitly illustrative, not physical measurements: cutter 9.525 mm, rail 16.4405 deg, nominal pair spacing 450.1354159477101 mm; shared inventory declares spacing/angle/play/offset/travel error bounds. Isolate spindle, seat/capture both shoulder pivots onA1-B1, verify supported HUB/CL/CR contact, dry-sweep full envelope. Lock X/Y at commissioned rail crossing: NO X/Y edge pickup and no touch master. Touch strap Z, feed actual trammel handwheel/lever, retract between levels. Change pair only with spindle isolated and carrier lifted/reseated; HUB/work relationship is unchanged by pair selection. Genuine native guided-sweep travel/headroom and moving collision envelope remain UNPROVEN, not cleared by these numbers."
 note_cite = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_trammel_spec.py:1-103,136-174,288-329", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_jig_assembly_spec.py:1740-1773", "prechips/docs/plan.md:2829-2909"]
 
 # T3 — Finish circular edge on extant oblique trammel, dedicated holding state; no rough back-off.
 [[setups]]
 id = "T3"
 machine = "PM-30MV"
-frame = "STRAP_UP"
+frame = "STRAP_DOWN"
 stock_in = "T2"
 note = "Finish circular edge on extant oblique trammel, dedicated holding state; no rough back-off."
 coolant = "cutting_oil_brush"
@@ -853,18 +1096,22 @@ deburr_mm = 0.0
 
 [setups.hold]
 fixture = "rocker-oblique-trammel"
-support = "unknown"
-clamp = "unknown"
-stop = "unknown"
-grip_mm = "unknown"
-note = "HOLD actual MHA-CH-06-TL-00 oblique jig: TL-21 carrier, self-cut TL-22 riser, bonded HUB locator, CL dowel, CR clamp, captured shoulder pivots and commissioned rails/feed/stop assemblies. No retired rocker-profile-fixture/template substitution. Shared fixture identity now names the current v47 drawing, but actual presence, posed solids, metrology and commissioning remain unresolved."
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+clamp = "Bonded HUB locator, CL slip dowel and supported CR screw/head, both captured shoulder pivots in selected outer pair; isolate spindle before pair change."
+stop = "Illustrative commissioned carriage end stops at rail stations 70..395 mm; isolate/dry sweep first, lower cutter only in clear air."
+grip_mm = "not_applicable"
+note = "Integral TL-21 carrier and self-cut TL-22 riser support finished strap; no replacement flat blank/template fixture. DEMONSTRATION installed MHA-CH-06-TL-00 v47 with independent illustrative commissioning facts in shared inventory. Fixture local origin is A1-B1 chord midpoint at carrier top, HUB registration from current CAD. This pose does NOT prove moving clearance/travel/headroom; native guided motion remains unsupported."
+pose = { origin_mm = [0.0, -45.53045359957228, -8.5852], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 
 [setups.stock_state]
 top_z = 0.0
 bottom_z = -2.4892
 
 [setups.zero.z]
+from = "+z"
 face = "top"
+procedure = "Keep model -Z strap face exposed and datum B seated on riser, same rigid STRAP_DOWN installation as T2. Change only captured pivot pair, not HUB/CL/CR registration. Touch exposed face with spindle isolated, set paper correction, take up backlash and verify upward check jog."
 method = "paper"
 paper_mm = 0.05
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -874,6 +1121,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "finish_profile"
+approach_mm = 15.0 # Commissioned dry sweep remains required; moving native envelope unsupported.
 feature = "profile_outer"
 faces = ["#318/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02"]
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -882,111 +1130,317 @@ to_z = -2.7
 doc_mm = 0.5
 feed_mm_min = 40.0
 direction = "conventional"
-contour = { "method" = "guided_sweep", "step_deg" = 1.0, "sweep" = { "guide" = "trammel", "fixture" = "rocker-oblique-trammel", "touch_axis" = "-Y", "sweep_deg" = 22.00389052283207, "pin_pair" = "outer", "pins_deg" = [-16.4405, 16.4405] } }
-note = "HOLD commissioned jig and start/end clearance proof. Use real cutter9.525mm, rail16.4405deg nominal; pin pair spacing 464.5835606743677mm is CAD nominal, NOT measured. Register actual measured spacing/angle/play/offset/travel and locator error budget. With spindle isolated seat/capture both shoulder pivots on A2-B2; stop positions must allow cutter to lower in air. Dry sweep full envelope first. Lock X/Y at rail crossing (NO X/Y edge pickup); set Z, feed by actual handwheel/lever per TL-00, retract between levels. Change pair only spindle isolated, both screws removed, carrier lifted then reseated/captured. No master/touch-off bar, no new machining of finished strap faces. Native guided-sweep travel/headroom remain unresolved by contract."
+contour = { "method" = "guided_sweep", "step_deg" = 1.0, "sweep" = { "guide" = "trammel", "fixture" = "rocker-oblique-trammel", "sweep_deg" = 22.00389052283207, "pin_pair" = "outer", "pins_deg" = [-16.4405, 16.4405] } }
+note = "DEMONSTRATION commissioning values are explicitly illustrative, not physical measurements: cutter 9.525 mm, rail 16.4405 deg, nominal pair spacing 464.5835606743677 mm; shared inventory declares spacing/angle/play/offset/travel error bounds. Isolate spindle, seat/capture both shoulder pivots onA2-B2, verify supported HUB/CL/CR contact, dry-sweep full envelope. Lock X/Y at commissioned rail crossing: NO X/Y edge pickup and no touch master. Touch strap Z, feed actual trammel handwheel/lever, retract between levels. Change pair only with spindle isolated and carrier lifted/reseated; HUB/work relationship is unchanged by pair selection. Genuine native guided-sweep travel/headroom and moving collision envelope remain UNPROVEN, not cleared by these numbers."
 note_cite = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_trammel_spec.py:1-103,136-174,288-329", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_jig_assembly_spec.py:1740-1773", "prechips/docs/plan.md:2829-2909"]
 
-# T4 — Finish both radial tip lands and taper joins manually; remove waste only with the finished strap positively held.
+# DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
+[frames.TIP_POS]
+origin = [145.24006587149398, 29.294640118904454, 1.2446]
+x = [0.18155008233936573, -0.9833816998513698, 0.0]
+y = [0.9833816998513698, 0.18155008233936573, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Exact current endpoints define the clocking; indicate the physical socket and clock the mounted cradle before setting DRO."
+cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:62-73", "features.toml features.tip_land_pos_x"]
+
 [[setups]]
-id = "T4"
-machine = "fitting-bench"
-frame = "STRAP_UP"
+id = "T4A"
+machine = "PM-30MV"
+frame = "TIP_POS"
 stock_in = "T3"
-note = "Finish both radial tip lands and taper joins manually; remove waste only with the finished strap positively held."
+note = "DEMONSTRATION single-axis side milling of TIP_POS; no oblique hand-saw clearing-box substitution."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.0
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD supported padded workholding separate from both end offcuts. Do not retain on CL/CR holes once a cut removes their waste; independently retain scrap."
+fixture = "rocker-edge-mill-cradle"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
+clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+pose = { origin_mm = [-5.427586520093197, -146.69246653020895, -2.4892], x = [0.18155008233936573, 0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [-5.427586520093197, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+
+[setups.stock_state]
+top_z = 0.0
+bottom_z = -2.4892
+
+[setups.zero.x]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -5.427586520093197
+check_jog_mm = 1.0
+
+[setups.zero.y]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -146.69246653020895
+check_jog_mm = 1.0
+
+[setups.zero.z]
+from = "+z"
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/1-4in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
 
 [[setups.ops]]
 op = 10
-do = "scribe"
-feature = "tip_land_pos_x"
-layout = "template"
-guide = { "template" = "unknown" }
-note = "HOLD: current MHA-CH-13 geometry transfer/template referenced to actual socket and datum B; no retired one-piece outline gauge. Mark radial lands between actual top arc ends and radial-tip corners, then straight taper joins to bottom arc ends."
-
-[[setups.ops]]
-op = 11
-do = "saw_cut"
-feature = "tip_land_pos_x"
-tool = "unknown"
-follows = "T4:10"
-allowance_mm = 0.25
-stock_removal_bounds = "unknown"
-note = "HOLD actual hand hacksaw blade/tooth engagement and finite waste-clearing bounds. Saw outside line, leave0.25mm for filing, retain both separated waste pieces. Missing bounds remain stock debt, not a fictitious kerf or no-op release."
-
-[[setups.ops]]
-op = 12
-do = "file_to_line"
+do = "profile"
 feature = "tip_land_pos_x"
 faces = ["#155/ADVANCED_FACE[4]/HAF_TIP_LAND_POS_X__P01"]
-guide = { "template" = "unknown", "gauge" = "unknown" }
-note = "Supported smooth safe-edge file to CURRENT datum-referenced line/template. Finish radial tip lands5.588mm and10.460060747deg BASIC, corners at +/-146.25456773160636,23.799503180135; tapers meet bottom ends +/-132.75725545686896,10.871742438784054. Current template/profile qualification absent: HOLD; filing earns no fictitious pass."
+tool = "endmills-lms-6784/1-4in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.7
+doc_mm = 0.5
+approach_mm = 3.0
+feed_mm_min = 40.0
+direction = "conventional"
+stock_removal_bounds = { x = [-4.48, 38.545], y = [0.0, 30.065], z = [-2.4892, 0.0] }
+contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
+note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..5.587999999999997. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
+
+# DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
+[frames.TIP_NEG]
+origin = [-146.25456773160636, 23.799503180135, 1.2446]
+x = [0.18155008233936573, 0.9833816998513698, 0.0]
+y = [-0.9833816998513698, 0.18155008233936573, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Exact current endpoints define the clocking; indicate the physical socket and clock the mounted cradle before setting DRO."
+cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:62-73", "features.toml features.tip_land_neg_x"]
+
+[[setups]]
+id = "T4B"
+machine = "PM-30MV"
+frame = "TIP_NEG"
+stock_in = "T4A"
+note = "DEMONSTRATION single-axis side milling of TIP_NEG; no oblique hand-saw clearing-box substitution."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.0
+
+[setups.hold]
+fixture = "rocker-edge-mill-cradle"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
+clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+pose = { origin_mm = [11.015586520093194, -146.69246653020895, -2.4892], x = [0.18155008233936573, -0.9833816998513698, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [11.015586520093194, -146.69246653020895, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+
+[setups.stock_state]
+top_z = 0.0
+bottom_z = -2.4892
+
+[setups.zero.x]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = 11.015586520093194
+check_jog_mm = 1.0
+
+[setups.zero.y]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -146.69246653020895
+check_jog_mm = 1.0
+
+[setups.zero.z]
+from = "+z"
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/1-4in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
 
 [[setups.ops]]
-op = 20
-do = "scribe"
-feature = "tip_land_neg_x"
-layout = "template"
-guide = { "template" = "unknown" }
-note = "HOLD: current MHA-CH-13 geometry transfer/template referenced to actual socket and datum B; no retired one-piece outline gauge. Mark radial lands between actual top arc ends and radial-tip corners, then straight taper joins to bottom arc ends."
-
-[[setups.ops]]
-op = 21
-do = "saw_cut"
-feature = "tip_land_neg_x"
-tool = "unknown"
-follows = "T4:20"
-allowance_mm = 0.25
-stock_removal_bounds = "unknown"
-note = "HOLD actual hand hacksaw blade/tooth engagement and finite waste-clearing bounds. Saw outside line, leave0.25mm for filing, retain both separated waste pieces. Missing bounds remain stock debt, not a fictitious kerf or no-op release."
-
-[[setups.ops]]
-op = 22
-do = "file_to_line"
+op = 10
+do = "profile"
 feature = "tip_land_neg_x"
 faces = ["#337/ADVANCED_FACE[12]/HAF_TIP_LAND_NEG_X__P01"]
-guide = { "template" = "unknown", "gauge" = "unknown" }
-note = "Supported smooth safe-edge file to CURRENT datum-referenced line/template. Finish radial tip lands5.588mm and10.460060747deg BASIC, corners at +/-146.25456773160636,23.799503180135; tapers meet bottom ends +/-132.75725545686896,10.871742438784054. Current template/profile qualification absent: HOLD; filing earns no fictitious pass."
+tool = "endmills-lms-6784/1-4in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.7
+doc_mm = 0.5
+approach_mm = 3.0
+feed_mm_min = 40.0
+direction = "conventional"
+stock_removal_bounds = { x = [-32.955, 10.07], y = [0.0, 30.065], z = [-2.4892, 0.0] }
+contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
+note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..5.587999999999997. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
+
+# DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
+[frames.TAPER_POS]
+origin = [146.25456773160636, 23.799503180135, 1.2446]
+x = [-0.7221796477384735, -0.6917055416810929, 0.0]
+y = [0.6917055416810929, -0.7221796477384735, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Exact current endpoints define the clocking; indicate the physical socket and clock the mounted cradle before setting DRO."
+cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:62-73", "ch-rocker-arm.STEP #371 HAF_PROFILE_OUTER__P03; supporting plane #108, placement #116, origin #106"]
+
+[[setups]]
+id = "T4C"
+machine = "PM-30MV"
+frame = "TAPER_POS"
+stock_in = "T4B"
+note = "DEMONSTRATION single-axis side milling of TAPER_POS; no oblique hand-saw clearing-box substitution."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.0
+
+[setups.hold]
+fixture = "rocker-edge-mill-cradle"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
+clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+pose = { origin_mm = [116.55067611006163, -89.75501535505208, -2.4892], x = [-0.7221796477384735, 0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [116.55067611006163, -89.75501535505208, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+
+[setups.stock_state]
+top_z = 0.0
+bottom_z = -2.4892
+
+[setups.zero.x]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = 116.55067611006163
+check_jog_mm = 1.0
+
+[setups.zero.y]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -89.75501535505208
+check_jog_mm = 1.0
+
+[setups.zero.z]
+from = "+z"
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/1-4in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
 
 [[setups.ops]]
-op = 30
-do = "scribe"
+op = 10
+do = "profile"
 feature = "profile_outer"
-layout = "template"
-guide = { "template" = "unknown" }
-note = "HOLD: current MHA-CH-13 geometry transfer/template referenced to actual socket and datum B; no retired one-piece outline gauge. Mark radial lands between actual top arc ends and radial-tip corners, then straight taper joins to bottom arc ends."
+faces = ["#371/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03"]
+tool = "endmills-lms-6784/1-4in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.7
+doc_mm = 0.5
+approach_mm = 3.0
+feed_mm_min = 40.0
+direction = "conventional"
+stock_removal_bounds = { x = [-27.61, 40.775], y = [0.0, 40.255], z = [-2.4892, 0.0] }
+contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
+note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..18.689687970305755. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
+
+# DEMONSTRATION: clock the supported work so this straight edge is parallel to X.
+[frames.TAPER_NEG]
+origin = [-132.75725545686896, 10.871742438784054, 1.2446]
+x = [-0.7221796477384735, 0.6917055416810929, 0.0]
+y = [-0.6917055416810929, -0.7221796477384735, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval. Exact current endpoints define the clocking; indicate the physical socket and clock the mounted cradle before setting DRO."
+cite = ["AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval", "harmonic-analyzer/cad/scripts/ch_rocker_arm_spec.py:62-73", "ch-rocker-arm.STEP #449 HAF_PROFILE_OUTER__P01; supporting plane #158, placement #392, origin #369"]
+
+[[setups]]
+id = "T4"
+machine = "PM-30MV"
+frame = "TAPER_NEG"
+stock_in = "T4C"
+note = "DEMONSTRATION single-axis side milling of TAPER_NEG; no oblique hand-saw clearing-box substitution."
+coolant = "cutting_oil_brush"
+deburr_mm = 0.0
+
+[setups.hold]
+fixture = "rocker-edge-mill-cradle"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "With spindle isolated, clock the straight cradle base datum edge (fixture local Y-35) using DTI at fixture X-50 and +50. Move table between their transformed coordinates (100 mm times hold.pose.x), alternating single axes with safe retract; tap lightly until endpoint readings agree within 0.01 mm. Tighten recessed M6 mounts in matching base pattern, recheck both endpoints, then indicate socket centre. Hole pattern alone is not angle acceptance; target plane Y0, waste +Y."
+clamp = "Integrated supported central fingers at original strap X+/-80; restrain waste independently and capture loose chips/offcuts outside sweep."
+pose = { origin_mm = [-97.86098813975588, -89.75501535505207, -2.4892], x = [-0.7221796477384735, -0.6917055416810929, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-edge-table-base", pose = { origin_mm = [-97.86098813975588, -89.75501535505207, -28.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: top seats at cradle local Z-26 after actual 10 mm base thickening; work seat and primary pose unchanged. Nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Integral central support for finished strap; relieved base below breakthrough, cutter and offcut outside central cradle. DEMONSTRATION rotated cradle and part together. No CL/CR waste is used as the hold after end trimming; verify seating and re-indicate every rehold."
+
+[setups.stock_state]
+top_z = 0.0
+bottom_z = -2.4892
+
+[setups.zero.x]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -97.86098813975588
+check_jog_mm = 1.0
+
+[setups.zero.y]
+feature = "strap_socket"
+method = "indicate"
+from = "indicated"
+tool = "rocker-datum-indicator"
+edge_mm = -89.75501535505207
+check_jog_mm = 1.0
+
+[setups.zero.z]
+from = "+z"
+face = "top"
+method = "paper"
+paper_mm = 0.05
+tool = "endmills-lms-6784/1-4in-4fl"
+check_jog_mm = 5.0
+retouch_after = []
 
 [[setups.ops]]
-op = 31
-do = "saw_cut"
+op = 10
+do = "profile"
 feature = "profile_outer"
-tool = "unknown"
-follows = "T4:30"
-allowance_mm = 0.25
-stock_removal_bounds = "unknown"
-note = "HOLD actual hand hacksaw blade/tooth engagement and finite waste-clearing bounds. Saw outside line, leave0.25mm for filing, retain both separated waste pieces. Missing bounds remain stock debt, not a fictitious kerf or no-op release."
-
-[[setups.ops]]
-op = 32
-do = "file_to_line"
-feature = "profile_outer"
-faces = ["#449/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01", "#371/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03"]
-guide = { "template" = "unknown", "gauge" = "unknown" }
-note = "Supported smooth safe-edge file to CURRENT datum-referenced line/template. Finish radial tip lands5.588mm and10.460060747deg BASIC, corners at +/-146.25456773160636,23.799503180135; tapers meet bottom ends +/-132.75725545686896,10.871742438784054. Current template/profile qualification absent: HOLD; filing earns no fictitious pass."
+faces = ["#449/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01"]
+tool = "endmills-lms-6784/1-4in-4fl"
+holder = "r8-collets-lms-4860/3-8in"
+to_z = -2.7
+doc_mm = 0.5
+approach_mm = 3.0
+feed_mm_min = 40.0
+direction = "conventional"
+stock_removal_bounds = { x = [-22.085, 46.3], y = [0.0, 40.255], z = [-2.4892, 0.0] }
+contour = { method = "linear_table", step_mm = 2.0, open_side = "+y" }
+note = "Clear waste outside the supporting plane in successive single-axis X passes, step Y only with cutter clear; no diagonal XY feed. Lower from air in <=0.5 mm levels. Final centre Y3.175 reaches target Y0 exactly on 0.005 mm DRO grid; target segment X0..18.689687970305755. All finished part lies on -Y side of this supporting plane; finite bounds encompass the raw blank, not a claim of an oblique saw kerf. Retract above strap before returns. Verify full cutter/holder/cradle/offcut envelope before use; no native pass or manufactured result is asserted."
 
 [[setups.ops]]
 op = 40
 do = "inspect"
 feature = ["top_edge", "profile_outer", "tip_land_pos_x", "tip_land_neg_x"]
-checks = { "top_edge" = { "height_above_pivot" = "unknown", "radius" = "unknown", "surface_profile" = "unknown" }, "profile_outer" = { "bottom_radius" = "unknown", "mirror_symmetric" = "unknown", "surface_profile" = "unknown" }, "tip_land_pos_x" = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" }, "tip_land_neg_x" = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" } }
-inspection_note = "Component release gate MHA-CH-13: verify outline and thickness are finished before join, socket sharp/no burr. Qualify a CURRENT profile method referenced to socket centre and datum B: top height8.000–8.508 above socket, bottom depth7.492–8.000 below socket, concentric arcs, radial lands and current detail drawing offsets. Joined A|B|C profile zones are separately rechecked after final rod hole C exists; do not pretend C already exists on strap. Missing bound contour/metrology capability is a HOLD, not sampling proof of a whole surface."
-inspection_methods = "unknown"
+checks = { "top_edge" = { "height_above_pivot" = "datum-scanning-cmm", "radius" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "profile_outer" = { "bottom_radius" = "datum-scanning-cmm", "mirror_symmetric" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "tip_land_pos_x" = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "tip_land_neg_x" = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" } }
+inspection_methods = { "top_edge" = { "height_above_pivot" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "radius" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "surface_profile" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded." }, "profile_outer" = { "bottom_radius" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "mirror_symmetric" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "surface_profile" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded." }, "tip_land_pos_x" = { "land_angle_deg" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "station" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "surface_profile" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded." }, "tip_land_neg_x" = { "land_angle_deg" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "station" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded.", "surface_profile" = "DEMONSTRATION component scan referenced to actual strap socket axis, B face and profile mirror plane, using current MHA-CH-13 geometry. Complete both arcs, both radial lands and both taper joins before J1. No final datum C exists yet; joined A|B|C zones are rechecked after D1. Qualify full-surface scan/unsampled-form bound; actual results unrecorded." } }
+inspection_note = "Socket remains sharp and burr-free; clean all chips before pressing. Component completion and full-surface measurement are planned, not observed acceptance."
 
 # J1 — Press completed MHA-CH-12 hub into completed MHA-CH-13 socket; no brazing/compound route.
 [[setups]]
@@ -995,14 +1449,19 @@ machine = "fitting-bench"
 frame = "ASSEMBLY"
 stock_in = ["H1", "T4"]
 note = "Press completed MHA-CH-12 hub into completed MHA-CH-13 socket; no brazing/compound route."
+coolant = "none" # Joint process requires clean, dry matched surfaces.
+deburr_mm = 0.0 # Preserve sharp, no-groove press interface.
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD real arbor/hydraulic press capacity and alignment, annular strap support immediately at socket, axial depth stop and flat ram. Do not bridge-support the thin strap or drive the fit by hammer. Support socket face square to hub axis without crushing finished strap."
+fixture = "rocker-press-nest"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Lower supply end at fixture Z-3.0054; strap underside at modelZ-1.2446 gives supply hub ends model+/-4.25."
+clamp = "Aligned arbor press with annular flat ram OD10/ID6.6, no hammer; stop for cocking or unexpected force."
+pose = { origin_mm = [0.0, 8.0, -1.2446], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+clamps = [{ ref = "rocker-press-ram", pose = { origin_mm = [0.0, 8.0, 4.25], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] } }]
+note = "Integral annular strap support OD24/ID10.5 immediately around socket; through outlet and lower hub depth stop. DEMONSTRATION aligned press nest; capacity/alignment and force travel must be commissioned before real use. Annular outlet does not bridge-support or trap the thin strap."
 
 [setups.joint]
 kind = "cylindrical"
@@ -1011,7 +1470,7 @@ spigot = "hub_land"
 fit = "interference"
 interference_mm = [0.01016, 0.03302]
 method = "press"
-process = "AUTHOR'S CHOICE: clean/dry matched surfaces; use aligned press with annular support at the socket and stopped ram to leave supply stock at both hub ends. Press continuously and square, never hammer. No retaining compound is specified. STOP for excess force, cocking, scoring or strap distortion. Confirm actual land minus socket is0.01016–0.03302mm before pressing; neither measurement nor stock preparation may be inferred from nominal dimensions."
+process = "AUTHOR'S CHOICE: clean/dry matched surfaces; use aligned press with annular support at the socket and stopped ram to leave supply stock at both hub ends. Press continuously and square, never hammer. No retaining compound is specified. STOP for excess force, cocking, scoring or strap distortion. Confirm actual land minus socket is 0.01016–0.03302 mm before pressing; neither measurement nor stock preparation may be inferred from nominal dimensions."
 cite = ["harmonic-analyzer/cad/scripts/ch_rocker_hub_fit.py:1-42", "harmonic-analyzer/cad/scripts/ch_rocker_strap_notes.py:93-104", "harmonic-analyzer/cad/scripts/ch_rocker_hub_spec.py:51-64", "AUTHOR'S CHOICE: illustrative process proposal; not a measurement or approval"]
 forms = ["hub_root"]
 
@@ -1019,22 +1478,22 @@ forms = ["hub_root"]
 op = 10
 do = "inspect"
 feature = ["strap_socket", "hub_land"]
-checks = { "strap_socket" = { "dia" = "unknown" }, "hub_land" = { "dia" = "unknown" } }
+checks = { "strap_socket" = { "dia" = "bore-gauge-small" }, "hub_land" = { "dia" = "outside-micrometer-0-25mm" } }
 inspection_note = "Record actual mating bands and diametral interference before pressing. Confirm no removed/reworked feature invalidates completed preparation on the selected ancestors. Sharp mouths must be flat, square and burr-free. Supply bore through and supply length >=8.128; reject distortion."
-inspection_methods = { "strap_socket" = { "dia" = "Qualified socket gauge at both mouths/full engagement." }, "hub_land" = { "dia" = "Qualified outside measurement at both ends/middle and two directions." } }
+inspection_methods = { "strap_socket" = { "dia" = "DEMONSTRATION:10..18 mm bore comparator with 10.16 mm master, expanded uncertainty<=0.003 mm; short-contact head spans 2.4892 wall. Read both mouths and mid-thickness in two directions; guarded 10.1600–10.1727. Flat-stone raised burr only: sharp mouths, no countersink." }, "hub_land" = { "dia" = "DEMONSTRATION: calibrated 0.001 mm outside micrometer, masters bracketing 10.188 mm, expanded uncertainty<=0.003 mm. Clean/cool land; read both ends/middle in two directions, guard-band every result inside 10.18286–10.19302. Actual readings not recorded." } }
 
 [[setups.ops]]
 op = 20
 do = "fit"
 feature = "hub_root"
-note = "Press with axis collinear; centre supply hub approximately on strap so both postjoin faces clean up. Actual fixture/capacity/force and stop commissioning unresolved: HOLD, not an approved press card."
+note = "Press continuously square to depth stop using annular ram and close socket support. Demonstration installation is specified, not a force trace or proof of successful assembly. Actual interference readings, force response, alignment and distortion acceptance remain unrecorded."
 
 [[setups.ops]]
 op = 30
 do = "inspect"
 feature = "hub_root"
-checks = { "radius" = "unknown" }
-inspection_methods = { "radius" = "Inspect BOTH annular roots for sharp no-groove junction, no rolled lip/crack or burr and R0–0.2032mm. Establish actual qualified optical/radius limit method; general edge-break allowance is not this inspection." }
+checks = { "radius" = "optical-profile-projector" }
+inspection_methods = { "radius" = "DEMONSTRATION optical profile projector at calibrated magnification: inspect both roots all around via multiple orientations; sharp 0 allowed, no groove/lip/crack/burr; guarded MAX 0.2032 mm. Practical 0.01 mm resolution and silhouette access must be demonstrated, not inferred from gauge name." }
 inspection_note = "Check strap has not bowed or torn; verify enough stock remains at both hub faces for final length and axial centring. Root formed faces require this downstream radius check; no cutter claims these faces."
 
 # F1 — After press, face +Z hub end and finish reamed datum bore A in same established axis.
@@ -1048,12 +1507,15 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD relieved support plate seats finished datum B without touching hub stock; clamp near hub without strap bending. Indicate supply bore on spindle axis. Actual fixture pose/support and axial centring measurement required."
+fixture = "rocker-hub-finish-nest"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Clock strap on pads, indicate actual supply bore to spindle, then lock fixture."
+clamp = "Integrated fingers at X+/-30 on supported strap; no grip on press land or unsupported arms."
+pose = { origin_mm = [0.0, 0.0, -4.77285], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -20.77285], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Finished strap opposite datum B seated on integral distributed pads, with dia 12 hub relief through support. DEMONSTRATION postjoin mill nest, not lathe rotation of a long arm. Hub projects freely through relieved seat; both facing and reaming clear supported datum surfaces."
 
 [setups.stock_state]
 top_z = 0.72175
@@ -1063,6 +1525,7 @@ local_thickness = { "pivot_bore" = 7.77825 }
 [setups.zero.x]
 feature = "hub_supply_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
@@ -1070,11 +1533,13 @@ check_jog_mm = 1.0
 [setups.zero.y]
 feature = "hub_supply_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
 
 [setups.zero.z]
+from = "+z"
 face = "strap datum B"
 edge_mm = -2.28365
 method = "paper"
@@ -1086,6 +1551,7 @@ retouch_after = [20]
 [[setups.ops]]
 op = 10
 do = "face"
+approach_mm = 15.0 # Above the proud hub and nest clamps before table traverses.
 feature = "hub_faces"
 faces = ["#385/ADVANCED_FACE[16]/HAF_HUB_FACES__P02"]
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -1101,14 +1567,15 @@ note = "Face upper hub only to modelZ+3.52825. Keep cutter well above already fi
 [[setups.ops]]
 op = 20
 do = "ream"
+approach_mm = 15.0
 feature = "pivot_bore"
 tool = "reamers-metric/6.5mm"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.1
-checks = { "dia" = "unknown", "thru" = "unknown", "finish_ra" = "unknown", "process" = "unknown" }
-inspection_methods = { "dia" = "HOLD qualified6.5024–6.5278mm bore metrology; old6.500GO/6.530NO-GO straddles current band and is invalid. Measure both mouths/full bore after cooling.", "thru" = "Confirm open full diameter through supply hub; probe/plug without forcing. Recheck after lower facing.", "finish_ra" = "HOLD traceable method demonstrating Ra<=1.6um on the actual reamed wall, not a drawing nominal or external surface. Existing replica-kit entry is illustrative, not proven capability.", "process" = "Record actual reaming operation and selected tool/lot. Existing example reamer is nominal6.512, not proof of real bore size or installed capability." }
-note = "Supply .246 bore is mandatory prior drilling; ream only after press. Selected example6.512mm tool lies inside current band but real tool approval/runout/allowance remains held. Do not use .250,6.500GO or drill-only finish."
+checks = { "dia" = "small-bore-comparator-6-10mm", "thru" = "measuring-loupe", "finish_ra" = "surface-profilometer" }
+inspection_methods = { "dia" = "DEMONSTRATION:6..10 mm comparator mastered near 6.515, expanded uncertainty<=0.003 mm. Read both mouths/middle in two directions after cooling; guarded 6.5024–6.5278. Old 6.500/6.530 plugs prohibited.", "thru" = "Use the illuminated measuring loupe to inspect both mouths and the unobstructed through opening; diameter is checked separately. Repeat after lower facing and coating.", "finish_ra" = "DEMONSTRATION surface profilometer: narrow-bore stylus on actual wall, or validated removable replica with replica bias included. Trace axially at multiple clockings, stated cutoff/filter and uncertainty<=0.2 um; guard-band Ra<=1.6 um. No external-wall comparator substitution." }
+note = "Supply .246 bore is mandatory prior drilling; ream only after press. Selected example 6.512 mm tool lies inside current band but real tool approval/runout/allowance remains held. Do not use .250, 6.500GO or drill-only finish. Process record check: Written traveler records actual postpress reaming operation F1:20, selected 6.512 mm tool identity/lot, preparation and operator. The proposed route is not evidence the operation occurred."
 
 # F2 — Reverse after reaming; finish lower hub end to7.080mm length and inspect stack/strap registration.
 [[setups]]
@@ -1116,17 +1583,20 @@ id = "F2"
 machine = "PM-30MV"
 frame = "FINISH_DOWN"
 stock_in = "F1"
-note = "Reverse after reaming; finish lower hub end to7.080mm length and inspect stack/strap registration."
+note = "Reverse after reaming; finish lower hub end to 7.080 mm length and inspect stack/strap registration."
 coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD reversal fixture seats actual upper hub face and supports strap without forcing; clock from finished bore A and support datum B. Establish lower-face Z from measured upper-face/strap relationship, not nominal reclamp repeatability."
+fixture = "rocker-hub-reverse-nest"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Recover actual reamed A; measure end-to-end before clamping and set measured lower-face allowance."
+clamp = "Integrated supported strap fingers at fixtureZ4.77285; seat upper hub annulus clean without trapped chips."
+pose = { origin_mm = [0.0, 0.0, -7.08], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -23.08], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Upper finished hub annulus seated at local fixture 0; integral strap pads adjusted to 2.28365 without preload/bending. DEMONSTRATION reversal nest; pad settings are an illustrative aim. Adjust to actual upper-hub-face/strap relation, do not assume nominal reclamp height."
 
 [setups.stock_state]
 top_z = 0.69825
@@ -1135,6 +1605,7 @@ bottom_z = -7.08
 [setups.zero.x]
 feature = "pivot_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
@@ -1142,15 +1613,18 @@ check_jog_mm = 1.0
 [setups.zero.y]
 feature = "pivot_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
 
 [setups.zero.z]
+from = "+z"
 face = "upper finished hub face seated reference"
 method = "measure_then_set"
-gauge = "micrometers/0-1in"
+gauge = "outside-micrometer-0-25mm"
 measure = "Actual supply end to upper finished hub face before holding; require qualified contact to both hub ends."
+measure_before_hold = true
 offset_mm = -7.08
 paper_mm = 0.05
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -1160,6 +1634,7 @@ retouch_after = []
 [[setups.ops]]
 op = 10
 do = "face"
+approach_mm = 15.0
 feature = "hub_faces"
 faces = ["#357/ADVANCED_FACE[14]/HAF_HUB_FACES__P01"]
 tool = "endmills-lms-6784/3-8in-4fl"
@@ -1170,9 +1645,9 @@ feed_mm_min = 40.0
 direction = "conventional"
 stock_removal_bounds = { "x" = [-5.3, 5.3], "y" = [-5.3, 5.3], "z" = [0.0, 0.69825] }
 contour = { "method" = "linear_table", "step_mm" = 3.0 }
-checks = { "length" = "micrometers/0-1in" }
-inspection_methods = { "length" = "Micrometer directly between both hub end annuli, not strap faces, in several angular positions after cooling. Accept7.0565–7.1073mm; aim7.080. Burr removal must not shorten below low limit. Record every arm and preserve channel order for separate20-arm stack acceptance." }
-inspection_note = "Supplemental current drawing check not exported as a requirement: datum G is lower hub face; verify strap mid-plane basic offset to G and total .1016mm axial position zone from actual face measurements. Nominal3.55175mm mid-plane offset is author aim, not evidence. HOLD qualified measurement and stack acceptance per current HA drawing; never omit because manifest does not export the zone."
+checks = { "length" = "outside-micrometer-0-25mm" }
+inspection_methods = { "length" = "DEMONSTRATION0.001 mm micrometer over both hub end annuli at several angles after cooling; guard-band 7.0565–7.1073, aim 7.080. Record each of 20 parts in channel order and separately measure assembled stack against current drawing; no invented stack result." }
+inspection_note = "Supplemental drawing check: datum G is lower hub face; use datum-scanning-cmm to measure B/opposite-face planes and actual strap mid-plane offset to G, total 0.1016 mm axial position zone. Nominal 3.55175 mm is author aim, not evidence. Measure complete 20-arm stack in channel order against drawing; actual stack result remains unrecorded."
 
 # D1 — Drill #47 rod-pin hole AFTER join and final bore; locate from A and B, never from end waste tooling holes.
 [[setups]]
@@ -1185,21 +1660,26 @@ coolant = "cutting_oil_brush"
 deburr_mm = 0.1
 
 [setups.hold]
-fixture = "unknown"
-support = "unknown"
-grip_mm = "unknown"
-stop = "unknown"
-clamp = "unknown"
-note = "HOLD relieved plate supports finished datum B and rod end; locate actual reamed A, clock arm from established component geometry without new holes, clamp without bowing. Provide sacrificial support and breakthrough clearance directly under rod hole."
+fixture = "rocker-rod-drill-nest"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Indicate actual A, clock current profile symmetry about X without inventing C before drilling."
+clamp = "Supported strap fingers at X+/-30; rod end supported, not clamped into bow."
+pose = { origin_mm = [0.0, 0.0, -2.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+supports = [{ placement = "posed", id = "table-base", ref = "rocker-table-subplate", pose = { origin_mm = [0.0, 0.0, -18.4892], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }, note = "DEMONSTRATION independent table-aligned base: nominated example central T-slot attachment and recessed M6 fixture mounts; use matching clocking pattern, torque and verify seating before pickups. Not a vendor observation." }]
+note = "Strap underside on integral distributed pads, dia 12 relief for lower hub, sacrificial pad directly beneath rod hole. DEMONSTRATION rod-drilling nest. Touch local strap entry atZ0, not proud hub top; drill point/exit enters sacrificial pad, not metal fixture."
 
 [setups.stock_state]
 top_z = 2.28365
 bottom_z = -4.79635
 local_thickness = { "rod_hole" = 2.4892 }
+entry_z = { "rod_hole" = 0.0 } # Entry at strap datum B, not remote hub top2.28365.
 
 [setups.zero.x]
 feature = "pivot_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
@@ -1207,11 +1687,13 @@ check_jog_mm = 1.0
 [setups.zero.y]
 feature = "pivot_bore"
 method = "indicate"
+from = "indicated"
 tool = "rocker-datum-indicator"
 edge_mm = 0.0
 check_jog_mm = 1.0
 
 [setups.zero.z]
+from = "+z"
 face = "strap datum B"
 edge_mm = 0.0
 method = "paper"
@@ -1223,25 +1705,27 @@ retouch_after = [20]
 [[setups.ops]]
 op = 10
 do = "spot"
+approach_mm = 15.0 # Above the proud hub and nest clamps before table traverses.
 feature = "rod_hole"
 tool = "bracket-spot-drill"
 holder = "drill-chuck-r8"
 depth_mm = 0.3
 feed_mm_rev = 0.02
-note = "At actual basic X133.06740213488345,Y8.456064115939025 from reamed A in this setup; do not round the source geometry to old v40 dimensions."
+note = "At actual basic X133.06740213488345, Y8.456064115939025 from reamed A in this setup; do not round the source geometry to old v40 dimensions."
 
 [[setups.ops]]
 op = 20
 do = "drill"
+approach_mm = 15.0
 feature = "rod_hole"
 tool = "drill-index-115/#47"
 holder = "drill-chuck-r8"
 exit_mm = 1.0
 feed_mm_rev = 0.025
-checks = { "dia" = "rocker-rod-limit-gauges", "thru" = "unknown" }
+checks = { "at" = "datum-scanning-cmm", "dia" = "rocker-rod-limit-gauges", "thru" = "measuring-loupe", "position_dia" = "datum-scanning-cmm" }
 go_no_go = { "dia" = { "go" = 2.0, "no_go" = 2.09 } }
-inspection_methods = { "dia" = "Use existing illustrative2.000GO and2.090NO-GO only after actual gauge confirmation; GO passes fully without force and NO-GO does not enter either mouth. This is a conservative subset of1.994–2.0956, not a newly enlarged hole band.", "thru" = "Inspect clean full opening at both strap faces, confirm plug passes through and exit burr is removed without enlarging or bell-mouthing." }
-note = "Actual #47 nominal1.994mm, DRILLED+.004/0in. No tap, ream or counterbore called for; maintain datum B without bending the strap."
+inspection_methods = { "at" = "DEMONSTRATION CMM/optical small-hole axis measurement relative cylindrical A and planar B; BASIC modelX133.06740213488345, Y16.456064115939025 is reference, not independent +/- limits.", "dia" = "Demonstration 2.000GO passes fully, 2.090NO-GO does not enter either mouth; qualified actual plugs including uncertainty must stay within 1.994–2.0956. Conservative subset, no enlarged band.", "thru" = "Illuminated inspection and GO passage confirm both openings, no burr or bell-mouth.", "position_dia" = "DEMONSTRATION CMM: fit actual rod axis from both mouths/wall, constrain A|B only as drawing specifies; RFS diametral position<=.2032 including uncertainty. Do not use C to inspect itself; C is this rod hole." }
+note = "Actual #47 nominal 1.994 mm, DRILLED+.004/0 in. No tap, ream or counterbore called for; maintain datum B without bending the strap."
 
 # I1 — Final finished-dimension and datum-based inspection; no machine DRO or visual nominal can substitute for metrology.
 [[setups]]
@@ -1258,89 +1742,90 @@ note = "Handle cleaned finished arm on a soft tray at inspection bench; qualifie
 op = 10
 do = "inspect"
 feature = "pivot_bore"
-checks = { "dia" = "unknown", "thru" = "unknown", "finish_ra" = "unknown", "process" = "unknown" }
-inspection_methods = { "dia" = "Qualified current-band6.5024–6.5278 metrology; both ends/full bore, actual uncertainty included. Old6.500/6.530 plugs are prohibited.", "thru" = "Confirm actual unobstructed full diameter through hub.", "finish_ra" = "Qualified actual-wall Ra1.6um maximum measurement/replica method, not comparator assertion.", "process" = "Record postpress reaming tool, operation and lot." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "dia" = "small-bore-comparator-6-10mm", "thru" = "measuring-loupe", "finish_ra" = "surface-profilometer" }
+inspection_methods = { "dia" = "DEMONSTRATION:6..10 mm comparator mastered near 6.515, expanded uncertainty<=0.003 mm. Read both mouths/middle in two directions after cooling; guarded 6.5024–6.5278. Old 6.500/6.530 plugs prohibited.", "thru" = "Use the illuminated measuring loupe to inspect both mouths and the unobstructed through opening; diameter is checked separately. Repeat after lower facing and coating.", "finish_ra" = "DEMONSTRATION surface profilometer: narrow-bore stylus on actual wall, or validated removable replica with replica bias included. Trace axially at multiple clockings, stated cutoff/filter and uncertainty<=0.2 um; guard-band Ra<=1.6 um. No external-wall comparator substitution." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted. Process record check: Written traveler records actual postpress reaming operation F1:20, selected 6.512 mm tool identity/lot, preparation and operator. The proposed route is not evidence the operation occurred."
 
 [[setups.ops]]
 op = 20
 do = "inspect"
 feature = "hub_faces"
-checks = { "length" = "micrometers/0-1in" }
-inspection_methods = { "length" = "Measure directly over end annuli at multiple angles:7.0565–7.1073; preserve20-arm order and record individual lengths for separate drawing stack acceptance." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "length" = "outside-micrometer-0-25mm" }
+inspection_methods = { "length" = "DEMONSTRATION0.001 mm micrometer over both hub end annuli at several angles after cooling; guard-band 7.0565–7.1073, aim 7.080. Record each of 20 parts in channel order and separately measure assembled stack against current drawing; no invented stack result." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 30
 do = "inspect"
 feature = "strap_faces"
-checks = { "thickness" = "micrometers/0-1in" }
-inspection_methods = { "thickness" = "Micrometer finished broad faces clear of hub and burrs at distributed stations:2.4638–2.5146." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "thickness" = "outside-micrometer-0-25mm" }
+inspection_methods = { "thickness" = "DEMONSTRATION0.001 mm micrometer at ends/middle/arm tips, unforced, clean faces: guard-band 2.4638–2.5146. Check lift separately, do not flatten a bowed part to get a reading." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 40
 do = "inspect"
 feature = "strap_datum_b"
-checks = { "thickness" = "micrometers/0-1in" }
-inspection_methods = { "thickness" = "Confirm datum B face is actual +Z face; repeat distributed strap thickness checks and check it seats unforced. Supplemental .004in strap position to hub/G must be measured, not omitted because absent as exported requirement." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "thickness" = "outside-micrometer-0-25mm" }
+inspection_methods = { "thickness" = "Repeat distributed micrometer thickness readings; confirm B is the +Z face. CMM planes on B/opposite strap and datum G determine actual strap mid-plane offset and .1016 mm total axial position zone; nominal 3.55175 is not a result." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 50
 do = "inspect"
 feature = "hub_od"
-checks = { "dia" = "unknown", "coaxiality_dia" = "unknown" }
-inspection_methods = { "dia" = "Measure all upper/lower split hub OD patches at both ends/middle:9.906–10.414; retain actual measured supply-land record.", "coaxiality_dia" = "HOLD datum-A cylindrical simulator and qualified OD-axis method across BOTH hub projections. Determine actual OD axis relative to reamed A over full extent; diametral zone<=.1016. A single TIR on loose pin without fit/uncertainty budget is not evidence. Supplemental drawing HUB WALL .064 MIN=1.6256 including eccentricity must hold; evaluate measured minimum land, maximum bore and worst axis shift, not nominal wall." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "dia" = "outside-micrometer-0-25mm", "coaxiality_dia" = "datum-scanning-cmm" }
+inspection_methods = { "dia" = "DEMONSTRATION outside micrometer across both exposed hub projections in multiple directions, 9.906–10.414; preserve press-land record.", "coaxiality_dia" = "DEMONSTRATION scanning CMM: construct datum A from complete finished bore, scan both OD projections and evaluate axis in .1016 mm diametral zone. No loose-pin TIR substitute. Evaluate minimum measured wall>=1.6256 mm including eccentricity and measurement uncertainty." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 60
 do = "inspect"
 feature = "rod_hole"
-checks = { "at" = "unknown", "dia" = "unknown", "thru" = "unknown", "position_dia" = "unknown" }
-inspection_methods = { "at" = "Establish datum A from reamed bore and B from strap face with clocking resolved by current drawing; measure actual rod axis at X133.06740213488345,Y16.456064115939025 in model. BASIC coordinates are not independent +/- tolerances.", "dia" = "Qualified actual plug pair/continuous bore measurement inside1.994–2.0956.", "thru" = "Confirm through full strap with no burr/bell mouth.", "position_dia" = "HOLD qualified A|B datum-simulated position inspection. Determine actual rod axis relative to A and B and evaluate .2032mm diametral zone (RFS). Preserve raw readings, datum construction and uncertainty. Do not reuse retired fixed-tip-C fixture: C is the rod hole in v47." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "at" = "datum-scanning-cmm", "dia" = "rocker-rod-limit-gauges", "thru" = "measuring-loupe", "position_dia" = "datum-scanning-cmm" }
+go_no_go = { "dia" = { "go" = 2.0, "no_go" = 2.09 } }
+inspection_methods = { "at" = "DEMONSTRATION CMM/optical small-hole axis measurement relative cylindrical A and planar B; BASIC modelX133.06740213488345, Y16.456064115939025 is reference, not independent +/- limits.", "dia" = "Demonstration 2.000GO passes fully, 2.090NO-GO does not enter either mouth; qualified actual plugs including uncertainty must stay within 1.994–2.0956. Conservative subset, no enlarged band.", "thru" = "Illuminated inspection and GO passage confirm both openings, no burr or bell-mouth.", "position_dia" = "DEMONSTRATION CMM: fit actual rod axis from both mouths/wall, constrain A|B only as drawing specifies; RFS diametral position<=.2032 including uncertainty. Do not use C to inspect itself; C is this rod hole." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 70
 do = "inspect"
 feature = "top_edge"
-checks = { "height_above_pivot" = "unknown", "radius" = "unknown", "surface_profile" = "unknown" }
-inspection_methods = { "height_above_pivot" = "Evaluate top edge relative actual reamed A at mirror plane,8.000–8.508; keep whole top surface in the unequally disposed profile zone.", "radius" = "BASIC R800 curvature about nominal [0,816,0], governed by profile; never accept an invented standalone +/- radius tolerance.", "surface_profile" = "HOLD whole-surface current A|B|C profile measurement,0.508 U0.508, over entire bounded top edge. Qualify optical/CMM/current scanning method and datum construction; finite sample points alone are not entire-surface proof." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "height_above_pivot" = "datum-scanning-cmm", "radius" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }
+inspection_methods = { "height_above_pivot" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "radius" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 80
 do = "inspect"
 feature = "profile_outer"
-checks = { "bottom_radius" = "unknown", "mirror_symmetric" = "unknown", "surface_profile" = "unknown" }
-inspection_methods = { "bottom_radius" = "BASIC R816 concentric with R800; evaluate through profile, not invented radius limits.", "mirror_symmetric" = "Check both taper joins/arc ends mirrored in actual datum coordinate system, not just equal caliper overall lengths.", "surface_profile" = "HOLD qualified whole-surface current A|B|C profile inspection0.508 U0 BETWEEN J AND K, including lower arc and BOTH straight taper faces. Do not borrow one top-edge pass for separate taper faces." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "bottom_radius" = "datum-scanning-cmm", "mirror_symmetric" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }
+inspection_methods = { "bottom_radius" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "mirror_symmetric" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 90
 do = "inspect"
 feature = "tip_land_pos_x"
-checks = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" }
-inspection_methods = { "land_angle_deg" = "BASIC10.460060747357092deg radial land; evaluate within surface-profile control, no independent angle tolerance.", "station" = "BASIC X+146.25456773160636 end corner; actual land width5.588mm and endpoints from current model/drawing, subject to profile.", "surface_profile" = "HOLD qualified A|B|C whole-land0.508 U0 surface-profile measurement, including tip station/orientation." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }
+inspection_methods = { "land_angle_deg" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "station" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 100
 do = "inspect"
 feature = "tip_land_neg_x"
-checks = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" }
-inspection_methods = { "land_angle_deg" = "Mirror radial BASIC10.460060747357092deg; evaluate within surface-profile control.", "station" = "BASIC X-146.25456773160636 end corner; check actual5.588mm radial land and joins.", "surface_profile" = "HOLD qualified A|B|C whole-land0.508 U0 profile measurement; do not infer this side from rod side." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }
+inspection_methods = { "land_angle_deg" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "station" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 [[setups.ops]]
 op = 110
 do = "inspect"
 feature = "hub_root"
-checks = { "radius" = "unknown" }
-inspection_methods = { "radius" = "Inspect BOTH roots through all split exported annular patches; sharp0 is allowed, no groove, no burr, MAX0.2032mm. Qualified optical/limit capability unresolved; do not apply generalR.010 edge break here." }
-note = "HOLD any unestablished inspection capability; record actual readings against CURRENT MHA-CH-06/v47, never manufacture a pass from nominal CAD dimensions."
+checks = { "radius" = "optical-profile-projector" }
+inspection_methods = { "radius" = "DEMONSTRATION optical profile projector at calibrated magnification: inspect both roots all around via multiple orientations; sharp 0 allowed, no groove/lip/crack/burr; guarded MAX 0.2032 mm. Practical 0.01 mm resolution and silhouette access must be demonstrated, not inferred from gauge name." }
+note = "DEMONSTRATION inspection equipment/method specified; actual calibration, setup and part readings are not recorded. No acceptance or release is asserted."
 
 # B1 — Deburr, matte black oxide after joining, clean/protect and re-inspect before release.
 [[setups]]
@@ -1349,15 +1834,24 @@ machine = "finishing-bench"
 frame = "ASSEMBLY"
 stock_in = "I1"
 note = "Deburr, matte black oxide after joining, clean/protect and re-inspect before release."
+coolant = "none" # Manual deburr; coating chemistry remains a held finisher process.
+deburr_mm = 0.254 # Maximum only on permitted exposed edges, never sharp roots.
 
 [setups.hold]
-note = "Handle on padded tray; mask and send to finisher with traceable batch identity. No forceful holding or machining; protect finished bores/strap from damage."
+fixture = "rocker-hub-finish-nest"
+support = "not_applicable"
+fixed_jaw = "not_applicable"
+grip_mm = "not_applicable"
+stop = "Seat the finished strap underside on the nest pads with the lower hub projection free in the dia 12 through relief; register actual bore centre without loading the bore."
+clamp = "Use the nest's integrated supported fingers at X+/-30 only for light manual edge deburring; tighten against clean supported strap without bending. Secure nest base to the bench before applying hand force."
+pose = { origin_mm = [0.0, 8.0, -1.2446], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
+note = "DEMONSTRATION mechanical hold for op 10 using the existing finished-strap nest, not a padded tray as cutting restraint. No added pad thickness is assumed. Inspect access before deburring: support the arm and release/reseat one finger at a time to expose its contact patch, retighten before applying hand force; do not pry or abrade under clamps. Stop if full edge access cannot be obtained without distortion. For coating transport and op 30, remove from the nest onto a clean padded handling tray; mask and send to finisher with traceable batch identity. Actual finisher holding and qualified datum simulation remain commissioning obligations, not asserted by this nest pose."
 
 [[setups.ops]]
 op = 10
 do = "deburr"
 feature = "profile_outer"
-note = "Remove loose burrs and break exposed sharp edges R.010 or chamfer.010 MAX (0.254mm), except sharp no-groove hub/strap root interface. Do not stone hub length below low limit, round profile lands, enlarge rod/bore entries or thin the strap. Inspect all actual edges under appropriate magnification; held until real abrasive/edge-limit method confirmed."
+note = "Remove loose burrs and break exposed sharp edges R.010 or chamfer.010 MAX (0.254 mm), except sharp no-groove hub/strap root interface. Do not stone hub length below low limit, round profile lands, enlarge rod/bore entries or thin the strap. Inspect all actual edges under appropriate magnification; held until real abrasive/edge-limit method confirmed."
 note_cite = ["harmonic-analyzer/cad/config/title_block.yaml", "harmonic-analyzer/cad/scripts/ch_rocker_strap_notes.py:93-104"]
 
 [[setups.ops]]
@@ -1372,7 +1866,8 @@ note_cite = "harmonic-analyzer/cad/config/parts/ch-rocker-arm.yaml:ch-rocker-arm
 op = 30
 do = "inspect"
 feature = ["pivot_bore", "hub_faces", "strap_faces", "strap_datum_b", "hub_od", "rod_hole", "top_edge", "profile_outer", "tip_land_pos_x", "tip_land_neg_x", "hub_root"]
-checks = { "pivot_bore" = { "dia" = "unknown", "thru" = "unknown", "finish_ra" = "unknown", "process" = "unknown" }, "hub_faces" = { "length" = "unknown" }, "strap_faces" = { "thickness" = "unknown" }, "strap_datum_b" = { "thickness" = "unknown" }, "hub_od" = { "dia" = "unknown", "coaxiality_dia" = "unknown" }, "rod_hole" = { "at" = "unknown", "dia" = "unknown", "thru" = "unknown", "position_dia" = "unknown" }, "top_edge" = { "height_above_pivot" = "unknown", "radius" = "unknown", "surface_profile" = "unknown" }, "profile_outer" = { "bottom_radius" = "unknown", "mirror_symmetric" = "unknown", "surface_profile" = "unknown" }, "tip_land_pos_x" = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" }, "tip_land_neg_x" = { "land_angle_deg" = "unknown", "station" = "unknown", "surface_profile" = "unknown" }, "hub_root" = { "radius" = "unknown" } }
-inspection_methods = { "pivot_bore" = { "dia" = "Qualified current-band6.5024–6.5278 metrology; both ends/full bore, actual uncertainty included. Old6.500/6.530 plugs are prohibited.", "thru" = "Confirm actual unobstructed full diameter through hub.", "finish_ra" = "Qualified actual-wall Ra1.6um maximum measurement/replica method, not comparator assertion.", "process" = "Record postpress reaming tool, operation and lot." }, "hub_faces" = { "length" = "Measure directly over end annuli at multiple angles:7.0565–7.1073; preserve20-arm order and record individual lengths for separate drawing stack acceptance." }, "strap_faces" = { "thickness" = "Micrometer finished broad faces clear of hub and burrs at distributed stations:2.4638–2.5146." }, "strap_datum_b" = { "thickness" = "Confirm datum B face is actual +Z face; repeat distributed strap thickness checks and check it seats unforced. Supplemental .004in strap position to hub/G must be measured, not omitted because absent as exported requirement." }, "hub_od" = { "dia" = "Measure all upper/lower split hub OD patches at both ends/middle:9.906–10.414; retain actual measured supply-land record.", "coaxiality_dia" = "HOLD datum-A cylindrical simulator and qualified OD-axis method across BOTH hub projections. Determine actual OD axis relative to reamed A over full extent; diametral zone<=.1016. A single TIR on loose pin without fit/uncertainty budget is not evidence. Supplemental drawing HUB WALL .064 MIN=1.6256 including eccentricity must hold; evaluate measured minimum land, maximum bore and worst axis shift, not nominal wall." }, "rod_hole" = { "at" = "Establish datum A from reamed bore and B from strap face with clocking resolved by current drawing; measure actual rod axis at X133.06740213488345,Y16.456064115939025 in model. BASIC coordinates are not independent +/- tolerances.", "dia" = "Qualified actual plug pair/continuous bore measurement inside1.994–2.0956.", "thru" = "Confirm through full strap with no burr/bell mouth.", "position_dia" = "HOLD qualified A|B datum-simulated position inspection. Determine actual rod axis relative to A and B and evaluate .2032mm diametral zone (RFS). Preserve raw readings, datum construction and uncertainty. Do not reuse retired fixed-tip-C fixture: C is the rod hole in v47." }, "top_edge" = { "height_above_pivot" = "Evaluate top edge relative actual reamed A at mirror plane,8.000–8.508; keep whole top surface in the unequally disposed profile zone.", "radius" = "BASIC R800 curvature about nominal [0,816,0], governed by profile; never accept an invented standalone +/- radius tolerance.", "surface_profile" = "HOLD whole-surface current A|B|C profile measurement,0.508 U0.508, over entire bounded top edge. Qualify optical/CMM/current scanning method and datum construction; finite sample points alone are not entire-surface proof." }, "profile_outer" = { "bottom_radius" = "BASIC R816 concentric with R800; evaluate through profile, not invented radius limits.", "mirror_symmetric" = "Check both taper joins/arc ends mirrored in actual datum coordinate system, not just equal caliper overall lengths.", "surface_profile" = "HOLD qualified whole-surface current A|B|C profile inspection0.508 U0 BETWEEN J AND K, including lower arc and BOTH straight taper faces. Do not borrow one top-edge pass for separate taper faces." }, "tip_land_pos_x" = { "land_angle_deg" = "BASIC10.460060747357092deg radial land; evaluate within surface-profile control, no independent angle tolerance.", "station" = "BASIC X+146.25456773160636 end corner; actual land width5.588mm and endpoints from current model/drawing, subject to profile.", "surface_profile" = "HOLD qualified A|B|C whole-land0.508 U0 surface-profile measurement, including tip station/orientation." }, "tip_land_neg_x" = { "land_angle_deg" = "Mirror radial BASIC10.460060747357092deg; evaluate within surface-profile control.", "station" = "BASIC X-146.25456773160636 end corner; check actual5.588mm radial land and joins.", "surface_profile" = "HOLD qualified A|B|C whole-land0.508 U0 profile measurement; do not infer this side from rod side." }, "hub_root" = { "radius" = "Inspect BOTH roots through all split exported annular patches; sharp0 is allowed, no groove, no burr, MAX0.2032mm. Qualified optical/limit capability unresolved; do not apply generalR.010 edge break here." } }
-inspection_note = "On return verify matte-black appearance/coverage, no corrosion or residue, press joint intact and no trapped process solution. Clean and lightly oil as vendor specifies. Repeat ALL dimensional/geometric checks listed above on final coated state, including hub length/thickness, both bores, A|B|C profiles and root. Final release remains HOLD for unresolved capability, fixture/native geometry debt or20-arm stack result; this demonstration is not enrollment or machining approval."
+checks = { "pivot_bore" = { "dia" = "small-bore-comparator-6-10mm", "thru" = "measuring-loupe", "finish_ra" = "surface-profilometer" }, "hub_faces" = { "length" = "outside-micrometer-0-25mm" }, "strap_faces" = { "thickness" = "outside-micrometer-0-25mm" }, "strap_datum_b" = { "thickness" = "outside-micrometer-0-25mm" }, "hub_od" = { "dia" = "outside-micrometer-0-25mm", "coaxiality_dia" = "datum-scanning-cmm" }, "rod_hole" = { "at" = "datum-scanning-cmm", "dia" = "rocker-rod-limit-gauges", "thru" = "measuring-loupe", "position_dia" = "datum-scanning-cmm" }, "top_edge" = { "height_above_pivot" = "datum-scanning-cmm", "radius" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "profile_outer" = { "bottom_radius" = "datum-scanning-cmm", "mirror_symmetric" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "tip_land_pos_x" = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "tip_land_neg_x" = { "land_angle_deg" = "datum-scanning-cmm", "station" = "datum-scanning-cmm", "surface_profile" = "datum-scanning-cmm" }, "hub_root" = { "radius" = "optical-profile-projector" } }
+go_no_go = { "rod_hole" = { "dia" = { "go" = 2.0, "no_go" = 2.09 } } }
+inspection_methods = { "pivot_bore" = { "dia" = "DEMONSTRATION:6..10 mm comparator mastered near 6.515, expanded uncertainty<=0.003 mm. Read both mouths/middle in two directions after cooling; guarded 6.5024–6.5278. Old 6.500/6.530 plugs prohibited.", "thru" = "Use the illuminated measuring loupe to inspect both mouths and the unobstructed through opening; diameter is checked separately. Repeat after lower facing and coating.", "finish_ra" = "DEMONSTRATION surface profilometer: narrow-bore stylus on actual wall, or validated removable replica with replica bias included. Trace axially at multiple clockings, stated cutoff/filter and uncertainty<=0.2 um; guard-band Ra<=1.6 um. No external-wall comparator substitution." }, "hub_faces" = { "length" = "DEMONSTRATION0.001 mm micrometer over both hub end annuli at several angles after cooling; guard-band 7.0565–7.1073, aim 7.080. Record each of 20 parts in channel order and separately measure assembled stack against current drawing; no invented stack result." }, "strap_faces" = { "thickness" = "DEMONSTRATION0.001 mm micrometer at ends/middle/arm tips, unforced, clean faces: guard-band 2.4638–2.5146. Check lift separately, do not flatten a bowed part to get a reading." }, "strap_datum_b" = { "thickness" = "Repeat distributed micrometer thickness readings; confirm B is the +Z face. CMM planes on B/opposite strap and datum G determine actual strap mid-plane offset and .1016 mm total axial position zone; nominal 3.55175 is not a result." }, "hub_od" = { "dia" = "DEMONSTRATION outside micrometer across both exposed hub projections in multiple directions, 9.906–10.414; preserve press-land record.", "coaxiality_dia" = "DEMONSTRATION scanning CMM: construct datum A from complete finished bore, scan both OD projections and evaluate axis in .1016 mm diametral zone. No loose-pin TIR substitute. Evaluate minimum measured wall>=1.6256 mm including eccentricity and measurement uncertainty." }, "rod_hole" = { "at" = "DEMONSTRATION CMM/optical small-hole axis measurement relative cylindrical A and planar B; BASIC modelX133.06740213488345, Y16.456064115939025 is reference, not independent +/- limits.", "dia" = "Demonstration 2.000GO passes fully, 2.090NO-GO does not enter either mouth; qualified actual plugs including uncertainty must stay within 1.994–2.0956. Conservative subset, no enlarged band.", "thru" = "Illuminated inspection and GO passage confirm both openings, no burr or bell-mouth.", "position_dia" = "DEMONSTRATION CMM: fit actual rod axis from both mouths/wall, constrain A|B only as drawing specifies; RFS diametral position<=.2032 including uncertainty. Do not use C to inspect itself; C is this rod hole." }, "top_edge" = { "height_above_pivot" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "radius" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire bounded R800 top wall, height 8.000–8.508 above A, 0.508 U0.508 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }, "profile_outer" = { "bottom_radius" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "mirror_symmetric" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan R816 lower arc AND both straight taper faces BETWEEN J AND K, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }, "tip_land_pos_x" = { "land_angle_deg" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "station" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire positive 5.588 mm radial land at BASIC10.460060747 deg and X146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }, "tip_land_neg_x" = { "land_angle_deg" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "station" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded.", "surface_profile" = "DEMONSTRATION scanning CMM: scan entire mirrored negative 5.588 mm radial land, BASIC10.460060747 deg and X-146.25456773160636, 0.508 U0 profile; construct A|B|C from actual bore, strap plane and rod hole. Retain signed deviations and uncertainty<=0.02 mm. BASIC radius/angle/station are evaluated through profile, not invented standalone tolerances. Qualify scan pitch/probe compensation and bound unsampled form; finite points alone are not whole-surface proof. No actual scan/result recorded." }, "hub_root" = { "radius" = "DEMONSTRATION optical profile projector at calibrated magnification: inspect both roots all around via multiple orientations; sharp 0 allowed, no groove/lip/crack/burr; guarded MAX 0.2032 mm. Practical 0.01 mm resolution and silhouette access must be demonstrated, not inferred from gauge name." } }
+inspection_note = "On return verify matte-black appearance/coverage, no corrosion or residue, press joint intact and no trapped process solution. Clean and lightly oil as vendor specifies. Repeat ALL dimensional/geometric checks listed above on final coated state, including hub length/thickness, both bores, A|B|C profiles and root. Final release remains HOLD for unresolved capability, fixture/native geometry debt or 20-arm stack result; this demonstration is not enrollment or machining approval. Process record check: Written traveler records actual postpress reaming operation F1:20, selected 6.512 mm tool identity/lot, preparation and operator. The proposed route is not evidence the operation occurred."
 

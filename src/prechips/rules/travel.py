@@ -4,9 +4,9 @@ Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
 conservative stock spans without inventing where that stock sits in the frame; such a
 span is only a lower bound (the cutter's approach and exit past the stock are undeclared
 plan input), never a pass. An op whose cutter-centre XY the traveler prints
-(``coordinates.printed_xy``: arc rows, join lines, linear-table outlines and face raster
-passes) is that printed path, approach and exit included, instead of its declared extent
-(#297). Each X/Y axis names its basis: the path, the declared extent or the stock span.
+(``coordinates.printed_xy``: arc rows, join lines, linear-table outlines, face raster
+passes and explicit manual ball rasters) is that printed path, approach and exit included,
+instead of its declared extent (#297). Each X/Y axis names its basis.
 An authored ``stock_removal_bounds`` scopes material rather than cutter motion: its
 presence, even unknown, forbids substitution of the finished feature or stock span.
 Without a printed path, its setup-frame limits remain evidence only and XY stays unknown.
@@ -36,6 +36,7 @@ from prechips.rules._envelope import (
 from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by, printed_xy
 from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -203,6 +204,7 @@ def evaluate(bundle):
             if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"
+            manual_raster = record(op.get("contour")).get("method") == MANUAL_RASTER
             name = op.get("feature", UNKNOWN)
             feature = record(features.get(name))
             source_name = feature.get("frame", "model")
@@ -254,8 +256,8 @@ def evaluate(bundle):
                     "before determining its cutter-centre path; measure the corresponding "
                     "extents and commanded targets with a CMM or machine readout in mm"
                 )
-            path_known = action_known and manifest_mm
-            if not manifest_mm:
+            path_known = action_known and (manual_raster or manifest_mm)
+            if not manifest_mm and not manual_raster:
                 for axis in AXES:
                     complete[axis] = False
                 missing.append(
@@ -290,7 +292,7 @@ def evaluate(bundle):
             )
             radius = diameter["value"] / 2 if _known(diameter["value"]) else UNKNOWN
             radius_known = diameter["verified"] and _known(radius) and radius > 0
-            fallback = broad and not removal_scoped and not isinstance(extent, dict)
+            fallback = broad and not manual_raster and not removal_scoped and not isinstance(extent, dict)
             if fallback and invalid_stock:
                 errors.append(
                     f"op {op['op']} conservative stock requires positive plan.stock."
@@ -357,7 +359,21 @@ def evaluate(bundle):
                 if not (cutter["verified"] and path_known):
                     complete["x"] = complete["y"] = False
                     op_xy_complete = False
-            for axis in () if fixture_driven or path else ("x", "y"):
+            elif manual_raster:
+                # An invalid/missing authored trajectory cannot become a feature-box
+                # or stock-span route. The normalizer withholds the entire path.
+                xy = {"x": UNKNOWN, "y": UNKNOWN}
+                complete["x"] = complete["y"] = False
+                op_xy_complete = False
+                missing.append(
+                    f"Author {label}.contour.raster as a complete setup-mm XYZ trajectory "
+                    "with explicit cut and clear moves; no feature or stock box substitutes "
+                    "for its cutter-centre motion"
+                )
+                authoring_entry(
+                    debts, f"{label}.xy_geometry", missing[-1], f"{label}.contour.raster"
+                )
+            for axis in () if fixture_driven or path or manual_raster else ("x", "y"):
                 band = record(extent).get(axis)
                 # A material-removal box is neither a cutter-centre path nor a lower
                 # bound on its stroke: it can extend past stock, and the cutter can
@@ -396,7 +412,7 @@ def evaluate(bundle):
                     op_xy_complete = False
             if fallback:
                 cite.extend(stock_cite)
-            if removal_scoped and not (fixture_driven or path):
+            if removal_scoped and not (fixture_driven or path or manual_raster):
                 missing.append(
                     (
                         f"Measure and author {label}.stock_removal_bounds as the actual full "
@@ -415,7 +431,7 @@ def evaluate(bundle):
                     missing[-1],
                     f"{label}.stock_removal_bounds; {label}.contour",
                 )
-            if not op_xy_complete and not removal_scoped:
+            if not op_xy_complete and not removal_scoped and not manual_raster:
                 geometry_pending = (
                     fallback
                     and path_known

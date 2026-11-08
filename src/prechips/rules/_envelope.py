@@ -8,6 +8,7 @@ from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules import tip_endpoints
 from prechips.rules._support_stack import bearing_layers, support_height
 from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
+from prechips.rules.manual_raster import METHOD as MANUAL_RASTER, normalize as normalize_manual_raster
 from prechips.rules.resolution import (
     EXPORTED_FRAMES,
     UNKNOWN,
@@ -461,6 +462,15 @@ def _z_extent(
 ):
     """Bound the commanded tip, touched top and explicitly authored safe approach.
     ``selected_tool`` is the op tool's :func:`selected_item`."""
+    if record(op.get("contour")).get("method") == MANUAL_RASTER:
+        trajectory = normalize_manual_raster(record(op["contour"]).get("raster"))
+        if "reason" in trajectory:
+            missing.append(f"Author {label}.contour.raster: {trajectory['reason']}")
+            return UNKNOWN, False
+        # These are already setup-mm tip coordinates, including every authored clear
+        # move. Neither a feature box nor stock top/approach adds commanded motion.
+        heights = [trajectory["start_mm"][2], *(move["to_mm"][2] for move in trajectory["moves"])]
+        return [min(heights), max(heights)], True
     tool_category, tool_ref, tool = selected_tool
     values = []
     complete = True
@@ -612,10 +622,11 @@ def spindle_nose_band(bundle, op, before, extent, endpoint, debts, cite, missing
     if len(missing) > missing_start:
         authoring_entry(debts, f"{label}.z_geometry", "; ".join(missing[missing_start:]), label)
     action = op.get("do")
+    manual_raster = record(op.get("contour")).get("method") == MANUAL_RASTER
     complete &= (
         isinstance(action, str)
         and action not in {UNKNOWN, ""}
-        and bundle.features.get("units") == "mm"
+        and (manual_raster or bundle.features.get("units") == "mm")
         and not unresolved
     )
     if not complete and not unresolved and len(missing) == missing_start:
@@ -625,13 +636,16 @@ def spindle_nose_band(bundle, op, before, extent, endpoint, debts, cite, missing
             f"Author {label}.do and setup-datum Z geometry with features.units = mm",
             label,
         )
-    cite.extend(
-        [
-            f"{label}.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-            f"{label}: stock_states current top and local entry; hole tip/exit endpoints",
-            "plan.setups.stock_state.top_z/entry_z/local_thickness",
-        ]
-    )
+    if manual_raster:
+        cite.append(f"{label}.contour.raster: exact setup-mm tip trajectory, including clear moves")
+    else:
+        cite.extend(
+            [
+                f"{label}.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+                f"{label}: stock_states current top and local entry; hole tip/exit endpoints",
+                "plan.setups.stock_state.top_z/entry_z/local_thickness",
+            ]
+        )
     dimensions = (gauge["value"], projection["value"])
     length = sum(dimensions) if all(_known(value) for value in dimensions) else UNKNOWN
     measured = gauge["verified"] and projection["verified"] and _known(length)

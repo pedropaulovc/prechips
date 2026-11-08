@@ -2565,8 +2565,15 @@ class _Diagram:
         paths = self.spec.get("paths", [])
         waypoints = [p for p in self.spec.get("waypoints", []) if "xy" in p]
         ops = list(dict.fromkeys(str(p.get("op", "")) for p in paths + waypoints))
-        _text(c, left, top, "PROFILE SKETCH / XY", scale=_TITLE_SCALE)
-        caption = _wrap(c, f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm", right - left)
+        manual = self.spec.get("manual_raster_sketch")
+        title = "AUTHORED TOOL-TIP / ISOMETRIC" if manual else "PROFILE SKETCH / XY"
+        _text(c, left, top, title, scale=_TITLE_SCALE)
+        caption = _wrap(
+            c,
+            f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm"
+            + (f" / SAFE Z {manual['safe_z_mm']}" if manual else ""),
+            right - left,
+        )
         for index, line in enumerate(caption):
             _text(
                 c,
@@ -2577,7 +2584,7 @@ class _Diagram:
                 align="right",
             )
         before = self.arrows_drawn
-        legend = _LEADING if _lifted_returns(paths) else 0
+        legend = _LEADING if manual or _lifted_returns(paths) else 0
         self._operation_panels(
             left,
             right,
@@ -2589,7 +2596,11 @@ class _Diagram:
         )
         if self.inset_overflow > 0 or self.width_overflow > 0:
             return
-        self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
+        if manual:
+            _text(c, left, bottom - _TEXT_HEIGHT - _LEADING, "SOLID: CUT / DASHED: CLEAR")
+            _text(c, left, bottom - _TEXT_HEIGHT, "M: AUTHORED MOVE END / Z: TOOL-TIP HEIGHT")
+        else:
+            self._sketch_legend(left, bottom - _TEXT_HEIGHT, before)
         if self.nominal:
             _text(
                 c,
@@ -2610,7 +2621,8 @@ class _Diagram:
         factor = (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM)
         lines = 0
         if (
-            0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
+            not self.spec.get("manual_raster_sketch")
+            and 0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
             and span_x * factor >= _SKETCH_Y_EXAG_MIN_WIDTH_PX
         ):
             lines = len(_wrap(self.canvas, f"Y EXAG x{_SKETCH_Y_EXAG_MAX}", width - 16))
@@ -2727,6 +2739,12 @@ class _Diagram:
                 if path.get("hidden") is True:
                     # Only its ends are keyed (``ends``): where the cut meets the outline.
                     continue
+                if path.get("manual_mode") == "clear":
+                    _dashed(c, [path["xy"]], project, _MUTED)
+                    self._ordered_path(
+                        [project(p) for p in path["xy"]], _MUTED, arrows=True, line=False
+                    )
+                    continue
                 if path.get("dashed") is True:
                     # A line the cut follows, not a travelled path: dashed, no arrows.
                     _dashed(c, [path["xy"]], project, colour)
@@ -2746,7 +2764,8 @@ class _Diagram:
                     colour,
                     # A line bounding a shaded waste is the one heavier line.
                     width=3 if "waste_xy" in path else 2,
-                    arrows=directed and (only or path_index in direction_keys),
+                    arrows=directed
+                    and (only or "manual_mode" in path or path_index in direction_keys),
                     clip=inside,
                     line=not only,
                 )
@@ -3378,6 +3397,8 @@ class _AnnotationDetail(_Diagram):
         self.canvas.scale = main_scale
 
     def _title(self):
+        if self.spec.get("manual_raster_sketch"):
+            return "AUTHORED TOOL-TIP / ISOMETRIC"
         return "JAW-END PROFILE" if self.role == "profile_detail" else "PROFILE SKETCH / XY"
 
     def render(self):
@@ -3426,6 +3447,53 @@ def _annotation_detail(spec, role, main_scale, height, colours=None):
     return None
 
 
+def _manual_raster_sketch(spec, raster):
+    """Project the exact authored XYZ polyline, separately from all source/placed solids.
+
+    Every segment and endpoint survives, including coincident XY at different heights.
+    No raster-band compression, synthetic return, contour offset or swept area applies.
+    """
+    camera = _CAMERAS["isometric"]
+
+    def project(point):
+        return [sum(a * b for a, b in zip(point, axis)) for axis in camera[:2]]
+
+    op = str(raster["op"])
+    previous = raster["start_mm"]
+    paths = []
+    waypoints = [
+        {"op": op, "xy": project(previous), "label": f"M0 START Z{previous[2]}", "plain": True}
+    ]
+    for index, move in enumerate(raster["moves"], 1):
+        point = move["to_mm"]
+        paths.append(
+            {
+                "op": op,
+                "xy": [project(previous), project(point)],
+                "directed": True,
+                "manual_mode": move["mode"],
+            }
+        )
+        waypoints.append(
+            {
+                "op": op,
+                "xy": project(point),
+                "label": f"M{index} {move['mode'].upper()} Z{point[2]}",
+                "plain": True,
+            }
+        )
+        previous = point
+    return {
+        **spec,
+        "manual_raster_sketch": raster,
+        "paths": paths,
+        "waypoints": waypoints,
+        "nominal_outline_mm": [],
+        "nominal_render_outline_mm": [],
+        "stock_box": None,
+    }
+
+
 def _annotation_details(spec, main_scale):
     details = []
     if spec["view"] == "lathe" and (
@@ -3460,6 +3528,12 @@ def _annotation_details(spec, main_scale):
             raise ValueError(
                 "one complete authored operation exceeds its printable band at body size"
             )
+        details.append(detail)
+    for raster in spec.get("manual_rasters", []):
+        local = _manual_raster_sketch(spec, raster)
+        detail = _annotation_detail(local, "path_detail", main_scale, 980)
+        if detail is None:
+            raise ValueError("complete authored manual raster exceeds its printable band")
         details.append(detail)
     return details
 

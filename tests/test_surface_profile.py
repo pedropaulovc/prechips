@@ -416,17 +416,37 @@ def inspection_finding(loaded, subject):
     return next(row for row in inspection.evaluate(loaded) if row.subject == subject)
 
 
-def test_inspection_reads_a_governed_radius_against_its_derived_band(tmp_path):
+def add_profile_checkpoints(loaded):
+    """Author real geometric checks when testing unresolved dependent geometry."""
+    setup = loaded.plan["setups"][-1]
+    for name, feature in loaded.feature_definitions.items():
+        if "surface_profile" in feature.get("requirements", []):
+            setup["ops"].append(
+                {
+                    "op": max(op["op"] for op in setup["ops"]) + 10,
+                    "do": "inspect",
+                    "feature": name,
+                    "checks": {"surface_profile": "gauge"},
+                    "inspection_methods": {"surface_profile": METHOD.strip('"')},
+                }
+            )
+    loaded.inventory["gauges"]["gauge"]["kind"] = "cmm"
+    return loaded
+
+
+def test_inspection_of_a_governed_radius_needs_its_actual_profile_checkpoint(tmp_path):
     loaded = bundle(tmp_path, {"top_edge": TOP_EDGE})
     row = inspection_finding(loaded, "top_edge:radius")
     assert row.numbers["limits"] == pytest.approx([799.5, 800.0])
-    assert row.numbers["band_mm"] == pytest.approx(0.5)
-    assert row.status == "pass", row.sentence
+    assert row.numbers["acceptance_basis"] == "governing_surface_profile"
+    assert row.numbers["basic_value"] == 800.0
+    assert row.status == "error", row.sentence
 
 
 def test_inspection_of_an_unresolved_governed_radius_stays_unknown(tmp_path):
     top_edge = TOP_EDGE.replace("surface_profile_u = 0.5", 'surface_profile_u = "unknown"')
-    row = inspection_finding(bundle(tmp_path, {"top_edge": top_edge}), "top_edge:radius")
+    loaded = add_profile_checkpoints(bundle(tmp_path, {"top_edge": top_edge}))
+    row = inspection_finding(loaded, "top_edge:radius")
     assert row.status == "unknown"
     assert row.numbers["limits"] == "unknown"
     assert "disposition" in row.numbers["profile_band"]
@@ -453,7 +473,7 @@ def test_a_process_hold_on_a_governed_radius_lies_inside_its_derived_band(tmp_pa
         ("hole", "decreases", "micrometer", [19.6, 20.0], "error"),
     ],
 )
-def test_inspection_reads_a_governed_nominal_diameter_against_its_derived_band(
+def test_a_process_hold_on_a_governed_nominal_diameter_keeps_real_gauge_capability(
     tmp_path, kind, sense, gauge, limits, status
 ):
     cylinder = (
@@ -462,12 +482,24 @@ def test_inspection_reads_a_governed_nominal_diameter_against_its_derived_band(
         'surface_profile_datums = ["A"]\n'
         f'surface_profile_governs = {{ nominal_dia = "{sense}" }}\n'
     )
-    loaded = bundle(
-        tmp_path, {"cylinder": cylinder}, subject="cylinder", requirement="nominal_dia", gauge=gauge
+    hold = (
+        'process_holds = [{ feature = "cylinder", requirement = "nominal_dia", '
+        f'band = {json.dumps(limits)}, gauge = "gauge", reason = "diameter process control" }}]\n'
     )
-    row = inspection_finding(loaded, "cylinder:nominal_dia")
-    assert row.numbers["limits"] == pytest.approx(limits)
-    assert row.status == status, row.sentence
+    loaded = bundle(
+        tmp_path,
+        {"cylinder": cylinder},
+        subject="cylinder",
+        requirement="nominal_dia",
+        gauge=gauge,
+        holds=hold,
+    )
+    (row,) = inspection.process_holds(
+        loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
+    ).numbers["process_holds"]
+    assert row["drawing_band"] == pytest.approx(limits)
+    assert row["inside_drawing_band"] is True
+    assert row["gauge_status"] == status, row["gauge_message"]
 
 
 TILT = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
@@ -483,32 +515,45 @@ TILT = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
         ("0.004", 0.008, "error"),
     ],
 )
-def test_a_tilt_across_angle_is_inspected_as_the_linear_zone_across_its_length(
+def test_a_process_hold_on_a_tilt_keeps_linear_zone_resolution_checks(
     tmp_path, zone, band_mm, status
 ):
     features = {"tip": TIP_LAND, "zone": profile(TILT, zone=zone, u=None)}
-    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
-    row = inspection_finding(loaded, "tip:land_angle_deg")
     tilt = math.degrees(math.asin(float(zone) / 5.08))
-    assert row.numbers["limits"] == pytest.approx([10.46 - tilt, 10.46 + tilt])
-    assert row.numbers["tilt_across_length"] == 5.08
-    assert row.numbers["band_mm"] == pytest.approx(band_mm)
-    assert row.status == status, row.sentence
+    limits = [10.46 - tilt, 10.46 + tilt]
+    hold = (
+        'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
+        f'band = {json.dumps(limits)}, gauge = "gauge", reason = "tilt process control" }}]\n'
+    )
+    loaded = bundle(
+        tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold
+    )
+    (row,) = inspection.process_holds(
+        loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
+    ).numbers["process_holds"]
+    assert row["drawing_band"] == pytest.approx(limits)
+    assert row["tilt_across_length"] == 5.08
+    assert row["band_mm"] == pytest.approx(band_mm)
+    assert row["gauge_status"] == status, row["gauge_message"]
 
 
-def test_the_tilts_linear_zone_is_judged_on_resolution_never_on_the_gauge_span(tmp_path):
-    # harmonic-analyzer's outline template is cut to radii 8-817: it spans no size near the
-    # 0-1.0 mm deviation, which it still reads end to end against its edge.
+def test_a_tilt_process_hold_uses_resolution_never_the_gauge_span(tmp_path):
+    # The template spans radii 8-817, not the small deviation read against its edge.
     features = {"tip": TIP_LAND, "zone": profile(TILT)}
-    path = write_bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
-    inventory = tmp_path / "inventory.toml"
-    text = inventory.read_text(encoding="utf-8")
-    assert "range_mm = [0.0, 1000.0]" in text
-    inventory.write_text(text.replace("[0.0, 1000.0]", "[8.0, 817.0]"), encoding="utf-8")
-    row = inspection_finding(load_bundle(path), "tip:land_angle_deg")
-    assert row.numbers["range_mm"] == [8.0, 817.0]
-    assert row.numbers["band_mm"] == pytest.approx(1.0)
-    assert row.status == "pass", row.sentence
+    hold = (
+        'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
+        'band = [10.0, 11.0], gauge = "gauge", reason = "land square fit" }]\n'
+    )
+    loaded = bundle(
+        tmp_path, features, subject="tip", requirement="land_angle_deg", holds=hold
+    )
+    loaded.inventory["gauges"]["gauge"]["range_mm"] = [8.0, 817.0]
+    (row,) = inspection.process_holds(
+        loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
+    ).numbers["process_holds"]
+    across = 5.08 * (math.sin(math.radians(0.54)) - math.sin(math.radians(-0.46)))
+    assert row["band_mm"] == pytest.approx(across)
+    assert row["gauge_status"] == "pass", row["gauge_message"]
 
 
 def test_a_process_hold_on_a_tilt_across_angle_reads_its_linear_zone(tmp_path):
@@ -542,14 +587,15 @@ def test_an_angle_band_with_no_tilt_length_has_no_angular_gauge_capability(tmp_p
     assert "band_mm" not in row.numbers
 
 
-def test_profiles_tilting_one_angle_across_different_lengths_leave_it_unknown(tmp_path):
+def test_profiles_tilting_one_angle_across_different_lengths_leave_its_reading_unknown(tmp_path):
+    from prechips.rules._profile import tilt_length
+
     crown = profile('{ "tip:land_angle_deg" = { tilt_across = 6.0 } }', zone="0.6")
     features = {"tip": TIP_LAND, "zone": profile(TILT), "crown": crown}
     loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
-    row = inspection_finding(loaded, "tip:land_angle_deg")
-    assert row.status == "unknown"
-    assert row.numbers["tilt_across_length"] == "unknown"
-    assert "different lengths" in row.numbers["tilt_across_reason"]
+    length, reason = tilt_length(loaded, "tip", "land_angle_deg")
+    assert length is None
+    assert "different lengths" in reason
 
 
 def drawn_tip(across, band="[89.0, 91.0]"):
@@ -723,9 +769,16 @@ def test_a_tilt_extent_band_with_an_unknown_limit_loads_and_stays_unknown(tmp_pa
     governs = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
     features = {"tip": tip, "zone": profile(governs)} if form == "profile" else {"tip": tip}
     loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
+    if form == "profile":
+        loaded = add_profile_checkpoints(loaded)
     row = inspection_finding(loaded, "tip:land_angle_deg")
     assert row.status == "unknown", row.sentence
-    assert row.numbers["tilt_across_length"] == "unknown"
+    if form == "profile":
+        from prechips.rules._profile import tilt_length
+
+        assert tilt_length(loaded, "tip", "land_angle_deg")[0] is None
+    else:
+        assert row.numbers["tilt_across_length"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -805,6 +858,7 @@ def test_a_profile_datum_naming_no_manifest_feature_leaves_its_bands_unknown(tmp
     from prechips.rules._profile import requirement_band
 
     loaded = load_bundle(rewrite_manifest(write_bundle(tmp_path, {"top_edge": TOP_EDGE}), edits))
+    add_profile_checkpoints(loaded)
     derived, reason = requirement_band(loaded, "top_edge", "radius")
     assert derived is None
     assert "the datum reference frame is unknown" in reason

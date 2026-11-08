@@ -53,7 +53,7 @@ def bounded_turn(tmp_path, freecad_kernel, boss_journal):
         job = engine.job(
             boss_journal,
             {"journal": journal},
-            [_lathe([_turn("S1:10", "journal", **window)])],
+            [_lathe([_turn("S1:10", "journal", **({"do": "rough_turn"} | window))])],
         )
         result = engine.run(job)
         assert result["status"] != "error", result.get("reason")
@@ -70,6 +70,7 @@ def test_window_excludes_remote_boss_without_losing_narrow_profile_samples(bound
     assert facts["min_hits"]["tool"] == facts["min_hits"]["holder"] == 0
     assert facts["holder_wall_hits"] == 0
     assert facts["reach_depth_mm"] == pytest.approx(0.0, abs=1e-3)
+    assert facts["reach_depth_basis"] == "entry_stock_radial_upper_bound"
     assert facts["sample_count"] > 0  # even a window narrower than the 1 mm grid
     assert facts["nose_z_mm"][0] >= min(ends) - 1.0
     assert facts["nose_z_mm"][1] <= max(ends) + 1.0
@@ -81,6 +82,7 @@ def test_no_window_still_checks_the_whole_claimed_journal(bounded_turn):
     assert facts["min_hits"]["tool"] > 0
     assert facts["min_hits"]["holder"] > 0
     assert facts["nose_z_mm"][1] >= 60.0
+    assert "reach_depth_basis" not in facts
 
 
 def test_in_window_boss_holder_collision_is_not_clipped(bounded_turn):
@@ -114,7 +116,9 @@ def test_remote_lateral_boss_does_not_become_buried_depth_for_a_bounded_cut(
     def run(**window):
         return engine.run(
             engine.job(
-                step, {"journal": journal}, [_lathe([_turn("S1:10", "journal", **window)])]
+                step,
+                {"journal": journal},
+                [_lathe([_turn("S1:10", "journal", **({"do": "rough_turn"} | window))])],
             )
         )["ops"]["S1:10"]
 
@@ -126,7 +130,16 @@ def test_remote_lateral_boss_does_not_become_buried_depth_for_a_bounded_cut(
     at_boss = run(z_from=55.0, z_to=54.0)
     assert bounded["reach_depth_mm"] == pytest.approx(0.0, abs=1e-3)
     assert bounded["min_hits"]["tool"] == bounded["min_hits"]["holder"] == 0
+    assert bounded["reach_depth_basis"] == "entry_stock_radial_upper_bound"
+    assert at_boss["reach_depth_basis"] == "entry_stock_radial_upper_bound"
+    assert "reach_depth_basis" not in whole
     for facts in (whole, at_boss):
         assert facts["reach_depth_mm"] > 20.0
         assert facts["min_hits"]["tool"] > 0
         assert facts["min_hits"]["holder"] > 0
+
+
+def test_standalone_bounded_finish_keeps_direct_depth_basis(bounded_turn):
+    facts = bounded_turn(z_from=10.0, z_to=0.0, do="finish_turn")
+    assert facts["sample_count"] > 0
+    assert "reach_depth_basis" not in facts

@@ -6,6 +6,7 @@ part-off and perturb its end face or operation independently of the current CAD 
 """
 
 import pytest
+
 # The retired d9425786 route isolates process-end-face parting semantics, not current CAD.
 # The final applicability test deliberately uses the current examples instead.
 from historical_examples import copy_historical_examples as copy_examples

@@ -261,10 +261,111 @@ def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=No
     return errors, unknown, proof
 
 
+def _bore_continuation(bundle, setup, op, target, other, cut):
+    """A real branch bore may prepare a coaxial finished ream, never an alias.
+
+    Only an explicit cylindrical joint bore is eligible. Its actual full-diameter
+    drill stroke must cover the entire finished bore, with radial stock left for
+    reaming, and both feature identities must survive on the incoming material.
+    Opposite axis conventions and trimmed entry faces do not change that volume.
+    """
+    if op.get("do") != "ream" or cut.get("do") != "drill":
+        return False
+    source = op_feature(cut)
+    definition = record(bundle.feature_definitions.get(source))
+    if record(definition.get("joint")).get("kind") != "cylinder_bore":
+        return False
+    feature = record(bundle.feature_definitions.get(target))
+    if feature.get("kind") != "hole":
+        return False
+    source_at, source_axis = _geometry(bundle, source)
+    target_at, target_axis = _geometry(bundle, target)
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if any(value is None for value in (source_at, source_axis, target_at, target_axis, scale)):
+        return None
+    dot = sum(a * b for a, b in zip(source_axis, target_axis, strict=True))
+    if abs(dot) < 1 - 1e-9:
+        return False
+    delta = [(a - b) * scale for a, b in zip(target_at, source_at, strict=True)]
+    start = sum(a * b for a, b in zip(delta, source_axis, strict=True))
+    if any(abs(a - start * b) > 1e-6 for a, b in zip(delta, source_axis, strict=True)):
+        return False
+    from .tip_endpoints import hole_depth_mm, stock_states
+
+    depth = hole_depth_mm(cut, definition, bundle.features.get("units"))
+    target_depth = feature.get("depth")
+    if not number(target_depth) and feature.get("thru") is True:
+        from .coordinates import frame_point, model_point
+
+        thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(target)
+        before = next(
+            (state for current, state, _ in stock_states(bundle, setup) if current is op), {}
+        )
+        entry = record(before.get("entry_z")).get(target, before.get("top_z"))
+        frame = setup_frame(bundle, setup)
+        local = frame_point(target_at, frame)
+        if number(thickness) and thickness > 0 and number(entry) and all(map(number, local)):
+            first = model_point([local[0], local[1], entry], frame)
+            last = model_point([local[0], local[1], entry - thickness], frame)
+            if all(map(number, first + last)):
+                ends = [
+                    sum(
+                        (p - a) * scale * d
+                        for p, a, d in zip(point, source_at, source_axis, strict=True)
+                    )
+                    for point in (first, last)
+                ]
+                if any(
+                    abs((p - a) * scale - along * d) > 1e-6
+                    for point, along in zip((first, last), ends, strict=True)
+                    for p, a, d in zip(point, source_at, source_axis, strict=True)
+                ):
+                    return False
+                start, end = ends
+                target_depth = abs(end - start) / scale
+                dot = 1 if end >= start else -1
+    band = feature.get("dia")
+    tool = record(resolve(bundle, "tools", cut.get("tool")))
+    diameter = length_mm(tool, "dia")
+    if (
+        not number(depth)
+        or not number(target_depth)
+        or not isinstance(band, list)
+        or len(band) != 2
+        or not all(map(number, band))
+        or not number(diameter)
+        or uncertain(tool)
+    ):
+        return None
+    end = start + dot * target_depth * scale
+    if (
+        depth <= 0
+        or target_depth <= 0
+        or min(start, end) < -1e-6
+        or max(start, end) > depth + 1e-6
+        or diameter <= 0
+        or diameter >= min(band) * scale - 1e-6
+    ):
+        return False
+    survival = [
+        _material(bundle, setup, other, name, op=op, producer_op=cut) for name in (source, target)
+    ]
+    return False if False in survival else None if None in survival else True
+
+
 def _earlier(bundle, setup, op, target, action, route, positions):
     """Last material-compatible causal producer, with an uncertain producer kept uncertain."""
     for other, cut in reversed(route[: positions[id(op)]]):
-        if op_feature(cut) not in (target, UNKNOWN) or cut.get("do") not in {action, UNKNOWN}:
+        if cut.get("do") not in {action, UNKNOWN}:
+            continue
+        if op_feature(cut) not in (target, UNKNOWN):
+            material = (
+                _bore_continuation(bundle, setup, op, target, other, cut)
+                if action == "drill"
+                else False
+            )
+            if material is not False:
+                return other, cut, material
             continue
         material = _material(bundle, setup, other, target, op=op, producer_op=cut)
         if material is not False:
@@ -459,7 +560,17 @@ def evaluate(bundle):
             parent_route = operations(bundle, parent)
             parent_actions = [op["do"] for _, op in parent_route]
             drills = [(s, o) for s, o in parent_route if o["do"] == "drill"]
+            continuations = []
             if not drills:
+                for setup, op in route:
+                    if op.get("do") != "ream":
+                        continue
+                    other, cut, material = _earlier(
+                        bundle, setup, op, parent, "drill", all_ops, positions
+                    )
+                    if material is not False:
+                        continuations.append((other, cut, material, setup, op))
+            if not drills and not continuations:
                 (unknown if UNKNOWN in parent_actions else errors).append("no drill operation")
             witnesses, prepared = [], {}
             for setup, op in drills:
@@ -471,7 +582,46 @@ def evaluate(bundle):
                 unknown.extend(debt)
                 if proof is not None:
                     witnesses.append(proof)
-            if not drills and not any(o["do"] == "spot" for _, o in parent_route):
+            for other, cut, material, setup, op in continuations:
+                source_name = op_feature(cut)
+                source_prepared = {}
+                for source_setup, source_cut in operations(bundle, source_name):
+                    if source_cut.get("do") != "drill":
+                        continue
+                    source_prepared[id(source_cut)] = _drill_preparation(
+                        bundle,
+                        source_setup,
+                        source_cut,
+                        source_name,
+                        all_ops,
+                        positions,
+                        source_prepared,
+                    )
+                    if source_cut is cut:
+                        break
+                bad, debt, start_preparation, proof = source_prepared[id(cut)]
+                errors.extend(bad)
+                unknown.extend(debt)
+                if material is None:
+                    unknown.append(f"{_label(setup, op)} coaxial bore preparation is unresolved")
+                witnesses.append(
+                    {
+                        "operation": _label(setup, op),
+                        "drill": _label(other, cut),
+                        "start_preparation": (
+                            _label(*start_preparation) if start_preparation is not None else UNKNOWN
+                        ),
+                        "source_feature": source_name,
+                        "target_feature": parent,
+                        "coaxial_full_depth": material,
+                        **({"spot_preparation": proof} if proof is not None else {}),
+                    }
+                )
+            if (
+                not drills
+                and not continuations
+                and not any(o["do"] == "spot" for _, o in parent_route)
+            ):
                 (unknown if UNKNOWN in parent_actions else errors).append("no spot operation")
             if feature.get("process") == "ream" and "ream" not in actions:
                 (unknown if UNKNOWN in actions else errors).append("required ream operation absent")

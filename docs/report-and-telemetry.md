@@ -40,6 +40,7 @@ On this page:
 | `verification` | `"checked"` when `expected_exit` is 0; `"planned"` otherwise. |
 | `hash` | The canonical report digest described below. |
 | `renders` | Present only when the kernel returned a setup render. |
+| `manufacturing_shape` | Present only for a nonempty plan `axis_placements` declaration; binds the requested manufacturing variant and its native proof to the source STEP. See below. |
 
 Each finding has `rule`, `subject`, `status`, `numbers`, `cite` and `message`.
 The serialized field is `message`, not `sentence`; there is no separate severity
@@ -73,6 +74,36 @@ op-named picture cuts, and one-fact consistency across tables and pictures.
 Changing the operative catalogue changes the bound report and invalidates prior
 approvals. Reports from earlier catalogues, including `m5-rev10` and `m5-rev11`,
 need regeneration and approval against the current report before reuse.
+
+### Shared-axis manufacturing shape
+
+For a nonempty plan `axis_placements` declaration, `manufacturing_shape` records
+`source_step_sha256` (the exact manifest STEP digest) and
+`requested_axis_placements` (the complete resolved placement specifications).
+It does not replace the source `step_sha256` or any input record.
+
+Its `status` is `pass` only when the native kernel succeeded, every requested
+placement has matching `pass` evidence under the same guard used by coordinate
+publication, and the evidence count equals the request count. The native
+`process_shape.source_step_sha256` must match the manifest digest, and its
+`sha256` must be a valid 64-hex digest equal to the kernel's
+`process_shape_sha256`. Complete native proof/provenance and a shape summary are
+also required. A passing section contains `process_shape_sha256`, the complete
+native `axis_placements` facts (including exact request, proof quantities,
+source and provenance), `bbox_mm`, `volume_mm3` and `face_count`.
+
+Missing, stale, mismatched or incomplete evidence produces `unknown`; native
+kernel `status = "error"` produces `error`. Both failure forms retain the source
+digest and full requested specifications with a nonempty `reason`, but publish
+no process digest or native proof. With no placement declaration, or an empty
+one, the section is absent even if kernel facts are present.
+
+The projection copies these facts without diagnostic rounding. Their exact
+values enter canonical report bytes, so changing a proof quantity changes the
+report hash and stales approval. The full process BREP and process face records
+are not serialized; the summary includes only their face count. This is a
+reporting contract for native construction evidence, not independent shop
+measurement or first-article acceptance.
 
 ### Canonical bytes and input binding
 

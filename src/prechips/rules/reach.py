@@ -194,6 +194,11 @@ def evaluate(bundle):
             "projection_mm": inputs.get("projection_mm", "unknown"),
             "holder_wall_hits": hits,
         }
+        radial_bound = turning and detail.get("reach_depth_basis") == (
+            "entry_stock_radial_upper_bound"
+        )
+        if "reach_depth_basis" in detail:
+            values["reach_depth_basis"] = detail["reach_depth_basis"]
         if "reach_top_z_mm" in detail:
             # The Z of the highest retained stock the reach is measured from.
             values["reach_top_z_mm"] = detail["reach_top_z_mm"]
@@ -223,8 +228,18 @@ def evaluate(bundle):
         )
         if number(depth) and depth >= 0:
             within = depth <= flute or same_length(depth, flute)
-            if number(oal) and depth > oal and not same_length(depth, oal):
-                status, message = "error", "entry-to-floor depth exceeds the selected tool OAL"
+            if radial_bound and number(hits) and hits > 0:
+                status, message = "error", "the sampled turning holder intersects remaining walls"
+            elif number(oal) and depth > oal and not same_length(depth, oal):
+                if radial_bound:
+                    status, message = (
+                        "unknown",
+                        "setup-entry radial reduction exceeds the selected tool OAL; "
+                        "instantaneous turning reach is unresolved because roughing "
+                        "progression is not modeled",
+                    )
+                else:
+                    status, message = "error", "entry-to-floor depth exceeds the selected tool OAL"
             elif number(shank) and shank > 0:
                 status, message = (
                     "error",

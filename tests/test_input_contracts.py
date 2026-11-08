@@ -237,6 +237,5 @@ def test_current_shaft_overall_length_is_inspected_on_south_dome(tmp_path):
     assert any(
         op.get("checks", {}).get("south_dome", {}).get("length") == "height-gauge"
         for op in operations
-        if isinstance(op.get("checks"), dict)
-        and isinstance(op["checks"].get("south_dome"), dict)
+        if isinstance(op.get("checks"), dict) and isinstance(op["checks"].get("south_dome"), dict)
     )
