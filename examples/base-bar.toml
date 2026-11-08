@@ -47,12 +47,12 @@ description = "Deburrer; HGR15 rail, eight #8-32 × 3/4 screws, one × 5/8; 1/2-
 [[setups]]
 title = "Saw / rail check"
 machine = "Saw / bench"
-holding = "Support stock/offcut."
+holding = "Two blanks, 17 7/16 in."
 datum = "Rail end flush with ZERO END: holes 15/75/135/195/255/315/375/435 mm, ±.08 mm. Stop on mismatch."
 
 [[setups.operations]]
 tool = "saw"
-instruction = "Saw blanks; file burrs; measure stock allowances."
+instruction = "Saw two blanks."
 feed = "hand"
 
 [[setups]]
@@ -63,38 +63,38 @@ datum = "Indicate extruded far edge within .002 end-to-end; near cut becomes ZER
 
 [[setups.operations]]
 tool = "em-half"
-instruction = "Lock head; short stickout, mark creep; oil. Cutter .04–.08 below underside. Conventional +X cleanup, .020–.040 radial. Measure W; Axis Set Y = −(W − 5.500). Rough .080 radial; return −Y .040 clear, return X; approach +Y. Finish last ~.020 at Y0. Mark edge both faces. Stop motion before retracting if grabbing."
+instruction = "Cutter .04–.08 below underside. +X cleanup, .020–.040 radial. After cleanup width W: Y = −(W − 5.500). Rough .080 radial; finish last ~.020 at Y0. Mark ZERO EDGE both faces."
 rpm = 1250
 feed = "6 in/min"
-inspection = "Width ends/middle; check creep."
+inspection = "Width at ends/middle."
 
 [[setups]]
 title = "Square / face"
 machine = "PM-30MV / vise, swivel off"
-holding = "Flat on matched 1-3/8 in parallels, ZERO EDGE at fixed jaw; 3.9–5.5 in jack under overhang. Check cutter/edge-finder clearances before mounting vise."
+holding = "Flat on matched 1-3/8 in parallels, ZERO EDGE at fixed jaw; 3.9–5.5 in jack under overhang."
 datum = "Jaw indicated <.001 along X; Z0 underside from measured thickness."
 
 [[setups.operations]]
 tool = "em-half"
-instruction = "Slide each end beyond jaws; jack touching, not lifting. Cutter .04 below bar, clear parallels. Square in .020 passes: left −Y, right +Y. Leave .02–.04 length allowance."
+instruction = "Ends beyond jaws; cutter .04 below bar. Square in .020 passes: left −Y, right +Y. Leave .02–.04 length allowance."
 rpm = 1250
 feed = "6 in/min"
 
 [[setups.operations]]
 tool = "em-face"
-instruction = "Measure thickness/allowance. Face two supported halves; touch off, lock head. Rough .010 deep, +X, +Y stepover .60; lift .040 returning. Reposition, verify Z. Remove half allowance side 1; flip/clean/reseat, remeasure/touch off; finish side 2 to .4700. Mark ZERO END and C'BORE SIDE (assembly underside)."
+instruction = "Face in two halves. Rough .010 deep, +X, +Y stepover .60. Remove half allowance side 1; flip, finish side 2 to .4700. Mark ZERO END and C'BORE SIDE (assembly underside)."
 rpm = 840
 feed = "3.3 in/min rough; 2.4 finish"
 
 [[setups]]
 title = "Finish length / holes / slots"
 machine = "PM-30MV; inch DRO"
-holding = "Same parallels; ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up; ~5.7 in overhang each end. Seat/retighten; drill over air."
+holding = "Same parallels; ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up; ~5.7 in overhang each end."
 datum = "Back-left X0 Y0; +X right, −Y operator. Rail X ±.003; bracket X/Y ±.005; rail row/slot positions ±.01."
 
 [[setups.operations]]
 tool = "edge-finder"
-instruction = "Approach left end: Axis Set X −.1000; back edge: Y +.1000. Retouch; verify signs/corner."
+instruction = "Left end: Axis Set X −.1000; back edge: Y +.1000."
 rpm = 1000
 feed = "hand"
 
@@ -111,7 +111,7 @@ Spot 18 holes, ~.125 cone:
 R1–8 Y −3.5000; X .5906/2.9528/5.3150/7.6772/10.0394/12.4016/14.7638/17.1260.
 B1–8: X 2.2441/16.8504; each Y −.2450/−.9020/−1.7680/−2.4250.
 S1: X .8700 Y −2.0200; S2: X 15.3500 Y −4.9800.
-All drills: oil, .125 pecks, breakthrough +.125.
+All drills: .125 pecks, breakthrough +.125.
 """
 rpm = 3000
 feed = "hand"
@@ -136,12 +136,12 @@ feed = "hand"
 
 [[setups.operations]]
 tool = "tap"
-instruction = "Power OFF; quill-guided hand start R1–8; T-handle through."
+instruction = "Tap R1–8 through."
 feed = "hand"
 
 [[setups.operations]]
 tool = "counterbore"
-instruction = "Touch top B1, zero quill; stop .189 deep. Oil/plunge B1–8. Check first diameter/depth and recessed screw head before continuing."
+instruction = "Counterbore B1–8, .189 deep from top."
 rpm = 2000
 feed = "slow hand plunge"
 
@@ -153,14 +153,14 @@ feed = "5 in/min"
 
 [[setups.operations]]
 tool = "edge-finder"
-instruction = "Right-end approach: accept 17.4100–17.4300. Lower jack; unload."
+instruction = "Right-end approach: accept 17.4100–17.4300."
 rpm = 1000
 feed = "hand"
 
 [[setups]]
 title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
-holding = "Protect faced seats."
+holding = "Faced seat on table."
 datum = "Marked end/edge; rail on unmarked face."
 inspection = ["Record each bar: overall dimensions above, width ends/middle, thickness corners/middle; no rocking or chatter. Ra 125 µin both faces.", "Verify hole coordinates/tolerances above. Brackets Ø.196–.200; counterbores Ø.308–.318 × .184–.194 deep, heads recessed. Rail screws hand-start without sideways force, rail end flush; uncut 450 mm rail overhang expected.", "Slots: width .52–.54; overall length minus width .15–.17; far wall ≥.080; stud slides end-to-end."]
 
