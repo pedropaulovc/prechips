@@ -96,12 +96,6 @@ holding = "Same parallels; ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up;
 datum = "Back-left X0 Y0; +X right, −Y operator. Rail X ±.003; bracket X/Y ±.005; rail row/slot positions ±.01."
 
 [[setups.operations]]
-tool = "edge-finder"
-instruction = "Left end: Axis Set X −.1000; back edge: Y +.1000."
-rpm = 1000
-feed = "hand"
-
-[[setups.operations]]
 tool = "em-half"
 instruction = "Jack under right end. Measure cutter D; bottom .04 below bar. Cut +Y, .010 passes; final X = 17.3200 + D/2."
 rpm = 1250
@@ -157,12 +151,6 @@ tool = "em-half"
 instruction = "Rough .500 slots, depths .12/.24/.36/.49 below top, traverse/back: X .8700, Y −1.9400 to −2.1000; X 15.3500, Y −4.9000 to −5.0600. Finish rounded slots to .530 wide, .160 end-centre spacing; do not use rectangular lap."
 rpm = 1250
 feed = "5 in/min"
-
-[[setups.operations]]
-tool = "edge-finder"
-instruction = "Right-end approach: accept 17.4100–17.4300."
-rpm = 1000
-feed = "hand"
 
 [[setups]]
 title = "Deburr / inspect both"
