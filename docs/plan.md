@@ -1904,6 +1904,40 @@ execution order; `op` is its within-setup identity.
 | `outputs` | `dict[str, RetainedOutput]`: exactly two named pieces on terminal `part_off` or registered mounted `cut_off`; see [retained outputs](#retained-part-off-outputs) |
 | `prerequisites` | `{ spot = "<setup>:<op>" }`: typed prior preparation witness, or `spot = "unknown"` |
 
+### Manual severing
+
+`do = "manual_sever"` is a typed **material-changing, unmodeled** action.
+It records an unresolved manual separation after, for example, a partial
+`part_off`; it does not model the remaining web's removal or release a
+detached piece.
+
+Use only the operation identity, affected feature and authored note; `tool`
+must be omitted or `"unknown"`. No modeled cutting geometry, cutter settings,
+`keep` selector or named `outputs` may be declared on this action.
+
+```toml
+[[setups.ops]]
+op = 20
+do = "manual_sever"
+feature = "part"
+tool = "unknown"
+note = "HOLD: manual tool, retention, access and separation procedure are unresolved."
+```
+
+The preceding modeled partial cut and the connected stock immediately before
+the manual action remain evidence. The stock after it is unknown, not the
+unchanged input stock and not an inferred detached part. That debt propagates
+to downstream operations, inspections and component joins; neither dimensions
+nor material survival gain credit across it. Independent earlier positive
+collision evidence remains valid. See
+[unmodeled manual severing](rules-operations.md#unmodeled-manual-severing) for
+the HOLD boundary. This declaration is not physical machining approval.
+
+Known inspection-instrument capacity can still be evaluated independently and
+may pass. A planned check or capable gauge does not restore unknown material
+state, preparation, dimensional attainment or survival after manual severing.
+
+
 ### Authored spindle speed
 
 Omit `rpm` to use the sourced starting-speed path. An authored `rpm` takes

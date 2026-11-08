@@ -2427,20 +2427,25 @@ within the physical length tolerance of 0.000001 mm, in the manifest's units.
 Only the touch's authored edge may alternatively name the proven AS-CUT height.
 Entering that AS-CUT height in both fields would apply the producer offset
 twice: it is a deterministic `error` naming the authored stock-state field,
-with no numeric operative entry, tip or through exit offered. Unknown native
+with no numeric operative entry or derived tip/through exit offered. Unknown native
 evidence or an unknown entry stays unknown, not a mismatch. An entry advanced
 by a cut in this same setup already belongs to its own DRO and keeps that
 local producer's endpoint rather than being shifted as imported stock.
 
-Every later operation's operative entry, depth, exit and breakthrough uses
-the actual typed Axis Set; physical face height remains separate evidence.
+Every later operation's operative entry, depth, exit and breakthrough proof
+uses the actual typed Axis Set; physical face height remains separate evidence.
 Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.
+An explicit `to_z` is an absolute command: its endpoint does not receive another
+carried-touch shift. Unknown entry or stock evidence is not repaired by a known
+command, nor does the command establish safe execution.
+
 For a through hole, `physical_exit_bound_z` is physical entry minus the
 declared `local_thickness`: a dimension-derived worst-case exit boundary,
 not evidence of an independently identified native exit plane. Its operative
-`dro_exit_face`, tip and breakthrough margin remain conservatively anchored
-to the typed entry. A longest allowed thickness does not establish the
-actual opposite face's AS-CUT height.
+`dro_exit_face` remains conservatively anchored to the typed entry. Without an
+explicit command, the derived tip follows that bound; with a command,
+`required_tip_z` and breakthrough remain independent guards. A longest allowed
+thickness does not establish the actual opposite face's AS-CUT height.
 
 ### Zero-check finding messages
 

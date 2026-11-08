@@ -202,13 +202,27 @@ def test_custom_fixture_solids_print_at_their_setup_frame_positions():
     assert "M6 stud" in page.position("pad")
 
 
+def assert_shim_stacks(step, names, nominal):
+    """Count every physical stack and retain its source thickness, not display rounding."""
+    (count,) = re.findall(r"\b(\d+)\s+shim stacks\b", step)
+    assert int(count) == len(names)
+    (listed,) = re.findall(r"\(([^()]*)\)", step)
+    labels = [label.strip() for label in listed.split(",")]
+    assert len(labels) == len(names) and set(labels) == set(names)
+    (printed,) = re.findall(r"(\d+(?:\.\d+)?)\s+mm\s+nominal\b", step)
+    assert float(printed) == nominal
+    assert "rail" in step
+
+
 def test_shim_stacks_print_their_drawn_nominal_once():
-    page = sheets(bundle([{"fixture": "plate", "pose": TURNED}]))[0]
+    data = bundle([{"fixture": "plate", "pose": TURNED}])
+    page = sheets(data)[0]
     (step,) = [
         content(node) for node in descendants(page.markup, "li") if "shim stacks" in content(node)
     ]
-    assert "2 shim stacks under the rail (shim R, shim L): 0.472 mm nominal" in step
-    assert step.count("0.472 mm nominal") == 1
+    shims = [solid for solid in data.inventory["fixtures"]["plate"]["solids"] if solid.get("shim")]
+    assert {solid["size_mm"][2] for solid in shims} == {shims[0]["size_mm"][2]}
+    assert_shim_stacks(step, ["shim R", "shim L"], shims[0]["size_mm"][2])
 
 
 def test_angle_plate_base_and_working_face_print_in_the_setup_frame():
@@ -1052,6 +1066,79 @@ def test_existing_tapped_feature_identity_and_coordinates_keep_their_original_ow
     ]
 
 
+def tapped_riser_page(hold):
+    """Eighteen source taps and two bought table mounts, each drawn as head and shank."""
+    data = existing_tapped_fixture(18)
+    data.plan["setups"][0]["hold"] = hold
+    solids = data.inventory["fixtures"]["plate"]["solids"]
+    for solid in solids:
+        if solid.get("void"):
+            solid["fastener"] = "M10 tapped for fixture studs"
+    mount = {"supply": "bought", "fastener": "M8 table-mount screw"}
+    solids.extend(
+        piece
+        for index, x in enumerate((-10, 110))
+        for piece in (
+            cylinder(f"mount-head-{index}", x, -10, 13, 8, **mount),
+            cylinder(f"mount-shank-{index}", x, -40, 8, 30, **mount),
+        )
+    )
+    return sheets(data)[0].fixture()
+
+
+@pytest.mark.parametrize(
+    ("loose_ref", "posed_ref"),
+    [("plate", "fixtures.plate"), ("fixtures.plate", "plate")],
+)
+@pytest.mark.parametrize("later_loose", [False, True])
+def test_loose_riser_and_posed_support_count_source_taps_and_table_mounts_once(
+    loose_ref, posed_ref, later_loose
+):
+    supports = [{"id": "riser-support", "ref": posed_ref, "placement": "posed", "pose": TURNED}]
+    if later_loose:
+        supports.append({"ref": loose_ref})
+    table = tapped_riser_page({"fixture": "strap", "riser": loose_ref, "supports": supports})
+    (row,) = table.rows()
+    position = table.position(row["Component"])
+    assert re.search(r"\b18\s*×\s*M10 tapped for fixture studs:", position)
+    # Count the source coordinates independently of the displayed quantity. The explicit
+    # pose, not an extra item-frame loose copy, owns each of the eighteen holes.
+    assert position.count("axis at ") == 18
+    assert re.findall(r"axis at X 100, Y (\d+);", position) == [
+        str(50 + index) for index in range(18)
+    ]
+    assert "Ø8.5" not in position and "loose:" not in table.text
+    hardware = table.line("Bought hardware")
+    assert re.search(r"\b2\s*×\s*M8 table-mount screw\b", hardware)
+    assert hardware.count("M8 table-mount screw") == 1
+
+
+def test_two_explicit_posed_supports_at_identical_coordinates_keep_both_physical_copies():
+    table = tapped_riser_page(
+        {
+            "fixture": "strap",
+            "riser": "plate",
+            "supports": [
+                {"id": label, "ref": reference, "placement": "posed", "pose": IDENTITY}
+                for label, reference in (
+                    ("support-a", "plate"),
+                    ("support-b", "fixtures.plate"),
+                )
+            ]
+            + [{"ref": "plate"}],
+        }
+    )
+    (row,) = table.rows()
+    position = table.position(row["Component"])
+    assert re.search(r"\b36\s*×\s*M10 tapped for fixture studs:", position)
+    assert position.count("axis at ") == 36
+    for index in range(18):
+        assert position.count(f"axis at X {index}, Y 0;") == 2
+    assert "support-a:" in position and "support-b:" in position
+    assert "Ø8.5" not in position and "loose:" not in table.text
+    assert re.search(r"\b4\s*×\s*M8 table-mount screw\b", table.line("Bought hardware"))
+
+
 def test_fixture_manufacturing_dimensions_preserve_source_values():
     table = bridge_page()
 
@@ -1114,6 +1201,37 @@ def test_separate_bought_parts_with_one_fastener_text_count_apart():
         cylinder("screw-a", -40, 20, 8, 20, **screw), cylinder("screw-b", 40, 20, 8, 30, **screw)
     )
     assert "; 2 × M8 SHCS." in table.line("Bought hardware")
+
+
+def test_identical_bought_pin_sizes_keep_each_description_count_and_component_identity():
+    pins = [
+        cylinder(
+            "left-attitude-pin",
+            -40,
+            20,
+            6,
+            20,
+            supply="bought",
+            fastener="hardened locating dowel",
+        ),
+        cylinder(
+            "right-attitude-pin",
+            40,
+            20,
+            6,
+            20,
+            supply="bought",
+            fastener="ground attitude dowel",
+        ),
+    ]
+    table = bridge_page(*pins)
+    hardware = table.line("Bought hardware")
+    entries = hardware.removeprefix("Bought hardware (not made): ").rstrip(".").split("; ")
+    for pin in pins:
+        (entry,) = [entry for entry in entries if pin["fastener"] in entry]
+        assert entry.startswith("1 × ")
+        assert pin["name"].replace("-", " ") in entry
+    assert len(entries) == 5  # The three original hardware groups plus two actual pin solids.
 
 
 def test_hole_through_stacked_parts_prints_in_every_part_it_cuts():
@@ -1179,12 +1297,16 @@ def test_each_placement_of_an_item_builds_its_own_shim_stacks():
         {"ref": "plate", "restraint": "press", "pose": IDENTITY},
         {"ref": "plate", "restraint": "press", "pose": TURNED},
     ]
-    page = sheets(bundle([{"clamps": clamps}]))[0]
+    data = bundle([{"clamps": clamps}])
+    page = sheets(data)[0]
     (step,) = [
         content(node) for node in descendants(page.markup, "li") if "shim stacks" in content(node)
     ]
-    assert "4 shim stacks under the rail (C1 shim R, C2 shim R, C1 shim L, C2 shim L)" in step
-    assert step.count("0.472 mm nominal") == 1
+    shims = [solid for solid in data.inventory["fixtures"]["plate"]["solids"] if solid.get("shim")]
+    assert {solid["size_mm"][2] for solid in shims} == {shims[0]["size_mm"][2]}
+    assert_shim_stacks(
+        step, ["C1 shim R", "C2 shim R", "C1 shim L", "C2 shim L"], shims[0]["size_mm"][2]
+    )
 
 
 def test_hole_without_cuts_prints_in_every_part_it_passes_through():
@@ -1372,6 +1494,58 @@ def test_each_make_operation_prints_one_cutting_data_line_in_order():
         assert f"hold: {op['hold']}" in line and "6 mm 3-flute end mill" in line
         assert speed in line and op["feed"] in line and op["cite"] in line
         assert f"{op['doc_mm']:g} mm/pass" in line and "STOP" not in line and "?" not in line
+
+
+@pytest.mark.parametrize("tabled", [False, True], ids=["standalone", "fixture-table"])
+def test_named_make_operation_context_keeps_all_source_operations_in_order(tabled):
+    operations = [
+        {**MAKE_OP, "hold": hold}
+        for hold in ("rough stock vise", "finish stock vise", "rough head vise", "finish head vise")
+    ]
+    data, _ = make_page(*operations[2:], item_ops=operations[:2])
+    hold = (
+        {"fixture": "bridge", "pose": IDENTITY}
+        if tabled
+        else {
+            "fixture": "angle",
+            "support": "bridge",
+        }
+    )
+    data.plan["setups"] = bundle([hold, hold]).plan["setups"]
+    first, later = sheets(data)
+    (block,) = first.markup.find("fixture-make")
+    assert block["tag"] == "section"
+    (heading,) = [
+        node
+        for node in first.markup.find("page-context", within=block)
+        if node["parent"] is block
+    ]
+    title = content(heading)
+    assert "bridge" in title
+    assert block["attrs"]["data-page-context"] == title
+    assert "make operations" in title.lower()
+    lines = [
+        content(node)
+        for node in descendants(first.markup, "p", block)
+        if re.match(r"\d+\. ", content(node))
+    ]
+    assert lines == make_lines(first)
+    assert len(lines) == len(operations)
+    for number, (line, operation) in enumerate(zip(lines, operations, strict=True), 1):
+        assert line.startswith(f"{number}. ")
+        assert f"hold: {operation['hold']}" in line
+        assert "6 mm 3-flute end mill" in line
+        assert operation["feed"] in line and operation["cite"] in line
+        assert "1600 rpm" in line and "0.5 mm/pass" in line
+    assert not later.markup.find("fixture-make")
+    assert not make_lines(later)
+    assert any(
+        "bridge" in content(node)
+        and re.search(r"\b(?:make|shop-made)\b", content(node), re.I)
+        and re.search(r"\bSetup\s+S1\b", content(node))
+        for node in later.markup.nodes
+        if node["tag"] in {"p", "li"}
+    )
 
 
 @pytest.mark.parametrize("field", ["hold", "tool", "rpm", "feed", "doc_mm", "cite"])
@@ -1650,11 +1824,21 @@ def test_make_operations_print_once_at_the_first_use(holds, tabled):
     assert make_statuses(data) == ["pass"]
     # References name the physical setup, not a pre-pagination sheet number.
     if 2 in tabled:
-        reference = re.search(r"\bMake operations:\s+Setup (S\d+)\b", second.text)
-        assert reference and reference[1] == "S1"
+        references = [
+            content(node)
+            for node in second.markup.nodes
+            if node["tag"] in {"p", "li"}
+            and "rest" in content(node)
+            and re.search(r"\b(?:make|shop-made)\b", content(node), re.I)
+        ]
+        assert any(re.search(r"\bSetup\s+S1\b", reference) for reference in references)
     if 1 not in tabled:
-        reference = re.search(r"\bSizes and positions:[^\n]*\bSetup (S\d+)\b", first.text)
-        assert reference and reference[1] == "S2"
+        references = [
+            content(node)
+            for node in first.markup.nodes
+            if node["tag"] in {"p", "li"} and re.search(r"\btable\b", content(node), re.I)
+        ]
+        assert any(re.search(r"\bSetup\s+S2\b", reference) for reference in references)
 
 
 @pytest.mark.parametrize(

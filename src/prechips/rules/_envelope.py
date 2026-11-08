@@ -577,6 +577,19 @@ def _z_extent(
                 value = endpoint.get(field, UNKNOWN)
                 if _known(value):
                     targets.append(value)
+            if endpoint.get("endpoint_source") == "to_z":
+                # A known command does not supply its missing material/depth
+                # evidence. Previously a derived tip implicitly needed it.
+                endpoint_complete &= _known(endpoint.get("entry_z"))
+                if endpoint.get("exit_face") != "not_applicable":
+                    endpoint_complete &= (
+                        _known(endpoint.get("exit_face"))
+                        and _known(endpoint.get("exit_mm"))
+                        and endpoint.get("actual_stock_status") != UNKNOWN
+                        and endpoint.get("breakthrough_status") == "pass"
+                    )
+                else:
+                    endpoint_complete &= _known(endpoint.get("depth_mm"))
         action = op.get("do")
         if not tool or tool.get("kind") == UNKNOWN:
             endpoint_complete = False
@@ -607,7 +620,9 @@ def _z_extent(
                 "drill point or reamer lead with an optical comparator, and exit allowance "
                 "in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm"
             )
-    if "depth_mm" in op:
+    if "depth_mm" in op and not (
+        endpoint is not None and endpoint.get("endpoint_source") == "to_z"
+    ):
         depth = op["depth_mm"]
         entry = before["entry_z"].get(op_feature(op), top)
         if _known(depth) and depth >= 0 and _known(entry):

@@ -534,7 +534,8 @@ diameter, over its `depth` or, through, the stock's extent along its axis. Its
 `drill` or `ream` op removes the selected tool's own accepted diameter (a drill
 also its accepted `point_angle`) from 1 mm above the mouth along the hole axis
 (a `spot` only its pointed tip, down to its own `depth_mm`, through hole or not),
-which must be setup -Z: a blind hole to the op's full-diameter `depth_mm` (the
+which must be setup -Z. Without explicit `to_z`, the endpoint is derived as
+follows: a blind hole to the op's full-diameter `depth_mm` (the
 feature's `depth` bounds it, as in
 [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole
 to the setup's `stock_state.local_thickness.<id>` plus the op's `exit_mm`, a
@@ -547,10 +548,17 @@ is not a through hole: its cut stays unknown. A blind hole
 must lie wholly inside the stock. Either way the mouth may have no stock over it
 within the lead, and the 0.5 mm ring just outside the tool, from the mouth to
 0.5 mm below it, must be whole stock (a mouth floating above the surface, or a
-surface cut lower than `at`, leaves air there). An unknown tool diameter, point angle or reamer lead,
-an unknown op `depth_mm` in a blind hole, or an unknown `exit_mm` or
-`local_thickness` through the stock, is a refused input and leaves the cut unknown. The
-op then measures the plain axial tool and holder like any drill or reamer.
+surface cut lower than `at`, leaves air there). An unknown tool diameter, point
+angle or reamer lead, or a missing required depth/through-stock input, refuses
+the derived cut. The op then measures the plain axial tool and holder like any
+drill or reamer.
+
+An explicit `to_z` instead supplies the commanded tip or cutting-edge endpoint;
+an explicit unknown does not fall back to the derived stop. This precedence
+does not establish a far stock face, point/lead geometry, breakthrough, holder
+exit space or actual after-stock. The independent stock and geometry guards
+still apply. Host endpoint and setup-sheet consumers preserve the same command
+instead of replacing it with a thickness-derived target.
 
 Every setup's facts carry `tooling_holes`, each hole's state on the stock entering
 that setup, but only when the plan declares one. The probe runs in the setup
@@ -4115,7 +4123,7 @@ solids on one axis that the setup picture does not already look along (within
 cos 0.99), a guide-view band below the detail looks down that axis, enlarged
 (`VIEW ALONG THE BUTTON AXIS X14.6`, with the setup axes it draws right and up).
 It outlines the rims in green with their stop key, hatches `STOCK TO FILE OFF`
-inside the `FINISHED OUTLINE`, draws `FILE AT ITS STOP` flat on the rims, and
+inside the `FINAL CAD REFERENCE`, draws `FILE AT ITS STOP` flat on the rims, and
 draws a `FILE APPROACH` arrow coming in square from beyond them. It keys the kit
 as the setup picture names it (`render_scene.guide_axis_mm`: a point on the axis
 and its direction). When the stops lie at different heights along the axis, the

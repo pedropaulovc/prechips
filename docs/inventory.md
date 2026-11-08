@@ -836,12 +836,25 @@ Per-primitive `supply` is:
 - `existing`: already in the shop, so not listed unless holes are made in it.
   Such a row says "(existing part: make the holes only)" and its size is "—".
 
+A loose riser or support reference is a fallback for the same inventory item
+when that item also has an explicit posed support placement; it is not an
+additional fabricated copy. Explicit simultaneous placements remain separate
+copies. Hole quantities follow those physical placements and source parent
+solids, and authored hole fastener callouts are retained without inferring a
+thread pitch or tap-drill size from a geometric void.
+Bought components with equal geometric sizes but different fastener
+descriptions retain their individual source identities and quantities.
+Fixture make-operation sections carry the fixture's name on continuations;
+later tables point to that named section before first use.
+
 #### Make-table precision and notes
 
 Make-table sizes and positions preserve the source dimensions, including fine
 seat depths, gaps and bore diameters. Display precision and the DRO grid do not
 round a manufacturing target into a different dimension. Calculation residue
 from placing a solid is suppressed, not its meaningful digits.
+The table's Size column is component-frame make size; its Position column
+shows posed box bounding extents or cylinder axes, not a second component size.
 
 A primitive with `locates`, every bore cut in it and shim nominals retain the
 fit feasibility check against the fixture-making mill grid (the setup grid

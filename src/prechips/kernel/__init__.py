@@ -538,6 +538,14 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         declared["contour_method"] = record(op.get("contour")).get("method", UNKNOWN)
     if isinstance(op.get("outputs"), dict):
         declared["outputs"] = _retained_output_inputs(op["outputs"], bundle.features.get("units"))
+    if op.get("do") == "manual_sever":
+        # A material-state barrier, not a tool model or a final-face claim.
+        return {
+            "subject": subject,
+            "feature": op.get("feature", UNKNOWN),
+            "do": "manual_sever",
+            "finishing": False,
+        }
     if op.get("do") in HAND_THREAD:
         return {
             "subject": subject,
@@ -2690,7 +2698,9 @@ def inspection_preservation_ledger(setup):
         {
             "subject": f"{setup['id']}:{op['op']}",
             "do": op.get("do", UNKNOWN),
-            "effect": "metadata"
+            "effect": "unmodeled"
+            if op.get("do") == "manual_sever"
+            else "metadata"
             if op.get("do") in PRESERVATION_METADATA
             else "native"
             if cutting_action(op) is not False or op.get("do") in HAND_FINISH
@@ -2708,7 +2718,9 @@ def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners
     units = bundle.features.get("units", UNKNOWN)
     ledger = inspection_preservation_ledger(setup)
     sent = [
-        op for op, entry in zip(setup["ops"], ledger, strict=True) if entry["effect"] == "native"
+        op
+        for op, entry in zip(setup["ops"], ledger, strict=True)
+        if entry["effect"] == "native" or op.get("do") == "manual_sever"
     ]
     keeps = _keeps(setup, sent)
     return {

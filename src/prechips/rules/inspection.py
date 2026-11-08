@@ -1096,7 +1096,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
             (s, o)
             for s, o in route
             if not o["do"].startswith("rough_")
-            and o["do"] not in {"spot", "deburr", "coating", "release"}
+            and o["do"] not in {"spot", "deburr", "coating", "release", "manual_sever"}
         ]
         for requirement in requirements:
             if covered(requirement):

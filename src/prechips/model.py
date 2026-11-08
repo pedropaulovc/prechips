@@ -1491,6 +1491,17 @@ class Plan(InputModel):
         for setup in self.setups:
             for op in setup.ops if isinstance(setup.ops, list) else ():
                 where = f"Setup {setup.id} op {op.op}"
+                if op.do == "manual_sever":
+                    # This action admits no modeled removal, separation or retention claim.
+                    stray = sorted(
+                        op.model_fields_set - {"op", "do", "feature", "tool", "note", "note_cite"}
+                    )
+                    if stray or op.tool != UNKNOWN:
+                        raise ValueError(
+                            f"{where}: manual_sever is unmodeled; declare only op, do, "
+                            "feature, note, note_cite and an omitted or unknown tool; "
+                            "no cutting geometry, settings, keep or outputs."
+                        )
                 if {"faces", "workpiece_faces"} <= op.model_fields_set:
                     raise ValueError(f"{where}: faces and workpiece_faces are exclusive.")
                 if isinstance(op.workpiece_faces, dict):

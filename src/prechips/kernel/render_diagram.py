@@ -1427,6 +1427,16 @@ class _Diagram:
             notes.append("Z0: not declared")
         if "datums" not in self.spec:
             notes.append("Datums: not declared")
+        if any(datum.get("kind") != "end" for datum in self.spec.get("datums", [])):
+            notes.append(
+                "REF: final CAD datum, not a setup pickup or proof of an attained feature."
+            )
+        cut = self.spec.get("closest_cut")
+        if cut and cut.get("scope") != "machining_trajectory":
+            notes.append(
+                "MODELED GAP: nearest removal/tool-envelope distance to holding, "
+                "not cut depth or verified physical clearance."
+            )
         if self.is_chuck and self.spec.get("stickout_mm") is None:
             notes.append("Stickout: not declared")
         add = self.spec.get("stickout_add_mm")
@@ -1453,7 +1463,7 @@ class _Diagram:
             ("holding", "WORKHOLDING", "fixture"),
             ("tool", "TOOL / APPROACH", "tool"),
             ("context", "MACHINE OUTLINE", "context"),
-            ("nominal", "FINISHED OUTLINE, THIS SETUP", "nominal"),
+            ("nominal", "FINAL CAD REFERENCE", "nominal"),
         )
         for supplied in self.spec.get("legend", []):
             text = _plain(supplied)
@@ -1479,7 +1489,7 @@ class _Diagram:
         if any("pad" in _plain(c.get("label") or c["name"]).lower() for c in self.components):
             rows.append(("PAD BADGES: POSITIONS", "text"))
         if self.nominal and "nominal" not in kinds:
-            rows.append(("FINISHED OUTLINE, THIS SETUP", "nominal"))
+            rows.append(("FINAL CAD REFERENCE", "nominal"))
         self.legend_entries = rows
         wrapped, self.legend_ends = [], []
         for label, kind in rows:
@@ -1508,7 +1518,7 @@ class _Diagram:
             self._nominal_overlay(self.canvas.project)
             self.callouts.append(
                 _Callout(
-                    "FINISHED OUTLINE",
+                    "FINAL CAD REFERENCE",
                     [self.canvas.project(self.nominal[0][0])],
                     _BLUE,
                     along=tuple(self.canvas.project(p) for line in self.nominal for p in line),
@@ -1818,8 +1828,10 @@ class _Diagram:
         for datum in self.spec.get("datums", []):
             point = c.project(datum["point_mm"])
             label = _plain(datum["label"]).upper()
-            if datum.get("kind") != "end" and not label.startswith("DATUM "):
-                label = "DATUM " + label
+            if datum.get("kind") != "end":
+                # Keep the reference role explicit without repeating a long common
+                # prefix in every fixed-width callout lane. The notes define REF.
+                label = "REF " + label.removeprefix("DATUM ")
             if datum.get("workpiece_id"):
                 label = _plain(datum["workpiece_id"]).upper() + ": " + label
             facing = []
@@ -1936,7 +1948,7 @@ class _Diagram:
                     phase = "SAW CYCLE MINIMUM"
                 label = f"{phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         else:
-            label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+            label = f"MODELED GAP {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
         if op not in (None, "", "unknown"):
             label += f" (OP {_plain(op).upper()})"
@@ -2569,6 +2581,14 @@ class _Diagram:
         manual = self.spec.get("manual_raster_sketch")
         title = "AUTHORED TOOL-TIP / ISOMETRIC" if manual else "PROFILE SKETCH / XY"
         _text(c, left, top, title, scale=_TITLE_SCALE)
+        raster_ops = {
+            op: [p for p in paths if str(p.get("op", "")) == op and p.get("raster")] for op in ops
+        }
+        extremes = [
+            op
+            for op, raster in raster_ops.items()
+            if len(raster) > _EVERY_PASS and not any(p["raster"].get("keep_out") for p in raster)
+        ]
         caption = _wrap(
             c,
             f"SETUP {self.spec['setup_id']} / DIMENSIONS IN mm"
@@ -2576,8 +2596,17 @@ class _Diagram:
                 f" / SAFE Z {manual['safe_z_mm']} / MOVES "
                 f"{self.spec['manual_move_range'][0]}-{self.spec['manual_move_range'][1]}"
                 if manual
+                else " / SCHEMATIC / USE OP TABLE"
+            )
+            + (
+                " / SHADED BANDS: PASS ENVELOPES"
+                if any(
+                    len(raster) > 2 and not any(p["raster"].get("keep_out") for p in raster)
+                    for raster in raster_ops.values()
+                )
                 else ""
-            ),
+            )
+            + (f" / OPS {', '.join(extremes)}: FIRST/LAST PASSES ONLY" if extremes else ""),
             right - left,
         )
         for index, line in enumerate(caption):
@@ -2612,7 +2641,7 @@ class _Diagram:
                 c,
                 right,
                 bottom - _TEXT_HEIGHT,
-                "FINISHED OUTLINE, THIS SETUP",
+                "DASHED: FINAL CAD REF",
                 _BLUE,
                 align="right",
             )
@@ -4079,7 +4108,7 @@ class _HoldingDetail(_Diagram):
         for index, line in enumerate(title_lines):
             _text(c, 32, 22 + index * 9 * _TITLE_SCALE, line, scale=_TITLE_SCALE)
         note_y = 22 + len(title_lines) * 9 * _TITLE_SCALE + 10
-        _text(c, 34, note_y, "CONTACT FACES: SOLID WHERE SEEN, DASHED WHERE HIDDEN", _CONTACT)
+        _text(c, 34, note_y, "CONTACT FACES: SOLID = SEEN / DASHED = HIDDEN", _CONTACT)
         groups = self._contact_groups()
         self._contact_outline(
             [line for _, _, members in groups for _, _, lines in members for line in lines]
@@ -4337,7 +4366,7 @@ class _GuideView(_HoldingDetail):
         if self.nominal:
             self.callouts.append(
                 _Callout(
-                    "FINISHED OUTLINE",
+                    "FINAL CAD REFERENCE",
                     [c.project(self.nominal[0][0])],
                     _BLUE,
                     along=tuple(c.project(p) for line in self.nominal for p in line),

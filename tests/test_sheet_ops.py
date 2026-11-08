@@ -128,6 +128,175 @@ def test_printed_band_never_wider_than_the_drawing(band, precision, printed):
     assert bare(precision).band(band, None, None) == printed
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    ("units", "display_units", "limits", "source"),
+    [
+        ("mm", "mm", [12.2555, 12.2855], "12.2555–12.2855 mm"),
+        ("mm", "in", [12.2555, 12.2855], "12.2555–12.2855 mm"),
+        ("in", "in", [0.48151, 0.48349], "0.48151–0.48349 in"),
+        ("in", "mm", [0.48151, 0.48349], "0.48151–0.48349 in"),
+    ],
+)
+def test_inspection_criterion_keeps_exact_native_cad_limits_beside_conservative_screen(
+    detail, units, display_units, limits, source
+):
+    from test_sheet_detail import bench_job, rendered
+
+    data = bench_job()
+    data.features["units"] = units
+    data.features["features"]["body"]["dia"] = limits
+    data.plan.setdefault("dro", {}).update(kind="digital", units=display_units)
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    screen, _ = sheet.inspection_band("body", "dia")
+    markup = Markup(rendered(data, detail=detail))
+    criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if "body:dia" in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    assert criteria
+    for criterion in criteria:
+        text = content(criterion)
+        assert screen in text
+        assert f"CAD limits {source}; conservative screen only" in text
+        assert "not an uncertainty budget" in text
+        assert "a failed screen is not by itself a CAD violation" in text
+        # With no inspection finding, the screen cannot imply a proved check.
+        assert "Inspection selection not established for this operation" in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_inspection_scalar_zone_keeps_exact_source_maximum_beside_inward_screen(detail):
+    from test_sheet_detail import bench_job, rendered
+
+    data = bench_job()
+    data.features["precision"] = 2
+    data.features["features"]["body"].update(
+        requirements=["position_dia"], position_dia=0.045, position_datums=["A"]
+    )
+    data.plan["setups"][0]["ops"][0]["checks"] = {"position_dia": "unknown"}
+    markup = Markup(rendered(data, detail=detail))
+    criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if "body:position_dia" in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    assert criteria
+    for criterion in criteria:
+        text = content(criterion)
+        assert re.search(r"\b0\.04(?:\s|;|\))", text)
+        assert "CAD max 0.045 mm; conservative screen only" in text
+        assert "not an uncertainty budget" in text
+        assert "a failed screen is not by itself a CAD violation" in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("reverse", [False, True], ids=["front-first", "rear-first"])
+def test_same_displayed_inspection_bands_keep_distinct_exact_cad_owners(detail, reverse):
+    from test_sheet_detail import bench_job, rendered
+
+    data = bench_job()
+    bands = {
+        "front_bore": [12.2555, 12.2855],
+        "rear_bore": [12.2557, 12.2857],
+    }
+    owners = list(bands)
+    if reverse:
+        owners.reverse()
+    data.features["features"] = {
+        owner: {"kind": "hole", "requirements": ["dia"], "dia": bands[owner]} for owner in owners
+    }
+    data.plan["setups"][0]["ops"][0].update(feature=owners, checks={"dia": "unknown"})
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    assert sheet.inspection_band(owners[0], "dia") == sheet.inspection_band(owners[1], "dia")
+    markup = Markup(rendered(data, detail=detail))
+    wanted = {f"{owner}:dia" for owner in owners}
+    criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if wanted.intersection(json.loads(node["attrs"]["data-inspection-ids"]))
+    ]
+    assert criteria
+    assert {tuple(json.loads(node["attrs"]["data-inspection-ids"])) for node in criteria} == {
+        (subject,) for subject in wanted
+    }
+    for owner, (low, high) in bands.items():
+        owned = [
+            node
+            for node in criteria
+            if json.loads(node["attrs"]["data-inspection-ids"]) == [f"{owner}:dia"]
+        ]
+        assert owned
+        assert all(
+            f"CAD limits {low}–{high} mm; conservative screen only" in content(node)
+            for node in owned
+        )
+    record_class = "inspection-record" if detail == "pedantic" else "checkpoint-result"
+    records = [
+        node
+        for node in markup.find(record_class)
+        if wanted.intersection(json.loads(node["attrs"]["data-inspection-ids"]))
+    ]
+    assert len(records) == 2
+    assert {tuple(json.loads(node["attrs"]["data-inspection-ids"])) for node in records} == {
+        (subject,) for subject in wanted
+    }
+    for record in records:
+        (blank,) = markup.find("writing-blank", record)
+        assert not content(blank).strip()
+        assert len(markup.find("field-label", blank["parent"])) == 1
+        assert record["attrs"]["data-setup-id"] == data.plan["setups"][0]["id"]
+        assert record["attrs"]["data-op-id"] == str(data.plan["setups"][0]["ops"][0]["op"])
+        if detail != "pedantic":
+            (subject,) = json.loads(record["attrs"]["data-inspection-ids"])
+            assert subject.removesuffix(":dia").replace("_", " ") in content(record)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("strict_subset", [False, True], ids=["exact-pair", "conservative-pair"])
+def test_go_no_go_subset_is_not_presented_as_the_complete_cad_acceptance_band(
+    detail, strict_subset
+):
+    from test_sheet_detail import bench_job, rendered
+
+    data = bench_job()
+    data.features["precision"] = 2
+    data.features["features"]["body"]["dia"] = [1.994, 2.0956]
+    data.features["features"]["body"]["kind"] = "hole"
+    data.plan["setups"][0]["ops"][0]["checks"] = {"dia": "unknown"}
+    pair = {"go": 2.0, "no_go": 2.09} if strict_subset else {"go": 1.994, "no_go": 2.0956}
+    data.plan["setups"][0]["ops"][0]["go_no_go"] = {"dia": pair}
+    markup = Markup(rendered(data, detail=detail))
+    criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if "body:dia" in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    assert criteria
+    for criterion in criteria:
+        text = content(criterion)
+        assert "CAD limits 1.994–2.0956 mm; conservative screen only" in text
+        assert ("conservative GO / NO-GO subset of the CAD band" in text) is strict_subset
+        assert (
+            "a failed screen requires disposition, not an automatic CAD rejection" in text
+        ) is strict_subset
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_exactly_displayable_cad_band_does_not_acquire_a_conservative_screen_warning(detail):
+    from test_sheet_detail import bench_job, rendered
+
+    markup = Markup(rendered(bench_job(), detail=detail))
+    criteria = [
+        node
+        for node in markup.find("inspection-criterion")
+        if "body:dia" in json.loads(node["attrs"]["data-inspection-ids"])
+    ]
+    assert criteria
+    assert all("conservative screen only" not in content(node) for node in criteria)
+
+
 def _hold_facts(hold):
     sheet = bare(2)
     sheet.operative = lambda value: f"{value:.2f}"
@@ -215,6 +384,27 @@ def shop(records, kind="mill", *, detail="pedantic"):
         f"{v:.{places}f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "?"
     )
     return sheet
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {},
+        {"feed_mm_rev": 0.126},
+        {"feed_direction": "axial", "axial_feed_mm_rev": 0.126},
+    ],
+    ids=["per-minute", "per-revolution", "axial"],
+)
+def test_canonical_speed_row_retains_fractional_mm_per_minute(extra):
+    sheet = shop({("speeds_feeds", "S1:70"): {"rpm": 1300, "feed_mm_min": 163.8, **extra}})
+    sheet.finding_statuses[("speeds_feeds", "S1:70")] = "pass"
+    _, feed, stopped = sheet.speeds(
+        {"id": "S1"}, {"op": 70, "do": "drill", "feed_mm_min": 90.0}, False
+    )
+    text = " ".join(feed) if isinstance(feed, list) else feed
+    assert not stopped
+    assert re.search(r"\b163\.8\s+mm/min\b", text)
+    assert not re.search(r"\b(?:164|90)(?:\.0+)?\s+mm/min\b", text)
 
 
 def native_top_touch_sheet(*, detail="pedantic", units="mm", display_units=None, jog=0.0508):
@@ -1596,6 +1786,254 @@ def test_a_breakthrough_note_claims_no_run_out_the_endpoint_leaves_unknown():
     assert run_outs(sheet.tip_note(setup, SPOT["ops"][0]), endpoint) == []
 
 
+def recovered_truth_sheet(finding, setup, features, *, detail="pedantic", kind="mill"):
+    """Render supplied rule facts without asking a kernel to qualify the current work."""
+    base = shop({}, kind, detail=detail)
+    bundle = replace(
+        base.bundle,
+        features={
+            "units": "mm",
+            "features": features,
+            "frames": {
+                "model": {"x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1]},
+            },
+        },
+        inventory={"machines": {"test_machine": {"kind": kind}}},
+        plan={
+            "dro": {
+                "kind": "digital",
+                "units": "mm",
+                "mode": "abs",
+                "direction": {"x": "right", "y": "away", "z": "up"},
+            },
+            "setups": [setup],
+        },
+    )
+    sheet = _Traveler(bundle, [finding], {}, None, detail=detail)
+    sheet.operative = base.operative
+    sheet.setup = setup
+    return sheet
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize(
+    ("definition", "proof"),
+    [
+        ({"kind": "plane", "axis": [1, 0, 0]}, {"status": "pass", "setup_id": "S2"}),
+        ({"kind": "cylinder", "axis": "unknown"}, {"status": "pass", "setup_id": "S2"}),
+        (
+            {"kind": "cylinder", "axis": [0, 0, 1], "frame": "unknown"},
+            {"status": "pass", "setup_id": "S2"},
+        ),
+        ({"kind": "cylinder", "axis": [0, 0, 1]}, None),
+        ({"kind": "cylinder", "axis": [0, 0, 1]}, {"status": "unknown", "setup_id": "S2"}),
+        ({"kind": "cylinder", "axis": [0, 0, 1]}, {"status": "pass", "setup_id": "S1"}),
+        (None, {"status": "pass", "setup_id": "S2"}),
+    ],
+    ids=[
+        "plane",
+        "unknown-axis",
+        "unknown-source-frame",
+        "unproved-current-cylinder",
+        "unknown-current-proof",
+        "different-setup-proof",
+        "future-nonfeature",
+    ],
+)
+def test_unqualified_indication_keeps_desired_target_held_without_a_sweep(
+    monkeypatch, detail, definition, proof
+):
+    from prechips.findings import Finding
+    from prechips.sheet import _Box
+
+    monkeypatch.setattr("prechips.sheet.stock_states", lambda bundle, setup: [])
+    target = "future_datum" if definition is None else "pickup_surface"
+    computed = {
+        "edge_mm": "unknown",
+        "axis_set": 12.5,
+        "check_reading": 13.5,
+        "mirrored_reading": 11.5,
+        "jog_mm": 1.0,
+        "sign": 1,
+    }
+    if proof is not None:
+        computed["pickup_proof"] = proof
+    finding = Finding("zero_check", "S2", "unknown", {"axes": {"x": computed}}, [], "")
+    before = deepcopy(finding)
+    setup = {
+        "id": "S2",
+        "machine": "test_machine",
+        "frame": "model",
+        "zero": {"x": {"feature": target, "method": "indicate_axis"}},
+        "ops": [],
+    }
+    sheet = recovered_truth_sheet(
+        finding, setup, {target: definition} if definition is not None else {}, detail=detail
+    )
+    recipe = sheet.indicate_recipe(setup, "x", target, computed, "DTI")
+    assert isinstance(recipe, _Box)
+    assert (recipe.source, recipe.status, recipe.kind, recipe.scope) == (
+        "zero_check",
+        "unknown",
+        "block",
+        "S2:x",
+    )
+    assert sheet.feature_name(target) in recipe
+    assert not re.search(r"crest|standing|lying|sweep across|move the table until", recipe, re.I)
+    markup = Markup(sheet.dro(setup, {}))
+    visible = " ".join(
+        " ".join(content(node) for node in markup.nodes if node["tag"] == "p").split()
+    )
+    if detail == "pedantic":
+        (axes,) = markup.find("zero")
+        visible = " ".join(content(axes).split())
+        assert re.search(r"desired target.*12\.500.*HOLD", visible, re.I)
+    else:
+        assert re.search(r"Desired X setting\s+12\.500\b.*pickup HOLD", visible)
+        assert not re.search(r"Axis Set\s+X\s*12\.500\b", visible)
+    assert not re.search(r"crest|standing|lying|sweep across|move the table until", visible, re.I)
+    assert any(
+        (decision.source, decision.status, decision.kind, decision.scope)
+        == ("zero_check", "unknown", "block", "S2:x")
+        for decision in sheet.producer_decisions["S2"]
+    )
+    assert finding == before
+    assert finding.numbers["axes"]["x"]["edge_mm"] == "unknown"
+    assert sheet.finding_statuses[("zero_check", "S2")] == "unknown"
+    assert sheet.records[("zero_check", "S2")] == before.numbers
+
+
+@pytest.mark.parametrize(("axis", "action"), [([0, 0, 1], "all round"), ([1, 0, 0], "crest")])
+def test_qualified_current_cylinder_keeps_its_one_oriented_indication_recipe(axis, action):
+    from prechips.findings import Finding
+    from prechips.sheet import _Box
+
+    computed = {"pickup_proof": {"status": "pass", "setup_id": "S2"}}
+    finding = Finding("zero_check", "S2", "pass", {"axes": {"x": computed}}, [], "")
+    before = deepcopy(finding)
+    setup = {"id": "S2", "machine": "test_machine", "frame": "model", "ops": []}
+    sheet = recovered_truth_sheet(
+        finding, setup, {"pickup_surface": {"kind": "cylinder", "axis": axis}}
+    )
+    recipe = sheet.indicate_recipe(setup, "x", "pickup_surface", computed, "DTI")
+    assert not isinstance(recipe, _Box)
+    assert "DTI" in recipe and action in recipe and "Axis Set X" in recipe
+    assert "move the table" in recipe
+    assert not re.search(r"STOP|HOLD|standing|lying", recipe)
+    assert ("crest" in recipe) == (axis == [1, 0, 0])
+    assert finding == before
+    assert sheet.finding_statuses[("zero_check", "S2")] == "pass"
+
+
+@pytest.mark.parametrize("command", [42.31, "unknown", None], ids=["command", "unknown", "absent"])
+@pytest.mark.parametrize("compact", [False, True])
+def test_rough_turn_command_is_not_the_cad_reference_diameter(command, compact):
+    from prechips.findings import Finding
+
+    op = {"op": 20, "do": "rough_turn", "feature": "body", "rough_allowance_mm": 0.2}
+    setup = {"id": "S2", "machine": "test_machine", "frame": "model", "ops": [op]}
+    numbers = {"diameter_in": 42.11 / 25.4}
+    if command is not None:
+        numbers["commanded_diameter_mm"] = command
+    finding = Finding("speeds_feeds", "S2:20", "unknown", numbers, [], "")
+    before = deepcopy(finding)
+    sheet = recovered_truth_sheet(
+        finding, setup, {"body": {"kind": "cylinder", "dia": [42.0, 42.22]}}, kind="lathe"
+    )
+    facts = sheet.cut_depths(setup, op, True)
+    assert facts.commanded_diameter_mm == (command if command is not None else "unknown")
+    text = "; ".join(sheet.cut_depth_text(facts, compact=compact))
+    (printed,) = re.findall(r"commanded target Ø([?\d.]+)", text)
+    assert printed == ("42.310" if command == 42.31 else "?")
+    assert "42.110" not in text
+    assert "reference" in text and "allowance" in text
+    assert finding == before
+    assert sheet.finding_statuses[("speeds_feeds", "S2:20")] == "unknown"
+    assert sheet.records[("speeds_feeds", "S2:20")] == before.numbers
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_explicit_endpoint_command_does_not_turn_independent_bounds_into_stock_proof(detail):
+    from prechips.findings import Finding
+    from prechips.sheet import _Box
+
+    op = {"op": 60, "do": "drill", "feature": "hole", "to_z": -76.1}
+    setup = {"id": "S2", "machine": "test_machine", "frame": "model", "ops": [op]}
+    endpoint = {
+        "setup": "S2",
+        "op": 60,
+        "endpoint_source": "to_z",
+        "tip_z": -76.1,
+        "dro_tip_z": -76.1,
+        "required_tip_z": -75.98765,
+        "entry_z": 0.0,
+        "dro_entry_z": 0.0,
+        "exit_face": -75.0,
+        "dro_exit_face": -75.0,
+        "point_mm": 0.5,
+        "dro_exit_mm": 0.6,
+        "breakthrough_status": "unknown",
+        "actual_stock_status": "unknown",
+    }
+    finding = Finding("blind_depth", "hole", "unknown", {"endpoints": [endpoint]}, [], "")
+    before = deepcopy(finding)
+    sheet = recovered_truth_sheet(finding, setup, {"hole": {"kind": "hole"}}, detail=detail)
+    parts = sheet.tip(setup, op)
+    assert re.search(r"commanded.*-76\.100", parts[0], re.I)
+    bound = next(part for part in parts if "minimum tip bound" in part)
+    assert "-75.98765" in bound and "-76.100" not in bound
+    assert any("entry reference" in part and "0.000" in part for part in parts)
+    assert any("far-face reference" in part and "-75.000" in part for part in parts)
+    barriers = [part for part in parts if isinstance(part, _Box)]
+    assert barriers
+    assert all(
+        (barrier.source, barrier.status, barrier.kind, barrier.scope)
+        == ("blind_depth", "unknown", "block", "S2:60")
+        for barrier in barriers
+    )
+    assert any("HOLD" in barrier and "stock" in barrier.lower() for barrier in barriers)
+    assert any("STOP" in barrier and "breakthrough" in barrier.lower() for barrier in barriers)
+    assert not re.search(
+        r"breaks through|full diameter (?:runs|just reaches)", " ".join(parts), re.I
+    )
+    assert sheet.tip_note(setup, op) is None
+    assert finding == before
+    assert sheet.finding_statuses[("blind_depth", "hole")] == "unknown"
+    assert sheet.records[("blind_depth", "hole")] == before.numbers
+
+
+@pytest.mark.parametrize("proof_setup", [None, "S1"], ids=["no-proof", "other-setup-proof"])
+@pytest.mark.parametrize("declared", [False, True], ids=["future-datum", "unproved-cylinder"])
+def test_unproved_transfer_keeps_its_desired_datum_and_exact_comparison_limit(
+    declared, proof_setup
+):
+    from prechips.findings import Finding
+
+    target = "pickup_surface" if declared else "future_datum"
+    computed = (
+        {"pickup_proof": {"status": "pass", "setup_id": proof_setup}}
+        if proof_setup is not None
+        else {}
+    )
+    finding = Finding("zero_check", "S2", "unknown", {"axes": {"x": computed}}, [], "")
+    before = deepcopy(finding)
+    setup = {"id": "S2", "machine": "test_machine", "frame": "model", "ops": []}
+    sheet = recovered_truth_sheet(
+        finding,
+        setup,
+        {target: {"kind": "cylinder", "axis": [0, 0, 1]}} if declared else {},
+    )
+    line = sheet.transfer_line(
+        setup, {"from": "S1", "indicate": [target], "runout_limit_mm": 0.0254}
+    )
+    assert "HOLD" in line and sheet.feature_name(target) in line
+    assert "0.0254" in line
+    assert not re.search(r"crest|standing|lying|move the table|tap true|re-clamp", line, re.I)
+    assert finding == before
+    assert sheet.finding_statuses[("zero_check", "S2")] == "unknown"
+    assert sheet.records[("zero_check", "S2")] == before.numbers
+
+
 def transfer_sheet(indicate, kind):
     sheet = mapped({}, {"face_a": {"kind": "face"}, "bore": {"kind": "hole"}})
     # The sheet names an item by its reference and the slot that selects it.
@@ -1609,6 +2047,10 @@ def transfer_sheet(indicate, kind):
 )
 def test_an_alignment_sweep_moves_the_work_and_a_centring_sweep_moves_the_table(indicate, moves):
     sheet, transfer = transfer_sheet(indicate, "mill")
+    # This case exercises actionable motion, not the separate unqualified-pickup HOLD.
+    sheet.records[("zero_check", "S2")] = {
+        "axes": {"x": {"pickup_proof": {"status": "pass", "setup_id": "S2"}}}
+    }
     line = sheet.transfer_line({"id": "S2"}, transfer)
     assert "0.0254" in line
     if moves == "work":
@@ -2597,12 +3039,11 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
     assert [node["attrs"]["data-op"] for node in operations] == ["30", "10"]
     for node, row, op in zip(operations, rows, ops, strict=True):
         assert len(markup.find("performed-mark", node)) == (detail == "pedantic")
-        actions = (
-            ["finish turn", "leave 0.025 mm per side", "0.125 mm axial per pass"]
-            if op["op"] == 30
-            else ["inspect"]
-        )
-        assert all(action in str(row[1]) for action in actions)
+        for text in (str(row[1]), content(node)):
+            assert op["do"].replace("_", " ") in text
+            if op["op"] == 30:
+                assert re.search(r"\bleave\s+0\.025\s+mm\s+per side\b", text)
+                assert re.search(r"\b0\.125\s+mm\b[^;]*\baxial\b[^;]*\bper pass\b", text)
         for column, values in {
             2: ["bore"],
             3: ["T4"],
@@ -2612,7 +3053,6 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
             7: [op["direction"]],
         }.items():
             assert all(value in str(row[column]) for value in values)
-        assert all(action in content(node) for action in actions)
     first = operations[0]
     assert ops[0]["safety"] in content(first)
     assert ops[0]["note"] in content(markup.find("op-note", first)[0])
@@ -3079,7 +3519,10 @@ def test_datum_transfer_prerequisite_precedes_axis_setting_for_lathe_and_mill(
         assert markup.nodes.index(transfer) < markup.nodes.index(row)
         tool = setup["zero"][axis.lower()].get("tool")
         if tool not in (None, "unknown"):
-            assert (tools.get(tool) or sheet.short_reference(tool)) in content(contact)
+            gauge = tools.get(tool) or sheet.short_reference(tool)
+            assert gauge in content(row) or gauge in content(transfer)
+            if gauge not in content(contact):
+                assert re.search(r"\b(?:STOP|HOLD)\b", content(contact))
     assert not markup.find("writing-blank", axes)
 
 
@@ -4895,9 +5338,7 @@ def test_compact_criterion_deduplicates_only_a_complete_terminal_dimension(
     ((_, _, criterion),) = check.compact_criteria
     expected = feature.replace("_", " ") + " length" if detail == "pedantic" else compact_heading
     assert criterion.heading == expected
-    assert re.search(
-        rf"(?<![\w-]){re.escape(expected)} 25\.300–25\.500(?!\d)", str(criterion)
-    )
+    assert re.search(rf"(?<![\w-]){re.escape(expected)} 25\.300–25\.500(?!\d)", str(criterion))
     assert str(criterion).count("25.300–25.500") == 1
     assert check.features == (feature,)
     assert check.requirement == "length"

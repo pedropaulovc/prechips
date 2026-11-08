@@ -135,6 +135,7 @@ ignore = [
 # regressions selected alongside the historical coverage-derived consumers.
 "src/prechips/rules/_bench.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/coordinates.py" = [
+    "tests/test_tip_endpoints.py",
     "tests/test_manual_die_tools.py",
     "tests/test_thread_preparation.py",
     "tests/test_threaded_joints.py",
@@ -160,7 +161,7 @@ ignore = [
     "tests/test_manual_raster_coverage.py",
     "tests/test_profile_face_subset.py",
 ]
-"src/prechips/rules/op_chain.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/op_chain.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py", "tests/test_joint_bore_preparation.py"]
 "src/prechips/rules/op_order.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py", "tests/test_kernel_keep_piece.py"]
 "src/prechips/rules/resolution.py" = [
     "tests/test_manual_die_tools.py",
@@ -169,7 +170,7 @@ ignore = [
     "tests/test_manual_thread_boundaries.py",
     "tests/test_practical_inspection.py",
 ]
-"src/prechips/rules/tip_endpoints.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py", "tests/test_process_plane_windows_host.py", "tests/test_rocker_support_stack.py"]
+"src/prechips/rules/tip_endpoints.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py", "tests/test_process_plane_windows_host.py", "tests/test_rocker_support_stack.py", "tests/test_tip_endpoints.py", "tests/test_joint_bore_preparation.py"]
 "src/prechips/rules/tool_resolves.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/zero_recipe/rule.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py", "tests/test_lathe_zero.py"]
 "src/prechips/rules/saw_cut.py" = ["tests/test_material_route_rule_boundaries.py"]
@@ -213,9 +214,12 @@ ignore = [
 "src/prechips/model.py" = ["tests/test_lathe_zero.py", "tests/test_manual_raster_schema.py", "tests/test_axis_placements.py"]
 "src/prechips/process_features.py" = ["tests/test_process_plane_windows_host.py", "tests/test_process_plane_windows_native.py"]
 "src/prechips/rules/zero_recipe/faces.py" = ["tests/test_process_plane_windows_host.py", "tests/test_process_plane_windows_native.py"]
-"src/prechips/rules/zero_recipe/tool_setting.py" = ["tests/test_lathe_zero.py"]
-"src/prechips/rules/turned_profile.py" = ["tests/test_turned_profile_phase.py", "tests/test_turned_profile_stages.py"]
+"src/prechips/rules/zero_recipe/tool_setting.py" = ["tests/test_lathe_zero.py", "tests/test_tip_endpoints.py"]
+"src/prechips/rules/zero_recipe/native.py" = ["tests/test_tip_endpoints.py"]
+"src/prechips/rules/turned_profile.py" = ["tests/test_turned_profile_phase.py", "tests/test_turned_profile_stages.py", "tests/test_turning_command_reference.py"]
 "src/prechips/rules/stickout.py" = ["tests/test_turned_profile_phase.py", "tests/test_turned_profile_stages.py"]
+"src/prechips/rules/speeds_feeds.py" = ["tests/test_turning_command_reference.py"]
+"src/prechips/rules/turning_deflection.py" = ["tests/test_turning_command_reference.py"]
 "src/prechips/rules/coverage.py" = ["tests/test_manual_raster_coverage.py", "tests/test_profile_face_subset.py", "tests/test_turn_target_coverage.py"]
 "src/prechips/rules/finish_coverage.py" = ["tests/test_manual_raster_coverage.py", "tests/test_profile_face_subset.py", "tests/test_turn_target_coverage.py"]
 "src/prechips/kernel/freecad_job.py" = [
@@ -240,7 +244,7 @@ ignore = [
 "src/prechips/measurements.py" = ["tests/test_manual_raster_inputs.py"]
 "src/prechips/rules/accessibility.py" = ["tests/test_turn_target_coverage.py"]
 "src/prechips/rules/reach.py" = ["tests/test_turning_reach_certainty.py"]
-"src/prechips/rules/_envelope.py" = ["tests/test_m5_supported_height_datum.py", "tests/test_rocker_support_stack.py"]
+"src/prechips/rules/_envelope.py" = ["tests/test_m5_supported_height_datum.py", "tests/test_rocker_support_stack.py", "tests/test_tip_endpoints.py"]
 "src/prechips/rules/envelope.py" = ["tests/test_m5_supported_height_datum.py", "tests/test_rocker_support_stack.py"]
 "src/prechips/rules/headroom.py" = ["tests/test_m5_supported_height_datum.py"]
 "src/prechips/rules/_support_stack.py" = ["tests/test_rocker_support_stack.py"]

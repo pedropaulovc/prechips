@@ -50,6 +50,25 @@ def nominal_diameter(bundle, feature):
     return diameter * 25.4 if units == "in" else diameter
 
 
+def commanded_diameter(bundle, op, implicit_diameter_mm):
+    """Positive profile command in mm, never material, stiffness or attainment evidence.
+
+    Only an absent ``to_dia`` uses the caller's existing implicit target/basis.
+    An authored unknown/invalid command cannot fall back to nominal plus allowance.
+    ``to_dia`` uses manifest units; the implicit value is already in millimetres.
+    Axial face/parting/cut-to-fit commands can validly reach diameter zero and must
+    retain their existing action-specific consumers instead of using this helper.
+    """
+    if "to_dia" not in op:
+        return implicit_diameter_mm
+    value = op["to_dia"]
+    scale = _scale(bundle)
+    if scale is None or not number(value) or not math.isfinite(value) or value <= 0:
+        return UNKNOWN
+    diameter = value * scale
+    return diameter if math.isfinite(diameter) else UNKNOWN
+
+
 def _frame_mm(frame, scale):
     result = dict(record(frame))
     origin = result.get("origin")

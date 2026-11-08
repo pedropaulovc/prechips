@@ -230,6 +230,7 @@ def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=No
     elif kind == "tooling_hole" and action == "spot":
         from .tip_endpoints import (
             _centre_mouth,
+            commanded_depth_mm,
             drill_point_mm,
             hole_depth_mm,
             stock_states,
@@ -244,6 +245,12 @@ def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=No
         before = next(
             before for current, before, _ in stock_states(bundle, other) if current is cut
         )
+        if "to_z" in cut:
+            depth = commanded_depth_mm(
+                cut,
+                before["entry_z"].get(source, before["top_z"]),
+                bundle.features.get("units"),
+            )
         bad, debt, _ = _centre_mouth(
             bundle,
             other,
@@ -290,9 +297,19 @@ def _bore_continuation(bundle, setup, op, target, other, cut):
     start = sum(a * b for a, b in zip(delta, source_axis, strict=True))
     if any(abs(a - start * b) > 1e-6 for a, b in zip(delta, source_axis, strict=True)):
         return False
-    from .tip_endpoints import hole_depth_mm, stock_states
+    from .tip_endpoints import commanded_depth_mm, drill_point_mm, hole_depth_mm, stock_states
 
+    tool = record(resolve(bundle, "tools", cut.get("tool")))
+    diameter = length_mm(tool, "dia")
     depth = hole_depth_mm(cut, definition, bundle.features.get("units"))
+    if "to_z" in cut:
+        before = next(state for current, state, _ in stock_states(bundle, other) if current is cut)
+        depth = commanded_depth_mm(
+            cut, before["entry_z"].get(source, before["top_z"]), bundle.features.get("units")
+        )
+        angle = angle_fact(tool, "point_angle", require_measured=False)
+        point = drill_point_mm(diameter, angle["value"] if angle["verified"] else UNKNOWN)
+        depth = depth - point if number(depth) and number(point) else UNKNOWN
     target_depth = feature.get("depth")
     if not number(target_depth) and feature.get("thru") is True:
         from .coordinates import frame_point, model_point
@@ -325,8 +342,6 @@ def _bore_continuation(bundle, setup, op, target, other, cut):
                 target_depth = abs(end - start) / scale
                 dot = 1 if end >= start else -1
     band = feature.get("dia")
-    tool = record(resolve(bundle, "tools", cut.get("tool")))
-    diameter = length_mm(tool, "dia")
     if (
         not number(depth)
         or not number(target_depth)

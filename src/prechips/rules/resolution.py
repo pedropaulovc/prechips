@@ -33,7 +33,15 @@ SET_KINDS = {
 HAND_FINISH = frozenset({"file_to_line"})
 HAND_THREAD = frozenset({"die_thread", "hand_tap"})
 TAP_OPS = frozenset({"tap", "hand_tap"})
-MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH | HAND_THREAD
+MANUAL_SEVER_REASON = (
+    "manual_sever is an unmodeled material-changing action; stock after manual severing "
+    "is unknown; manual tool, retention and access remain HOLD"
+)
+MANUAL = (
+    {"inspect", "deburr", "coating", "release", "fit", "scribe", "manual_sever"}
+    | HAND_FINISH
+    | HAND_THREAD
+)
 # These labels alone do not change material. Other bench actions still need a
 # bounded native effect before an earlier dimensional check can survive them.
 PRESERVATION_METADATA = frozenset({"inspect", "release", "scribe"})

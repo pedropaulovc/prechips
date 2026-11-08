@@ -289,6 +289,11 @@ ROTARY = "rotary"
 # max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
 HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
+# Kept identical to the host's action-catalog reason; no geometry model is implied.
+MANUAL_SEVER_REASON = (
+    "manual_sever is an unmodeled material-changing action; stock after manual severing "
+    "is unknown; manual tool, retention and access remain HOLD"
+)
 # The host judges each saw's tool and station (``saw_tool``); a job with no verdict cuts
 # only on the machine kinds a powered saw uses.
 POWERED_SAW_MACHINES = ("mill", "bench", "bandsaw")
@@ -9190,8 +9195,9 @@ class _Setup(ThreadMaterialMixin):
         loses the same cut separately (:meth:`_remove`); separate solids are never fused.
         The first op whose cut cannot be derived (or splits, empties, leaves invalid or
         band-holding stock, or fails a boolean) stops the pass: its own before-op stock stays
-        known and is also its after stock, so its failed clearance is never credited; every
-        later op's is unknown for that reason, and no later cut is ever credited to an
+        known and is also its after stock, so its failed clearance is never credited. A
+        manual sever instead has explicitly unknown after-stock. Every later op's stock
+        is unknown for that reason, and no later cut is ever credited to an
         earlier op. A setup's ``keep`` entries (:meth:`_keep_after`) then drop the pieces
         that do not carry their feature from the stock after their op, so later ops and
         setups receive only the kept piece; without one every held piece is carried on.
@@ -9219,6 +9225,10 @@ class _Setup(ThreadMaterialMixin):
             before = stock
             plan = None
             try:
+                if op.get("do") == "manual_sever":
+                    stopped = f"{subject}: {MANUAL_SEVER_REASON}; {where}"
+                    self.lower_cuts[id(op)] = (self.lower_out, None, stopped)
+                    continue
                 if _retained_metadata(op):
                     # Pure metadata carries both material bounds without a cut.
                     self.lower_cuts[id(op)] = (self.lower_out, self.lower_out, None)
@@ -9283,7 +9293,13 @@ class _Setup(ThreadMaterialMixin):
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
                 self._end_thread_material_op(op)
-                self.cuts[id(op)] = (before, stock, None)
+                # A refused modeled cut keeps its conservative before-stock, but a
+                # manual sever has no modeled after-stock at all.
+                self.cuts[id(op)] = (
+                    (before, None, None)
+                    if op.get("do") == "manual_sever"
+                    else (before, stock, None)
+                )
                 if stopped is not None:
                     self.stopped_cut = id(op)
                     self.stopped_plan = plan
@@ -9779,6 +9795,8 @@ class _Setup(ThreadMaterialMixin):
         round keep-out islands removes neither, in its own cut or its band, where its
         printed pieces do not sweep (:func:`_unswept`).
         """
+        if op.get("do") == "manual_sever":
+            return None, MANUAL_SEVER_REASON
         reason = _contour_reason(op)
         if reason is not None:
             return None, reason
@@ -15134,6 +15152,16 @@ class _Setup(ThreadMaterialMixin):
         if _sawn(op):
             return self._saw_facts(op, reason)
         facts = {"reason": reason, "reasons": {}}
+        if op.get("do") == "manual_sever":
+            facts.update(
+                approach="manual_sever",
+                material_effect="unmodeled",
+                stock_after=UNKNOWN,
+            )
+            for key in ("claimed_indices", *self._MEASURED, "corner_radii_mm"):
+                facts[key] = UNKNOWN
+                facts["reasons"][key] = reason
+            return facts
         if _manual_raster(op):
             facts.update(
                 approach="manual_raster",
@@ -16622,6 +16650,8 @@ class _Setup(ThreadMaterialMixin):
         return facts
 
     def _op(self, op):
+        if op.get("do") == "manual_sever":
+            return self._op_unknown(op, MANUAL_SEVER_REASON)
         subset = self._profile_subset(op)
         if subset is not None and subset["status"] != "ok":
             facts = self._op_unknown(op, subset["reason"])
@@ -18170,6 +18200,8 @@ class _Setup(ThreadMaterialMixin):
         if entry[2] is not None:
             return None, f"the stock this op meets is unknown ({entry[2]})"
         stock = entry[side]
+        if stock is None:
+            return None, self.built[1] or "stock after manual severing is unknown"
         if stock is self.part:
             return self._culled_part(), None
         if id(stock) not in self.op_culled:

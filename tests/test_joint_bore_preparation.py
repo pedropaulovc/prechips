@@ -152,3 +152,24 @@ def test_both_source_and_finished_material_survival_are_required(
 
     monkeypatch.setattr(op_chain, "_material", survival)
     assert pivot_chain(bore_route).status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "command,status", [(-10.0, "pass"), (-5.75, "error"), ("unknown", "unknown")]
+)
+def test_absolute_drill_tip_does_not_credit_its_point_as_full_bore(bore_route, command, status):
+    setup = bore_route.plan["setups"][0]
+    setup["stock_state"] = {"top_z": 4.25, "entry_z": {"supply": 4.25}}
+    setup["ops"][1].update(to_z=command, depth_mm=100.0)
+    bore_route.inventory["tools"]["D"]["point_angle"] = 90.0
+    # D6.2484/90 degrees has a 3.1242 point. Z-5.75 travels 10 mm,
+    # but only 6.8758 mm is full diameter: short of the 7.77825 far end.
+    assert pivot_chain(bore_route).status == status
+
+
+def test_explicit_drill_with_unknown_point_cannot_prepare_full_bore(bore_route):
+    setup = bore_route.plan["setups"][0]
+    setup["stock_state"] = {"top_z": 4.25, "entry_z": {"supply": 4.25}}
+    setup["ops"][1].update(to_z=-10.0, depth_mm=100.0)
+    bore_route.inventory["tools"]["D"]["point_angle"] = "unknown"
+    assert pivot_chain(bore_route).status == "unknown"

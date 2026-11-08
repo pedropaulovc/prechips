@@ -537,7 +537,7 @@ def _axial_cut_footprint(bundle, setup, op):
     from ...measurements import angle_fact, length_fact
     from .._envelope import measurement_item
     from ..coordinates import dro_grid, dro_point, frame_axes, frame_point, planned_point
-    from ..tip_endpoints import hole_depth_mm
+    from ..tip_endpoints import commanded_depth_mm, hole_depth_mm, stock_states
 
     action = op.get("do")
     if action not in {"spot", "drill", "ream", "counterbore"}:
@@ -578,6 +578,15 @@ def _axial_cut_footprint(bundle, setup, op):
         body = length_fact(tool, "shank", require_measured=False)
         countersink = angle_fact(tool, "angle_deg", require_measured=False)
         depth = hole_depth_mm(op, feature, bundle.features.get("units"))
+        if "to_z" in op:
+            before = next(
+                state for current, state, _ in stock_states(bundle, setup) if current is op
+            )
+            depth = commanded_depth_mm(
+                op,
+                before["entry_z"].get(op_feature(op), before["top_z"]),
+                bundle.features.get("units"),
+            )
         if not (
             all(
                 fact["verified"] and number(fact["value"]) and math.isfinite(fact["value"])

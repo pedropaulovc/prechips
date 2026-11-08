@@ -85,9 +85,10 @@ def _operative(row, bundle, setup, face, op):
     A carried touch supplies its typed setting, not another rounding of the raw
     native plane. An imported entry must name that native nominal; return a
     named input error otherwise, without offering an operative stop. Cuts still
-    round upward. A through exit is a dimension-derived bound, not another
-    face's native or as-cut plane identity. An unverified DRO grid is recorded as
-    ``dro_grid_debt``.
+    round upward. An explicit ``to_z`` is already an absolute command: neither
+    carried-entry nor exit-plane offsets move it. A through exit is a
+    dimension-derived bound, not another face's native or as-cut plane identity.
+    An unverified DRO grid is recorded as ``dro_grid_debt``.
     """
     from .coordinates import UNIT_MM, dro_grid, dro_grid_debt, dro_z
     from .zero_recipe.tool_setting import carried_z_reading
@@ -168,13 +169,35 @@ def _operative(row, bundle, setup, face, op):
             row["dro_exit_face"] = dro_z(exit_face, grid)
         surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
         shift = _subtract(row[surface], row[worked])
-    tip = row["tip_z"] + shift if number(row["tip_z"]) and number(shift) else UNKNOWN
+    explicit = row.get("endpoint_source") == "to_z"
+    tip = (
+        row["tip_z"]
+        if explicit
+        else row["tip_z"] + shift
+        if number(row["tip_z"]) and number(shift)
+        else UNKNOWN
+    )
     row["dro_tip_z"] = dro_z(tip, grid)
     if through:
         lead = row.get("lead_mm", row.get("point_mm", UNKNOWN))
-        row["dro_exit_mm"] = _subtract(exit_face, lead, row["dro_tip_z"])
+        if explicit:
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            distance = _subtract(exit_face, row["dro_tip_z"])
+            row["dro_exit_mm"] = _subtract(
+                distance * scale if number(distance) and scale is not None else UNKNOWN, lead
+            )
+        else:
+            row["dro_exit_mm"] = _subtract(exit_face, lead, row["dro_tip_z"])
     elif "depth_mm" in row:
-        row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
+        if explicit:
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            distance = _subtract(row["dro_entry_z"], row["dro_tip_z"])
+            depth = distance * scale if number(distance) and scale is not None else UNKNOWN
+            row["dro_depth_mm"] = _subtract(depth, row.get("lead_mm", row.get("point_mm", 0)))
+            if op.get("do") == "spot":
+                row["dro_depth_mm"] = depth
+        else:
+            row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
         row.setdefault("depth_floor_mm", UNKNOWN)
     return bad_input
 
@@ -189,6 +212,17 @@ def _feature_depth_mm(feature, field, units, end=1):
         value = UNKNOWN
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     return value * scale if number(value) and scale is not None else UNKNOWN
+
+
+def commanded_depth_mm(op, entry_z, units):
+    """Tip travel from an independent entry to absolute ``to_z``, in machine mm.
+
+    Both coordinates use plan units. This neither supplies a missing entry nor
+    subtracts a drill point/reamer lead to claim full-diameter depth.
+    """
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    depth = _subtract(entry_z, op.get("to_z", UNKNOWN))
+    return depth * scale if number(depth) and scale is not None else UNKNOWN
 
 
 def hole_depth_mm(op, feature, units):
@@ -1741,6 +1775,7 @@ def evaluate(bundle):
     unresolved = set()
     errors = set()
     negative_exit = set()
+    short_exit = set()
     manual_depth_errors = set()
     # Per centre: why it is not the centre its selected tool cuts from the touched surface.
     centre_errors = {}
@@ -1772,6 +1807,10 @@ def evaluate(bundle):
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             action = op["do"]
             manual_tap = action in TAP_OPS and action in HAND_THREAD
+            explicit = "to_z" in op and not centre and not manual_tap
+            command = op.get("to_z", UNKNOWN)
+            scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+            command_depth = commanded_depth_mm(op, entry, bundle.features.get("units"))
             angle = angle_fact(tool, "point_angle", require_measured=False)
             point = drill_point_mm(
                 length_mm(tool, "dia"),
@@ -1788,6 +1827,8 @@ def evaluate(bundle):
                     unresolved.add(name)
             elif action == "spot":
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
+                if explicit:
+                    depth = command_depth
                 row.update(
                     depth_mm=depth,
                     point_mm=point,
@@ -1796,6 +1837,8 @@ def evaluate(bundle):
                 )
             elif action in TAP_OPS:
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
+                if explicit:
+                    depth = command_depth
                 flute = length_mm(tool, "flute_len")
                 # The thread depth band a tap's depth answers to (hole_depth_mm's field).
                 band = "thread_depth" if "thread_depth" in feature else "depth"
@@ -1831,7 +1874,8 @@ def evaluate(bundle):
                 allowance = op.get("exit_mm", UNKNOWN)
                 negative = number(allowance) and allowance < 0
                 if negative:
-                    # A negative allowance stops short of breaking through; no stop is offered.
+                    # Refuse a derived stop; an explicit command remains visible
+                    # alongside this independent invalid-intent error.
                     negative_exit.add(name)
                 row.update(
                     local_thickness=thickness,
@@ -1840,6 +1884,49 @@ def evaluate(bundle):
                     tip_z=UNKNOWN if negative else _subtract(exit_face, lead, allowance),
                 )
                 row["lead_mm" if action == "ream" else "point_mm"] = lead
+                if explicit:
+                    # Coordinates and local thickness are in plan units; tool
+                    # geometry and exit intent are machine mm. This bound is
+                    # independent of the command, never its inverse.
+                    row["required_tip_z"] = _subtract(
+                        exit_face,
+                        lead / scale if number(lead) and scale is not None else UNKNOWN,
+                        allowance / scale if number(allowance) and scale is not None else UNKNOWN,
+                    )
+                    kernel = mapping(getattr(bundle, "kernel", None))
+                    native = mapping(mapping(kernel.get("ops")).get(f"{setup['id']}:{op['op']}"))
+                    stock = mapping(mapping(kernel.get("setups")).get(setup["id"]))
+                    reason = next(
+                        (
+                            source[field]
+                            for source, fields in (
+                                (stock, ("stock_reason",)),
+                                (
+                                    native,
+                                    (
+                                        "stock_reason",
+                                        "reason",
+                                        "unsupported_reason",
+                                        "stock_removal_error",
+                                        "material_reason",
+                                    ),
+                                ),
+                            )
+                            for field in fields
+                            if source.get(field)
+                        ),
+                        None,
+                    )
+                    # A native computation is not a shop observation, nor is
+                    # its absence cured by numeric authored local thickness.
+                    row["actual_stock_status"] = (
+                        "computed"
+                        if kernel.get("status") == "ok" and native and not reason
+                        else UNKNOWN
+                    )
+                    if row["actual_stock_status"] == UNKNOWN:
+                        row["actual_stock_reason"] = reason or "current native stock is unproved"
+                        unresolved.add(name)
             else:
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 lead = (
@@ -1849,6 +1936,8 @@ def evaluate(bundle):
                     if action == "drill"
                     else 0
                 )
+                if explicit:
+                    depth = _subtract(command_depth, lead)
                 units = bundle.features.get("units")
                 limit = _feature_depth_mm(feature, "depth", units)
                 total = depth + lead if number(depth) and number(lead) else UNKNOWN
@@ -1865,6 +1954,13 @@ def evaluate(bundle):
                     unresolved.add(name)
                 elif total > limit and not uncertain(tool):
                     errors.add(name)
+            if explicit:
+                row["endpoint_source"] = "to_z"
+                row["tip_z"] = command if number(command) else UNKNOWN
+                if "depth_mm" in op:
+                    row["authored_depth_mm"] = op["depth_mm"]
+                    if number(op["depth_mm"]) and op["depth_mm"] < 0:
+                        input_errors.setdefault(name, []).append("depth_mm must be >= 0")
             # A centre row's verdict is centre_endpoint's alone (it already holds the tool's
             # presence and verify debt), which centre_support reads through centre_check.
             if not centre and (
@@ -1895,6 +1991,26 @@ def evaluate(bundle):
                     debts.setdefault(name, {}).update(
                         (item["id"], item) for item in dro_grid_measurements(bundle, setup)
                     )
+                if explicit and row["exit_face"] != "not_applicable":
+                    required = row["required_tip_z"]
+                    achieved = row["dro_exit_mm"]
+                    allowance = row["exit_mm"]
+                    nominal_known = number(command) and number(required)
+                    operative_known = number(achieved) and number(allowance)
+                    short = (
+                        nominal_known
+                        and command > required + SAME_Z
+                        or operative_known
+                        and achieved < allowance - SAME_Z
+                    )
+                    if short and not uncertain(tool):
+                        row["breakthrough_status"] = "error"
+                        short_exit.add(name)
+                    elif nominal_known and operative_known and not uncertain(tool):
+                        row["breakthrough_status"] = "pass"
+                    else:
+                        row["breakthrough_status"] = UNKNOWN
+                        unresolved.add(name)
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():
@@ -1905,6 +2021,7 @@ def evaluate(bundle):
         elif (
             name in errors
             or name in negative_exit
+            or name in short_exit
             or name in manual_depth_errors
             or name in centre_errors
             or name in input_errors
@@ -1913,6 +2030,11 @@ def evaluate(bundle):
                 text
                 for flagged, text in (
                     (negative_exit, "A through exit allowance is negative; exit_mm must be >= 0."),
+                    (
+                        short_exit,
+                        "The explicit through command or its DRO stop does not provide "
+                        "the declared full-diameter exit allowance.",
+                    ),
                     (manual_depth_errors, "Manual tapping requires a positive relative depth."),
                     (errors, "The blind tip or tap flute length exceeds the declared depth guard."),
                     (
@@ -1936,6 +2058,10 @@ def evaluate(bundle):
                 "pass",
                 "Hole tip endpoints and blind-depth guards are computed from the advanced "
                 "local entry surfaces.",
+            )
+        if any(row.get("actual_stock_status") == UNKNOWN for row in rows):
+            sentence += (
+                " Current native stock is unproved; authored bounds are not actual far-face proof."
             )
         if grid_debts:
             sentence += " DRO grid debt: " + "; ".join(grid_debts)

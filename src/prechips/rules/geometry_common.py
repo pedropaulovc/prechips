@@ -16,6 +16,7 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     HAND_THREAD,
     MANUAL,
+    MANUAL_SEVER_REASON,
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
     TAP_OPS,
@@ -43,7 +44,7 @@ from prechips.rules.resolution import (
 from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
-_NONCUTTING = (MANUAL - HAND_THREAD) | {"transfer"}
+_NONCUTTING = (MANUAL - HAND_THREAD - {"manual_sever"}) | {"transfer"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
@@ -90,6 +91,8 @@ def blade_keys(inputs):
 
 def approach(bundle, setup, op):
     """Select the physical approach model; authored rasters never use axial cylinders."""
+    if op.get("do") == "manual_sever":
+        return "manual_sever"
     if record(op.get("contour")).get("method") == MANUAL_RASTER:
         return MANUAL_RASTER
     if op.get("do") in HAND_FINISH | HAND_THREAD:
@@ -114,7 +117,7 @@ def approach_model_reason(bundle, setup, op):
 def approach_facts(bundle, facts, setup, op):
     """Non-axial facts must identify their own physical model, never legacy -Z facts."""
     model = approach(bundle, setup, op)
-    if model not in (HAND, TURNING, ROTARY, MANUAL_RASTER):
+    if model not in (HAND, TURNING, ROTARY, MANUAL_RASTER, "manual_sever"):
         return True
     detail = record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
     return detail.get("approach") == model
@@ -142,7 +145,7 @@ def finishing_subjects(bundle):
         if not record(record(definition).get("preparation"))
         for _, setup, op in _cuts(bundle, name, workpiece_id=member)
         if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
-        and op.get("do") not in SAW_OPS | {"coating"}
+        and op.get("do") not in SAW_OPS | {"coating", "manual_sever"}
     }
 
 
@@ -1180,6 +1183,31 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
     for setup, op in operations(bundle):
         subject = f"{setup['id']}:{op['op']}"
         cite = provenance(bundle, rule, setup, op, op_feature(op))
+        if op.get("do") == "manual_sever":
+            detail = record(record(facts.get("ops")).get(subject))
+            inputs = {
+                **jobs.get(subject, {}),
+                "operation": "manual_sever",
+                "material_effect": "unmodeled",
+                "model_reason": MANUAL_SEVER_REASON,
+            }
+            yield (
+                setup,
+                op,
+                facts,
+                detail,
+                inputs,
+                cite,
+                Finding(
+                    rule,
+                    subject,
+                    UNKNOWN,
+                    inputs,
+                    cite,
+                    f"{subject}: {MANUAL_SEVER_REASON}.",
+                ),
+            )
+            continue
         if op.get("do") in SAW_OPS:
             disk = spindle_saw(bundle, setup, op) and rule in {"accessibility", "reach"}
             inputs = jobs.get(subject, {})

@@ -94,6 +94,12 @@ check is after cutting the scribe-to-face target but before S3:20 doming:
 measure the cut face while recutting is still possible, then follow the
 existing forward instruction to verify the cylinder end after doming.
 
+The traveler keeps each feature-scoped method visibly associated with its
+feature owner for both selected numeric requirements and unresolved checks.
+Only an actually shared flat entry is shared as a procedure; a repeated
+requirement name or equal-looking limit does not transfer another feature's
+method or establish a measured result.
+
 #### Shared dimensions and later bench work
 
 `inspect_workpieces` names the registered members an inspection checks. A
@@ -184,6 +190,22 @@ if catalogue dimensions are unverified.
 
 ### Banded dimensions and radius MAX leaves
 
+Printed inspection criteria preserve the existing inward-rounded band as a
+conservative screen. When it differs from the exact exported source limits,
+the check also prints `CAD limits …; conservative screen only` in native source
+units, even if the working band is displayed in different readout units. For
+example, at three decimals `[12.2555, 12.2855]` mm has the working screen
+`12.256–12.285`, but the source CAD limits remain `12.2555–12.2855 mm`.
+Scalar zones likewise distinguish the working maximum from `CAD max …`.
+Bands with different exact source limits cannot merge merely because rounding
+produces the same working screen.
+
+A reading outside that tighter screen is not necessarily outside the CAD band.
+A reading inside it does not establish measurement uncertainty, instrument
+calibration, datum realization or part acceptance. Those facts remain unproved
+unless their own evidence establishes them; printing a conservative band adds
+no such proof and changes no inspection finding or gauge capability rule.
+
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
 not exceed `high-low`. The exception is a one-sided radius limit: a `radius` or
 `bottom_radius` band `[0, r]` can only mean "R r MAX, sharp allowed", so no new field
@@ -211,9 +233,12 @@ always one of those leaves: the largest at or under r − t. A `sizes_mm` that i
 unknown, wholly or in part, shows neither a leaf nor its absence, so the check is
 unknown (`gauge leaf sizes unresolved`, or the gauge's own verification debt).
 
-r is the MAX the traveler prints, the band rounded inward to the drawing's precision:
-`[0, 0.24]` at precision 1 prints `0.0–0.2`, so the leaf read is R0.2, never R0.24.
-When printing moves it, the evidence keeps the drawn limit as `drawing_limit_mm`.
+r is the conservative MAX used by this leaf check, rounded inward to the
+drawing's precision: `[0, 0.24]` at precision 1 prints the screen `0.0–0.2`,
+so the leaf read is R0.2, never R0.24. The working criterion also retains the
+exact `CAD limits 0–0.24 mm; conservative screen only`; the CAD limit itself
+has not changed. When printing moves it, the evidence keeps the drawn limit as
+`drawing_limit_mm`.
 
 Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
 `leaf_tolerance_mm`, instead of `band_mm`. An unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
@@ -380,6 +405,13 @@ does not` (`passes over` for a boss or shaft), at the gauge's digits. A pair dec
 or one entry `go_no_go = { <requirement> = "unknown" }`) remains a limit check on
 the final or an earlier op: `unknown` (`the GO / NO-GO pair is explicitly unknown`), never the
 span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not set`.
+
+When a known pair accepts a strict subset of the exact CAD band, the traveler
+labels that pair a `conservative GO / NO-GO subset of the CAD band`. For example,
+2.00 / 2.09 mm within `[1.994, 2.0956]` mm is a tighter screen, not a redefinition
+of the exported limits. A failed screen requires disposition rather than
+automatic CAD rejection. This label does not prove the pair's gauge capability,
+measurement uncertainty or final inspection acceptance.
 
 ## Process holds
 

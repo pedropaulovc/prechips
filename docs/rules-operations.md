@@ -24,6 +24,32 @@ to read a complete report. [Troubleshooting](manual/troubleshooting.md) covers
 unresolved facts, and the [FAQ](manual/faq.md) explains why a checked plan is
 not physical machining acceptance.
 
+## Unmodeled manual severing
+
+`manual_sever` explicitly records a material-changing manual separation whose
+geometry is **unmodeled**. It is not `release`, handling metadata, or a generic
+machine cut. Use the minimal [operation declaration](plan.md#manual-severing);
+do not attach a modeled cutting endpoint, removal volume or retained output.
+
+An earlier partial `part_off` retains its own connected-stock evidence. For
+example, a nominal cut to diameter 6.85 mm outside a maximum 6.35 mm supply
+bore leaves a nominal 0.25 mm radial web; `manual_sever` does not erase that
+web in the model or prove the physical separation. The known stock immediately
+before the manual action remains evidence, but no stock after it is credited.
+Later operations and setups, including a component join, receive unknown stock.
+There is no manual-sever removal, dimensional attainment, surviving-inspection
+or joined-material credit.
+Independent known inspection-instrument capacity may still pass; this material
+barrier does not erase gauge facts or require every inspection finding to be
+unknown. Planned checks do not reconstruct after-stock or prove attainment.
+
+Independent positive collision findings from the preceding modeled operations
+remain errors; a later unknown material state cannot cancel them. The manual
+tool, retention, access and separation procedure remain HOLD. Declaring this
+action provides no new geometry solver, hardware qualification, release proof
+or physical machining approval.
+
+
 ## `op_chain`
 
 The rule produces one finding per operative feature. Hole and external-thread
@@ -599,10 +625,11 @@ conditions do not change unboxed own-feature/explicit-footprint transitions.
 Each endpoint retains entry origin, setup/operation, point/lead, thickness,
 allowance and tip target. The effective native touch must survive to its own
 contact boundary. If that touch has unknown physical edge or typed setting,
-a known local-entry producer cannot recover numeric DRO/physical entry,
-exit or endpoint values. The local-entry no-double-shift exception applies
-only to a surviving numeric touch reading. Nominal stock-state dimensions
-do not replace touch proof.
+a known local-entry producer cannot recover numeric physical entry, exit or
+endpoint proof. The local-entry no-double-shift exception applies only to a
+surviving numeric touch reading. Nominal stock-state dimensions do not replace
+touch proof. A separately authored command remains a command, not evidence that
+its physical datum, stock or breakthrough has been established.
 
 ### Units and selected-tool geometry
 
@@ -611,6 +638,12 @@ Arithmetic is in mm. Stock-state top/entry coordinates and operation
 Feature depth limits convert from manifest units. A tap without operation
 depth uses the upper `thread_depth`, or `depth` only if no thread-depth field
 exists. Explicitly unknown operation depth never falls back.
+
+Endpoint coordinate facts such as `entry_z`, `exit_face`, `tip_z`,
+`required_tip_z` and their DRO coordinates use the plan/setup coordinate units,
+as does operation `to_z`. Fields named `point_mm`, `lead_mm`, `exit_mm` and
+`dro_exit_mm` remain millimetres. An inch-coordinate command is therefore
+converted independently of the physical point length or exit allowance.
 
 Drill-point length is:
 
@@ -630,6 +663,28 @@ remain debt. Located aim and DRO-grid shifts still enlarge the exclusion.
 
 ### Endpoint equations and depth guards
 
+An explicit operation `to_z` takes precedence as the commanded tool tip or
+cutting-edge endpoint. An explicitly unknown command stays unknown; it does not
+fall back to a stop calculated from stock thickness or depth. Operative command
+readouts do not acquire another carried-touch shift. The entry, far-face bound,
+drill point or reamer lead, requested exit allowance and breakthrough checks
+remain independent: the command never supplies a missing far face by inversion.
+A known insufficient breakthrough is an error; unresolved actual stock or
+datum evidence remains a HOLD, not a certified through cut.
+
+Explicit rows identify `endpoint_source = "to_z"` and retain the independent
+`required_tip_z`, numerical `breakthrough_status` and `actual_stock_status`.
+A computed numerical breakthrough guard does not override unknown stock or
+datum evidence. Even `actual_stock_status = "computed"` denotes a native
+calculation, not a shop observation. On blind explicit-command rows,
+`depth_mm` and `dro_depth_mm` describe the command-derived full-diameter depth
+(spot/tap use tip travel); `authored_depth_mm` preserves any separately supplied
+depth intent. Drill points and reamer leads are not credited as full bore depth.
+
+The equations below describe the derived endpoints when no explicit command
+is supplied. With an explicit command, independently derived requirements
+remain guards rather than replacement commands.
+
 | Action | Endpoint and guard |
 | --- | --- |
 | Spot | `tip_z = entry_z - depth_mm`. Point length is recorded, not added to spot depth. |
@@ -639,11 +694,11 @@ remain debt. Located aim and DRO-grid shifts still enlarge the exclusion.
 | Blind drill/ream/bore/counterbore | `total_depth = depth_mm + point_or_lead`; `tip_z = entry_z - total_depth`. Total must not exceed the feature's upper depth limit. Bore/counterbore add no point or lead. Unknown through/depth/tool geometry stays unknown. |
 | Tap | `tip_z = entry_z - depth`; verified flute length must cover thread depth. |
 
-A negative through `exit_mm` is an error, including for through reaming, and
-that endpoint's `tip_z` is `unknown`: the tool would stop short of breakthrough,
-so no stop is offered. The same through-endpoint path applies this guard to
-bore/counterbore exits. Whole-bar thickness never substitutes for local hole
-thickness.
+A negative through `exit_mm` is an error, including for through reaming and
+bore/counterbore exits. Without an explicit command, the derived `tip_z` stays
+unknown rather than offering a stop short of breakthrough. An explicit command
+does not repair an invalid exit allowance or establish safe execution.
+Whole-bar thickness never substitutes for local hole thickness.
 
 ### Centre-hole quill depth
 
@@ -843,6 +898,16 @@ tailstock actions (`spot`, `drill`, `ream`, `tap`, `center`, `center_drill`)
 use their own tool diameter, as on a mill. A centre drill uses pilot drill
 diameter, matching Machinery's Handbook 27th ed. p.1132 centre-drill feeds
 by drill size.
+
+The turning diameter above is the existing speed-calculation reference, not an
+authored target or a proved instantaneous maximum cutting diameter. For radial
+profiles, the separate `commanded_diameter_mm` fact honors explicit `to_dia`
+(including an explicit unknown) before any implicit target. For example, a
+41.91 mm nominal with 0.20 mm diametral rough allowance gives the existing
+42.11 mm reference; an
+explicit 42.31 mm command is still 42.31 mm, not that reference. Command
+precedence does not change the allowance convention, RPM basis or proof of
+stock geometry, engagement or attained size.
 
 ### Chain drilling and axial feed
 
