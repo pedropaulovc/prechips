@@ -1,3 +1,6 @@
+> [!WARNING]
+> This repo is in a very AI slop state and is not ready for consumption.
+
 # prechips
 
 prechips checks an authored manual-machining plan against a feature manifest, shop inventory, policy and cutting data. It writes a findings report and printable setup sheets with workholding, DRO-zero instructions, operations and inspection records.
