@@ -1,3 +1,1 @@
-"""prechips: checks before chips."""
-
-__version__ = "0.3.0"
+"""Simple printable travelers for authored manual-manufacturing plans."""

@@ -1,2 +1,0 @@
-# Release STEP bytes are kept verbatim (CRLF) so their sha256 matches the source archive.
-*.STEP -text
