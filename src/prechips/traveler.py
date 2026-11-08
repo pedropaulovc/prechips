@@ -63,8 +63,10 @@ def load_plan(path: Path) -> dict:
             {"title", "machine", "holding", "datum", "operations", "inspection"},
             where,
         )
-        for key in ("title", "machine", "holding", "datum"):
+        for key in ("title", "machine"):
             _text(setup, key, where)
+        for key in ("holding", "datum"):
+            _text(setup, key, where, optional=True)
         checks = setup.get("inspection", [])
         if not isinstance(checks, list) or any(
             not isinstance(check, str) or not check.strip() for check in checks
@@ -161,7 +163,7 @@ th:first-child, td:first-child { padding-left: 0; }
 th:last-child, td:last-child { padding-right: 0; }
 .tools { table-layout: fixed; }
 .tools td { width: 50%; }
-.tools th:nth-child(2), .tools td:nth-child(2) { padding-left: 0.1in; }
+.tools td:nth-child(2) { padding-left: 0.1in; }
 .setup-heading { break-inside: avoid; break-after: avoid; }
 .setup-heading h2 { display: flex; justify-content: space-between; gap: 0.12in; }
 .machine { font-size: var(--body-size); font-weight: normal; text-align: right; }
@@ -173,8 +175,8 @@ th:last-child, td:last-child { padding-right: 0; }
 .tool { font-weight: bold; }
 .setting-value { font-variant-numeric: tabular-nums; }
 .data-row { break-inside: auto; }
-.data-row > td { padding: 0; }
-.data { margin: 0.035in 0; }
+.data-row > td { padding: 0; border-bottom: 0; }
+.data { margin: 0; }
 .data th, .data td { font-variant-numeric: tabular-nums; }
 .text { white-space: pre-wrap; }
 ul { padding-left: 0.2in; margin: 0.06in 0; }
@@ -204,8 +206,7 @@ def render_traveler(plan: dict) -> str:
     if "note" in plan:
         lines.append(f'<p class="text">{_html(plan["note"])}</p>')
     lines.append(
-        '<table class="tools"><thead><tr><th scope="col">Tools</th>'
-        '<th scope="col">Tools</th></tr></thead><tbody>'
+        '<table class="tools"><thead><tr><th colspan="2">Tools</th></tr></thead><tbody>'
     )
     tool_list = list(tools.values())
     for start in range(0, len(tool_list), 2):
@@ -221,15 +222,20 @@ def render_traveler(plan: dict) -> str:
         lines.append(
             '<section><div class="setup-heading">'
             f"<h2>Setup {setup_number} — {_html(setup['title'])}"
-            f'<span class="machine">{_html(setup["machine"])}</span></h2><dl>'
+            f'<span class="machine">{_html(setup["machine"])}</span></h2>'
         )
-        for key in ("holding", "datum"):
-            lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
-        lines.append("</dl></div>")
+        if "holding" in setup or "datum" in setup:
+            lines.append("<dl>")
+            for key in ("holding", "datum"):
+                if key in setup:
+                    lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+            lines.append("</dl>")
+        lines.append("</div>")
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
             '<col class="work-column"><col class="settings-column"></colgroup>'
-            '<thead><tr><th scope="col">Op</th><th scope="col">Work</th>'
+            '<thead><tr><th scope="col">Op</th>'
+            f'<th scope="col">Setup {setup_number} — Work</th>'
             '<th scope="col">Tool / settings</th></tr></thead><tbody>'
         )
         for operation in setup["operations"]:

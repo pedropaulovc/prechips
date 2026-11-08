@@ -34,8 +34,6 @@ SECOND_SETUP = """
 [[setups]]
 title = "Drill pattern"
 machine = "Manual mill"
-holding = "Vise"
-datum = "Top face"
 
 [[setups.operations]]
 instruction = "Locate the pattern."
