@@ -4,4 +4,5 @@ examples/** text eol=lf
 # Raw consumer STEP digests must survive checkout without newline conversion.
 examples/**/*.STEP -text
 tests/data/kernel/**/*.STEP -text
+tests/data/historical_examples/**/*.STEP -text
 scripts/validate_examples.py text eol=lf
