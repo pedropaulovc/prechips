@@ -95,7 +95,6 @@ CSS = """
 :root {
   --ink: #000;
   --paper: #fff;
-  --rule: #666;
   --font: Arial, Helvetica, sans-serif;
   --body-size: 10.5pt;
   --title-size: 17pt;
@@ -109,27 +108,19 @@ body {
   font-family: var(--font); font-size: var(--body-size);
   line-height: 1.3; max-width: 7.5in; margin: 0 auto;
 }
-h1 { font-size: var(--title-size); margin: 0 0 0.12in; }
-h2 { font-size: var(--heading-size); margin: 0.18in 0 0.06in; }
+h1 { font-size: var(--title-size); margin: 0 0 0.08in; }
+h2 { font-size: var(--heading-size); margin: 0.12in 0 0.04in; }
 h1, h2 { overflow-wrap: break-word; min-width: 0; }
-h1, h2, dt, thead { break-after: avoid; }
+h1, h2, dt { break-after: avoid; }
 p { margin: 0.05in 0; }
-.meta { margin-bottom: 0.12in; }
-dl { margin: 0.05in 0 0.1in; }
+.meta { margin-bottom: 0.06in; }
+dl { margin: 0.04in 0; }
 dt { font-weight: bold; float: left; clear: left; margin-right: 0.08in; }
 dd { margin: 0 0 0.04in; white-space: pre-wrap; }
-table { width: 100%; border-collapse: collapse; margin: 0.06in 0; }
-th, td {
-  border: 1px solid var(--rule); padding: 0.045in 0.06in;
-  text-align: left; vertical-align: top; overflow-wrap: anywhere;
-}
-thead { display: table-header-group; }
-tr { break-inside: avoid; }
-.tools td { width: 50%; }
+.tools { margin: 0.06in 0; }
 .setup-heading { break-inside: avoid; break-after: avoid; }
 .operation {
-  break-inside: avoid; border-top: 1px solid var(--rule);
-  padding: 0.04in 0; margin-top: 0.06in;
+  break-inside: avoid; margin: 0.06in 0;
 }
 .text { white-space: pre-wrap; }
 ul { padding-left: 0.2in; margin: 0.06in 0; }
@@ -152,27 +143,17 @@ def render_traveler(plan: dict) -> str:
         f"<style>{CSS}</style></head><body>",
         f"<h1>{_html(plan['title'])}</h1>",
         '<div class="meta">',
-        (
-            f"<p><strong>Part:</strong> {_html(plan['part'])}<br>"
-            f"<strong>Revision:</strong> {_html(plan['revision'])}</p>"
-        ),
-        (
-            f"<p><strong>Material:</strong> {_html(plan['material'])}<br>"
-            f"<strong>Stock:</strong> {_html(plan['stock'])}</p>"
-        ),
+        (f"<p>{_html(plan['part'])}; {_html(plan['revision'])}</p>"),
+        (f"<p><strong>{_html(plan['material'])}.</strong> {_html(plan['stock'])}</p>"),
         "</div>",
     ]
     if "note" in plan:
         lines.append(f'<p class="text">{_html(plan["note"])}</p>')
-    lines.append('<h2>Tools</h2><table class="tools"><tbody>')
-    descriptions = list(tools.values())
-    for index in range(0, len(descriptions), 2):
-        cells = descriptions[index : index + 2]
-        lines.append("<tr>" + "".join(f"<td>{_html(t)}</td>" for t in cells))
-        if len(cells) == 1:
-            lines.append("<td></td>")
-        lines.append("</tr>")
-    lines.append("</tbody></table>")
+    lines.append(
+        '<p class="tools"><strong>Tools:</strong> '
+        + "; ".join(_html(description) for description in tools.values())
+        + ".</p>"
+    )
     for setup in plan["setups"]:
         lines.append(
             f'<section><div class="setup-heading"><h2>{_html(setup["title"])}</h2><dl>'
@@ -188,8 +169,13 @@ def render_traveler(plan: dict) -> str:
             if "feed" in operation:
                 details.append(_html(operation["feed"]))
             lines.append('<div class="operation">')
-            lines.append('<p class="text">' + " — ".join(details) + "</p>")
-            lines.append(f'<p class="text">{_html(operation["instruction"])}</p>')
+            lines.append(
+                '<p class="text">'
+                + " — ".join(details)
+                + ": "
+                + _html(operation["instruction"])
+                + "</p>"
+            )
             if "inspection" in operation:
                 lines.append(
                     '<p class="text"><strong>Check:</strong> '

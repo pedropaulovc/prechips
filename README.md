@@ -15,7 +15,7 @@ uv run prechips traveler examples/base-bar.toml --out out/base-bar.html
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. The HTML is standalone; it needs no server or internet connection.
 
-The base-bar example follows the November 5 hand-written guide's flat-on-table width operation. Slot finishing is unresolved: the guide's rectangular finishing lap overcuts the rounded ends and is omitted. Required tooling and the outstanding Ra inspection are noted on the sheet. Source references are in the TOML comments.
+The base-bar example uses operator shorthand and is limited to two Letter pages at 10.5pt. It follows the November 5 hand-written guide's flat-on-table width operation. Tooling and inspection limits are stated directly, without process-status disclaimers. The guide's rectangular slot-finishing lap is omitted because it overcuts the rounded ends. Source references are in the TOML comments.
 
 ## Process TOML
 

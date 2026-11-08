@@ -7,6 +7,7 @@ Prechips is starting over at **v0.10**. It is a prototype until Pedro finds it u
 - Develop in small, usable milestones. Pedro approves each milestone. Never work more than three milestones ahead of his last review.
 - v0.10: a machine-readable manual-manufacturing process in TOML and a simple CLI producing printable traveler HTML for harmonic-analyzer's `ch_rocker_arm_tl_oblique_base_bar`.
 - Print only what an experienced operator needs: tools, setups, feeds, speeds and inspections, with the dimensions and instructions necessary to perform them. No tutorials, repeated warnings, checker reports or internal identifiers.
+- The base-bar traveler must print on no more than two Letter pages at readable type size. Use operator shorthand, not tutorials. Do not print process-status notes such as "untried", "unverified" or certification commentary; state tooling, work instructions and inspection requirements directly.
 - The previous implementation is preserved on `archive/pre-v0.10-2026-11-08`. Pull old code, data-schema ideas or FreeCAD logic only when a concrete approved milestone needs them. Do not migrate the old architecture wholesale.
 
 ## Keep it small
