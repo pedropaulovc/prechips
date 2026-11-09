@@ -114,8 +114,11 @@ def load_plan(path: Path) -> LoadedPlan:
     shop = {}
     if "shop" in plan:
         shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
-        with shop_path.open("rb") as source:
-            shop = tomllib.load(source)
+        try:
+            with shop_path.open("rb") as source:
+                shop = tomllib.load(source)
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+            raise PlanError(f"shop {shop_path}: {error}") from error
         plan.pop("shop")
     material_key = _text(plan, "material_key", "plan", optional=True)
     plan.pop("material_key", None)

@@ -197,7 +197,7 @@ def test_bind_only_plan_owned_strings(tmp_path):
         ),
         (PLAN, "tools = 1\n", "expected a table"),
         (PLAN, "tools = {shaft-blade = 1}\n", "expected a table"),
-        (PLAN, "[broken", "Expected"),
+        (PLAN, "[broken", "shop.toml"),
         (
             PLAN + '\nrpm = 800\nfeed = "Local"\n',
             SHOP.replace('tool = "shaft-blade"', 'tool = "other"'),
