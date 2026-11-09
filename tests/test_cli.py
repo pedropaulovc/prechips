@@ -179,7 +179,7 @@ def test_pro_rejects_invalid_quantity(tmp_path, quantity):
     assert not out.exists()
 
 
-def test_pro_accepts_positive_integer_quantity(tmp_path):
+def test_literal_plan_accepts_positive_integer_quantity(tmp_path):
     text = (
         PLAN.replace(
             'stock = "20 × 10 × 40 mm"',
@@ -187,7 +187,7 @@ def test_pro_accepts_positive_integer_quantity(tmp_path):
         )
         + "\n[parameters]\nquantity = 2\n"
     )
-    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
     assert result.returncode == 0, result.stderr
     assert "2 blanks, 20 × 10 × 40 mm" in out.read_text(encoding="utf-8")
 
