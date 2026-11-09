@@ -227,6 +227,8 @@ def load_rocker(path: Path, parameters: dict) -> CadData:
     values["profile_release_z"] = actual_lower_strap_z - process("release_clearance")
     values["web"] = aim + 2 * values["profile_rough_z"]
     hub_nominal = _positive(hub.get("dia_nominal"), "cad.hub.dia_nominal")
+    if not values["hub_min"] <= hub_nominal <= values["hub_max"]:
+        raise CadError("cad.hub.dia_nominal: outside dia band")
     values["hub_rough_island"] = hub_nominal + process("hub_rough_diametral_allowance")
     values["hub_finish_island"] = hub_nominal + process(
         "hub_finish_diametral_allowance"

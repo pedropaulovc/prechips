@@ -111,14 +111,17 @@ def load_bracket(path: Path, parameters: dict) -> CadData:
         ear_x_max=exmax,
         ear_thickness=inner - outer,
     )
-    for item, field, key, name in (
-        (foot, "width", "foot_width", "foot_profile"),
-        (foot, "length", "foot_length", "foot_profile"),
-        (foot_top, "height", "foot_height", "foot_top"),
-        (ear, "thickness", "ear_thickness", "ear_relief"),
-        (sides, "width", "ear_width", "ear_sides"),
+    # These consumed spans are the finished surfaces printed beside these bands.
+    for item, field, key, name, span in (
+        (foot, "width", "foot_width", "foot_profile", xmax - xmin),
+        (foot, "length", "foot_length", "foot_profile", zmax - zmin),
+        (foot_top, "height", "foot_height", "foot_top", top - seat),
+        (ear, "thickness", "ear_thickness", "ear_relief", inner - outer),
+        (sides, "width", "ear_width", "ear_sides", exmax - exmin),
     ):
         band(item, field, key, name)
+        if not values[f"{key}_min"] <= span <= values[f"{key}_max"]:
+            raise CadError(f"{name}.{field}: model span outside {field} band")
 
     for suffix in ("a", "b"):
         name = f"hold_down_{suffix}"

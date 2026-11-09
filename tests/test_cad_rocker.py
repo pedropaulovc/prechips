@@ -168,6 +168,21 @@ def test_process_blank_and_hub_aim_reach_dependent_targets(tmp_path):
         assert value in html
 
 
+def test_coherent_hub_nominal_and_band_keep_authored_allowances(tmp_path):
+    text = (
+        SOURCE.read_text(encoding="utf-8")
+        .replace('"dia_nominal" = 10.2', '"dia_nominal" = 11.2')
+        .replace('"dia" = [9.69, 10.71]', '"dia" = [10.69, 11.71]')
+    )
+    loaded = load_plan(prepare(tmp_path, text))
+    assert loaded.cad.values["hub_rough_island"] == pytest.approx(12.0)
+    assert loaded.cad.values["hub_finish_island"] == pytest.approx(11.6)
+    html = render_traveler(loaded)
+    assert "10.69–11.71" in html
+    assert "Ø12.00 hub island rough/Ø11.60 finish" in html
+    assert "rim Ø10.195–10.205" in html
+
+
 @pytest.mark.parametrize(
     ("old", "new"),
     [
@@ -186,6 +201,10 @@ def test_process_blank_and_hub_aim_reach_dependent_targets(tmp_path):
         ('"radius" = [799.49, 800.51]', '"radius" = [799.49, 799.99]'),
         ('"bottom_radius_nominal" = 816.0', '"bottom_radius_nominal" = 815.0'),
         ('"bottom_radius_nominal" = 816.0', '"bottom_radius_nominal" = 817.0'),
+        ('"dia_nominal" = 10.2', '"dia_nominal" = 9.68'),
+        ('"dia_nominal" = 10.2', '"dia_nominal" = 10.72'),
+        ('"dia" = [9.69, 10.71]', '"dia" = [10.3, 10.8]'),
+        ('"dia" = [9.69, 10.71]', '"dia" = [9.6, 10.1]'),
     ],
 )
 def test_unsupported_or_unusable_required_source_fails_before_render(
