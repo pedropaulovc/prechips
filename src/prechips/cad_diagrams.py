@@ -85,7 +85,7 @@ def _cad(values: dict, key: str) -> float:
 
 
 def _process(parameters: dict, key: str) -> float:
-    return _positive(parameters, key, "process")
+    return _number(parameters, key, "process")
 
 
 def _points(values: dict, key: str) -> list[tuple[float, float]]:

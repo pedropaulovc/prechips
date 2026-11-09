@@ -181,6 +181,25 @@ def test_pro_accepts_positive_integer_quantity(tmp_path):
     assert "2 blanks, 20 × 10 × 40 mm" in out.read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        "blank_length_in",
+        "blank_width_in",
+        "blank_thickness_in",
+        "slot_finish_diameter_in",
+    ],
+)
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_pro_rejects_nonpositive_dimensions(tmp_path, parameter, value):
+    text = PLAN + f"\n[parameters]\n{parameter} = {value}\n"
+    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    assert result.returncode == 2
+    assert f"parameters.{parameter}: expected a positive number" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
 @pytest.mark.parametrize("output_kind", ["input", "hardlink"])
 def test_output_cannot_replace_input_plan(tmp_path, output_kind):
     plan = tmp_path / "plan.toml"

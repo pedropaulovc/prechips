@@ -61,6 +61,17 @@ def load_plan(path: Path) -> LoadedPlan:
             raise PlanError(f"parameters.{key}: expected a finite number")
         if not isfinite(value):
             raise PlanError(f"parameters.{key}: expected a finite number")
+        if (
+            key
+            in {
+                "blank_length_in",
+                "blank_width_in",
+                "blank_thickness_in",
+                "slot_finish_diameter_in",
+            }
+            and value <= 0
+        ):
+            raise PlanError(f"parameters.{key}: expected a positive number")
     cad = None
     config = plan.pop("cad", None)
     try:
