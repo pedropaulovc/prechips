@@ -221,10 +221,14 @@ def test_unequal_caps_keep_independent_radii_heights_and_frames(tmp_path):
         tmp_path,
         [
             (
-                '"height_nominal" = 1.5\n"sphere_radius" = 4.1102083333333335\n'
-                '"base_z" = -156.67000000000002',
-                '"height_nominal" = 2.0\n"sphere_radius" = 3.52015625\n'
-                '"base_z" = -156.67000000000002',
+                (
+                    '"height_nominal" = 1.5\n"sphere_radius" = 4.1102083333333335\n'
+                    '"base_z" = -156.67000000000002'
+                ),
+                (
+                    '"height_nominal" = 2.0\n"sphere_radius" = 3.52015625\n'
+                    '"base_z" = -156.67000000000002'
+                ),
             ),
         ],
     )
