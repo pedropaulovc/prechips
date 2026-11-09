@@ -135,6 +135,13 @@ def load_bracket(path: Path, parameters: dict) -> CadData:
         values[f"hole_{suffix}_y"] = -z
         band(item, "dia", f"hole_{suffix}_dia", name)
         band(item, "station", f"hole_{suffix}_station", name)
+        station = z - (inner + outer) / 2
+        if (
+            not values[f"hole_{suffix}_station_min"]
+            <= station
+            <= values[f"hole_{suffix}_station_max"]
+        ):
+            raise CadError(f"{name}.at: station outside station band")
 
     arch = feature("ear_arch")
     bore = feature("cross_bore")
@@ -164,6 +171,14 @@ def load_bracket(path: Path, parameters: dict) -> CadData:
     band(arch, "radius", "arch_radius", "ear_arch")
     band(bore, "dia", "bore_dia", "cross_bore")
     band(bore, "height", "bore_height", "cross_bore")
+    if (
+        not values["arch_radius_min"]
+        <= values["arch_radius"]
+        <= values["arch_radius_max"]
+    ):
+        raise CadError("ear_arch.radius_nominal: outside radius band")
+    if not values["bore_height_min"] <= by - seat <= values["bore_height_max"]:
+        raise CadError("cross_bore.at: height above seat outside height band")
     general = raw.get("general_tolerances", {})
     if not isinstance(general, dict):
         raise CadError("cad.general_tolerances: expected a table")
