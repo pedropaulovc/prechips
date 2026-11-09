@@ -1,0 +1,183 @@
+# Source: C:/src/ha-basebar-traveler/cad/process/hand-travelers/
+# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html; drawing MHA-CH-06-TL-20 v47.
+title = "Oblique trammel base bar — two identical"
+part = "MHA-CH-06-TL-20"
+revision = "v47"
+material = "6061-T6511 aluminium"
+stock = "1/2 × 6 in bar; two 17 7/16 in blanks."
+note = "Inches unless mm. Finished 17.32 × 5.50 × .47, each ±.01. Not mirrored; flip bar 2 in assembly."
+
+[[tools]]
+id = "saw"
+name = "Saw"
+description = "Aluminium saw"
+[[tools]]
+id = "em-half"
+name = "1/2 in end mill"
+description = "1/2 in centre-cutting 2-flute end mill; flutes ≥5/8 in"
+[[tools]]
+id = "em-face"
+name = "3/4 in end mill"
+description = "3/4 in 4-flute end mill"
+[[tools]]
+id = "spot"
+name = "#2 centre drill"
+description = "#2 centre drill"
+[[tools]]
+id = "rail-drill"
+name = "#29 drill"
+description = "#29 (.136 in) drill"
+[[tools]]
+id = "bracket-drill"
+name = "#9 drill"
+description = "#9 (.196 in) drill"
+[[tools]]
+id = "slot-drill"
+name = "3/8 in drill"
+description = "3/8 in drill"
+[[tools]]
+id = "tap"
+name = "8-32 tap"
+description = "8-32 plug tap"
+[[tools]]
+id = "counterbore"
+name = "5/16 in end mill"
+description = "5/16 in centre-cutting 2-flute end mill"
+[[tools]]
+id = "slot-finish"
+name = "17/32 in end mill"
+description = "17/32 in centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
+
+[[setups]]
+title = "Saw blanks"
+machine = "Saw / bench"
+
+[[setups.operations]]
+tool = "saw"
+instruction = "Saw two 17 7/16 in blanks from 1/2 × 6 in bar."
+feed = "hand"
+
+[[setups]]
+title = "Mill width"
+machine = "PM-30MV; inch DRO"
+holding = "Vise off; crosswise 1 in parallels, far-half straps, two far-edge stops and right-end stop (1/2-13 mounting). Centre screw jack (.90–1.18 in range); parallels/jack inside finished 5.50 edge, clear of cutter."
+datum = "Indicate extruded far edge within .002 end-to-end; near cut becomes ZERO EDGE. +X right, +Y away. Check 18.5 in travel/clearances."
+
+[[setups.operations]]
+tool = "em-half"
+instruction = "Cutter .04–.08 below underside. +X cleanup, .020–.040 radial. At cleanup position, measure width W and preset DRO Y = −(W − 5.500). Rough .080 radial toward Y0; finish last ~.020 at Y0. Mark ZERO EDGE both faces."
+rpm = 1250
+feed = "6 in/min"
+inspection = "Width at ends/middle."
+
+[[setups]]
+title = "Square / face"
+machine = "PM-30MV / vise, swivel off"
+holding = "Flat on 1-3/8 in parallels, ZERO EDGE at fixed jaw; screw jack (3.9–5.5 in range) under each overhanging end, clear of end cuts."
+datum = "Jaw indicated <.001 along X; Z0 underside from measured thickness."
+
+[[setups.operations]]
+tool = "em-half"
+instruction = "Ends beyond jaws; cutter .04 below bar. Square in .020 passes: left −Y, right +Y. Leave .02–.04 length allowance."
+rpm = 1250
+feed = "6 in/min"
+
+[[setups.operations]]
+tool = "em-face"
+instruction = "Face left and right halves of each face. Rough .010 per pass, +X, +Y stepover .60; remove half allowance on side 1. Flip end-for-end, ZERO EDGE still at fixed jaw; finish side 2 to .4700. Mark left end ZERO END and top face C'BORE SIDE."
+rpm = 840
+feed = "3.3 in/min rough; 2.4 finish"
+
+[[setups]]
+title = "Finish length / holes / slots"
+machine = "PM-30MV; inch DRO"
+holding = "ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up; 1-3/8 in parallels. Support both ~5.7 in overhangs with jacks clear of hole/slot paths."
+datum = "Drawing lower edge = ZERO EDGE; left end = ZERO END; far face = C'BORE SIDE. Back-left X0/Y0; +X right, drawing Y dimensions become −Y."
+
+[[setups.operations]]
+tool = "em-half"
+instruction = "Jack under right end. Measure cutter D; bottom .04 below bar. Cut +Y, .010 passes; final X = 17.3200 + D/2."
+rpm = 1250
+feed = "6 in/min"
+
+[[setups.operations]]
+instruction = "Before drilling: from the rail end that goes at ZERO END, check hole centres 15, 75, 135, 195, 255, 315, 375, 435 mm, each ±0.08 mm. Stop if different."
+
+[[setups.operations]]
+tool = "spot"
+instruction = "Spot 18 holes to Ø.125. All drills: .125 pecks, drill tip .125 past underside. Inches; IDs follow coordinate order. Rail X ±.003; bracket X/Y ±.005; rail row/slot positions ±.01."
+rpm = 3000
+feed = "hand"
+
+[setups.operations.table]
+columns = ["Holes", "X", "Y"]
+rows = [
+  ["Rail R1–8", ".5906, 2.9528, 5.3150, 7.6772,\n10.0394, 12.4016, 14.7638, 17.1260", "−3.5000"],
+  ["Bracket B1–8", "2.2441, 16.8504\n(each X with all four Y)", "−.2450, −.9020,\n−1.7680, −2.4250"],
+  ["Slot S1", ".8700", "−2.0200"],
+  ["Slot S2", "15.3500", "−4.9800"],
+]
+
+[[setups.operations]]
+tool = "rail-drill"
+instruction = "R1–8 through."
+rpm = 3000
+feed = "hand"
+
+[[setups.operations]]
+tool = "bracket-drill"
+instruction = "B1–8 through."
+rpm = 3000
+feed = "hand"
+
+[[setups.operations]]
+tool = "slot-drill"
+instruction = "S1–2 through."
+rpm = 2000
+feed = "hand"
+
+[[setups.operations]]
+tool = "tap"
+instruction = "Tap R1–8 through."
+feed = "hand"
+
+[[setups.operations]]
+tool = "counterbore"
+instruction = "Counterbore B1–8, .189 deep from top."
+rpm = 2000
+feed = "slow hand plunge"
+
+[[setups.operations]]
+tool = "em-half"
+instruction = "Rough slots with .500 cutter, depths .12/.24/.36/.49 below top. Traverse between arc centres: X .8700, Y −1.9400 to −2.1000; X 15.3500, Y −4.9000 to −5.0600."
+rpm = 1250
+feed = "5 in/min"
+
+[[setups.operations]]
+tool = "slot-finish"
+instruction = "Finish both slots at .49 below top, same X and arc-centre Y ranges as roughing. Result: .53125 wide with .160 arc-centre spacing."
+# Authored starting settings from the source guide's 165 ft/min HSS milling
+# speed and .002 in/tooth: 12*165/(pi*17/32)=1186 rpm, rounded to 1200;
+# 1200 rpm * 2 flutes * .002 in/tooth = 4.8 in/min.
+rpm = 1200
+feed = "4.8 in/min"
+
+[[setups]]
+title = "Deburr / inspect both"
+machine = "Bench / clean mill table"
+datum = "Marked end/edge; rail on face opposite C'BORE SIDE."
+inspection = ["Record results separately for each bar. Verify hole coordinates and tolerances above."]
+
+[[setups.operations]]
+instruction = "Edges R.010 or chamfer .010 max; clear threads; fit rail/screws and slot stud."
+feed = "hand"
+
+[setups.operations.table]
+columns = ["Inspect", "Requirement"]
+rows = [
+  ["Overall size", "17.32 × 5.50 × .47, each ±.01 in;\nwidth at ends/middle, thickness at corners/middle"],
+  ["Seats", "No rock on mill table; no chatter marks; Ra 125 µin both faces"],
+  ["Bracket holes / counterbores", "Holes Ø.196–.200; counterbores Ø.308–.318 × .184–.194 deep;\ncheck #8-32 × 5/8 socket screw head sits recessed"],
+  ["Rail fit", "HGR15 rail with eight #8-32 × 3/4 socket screws;\nall hand-start without sideways force, rail end flush;\nuncut 450 mm rail overhang expected"],
+  ["Slots", "Width .52–.54; overall length minus width .15–.17;\n1/2-13 slot-fit stud slides end-to-end"],
+]

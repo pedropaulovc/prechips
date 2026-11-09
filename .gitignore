@@ -4,4 +4,5 @@ __pycache__/
 out/
 dist/
 .playwright-cli/
-.testmondata*
+.pytest_cache/
+.ruff_cache/

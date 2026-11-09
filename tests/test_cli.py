@@ -1,585 +1,176 @@
-"""CLI boundaries exercised through the installed Python entry point."""
-
-import hashlib
-import json
-import os
-import re
-import shutil
 import subprocess
-import sys
-from contextlib import nullcontext
-from dataclasses import replace
-from pathlib import Path
-from types import SimpleNamespace
+from html.parser import HTMLParser
 
 import pytest
 
-from prechips.cli import _read_approval
-from prechips.inputs import BadInput
-from prechips.report import canonical_bytes, report_hash
+PLAN = """\
+title = "Bracket <trial>"
+part = "B&1"
+revision = "A"
+material = "Aluminium"
+stock = "20 × 10 × 40 mm"
+note = "Use the drawing's limits."
 
-ROOT = Path(__file__).resolve().parents[1]
+[[tools]]
+id = "internal-mill-id"
+description = "6 mm end mill"
 
-# Host-only assertions need explicit geometry facts, not a real FreeCAD process.
-# These boxes are synthetic envelopes, never production machining evidence.
-SYNTHETIC_BOXES = {
-    "pivot-shaft": [-5, -5, -175, 5, 5, 5],
-    "pivot-bracket": [-9, -1, -4, 9, 33.2, 22.2],
-    "rocker-arm": [-170, -20, -8, 170, 45, 8],
-}
+[[setups]]
+title = "Face stock"
+machine = "Manual mill"
+holding = "Vise on parallels"
+datum = "Top face; left end"
+inspection = ["Check thickness & squareness."]
 
+[[setups.operations]]
+tool = "internal-mill-id"
+instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."
+rpm = 1200
+feed = "Hand feed, about 50 mm/min"
+inspection = "Measure at both ends."
+"""
 
-def synthetic_kernel(bundle):
-    """``bundle`` with the synthetic kernel result SYNTHETIC_KERNEL gives the CLI."""
-    bbox = SYNTHETIC_BOXES.get(bundle.paths["plan"].parent.name, [-10, -10, -10, 10, 10, 100])
-    kernel = {"status": "ok", "bbox_mm": bbox, "ops": {}, "setups": {}, "mapping": {}}
-    return replace(bundle, kernel=kernel)
+SECOND_SETUP = """
+[[setups]]
+title = "Drill pattern"
+machine = "Manual mill"
 
+[[setups.operations]]
+instruction = "Locate the pattern."
 
-# The CLI subprocess gets the same synthetic kernel; it cannot import the test modules.
-SYNTHETIC_KERNEL = f"""
-from dataclasses import replace
-import prechips.cli as cli
-_load_bundle = cli.load_bundle
-def _synthetic_bundle(*args, **kwargs):
-    bundle = _load_bundle(*args, **kwargs)
-    boxes = {SYNTHETIC_BOXES!r}
-    bbox = boxes.get(bundle.paths["plan"].parent.name, [-10, -10, -10, 10, 10, 100])
-    return replace(bundle, kernel={{
-        "status": "ok", "bbox_mm": bbox, "ops": {{}}, "setups": {{}}, "mapping": {{}},
-    }})
-cli.load_bundle = _synthetic_bundle
+[setups.operations.table]
+columns = ["Feature", "X", "Y"]
+rows = [["Hole <A>", "12.50", "-3.25"], ["Hole B", "25.00", "0.00\\n4.00"]]
 """
 
 
-def run_cli(*args, env=None, setup=""):
-    """Run the CLI in a clean environment; ``setup`` is Python run before ``main``."""
-    environment = os.environ.copy()
-    for key in tuple(environment):
-        if key.startswith(("PRECHIPS_", "OTEL_")):
-            environment.pop(key)
-    environment["OTEL_SDK_DISABLED"] = "true"
-    if "PRECHIPS_KERNEL_CACHE" in os.environ:
-        environment["PRECHIPS_KERNEL_CACHE"] = os.environ["PRECHIPS_KERNEL_CACHE"]
-    elif "--out" in args:
-        out = Path(args[args.index("--out") + 1])
-        environment["PRECHIPS_KERNEL_CACHE"] = str(out.parent / "kernel-cache")
-    if "PRECHIPS_KERNEL_WORKERS" in os.environ:
-        environment["PRECHIPS_KERNEL_WORKERS"] = os.environ["PRECHIPS_KERNEL_WORKERS"]
-    environment.update(env or {})
-    entry = (
-        ["-c", f"{setup}\nimport sys\nfrom prechips.cli import main\nsys.exit(main(sys.argv[1:]))"]
-        if setup
-        else ["-m", "prechips.cli"]
-    )
-    return subprocess.run(
-        [sys.executable, *entry, *map(str, args)],
-        cwd=ROOT,
-        env=environment,
+class OperatorText(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.in_body = False
+        self.parts = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "body":
+            self.in_body = True
+
+    def handle_endtag(self, tag):
+        if tag == "body":
+            self.in_body = False
+
+    def handle_data(self, data):
+        if self.in_body and data.strip():
+            self.parts.append(data.strip())
+
+
+def run_cli(tmp_path, text):
+    plan = tmp_path / "plan.toml"
+    out = tmp_path / "out" / "traveler.html"
+    plan.write_text(text, encoding="utf-8")
+    result = subprocess.run(
+        ["prechips", "traveler", str(plan), "--out", str(out)],
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=60,
         check=False,
     )
+    return result, out
 
 
-def copy_examples(tmp_path, *, mode="inputs"):
-    """Copy independent inputs, or include golden artifacts with ``with-expected``."""
-    if mode not in {"inputs", "with-expected"}:
-        raise ValueError(f"Unknown example copy mode: {mode!r}")
-    ignore = shutil.ignore_patterns("expected") if mode == "inputs" else None
-    return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples", ignore=ignore))
-
-
-# The rocker's prep: [stock.prepared] and the process faces and frames only P1-P5 use.
-_ROCKER_PREP = re.compile(
-    r"(?ms)^\[(?:stock\.prepared|process_features\.|frames\.P)[^\n]*\n.*?(?=^\[|\Z)"
-)
-
-
-def rocker_s1_alone(text):
-    """The rocker plan with S1, up to its first op, as its only setup. The prep setups
-    (P1-P5) and the tables only they use go, so S1 receives the plan [stock] itself and,
-    as the first setup on the mill, mounts the vise: it squares the fixed jaw as the prep
-    declared it."""
-    first, start = text.index("[[setups]]"), text.index('[[setups]]\nid = "S1"\n')
-    aligns = re.findall(r"(?m)^align = .*\n", text[first:start])
-    assert len(aligns) == 1, "the prep's vise mounting says how its fixed jaw is squared"
-    header = _ROCKER_PREP.sub("", text[:first])
-    s1, count = re.subn(
-        r"(?m)^stock_in = .*$", 'stock_in = "stock"', text[start:].split("[[setups.ops]]", 1)[0]
-    )
-    assert count == 1, "S1 names the stock it receives"
-    assert not re.search(r"(?m)^align = ", s1), "S1 keeps the vise the prep squared"
-    s1, count = re.subn(r"(?m)^\[setups\.hold\]\n", lambda m: m[0] + aligns[0], s1)
-    assert count == 1, "S1 declares one hold"
-    return header + s1
-
-
-def traveler(plan, out, *args, setup=""):
-    result = run_cli("traveler", plan, "--out", out, *args, setup=setup)
-    assert result.returncode in {0, 2, 4}, result.stderr
-    report = json.loads((out / "report.json").read_bytes())
-    html = (out / "traveler.html").read_text(encoding="utf-8")
-    return result, report, html
-
-
-def test_installed_artifact_console_script_matches_module(tmp_path):
-    artifact = os.environ.get("PRECHIPS_INSTALLED_ARTIFACT")
-    if not artifact:
-        pytest.skip("The packaging CI job supplies a built wheel or sdist.")
-    artifact = Path(artifact).resolve()
-    assert artifact.is_file(), artifact
-    # uv can reuse an older environment when a same-version artifact is rebuilt in place.
-    artifact_bytes = artifact.read_bytes()
-    staged_artifact = (
-        tmp_path / "artifacts" / hashlib.sha256(artifact_bytes).hexdigest() / artifact.name
-    )
-    staged_artifact.parent.mkdir(parents=True)
-    staged_artifact.write_bytes(artifact_bytes)
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(("PRECHIPS_", "OTEL_"))
-        and key not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
-    }
-    environment.update(
-        OTEL_SDK_DISABLED="true",
-        FREECAD_CMD=str(tmp_path / "unavailable-freecad"),
-        PRECHIPS_KERNEL_CACHE=str(tmp_path / "kernel-cache"),
-    )
-    if "PRECHIPS_KERNEL_WORKERS" in os.environ:
-        environment["PRECHIPS_KERNEL_WORKERS"] = os.environ["PRECHIPS_KERNEL_WORKERS"]
-    examples = copy_examples(tmp_path)
-    plan = examples / "pivot-shaft" / "plan.toml"
-    prefix = ["uv", "run", "--quiet", "--isolated", "--no-project", "--with", str(staged_artifact)]
-
-    def invoke(entry, *args):
-        return subprocess.run(
-            [*prefix, *entry, *map(str, args)],
-            cwd=tmp_path,
-            env=environment,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=180,
-            check=False,
-        )
-
-    identity = invoke(
-        ["python"],
-        "-c",
-        "import json, pathlib, shutil, sysconfig, prechips; "
-        "from importlib.metadata import distribution; "
-        "dist = distribution('prechips'); "
-        "scripts = [sysconfig.get_path('scripts')] + "
-        "[str(dist.locate_file(f).parent) for f in dist.files "
-        "if pathlib.PurePosixPath(str(f)).name.lower() in {'prechips', 'prechips.exe'}]; "
-        "print(json.dumps({'module': prechips.__file__, "
-        "'installed_module': str(dist.locate_file('prechips/__init__.py')), "
-        "'script': shutil.which('prechips'), 'script_dirs': scripts}))",
-    )
-    assert identity.returncode == 0, identity.stderr
-    installed_paths = json.loads(identity.stdout)
-    module_path = Path(installed_paths["module"]).resolve()
-    assert module_path == Path(installed_paths["installed_module"]).resolve(), installed_paths
-    assert not module_path.is_relative_to(ROOT.resolve()), installed_paths
-    assert installed_paths["script"], installed_paths
-    script_path = Path(installed_paths["script"]).resolve()
-    assert not script_path.is_relative_to(ROOT.resolve()), installed_paths
-    assert script_path.parent in {
-        Path(directory).resolve() for directory in installed_paths["script_dirs"]
-    }, installed_paths
-
-    console = ["prechips"]
-    module = ["python", "-m", "prechips.cli"]
-    for args, expected_code in [(("--version",), 0), (("not-a-verb",), 3)]:
-        installed = invoke(console, *args)
-        equivalent = invoke(module, *args)
-        assert installed.returncode == equivalent.returncode == expected_code, installed.stderr
-        assert installed.stdout == equivalent.stdout
-        assert installed.stderr == equivalent.stderr
-        if expected_code == 0:
-            assert installed.stdout.startswith("prechips ")
-        else:
-            assert "usage" in (installed.stdout + installed.stderr).lower()
-
-    reports = []
-    travelers = {}
-    for detail in (None, "pro", "hobby", "pedantic"):
-        selected = detail or "hobby"
-        rendered = []
-        for name, entry in [("console", console), ("module", module)]:
-            out = tmp_path / f"{name}-{detail or 'default'}"
-            args = ["traveler", plan, "--out", out]
-            if detail is not None:
-                args.extend(["--detail", detail])
-            result = invoke(entry, *args)
-            assert result.returncode == 4, result.stderr
-            report_bytes = (out / "report.json").read_bytes()
-            report = json.loads(report_bytes)
-            assert report["hash"] == report_hash(report)
-            assert report["expected_exit"] == 4
-            assert report["verification"] == "planned"
-            assert any(row["status"] == "unknown" for row in report["findings"])
-            html = (out / "traveler.html").read_text(encoding="utf-8")
-            assert re.search(rf'<body\b[^>]*\bdata-detail="{selected}"', html)
-            assert f'<meta name="prechips-detail" content="{selected}">' in html
-            reports.append(report_bytes)
-            rendered.append(html)
-        assert rendered[0] == rendered[1]
-        travelers[detail] = rendered[0]
-    assert len(set(reports)) == 1
-    assert travelers[None] == travelers["hobby"]
-
-
-@pytest.mark.parametrize(
-    ("record", "verification", "approved", "warning_count"),
-    [
-        ('hash = "current"\nfirst_article = "accepted"\n', "checked", True, 0),
-        ('hash = "current"\nfirst_article = "  "\n', "checked", False, 1),
-        ('hash = "current"\nfirst_article = "unknown"\n', "checked", False, 1),
-        ('hash = "current"\nfirst_article = "  UnKnOwN  "\n', "checked", False, 1),
-        ('hash = "current"\nfirst_article = "accepted"\n', "planned", False, 1),
-        (
-            'hash = "old"\nfirst_article = "accepted"\n'
-            '[inputs]\nfeatures = "prior"\nplan = "unchanged"\n',
-            "checked",
-            False,
-            1,
-        ),
-    ],
-    ids=[
-        "exact",
-        "blank-evidence",
-        "unknown-evidence",
-        "normalized-unknown-evidence",
-        "unresolved-checks",
-        "stale-input",
-    ],
-)
-def test_approval_record_cannot_waive_report_binding(
-    tmp_path, record, verification, approved, warning_count
-):
-    path = tmp_path / "approval.toml"
-    path.write_text(record, encoding="utf-8")
-    report = {
-        "hash": "current",
-        "verification": verification,
-        "inputs": {"features": {"sha256": "changed"}, "plan": {"sha256": "unchanged"}},
-    }
-    logs = []
-    tracing = SimpleNamespace(
-        span=lambda *args, **kwargs: nullcontext(),
-        log=lambda severity, message: logs.append((severity, message)),
-    )
-    result = _read_approval(path, report, tracing)
-    assert result["approved"] is approved
-    assert len(result["warnings"]) == warning_count
-    assert len(logs) == warning_count
-    if record.startswith('hash = "old"'):
-        assert "features" in result["warnings"][0]
-        assert "plan" not in result["warnings"][0]
-
-
-@pytest.mark.parametrize("verb", ["check", "traveler"])
-@pytest.mark.parametrize(
-    ("evidence", "recorded"),
-    [("  ", False), ("unknown", False), ("  UnKnOwN  ", False), ("FA-001 accepted", True)],
-    ids=["blank", "unknown", "normalized-unknown", "recorded"],
-)
-def test_approval_evidence_warnings_agree_with_traveler_status(verb, evidence, recorded, tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    plain, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
-    assert report["verification"] != "checked"
-    approval = tmp_path / "approval.toml"
-    approval.write_text(
-        f'hash = "{report["hash"]}"\nfirst_article = "{evidence}"\n',
-        encoding="utf-8",
-    )
-    out = tmp_path / "out"
-    result = run_cli(verb, plan, "--out", out, "--approval", approval, setup=SYNTHETIC_KERNEL)
-    assert result.returncode == plain.returncode
-    assert json.loads((out / "report.json").read_bytes()) == report
-    assert ("first-article evidence" in result.stderr) is not recorded
-    assert ("unresolved shop-required checks" in result.stderr) is recorded
-    if verb == "traveler":
-        from test_sheet_ops import Markup, content
-
-        markup = Markup((out / "traveler.html").read_text(encoding="utf-8"))
-        (banner,) = markup.find("banner")
-        assert "PLANNED — NOT APPROVED" in content(banner)
-        assert "CHECKED" not in content(banner)
-        warnings = [
-            node for node in markup.find("decision") if node["attrs"]["data-source"] == "approval"
-        ]
-        assert len(warnings) == 1
-        (warning,) = warnings
-        assert warning["attrs"]["data-status"] == "warn"
-        assert warning["attrs"]["data-decision"] == "caution"
-        assert warning["attrs"]["data-scope"] == "approval"
-        assert ("first-article evidence" in content(warning)) is not recorded
-        assert ("unresolved shop-required checks" in content(warning)) is recorded
-
-
-@pytest.mark.parametrize(
-    "record",
-    [
-        '[[approvals]]\nhash = "current"\nfirst_article = "accepted"\n',
-        'hash = "current"\nfirst_article = "accepted"\n[inputs.features]\nsha256 = "changed"\n',
-    ],
-    ids=["history-array", "nested-digest"],
-)
-def test_approval_record_rejects_superseded_formats(tmp_path, record):
-    path = tmp_path / "approval.toml"
-    path.write_text(record, encoding="utf-8")
-    tracing = SimpleNamespace(span=lambda *args, **kwargs: nullcontext())
-    report = {"hash": "current", "verification": "checked", "inputs": {}}
-    with pytest.raises(BadInput):
-        _read_approval(path, report, tracing)
-
-
-@pytest.mark.parametrize("args", [(), ("not-a-verb",)])
-def test_missing_or_unknown_verb_is_bad_input(args, tmp_path):
-    result = run_cli(*args, "--out", tmp_path)
-    assert result.returncode == 3, result.stderr
-    assert "usage" in (result.stdout + result.stderr).lower()
-    assert not tuple(tmp_path.iterdir())
-
-
-def test_empty_operations_rejects_before_outputs(tmp_path):
-    examples = copy_examples(tmp_path)
-    plan = examples / "rocker-arm" / "plan.toml"
-    text = plan.read_text(encoding="utf-8")
-    # Keep a complete S1 as the only setup, but remove every operation.
-    plan.write_text(rocker_s1_alone(text), encoding="utf-8")
-    out = tmp_path / "out"
-    result = run_cli("traveler", plan, "--out", out)
-    assert result.returncode == 3, result.stderr
-    assert "op" in result.stderr.lower()
-    assert not out.exists() or not tuple(out.iterdir())
-
-
-def test_output_input_collision_rejects_before_any_write(tmp_path):
-    examples = copy_examples(tmp_path)
-    plan = examples / "rocker-arm" / "plan.toml"
-    out = tmp_path / "out"
-    out.mkdir()
-    inventory = out / "report.json"
-    inventory.write_bytes((examples / "inventory" / "pedro-shop.toml").read_bytes())
-    before = inventory.read_bytes()
-    result = run_cli("traveler", plan, "--inventory", inventory, "--out", out)
-    assert result.returncode == 3, result.stderr
-    assert inventory.read_bytes() == before
-    assert {path.name for path in out.iterdir()} == {"report.json"}
-
-
-@pytest.mark.parametrize(
-    ("variable", "value"),
-    [("OTEL_EXPORTER_OTLP_PROTOCOL", "http/json"), ("OTEL_EXPORTER_OTLP_TIMEOUT", "5s")],
-)
-def test_malformed_otlp_setting_warns_once_and_keeps_unconfigured_result(variable, value, tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    plain = run_cli("check", plan, "--out", tmp_path / "plain", setup=SYNTHETIC_KERNEL)
-    configured = run_cli(
-        "check",
-        plan,
-        "--out",
-        tmp_path / "configured",
-        env={"OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:9", variable: value},
-        setup=SYNTHETIC_KERNEL,
-    )
-    assert plain.returncode in {0, 2, 4}, plain.stderr
-    assert configured.returncode == plain.returncode, configured.stderr
-    report = (tmp_path / "configured" / "report.json").read_bytes()
-    assert report == (tmp_path / "plain" / "report.json").read_bytes()
-    # One warning naming the variable precedes the unconfigured run's own stderr.
-    assert configured.stderr.endswith(plain.stderr)
-    warning = configured.stderr.removesuffix(plain.stderr)
-    assert warning.count(variable) == 1
-    assert "Traceback" not in warning
-
-
-RULE_BUGS = {
-    "raises": """
-from prechips import rules
-rules.RULES[0] = rules.Rule(rules.RULES[0].name, lambda bundle: {}["dia"])
-""",
-    "duplicate_subjects": """
-from prechips import rules
-first = rules.RULES[0]
-rules.RULES[0] = rules.Rule(first.name, lambda bundle: first.evaluate(bundle)[:1] * 2)
-""",
-}
-
-
-@pytest.mark.parametrize("bug", sorted(RULE_BUGS))
-def test_internal_rule_failure_is_traceback_exit_1_not_bad_input(bug, tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    out = tmp_path / "out"
-    result = run_cli("traveler", plan, "--out", out, setup=SYNTHETIC_KERNEL + RULE_BUGS[bug])
-    assert result.returncode == 1, result.stderr
-    assert "Traceback" in result.stderr
-    assert not out.exists() or not tuple(out.iterdir())
-
-
-# Each injection makes the filesystem refuse only traveler.html, after report.json is ready.
-TRAVELER_REFUSALS = {
-    "write": """
-import builtins, io, os
-_open = io.open
-def _refuse(file, mode="r", *args, **kwargs):
-    if (
-        isinstance(file, (str, os.PathLike))
-        and "traveler.html" in os.fspath(file)
-        and set(mode) & set("wxa+")
-    ):
-        raise OSError(28, "No space left on device", os.fspath(file))
-    return _open(file, mode, *args, **kwargs)
-io.open = builtins.open = _refuse
-""",
-    "replace": """
-import os
-_replace = os.replace
-def _refuse(source, target, *args, **kwargs):
-    if os.path.basename(target) == "traveler.html":
-        raise OSError(13, "Permission denied", os.fspath(target))
-    return _replace(source, target, *args, **kwargs)
-os.replace = _refuse
-""",
-}
-
-
-@pytest.mark.parametrize("preexisting", [False, True], ids=["fresh", "preexisting"])
-@pytest.mark.parametrize("refusal", sorted(TRAVELER_REFUSALS))
-def test_refused_traveler_output_leaves_prior_outputs_exactly(refusal, preexisting, tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    out = tmp_path / "out"
-    prior = {}
-    if preexisting:
-        out.mkdir()
-        prior = {"report.json": b"earlier report\n", "traveler.html": b"earlier traveler\n"}
-        for name, data in prior.items():
-            (out / name).write_bytes(data)
-    result = run_cli(
-        "traveler", plan, "--out", out, setup=SYNTHETIC_KERNEL + TRAVELER_REFUSALS[refusal]
-    )
-    assert result.returncode == 3, result.stderr
-    assert "Traceback" not in result.stderr
-    # No new report beside an old traveler, no staged temporaries left behind.
-    after = {path.name: path.read_bytes() for path in out.iterdir()} if out.exists() else {}
-    assert after == prior
-
-
-@pytest.mark.parametrize(
-    ("prior_inputs", "changed"),
-    [
-        ("absent", "the operative bundle"),
-        ("empty", "the operative bundle"),
-        ("partial_unchanged", "the operative bundle"),
-        ("partial_changed", "features"),
-        ("unreferenced", "the operative bundle"),
-    ],
-)
-def test_stale_approval_names_only_compared_input_changes(prior_inputs, changed, tmp_path):
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    plain, report, _ = traveler(plan, tmp_path / "plain", setup=SYNTHETIC_KERNEL)
-    inputs = {
-        "absent": "",
-        "empty": "\n[inputs]\n",
-        "partial_unchanged": f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\n',
-        "partial_changed": (
-            f'\n[inputs]\nplan = "{report["inputs"]["plan"]["sha256"]}"\nfeatures = "{"0" * 64}"\n'
-        ),
-        "unreferenced": f'\n[inputs]\nretired_asset = "{"0" * 64}"\n',
-    }[prior_inputs]
-    approval = tmp_path / "approvals.toml"
-    approval.write_text(
-        f'hash = "{"0" * 64}"\n'
-        'first_article = "Synthetic regression record, not shop evidence."\n' + inputs,
-        encoding="utf-8",
-    )
-    result, approved_report, html = traveler(
-        plan, tmp_path / "stale", "--approval", approval, setup=SYNTHETIC_KERNEL
-    )
-    assert result.returncode == plain.returncode
-    assert approved_report == report
-    warning = " ".join(result.stderr.split()).split("Approval no longer matches: ", 1)[1]
-    assert warning.split(" changed.", 1)[0] == changed
-    assert f"Approval no longer matches: {changed} changed." in html
-    assert "PLANNED" in html
-    assert "CHECKED —" not in html
-
-
-@pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
-@pytest.mark.parametrize(
-    ("field", "value", "missing"),
-    [
-        ("status", "invalid", False),
-        ("status", None, False),
-        ("status", None, True),
-        ("numbers", [], False),
-        ("numbers", "not an object", False),
-        ("numbers", None, False),
-        ("numbers", None, True),
-        ("cite", [123], False),
-        ("cite", "not a citation list", False),
-        ("cite", {"page": "source"}, False),
-        ("cite", None, False),
-        ("cite", None, True),
-        ("subject", 123, False),
-        ("subject", None, True),
-        ("message", [], False),
-        ("message", None, True),
-    ],
-)
-def test_explain_rejects_all_malformed_matches_before_any_finding_output(
-    field, value, missing, json_output, tmp_path, monkeypatch
-):
-    # Deliberately withdraw the kernel; completed pilots need not have missing facts.
-    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    _, report, _ = traveler(plan, tmp_path / "plain")
-    first = next(row for row in report["findings"] if row["status"] == "unknown")
-    malformed = {**first, "subject": first["subject"] + ":malformed"}
-    if missing:
-        malformed.pop(field)
-    else:
-        malformed[field] = value
-    # A later bad match must not emit the earlier valid finding to stdout or logs.
-    report["findings"] = [first, malformed]
-    report["hash"] = report_hash(report)
-    path = tmp_path / "malformed.json"
-    path.write_bytes(canonical_bytes(report))
-    result = run_cli("explain", path, first["rule"], *(["--json"] if json_output else []))
-    assert result.returncode == 3, result.stderr
-    assert "Cannot explain report" in result.stderr
-    assert "Traceback" not in result.stderr
-    assert result.stdout == ""
-    assert first["message"] not in " ".join(result.stderr.split())
-
-
-@pytest.mark.parametrize("json_output", [False, True], ids=["human", "json"])
-def test_explain_valid_selected_finding_keeps_structured_evidence(
-    json_output, tmp_path, monkeypatch
-):
-    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "unavailable-freecadcmd"))
-    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
-    _, report, _ = traveler(plan, tmp_path / "plain")
-    row = next(row for row in report["findings"] if row["status"] == "unknown")
-    result = run_cli(
-        "explain",
-        tmp_path / "plain" / "report.json",
-        f"{row['rule']}:{row['subject']}",
-        *(["--json"] if json_output else []),
-    )
+def test_real_cli_renders_escaped_operator_content(tmp_path):
+    result, out = run_cli(tmp_path, PLAN)
     assert result.returncode == 0, result.stderr
-    if json_output:
-        assert json.loads(result.stdout) == row
-    else:
-        header, evidence = result.stdout.split("\n", 1)
-        numbers, cite = evidence.rsplit("\nCite: ", 1)
-        assert header == f"{row['rule']}:{row['subject']} — {row['status']}"
-        assert json.loads(numbers) == row["numbers"]
-        assert cite.rstrip("\n") == "; ".join(row["cite"])
+    html = out.read_text(encoding="utf-8")
+    assert "Bracket &lt;trial&gt;" in html
+    assert "B&amp;1" in html
+    assert "Face to thickness.\nKeep &lt; 0.2 mm" in html
+    assert "6 mm end mill" in html
+    assert "internal-mill-id" not in html
+    assert "1200" in html
+    assert "Hand feed, about 50 mm/min" in html
+    assert "Measure at both ends." in html
+    assert "Check thickness &amp; squareness." in html
+
+
+def test_numbered_setups_operations_and_authored_table_content(tmp_path):
+    text = (
+        PLAN.replace(
+            'description = "6 mm end mill"',
+            'name = "End mill <6>"\ndescription = "6 mm end mill"',
+        )
+        + SECOND_SETUP
+    )
+    result, out = run_cli(tmp_path, text)
+    assert result.returncode == 0, result.stderr
+    parts = OperatorText(out.read_text(encoding="utf-8")).parts
+    assert "Setup 1 — Face stock" in parts
+    assert "Setup 2 — Drill pattern" in parts
+    assert parts.index("10") < parts.index("20")
+    assert "End mill <6>" in parts
+    assert "Locate the pattern." in parts
+    assert "6 mm end mill" in parts
+    assert "Feature" in parts
+    assert "Hole <A>" in parts
+    assert "12.50" in parts
+    assert "-3.25" in parts
+    assert "25.00" in parts
+    assert "0.00\n4.00" in parts
+    assert "Measure at both ends." in parts
+    assert "Check thickness & squareness." in parts
+    assert "internal-mill-id" not in parts
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ('title = "unterminated', "Unterminated string"),
+        (PLAN.replace('tool = "internal-mill-id"', 'tool = "missing"'), "unknown tool"),
+        (PLAN.replace("rpm = 1200", "rpm = true"), "expected a positive integer"),
+        (PLAN.replace('title = "Bracket <trial>"', ""), "plan.title"),
+        (
+            PLAN.replace(
+                'description = "6 mm end mill"',
+                'name = ""\ndescription = "6 mm end mill"',
+            ),
+            "tools[1].name",
+        ),
+        (
+            PLAN
+            + SECOND_SETUP.replace(
+                '"Hole <A>", "12.50", "-3.25"', '"Hole <A>", "12.50"'
+            ),
+            "rows matching the columns",
+        ),
+        (
+            PLAN
+            + SECOND_SETUP.replace('columns = ["Feature", "X", "Y"]', "columns = []"),
+            "column names",
+        ),
+    ],
+)
+def test_bad_input_has_useful_error_without_output(tmp_path, text, message):
+    result, out = run_cli(tmp_path, text)
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("output_kind", ["input", "hardlink"])
+def test_output_cannot_replace_input_plan(tmp_path, output_kind):
+    plan = tmp_path / "plan.toml"
+    plan.write_text(PLAN, encoding="utf-8")
+    out = plan
+    if output_kind == "hardlink":
+        out = tmp_path / "alias.html"
+        out.hardlink_to(plan)
+    result = subprocess.run(
+        ["prechips", "traveler", str(plan), "--out", str(out)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert plan.read_text(encoding="utf-8") == PLAN
+    assert out.read_text(encoding="utf-8") == PLAN
