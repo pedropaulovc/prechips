@@ -15,58 +15,6 @@ from prechips.cad import (
 )
 
 
-def _contour_rows(radius: float, height: float, parameters: dict) -> list[list[str]]:
-    """Imaginary-tip readings: OD X touch, +Z face touch, X diametric.
-
-    Pure math from the archived coordinates._dome / _dome_stair: offset the
-    finish surface along its normal; rough corners lie on a grown sphere.
-    """
-    nose = _positive(parameters.get("nose_radius_mm"), "process.nose_radius_mm")
-    step = _positive(parameters.get("contour_step_mm"), "process.contour_step_mm")
-    allowance = _positive(
-        parameters.get("dome_rough_allowance_mm"), "process.dome_rough_allowance_mm"
-    )
-    entering = _positive(
-        parameters.get("entering_angle_deg"), "process.entering_angle_deg"
-    )
-    insert = _positive(parameters.get("insert_angle_deg"), "process.insert_angle_deg")
-    if height > radius or height / step > 1000 or entering + insert >= 180:
-        raise CadError("cad.dome: unsupported convex cap, sampling or RH tool angles")
-    count = math.ceil(height / step)
-    work_radius = math.sqrt(height * (2 * radius - height))
-    grown = radius + allowance / 2
-    cells = []
-    for index in range(count + 1):
-        depth = height if index == count else index * step
-        surface_radius = math.sqrt(depth * (2 * radius - depth))
-        normal_r, normal_z = surface_radius / radius, 1 - depth / radius
-        angle = math.degrees(math.atan2(normal_z, normal_r))
-        if not entering + insert - 180 <= angle <= entering:
-            raise CadError(
-                "cad.dome: contact normal lies outside the authored tool nose arc"
-            )
-        finish_x = 2 * (surface_radius + nose * (normal_r - 1))
-        finish_z = -depth + nose * (normal_z - 1)
-        rough_radius = math.sqrt(grown * grown - (radius - depth) ** 2)
-        rough = (
-            _reading(-depth, 2 * rough_radius)
-            if index and rough_radius < work_radius - 1e-9
-            else "—"
-        )
-        cells.append([rough, _reading(finish_z, finish_x)])
-    split = math.ceil(len(cells) / 2)
-    return [
-        cells[index]
-        + (cells[index + split] if index + split < len(cells) else ["—", "—"])
-        for index in range(split)
-    ]
-
-
-def _reading(z: float, x: float) -> str:
-    # Avoid negative zero at the apex; retain the meaningful negative tip X.
-    return f"{0.0 if abs(z) < 0.0005 else z:.2f} / {x:.2f}".replace("-", "−")
-
-
 def load_shaft(path: Path, parameters: dict) -> CadData:
     with path.open("rb") as source:
         raw = tomllib.load(source)
@@ -189,11 +137,7 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
             raise CadError(f"cad.{end}_dome: cap does not meet nominal shaft diameter")
         values[f"{end}_dome_radius"] = radius
         domes.append((height, radius, base))
-    height, radius, base = domes[0]
-    if domes[1][:2] != domes[0][:2]:
-        raise CadError(
-            "cad.domes: repeat-table route requires matching height and radius"
-        )
+    height, _, base = domes[0]
     if not math.isclose(base - domes[1][2], values["span_ref"]):
         raise CadError("cad.span_ref: dome base stations disagree with REF span")
     apex = base + height
@@ -204,6 +148,13 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     values.update(
         thrust_z=thrust_z - apex, north_shoulder_z=north_z - apex, north_base_z=-height
     )
+    values.update(
+        north_apex_z=0.0,
+        north_sphere_center_z=-domes[0][1],
+    )
+    for end in ("north", "south"):
+        # LMS 2569 manual pp. 4–5: pivot is 3/16 in behind the frame edge.
+        values[f"{end}_frame_edge_to_tip"] = values[f"{end}_dome_radius"] + 4.7625
     blade = _positive(parameters.get("blade_width_mm"), "process.blade_width_mm")
     for end in ("north", "south"):
         item = feature(f"{end}_relief", "groove")
@@ -273,7 +224,9 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         blank_length=supply + process("stub_allowance_mm") + face_allowance,
         plain_end_face_passes=math.ceil(face_allowance / 0.25),
         reverse_projection=apex - thrust_z + process("stub_allowance_mm"),
-        south_base_z=fit - height,
+        south_apex_z=fit,
+        south_base_z=fit - domes[1][0],
+        south_sphere_center_z=fit - domes[1][1],
         parting_z=fit + process("fit_face_allowance_mm"),
     )
     values["turn_start_z"] = values["plain_end_z"] + process("turn_start_clearance_mm")
@@ -315,7 +268,6 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         raise CadError(
             "process.blade_corner_radius_mm: tool exceeds relief corner limit"
         )
-    values["contour_rows"] = _contour_rows(radius, height, parameters)
     return CadData(
         values,
         RoundStock(

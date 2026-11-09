@@ -5,7 +5,7 @@
 # Blank allowance, chuck/dead-centre/follow-rest route, DRO frames, feeds,
 # rpm and 1.75 mm fit-up target are authored example choices, not drawing facts.
 # This preserves plan rev 7's route, not the drawing's between-centres process line.
-# Contour readings derive from source cap geometry and the authored R0.4 tool nose.
+# Dome attachment setup follows the LMS 2569 manual linked in shared shop.toml.
 # The 156.67 mm span is REF / CUT TO FIT, never a fixed finished-length limit.
 title = "Pivot shaft — {{cad.drawing_number}}"
 part = "{{cad.part}}"
@@ -36,9 +36,6 @@ blade_width_mm = 1.6
 blade_corner_radius_mm = 0.1
 nose_radius_mm = 0.4
 entering_angle_deg = 93.0
-insert_angle_deg = 60.0
-contour_step_mm = 0.1
-dome_rough_allowance_mm = 0.20
 turn_rough_allowance_mm = 0.20
 shoulder_face_allowance_mm = 0.20
 turn_start_clearance_mm = 0.30
@@ -68,6 +65,11 @@ id = "hss"
 name = "HSS"
 ref = "shaft-hss"
 description = "3/8 in M42 RH bit, {{process.entering_angle_deg:g}}° entering angle, R{{process.nose_radius_mm:g}} nose"
+
+[[tools]]
+id = "ball"
+name = "LMS 2569"
+ref = "lms-2569"
 
 [[tools]]
 id = "blade"
@@ -158,14 +160,12 @@ rpm = 1400
 feed = "0.08 mm/rev"
 
 [[setups.operations]]
-tool = "hss"
-instruction = "North dome R{{cad.north_dome_radius:.2f}}: apex Z0, base {{cad.north_base_z:g}}. Rough: column 1 then 3, leaving {{process.dome_rough_allowance_mm:.2f}} on Ø. Finish: column 2 then 4, R{{process.nose_radius_mm:g}} nose compensated. X outward before Z toward chuck."
+tool = "ball"
+instruction = "HSS rough outer corner; leave finishing stock. North cap R{{cad.north_dome_radius:.2f}}; frame-edge-to-tip {{cad.north_frame_edge_to_tip:.2f}}, tip at centre height. Apex Z{{cad.north_apex_z:g}}, sphere centre Z{{cad.north_sphere_center_z:.2f}}, base Z{{cad.north_base_z:g}}. Touch apex, frame parallel to spindle; hold carriage. Retract cross-slide, sweep to first contact; light infeed/sweeps, cap only."
+instruction_detailed = "Rough the outer corner with the ordinary HSS tool, leaving material for the attachment to finish. Set LMS 2569 tip to spindle centre height; check frame and handle sweep clearance. Rotate the inner frame 90°, bridge its two end edges with a straightedge and measure edge-to-tip {{cad.north_frame_edge_to_tip:.2f}} mm (CAD radius {{cad.north_dome_radius:.2f}} + 4.7625); tighten the bit screw. With the inner frame parallel to the spindle, bring the tip to the faced apex Z{{cad.north_apex_z:g}} and hold that carriage position. Retract the cross-slide clear, sweep the handle and advance to first contact. Feed the cross-slide in light increments, sweeping after each; this is a finishing tool, not a bulk rougher. Finish only apex to base Z{{cad.north_base_z:g}}, not a full ball or the journal. Sphere centre is Z{{cad.north_sphere_center_z:.2f}}. Check cap height and base before breaking the rim."
 settings = "shaft-dome-1018"
 inspection = "Height {{cad.north_dome_height_min:g}}–{{cad.north_dome_height_max:g}}; journal length {{cad.journal_length_min:g}}–{{cad.journal_length_max:g}}; shoulder {{cad.shoulder_length_min:.2f}}–{{cad.shoulder_length_max:.2f}}. Break shoulder OD, journal-side relief edge Z{{cad.north_relief_end:g}} and dome rim ≤{{cad.edge_break_max:g}}."
 
-[setups.operations.table]
-columns = ["Rough Z / XØ", "Finish Z / XØ", "Rough Z / XØ", "Finish Z / XØ"]
-rows = "{{cad.contour_rows}}"
 
 [[setups]]
 title = "Fit-scribe — finish plain end"
@@ -190,7 +190,8 @@ feed = "0.05 mm/rev"
 inspection = "Scribe zero 0.00 ±0.05; end {{process.fit_min_mm:.2f}}–{{process.fit_max_mm:.2f}} beyond scribe. Reface if long; reject if short."
 
 [[setups.operations]]
-tool = "hss"
-instruction = "South dome R{{cad.south_dome_radius:.2f}}: apex Z{{process.fit_apex_mm:.2f}}, base Z{{cad.south_base_z:.2f}}. Repeat north table adding +{{process.fit_apex_mm:.2f}} to every Z; X unchanged. Break rim ≤{{cad.edge_break_max:g}}; trial fit; oil."
+tool = "ball"
+instruction = "HSS rough outer corner; leave finishing stock. South cap R{{cad.south_dome_radius:.2f}}; frame-edge-to-tip {{cad.south_frame_edge_to_tip:.2f}}. Reset attachment at apex Z{{cad.south_apex_z:.2f}}; sphere centre Z{{cad.south_sphere_center_z:.2f}}, base Z{{cad.south_base_z:.2f}}. Use north method, cap only. Break rim ≤{{cad.edge_break_max:g}}; trial fit; oil."
+instruction_detailed = "Use the north-dome attachment method, resetting for this end: CAD radius {{cad.south_dome_radius:.2f}}, frame-edge-to-tip {{cad.south_frame_edge_to_tip:.2f}} mm (radius + 4.7625). HSS rough the outer corner, leaving finishing stock. Touch apex Z{{cad.south_apex_z:.2f}} with inner frame parallel to spindle; hold carriage here, not at the north setting. Retract cross-slide clear, sweep/advance to first contact and take light infeed/sweeps only to base Z{{cad.south_base_z:.2f}}; sphere centre Z{{cad.south_sphere_center_z:.2f}}. Check height and base; break rim ≤{{cad.edge_break_max:g}}, trial fit and oil."
 settings = "shaft-dome-1018"
 inspection = "Dome height {{cad.south_dome_height_min:g}}–{{cad.south_dome_height_max:g}}; final length to actual ear fit."

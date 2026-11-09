@@ -20,7 +20,7 @@ The output must be a different file from the input plan, including filesystem al
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
 
-The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Part profiles and positions come from the same CAD values and process parameters as the instructions; chuck, centre, rest and tool symbols are schematic. These are generated setup elevations, not STEP projections or collision checks.
+The shaft targets two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment setup and cutting method in place of the compact instruction. Radius, height and cap limits come from CAD; frame-edge-to-tip is radius + 4.7625 mm per the [manufacturer's manual, pp. 4–7](https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368). The retained 1400 rpm is an authored starting speed, not a supplier recommendation. Part profiles and positions share the instructions' CAD/process values; fixture symbols are schematic, not physical attachment models, STEP projections or collision checks.
 
 Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
 
@@ -32,7 +32,7 @@ Setups are numbered in order; operations use unique numbers in increments of ten
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile examples/comparison/profile.toml --out out/pivot-shaft.html
 ```
 
-These adaptations retain the archived process choices. Source files are identified in each TOML header. The shaft, bracket and rocker now bind dimensions to their adjacent feature-manifest snapshots; the remaining comparison plans use literal values. The custom profile renders text only and omits stock-fit checking. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
+These adaptations retain the archived process choices except the shaft's dome finishing, now using the LMS attachment rather than a stepped contour table. Source files are identified in each TOML header. The shaft, bracket and rocker bind dimensions to their adjacent feature-manifest snapshots; the remaining comparison plans use literal values. The comparison profile renders compact text only and omits stock-fit checking. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
 
 At 10.5pt on Letter paper, the ring uses one page; the tube, T-nuts, bracket and shaft use two each. Pedro approved three pages for the cone and rocker so their remaining instructions stay readable. The cone's reusable fixture manufacture is a separate two-page `cone-pivot-post-fixtures.toml` job.
 
@@ -43,7 +43,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | Adapter | Source | Bound values |
 | --- | --- | --- |
 | `harmonic_base_bar` | Released v47 export | Dimensions, holes, slots and setup-diagram geometry |
-| `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, dome contour, setup coordinates, limits and setup pictures |
+| `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 
@@ -69,7 +69,7 @@ Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_i
 
 Each adapter applies the selected plan's setup frames and distinguishes model geometry from requirement limits. Named bindings update repeated dimensions and coordinate tables together. Conflicting machining targets and source acceptance limits are input errors. The shaft's reference span remains REF: its final length still follows the assembly fit. The rocker's hub-length aim is authored; its strap aim follows that aim and the bound face depths. Selected tools and gauges remain separate from source acceptance limits.
 
-Changing CAD dimensions does not select new tools or redesign the machining process. Unsupported coordinate frames and contour strategies fail with an input error; general tool and gauge suitability is not checked. Literal-only plans work with a custom profile that omits `stock_fit`.
+Changing CAD dimensions does not select new tools or redesign the machining process. Unsupported coordinate frames and conflicting cap geometry fail with an input error; general tool and gauge suitability is not checked. Literal-only plans work with a custom profile that omits `stock_fit`.
 
 ## Stock fit
 
@@ -86,10 +86,10 @@ There is no automatic rotation, yield calculation, added allowance or workholdin
 
 ## Profiles
 
-| Preset | Setup diagrams | Enforcement |
-| --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Stock fits the declared requirement |
-| `hobby` | Included for every setup | Stock fits; every setup has a readable SVG diagram |
+| Preset | Setup diagrams | Operation instructions | Enforcement |
+| --- | --- | --- | --- |
+| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits the declared requirement |
+| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | Stock fits; every setup has a readable SVG diagram |
 
 Enforcement does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
@@ -97,11 +97,11 @@ Use `--profile path/to/profile.toml` for a custom profile:
 
 ```toml
 name = "illustrated"
-features = ["setup_diagrams"]
+features = ["setup_diagrams", "detailed_instructions"]
 enforce = []  # Skip stock checking; allow setups without a diagram.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to `enforce` to require CAD and fitting blank dimensions independently of diagrams. These are the supported enforcement keys; `setup_diagrams` is the only feature key. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to `enforce` to require CAD and fitting blank dimensions independently of diagrams. These are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
@@ -168,6 +168,7 @@ diagram = { file = "diagrams/setup.svg", alt = "Workholding and datum orientatio
 [[setups.operations]]
 tool = "cutter"
 instruction = "The cut, dimensions and coordinates"
+# instruction_detailed = "Optional method detail, replacing the compact instruction"
 # rpm = 1000              # Supply the actual authored spindle setting.
 feed = "Authored feed with units, or a manual-feed instruction"
 inspection = "Operation-specific inspection and acceptance limits"
@@ -178,6 +179,8 @@ rows = [["Feature name", "Authored X coordinate", "Authored Y coordinate"]]
 ```
 
 Root `note`, tool `name`, setup `holding`, `datum`, `inspection`, and operation `tool`, `rpm`, `feed`, `inspection` and `table` are optional. Omit irrelevant setup fields rather than filling them with boilerplate. Omit `tool` for inspections or work requiring only ordinary shop equipment. Tool names provide short labels in operation tables; the tooling list retains full descriptions. Other shown fields are required; tools, setups and operations must be nonempty. Optional operation tables contain string `columns` and string-array `rows`, each matching the column count. Unknown fields and unresolved tool references produce an input error. Repeat tables in working order; each operation belongs to the most recent setup. Setup inspections print after its operations. Do not invent unknown machining values to fill a field.
+
+An operation's optional `instruction_detailed` must be a nonempty string. With `detailed_instructions` enabled it replaces, never appends to, `instruction`; operations without it retain their ordinary instruction. Put a specific hobby method here rather than repeating the compact paragraph or adding generic tutorials. Both variants share tooling, settings and inspection limits.
 
 `diagram` is optional in the process schema. Its `file` and `alt` strings are required when it is supplied. SVG paths are relative to the process TOML, regardless of the working directory. An enabled diagram must parse as SVG; it is embedded as an image, not executable page markup. In `pro`, unused diagram files are not opened.
 
