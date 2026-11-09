@@ -55,6 +55,7 @@
   <line x1="288" y1="185" x2="256" y2="185" stroke="#111" stroke-width="1"/>
 
   <rect x="190" y="232" width="120" height="50" fill="#b5b9bf" stroke="#111" stroke-width="1.5"/>
+  <path d="M245 233V250H257V233" fill="#fff" stroke="#111" stroke-width="1.2"/>
   <text x="250" y="262" text-anchor="middle">saw bed</text>
 
   <g fill="#8a9099" stroke="#111" stroke-width="1">

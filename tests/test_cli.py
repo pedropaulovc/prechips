@@ -212,7 +212,6 @@ def test_hobby_embeds_each_setup_diagram_before_operations(tmp_path):
     assert html.index("Setup 2 — Drill pattern") < html.index(second_image)
     assert html.index(second_image) < html.index("Locate the pattern.")
     assert 'alt="Vise &amp; stock &lt;side view&gt;"' in html
-    assert "<figcaption>Vise &amp; stock &lt;side view&gt;</figcaption>" in html
     assert "<svg" not in html
 
 

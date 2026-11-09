@@ -77,7 +77,7 @@
   <text x="548" y="190">(crosswise)</text>
   <line x1="544" y1="168" x2="476" y2="190" stroke="#111" stroke-width="1"/>
   <text x="548" y="230">ZERO EDGE (cut)</text>
-  <line x1="544" y1="226" x2="505" y2="230" stroke="#111" stroke-width="1"/>
+  <line x1="544" y1="226" x2="505" y2="223" stroke="#111" stroke-width="1"/>
 
   <!-- axes -->
   <g stroke="#111" stroke-width="1.5">

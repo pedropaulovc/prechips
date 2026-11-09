@@ -189,7 +189,6 @@ th:last-child, td:last-child { padding-right: 0; }
 .machine { font-size: var(--body-size); font-weight: normal; text-align: right; }
 .setup-diagram { margin: 0.08in 0; break-inside: avoid; }
 .setup-diagram img { display: block; width: 100%; max-height: 4in; object-fit: contain; }
-.setup-diagram figcaption { margin-top: 0.04in; }
 .operations { table-layout: fixed; break-before: avoid; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
@@ -232,11 +231,11 @@ def _diagram_html(setup: dict, profile: Profile, source_dir: Path) -> str:
             f"{where}: cannot use SVG {diagram['file']!r}: {error}"
         ) from error
     image = base64.b64encode(content).decode("ascii")
-    caption = _html(diagram["alt"])
+    alt = _html(diagram["alt"])
     return (
         '<figure class="setup-diagram">'
-        f'<img src="data:image/svg+xml;base64,{image}" alt="{caption}">'
-        f"<figcaption>{caption}</figcaption></figure>"
+        f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
+        "</figure>"
     )
 
 
