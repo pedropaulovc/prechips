@@ -27,6 +27,9 @@ adapter = "harmonic_base_bar"
 width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 slot_step_in = 0.12
+blank_length_in = 17.32
+blank_width_in = 5.5
+blank_thickness_in = 0.47
 [[tools]]
 id = "spot"
 description = "Centre drill"
@@ -130,10 +133,18 @@ def test_unknown_bindings_fail_without_output(tmp_path, token):
     assert not out.exists()
 
 
-def test_missing_source_and_source_output_alias_are_errors(tmp_path):
+@pytest.mark.parametrize("output_kind", ["source", "hardlink"])
+def test_missing_source_and_source_output_alias_are_errors(
+    tmp_path, capsys, output_kind
+):
     plan, source = prepare(tmp_path)
     before = source.read_bytes()
-    assert main(["traveler", str(plan), "--out", str(source)]) == 2
+    out = source
+    if output_kind == "hardlink":
+        out = tmp_path / "alias.html"
+        out.hardlink_to(source)
+    assert main(["traveler", str(plan), "--out", str(out)]) == 2
+    assert "output must not overwrite" in capsys.readouterr().err
     assert source.read_bytes() == before
     plan.write_text(
         PLAN.replace('file = "cad.toml"', 'file = "missing.toml"'), encoding="utf-8"

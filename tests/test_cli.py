@@ -79,8 +79,19 @@ def run_cli(tmp_path, text, *options):
     return result, out
 
 
+def stock_free_profile(tmp_path, *, diagrams=False):
+    """Keep literal-plan rendering tests independent of CAD/stock enforcement."""
+    profile = tmp_path / "rendering.toml"
+    names = '["setup_diagrams"]' if diagrams else "[]"
+    profile.write_text(
+        f'name = "Rendering only"\nfeatures = {names}\nenforce = {names}\n',
+        encoding="utf-8",
+    )
+    return str(profile)
+
+
 def test_real_cli_renders_escaped_operator_content(tmp_path):
-    result, out = run_cli(tmp_path, PLAN)
+    result, out = run_cli(tmp_path, PLAN, "--profile", stock_free_profile(tmp_path))
     assert result.returncode == 0, result.stderr
     html = out.read_text(encoding="utf-8")
     assert "Bracket &lt;trial&gt;" in html
@@ -102,7 +113,7 @@ def test_numbered_setups_operations_and_authored_table_content(tmp_path):
         )
         + SECOND_SETUP
     )
-    result, out = run_cli(tmp_path, text)
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
     assert result.returncode == 0, result.stderr
     parts = OperatorText(out.read_text(encoding="utf-8")).parts
     assert "Setup 1 — Face stock" in parts
@@ -168,7 +179,7 @@ def test_pro_rejects_invalid_quantity(tmp_path, quantity):
     assert not out.exists()
 
 
-def test_pro_accepts_positive_integer_quantity(tmp_path):
+def test_literal_plan_accepts_positive_integer_quantity(tmp_path):
     text = (
         PLAN.replace(
             'stock = "20 × 10 × 40 mm"',
@@ -176,7 +187,7 @@ def test_pro_accepts_positive_integer_quantity(tmp_path):
         )
         + "\n[parameters]\nquantity = 2\n"
     )
-    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
     assert result.returncode == 0, result.stderr
     assert "2 blanks, 20 × 10 × 40 mm" in out.read_text(encoding="utf-8")
 
@@ -215,6 +226,7 @@ def test_output_cannot_replace_input_plan(tmp_path, output_kind):
         check=False,
     )
     assert result.returncode == 2
+    assert "output must not overwrite the input plan" in result.stderr
     assert plan.read_text(encoding="utf-8") == PLAN
     assert out.read_text(encoding="utf-8") == PLAN
 
@@ -226,13 +238,18 @@ def with_diagram(text, file="diagrams/setup.svg", alt="Vise & stock <side view>"
     )
 
 
-def test_default_pro_does_not_read_unused_diagram(tmp_path):
-    result, out = run_cli(tmp_path, with_diagram(PLAN, file="missing.svg"))
+def test_stock_free_unillustrated_profile_does_not_read_unused_diagram(tmp_path):
+    result, out = run_cli(
+        tmp_path,
+        with_diagram(PLAN, file="missing.svg"),
+        "--profile",
+        stock_free_profile(tmp_path),
+    )
     assert result.returncode == 0, result.stderr
     assert "<img " not in out.read_text(encoding="utf-8")
 
 
-def test_hobby_embeds_each_setup_diagram_before_operations(tmp_path):
+def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
     first = b'<svg xmlns="http://www.w3.org/2000/svg"><text>First</text></svg>'
@@ -242,7 +259,9 @@ def test_hobby_embeds_each_setup_diagram_before_operations(tmp_path):
     text = with_diagram(PLAN) + with_diagram(
         SECOND_SETUP, file="diagrams/drill.svg", alt="Drill pattern"
     )
-    result, out = run_cli(tmp_path, text, "--profile", "hobby")
+    result, out = run_cli(
+        tmp_path, text, "--profile", stock_free_profile(tmp_path, diagrams=True)
+    )
     assert result.returncode == 0, result.stderr
     html = out.read_text(encoding="utf-8")
     first_image = "data:image/svg+xml;base64," + base64.b64encode(first).decode("ascii")
@@ -258,10 +277,12 @@ def test_hobby_embeds_each_setup_diagram_before_operations(tmp_path):
 
 
 @pytest.mark.parametrize("asset", [None, "missing.svg", "invalid.svg"])
-def test_hobby_requires_usable_diagram_for_named_setup(tmp_path, asset):
+def test_required_diagrams_need_usable_asset_for_named_setup(tmp_path, asset):
     (tmp_path / "invalid.svg").write_text("<html/>", encoding="utf-8")
     text = PLAN if asset is None else with_diagram(PLAN, file=asset)
-    result, out = run_cli(tmp_path, text, "--profile", "hobby")
+    result, out = run_cli(
+        tmp_path, text, "--profile", stock_free_profile(tmp_path, diagrams=True)
+    )
     assert result.returncode == 2
     assert "Face stock" in result.stderr
     assert "diagram" in result.stderr
@@ -293,3 +314,39 @@ def test_custom_optional_diagrams_and_plan_relative_paths(tmp_path):
     assert result.returncode == 2
     assert "Face stock" in result.stderr
     assert not out.exists()
+
+
+@pytest.mark.parametrize("input_kind", ["profile", "diagram"])
+@pytest.mark.parametrize("output_kind", ["input", "hardlink"])
+def test_output_cannot_replace_profile_or_used_diagram(
+    tmp_path, input_kind, output_kind
+):
+    profile = stock_free_profile(tmp_path, diagrams=True)
+    diagram = tmp_path / "setup.svg"
+    diagram.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
+    plan = tmp_path / "plan.toml"
+    plan.write_text(with_diagram(PLAN, file="setup.svg"), encoding="utf-8")
+    source = tmp_path / "rendering.toml" if input_kind == "profile" else diagram
+    before = source.read_bytes()
+    out = source
+    if output_kind == "hardlink":
+        out = tmp_path / "alias.html"
+        out.hardlink_to(source)
+    result = subprocess.run(
+        [
+            "prechips",
+            "traveler",
+            str(plan),
+            "--out",
+            str(out),
+            "--profile",
+            profile,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "output must not overwrite" in result.stderr
+    assert source.read_bytes() == before
+    assert out.read_bytes() == before

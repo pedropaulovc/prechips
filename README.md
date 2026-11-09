@@ -1,4 +1,4 @@
-# Prechips v0.3
+# Prechips v0.4
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -45,28 +45,34 @@ All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_
 
 Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
 
-The adapter uses exported requirement limits and drawing targets, converts millimetres to inches, and applies the authored setup's negative-Y convention. It distinguishes drawing-rounded positions from model coordinates. Printed dimensions, coordinate tables, diagram labels and feature positions share these values. Literal-only plans still work.
+The adapter uses exported requirement limits and drawing targets, converts millimetres to inches, and applies the authored setup's negative-Y convention. It distinguishes drawing-rounded positions from model coordinates. Printed dimensions, coordinate tables, diagram labels and feature positions share these values. Literal-only plans work with a custom profile that omits `stock_fit`.
 
-Only the harmonic-analyzer base-bar export is supported by this adapter. Changing CAD dimensions does not select new tools or redesign the machining process. Stock fit is the next milestone.
+Only the harmonic-analyzer base-bar export is supported by this adapter. Changing CAD dimensions does not select new tools or redesign the machining process.
+
+## Stock fit
+
+Both built-in profiles require declared blank length, width and thickness in inches and compare them with the CAD nominal envelope in matching axes. Exact fits pass. An undersized or missing dimension stops the command with exit 2 before writing output; the error names the affected axis and required size. Successful checks add nothing to the printed sheet.
+
+This compares each rectangular blank, not the parent bar. It does not rotate stock, reserve machining allowance, calculate yield or check workholding.
 
 ## Profiles
 
 | Preset | Setup diagrams | Enforcement |
 | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Ordinary process input errors only |
-| `hobby` | Included for every setup | Missing, unreadable or invalid SVG diagrams fail with exit 2 |
+| `pro` (default) | Omitted; diagram files are not opened | Stock fits the CAD envelope |
+| `hobby` | Included for every setup | Stock fits; every setup has a readable SVG diagram |
 
-Profile enforcement covers rendering completeness only. It does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
+Enforcement does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
 ```toml
 name = "illustrated"
 features = ["setup_diagrams"]
-enforce = []  # Include declared diagrams; allow setups without one.
+enforce = []  # Skip stock checking; allow setups without a diagram.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup. It must also appear in `features`. These are the only feature and enforcement keys currently supported; unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to `enforce` to require CAD and fitting blank dimensions independently of diagrams. These are the supported enforcement keys; `setup_diagrams` is the only feature key. Unknown keys are errors.
 
 ## Process TOML
 
@@ -119,4 +125,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.3 is the CAD-binding review target; v0.4 adds stock-fit validation separately.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.3 introduces CAD bindings; v0.4 adds the profile-controlled stock-fit comparison.
