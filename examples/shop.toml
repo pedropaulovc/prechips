@@ -51,6 +51,12 @@ description = "3/8 in M42 RH bit"
 [tools.shaft-blade]
 description = "M2 square blade"
 
+# LMS 2569: supplied pre-ground HSS bit; 3/8 in shank; convex Ø0–19.05 mm.
+# https://littlemachineshop.com/products/ball-and-radius-turning-tool-small
+# https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368
+[tools.lms-2569]
+description = "LMS 2569 ball-turning attachment, 3/8 in shank, HSS cutter"
+
 [settings.shaft-relief-1018]
 tool = "shaft-blade"
 material = "shaft-1018-cold-finished"
@@ -61,11 +67,13 @@ tool = "shaft-blade"
 material = "shaft-1018-cold-finished"
 rpm = 1050
 feed = "Hand plunge, 0.025 mm/rev"
+# Retained authored 1400 rpm HSS starting speed, not an LMS recommendation.
+# Manual pp. 6–7: light manual cross-slide increments and handle sweeps.
 [settings.shaft-dome-1018]
-tool = "shaft-hss"
+tool = "lms-2569"
 material = "shaft-1018-cold-finished"
 rpm = 1400
-feed = "0.05 mm/rev; hand traverse"
+feed = "Manual light cross-slide infeed / handle sweep"
 
 # Source: comparison/pivot-bracket.toml; archived pivot-bracket plan,
 # inventory/pedro-shop.toml, cutting-data.toml and expected/traveler.html.

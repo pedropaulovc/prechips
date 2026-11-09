@@ -567,8 +567,9 @@ def _reverse(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     height = _cad(values, "north_dome_height")
     stub = _param(parameters, "stub_allowance_mm")
     grip = _param(parameters, "reverse_grip_mm")
-    scale = min(12.0, 470 / (grip + stub - thrust), 120 / (2 * radius))
-    frame = _Frame(40.0, thrust - grip - 70 / scale, scale, 200.0)
+    jaw_face = _signed(values, "reverse_jaw_z")
+    scale = min(12.0, 470 / (grip + stub - jaw_face), 120 / (2 * radius))
+    frame = _Frame(40.0, jaw_face - grip - 70 / scale, scale, 200.0)
     left = frame.z0
     groups = _groups()
     body = [
@@ -596,13 +597,13 @@ def _reverse(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     groups["datum"].append(
         _line(frame.x(0), frame.up(radius) - 8, frame.x(0), frame.down(radius) + 8)
     )
-    chuck = _chuck(frame, thrust - grip, thrust, bearing, SHIM)
+    chuck = _chuck(frame, jaw_face - grip, jaw_face, bearing, SHIM)
     dome_depth = height / 2
     top = _callouts(
         groups,
         [
             (
-                frame.x(thrust - grip / 2),
+                frame.x(jaw_face - grip / 2),
                 chuck["jaw_upper_y"],
                 ["3-jaw, protected", f"grip on Ø{_mm(2 * bearing)}"],
             ),
@@ -635,8 +636,8 @@ def _reverse(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     dim_y = jaw_bottom + 26
     _dimension(
         groups,
-        frame.x(thrust - grip),
-        frame.x(thrust),
+        frame.x(jaw_face - grip),
+        frame.x(jaw_face),
         dim_y,
         jaw_bottom + 2,
         f"{_mm(grip)} grip",
@@ -645,7 +646,12 @@ def _reverse(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     bottom = _callouts(
         groups,
         [
-            (frame.x(thrust), edge, [f"{_z(thrust)} thrust", "on jaw fronts"]),
+            (frame.x(jaw_face), jaw_bottom, [_z(jaw_face), "jaw face"]),
+            (
+                frame.x(thrust),
+                edge,
+                [f"{_z(thrust)} thrust", f"{_mm(thrust - jaw_face)} from jaws"],
+            ),
             (frame.x(shoulder), edge, [_z(shoulder), "shoulder"]),
             (frame.x(relief_end), edge, [_z(relief_end), "relief end"]),
             (frame.x(base), edge, [_z(base), "dome base"]),

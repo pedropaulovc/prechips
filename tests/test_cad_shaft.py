@@ -4,6 +4,7 @@ import pytest
 
 from prechips.cad import CadError, RoundStock, load_cad
 from prechips.cli import main
+from prechips.profiles import HOBBY, PRO, load_profile
 from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
 
@@ -32,19 +33,16 @@ def prepare(tmp_path, replacements=(), plan_replacements=()):
     return path
 
 
-def contour(plan):
-    return plan.data["setups"][2]["operations"][-1]["table"]["rows"]
-
-
-def test_shaft_contour_tip_and_rough_stair_reach_table():
+def test_attachment_radius_and_cap_frames_follow_source():
     plan = load_plan(PLAN)
-    rows = contour(plan)
-    # Independent archived numeric examples pin the tip convention, not prose.
-    assert rows[0] == ["—", "0.00 / −0.80", "−0.80 / 5.20", "−0.88 / 4.55"]
-    assert rows[-1] == ["−0.70 / 4.94", "−0.77 / 4.24", "—", "−1.65 / 6.17"]
-    assert len(rows) == 8
+    values = plan.cad.values
+    for end in ("north", "south"):
+        assert values[f"{end}_frame_edge_to_tip"] == pytest.approx(8.872708333333334)
+    assert values["north_sphere_center_z"] == pytest.approx(-4.1102083333333335)
+    assert values["south_sphere_center_z"] == pytest.approx(-2.3602083333333335)
+    assert values["north_apex_z"] == 0
+    assert values["south_apex_z"] == 1.75
     html = render_traveler(plan)
-    assert "−1.65 / 6.17" in html
     assert "6.330–6.350" in html
     assert plan.cad.stock_requirement == RoundStock(10.0, 180.5)
 
@@ -142,11 +140,10 @@ def test_source_limits_and_finish_reach_both_inspections(tmp_path):
     assert "157.67" in html
     assert "15.33–16.33" in html
     assert "1.50–2.00" in html
-    assert contour(plan) == contour(load_plan(PLAN))
     assert plan.data["tools"] == load_plan(PLAN).data["tools"]
 
 
-def test_changed_cap_shifts_apex_frame_and_regenerates_contour(tmp_path):
+def test_changed_cap_shifts_apex_frame_and_attachment_radius(tmp_path):
     path = prepare(
         tmp_path,
         [
@@ -169,8 +166,10 @@ def test_changed_cap_shifts_apex_frame_and_regenerates_contour(tmp_path):
     assert "Z0.15" in html and "R3.95" in html
     assert "12.6 mm" in html
     assert "11.30" in html
-    assert contour(plan) != contour(load_plan(PLAN))
-    assert len(contour(plan)) == 9
+    for end in ("north", "south"):
+        assert values[f"{end}_frame_edge_to_tip"] == pytest.approx(8.7126953125)
+    assert values["north_sphere_center_z"] == pytest.approx(-3.9501953125)
+    assert values["south_sphere_center_z"] == pytest.approx(-2.2001953125)
 
 
 def test_shoulder_and_relief_transforms_follow_source(tmp_path):
@@ -217,21 +216,57 @@ def test_width_and_blade_change_plunges_not_source_limits(tmp_path):
     assert "1.2–2.8" in html
 
 
-def test_authored_nose_and_sampling_change_only_dependent_readings(tmp_path):
+def test_unequal_caps_keep_independent_radii_heights_and_frames(tmp_path):
     path = prepare(
         tmp_path,
-        plan_replacements=[
-            ("nose_radius_mm = 0.4", "nose_radius_mm = 0.2"),
-            ("contour_step_mm = 0.1", "contour_step_mm = 0.2"),
+        [
+            (
+                (
+                    '"height_nominal" = 1.5\n"sphere_radius" = 4.1102083333333335\n'
+                    '"base_z" = -156.67000000000002'
+                ),
+                (
+                    '"height_nominal" = 2.0\n"sphere_radius" = 3.52015625\n'
+                    '"base_z" = -156.67000000000002'
+                ),
+            ),
         ],
     )
-    plan = load_plan(path)
-    assert contour(plan)[0][1] == "0.00 / −0.40"
-    assert len(contour(plan)) == 5
-    html = render_traveler(plan)
-    assert "R0.2 nose" in html
-    assert "6.330–6.350" in html
-    assert "1.50–2.00" in html
+    values = load_plan(path).cad.values
+    assert values["north_frame_edge_to_tip"] == pytest.approx(8.872708333333334)
+    assert values["south_frame_edge_to_tip"] == pytest.approx(8.28265625)
+    assert values["north_base_z"] == -1.5
+    assert values["south_base_z"] == -0.25
+    assert values["north_sphere_center_z"] == pytest.approx(-4.1102083333333335)
+    assert values["south_sphere_center_z"] == pytest.approx(-1.77015625)
+    assert values["thrust_z"] == -9
+
+
+@pytest.mark.parametrize("preset", ["pro", "hobby", "custom-on", "custom-off"])
+def test_detailed_instruction_replaces_compact_and_other_operations_fall_back(
+    tmp_path, preset
+):
+    plan = load_plan(PLAN)
+    operation = plan.data["setups"][2]["operations"][-1]
+    operation["instruction"] = "Compact <cap> method"
+    operation["instruction_detailed"] = "Detailed <cap> method"
+    fallback = plan.data["setups"][0]["operations"][0]
+    fallback["instruction"] = "Ordinary fallback operation"
+    if preset.startswith("custom"):
+        profile_path = tmp_path / "profile.toml"
+        enabled = '["detailed_instructions"]' if preset == "custom-on" else "[]"
+        profile_path.write_text(
+            f'name = "Custom"\nfeatures = {enabled}\nenforce = []\n',
+            encoding="utf-8",
+        )
+        profile = load_profile(str(profile_path))
+    else:
+        profile = HOBBY if preset == "hobby" else PRO
+    html = render_traveler(plan, profile=profile)
+    detailed = preset in {"hobby", "custom-on"}
+    assert html.count("Detailed &lt;cap&gt; method") == int(detailed)
+    assert html.count("Compact &lt;cap&gt; method") == int(not detailed)
+    assert html.count("Ordinary fallback operation") == 1
 
 
 @pytest.mark.parametrize(
@@ -257,8 +292,6 @@ def test_unusable_source_refuses_before_output(tmp_path, capsys, old, new):
     "old,new",
     [
         ("blade_width_mm = 1.6", "blade_width_mm = 2.1"),
-        ("entering_angle_deg = 93.0", "entering_angle_deg = 60.0"),
-        ("contour_step_mm = 0.1", "contour_step_mm = 0.0"),
         ("supply_length_mm = 175.0", "supply_length_mm = 174.0"),
         ("short_grip_mm = 20.0", "short_grip_mm = -1.0"),
     ],

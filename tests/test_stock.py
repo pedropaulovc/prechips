@@ -4,7 +4,7 @@ from test_cli import PLAN as LITERAL_PLAN
 from test_cli import stock_free_profile, with_diagram
 
 from prechips.cli import main
-from prechips.profiles import HOBBY, PRO, ProfileError, load_profile
+from prechips.profiles import ProfileError, load_profile
 
 
 def test_exact_fit_default_pro_writes_without_stock_report(tmp_path, capsys):
@@ -112,13 +112,6 @@ def test_hobby_exact_fit_still_requires_diagrams(tmp_path, capsys):
     plan.write_text(with_diagram(PLAN, file="setup.svg"), encoding="utf-8")
     assert main(args) == 0
     assert "<img " in out.read_text(encoding="utf-8")
-
-
-def test_builtin_enforcement_contract():
-    assert PRO.features == frozenset()
-    assert PRO.enforce == {"stock_fit"}
-    assert HOBBY.features == {"setup_diagrams"}
-    assert HOBBY.enforce == {"setup_diagrams", "stock_fit"}
 
 
 @pytest.mark.parametrize(

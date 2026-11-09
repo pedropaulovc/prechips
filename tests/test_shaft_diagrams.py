@@ -86,6 +86,21 @@ def test_authored_stock_grip_and_rest_pose_move_geometry():
     assert float(reset["x"]) < float(rest["x"])
 
 
+def test_reverse_jaw_offset_moves_jaws_without_changing_thrust_datum():
+    for offset in (8.0, 12.0):
+        root = render("reverse", reverse_jaw_offset_mm=offset)
+        points = outline(root)
+        # Upper profile's thrust and north-shoulder corners bound the CAD 1.5 mm
+        # shoulder; use that scale to compare positions despite diagram resizing.
+        thrust_x, shoulder_x = points[4][0], points[5][0]
+        scale = (shoulder_x - thrust_x) / 1.5
+        apex_x = float(group(root, "datum")[0]["x1"])
+        jaw = attrs(root, "jaw-upper")
+        jaw_x = float(jaw["x"]) + float(jaw["width"])
+        assert (thrust_x - apex_x) / scale == pytest.approx(-9.0, abs=0.02)
+        assert (jaw_x - apex_x) / scale == pytest.approx(-9.0 - offset, abs=0.02)
+
+
 def test_setup_reversal_and_centre_only_where_supported():
     stock = {}
     for name in ("short", "supported", "reverse", "fit"):

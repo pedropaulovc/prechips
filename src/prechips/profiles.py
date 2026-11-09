@@ -18,7 +18,9 @@ class Profile:
 
 PRO = Profile("pro", frozenset(), frozenset({"stock_fit"}))
 HOBBY = Profile(
-    "hobby", frozenset({"setup_diagrams"}), frozenset({"setup_diagrams", "stock_fit"})
+    "hobby",
+    frozenset({"setup_diagrams", "detailed_instructions"}),
+    frozenset({"setup_diagrams", "stock_fit"}),
 )
 
 
@@ -48,7 +50,9 @@ def load_profile(value: str) -> Profile:
         ):
             raise ProfileError(f"profile.{key}: expected an array of names")
         supported = (
-            {"setup_diagrams", "stock_fit"} if key == "enforce" else {"setup_diagrams"}
+            {"setup_diagrams", "stock_fit"}
+            if key == "enforce"
+            else {"setup_diagrams", "detailed_instructions"}
         )
         unsupported = set(items) - supported
         if unsupported:

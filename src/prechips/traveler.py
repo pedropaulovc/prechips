@@ -198,6 +198,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     "tool",
                     "settings",
                     "instruction",
+                    "instruction_detailed",
                     "rpm",
                     "feed",
                     "inspection",
@@ -234,6 +235,7 @@ def load_plan(path: Path) -> LoadedPlan:
                         operation[key] = shared[key]
                 operation.pop("settings")
             _text(operation, "instruction", op_where)
+            _text(operation, "instruction_detailed", op_where, optional=True)
             _text(operation, "inspection", op_where, optional=True)
             _cutting_settings(operation, op_where)
             if "table" in operation:
@@ -433,9 +435,12 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         for operation in setup["operations"]:
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
+            instruction = operation["instruction"]
+            if "detailed_instructions" in profile.features:
+                instruction = operation.get("instruction_detailed", instruction)
             lines.append(
                 f'<tr><td class="op-number">{operation_number}</td>'
-                f'<td><div class="text">{_html(operation["instruction"])}</div>'
+                f'<td><div class="text">{_html(instruction)}</div>'
             )
             if "inspection" in operation:
                 lines.append(
