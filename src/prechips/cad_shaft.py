@@ -203,6 +203,7 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         "short_grip_mm",
         "short_projection_mm",
         "reverse_grip_mm",
+        "reverse_jaw_offset_mm",
         "fit_grip_mm",
         "fit_jaw_offset_mm",
     ):
@@ -213,6 +214,7 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     rough = process("turn_rough_allowance_mm")
     fit = process("fit_apex_mm")
     face_allowance = process("plain_end_face_allowance_mm")
+    reverse_jaw = values["thrust_z"] - process("reverse_jaw_offset_mm")
     values.update(
         bearing_rough_dia=values["bearing_dia"] + rough,
         journal_rough_dia=values["journal_dia"] + rough,
@@ -223,7 +225,8 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         north_grip=process("stub_allowance_mm") + apex - north_z,
         blank_length=supply + process("stub_allowance_mm") + face_allowance,
         plain_end_face_passes=math.ceil(face_allowance / 0.25),
-        reverse_projection=apex - thrust_z + process("stub_allowance_mm"),
+        reverse_jaw_z=reverse_jaw,
+        reverse_projection=process("stub_allowance_mm") - reverse_jaw,
         south_apex_z=fit,
         south_base_z=fit - domes[1][0],
         south_sphere_center_z=fit - domes[1][1],
