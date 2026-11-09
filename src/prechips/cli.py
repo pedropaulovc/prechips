@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     traveler.add_argument("--out", type=Path, required=True, metavar="traveler.html")
     args = parser.parse_args(argv)
     try:
+        if args.out.exists() and args.out.samefile(args.plan):
+            raise PlanError("output must not overwrite the input plan")
         plan = load_plan(args.plan)
         html = render_traveler(plan)
         args.out.parent.mkdir(parents=True, exist_ok=True)

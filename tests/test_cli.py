@@ -155,3 +155,22 @@ def test_bad_input_has_useful_error_without_output(tmp_path, text, message):
     assert message in result.stderr
     assert "Traceback" not in result.stderr
     assert not out.exists()
+
+
+@pytest.mark.parametrize("output_kind", ["input", "hardlink"])
+def test_output_cannot_replace_input_plan(tmp_path, output_kind):
+    plan = tmp_path / "plan.toml"
+    plan.write_text(PLAN, encoding="utf-8")
+    out = plan
+    if output_kind == "hardlink":
+        out = tmp_path / "alias.html"
+        out.hardlink_to(plan)
+    result = subprocess.run(
+        ["prechips", "traveler", str(plan), "--out", str(out)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert plan.read_text(encoding="utf-8") == PLAN
+    assert out.read_text(encoding="utf-8") == PLAN

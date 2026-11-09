@@ -14,6 +14,7 @@ uv run prechips traveler examples/base-bar.toml --out out/base-bar.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. The HTML is standalone; it needs no server or internet connection.
+The output must be a different file from the input plan, including filesystem aliases.
 
 The base-bar example uses professional operator shorthand and is limited to two Letter pages at 10.5pt. It omits routine technique and generic safety reminders. It follows the November 5 hand-written guide's flat-on-table width operation. Following machinist review, rounded slots finish with a 17/32 in end mill along the specified arc-centre path instead of the guide's rectangular lap. The authored 1200 rpm / 4.8 in/min starting settings derive from the guide's 165 ft/min and .002 in/tooth. Source references are in the TOML comments.
 
