@@ -6,14 +6,37 @@
 # LOW-CARBON STEEL OR GRAY IRON. Cutting settings reproduce expected traveler.
 # Drawing says turn hub and ream bore together; example uses bore-centred filing
 # buttons and final coaxiality inspection instead. Preserve that example route.
-# Manifest rod band 1.994–2.094 differs from plan's rounded drawing plug limits
-# 2.000/2.090 and tighter 2.010 process NO-GO. Printed gauges follow source plan.
+# Patched v40 CAD example requirements are bound below; authored rounded plugs
+# remain separate from actual source rod limits (not a change of gauge choice).
 title = "Rocker arm — 20 pieces"
-part = "MHA-071 rocker-arm"
-revision = "v40"
+part = "{{cad.drawing_number}} {{cad.part}}"
+revision = "{{cad.revision}}"
 material = "1018 low-carbon steel"
-stock = "20 × 345 mm blanks, 3 × 3/4 in flat; prepare 340 × 65 × 16 mm"
+stock = "20 × {{process.stock_length:.0f}} mm blanks, {{process.stock_width:.2f}} × {{process.stock_thickness:.2f}} flat; prepare {{process.blank_length:.0f}} × {{process.blank_width:.0f}} × {{process.blank_thickness:.0f}} mm"
 note = "mm throughout. Repeat route ×20. Conventional milling, brush cutting oil. Retain full-thickness rails and end ears through opposed machining, reaming and hub filing."
+
+[cad]
+file = "../cad/rocker-arm-v40.toml"
+adapter = "harmonic_rocker_arm"
+
+[parameters]
+hub_length_aim = 7.080
+blank_thickness = 16.0
+blank_length = 340.0
+blank_width = 65.0
+stock_length = 345.0
+stock_width = 76.2
+stock_thickness = 19.05
+end_support_span = 153.0
+end_breakthrough = 0.5
+profile_half_web = 0.20
+# Actual lower strap lies at -4.80175 from upper hub for the chosen 7.080 hub aim.
+# Retain the original -6.02825 release cut with 1.2265 clearance below that face.
+release_clearance = 1.2265
+hub_rough_diametral_allowance = 0.80
+hub_finish_diametral_allowance = 0.40
+pivot_go = 6.500
+pivot_no_go = 6.530
 
 [[tools]]
 id = "mills"
@@ -30,42 +53,43 @@ machine = "4×6 bandsaw; PM-30MV"
 holding = "Saw flat, 4/6 bi-metal blade, dry, 200 ft/min. Mill with 3/4 4fl; each row is a new hold."
 [[setups.operations]]
 tool = "mills"
-instruction = "Saw 345 long; square six faces in the order below. Facing step-over 12.7; Z0 is each finished face."
-inspection = "Prepared length 340.0 ±0.2; width 65.0 ±0.1; thickness 16.0 ±0.05. Flatness, squareness and parallelism ≤0.05."
+instruction = "Saw {{process.stock_length:.0f}} long; square six faces in the order below. Facing step-over 12.7; Z0 is each finished face."
+inspection = "Prepared length {{process.blank_length:.1f}} ±0.2; width {{process.blank_width:.1f}} ±0.1; thickness {{process.blank_thickness:.1f}} ±0.05. Flatness, squareness and parallelism ≤0.05."
 [setups.operations.table]
 columns = ["Hold", "Orientation / cut"]
-rows = [["1 — reference face", "Flat, 1-1/4 in parallels; face upper broad face, nominal 1.525 removal."], ["2 — datum edge", "On edge, 1/2 in parallels; reference face at fixed jaw, round bar at moving jaw. Face datum edge, 2 ×2.8."], ["3 — opposite edge", "Datum edge down, reference face at fixed jaw, right end now left; retain round bar at moving jaw. Face to width 65.0; nominal 2 ×2.8."], ["4 — thickness", "Flat, reference face down, datum edge at fixed jaw; 1-1/4 in parallels. Face to 16.0, nominal 1.525 removal."], ["5 — ends", "Reference face up, datum edge at fixed jaw; both ends overhang ≈93.5. Side-mill right end X0, then left X340; 3 ×5.5 axial steps to Z−16.5."]]
+rows = [["1 — reference face", "Flat, 1-1/4 in parallels; face upper broad face, nominal {{cad.face_skim:.3f}} removal."], ["2 — datum edge", "On edge, 1/2 in parallels; reference face at fixed jaw, round bar at moving jaw. Face datum edge, 2 ×{{cad.edge_skim:.1f}}."], ["3 — opposite edge", "Datum edge down, reference face at fixed jaw, right end now left; retain round bar at moving jaw. Face to width {{process.blank_width:.1f}}; nominal 2 ×{{cad.edge_skim:.1f}}."], ["4 — thickness", "Flat, reference face down, datum edge at fixed jaw; 1-1/4 in parallels. Face to {{process.blank_thickness:.1f}}, nominal {{cad.face_skim:.3f}} removal."], ["5 — ends", "Reference face up, datum edge at fixed jaw; both ends overhang ≈{{cad.end_overhang:.1f}}. Side-mill right end X0, then left X{{process.blank_length:.0f}}; 3 ×{{cad.end_step:.1f}} axial steps to Z{{cad.end_cut_z:.1f}}."]]
 
 [[setups]]
 title = "Upper side — retain rail frame"
 machine = "PM-30MV"
 holding = "Grip ≥6 on full-thickness rails. Matched 76.2 ×63.5 ×25.4 risers (height match ≤0.01), centres X±40 Y+4.5; 1/2 in parallels under Y−25.5/+34.5. Retain rails Y−28…−20/+31.7…+37 and ears outside X±160."
-datum = "Pivot X0 Y0; rod end +X; blank left end X−170, datum edge Y−28. Upper hub face Z0, raw top +4.47175."
+datum = "Pivot X0 Y0; rod end +X; blank left end X{{cad.blank_left_x:.0f}}, datum edge Y−28. Upper hub face Z0, raw top {{cad.upper_raw_top:+.5f}}."
 [[setups.operations]]
 tool = "mills"
-instruction = "Rough/finish field to hub Z0, then strap Z−2.27825: 3/8 2fl ≤1.5 DOC, leave 0.20; 3/8 4fl finish. Protect Ø11 hub island rough/Ø10.6 finish. Stair-rough hub wall to 0.20 above strap (0.20 radial leave/≤0.25 cusp); finish remaining strap corners. Rails/ears untouched."
+instruction = "Rough/finish field to hub Z0, then strap Z{{cad.strap_z:.5f}}: 3/8 2fl ≤1.5 DOC, leave 0.20; 3/8 4fl finish. Protect Ø{{cad.hub_rough_island:.2f}} hub island rough/Ø{{cad.hub_finish_island:.2f}} finish. Stair-rough hub wall to 0.20 above strap (0.20 radial leave/≤0.25 cusp); finish remaining strap corners. Rails/ears untouched."
 [[setups.operations]]
 tool = "mills"
-instruction = "Use final outline geometry below. 3/8 2fl: bottom arc, lands, tapers (−X join → bottom → +X join); 1/4 2fl: top arc. Stair-rough ≤1.5 DOC to −3.32825, 0.20 allowance/≤0.40 cusp. Keep rails/ears intact; opposed cuts leave 0.42 web."
+instruction = "Use final outline geometry below. 3/8 2fl: bottom arc, lands, tapers (−X join → bottom → +X join); 1/4 2fl: top arc. Stair-rough ≤1.5 DOC to {{cad.profile_rough_z:.5f}}, 0.20 allowance/≤0.40 cusp. Keep rails/ears intact; opposed cuts leave {{cad.web:.2f}} web."
 [[setups.operations]]
 tool = "holes"
-instruction = "Pivot X0 Y0: spot 0.50, drill D through; full diameter 2 beyond raw bottom Z−11.52825."
+instruction = "Pivot X0 Y0: spot 0.50, drill D through; full diameter 2 beyond raw bottom Z{{cad.raw_bottom:.5f}}."
 
 [[setups]]
 title = "Lower side — opposed cuts and rod hole"
 machine = "PM-30MV"
 holding = "Turn about X; rod end stays +X, negate Y of upper-side outline. Same rail grip/risers, centres X±40 Y−4.5; parallels Y−34.5/+25.5. Two passive jacks X±40 just bear on finished strap, without lifting rails."
-datum = "Pivot pilot X0 Y0, ≤0.02 TIR. Lower hub Z0, 7.080 below upper hub; raw top +4.44825."
+datum = "Pivot pilot X0 Y0, ≤0.02 TIR. Lower hub Z0, {{process.hub_length_aim:.3f}} below upper hub; raw top {{cad.lower_raw_top:+.5f}}."
 [[setups.operations]]
 tool = "mills"
-instruction = "Repeat upper-side field, strap and hub-wall rough/finish, mirrored Y; same depths/keep-outs. Measure hub after roughing to set finishing Z for 7.080 length; check strap after facing and corner cleanup."
-inspection = "Hub length 7.0565–7.1065; strap 1.99–3.01, aim 2.5235."
+instruction = "Repeat upper-side field, strap and hub-wall rough/finish, mirrored Y; same depths/keep-outs. Measure hub after roughing to set finishing Z for {{process.hub_length_aim:.3f}} length; check strap after facing and corner cleanup."
+inspection = "Hub length {{cad.hub_length_min:.4f}}–{{cad.hub_length_max:.4f}}, aim {{process.hub_length_aim:.3f}}; strap {{cad.strap_min:.2f}}–{{cad.strap_max:.2f}}, aim {{cad.strap_aim:.4f}}."
 [[setups.operations]]
 tool = "holes"
-instruction = "Rod X133.067 Y−8.456: spot 0.50 from strap face; Ø1.85 drill then Ø2 ream, 1.5 beyond strap exit. Gauge BEFORE outer pockets: Ø2.000 GO passes; Ø2.010 process and Ø2.090 drawing NO-GO do not enter."
+instruction = "Rod X{{cad.rod_x:.3f}} Y{{cad.rod_lower_y:+.3f}}: spot 0.50 from strap face; Ø1.85 drill then Ø2 ream, 1.5 beyond strap exit. Gauge BEFORE outer pockets: Ø2.000 GO passes; Ø2.010 process and Ø2.090 NO-GO do not enter."
+inspection = "Rod diameter: Ø{{cad.rod_min:.3f}}–{{cad.rod_max:.3f}}."
 [[setups.operations]]
 tool = "mills"
-instruction = "Repeat upper profile rough, mirrored Y; joins +X → bottom → −X, then top. Retain narrow rail Y−37…−31.7, wide rail +20…+28, ears and 0.42 web."
+instruction = "Repeat upper profile rough, mirrored Y; joins +X → bottom → −X, then top. Retain narrow rail Y−37…−31.7, wide rail +20…+28, ears and {{cad.web:.2f}} web."
 
 [[setups]]
 title = "Strap-held pivot ream"
@@ -75,30 +99,30 @@ datum = "Plate edge tram ≤0.01/300; pilot ≤0.20 radial from plate bore, pick
 [[setups.operations]]
 tool = "holes"
 instruction = "Record pilot centre, ream Ø6.5 without relocating, 2 beyond hub exit; re-indicate centre."
-inspection = "Centre shift ≤0.020 radial; Ø6.500 GO/Ø6.530 NO-GO; Ra ≤1.6 µm."
+inspection = "Centre shift ≤0.020 radial; pivot diameter Ø{{cad.pivot_min:.3f}}–{{cad.pivot_max:.3f}}; plugs Ø{{process.pivot_go:.3f}} GO/Ø{{process.pivot_no_go:.3f}} NO-GO; Ra ≤{{cad.pivot_ra:.1f}} µm."
 
 [[setups]]
 title = "File integral hub — separate bench hold"
 machine = "Fitting bench"
 holding = "Hardened button on each hub face: rim Ø10.195–10.205, bore Ø6.505–6.515; stud through reamed A, coupling nut hand-tight. Vise grips stud tail, not part."
 [[setups.operations]]
-instruction = "File upper then lower projection to its button rim; safe edge on strap, short strokes inside rails. Both ODs 9.69–10.71."
+instruction = "File upper then lower projection to its button rim; safe edge on strap, short strokes inside rails. Both ODs {{cad.hub_min:.2f}}–{{cad.hub_max:.2f}}."
 
 [[setups]]
 title = "Locate, release and finish outline"
 machine = "PM-30MV; inspection bench; black-oxide vendor"
 holding = "Reseat lower strap on pads, recheck hub/rail shims. Shoulder screw/washer through A; preload CCW viewed down −Z against permanent rod diamond pin, tighten. Separately clamp narrow scrap rail X±30 Y34.5 and wide rail X±130 Y−25.5. Pin is orientation stop, NOT datum C."
-datum = "Lapped screw-head pickup ≤0.01 TIR; upper strap Z−2.27825 (hub covered)."
+datum = "Lapped screw-head pickup ≤0.01 TIR; upper strap Z{{cad.strap_z:.5f}} (hub covered)."
 [[setups.operations]]
 instruction = "Scribing template (outline ±0.02): bush over Ø8 screw head, flat on strap; Ø2 sight hole concentric with rod hole. Scribe top then bottom/tapers/both lands without moving template. Remove template."
 [setups.operations.table]
 columns = ["Outline from A", "Geometry"]
-rows = [["Common centre", "X0 Y808; top R800, bottom R816"], ["Each end: top → land → bottom", "(±145.240,21.295) → (±146.255,15.800) → (±132.757,2.872); 5.59 radial land then straight taper"]]
+rows = "{{cad.outline_rows}}"
 [[setups.operations]]
 tool = "mills"
-instruction = "1/4 4fl: top stairs, then −X join → bottom → +X closing join; scrap-side entry, Z−6.02825, 0.20 allowance/≤0.25 cusp. Before +X join, Ø2.286 gauge pin must pass cutter-to-locator at closest positions/depth. All scrap clamps stay tight through release and cutter clearance; remove scrap. Part remains screw/pin/pad-held."
+instruction = "1/4 4fl: top stairs, then −X join → bottom → +X closing join; scrap-side entry, Z{{cad.profile_release_z:.5f}}, 0.20 allowance/≤0.25 cusp. Before +X join, Ø2.286 gauge pin must pass cutter-to-locator at closest positions/depth. All scrap clamps stay tight through release and cutter clearance; remove scrap. Part remains screw/pin/pad-held."
 [[setups.operations]]
-instruction = "Draw-file top, then bottom/tapers/BOTH lands to scribe, square to strap. Near +X pin: safe edge toward pin, short strokes stopping before contact; pin stays fitted. Inspect off-machine below, then deburr R0.25/chamfer 0.25 max. Matte black oxide, holes open; re-gauge both holes afterward."
+instruction = "Draw-file top, then bottom/tapers/BOTH lands to scribe, square to strap. Near +X pin: safe edge toward pin, short strokes stopping before contact; pin stays fitted. Inspect off-machine below, then deburr R{{cad.edge_break:.2f}}/chamfer {{cad.chamfer:.2f}} max. {{cad.finish}}, holes open; re-gauge both holes afterward."
 [setups.operations.table]
 columns = ["Final inspection", "Acceptance"]
-rows = [["Top / bottom arcs", "R799.49–800.51 / R815.49–816.51; arc lengths 291.59–292.61 / 266.19–267.21; top height over pivot 8.00–8.50."], ["Both radial lands", "Width 5.08–6.10; 89–91° to top edge."], ["Rod-hole position", "Basic X133.067 Y+8.456 from A, upper-side-up outline frame; Ø0.20 RFS to A|B|C. A: reamed pivot bore; B: upper strap face; C: finished +X radial land."], ["Both hub projections", "OD 9.69–10.71; coaxiality Ø0.50 to reamed pivot bore A."], ["After black oxide", "Pivot Ø6.500 GO/Ø6.530 NO-GO; rod Ø2.000 GO/Ø2.090 NO-GO, both mouths."]]
+rows = [["Top / bottom arcs", "R{{cad.top_radius_min:.2f}}–{{cad.top_radius_max:.2f}} / R{{cad.bottom_radius_min:.2f}}–{{cad.bottom_radius_max:.2f}}; arc lengths {{cad.top_arc_min:.2f}}–{{cad.top_arc_max:.2f}} / {{cad.bottom_arc_min:.2f}}–{{cad.bottom_arc_max:.2f}}; top height over pivot {{cad.top_height_min:.2f}}–{{cad.top_height_max:.2f}}."], ["Both radial lands", "Width {{cad.land_width_min:.2f}}–{{cad.land_width_max:.2f}}; {{cad.land_angle_min:.0f}}–{{cad.land_angle_max:.0f}}° to top edge."], ["Rod-hole position", "Basic X{{cad.rod_x:.3f}} Y{{cad.rod_upper_y:+.3f}} from A, upper-side-up outline frame; Ø{{cad.position_dia:.2f}} RFS to {{cad.position_datums}}. A: {{cad.datum_A}}; B: {{cad.datum_B}}; C: {{cad.datum_C}}."], ["Both hub projections", "OD {{cad.hub_min:.2f}}–{{cad.hub_max:.2f}}; coaxiality Ø{{cad.coaxiality_dia:.2f}} to reamed pivot bore A."], ["Rod diameter", "Ø{{cad.rod_min:.3f}}–{{cad.rod_max:.3f}}."], ["After black oxide", "Pivot diameter Ø{{cad.pivot_min:.3f}}–{{cad.pivot_max:.3f}}. Selected plugs: pivot Ø{{process.pivot_go:.3f}} GO/Ø{{process.pivot_no_go:.3f}} NO-GO; rod Ø2.000 GO/Ø2.090 NO-GO, both mouths."]]
