@@ -9,7 +9,6 @@ from prechips.traveler import LoadedPlan
 from prechips.turning import (
     TurningError,
     _bending_factor,
-    _bounding_passes,
     _feed_factor,
     _follower_factor,
     _load_config,
@@ -62,6 +61,7 @@ def _plan(cut=None, support=None):
 def _oracle_config(tmp_path):
     path = tmp_path / "force.toml"
     path.write_text(
+        "[limits]\nfinish_mm=1.0\n"
         "[force]\nradial_ratio=0.0\nfinish_wear=1.0\nrough_wear=1.0\n"
         "feed_factors=[[0.001,1.0],[0.060,1.0]]\n"
         "[materials.steel_1018]\nunit_power_hp_min_per_in3=1.0\n"
@@ -148,31 +148,19 @@ def test_follower_rejects_unearned_support(support, start, end, message):
         _bending_factor(support, start, end)
 
 
-def test_pass_bounds_keep_actual_doc_and_diameter_together():
-    assert _bounding_passes(10, 7.5, 1) == [(1, 8), (0.25, 7.5)]
-    assert _bounding_passes(10, 8, 1) == [(1, 8)]
-    assert _bounding_passes(10, 9, 1) == [(0.5, 9)]
-    # A trillion passes remains at most two analytic candidates.
-    assert len(_bounding_passes(10, 8, 1e-12)) <= 2
-
-
-@pytest.mark.parametrize("end", [7.5, 6.2])
-def test_two_pass_acceptance_uses_full_and_partial_oracles(tmp_path, end):
+def test_uneven_pass_order_cannot_escape_final_diameter_bound(tmp_path):
     config = _oracle_config(tmp_path)
     cut = _cut(
         start_diameter_mm=10,
-        end_diameter_mm=end,
+        end_diameter_mm=7.5,
         max_radial_doc_mm=1,
         minimum_diameter_mm=10,
     )
-    # Last full pass: D8, DOC1. Final pass: D=end, DOC=(8-end)/2.
+    # Valid radial schedule .25 then 1 reaches D7.5 with a full-depth last pass.
+    # MAX DOC does not mandate the weaker greedy schedule 1 then .25.
     # Feed .254mm = .01in; modulus200000; L10 cantilever; no radial force.
     force_per_mm = 396000 * 0.01 / 25.4 * 4.4482216152605
-    full = force_per_mm * 10**3 / (3 * 200000 * math.pi * 8**4 / 64)
-    partial = (
-        force_per_mm * ((8 - end) / 2) * 10**3 / (3 * 200000 * math.pi * end**4 / 64)
-    )
-    expected = max(full, partial)
+    expected = force_per_mm * 10**3 / (3 * 200000 * math.pi * 7.5**4 / 64)
     cut["max_deflection_mm"] = expected * 1.000001
     check_turning_deflection(_plan(cut), config)
     cut["max_deflection_mm"] = expected * 0.999999
@@ -370,3 +358,34 @@ def test_invalid_toml_reports_override_path(tmp_path):
     with pytest.raises(TurningError) as caught:
         check_turning_deflection(_plan(), path)
     assert str(path) in str(caught.value)
+
+
+def test_per_cut_limit_only_tightens_but_config_can_raise_limit(tmp_path):
+    plan = _plan(_cut(start_z_mm=50, max_deflection_mm=1.0))
+    with pytest.raises(TurningError, match="limit 0.005 mm"):
+        check_turning_deflection(plan)
+    config = tmp_path / "explicit-limit.toml"
+    config.write_text("[limits]\nfinish_mm=1.0\n", encoding="utf-8")
+    check_turning_deflection(plan, config)
+
+
+@pytest.mark.parametrize(
+    ("machine", "support", "operation"),
+    [
+        ("other", True, {}),
+        ("other", False, {"cut_kind": "longitudinal_turning"}),
+        ("other", False, {"turning_cuts": [_cut()]}),
+        ("lathe", True, {"cut_kind": "other", "turning_cuts": [_cut()]}),
+    ],
+)
+def test_other_classification_rejects_contradictory_physics(
+    machine, support, operation
+):
+    plan = _plan()
+    setup = plan.data["setups"][0]
+    setup["machine_kind"] = machine
+    setup["operations"] = [operation]
+    if not support:
+        setup.pop("turning_support")
+    with pytest.raises(TurningError, match="contradicts"):
+        check_turning_deflection(plan)

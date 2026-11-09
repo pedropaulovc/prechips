@@ -272,9 +272,14 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         raise CadError(
             "process: rough turning target must be below authored bar diameter"
         )
-    if stock_dia - min(values["bearing_rough_dia"], values["journal_rough_dia"]) > 4:
+    rough_doc = process("rough_radial_doc_mm")
+    if (
+        stock_dia - min(values["bearing_rough_dia"], values["journal_rough_dia"])
+        > 8 * rough_doc
+    ):
         raise CadError(
-            "process: four rough passes at 0.5 mm radial depth cannot reach target"
+            f"process: four rough passes at {rough_doc:g} mm radial depth "
+            "cannot reach target"
         )
     if process("blade_corner_radius_mm") > min(
         values["north_corner_max"], values["south_corner_max"]

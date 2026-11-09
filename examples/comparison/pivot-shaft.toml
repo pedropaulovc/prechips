@@ -40,6 +40,11 @@ blade_corner_radius_mm = 0.1
 nose_radius_mm = 0.4
 entering_angle_deg = 93.0
 turn_rough_allowance_mm = 0.20
+rough_radial_doc_mm = 0.5
+body_rough_feed_mm_rev = 0.08
+body_finish_feed_mm_rev = 0.05
+journal_rough_feed_mm_rev = 0.10
+journal_finish_feed_mm_rev = 0.05
 shoulder_face_allowance_mm = 0.20
 turn_start_clearance_mm = 0.30
 stub_allowance_mm = 5.0
@@ -119,12 +124,12 @@ inspection = "Ø{{cad.shoulder_dia_min:.2f}}–{{cad.shoulder_dia_max:.2f}}."
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Body rough", phase = "rough", start_z_mm = "{{cad.body_cut_start_z}}", end_z_mm = "{{process.shoulder_face_allowance_mm}}", start_diameter_mm = "{{process.stock_dia_mm}}", end_diameter_mm = "{{cad.bearing_rough_dia}}", max_radial_doc_mm = 0.5, feed_mm_rev = 0.08, minimum_diameter_mm = "{{cad.body_minimum_dia}}" },
+  { name = "Body rough", phase = "rough", start_z_mm = "{{cad.body_cut_start_z}}", end_z_mm = "{{process.shoulder_face_allowance_mm}}", start_diameter_mm = "{{process.stock_dia_mm}}", end_diameter_mm = "{{cad.bearing_rough_dia}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.body_rough_feed_mm_rev}}", minimum_diameter_mm = "{{cad.body_minimum_dia}}" },
 ]
 tool = "hss"
-instruction = "Rough Ø{{process.stock_dia_mm:g}} → Ø{{cad.bearing_rough_dia:.2f}}, Z{{cad.turn_start_z:.1f}} to Z{{process.shoulder_face_allowance_mm:g}}; four passes, ≤0.5 mm radial depth."
+instruction = "Rough Ø{{process.stock_dia_mm:g}} → Ø{{cad.bearing_rough_dia:.2f}}, Z{{cad.turn_start_z:.1f}} to Z{{process.shoulder_face_allowance_mm:g}}; four passes, ≤{{process.rough_radial_doc_mm:g}} mm radial depth."
 rpm = 1350
-feed = "0.08 mm/rev"
+feed = "{{process.body_rough_feed_mm_rev:.2f}} mm/rev"
 
 [[setups.operations]]
 cut_kind = "other"
@@ -137,12 +142,12 @@ inspection = "Thrust face Ra ≤{{cad.thrust_finish:g}} µm."
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Body finish", phase = "finish", start_z_mm = "{{cad.body_cut_start_z}}", end_z_mm = 0.0, start_diameter_mm = "{{cad.bearing_rough_dia}}", end_diameter_mm = "{{cad.bearing_dia}}", max_radial_doc_mm = "{{cad.bearing_finish_radial_doc}}", feed_mm_rev = 0.05, minimum_diameter_mm = "{{cad.body_minimum_dia}}" },
+  { name = "Body finish", phase = "finish", start_z_mm = "{{cad.body_cut_start_z}}", end_z_mm = 0.0, start_diameter_mm = "{{cad.bearing_rough_dia}}", end_diameter_mm = "{{cad.bearing_dia}}", max_radial_doc_mm = "{{cad.bearing_finish_radial_doc}}", feed_mm_rev = "{{process.body_finish_feed_mm_rev}}", minimum_diameter_mm = "{{cad.body_minimum_dia}}" },
 ]
 tool = "hss"
 instruction = "Finish Ø{{cad.bearing_dia:.2f}}, Z{{cad.turn_start_z:.1f}} to Z0; one supported pass."
 rpm = 1700
-feed = "0.05 mm/rev"
+feed = "{{process.body_finish_feed_mm_rev:.2f}} mm/rev"
 inspection = "Ø{{cad.bearing_dia_min:.3f}}–{{cad.bearing_dia_max:.3f}} at both ends and middle; Ra ≤{{cad.bearing_finish:g}} µm."
 
 [[setups.operations]]
@@ -164,13 +169,13 @@ turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.reverse_jaw_z}}" }
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Journal rough", phase = "rough", start_z_mm = "{{process.stub_allowance_mm}}", end_z_mm = "{{cad.north_rough_stop}}", start_diameter_mm = "{{process.stock_dia_mm}}", end_diameter_mm = "{{cad.journal_rough_dia}}", max_radial_doc_mm = 0.5, feed_mm_rev = 0.10, minimum_diameter_mm = "{{cad.journal_minimum_dia}}" },
-  { name = "Journal finish", phase = "finish", start_z_mm = "{{process.stub_allowance_mm}}", end_z_mm = "{{cad.north_shoulder_z}}", start_diameter_mm = "{{cad.journal_rough_dia}}", end_diameter_mm = "{{cad.journal_dia}}", max_radial_doc_mm = "{{cad.journal_finish_radial_doc}}", feed_mm_rev = 0.05, minimum_diameter_mm = "{{cad.journal_minimum_dia}}" },
+  { name = "Journal rough", phase = "rough", start_z_mm = "{{process.stub_allowance_mm}}", end_z_mm = "{{cad.north_rough_stop}}", start_diameter_mm = "{{process.stock_dia_mm}}", end_diameter_mm = "{{cad.journal_rough_dia}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.journal_rough_feed_mm_rev}}", minimum_diameter_mm = "{{cad.journal_minimum_dia}}" },
+  { name = "Journal finish", phase = "finish", start_z_mm = "{{process.stub_allowance_mm}}", end_z_mm = "{{cad.north_shoulder_z}}", start_diameter_mm = "{{cad.journal_rough_dia}}", end_diameter_mm = "{{cad.journal_dia}}", max_radial_doc_mm = "{{cad.journal_finish_radial_doc}}", feed_mm_rev = "{{process.journal_finish_feed_mm_rev}}", minimum_diameter_mm = "{{cad.journal_minimum_dia}}" },
 ]
 tool = "hss"
-instruction = "Rough Ø{{cad.journal_rough_dia:.2f}}, Z+{{process.stub_allowance_mm:g}} to {{cad.north_rough_stop:g}}: four passes, ≤0.5 mm radial. Face shoulder Z{{cad.north_shoulder_z:g}} at 1400 rpm / 0.05 mm/rev. Finish Ø{{cad.journal_dia:.2f}} through Z{{cad.north_shoulder_z:g}} at 1700 rpm / 0.05 mm/rev."
+instruction = "Rough Ø{{cad.journal_rough_dia:.2f}}, Z+{{process.stub_allowance_mm:g}} to {{cad.north_rough_stop:g}}: four passes, ≤{{process.rough_radial_doc_mm:g}} mm radial. Face shoulder Z{{cad.north_shoulder_z:g}} at 1400 rpm / 0.05 mm/rev. Finish Ø{{cad.journal_dia:.2f}} through Z{{cad.north_shoulder_z:g}} at 1700 rpm / {{process.journal_finish_feed_mm_rev:.2f}} mm/rev."
 rpm = 1350
-feed = "Rough 0.10 mm/rev"
+feed = "Rough {{process.journal_rough_feed_mm_rev:.2f}} mm/rev"
 inspection = "Journal Ø{{cad.journal_dia_min:.3f}}–{{cad.journal_dia_max:.3f}}; Ra ≤{{cad.journal_finish:g}} µm."
 
 [[setups.operations]]

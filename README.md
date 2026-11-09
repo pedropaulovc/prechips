@@ -98,7 +98,9 @@ For numeric analysis fields, use exact whole-field bindings without formatting, 
 
 Supports are `chuck_only` (`chuck_z_mm`), `tailstock` (also `centre_z_mm`), or `follower` (also `engage_z_mm`, `offset_mm`, `pad_width_mm`). Follower credit requires a toward-chuck traverse and a whole pad band on already-turned continuous cylindrical land produced by the declared pass; before engagement the model uses chuck/centre supports. It checks the declared pad footprint and both sides of engagement, not STEP gaps, actual pad contact/capacity or machine compliance.
 
-Each cut declares `name`, `phase = "rough" | "finish"`, `start_z_mm`, `end_z_mm`, `start_diameter_mm`, `end_diameter_mm`, `max_radial_doc_mm`, `feed_mm_rev`, and `minimum_diameter_mm` (the smallest existing section elsewhere). An optional `max_deflection_mm` overrides that cut's phase limit. Actual radial stepdowns are evaluated with their remaining diameter; the smaller of that diameter and the declared minimum section controls bending stiffness.
+Each cut declares `name`, `phase = "rough" | "finish"`, `start_z_mm`, `end_z_mm`, `start_diameter_mm`, `end_diameter_mm`, `max_radial_doc_mm`, `feed_mm_rev`, and `minimum_diameter_mm` (the smallest existing section elsewhere). An optional `max_deflection_mm` may tighten, but not relax, that cut's configured phase limit. The model conservatively bounds the declared maximum radial DOC at the final diameter, using the smaller of that diameter and the declared minimum section for bending stiffness. It does not assume a particular rough-pass order.
+
+The supplied shaft first refuses at **Op 60, body finish**, immediately before follower engagement: approximately 0.013 mm against the 0.005 mm finish limit. Its journal finish also estimates approximately 0.0077 mm at the projecting stub, above the same limit. These are separate conditions; bypassing the first is not evidence that the journal passes. The example retains its authored feeds and support geometry rather than tuning them to pass.
 
 Packaged [`turning.toml`](src/prechips/turning.toml) holds editable coefficients and source notes. Unit power comes from *Machinery's Handbook*, printed pp. 1085–1086 (corpus PDF pages 1406–1407); feed and wear factors are on printed p. 1087 (PDF 1408). Default material keys deliberately encode proxies, not measured stock properties:
 
@@ -125,7 +127,7 @@ elastic_modulus_gpa = 207.0
 
 Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence. New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
 
-For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. Disabling a check adds no warning, checker status or certificate to the sheet.
+For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. When turning is disabled, its configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
 
 
 ## Profiles

@@ -135,28 +135,6 @@ def _feed_factor(feed_in_rev: float, pairs: list[list[float]]) -> float:
     raise TurningError("feed-factor interpolation has no matching interval")
 
 
-def _bounding_passes(start: float, end: float, doc: float) -> list[tuple[float, float]]:
-    """Return (radial DOC, resulting diameter) for at most two actual passes.
-
-    Equal full-depth passes have increasing compliance as diameter decreases:
-    the last one bounds all earlier ones. The final partial-depth pass has a
-    different force, so must be checked separately, never combined with full DOC.
-    fmod avoids an unbounded pass loop or overflow-prone total/doc pass count.
-    """
-    total = (start - end) / 2
-    if not math.isfinite(total) or not total > 0:
-        raise TurningError(
-            "start_diameter_mm must exceed end_diameter_mm by a finite amount"
-        )
-    remainder = math.fmod(total, doc)
-    passes = []
-    if total >= doc:
-        passes.append((doc, end + 2 * remainder))
-    if remainder > 0:
-        passes.append((remainder, end))
-    return passes
-
-
 def _pinned_factor(start: float, end: float, span: float) -> tuple[float, float]:
     """Max delta*EI/F and tool distance for a pinned span, not free-end sag."""
     low, high = sorted((start, end))
@@ -262,9 +240,10 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
             "minimum_diameter_mm",
         )
     }
-    limit = _positive(
-        cut.get("max_deflection_mm", config["limits"][f"{phase}_mm"]),
-        "max_deflection_mm",
+    phase_limit = config["limits"][f"{phase}_mm"]
+    limit = min(
+        phase_limit,
+        _positive(cut.get("max_deflection_mm", phase_limit), "max_deflection_mm"),
     )
     factor, worst_z, support_state = _bending_factor(support, start_z, end_z)
     feed = numbers["feed_mm_rev"] / 25.4
@@ -281,27 +260,31 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
         * math.hypot(1, force_config["radial_ratio"])
     )
     modulus = material["elastic_modulus_gpa"] * 1000
-    for doc, diameter in _bounding_passes(
-        numbers["start_diameter_mm"],
-        numbers["end_diameter_mm"],
-        numbers["max_radial_doc_mm"],
-    ):
-        diameter = min(diameter, numbers["minimum_diameter_mm"])
-        inertia = math.pi * diameter**4 / 64
-        force = force_per_doc * doc
-        rigidity = modulus * inertia
-        if not math.isfinite(rigidity) or rigidity <= 0:
-            raise TurningError("numerical range exceeded in bending stiffness")
-        deflection = force * factor / rigidity
-        if not all(math.isfinite(value) for value in (force, factor, deflection)):
-            raise TurningError("numerical range exceeded in bending estimate")
-        if deflection > limit:
-            raise TurningError(
-                f"estimated total transverse bending {deflection:.6g} mm exceeds "
-                f"limit {limit:.6g} mm; transverse force {force:.6g} N, "
-                f"worst Z {worst_z:.6g} mm ({support_state}), radial DOC {doc:.6g} mm, "
-                f"model diameter {diameter:.6g} mm; not actual diameter error"
-            )
+    total_removal = (numbers["start_diameter_mm"] - numbers["end_diameter_mm"]) / 2
+    if not math.isfinite(total_removal) or total_removal <= 0:
+        raise TurningError(
+            "start_diameter_mm must exceed end_diameter_mm by a finite amount"
+        )
+    # Maximum DOC does not specify pass order: a full-depth pass may be last.
+    # Bound every permitted schedule at the final minimum diameter. Authors
+    # can declare individual pass records when a tighter bound is needed.
+    doc = min(numbers["max_radial_doc_mm"], total_removal)
+    diameter = min(numbers["end_diameter_mm"], numbers["minimum_diameter_mm"])
+    inertia = math.pi * diameter**4 / 64
+    force = force_per_doc * doc
+    rigidity = modulus * inertia
+    if not math.isfinite(rigidity) or rigidity <= 0:
+        raise TurningError("numerical range exceeded in bending stiffness")
+    deflection = force * factor / rigidity
+    if not all(math.isfinite(value) for value in (force, factor, deflection)):
+        raise TurningError("numerical range exceeded in bending estimate")
+    if deflection > limit:
+        raise TurningError(
+            f"estimated total transverse bending {deflection:.6g} mm exceeds "
+            f"limit {limit:.6g} mm; transverse force {force:.6g} N, "
+            f"worst Z {worst_z:.6g} mm ({support_state}), radial DOC {doc:.6g} mm, "
+            f"model diameter {diameter:.6g} mm; not actual diameter error"
+        )
 
 
 def check_turning_deflection(plan: LoadedPlan, config_path: Path | None = None) -> None:
@@ -314,17 +297,30 @@ def check_turning_deflection(plan: LoadedPlan, config_path: Path | None = None) 
             machine = setup.get("machine_kind")
             if machine not in {"lathe", "other"}:
                 raise TurningError(f"{where}: machine_kind must declare lathe or other")
+            if machine == "other" and "turning_support" in setup:
+                raise TurningError(
+                    f"{where}: machine_kind other contradicts turning_support"
+                )
             for operation in setup["operations"]:
                 operation_number += 10
-                if machine == "other":
-                    continue
                 op_where = f"{where}, Op {operation_number}"
                 kind = operation.get("cut_kind")
+                if machine == "other":
+                    if kind == "longitudinal_turning" or "turning_cuts" in operation:
+                        raise TurningError(
+                            f"{op_where}: machine_kind other contradicts "
+                            "longitudinal turning data"
+                        )
+                    continue
                 if kind not in {"longitudinal_turning", "other"}:
                     raise TurningError(
                         f"{op_where}: cut_kind must declare longitudinal_turning or other"
                     )
                 if kind == "other":
+                    if "turning_cuts" in operation:
+                        raise TurningError(
+                            f"{op_where}: cut_kind other contradicts turning_cuts"
+                        )
                     continue
                 cuts = operation.get("turning_cuts")
                 if not isinstance(cuts, list) or not cuts:
