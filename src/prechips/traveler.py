@@ -79,11 +79,13 @@ def load_plan(path: Path) -> LoadedPlan:
             if not isinstance(config, dict):
                 raise PlanError("cad: expected a table")
             _keys(config, {"file", "adapter"}, "cad")
-            if config.get("adapter") != "harmonic_base_bar":
-                raise PlanError("cad.adapter: expected harmonic_base_bar")
-            cad = load_cad(path.parent / _text(config, "file", "cad"), parameters)
+            cad = load_cad(
+                path.parent / _text(config, "file", "cad"),
+                parameters,
+                _text(config, "adapter", "cad"),
+            )
         # Literal-only plans can also bind authored process parameters.
-        context = cad or CadData({}, (0.0, 0.0, 0.0), path.resolve())
+        context = cad or CadData({}, None, path.resolve())
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error

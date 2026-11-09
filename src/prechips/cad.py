@@ -1,4 +1,4 @@
-"""Small, explicit bindings for the released harmonic base-bar drawing export."""
+"""Small, explicit bindings for supported harmonic part manifests."""
 
 import math
 import re
@@ -16,7 +16,7 @@ class CadError(ValueError):
 @dataclass
 class CadData:
     values: dict
-    envelope_mm: tuple[float, float, float]
+    envelope_mm: tuple[float, float, float] | None
     source: Path
 
 
@@ -56,7 +56,26 @@ def _mid(band: tuple[float, float]) -> float:
     return band[0] / 2 + band[1] / 2
 
 
-def load_cad(path: Path, parameters: dict) -> CadData:
+def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
+    """Dispatch a required, explicit part adapter without guessing from the source."""
+    if adapter == "harmonic_base_bar":
+        return _load_base_bar(path, parameters)
+    if adapter == "harmonic_pivot_shaft":
+        from prechips.cad_shaft import load_shaft
+
+        return load_shaft(path, parameters)
+    if adapter == "harmonic_pivot_bracket":
+        from prechips.cad_bracket import load_bracket
+
+        return load_bracket(path, parameters)
+    if adapter == "harmonic_rocker_arm":
+        from prechips.cad_rocker import load_rocker
+
+        return load_rocker(path, parameters)
+    raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
+
+
+def _load_base_bar(path: Path, parameters: dict) -> CadData:
     """Normalize only the supported harmonic base-bar manifest, in physical mm."""
     with path.open("rb") as source:
         raw = tomllib.load(source)

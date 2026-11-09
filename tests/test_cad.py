@@ -55,7 +55,7 @@ def prepare(tmp_path, source_text=None, plan_text=PLAN):
 
 
 def test_drawing_targets_conversion_sign_and_nominal_envelope():
-    cad = load_cad(SOURCE, PARAMETERS)
+    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
     assert cad.envelope_mm == pytest.approx((439.928, 139.7, 11.938))
     assert cad.values["length_in"] == pytest.approx(17.32)
     assert cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(0.87)
@@ -155,7 +155,7 @@ def test_missing_source_and_source_output_alias_are_errors(
 
 
 def test_binding_nonfinite_process_number_is_rejected():
-    cad = load_cad(SOURCE, PARAMETERS)
+    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
     with pytest.raises(CadError, match="finite"):
         bind_text("{{process.depth:.2f}}", cad, {"depth": float("nan")})
 
@@ -164,12 +164,12 @@ def test_source_changes_reach_embedded_svg_geometry(tmp_path):
     from prechips.cad_diagrams import render_cad_svg
 
     content = (SOURCE.parents[1] / "diagrams/holes.svg").read_bytes()
-    baseline = load_cad(SOURCE, PARAMETERS)
+    baseline = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
     text = SOURCE.read_text(encoding="utf-8").replace(
         '"station" = [21.844, 22.352]', '"station" = [47.244, 47.752]'
     )
     _, source = prepare(tmp_path, text)
-    changed = load_cad(source, PARAMETERS)
+    changed = load_cad(source, PARAMETERS, "harmonic_base_bar")
     before = render_cad_svg(content, baseline, PARAMETERS)
     after = render_cad_svg(content, changed, PARAMETERS)
     before_slot = ElementTree.fromstring(before).find(".//*[@id='slots']")[0]

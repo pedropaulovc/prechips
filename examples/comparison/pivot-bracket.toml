@@ -7,11 +7,31 @@
 # RPM/feed pairs are the expected traveler's settings, derived from cutting-data.
 
 title = "Pivot bracket — two pieces"
-part = "pivot-bracket · MHA-123"
-revision = "example-v39"
-material = "Plain carbon steel · black oxide"
-stock = "2 blanks: 38 mm long × 3/4 × 1-1/4 in flat bar; square to 18 × 26.2 × 34.2 mm"
+part = "{{cad.part}} · {{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "Plain carbon steel · {{cad.finish}}"
+stock = "2 blanks: {{process.sawn_height_mm:g}} mm long × {{process.raw_width_mm:g}} × {{process.raw_length_mm:g}} mm flat bar; square to {{process.prepared_width_mm:g}} × {{cad.prepared_length:g}} × {{process.prepared_height_mm:.1f}} mm"
 note = "All dimensions mm unless marked. Repeat every operation for both pieces. Mill conventionally with brushed cutting oil."
+
+[cad]
+file = "../cad/pivot-bracket-example-v39.toml"
+adapter = "harmonic_pivot_bracket"
+
+[parameters]
+prepared_width_mm = 18.0
+prepared_height_mm = 34.2
+seat_face_allowance_mm = 1.0
+outline_allowance_mm = 1.0
+wall_leave_mm = 0.3
+arch_breakthrough_mm = 0.3
+floor_leave_mm = 0.3
+raw_width_mm = 19.05
+raw_length_mm = 31.75
+sawn_height_mm = 38.0
+seat_grip_mm = 19.55
+foot_grip_mm = 3.67
+bore_go_mm = 6.500
+bore_no_go_mm = 6.530
 
 [[tools]]
 id = "face"
@@ -51,109 +71,109 @@ title = "Saw and square — six holds"
 machine = "4×6 bandsaw → PM-30MV"
 holding = "6 in vise; jaws X, alignment ≤0.0254/100. Holds 2/3/5/6: round bar at moving jaw."
 datum = "First wide reference face = LEFT."
-inspection = ["18 ±0.10 × 26.2 ±0.02 × 34.2 ±0.02; flatness, squareness and parallelism ≤0.02 per face."]
+inspection = ["{{process.prepared_width_mm:g}} ±0.10 × {{cad.prepared_length:g}} ±0.02 × {{process.prepared_height_mm:.1f}} ±0.02; flatness, squareness and parallelism ≤0.02 per face."]
 
 [[setups.operations]]
 tool = "face"
 rpm = 450
 feed = "90 mm/min"
-instruction = "Saw two 38 lengths flat: 4/6 bi-metal, dry, 200 ft/min. Six facing holds: 12.7 stepover in 1–4; 9 in 5–6."
+instruction = "Saw two {{process.sawn_height_mm:g}} lengths flat: 4/6 bi-metal, dry, 200 ft/min. Six facing holds: 12.7 stepover in 1–4; 9 in 5–6."
 [setups.operations.table]
 columns = ["Hold", "Location / support", "Face / size"]
 rows = [
-  ["1", "LEFT up; 1-1/4 in parallels", "Face LEFT; 0.525 nominal skim"],
-  ["2", "Outer up; LEFT to fixed jaw; 1 in parallels", "Face outer; 2.775 nominal, ≤1.4/pass"],
-  ["3", "Free up; outer down; LEFT fixed; same parallels", "26.2 from outer; ≤1.4/pass"],
-  ["4", "RIGHT up; LEFT down; outer fixed; 1-1/4 in parallels", "18 from LEFT; 0.525 nominal skim"],
-  ["5", "Crown up; sawn seat down; LEFT fixed; 5/8 in parallels", "Align outer edge square; face crown, 1.9 nominal"],
-  ["6", "Seat up; crown down; LEFT fixed; same parallels", "34.2 from crown; 1.9 nominal skim"]
+  ["1", "LEFT up; 1-1/4 in parallels", "Face LEFT; {{cad.width_skim:.3f}} nominal skim"],
+  ["2", "Outer up; LEFT to fixed jaw; 1 in parallels", "Face outer; {{cad.length_skim:.3f}} nominal, ≤1.4/pass"],
+  ["3", "Free up; outer down; LEFT fixed; same parallels", "{{cad.prepared_length:g}} from outer; ≤1.4/pass"],
+  ["4", "RIGHT up; LEFT down; outer fixed; 1-1/4 in parallels", "{{process.prepared_width_mm:g}} from LEFT; {{cad.width_skim:.3f}} nominal skim"],
+  ["5", "Crown up; sawn seat down; LEFT fixed; 5/8 in parallels", "Align outer edge square; face crown, {{cad.height_skim:g}} nominal"],
+  ["6", "Seat up; crown down; LEFT fixed; same parallels", "{{process.prepared_height_mm:.1f}} from crown; {{cad.height_skim:g}} nominal skim"]
 ]
 
 [[setups]]
 title = "Seat and foot outline"
 machine = "PM-30MV"
-holding = "Seat up, 1 in parallels; jaws along Y, fixed jaw −X, grip 19.55. Indicate ≤0.0254/100."
-datum = "LEFT X−9; outer edge Y−4; finished seat Z0, raw +1."
+holding = "Seat up, 1 in parallels; jaws along Y, fixed jaw −X, grip {{process.seat_grip_mm:g}}. Indicate ≤0.0254/100."
+datum = "LEFT X{{cad.raw_x_min:.2f}}; outer edge Y{{cad.raw_y_min:.2f}}; finished seat Z0, raw +{{process.seat_face_allowance_mm:.1f}}."
 [[setups.operations]]
 tool = "end"
 rpm = 900
 feed = "90 mm/min"
-instruction = "Face X−9…9,Y−4…22.2 to Z0: 1 DOC, 6.35 stepover. Rough foot to Z−6, 3 mm levels, 0.3 radial leave; finish X±8,Y−3…21.2 full depth. Preserve ear stock below −6; jaws −13.66."
-inspection = "Foot width 15.90–16.10; length 24.10–24.30."
+instruction = "Face X{{cad.raw_x_min:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.raw_y_min:.2f}}…{{cad.raw_y_max:.2f}} to Z0: 1 DOC, 6.35 stepover. Rough foot to Z{{cad.foot_depth:.2f}}, 3 mm levels, {{process.wall_leave_mm:.1f}} radial leave; finish X{{cad.foot_x_min:.2f}}…{{cad.foot_x_max:.2f}},Y{{cad.foot_y_min:.2f}}…{{cad.foot_y_max:.2f}} full depth. Preserve ear stock below {{cad.foot_depth:.2f}}; jaws {{cad.seat_jaw_z:.2f}}."
+inspection = "Foot width {{cad.foot_width_min:.2f}}–{{cad.foot_width_max:.2f}}; length {{cad.foot_length_min:.2f}}–{{cad.foot_length_max:.2f}}."
 
 [[setups]]
 title = "Deep grip — upper relief"
 machine = "PM-30MV"
-holding = "Seat down, 1-1/8 in narrow parallels; grip raw 18 mm overhang, foot clear. Jaws along Y; grip 10.37, jaw tops Z+10.37."
-datum = "Foot top Z0; seat −6; crown +27.2. Raw LEFT X−9,Y−12; free end Y−22.2,X0: pick at Z+20, traverse above +32."
+holding = "Seat down, 1-1/8 in narrow parallels; grip raw {{process.prepared_width_mm:g}} mm overhang, foot clear. Jaws along Y; grip 10.37, jaw tops Z+10.37."
+datum = "Foot top Z0; seat {{cad.foot_depth:.2f}}; crown +{{cad.crown_z:.2f}}. Raw LEFT X{{cad.raw_x_min:.2f}},Y−12; free end Y{{cad.reverse_raw_y_min:.2f}},X0: pick at Z+20, traverse above +32."
 [[setups.operations]]
 tool = "long"
 rpm = 900
 feed = "90 mm/min; any in-stock plunge 45 mm/min"
-instruction = "Rough free run X−9…9,Y−22.2…−3 and strips X−9…−7/+7…+9,Y−3.3…4 from +27.2 to +16: ≤4 axial, 1 radial step, 0.3 wall leave. Enter free run from −Y, strips from outside; retain square crown."
+instruction = "Rough free run X{{cad.raw_x_min:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.reverse_raw_y_min:.2f}}…{{cad.inner_y:.2f}} and strips X{{cad.raw_x_min:.2f}}…{{cad.ear_x_min:.2f}}/{{cad.ear_x_max:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.strip_y_min:.2f}}…{{cad.reverse_raw_y_max:.2f}} from +{{cad.crown_z:.2f}} to +16: ≤4 axial, 1 radial step, {{process.wall_leave_mm:.1f}} wall leave. Enter free run from −Y, strips from outside; retain square crown."
 
 [[setups]]
 title = "Foot grip — finish relief and drill"
 machine = "PM-30MV"
-holding = "Seat down, 1-5/8 in × 1/8 in parallels; X0 drill line clear. Foot grip 3.67; jaws Z−2.33."
-datum = "Foot top Z0; foot transfer ≤0.0254 TIR. Raw LEFT X−9 / free end Y−22.2: pick at Z+8. Crown +27.2; traverse above +32."
+holding = "Seat down, 1-5/8 in × 1/8 in parallels; X0 drill line clear. Foot grip {{process.foot_grip_mm:g}}; jaws Z{{cad.foot_jaw_z:.2f}}."
+datum = "Foot top Z0; foot transfer ≤0.0254 TIR. Raw LEFT X{{cad.raw_x_min:.2f}} / free end Y{{cad.reverse_raw_y_min:.2f}}: pick at Z+8. Crown +{{cad.crown_z:.2f}}; traverse above +32."
 [[setups.operations]]
 tool = "long"
 rpm = 900
 feed = "90 mm/min; any in-stock plunge 45 mm/min"
-instruction = "Rough same free run/strips +16→+0.3: ≤3 axial, 1 radial step, 0.3 wall leave. Finish inner wall Y−3, ear sides X±7, ledges Z0; ≤9.1 axial finish levels, 0.3 radial. Keep square crown."
-inspection = "Ear width 13.90–14.10; seat-to-foot-top 5.90–6.10 on free run and both ledges."
+instruction = "Rough same free run/strips +16→+{{process.floor_leave_mm:g}}: ≤3 axial, 1 radial step, {{process.wall_leave_mm:.1f}} wall leave. Finish inner wall Y{{cad.inner_y:.2f}}, ear sides X{{cad.ear_x_min:.2f}}…{{cad.ear_x_max:.2f}}, ledges Z0; ≤9.1 axial finish levels, {{process.wall_leave_mm:.1f}} radial. Keep square crown."
+inspection = "Ear width {{cad.ear_width_min:.2f}}–{{cad.ear_width_max:.2f}}; seat-to-foot-top {{cad.foot_height_min:.2f}}–{{cad.foot_height_max:.2f}} on free run and both ledges."
 [[setups.operations]]
 tool = "spot-long"
 rpm = 1050
 feed = "42 mm/min"
-instruction = "Spot both foot holes 0.6 deep from foot top: X0, Y−8.2 and −16.0."
+instruction = "Spot both foot holes 0.6 deep from foot top: A X{{cad.hole_a_x:.2f}}, Y{{cad.hole_a_y:.2f}}; B X{{cad.hole_b_x:.2f}}, Y{{cad.hole_b_y:.2f}}."
 [[setups.operations]]
 tool = "drill15"
 rpm = 1700
 feed = "187 mm/min"
-instruction = "Drill both holes through 6 mm foot, full diameter 2 mm beyond exit."
-inspection = "Ø4.572–4.672; stations 8.10–8.30 / 15.90–16.10 from ear midplane."
+instruction = "Drill both holes through {{cad.foot_thickness:.2f}} mm foot, full diameter 2 mm beyond exit."
+inspection = "Hole A Ø{{cad.hole_a_dia_min:.3f}}–{{cad.hole_a_dia_max:.3f}}, station {{cad.hole_a_station_min:.2f}}–{{cad.hole_a_station_max:.2f}}; B Ø{{cad.hole_b_dia_min:.3f}}–{{cad.hole_b_dia_max:.3f}}, station {{cad.hole_b_station_min:.2f}}–{{cad.hole_b_station_max:.2f}} from ear midplane."
 
 [[setups]]
 title = "Angle plate — face, crown and bore"
 machine = "PM-30MV"
-holding = "Fixture: ledge 22.6×17.9×6, two #10-24×5/8 in screws into upright; top parallel ≤0.02/22.6. Bridge 63.5×12.7×9.525; letter X holes 40±0.1 apart match upright X±20, 13.5 below top. Two 3/8-16×2-1/8 in studs. Seat against plate, outer face 4 proud; ledge Z−24.2, bridge Y−6,Z−17.5; nuts 15 N·m. Seat lip ≤0.0254 TIR; plate ≤0.0254/100."
-datum = "Foot LEFT X−8; seat/upright Y0. Z0 on finished foot outer end, cutter centre X0,Y+1.5, not raw ear +1. Traverse above +5."
+holding = "Fixture: ledge 22.6×17.9×6, two #10-24×5/8 in screws into upright; top parallel ≤0.02/22.6. Bridge 63.5×12.7×9.525; letter X holes 40±0.1 apart match upright X±20, 13.5 below top. Two 3/8-16×2-1/8 in studs. Seat against plate, outer face 4 proud; ledge Z{{cad.ledge_z:.2f}}, bridge Y{{cad.bridge_y:.2f}},Z−17.5; nuts 15 N·m. Seat lip ≤0.0254 TIR; plate ≤0.0254/100."
+datum = "Foot LEFT X{{cad.foot_x_min:.2f}}; seat/upright Y0. Z0 on finished foot outer end, cutter centre X0,Y+1.5, not raw ear +1. Traverse above +5."
 [[setups.operations]]
 tool = "end"
 rpm = 900
 feed = "90 mm/min"
-instruction = "Face X−8…8,Y−33.2…0, +1→0: 1 DOC, 4 stepover; wipe finished foot end. Rough R7 crown, centre X0,Y−25.2, single-axis stairs to Z−6.3: ≤3.2 axial, 0.3 radial leave, ≤0.15 cusp."
-inspection = "Ear thickness 5.90–6.10 after facing; foot length remains 24.10–24.30."
+instruction = "Face X{{cad.foot_x_min:.2f}}…{{cad.foot_x_max:.2f}},Y{{cad.crown_y:.2f}}…0, +1→0: 1 DOC, 4 stepover; wipe finished foot end. Rough R{{cad.arch_radius:.2f}} crown, centre X{{cad.bore_x:.2f}},Y{{cad.bore_y:.2f}}, single-axis stairs to Z{{cad.crown_finish_depth:.2f}}: ≤3.2 axial, {{process.wall_leave_mm:.1f}} radial leave, ≤0.15 cusp."
+inspection = "Ear thickness {{cad.ear_thickness_min:.2f}}–{{cad.ear_thickness_max:.2f}} after facing; foot length remains {{cad.foot_length_min:.2f}}–{{cad.foot_length_max:.2f}}."
 [[setups.operations]]
 tool = "spot"
 rpm = 700
 feed = "28 mm/min"
-instruction = "Spot cross-bore at X0,Y−25.2, 0.6 deep."
+instruction = "Spot cross-bore at X{{cad.bore_x:.2f}},Y{{cad.bore_y:.2f}}, 0.6 deep."
 [[setups.operations]]
 tool = "drillD"
 rpm = 1250
 feed = "137.5 mm/min"
-instruction = "Predrill cross-bore through 6 mm ear; full diameter 2 mm beyond exit."
+instruction = "Predrill cross-bore through {{cad.ear_thickness:.2f}} mm ear; full diameter 2 mm beyond exit."
 [[setups.operations]]
 tool = "ream"
 rpm = 650
 feed = "163.8 mm/min"
 instruction = "Ream through, full diameter 2 mm beyond exit."
-inspection = "6.500 GO both sides; 6.530 NO-GO. Bore centre 25.10–25.30 above seat."
+inspection = "Bore Ø{{cad.bore_dia_min:.3f}}–{{cad.bore_dia_max:.3f}}; plugs {{process.bore_go_mm:.3f}} GO both sides / {{process.bore_no_go_mm:.3f}} NO-GO. Bore centre {{cad.bore_height_min:.2f}}–{{cad.bore_height_max:.2f}} above seat."
 
 [[setups]]
 title = "Filing-button arch"
 machine = "Fitting bench"
 holding = "Hardened Ø14 g6 buttons (13.983–13.994), 4 thick, on Ø6.5 g6 stepped stud through bore; inner ear down. Grip stud tail with 20 exposed; M6 stack nut 4 N·m."
 [[setups.operations]]
-instruction = "File full 6 mm ear to both button rims."
-inspection = "R7 gauge: radius 6.90–7.10."
+instruction = "File full {{cad.ear_thickness:.2f}} mm ear to both button rims."
+inspection = "Radius {{cad.arch_radius_min:.2f}}–{{cad.arch_radius_max:.2f}}; R7 gauge."
 
 [[setups]]
-title = "Edge finish and black oxide"
+title = "Edge finish and {{cad.finish}}"
 machine = "Finishing bench / outside finisher"
 [[setups.operations]]
-instruction = "Edge break R0.25 / chamfer 0.25 max, including hole mouths; preserve reamed wall. Solvent-clean; black oxide all over, no masking, oil dip."
-inspection = "After coating wipe bore oil; 6.500 GO enters either side, 6.530 NO-GO does not."
+instruction = "Edge break R{{cad.edge_break_r:.2f}} / chamfer {{cad.chamfer_max:.2f}} max, including hole mouths; preserve reamed wall. Solvent-clean; {{cad.finish}} all over, no masking, oil dip."
+inspection = "After coating wipe bore oil. Bore Ø{{cad.bore_dia_min:.3f}}–{{cad.bore_dia_max:.3f}}; plugs {{process.bore_go_mm:.3f}} GO enters either side / {{process.bore_no_go_mm:.3f}} NO-GO does not."

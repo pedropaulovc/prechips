@@ -1,4 +1,4 @@
-# Prechips v0.4
+# Prechips v0.5
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -29,13 +29,20 @@ Setups are numbered in order; operations use unique numbers in increments of ten
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile examples/comparison/profile.toml --out out/pivot-shaft.html
 ```
 
-These are frozen adaptations for comparing sheets, not new process designs. Source files are identified in each TOML header. The custom profile renders text only and does not run stock-fit checking: these parts do not yet have a prototype CAD adapter. Existing example dimensions and process choices are retained; missing settings are not invented. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
+These adaptations retain the archived process choices. Source files are identified in each TOML header. The shaft, bracket and rocker now bind dimensions to their adjacent feature-manifest snapshots; the remaining comparison plans use literal values. The custom profile renders text only and omits stock-fit checking. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
 
 At 10.5pt on Letter paper, the ring uses one page; the tube, T-nuts, bracket and shaft use two each. Pedro approved three pages for the cone and rocker so their remaining instructions stay readable. The cone's reusable fixture manufacture is a separate two-page `cone-pivot-post-fixtures.toml` job.
 
 ## CAD dimensions
 
-The example reads `examples/cad/base-bar-v47.toml`, an unchanged copy of the released harmonic-analyzer `features.toml`. Point `cad.file` at another export to use that file directly. No STEP reader, FreeCAD, network access or hash checking is involved.
+The examples read feature manifests under `examples/cad/`. Point `cad.file` at the corresponding source file directly to avoid maintaining another copy. Paths are relative to the plan. No STEP reader, FreeCAD, network access or hash checking is involved.
+
+| Adapter | Source | Bound values |
+| --- | --- | --- |
+| `harmonic_base_bar` | Released v47 export | Dimensions, holes, slots and setup-diagram geometry |
+| `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, dome contour, setup coordinates and limits |
+| `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
+| `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 
 ```toml
 [cad]
@@ -57,15 +64,17 @@ All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_
 
 Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
 
-The adapter uses exported requirement limits and drawing targets, converts millimetres to inches, and applies the authored setup's negative-Y convention. It distinguishes drawing-rounded positions from model coordinates. Printed dimensions, coordinate tables, diagram labels and feature positions share these values. Literal-only plans work with a custom profile that omits `stock_fit`.
+Each adapter applies the selected plan's setup frames and distinguishes model geometry from requirement limits. Named bindings update repeated dimensions and coordinate tables together. Conflicting machining targets and source acceptance limits are input errors. The shaft's reference span remains REF: its final length still follows the assembly fit. The rocker's hub-length aim is authored; its strap aim follows that aim and the bound face depths. Selected tools and gauges remain separate from source acceptance limits.
 
-Only the harmonic-analyzer base-bar export is supported by this adapter. Changing CAD dimensions does not select new tools or redesign the machining process.
+Changing CAD dimensions does not select new tools or redesign the machining process. Unsupported coordinate frames and contour strategies fail with an input error; general tool and gauge suitability is not checked. Literal-only plans work with a custom profile that omits `stock_fit`.
 
 ## Stock fit
 
 Both built-in profiles require declared blank length, width and thickness in inches and compare them with the CAD nominal envelope in matching axes. Exact fits pass. An undersized or missing dimension stops the command with exit 2 before writing output; the error names the affected axis and required size. Successful checks add nothing to the printed sheet.
 
 This compares each rectangular blank, not the parent bar. It does not rotate stock, reserve machining allowance, calculate yield or check workholding.
+
+Stock fit currently requires the base-bar adapter's nominal envelope. The shaft, bracket and rocker adapters do not reconstruct an envelope from feature fragments; requesting `stock_fit` with one of them fails explicitly. Use the comparison profile for those plans.
 
 ## Profiles
 
@@ -137,4 +146,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.3 introduces CAD bindings; v0.4 adds the profile-controlled stock-fit comparison.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.5 extends source bindings to three more parts; shared cutting data and generated setup pictures remain later milestones.

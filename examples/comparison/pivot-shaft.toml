@@ -5,14 +5,44 @@
 # Blank allowance, chuck/dead-centre/follow-rest route, DRO frames, feeds,
 # rpm and 1.75 mm fit-up target are authored example choices, not drawing facts.
 # This preserves plan rev 7's route, not the drawing's between-centres process line.
-# Contour readings below reproduce the expected traveler's R0.4 tool-nose table.
+# Contour readings derive from source cap geometry and the authored R0.4 tool nose.
 # The 156.67 mm span is REF / CUT TO FIT, never a fixed finished-length limit.
-title = "Pivot shaft — MHA-065"
-part = "pivot-shaft"
-revision = "v40"
+title = "Pivot shaft — {{cad.drawing_number}}"
+part = "{{cad.part}}"
+revision = "{{cad.revision}}"
 material = "AISI 1018 cold-finished steel"
-stock = "1 × Ø10 × 180.5 mm sawn blank; 175 mm supply length from north apex to plain end"
-note = "Millimetres; X diametric, Z+ away from chuck. CRC cutting oil. Final length: fit to both ears; 156.67 REF only."
+stock = "1 × Ø{{process.stock_dia_mm:g}} × {{cad.blank_length:g}} mm sawn blank; {{process.supply_length_mm:g}} mm supply length from north apex to plain end"
+note = "Millimetres; X diametric, Z+ away from chuck. CRC cutting oil. Final length: fit to both ears; {{cad.span_ref:.2f}} REF."
+
+[cad]
+adapter = "harmonic_pivot_shaft"
+file = "../cad/pivot-shaft-v40.toml"
+
+# Authored tooling, stock and process choices, not shaft drawing requirements.
+[parameters]
+stock_dia_mm = 10.0
+supply_length_mm = 175.0
+plain_end_face_allowance_mm = 0.5
+blade_width_mm = 1.6
+blade_corner_radius_mm = 0.1
+nose_radius_mm = 0.4
+entering_angle_deg = 93.0
+insert_angle_deg = 60.0
+contour_step_mm = 0.1
+dome_rough_allowance_mm = 0.20
+turn_rough_allowance_mm = 0.20
+shoulder_face_allowance_mm = 0.20
+turn_start_clearance_mm = 0.30
+stub_allowance_mm = 5.0
+fit_apex_mm = 1.75
+fit_min_mm = 1.50
+fit_max_mm = 2.00
+fit_face_allowance_mm = 0.50
+scribe_expectation_tolerance_mm = 0.50
+follow_rest_reset_z_mm = 152.0
+follow_rest_lead_mm = 8.0
+follow_rest_jaw_mm = 10.0
+follow_rest_waste_margin_mm = 0.25
 
 [[tools]]
 id = "ar"
@@ -27,22 +57,22 @@ description = "#2 M42 centre drill, Ø1.98 pilot / 60° seat"
 [[tools]]
 id = "hss"
 name = "HSS"
-description = "3/8 in M42 RH bit, 93° entering angle, R0.4 nose"
+description = "3/8 in M42 RH bit, {{process.entering_angle_deg:g}}° entering angle, R{{process.nose_radius_mm:g}} nose"
 
 [[tools]]
 id = "blade"
 name = "Blade"
-description = "1.6 mm M2 square blade, corner R0.1"
+description = "{{process.blade_width_mm:g}} mm M2 square blade, corner R{{process.blade_corner_radius_mm:g}}"
 
 [[setups]]
 title = "Short hold — face and centre plain end"
 machine = "PM-1127VF-LB lathe"
 holding = "3-jaw: 20 mm grip, 15 mm plain-end projection; remainder through spindle."
-datum = "Sawn end Z+0.5; faced end Z0; X diametric."
+datum = "Sawn end Z+{{process.plain_end_face_allowance_mm:g}}; faced end Z0; X diametric."
 
 [[setups.operations]]
 tool = "ar"
-instruction = "Face clean to Z0; two 0.25 mm axial passes."
+instruction = "Face clean to Z0; {{cad.plain_end_face_passes:g}} passes ≤0.25 mm axial."
 rpm = 2000
 feed = "0.05 mm/rev"
 
@@ -55,85 +85,76 @@ feed = "Hand quill, 0.038 mm/rev"
 [[setups]]
 title = "Supported body and thrust shoulder"
 machine = "PM-1127VF-LB lathe"
-holding = "North-stub grip 12.5 mm; projection 167.5 ±0.3. Lubricated MT3 dead centre. Follow rest 8 mm behind tool; reset each rough/finish pass at Z152 in waste."
-datum = "All tools: thrust face Z0; plain end Z166. Blade Z at chuck-side corner."
+holding = "North-stub grip {{cad.north_grip:g}} mm; projection {{cad.supported_projection:.1f}} ±0.3. Lubricated MT3 dead centre. Follow rest {{process.follow_rest_lead_mm:g}} mm behind tool; reset each rough/finish pass at Z{{process.follow_rest_reset_z_mm:g}} in waste."
+datum = "All tools: thrust face Z0; plain end Z{{cad.plain_end_z:g}}. Blade Z at chuck-side corner."
 
 [[setups.operations]]
 instruction = "Check shoulder OD; retain bar surface."
-inspection = "Ø9.49–10.51."
+inspection = "Ø{{cad.shoulder_dia_min:.2f}}–{{cad.shoulder_dia_max:.2f}}."
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Rough Ø10 → Ø6.55, Z166.3 to Z0.2; four passes, ≤0.5 mm radial depth."
+instruction = "Rough Ø{{process.stock_dia_mm:g}} → Ø{{cad.bearing_rough_dia:.2f}}, Z{{cad.turn_start_z:.1f}} to Z{{process.shoulder_face_allowance_mm:g}}; four passes, ≤0.5 mm radial depth."
 rpm = 1350
 feed = "0.08 mm/rev"
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Face thrust shoulder outward to Z0; 0.2 mm axial cut."
+instruction = "Face thrust shoulder outward to Z0; {{process.shoulder_face_allowance_mm:g}} mm axial cut."
 rpm = 850
 feed = "0.05 mm/rev"
-inspection = "Thrust face Ra ≤1.6 µm."
+inspection = "Thrust face Ra ≤{{cad.thrust_finish:g}} µm."
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Finish Ø6.35, Z166.3 to Z0; one supported pass."
+instruction = "Finish Ø{{cad.bearing_dia:.2f}}, Z{{cad.turn_start_z:.1f}} to Z0; one supported pass."
 rpm = 1700
 feed = "0.05 mm/rev"
-inspection = "Ø6.330–6.350 at both ends and middle; Ra ≤1.6 µm."
+inspection = "Ø{{cad.bearing_dia_min:.3f}}–{{cad.bearing_dia_max:.3f}} at both ends and middle; Ra ≤{{cad.bearing_finish:g}} µm."
 
 [[setups.operations]]
 tool = "blade"
-instruction = "South relief Ø5.70: plunge Z0…1.6, then Z0.4…2.0. Break shoulder OD and bearing-side edge Z2 ≤0.25."
+instruction = "South relief Ø{{cad.south_relief_dia:.2f}}: plunge Z{{cad.south_relief_start:g}}…{{cad.south_relief_first_end:g}}, then Z{{cad.south_relief_second_start:g}}…{{cad.south_relief_end:g}}. Break shoulder OD and bearing-side edge Z{{cad.south_relief_end:g}} ≤{{cad.edge_break_max:g}}."
 rpm = 1200
 feed = "0.02 mm/rev"
-inspection = "Relief Ø5.57–5.83; width 1.2–2.8; corner R≤0.25."
+inspection = "Relief Ø{{cad.south_relief_dia_min:.2f}}–{{cad.south_relief_dia_max:.2f}}; width {{cad.south_relief_width_min:g}}–{{cad.south_relief_width_max:g}}; corner R≤{{cad.south_corner_max:g}}."
 
 [[setups]]
 title = "Reverse — journal, north relief and dome"
 machine = "PM-1127VF-LB lathe"
-holding = "Protected body grip 25 mm; thrust face against jaw fronts; nominal 14 mm projection, unsupported."
-datum = "All tools: apex Z0, thrust Z−9. Measure M = thrust-to-stub-end before clamping; stub Z=M−9. Blade Z at chuck-side corner."
+holding = "Protected body grip 25 mm; thrust face against jaw fronts; nominal {{cad.reverse_projection:g}} mm projection, unsupported."
+datum = "All tools: apex Z0, thrust Z{{cad.thrust_z:g}}. Measure M = thrust-to-stub-end before clamping; stub Z=M{{cad.thrust_z:+g}}. Blade Z at chuck-side corner."
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Rough Ø6.55, Z+5 to −7.3: four passes, ≤0.5 mm radial. Face shoulder Z−7.5 at 1400 rpm / 0.05 mm/rev. Finish Ø6.35 through Z−7.5 at 1700 rpm / 0.05 mm/rev."
+instruction = "Rough Ø{{cad.journal_rough_dia:.2f}}, Z+{{process.stub_allowance_mm:g}} to {{cad.north_rough_stop:g}}: four passes, ≤0.5 mm radial. Face shoulder Z{{cad.north_shoulder_z:g}} at 1400 rpm / 0.05 mm/rev. Finish Ø{{cad.journal_dia:.2f}} through Z{{cad.north_shoulder_z:g}} at 1700 rpm / 0.05 mm/rev."
 rpm = 1350
 feed = "Rough 0.10 mm/rev"
-inspection = "Journal Ø6.330–6.350; Ra ≤1.6 µm."
+inspection = "Journal Ø{{cad.journal_dia_min:.3f}}–{{cad.journal_dia_max:.3f}}; Ra ≤{{cad.journal_finish:g}} µm."
 
 [[setups.operations]]
 tool = "blade"
-instruction = "Plunge north relief Ø5.70: Z−7.5…−5.9, then Z−7.1…−5.5."
+instruction = "Plunge north relief Ø{{cad.north_relief_dia:.2f}}: Z{{cad.north_relief_start:g}}…{{cad.north_relief_first_end:g}}, then Z{{cad.north_relief_second_start:g}}…{{cad.north_relief_end:g}}."
 rpm = 1200
 feed = "0.02 mm/rev"
-inspection = "Ø5.57–5.83; width 1.2–2.8; corner R≤0.25."
+inspection = "Ø{{cad.north_relief_dia_min:.2f}}–{{cad.north_relief_dia_max:.2f}}; width {{cad.north_relief_width_min:g}}–{{cad.north_relief_width_max:g}}; corner R≤{{cad.north_corner_max:g}}."
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Face stub to apex Z0; five 1 mm passes."
+instruction = "Face stub to apex Z0; remove {{process.stub_allowance_mm:g}} mm in ≤1 mm passes."
 rpm = 1400
 feed = "0.08 mm/rev"
 
 [[setups.operations]]
 tool = "hss"
-instruction = "North dome R4.11: apex Z0, base −1.5. Rough: column 1 then 3, leaving 0.20 on Ø. Finish: column 2 then 4, R0.4 nose compensated. X outward before Z toward chuck."
+instruction = "North dome R{{cad.north_dome_radius:.2f}}: apex Z0, base {{cad.north_base_z:g}}. Rough: column 1 then 3, leaving {{process.dome_rough_allowance_mm:.2f}} on Ø. Finish: column 2 then 4, R{{process.nose_radius_mm:g}} nose compensated. X outward before Z toward chuck."
 rpm = 1400
 feed = "0.05 mm/rev; hand traverse"
-inspection = "Height 0.7–2.3; journal length 5.2–6.8; shoulder 0.99–2.01. Break shoulder OD, journal-side relief edge Z−5.5 and dome rim ≤0.25."
+inspection = "Height {{cad.north_dome_height_min:g}}–{{cad.north_dome_height_max:g}}; journal length {{cad.journal_length_min:g}}–{{cad.journal_length_max:g}}; shoulder {{cad.shoulder_length_min:.2f}}–{{cad.shoulder_length_max:.2f}}. Break shoulder OD, journal-side relief edge Z{{cad.north_relief_end:g}} and dome rim ≤{{cad.edge_break_max:g}}."
 
 [setups.operations.table]
 columns = ["Rough Z / XØ", "Finish Z / XØ", "Rough Z / XØ", "Finish Z / XØ"]
-rows = [
-  ["—", "0.00 / −0.80", "−0.80 / 5.20", "−0.88 / 4.55"],
-  ["−0.10 / 2.56", "−0.11 / 1.18", "−0.90 / 5.45", "−0.99 / 4.83"],
-  ["−0.20 / 3.12", "−0.22 / 1.98", "−1.00 / 5.68", "−1.10 / 5.10"],
-  ["−0.30 / 3.58", "−0.33 / 2.58", "−1.10 / 5.89", "−1.21 / 5.34"],
-  ["−0.40 / 3.98", "−0.44 / 3.08", "−1.20 / 6.08", "−1.32 / 5.57"],
-  ["−0.50 / 4.33", "−0.55 / 3.51", "−1.30 / 6.27", "−1.43 / 5.78"],
-  ["−0.60 / 4.65", "−0.66 / 3.89", "—", "−1.54 / 5.98"],
-  ["−0.70 / 4.94", "−0.77 / 4.24", "—", "−1.65 / 6.17"],
-]
+rows = "{{cad.contour_rows}}"
 
 [[setups]]
 title = "Fit-scribe — finish plain end"
@@ -142,24 +163,24 @@ holding = "After scribing: protected body grip 25 mm; jaws 8 mm north of scribe.
 datum = "All tools: scribe Z0; X trial cut on waste Z6…end. Blade Z at chuck-side corner."
 
 [[setups.operations]]
-instruction = "Fit both ears, shoulder against north ear; scribe south ear outer face. Scribe-to-end 16.33–17.33 expected; otherwise refit/rescribe. If still ≥11.50, use actual reading. Below 11.50 correct bank: rest mark would remain."
+instruction = "Fit both ears, shoulder against north ear; scribe south ear outer face. Scribe-to-end {{cad.scribe_expected_min:.2f}}–{{cad.scribe_expected_max:.2f}} reference; otherwise refit/rescribe. If still ≥{{cad.rest_scribe_min:.2f}}, use actual reading. Below {{cad.rest_scribe_min:.2f}} correct bank: rest mark would remain."
 
 [[setups.operations]]
 tool = "blade"
-instruction = "Part waste at chuck-side blade corner Z+2.25; X6.35 → X0."
+instruction = "Part waste at chuck-side blade corner Z+{{cad.parting_z:.2f}}; X{{cad.bearing_dia:.2f}} → X0."
 rpm = 1050
 feed = "Hand plunge, 0.025 mm/rev"
 
 [[setups.operations]]
 tool = "hss"
-instruction = "Face apex Z+1.75; two 0.25 mm passes."
+instruction = "Face apex Z+{{process.fit_apex_mm:.2f}}; remove {{process.fit_face_allowance_mm:.2f}} in ≤0.25 mm passes."
 rpm = 1400
 feed = "0.05 mm/rev"
-inspection = "Scribe zero 0.00 ±0.05; end 1.50–2.00 beyond scribe. Reface if long; reject if short."
+inspection = "Scribe zero 0.00 ±0.05; end {{process.fit_min_mm:.2f}}–{{process.fit_max_mm:.2f}} beyond scribe. Reface if long; reject if short."
 
 [[setups.operations]]
 tool = "hss"
-instruction = "South dome R4.11: apex Z1.75, base Z0.25. Repeat north table adding +1.75 to every Z; X unchanged. Break rim ≤0.25; trial fit; oil."
+instruction = "South dome R{{cad.south_dome_radius:.2f}}: apex Z{{process.fit_apex_mm:.2f}}, base Z{{cad.south_base_z:.2f}}. Repeat north table adding +{{process.fit_apex_mm:.2f}} to every Z; X unchanged. Break rim ≤{{cad.edge_break_max:g}}; trial fit; oil."
 rpm = 1400
 feed = "0.05 mm/rev; hand traverse"
-inspection = "Dome height 0.7–2.3; final length to actual ear fit."
+inspection = "Dome height {{cad.south_dome_height_min:g}}–{{cad.south_dome_height_max:g}}; final length to actual ear fit."
