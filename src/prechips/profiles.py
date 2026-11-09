@@ -1,4 +1,4 @@
-"""Small rendering profiles, independent of shop or geometry checks."""
+"""Small profiles selecting rendering features and explicit requirements."""
 
 import tomllib
 from dataclasses import dataclass
@@ -16,8 +16,10 @@ class Profile:
     enforce: frozenset[str]
 
 
-PRO = Profile("pro", frozenset(), frozenset())
-HOBBY = Profile("hobby", frozenset({"setup_diagrams"}), frozenset({"setup_diagrams"}))
+PRO = Profile("pro", frozenset(), frozenset({"stock_fit"}))
+HOBBY = Profile(
+    "hobby", frozenset({"setup_diagrams"}), frozenset({"setup_diagrams", "stock_fit"})
+)
 
 
 def load_profile(value: str) -> Profile:
@@ -44,14 +46,17 @@ def load_profile(value: str) -> Profile:
         if not isinstance(items, list) or any(
             not isinstance(item, str) for item in items
         ):
-            raise ProfileError(f"profile.{key}: expected an array of feature names")
-        unsupported = set(items) - {"setup_diagrams"}
+            raise ProfileError(f"profile.{key}: expected an array of names")
+        supported = (
+            {"setup_diagrams", "stock_fit"} if key == "enforce" else {"setup_diagrams"}
+        )
+        unsupported = set(items) - supported
         if unsupported:
             raise ProfileError(
                 f"profile.{key}: unknown requirement(s): {', '.join(sorted(unsupported))}"
             )
         lists[key] = frozenset(items)
-    if not lists["enforce"] <= lists["features"]:
+    if "setup_diagrams" in lists["enforce"] - lists["features"]:
         raise ProfileError(
             "profile.enforce: setup_diagrams must also be enabled in features"
         )

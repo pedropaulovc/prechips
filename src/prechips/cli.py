@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 from prechips.profiles import ProfileError, load_profile
+from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
 
 
@@ -29,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
             raise PlanError("output must not overwrite the input plan")
         profile = load_profile(args.profile)
         plan = load_plan(args.plan)
+        if "stock_fit" in profile.enforce:
+            check_stock_fit(plan)
         inputs = []
         if plan.cad is not None:
             inputs.append(plan.cad.source)
@@ -53,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         tomllib.TOMLDecodeError,
         PlanError,
         ProfileError,
+        StockError,
     ) as error:
         print(f"prechips: {error}", file=sys.stderr)
         return 2
