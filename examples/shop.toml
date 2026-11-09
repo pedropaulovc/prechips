@@ -51,11 +51,11 @@ description = "3/8 in M42 RH bit"
 [tools.shaft-blade]
 description = "M2 square blade"
 
-# LMS 2569: supplied pre-ground HSS bit; 3/8 in attachment shank.
+# LMS 2569: supplied pre-ground HSS bit; 3/8 in shank; convex Ø0–19.05 mm.
 # https://littlemachineshop.com/products/ball-and-radius-turning-tool-small
 # https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368
 [tools.lms-2569]
-description = "LMS 2569 ball/radius attachment, 3/8 in shank, supplied pre-ground HSS bit; convex Ø0–19.05 mm"
+description = "LMS 2569 ball-turning attachment, 3/8 in shank, HSS cutter"
 
 [settings.shaft-relief-1018]
 tool = "shaft-blade"
