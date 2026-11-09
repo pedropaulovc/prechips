@@ -14,9 +14,22 @@ class CadError(ValueError):
 
 
 @dataclass
+class RectangularStock:
+    length_mm: float
+    width_mm: float
+    thickness_mm: float
+
+
+@dataclass
+class RoundStock:
+    diameter_mm: float
+    length_mm: float
+
+
+@dataclass
 class CadData:
     values: dict
-    envelope_mm: tuple[float, float, float] | None
+    stock_requirement: RectangularStock | RoundStock | None
     source: Path
 
 
@@ -334,7 +347,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
-    return CadData(values, tuple(envelope), path.resolve())
+    return CadData(values, RectangularStock(*envelope), path.resolve())
 
 
 _TOKEN = re.compile(

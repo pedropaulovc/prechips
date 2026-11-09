@@ -3,7 +3,7 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips.cad import CadError, bind_text, load_cad
+from prechips.cad import CadError, RectangularStock, bind_text, load_cad
 from prechips.cli import main
 from prechips.traveler import load_plan, render_traveler
 
@@ -56,7 +56,10 @@ def prepare(tmp_path, source_text=None, plan_text=PLAN):
 
 def test_drawing_targets_conversion_sign_and_nominal_envelope():
     cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
-    assert cad.envelope_mm == pytest.approx((439.928, 139.7, 11.938))
+    assert isinstance(cad.stock_requirement, RectangularStock)
+    assert cad.stock_requirement.length_mm == pytest.approx(439.928)
+    assert cad.stock_requirement.width_mm == pytest.approx(139.7)
+    assert cad.stock_requirement.thickness_mm == pytest.approx(11.938)
     assert cad.values["length_in"] == pytest.approx(17.32)
     assert cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(0.87)
     assert cad.values["slot_shapes_in"][0]["near_y_in"] == pytest.approx(-1.94)
@@ -94,7 +97,7 @@ def test_source_changes_reach_text_tables_and_geometry(tmp_path):
     assert loaded.data["setups"][0]["operations"][0]["table"]["rows"][2][1] == "1.8700"
     assert loaded.cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(1.87)
     # Drawing targets change; the actual model envelope does not silently follow them.
-    assert loaded.cad.envelope_mm[0] == pytest.approx(439.928)
+    assert loaded.cad.stock_requirement.length_mm == pytest.approx(439.928)
 
 
 @pytest.mark.parametrize(

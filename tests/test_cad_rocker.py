@@ -27,7 +27,7 @@ def prepare(tmp_path, source_text, plan_text=None):
 
 def test_rocker_bound_geometry_preserves_authored_aims_and_plugs():
     cad = load_rocker(SOURCE, PARAMETERS)
-    assert cad.envelope_mm is None
+    assert cad.stock_requirement is None
     assert cad.values["rod_x"] == pytest.approx(133.06740213488345)
     assert cad.values["rod_upper_y"] == pytest.approx(8.456064115939025)
     assert cad.values["rod_lower_y"] == pytest.approx(-8.456064115939025)

@@ -4,7 +4,7 @@ import math
 import tomllib
 from pathlib import Path
 
-from prechips.cad import CadData, CadError, _band, _number, _positive, _string
+from prechips.cad import CadData, CadError, RoundStock, _band, _number, _positive, _string
 
 
 def _contour_rows(radius: float, height: float, parameters: dict) -> list[list[str]]:
@@ -240,6 +240,16 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     def process(key: str) -> float:
         return _positive(parameters.get(key), f"process.{key}")
 
+    for key in (
+        "short_grip_mm",
+        "short_projection_mm",
+        "reverse_grip_mm",
+        "fit_grip_mm",
+        "fit_jaw_offset_mm",
+    ):
+        if key in parameters:
+            process(key)
+
     supply = process("supply_length_mm")
     rough = process("turn_rough_allowance_mm")
     fit = process("fit_apex_mm")
@@ -298,4 +308,11 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
             "process.blade_corner_radius_mm: tool exceeds relief corner limit"
         )
     values["contour_rows"] = _contour_rows(radius, height, parameters)
-    return CadData(values, None, path.resolve())
+    return CadData(
+        values,
+        RoundStock(
+            max(values["bearing_dia"], values["journal_dia"], values["shoulder_dia"]),
+            values["blank_length"],
+        ),
+        path.resolve(),
+    )

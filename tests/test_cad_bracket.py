@@ -55,7 +55,7 @@ def test_bracket_holes_transform_and_inspection_reach_rendered_output(tmp_path):
     assert html.count("Ø6.510–6.540") == 2
     assert html.count("6.500 GO") == 2
     assert html.count("6.530 NO-GO") == 2
-    assert loaded.cad.envelope_mm is None
+    assert loaded.cad.stock_requirement is None
     assert "example-v39" in html
     assert "Ø4.572 HSS #15 drill" in html
     assert "square to 18 × 26.2 × 34.2 mm" in html
