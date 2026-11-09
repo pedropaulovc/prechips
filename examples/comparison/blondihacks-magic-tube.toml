@@ -77,7 +77,7 @@ datum = "Reset mouth Z0."
 
 [[setups.operations]]
 tool = "turn"
-instruction = "Cleanup and turn required length to Ø0.700 in. Separate finishing pass: finer feed, higher speed than roughing. This is NOT final Ø11/16 in."
+instruction = "Cleanup and turn to Ø0.700 in past body Z−3.500 by grip and part-off allowances. Separate finishing pass: finer feed, higher speed than roughing. This is NOT final Ø11/16 in."
 inspection = "Check OD along length; retain assembled-finishing allowance."
 
 [[setups]]
@@ -88,7 +88,7 @@ datum = "Cutoff behind 3.500-in body plus grip and final part-off allowances."
 
 [[setups.operations]]
 tool = "part"
-instruction = "Begin parting; pause with retaining web and file accessible rear burr. Complete cut. Reserve long tube blank; chuck remnant becomes cap."
+instruction = "Begin parting. Stop spindle at retaining web; file accessible rear burr; resume parting. Reserve long tube blank; chuck remnant becomes cap."
 
 [[setups]]
 title = "Cap from chuck remnant"
@@ -142,11 +142,11 @@ instruction = "Chamfer INSIDE mouth to clear male root/shoulder. Preserve mating
 title = "Face assembled cap"
 machine = "Lathe"
 holding = "Body remains chucked; cap shoulder fully seated, not bottomed on tip/root/runout."
-datum = "Mouth/shoulder Z0; cap face +0.500 in."
+datum = "Before assembly, measure shoulder-to-raw-face head stock; remove excess over 0.500 in."
 
 [[setups.operations]]
 tool = "turn"
-instruction = "Face head to 0.500-in length. Cutting torque must tighten RH joint; stop at axis, never across it."
+instruction = "Face seated head to 0.500-in length from shoulder. Cutting torque must tighten RH joint; stop at axis, never across it."
 
 [[setups.operations]]
 tool = "chamfer"
@@ -156,18 +156,18 @@ instruction = "Remove exposed cap-face outer burr only; leave seam annuli intact
 title = "Align and finish together"
 machine = "Lathe"
 holding = "Extend assembly; grip protected solid tail. Indicate base in four-jaw; align free end with rolling bearing, then REMOVE bearing before turning. Final cut unsupported."
-datum = "Reset mouth Z0; cap face +0.500 in; base −3.500 in."
+datum = "Pick up faced cap face as Z+0.500 in; body base Z−3.500 is 4.000 in behind it."
 
 [[setups.operations]]
 tool = "turn"
-instruction = "Repeat very light continuous cap/body passes toward chuck to Ø11/16 in and hidden seam; five or six or more passes. Establish cut depth for unsupported hold. Leave parting run. Persistent seam: inspect seating/mouth, not indefinite OD reduction."
+instruction = "Repeat very light continuous cap/body passes toward chuck to Ø11/16 in and hidden seam. Establish cut depth for unsupported hold. Leave parting run. Persistent seam: inspect seating/mouth, not indefinite OD reduction."
 inspection = "Measure body at multiple stations and cap across seam."
 
 [[setups]]
 title = "Final part-off"
 machine = "Lathe"
 holding = "Retain tail grip and seated cap."
-datum = "Kept base 3.500 in behind mouth; verify bore-tip clearance."
+datum = "Faced cap face Z+0.500 in; blade mouth-side edge at Z−3.500, 4.000 in behind cap face. Verify bore-tip clearance."
 
 [[setups.operations]]
 tool = "part"

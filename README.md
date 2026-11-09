@@ -31,6 +31,8 @@ uv run prechips traveler examples/comparison/pivot-shaft.toml --profile examples
 
 These are frozen adaptations for comparing sheets, not new process designs. Source files are identified in each TOML header. The custom profile renders text only and does not run stock-fit checking: these parts do not yet have a prototype CAD adapter. Existing example dimensions and process choices are retained; missing settings are not invented. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
 
+At 10.5pt on Letter paper, the ring uses one page; the tube, T-nuts, bracket and shaft use two each. Pedro approved three pages for the cone and rocker so their remaining instructions stay readable. The cone's reusable fixture manufacture is a separate two-page `cone-pivot-post-fixtures.toml` job.
+
 ## CAD dimensions
 
 The example reads `examples/cad/base-bar-v47.toml`, an unchanged copy of the released harmonic-analyzer `features.toml`. Point `cad.file` at another export to use that file directly. No STEP reader, FreeCAD, network access or hash checking is involved.

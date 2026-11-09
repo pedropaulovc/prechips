@@ -1,0 +1,110 @@
+# Source: archive/pre-v0.10-2026-11-08, examples/cone-pivot-post/{built-up.toml,features.toml,
+# expected/built-up/traveler.html}; examples/{inventory/pedro-shop.toml,cutting-data.toml}.
+# Built-up example, not later integral-boss CAD. Stock, bonded construction, joint fits,
+# tighter process holds, fixtures, cure and cutting settings are example process choices.
+# v40 limits retain documented feature-file divergences. Crank bore moves 0.185 toward head
+# top, sleeve unchanged. Conservative shop separation39.34–39.70 vs feature39.332–39.702;
+# journal shop12.256–12.285 vs feature12.2558–12.2858.
+title = "Cone pivot post — body + two bonded sleeves"
+part = "MHA-016 · cone-pivot-post · quantity 1"
+revision = "v40 example"
+material = "1018 low-carbon steel"
+stock = "Body Ø44.45×127; cone Ø19.05×75; crank Ø25×105 mm."
+note = "mm throughout. Settings: rpm / mm/min; turning feeds mm/rev. Cutting oil; saw dry. Prerequisite: cone-pivot-post-fixtures.toml — reamer trials, bond cradle/arbor, saw cradle/bridge, buttons and tall jaws."
+
+[[tools]]
+id = "turn"
+name = "Turn"
+description = "AR turning/facing; R0.2 fine-nose shoulder tool; 1.6 mm parting blade."
+[[tools]]
+id = "bore"
+name = "Drill / ream"
+description = "#2 centre drill; drills 7/16 in, Ø21.8,17.05,11.2,12.05; reamers Ø22.01,17.26,0.4500 in,0.4835 in."
+[[tools]]
+id = "mill"
+name = "Mill"
+description = "3/4 in 4-flute end mill; 3/8 in120° spot; 9/32 in taper-length drill; 7/16 in centre-cutting end mill."
+[[tools]]
+id = "saw"
+name = "Saw"
+description = "4/6 bimetal blade,1.5 mm kerf."
+
+[[setups]]
+title = "Turn body → cone sleeve → crank sleeve (three chuckings)"
+machine = "PM-1127VF-LB"
+holding = "3-jaw,25 raw grip each. Body102 nominal out, runout≤0.1. Cone50 out, cap-to-jaws48.5–49.5. Crank80 out, face-to-jaws78.5–79.5; unsupported."
+datum = "Diametric X; body B=Z0, shoulder−59.4. Cone north cap+21.0055; crank north face0."
+[[setups.operations]]
+tool = "turn"
+instruction = "Face body125.0 from tail; retain tail. Turn head through Z−95, body to shoulder−59.4 with R0.2 tool. Face cone74.0/crank104.0 from grip end. Cone turn to Z−23; crank turn−73. Reference parting blade TAILSTOCK-side face on cone north cap Z+21.0055/crank north face Z0; part with that face at cone−21.0505/crank−72.0344. Deburr without shortening."
+[setups.operations.table]
+columns = ["Cut", "rpm / mm per rev", "Radial DOC; acceptance"]
+rows = [["B face", "650 /0.08", "0.5; Ra≤3.2 µm"], ["Head rough→finish", "650 /0.10→800 /0.05", "0.35→0.20; Ø42.0–43.6"], ["Body rough→finish", "700 /0.10→800 /0.05", "0.25→0.15; Ø41.99–42.03, three stations; corner R≤0.25"], ["Cone face / rough / finish / part", "1550 /0.05;1650 /0.08;1950 /0.045;350 /0.025", "0.25/0.4/0.1/0.25; Ø17.194–17.206, length42.04–42.08; north cap Ra≤1.6"], ["Crank face / rough / finish / part", "1150 /0.05;1300 /0.05;1550 /0.045;250 /0.025", "0.25/0.25/0.1/0.25; Ø21.924–21.936, length72.00–72.08"]]
+
+[[setups]]
+title = "Two sleeve sockets — one tail chucking"
+machine = "PM-30MV · BS-0 / independent4-jaw"
+holding = "Spindle along X; tail20 against chuck body,105 out. Head/body runout≤0.02, B square; axis alignment≤0.01. Crank socket up/index zero."
+datum = "B X0, foot toward+X; axis Y0/Z0, body crest Z+21.0055."
+[[setups.operations]]
+tool = "bore"
+instruction = "Crank first; keep jaws/zeros, index cone: B23-hole circle,1 turn+9 spaces, work CCW from free end, same-direction approach. Lock/recheck≤0.02; actual12.5217°, target12.5182°. Both: #2 spot2 deep (3000/120),7/16 pilot (550/60.5),6 mm pecks; open/ream with full diameter reaching exit Z below; rims≤0.1."
+[setups.operations.table]
+columns = ["Socket X/Y", "Open rpm/feed → ream rpm/feed", "Accept Ø / full-Ø exit"]
+rows = [["Crank −72.700/0", "Ø21.8:300/54 → Ø22.01:200/50.4", "22.000–22.020 / Z−22.300"], ["Cone −33.368/0 after index", "Ø17.05:350/63 → Ø17.26:250/63", "17.250–17.270 / Z−21.525"]]
+
+[[setups]]
+title = "Bond cone sleeve; then crank sleeve after cone cure"
+machine = "Bench · bonding cradle"
+holding = "B at stop; body/tail saddles, gravity only. Cone north cap on pins14.8 apart; crank socket vertical. Second bond: crank north face on crank pins."
+[[setups.operations]]
+instruction = "Solvent-degrease/dry; check clearance both mouths/ends. Wet socket/bead sleeve with Loctite638, twist onto BOTH pins;0.05 feeler excluded. Wipe excess. EACH bond:24 h room-temperature cure, no joint clamping. Bore only after both cures."
+[setups.operations.table]
+columns = ["Joint, order", "Diametral clearance", "Position / after-cure checks"]
+rows = [["1 Cone", "0.044–0.076", "Before grab, −X/+X edges of crank-socket mouth at head top: height difference≤0.05; cap-to-cap42.04–42.08"], ["2 Crank, cone cured", "0.064–0.096", "North-face station20.87–21.89 from post axis; length72.00–72.08"]]
+
+[[setups]]
+title = "Post-cure running bores — one new tail chucking"
+machine = "PM-30MV · BS-0 /4-jaw"
+holding = "Tail20 against chuck body,105 out. Crank north face up/index zero; runout≤0.02, B square, axis alignment≤0.01. Journal: unchanged jaws, same1 turn+9 spaces, north cone cap up."
+datum = "B X0; axis Y0. Crank face Z0; journal north cap Z+21.0055."
+[[setups.operations]]
+tool = "bore"
+instruction = "#2 spot2 deep (3000/120); drill/qualified reamers below, point/lead0.5 beyond length. Rims≤0.1. Crank axis0.185 toward head top from sleeve centre."
+[setups.operations.table]
+columns = ["Bore X/Y", "Drill → ream rpm/feed", "Length / acceptance"]
+rows = [["Crank −72.885/0", "Ø11.2:550/60.5,6 mm pecks →0.4500 in:400/100.8", "72.08; Ø11.413–11.443"], ["Journal A −33.368/0, indexed", "Ø12.05:500/55,8 mm pecks →0.4835 in:350/88.2", "42.08; Ø12.256–12.285; height from B33.118–33.618"]]
+
+[[setups]]
+title = "Saw tail off"
+machine = "4×6 bandsaw"
+holding = "Body seated in integral cradle saddles; north cap on land, south cap under brass bridge pad. Blued land/pad must print only on cap annuli, no blue on body. Bridge wrench-tight before gripping base in saw vise; tail unsupported."
+[[setups.operations]]
+tool = "saw"
+instruction = "Blade-centre line87.75 from B; kerf1.5 leaves87.0 overall,1.0 facing allowance. Cradle end3 clear of kept kerf edge; guides outsideØ44.45."
+feed = "Blade200 ft/min; bow descent65 mm/min (~40 s cut)."
+
+[[setups]]
+title = "Face top; two mounting holes"
+machine = "PM-30MV · tall soft jaws/buttons"
+holding = "B on1/2 in×1/8 in parallels, Y±19.4; buttons on cone caps, jaws3 clear of body. Crank over front jaw. Jaw clearance: shoulder8.6, crank10.9. Tram≤0.0254/100."
+datum = "Head centre X0/Y0; B Z0 from measured sawn height. Cone axis alongY, north cap+Y."
+[[setups.operations]]
+tool = "mill"
+instruction = "Face to Z86, nominal1.0 allowance, max0.5 DOC;3/4 in mill450/90, conventional."
+[[setups.operations]]
+tool = "mill"
+instruction = "Both:120° spot2 deep (700/28);9/32 drill through B (850/93.5), point2 beyond. Start lowest speed/light feed to7 full-diameter depth; then6 mm pecks, ease across crank wall/breakout.7/16 end mill counterbores6.02 below top (600/30),0.5 steps."
+[setups.operations.table]
+columns = ["Hole", "X", "Y"]
+rows = [["West", "−12.67", "+2.815"], ["East", "+12.67", "−2.815"]]
+[[setups.operations]]
+instruction = "Both holes Ø7.14248–7.24248, radial station12.47–13.49; counterbores Ø11.0–12.02×5.51–6.53 deep. Deburr top/counterbores/mount exits/B: R0.25/chamfer0.25 max; running rims≤0.1. Check mount breakout into cone bore. Head length25.8–27.4; overall85.2–86.8; final diameters as above."
+[[setups]]
+title = "Bench inspection → paint → oil"
+machine = "Bench / surface plate; cradle, then standing on masked B for paint"
+[[setups.operations]]
+instruction = "Running bores: dimensions/A height as above; Ra≤1.6 µm, no chatter/tear/score. Centre separation39.34–39.70. Crank-axis angularity: Ø0.10 zone, basic12.5182° to journal A, parallel to foot B."
+
+[[setups.operations]]
+instruction = "Mask B/top/shoulder, cone caps/crank ends, bores/mount holes/counterbores and2 mm crank bond-line ring. SSPC-SP3 clean body/head/projecting-crank ODs; RAL6005 alkyd50–75 µm DFT, including saddle band off cradle. Check film/cure. Unmask; ISO VG32 on all bare faces, bond-line ring and bores."
