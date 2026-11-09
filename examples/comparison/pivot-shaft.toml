@@ -1,0 +1,165 @@
+# Source: archive/pre-v0.10-2026-11-08, examples/pivot-shaft/{plan.toml,
+# features.toml,expected/traveler.html}; examples/inventory/pedro-shop.toml;
+# examples/cutting-data.toml (pivot-shaft and DataShaft4 rows).
+# Drawing dimensions/limits follow features.toml, MHA-065 v40.
+# Blank allowance, chuck/dead-centre/follow-rest route, DRO frames, feeds,
+# rpm and 1.75 mm fit-up target are authored example choices, not drawing facts.
+# This preserves plan rev 7's route, not the drawing's between-centres process line.
+# Contour readings below reproduce the expected traveler's R0.4 tool-nose table.
+# The 156.67 mm span is REF / CUT TO FIT, never a fixed finished-length limit.
+title = "Pivot shaft — MHA-065"
+part = "pivot-shaft"
+revision = "v40"
+material = "AISI 1018 cold-finished steel"
+stock = "1 × Ø10 × 180.5 mm sawn blank; 175 mm supply length from north apex to plain end"
+note = "Millimetres; X diametric, Z+ away from chuck. CRC cutting oil. Final length: fit to both ears; 156.67 REF only."
+
+[[tools]]
+id = "ar"
+name = "AR"
+description = "AR carbide turning/facing tool"
+
+[[tools]]
+id = "centre"
+name = "#2 centre"
+description = "#2 M42 centre drill, Ø1.98 pilot / 60° seat"
+
+[[tools]]
+id = "hss"
+name = "HSS"
+description = "3/8 in M42 RH bit, 93° entering angle, R0.4 nose"
+
+[[tools]]
+id = "blade"
+name = "Blade"
+description = "1.6 mm M2 square blade, corner R0.1"
+
+[[setups]]
+title = "Short hold — face and centre plain end"
+machine = "PM-1127VF-LB lathe"
+holding = "3-jaw: 20 mm grip, 15 mm plain-end projection; remainder through spindle."
+datum = "Sawn end Z+0.5; faced end Z0; X diametric."
+
+[[setups.operations]]
+tool = "ar"
+instruction = "Face clean to Z0; two 0.25 mm axial passes."
+rpm = 2000
+feed = "0.05 mm/rev"
+
+[[setups.operations]]
+tool = "centre"
+instruction = "Centre-drill Ø3 mouth, 2.86 mm deep."
+rpm = 2000
+feed = "Hand quill, 0.038 mm/rev"
+
+[[setups]]
+title = "Supported body and thrust shoulder"
+machine = "PM-1127VF-LB lathe"
+holding = "North-stub grip 12.5 mm; projection 167.5 ±0.3. Lubricated MT3 dead centre. Follow rest 8 mm behind tool; reset each rough/finish pass at Z152 in waste."
+datum = "All tools: thrust face Z0; plain end Z166. Blade Z at chuck-side corner."
+
+[[setups.operations]]
+instruction = "Check shoulder OD; retain bar surface."
+inspection = "Ø9.49–10.51."
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Rough Ø10 → Ø6.55, Z166.3 to Z0.2; four passes, ≤0.5 mm radial depth."
+rpm = 1350
+feed = "0.08 mm/rev"
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Face thrust shoulder outward to Z0; 0.2 mm axial cut."
+rpm = 850
+feed = "0.05 mm/rev"
+inspection = "Thrust face Ra ≤1.6 µm."
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Finish Ø6.35, Z166.3 to Z0; one supported pass."
+rpm = 1700
+feed = "0.05 mm/rev"
+inspection = "Ø6.330–6.350 at both ends and middle; Ra ≤1.6 µm."
+
+[[setups.operations]]
+tool = "blade"
+instruction = "South relief Ø5.70: plunge Z0…1.6, then Z0.4…2.0. Break shoulder OD and bearing-side edge Z2 ≤0.25."
+rpm = 1200
+feed = "0.02 mm/rev"
+inspection = "Relief Ø5.57–5.83; width 1.2–2.8; corner R≤0.25."
+
+[[setups]]
+title = "Reverse — journal, north relief and dome"
+machine = "PM-1127VF-LB lathe"
+holding = "Protected body grip 25 mm; thrust face against jaw fronts; nominal 14 mm projection, unsupported."
+datum = "All tools: apex Z0, thrust Z−9. Measure M = thrust-to-stub-end before clamping; stub Z=M−9. Blade Z at chuck-side corner."
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Rough Ø6.55, Z+5 to −7.3: four passes, ≤0.5 mm radial. Face shoulder Z−7.5 at 1400 rpm / 0.05 mm/rev. Finish Ø6.35 through Z−7.5 at 1700 rpm / 0.05 mm/rev."
+rpm = 1350
+feed = "Rough 0.10 mm/rev"
+inspection = "Journal Ø6.330–6.350; Ra ≤1.6 µm."
+
+[[setups.operations]]
+tool = "blade"
+instruction = "Plunge north relief Ø5.70: Z−7.5…−5.9, then Z−7.1…−5.5."
+rpm = 1200
+feed = "0.02 mm/rev"
+inspection = "Ø5.57–5.83; width 1.2–2.8; corner R≤0.25."
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Face stub to apex Z0; five 1 mm passes."
+rpm = 1400
+feed = "0.08 mm/rev"
+
+[[setups.operations]]
+tool = "hss"
+instruction = "North dome R4.11: apex Z0, base −1.5. Rough: column 1 then 3, leaving 0.20 on Ø. Finish: column 2 then 4, R0.4 nose compensated. X outward before Z toward chuck."
+rpm = 1400
+feed = "0.05 mm/rev; hand traverse"
+inspection = "Height 0.7–2.3; journal length 5.2–6.8; shoulder 0.99–2.01. Break shoulder OD, journal-side relief edge Z−5.5 and dome rim ≤0.25."
+
+[setups.operations.table]
+columns = ["Rough Z / XØ", "Finish Z / XØ", "Rough Z / XØ", "Finish Z / XØ"]
+rows = [
+  ["—", "0.00 / −0.80", "−0.80 / 5.20", "−0.88 / 4.55"],
+  ["−0.10 / 2.56", "−0.11 / 1.18", "−0.90 / 5.45", "−0.99 / 4.83"],
+  ["−0.20 / 3.12", "−0.22 / 1.98", "−1.00 / 5.68", "−1.10 / 5.10"],
+  ["−0.30 / 3.58", "−0.33 / 2.58", "−1.10 / 5.89", "−1.21 / 5.34"],
+  ["−0.40 / 3.98", "−0.44 / 3.08", "−1.20 / 6.08", "−1.32 / 5.57"],
+  ["−0.50 / 4.33", "−0.55 / 3.51", "−1.30 / 6.27", "−1.43 / 5.78"],
+  ["−0.60 / 4.65", "−0.66 / 3.89", "—", "−1.54 / 5.98"],
+  ["−0.70 / 4.94", "−0.77 / 4.24", "—", "−1.65 / 6.17"],
+]
+
+[[setups]]
+title = "Fit-scribe — finish plain end"
+machine = "PM-1127VF-LB lathe / assembly bench"
+holding = "After scribing: protected body grip 25 mm; jaws 8 mm north of scribe. Stickout = scribe-to-end +8. Runout ≤0.02 TIR."
+datum = "All tools: scribe Z0; X trial cut on waste Z6…end. Blade Z at chuck-side corner."
+
+[[setups.operations]]
+instruction = "Fit both ears, shoulder against north ear; scribe south ear outer face. Scribe-to-end 16.33–17.33 expected; otherwise refit/rescribe. If still ≥11.50, use actual reading. Below 11.50 correct bank: rest mark would remain."
+
+[[setups.operations]]
+tool = "blade"
+instruction = "Part waste at chuck-side blade corner Z+2.25; X6.35 → X0."
+rpm = 1050
+feed = "Hand plunge, 0.025 mm/rev"
+
+[[setups.operations]]
+tool = "hss"
+instruction = "Face apex Z+1.75; two 0.25 mm passes."
+rpm = 1400
+feed = "0.05 mm/rev"
+inspection = "Scribe zero 0.00 ±0.05; end 1.50–2.00 beyond scribe. Reface if long; reject if short."
+
+[[setups.operations]]
+tool = "hss"
+instruction = "South dome R4.11: apex Z1.75, base Z0.25. Repeat north table adding +1.75 to every Z; X unchanged. Break rim ≤0.25; trial fit; oil."
+rpm = 1400
+feed = "0.05 mm/rev; hand traverse"
+inspection = "Dome height 0.7–2.3; final length to actual ear fit."

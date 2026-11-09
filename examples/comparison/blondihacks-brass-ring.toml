@@ -1,0 +1,116 @@
+# Source: archive/pre-v0.10-2026-11-08, examples/blondihacks-brass-ring/
+# plan.toml, README.md, features.toml, inventory.toml, cutting-data.toml,
+# expected/traveler.html; Blondihacks video t9NGty1CVII.
+# Video-design-1 nominals, not a released drawing or tolerance specification.
+# RPM and pass increments are source demonstration choices, not handbook data.
+# Approximate finish/spot RPM remain textual; unknown intermediate RPM omitted.
+# Actual stock length, grip, stickout, groove width/root, drill-point travel,
+# release retention, bench retention and numerical acceptance limits are absent.
+# Source C360 brass contains lead (CDA: 2.5–3.0% Pb); wear suitability is unresolved.
+# Final dimensional recording is the legacy author's editorial inspection.
+
+title = "Brass ring — turn, drill-release and hand finish"
+part = "blondihacks-brass-ring"
+revision = "video-design-1"
+material = "360 free-machining brass"
+stock = "1 ring from nominal Ø1 in scrap; actual length and prior step to be measured."
+
+[[tools]]
+id = "turn"
+name = "Turning tool"
+description = "Flat-top ground tool, generous nose radius."
+
+[[tools]]
+id = "groove"
+name = "Groove tool"
+description = "Wide Grizzly ground parting tool, not a narrow blade."
+
+[[tools]]
+id = "file"
+name = "Fine file"
+description = "Fine-cut handled mill file."
+
+[[tools]]
+id = "spot"
+name = "#2 centre drill"
+description = "#2 centre drill."
+
+[[tools]]
+id = "drills"
+name = "Twist drills"
+description = "1/4, 5/16, 7/16, 1/2 and 5/8 in twist drills."
+
+[[tools]]
+id = "deburr"
+name = "Hand deburrer"
+description = "Conical hand deburring tool."
+
+[[setups]]
+title = "One chucking — face, turn, groove and drill-release"
+machine = "Precision Matthews PM-1022V lathe"
+holding = "Three-jaw chuck on scrap; retain chucking throughout. Grip, stickout and rear travel limit to be established, allowing wide-tool clearance."
+datum = "Front face is axial reference; groove position by scale. Cross-slide dial: diameter reduction, 0.002 in/div."
+
+[[setups.operations]]
+tool = "turn"
+instruction = "Face clean; approximately 0.020 in axial passes."
+rpm = 450
+
+[[setups.operations]]
+tool = "turn"
+instruction = "Clean OD and old step: 0.020 in diameter reduction (0.010 in radial DOC). Turn dry throughout."
+rpm = 380
+inspection = "Measure OD; calculate stock to Ø0.725 in."
+
+[[setups.operations]]
+tool = "turn"
+instruction = "TWO roughing passes, each 0.100 in diameter reduction (0.050 in radial DOC). Adjust to actual stock; leave finish allowance."
+rpm = 380
+inspection = "Remeasure OD before finishing."
+
+[[setups.operations]]
+tool = "turn"
+instruction = "Finish-turn Ø0.725 in (a little over 500 rpm)."
+
+[[setups.operations]]
+tool = "groove"
+instruction = "Groove ring-side edge 0.100 in behind front face; 0.100 in diameter reduction plus extra depth. Do not part off."
+rpm = 140
+inspection = "Release requires root below actual final drill-cut diameter; extra depth, positive margin, drill-point travel and ring retention remain to be established."
+
+[[setups.operations]]
+tool = "file"
+instruction = "File both outer edges before drilling; rear edge through groove."
+rpm = 200
+
+[[setups.operations]]
+tool = "spot"
+instruction = "Spot (≈800–900 rpm). Penetration to be established. Use cutting oil for all drilling."
+
+[[setups.operations]]
+tool = "drills"
+instruction = "Drill 1/4 in → 5/16 in to established depth."
+rpm = 400
+feed = "5/16 in drill can grab/self-feed"
+
+[[setups.operations]]
+tool = "drills"
+instruction = "Enlarge 7/16 in → 1/2 in to established depth."
+
+[[setups.operations]]
+tool = "drills"
+instruction = "Drill 5/8 in: full-diameter breakthrough intersects groove and releases ring onto drill; no final part-off."
+rpm = 150
+
+[[setups]]
+title = "Hand finish — inner edges and dimensional record"
+machine = "Wooden bench"
+holding = "Small-ring retention method to be established."
+
+[[setups.operations]]
+tool = "deburr"
+instruction = "Hand-deburr BOTH inner rims. Edge-break size to be established."
+
+[[setups.operations]]
+instruction = "Record OD, ID, width and wall = (OD − ID) / 2; inspect rims and clear bore."
+inspection = "Nominals, inches: OD 0.725; ID 0.625; width 0.100; wall 0.050. Acceptance limits and coaxiality method/limit absent."
