@@ -12,6 +12,8 @@ revision = "{{cad.revision}}"
 material = "Plain carbon steel · {{cad.finish}}"
 stock = "2 blanks: {{process.sawn_height_mm:g}} mm long × {{process.raw_width_mm:g}} × {{process.raw_length_mm:g}} mm flat bar; square to {{process.prepared_width_mm:g}} × {{cad.prepared_length:g}} × {{process.prepared_height_mm:.1f}} mm"
 note = "All dimensions mm unless marked. Repeat every operation for both pieces. Mill conventionally with brushed cutting oil."
+shop = "../shop.toml"
+material_key = "bracket-plain-carbon-steel"
 
 [cad]
 file = "../cad/pivot-bracket-example-v39.toml"
@@ -36,35 +38,35 @@ bore_no_go_mm = 6.530
 [[tools]]
 id = "face"
 name = "3/4 in EM"
-description = "Ø3/4 in HSS 4-flute end mill"
+ref = "bracket-face"
 [[tools]]
 id = "end"
 name = "3/8 in EM"
-description = "Ø3/8 in HSS 4-flute end mill"
+ref = "bracket-end"
 [[tools]]
 id = "long"
 name = "Long 3/8 in EM"
-description = "Ø3/8 in centre-cutting HSS 4-flute; 31.75 flutes, 37 projection"
+ref = "bracket-long"
 [[tools]]
 id = "spot-long"
 name = "1/4 in spot"
-description = "Ø1/4 in M42 120° spot drill; 50 projection clears ear"
+ref = "bracket-spot-long"
 [[tools]]
 id = "drill15"
 name = "#15 drill"
-description = "Ø4.572 HSS #15 drill"
+ref = "bracket-drill15"
 [[tools]]
 id = "spot"
 name = "3/8 in spot"
-description = "Ø3/8 in M42 120° spot drill"
+ref = "bracket-spot"
 [[tools]]
 id = "drillD"
 name = "D drill"
-description = "Ø6.248 HSS letter D drill"
+ref = "bracket-drillD"
 [[tools]]
 id = "ream"
 name = "6.5 mm reamer"
-description = "Ø6.512 HSS chucking reamer"
+ref = "bracket-ream"
 
 [[setups]]
 title = "Saw and square — six holds"
@@ -96,8 +98,7 @@ holding = "Seat up, 1 in parallels; jaws along Y, fixed jaw −X, grip {{process
 datum = "LEFT X{{cad.raw_x_min:.2f}}; outer edge Y{{cad.raw_y_min:.2f}}; finished seat Z0, raw +{{process.seat_face_allowance_mm:.1f}}."
 [[setups.operations]]
 tool = "end"
-rpm = 900
-feed = "90 mm/min"
+settings = "bracket-end-plain-carbon-steel"
 instruction = "Face X{{cad.raw_x_min:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.raw_y_min:.2f}}…{{cad.raw_y_max:.2f}} to Z0: 1 DOC, 6.35 stepover. Rough foot to Z{{cad.foot_depth:.2f}}, 3 mm levels, {{process.wall_leave_mm:.1f}} radial leave; finish X{{cad.foot_x_min:.2f}}…{{cad.foot_x_max:.2f}},Y{{cad.foot_y_min:.2f}}…{{cad.foot_y_max:.2f}} full depth. Preserve ear stock below {{cad.foot_depth:.2f}}; jaws {{cad.seat_jaw_z:.2f}}."
 inspection = "Foot width {{cad.foot_width_min:.2f}}–{{cad.foot_width_max:.2f}}; length {{cad.foot_length_min:.2f}}–{{cad.foot_length_max:.2f}}."
 
@@ -108,8 +109,7 @@ holding = "Seat down, 1-1/8 in narrow parallels; grip raw {{process.prepared_wid
 datum = "Foot top Z0; seat {{cad.foot_depth:.2f}}; crown +{{cad.crown_z:.2f}}. Raw LEFT X{{cad.raw_x_min:.2f}},Y−12; free end Y{{cad.reverse_raw_y_min:.2f}},X0: pick at Z+20, traverse above +32."
 [[setups.operations]]
 tool = "long"
-rpm = 900
-feed = "90 mm/min; any in-stock plunge 45 mm/min"
+settings = "bracket-long-plain-carbon-steel"
 instruction = "Rough free run X{{cad.raw_x_min:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.reverse_raw_y_min:.2f}}…{{cad.inner_y:.2f}} and strips X{{cad.raw_x_min:.2f}}…{{cad.ear_x_min:.2f}}/{{cad.ear_x_max:.2f}}…{{cad.raw_x_max:.2f}},Y{{cad.strip_y_min:.2f}}…{{cad.reverse_raw_y_max:.2f}} from +{{cad.crown_z:.2f}} to +16: ≤4 axial, 1 radial step, {{process.wall_leave_mm:.1f}} wall leave. Enter free run from −Y, strips from outside; retain square crown."
 
 [[setups]]
@@ -119,8 +119,7 @@ holding = "Seat down, 1-5/8 in × 1/8 in parallels; X0 drill line clear. Foot gr
 datum = "Foot top Z0; foot transfer ≤0.0254 TIR. Raw LEFT X{{cad.raw_x_min:.2f}} / free end Y{{cad.reverse_raw_y_min:.2f}}: pick at Z+8. Crown +{{cad.crown_z:.2f}}; traverse above +32."
 [[setups.operations]]
 tool = "long"
-rpm = 900
-feed = "90 mm/min; any in-stock plunge 45 mm/min"
+settings = "bracket-long-plain-carbon-steel"
 instruction = "Rough same free run/strips +16→+{{process.floor_leave_mm:g}}: ≤3 axial, 1 radial step, {{process.wall_leave_mm:.1f}} wall leave. Finish inner wall Y{{cad.inner_y:.2f}}, ear sides X{{cad.ear_x_min:.2f}}…{{cad.ear_x_max:.2f}}, ledges Z0; ≤9.1 axial finish levels, {{process.wall_leave_mm:.1f}} radial. Keep square crown."
 inspection = "Ear width {{cad.ear_width_min:.2f}}–{{cad.ear_width_max:.2f}}; seat-to-foot-top {{cad.foot_height_min:.2f}}–{{cad.foot_height_max:.2f}} on free run and both ledges."
 [[setups.operations]]
@@ -142,8 +141,7 @@ holding = "Fixture: ledge 22.6×17.9×6, two #10-24×5/8 in screws into upright;
 datum = "Foot LEFT X{{cad.foot_x_min:.2f}}; seat/upright Y0. Z0 on finished foot outer end, cutter centre X0,Y+1.5, not raw ear +1. Traverse above +5."
 [[setups.operations]]
 tool = "end"
-rpm = 900
-feed = "90 mm/min"
+settings = "bracket-end-plain-carbon-steel"
 instruction = "Face X{{cad.foot_x_min:.2f}}…{{cad.foot_x_max:.2f}},Y{{cad.crown_y:.2f}}…0, +1→0: 1 DOC, 4 stepover; wipe finished foot end. Rough R{{cad.arch_radius:.2f}} crown, centre X{{cad.bore_x:.2f}},Y{{cad.bore_y:.2f}}, single-axis stairs to Z{{cad.crown_finish_depth:.2f}}: ≤3.2 axial, {{process.wall_leave_mm:.1f}} radial leave, ≤0.15 cusp."
 inspection = "Ear thickness {{cad.ear_thickness_min:.2f}}–{{cad.ear_thickness_max:.2f}} after facing; foot length remains {{cad.foot_length_min:.2f}}–{{cad.foot_length_max:.2f}}."
 [[setups.operations]]

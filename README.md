@@ -1,4 +1,4 @@
-# Prechips v0.5
+# Prechips v0.6
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -95,6 +95,43 @@ enforce = []  # Skip stock checking; allow setups without a diagram.
 
 Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to `enforce` to require CAD and fitting blank dimensions independently of diagrams. These are the supported enforcement keys; `setup_diagrams` is the only feature key. Unknown keys are errors.
 
+## Shared tools and cutting settings
+
+Plans can reference one shop file. The base-bar, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
+
+```toml
+# In the plan, before any tables:
+shop = "../shop.toml"  # Relative to this plan.
+material_key = "shaft-1018-cold-finished"
+
+[[tools]]
+id = "blade"
+ref = "shaft-blade"
+name = "Blade"  # Optional local override.
+
+[[setups.operations]]
+tool = "blade"
+settings = "shaft-relief-1018"
+instruction = "Plunge south relief to Ø5.70."
+# rpm = 1050  # Overrides only rpm; shared feed remains.
+```
+
+```toml
+# In the shop file:
+[tools.shaft-blade]
+description = "M2 square blade"
+
+[settings.shaft-relief-1018]
+tool = "shaft-blade"
+material = "shaft-1018-cold-finished"
+rpm = 1200
+feed = "0.02 mm/rev"
+```
+
+Tool `name` and `description` overrides are independent, as are operation `rpm` and `feed` overrides. A referenced setting must match the tool's shared identity and the plan's `material_key`, even when both cutting fields are overridden. These identities are explicit; printed material descriptions are not parsed.
+
+Shared strings are literal. Plan-owned overrides retain CAD/process bindings. Missing references, mismatched identities and invalid selected records fail before output. Inline-only plans remain supported, and the shared input file cannot be used as the output. This is an authored library, not tool selection or a cutting calculator.
+
 ## Process TOML
 
 Dimensions and manual feed instructions are strings with explicit units; spindle speeds are positive integer rpm. Tool identifiers connect operations to descriptions and are not printed.
@@ -146,4 +183,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.5 extends source bindings to three more parts; shared cutting data and generated setup pictures remain later milestones.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; pivot-shaft hobby pictures and round-stock support are the next milestone.

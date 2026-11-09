@@ -12,35 +12,37 @@ revision = "BH-TN-EXAMPLE / catalog-design-1"
 material = "1018 steel"
 stock = "1 × 5/8 × 5 in flat bar; four finished nuts"
 note = "Inches unless marked. Conventional milling. Flood: squaring, separation, end facing. Cutting oil: shoulders, drilling, tapping."
+shop = "../shop.toml"
+material_key = "tnuts-1018-annealed-hb120"
 
 [[tools]]
 id = "face"
 name = "3/4-in mill"
-description = "3/4-in HSS TiCN square-end mill, 4 flutes"
+ref = "tnuts-face"
 [[tools]]
 id = "rough"
 name = "1/2-in rougher"
-description = "1/2-in HSS shoulder rougher, 4 flutes"
+ref = "tnuts-rough"
 [[tools]]
 id = "finish"
 name = "1/2-in finisher"
-description = "1/2-in HSS flat-end finisher, 4 flutes"
+ref = "tnuts-finish"
 [[tools]]
 id = "saw"
 name = "Slitting saw"
-description = "2-in HSS, 36T; .125 kerf / .120 body; 1/2-in bore"
+ref = "tnuts-saw"
 [[tools]]
 id = "spot"
 name = "#3 centre drill"
-description = "#3 HSS centre drill"
+ref = "tnuts-spot"
 [[tools]]
 id = "drill"
 name = "5/16-in drill"
-description = "5/16-in HSS jobber drill, 118° point"
+ref = "tnuts-drill"
 [[tools]]
 id = "tap"
 name = "3/8-16 tap"
-description = "3/8-16 RH HSS taper tap; spring follower"
+ref = "tnuts-tap"
 
 [[setups]]
 title = "Slot pickup and batch cutoff"
@@ -76,13 +78,11 @@ datum = "Y0 = midpoint of actual base sides; Z0 = finished top."
 [[setups.operations]]
 tool = "rough"
 instruction = "Rough both shoulders at Y ±.5075, Z−.125 then −.250; leave .010 on walls. Feed +X at −Y, −X at +Y; cross only beyond ends."
-rpm = 750
-feed = "3 in/min"
+settings = "tnuts-rough-1018"
 [[setups.operations]]
 tool = "finish"
 instruction = "Finish walls at Y ±.4975, Z−.250; floors unchanged. Target .495 stem, .250 flange."
-rpm = 750
-feed = "3 in/min"
+settings = "tnuts-finish-1018"
 
 [[setups]]
 title = "Separate — three holds"
@@ -110,8 +110,7 @@ datum = "Stop face X+.500; finished free end X−.500; stem midpoint Y0; top Z0.
 [[setups.operations]]
 tool = "finish"
 instruction = "Face free end only, .025 at full .500 height, to 1.000 length: nut 1 bandsawn end, nuts 2–3 upper slitting ends, nut 4 original starting end."
-rpm = 750
-feed = "3 in/min"
+settings = "tnuts-finish-1018"
 
 [[setups]]
 title = "Drill and tap — repeat for nuts 1–4"

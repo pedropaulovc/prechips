@@ -40,12 +40,33 @@ def _tables(table: dict, key: str, where: str) -> list[dict]:
     return value
 
 
+def _shop_record(shop: dict, section: str, key: str, where: str) -> dict:
+    records = shop.get(section, {})
+    if not isinstance(records, dict):
+        raise PlanError(f"shop.{section}: expected a table")
+    if key not in records:
+        raise PlanError(f"{where}: unknown shared {section} reference {key!r}")
+    record = records[key]
+    if not isinstance(record, dict):
+        raise PlanError(f"shop.{section}.{key}: expected a table")
+    return record
+
+
+def _cutting_settings(table: dict, where: str) -> None:
+    _text(table, "feed", where, optional=True)
+    if "rpm" in table:
+        rpm = table["rpm"]
+        if type(rpm) is not int or rpm <= 0:
+            raise PlanError(f"{where}.rpm: expected a positive integer")
+
+
 @dataclass
 class LoadedPlan:
     data: dict
     path: Path
     cad: CadData | None
     parameters: dict
+    shop: Path | None
 
 
 def load_plan(path: Path) -> LoadedPlan:
@@ -89,6 +110,18 @@ def load_plan(path: Path) -> LoadedPlan:
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error
+    shop_path = None
+    shop = {}
+    if "shop" in plan:
+        shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
+        try:
+            with shop_path.open("rb") as source:
+                shop = tomllib.load(source)
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+            raise PlanError(f"shop {shop_path}: {error}") from error
+        plan.pop("shop")
+    material_key = _text(plan, "material_key", "plan", optional=True)
+    plan.pop("material_key", None)
     _keys(
         plan,
         {"title", "part", "revision", "material", "stock", "note", "tools", "setups"},
@@ -99,10 +132,24 @@ def load_plan(path: Path) -> LoadedPlan:
     _text(plan, "note", "plan", optional=True)
 
     tool_ids = set()
+    tool_refs = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
-        _keys(tool, {"id", "name", "description"}, where)
+        _keys(tool, {"id", "name", "description", "ref"}, where)
         tool_id = _text(tool, "id", where)
+        if "ref" in tool:
+            ref = _text(tool, "ref", where)
+            if shop_path is None:
+                raise PlanError(f"{where}.ref: requires plan.shop")
+            shared = _shop_record(shop, "tools", ref, f"{where}.ref")
+            shared_where = f"shop.tools.{ref}"
+            _keys(shared, {"name", "description"}, shared_where)
+            _text(shared, "description", shared_where)
+            _text(shared, "name", shared_where, optional=True)
+            for key in ("name", "description"):
+                if key not in tool and key in shared:
+                    tool[key] = shared[key]
+            tool_refs[tool_id] = tool.pop("ref")
         _text(tool, "name", where, optional=True)
         _text(tool, "description", where)
         if tool_id in tool_ids:
@@ -147,19 +194,48 @@ def load_plan(path: Path) -> LoadedPlan:
             op_where = f"{where}.operations[{op_index}]"
             _keys(
                 operation,
-                {"tool", "instruction", "rpm", "feed", "inspection", "table"},
+                {
+                    "tool",
+                    "settings",
+                    "instruction",
+                    "rpm",
+                    "feed",
+                    "inspection",
+                    "table",
+                },
                 op_where,
             )
             tool_id = _text(operation, "tool", op_where, optional=True)
             if tool_id and tool_id not in tool_ids:
                 raise PlanError(f"{op_where}.tool: unknown tool {tool_id!r}")
+            if "settings" in operation:
+                ref = _text(operation, "settings", op_where)
+                if shop_path is None:
+                    raise PlanError(f"{op_where}.settings: requires plan.shop")
+                shared = _shop_record(shop, "settings", ref, f"{op_where}.settings")
+                shared_where = f"shop.settings.{ref}"
+                _keys(shared, {"tool", "material", "rpm", "feed"}, shared_where)
+                shared_tool = _text(shared, "tool", shared_where)
+                shared_material = _text(shared, "material", shared_where)
+                _cutting_settings(shared, shared_where)
+                if not {"rpm", "feed"} & shared.keys():
+                    raise PlanError(f"{shared_where}: expected rpm or feed")
+                if not tool_id or tool_refs.get(tool_id) != shared_tool:
+                    raise PlanError(
+                        f"{op_where}.settings: {ref!r} requires tool ref {shared_tool!r}"
+                    )
+                if not material_key or material_key != shared_material:
+                    raise PlanError(
+                        f"{op_where}.settings: {ref!r} requires "
+                        f"material_key {shared_material!r}"
+                    )
+                for key in ("rpm", "feed"):
+                    if key not in operation and key in shared:
+                        operation[key] = shared[key]
+                operation.pop("settings")
             _text(operation, "instruction", op_where)
-            for key in ("feed", "inspection"):
-                _text(operation, key, op_where, optional=True)
-            if "rpm" in operation:
-                rpm = operation["rpm"]
-                if type(rpm) is not int or rpm <= 0:
-                    raise PlanError(f"{op_where}.rpm: expected a positive integer")
+            _text(operation, "inspection", op_where, optional=True)
+            _cutting_settings(operation, op_where)
             if "table" in operation:
                 data = operation["table"]
                 table_where = f"{op_where}.table"
@@ -192,7 +268,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return LoadedPlan(plan, path.resolve(), cad, parameters)
+    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path)
 
 
 CSS = """

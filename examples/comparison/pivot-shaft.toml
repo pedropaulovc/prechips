@@ -13,6 +13,8 @@ revision = "{{cad.revision}}"
 material = "AISI 1018 cold-finished steel"
 stock = "1 × Ø{{process.stock_dia_mm:g}} × {{cad.blank_length:g}} mm sawn blank; {{process.supply_length_mm:g}} mm supply length from north apex to plain end"
 note = "Millimetres; X diametric, Z+ away from chuck. CRC cutting oil. Final length: fit to both ears; {{cad.span_ref:.2f}} REF."
+shop = "../shop.toml"
+material_key = "shaft-1018-cold-finished"
 
 [cad]
 adapter = "harmonic_pivot_shaft"
@@ -47,21 +49,23 @@ follow_rest_waste_margin_mm = 0.25
 [[tools]]
 id = "ar"
 name = "AR"
-description = "AR carbide turning/facing tool"
+ref = "shaft-ar"
 
 [[tools]]
 id = "centre"
 name = "#2 centre"
-description = "#2 M42 centre drill, Ø1.98 pilot / 60° seat"
+ref = "shaft-centre"
 
 [[tools]]
 id = "hss"
 name = "HSS"
+ref = "shaft-hss"
 description = "3/8 in M42 RH bit, {{process.entering_angle_deg:g}}° entering angle, R{{process.nose_radius_mm:g}} nose"
 
 [[tools]]
 id = "blade"
 name = "Blade"
+ref = "shaft-blade"
 description = "{{process.blade_width_mm:g}} mm M2 square blade, corner R{{process.blade_corner_radius_mm:g}}"
 
 [[setups]]
@@ -115,8 +119,7 @@ inspection = "Ø{{cad.bearing_dia_min:.3f}}–{{cad.bearing_dia_max:.3f}} at bot
 [[setups.operations]]
 tool = "blade"
 instruction = "South relief Ø{{cad.south_relief_dia:.2f}}: plunge Z{{cad.south_relief_start:g}}…{{cad.south_relief_first_end:g}}, then Z{{cad.south_relief_second_start:g}}…{{cad.south_relief_end:g}}. Break shoulder OD and bearing-side edge Z{{cad.south_relief_end:g}} ≤{{cad.edge_break_max:g}}."
-rpm = 1200
-feed = "0.02 mm/rev"
+settings = "shaft-relief-1018"
 inspection = "Relief Ø{{cad.south_relief_dia_min:.2f}}–{{cad.south_relief_dia_max:.2f}}; width {{cad.south_relief_width_min:g}}–{{cad.south_relief_width_max:g}}; corner R≤{{cad.south_corner_max:g}}."
 
 [[setups]]
@@ -135,8 +138,7 @@ inspection = "Journal Ø{{cad.journal_dia_min:.3f}}–{{cad.journal_dia_max:.3f}
 [[setups.operations]]
 tool = "blade"
 instruction = "Plunge north relief Ø{{cad.north_relief_dia:.2f}}: Z{{cad.north_relief_start:g}}…{{cad.north_relief_first_end:g}}, then Z{{cad.north_relief_second_start:g}}…{{cad.north_relief_end:g}}."
-rpm = 1200
-feed = "0.02 mm/rev"
+settings = "shaft-relief-1018"
 inspection = "Ø{{cad.north_relief_dia_min:.2f}}–{{cad.north_relief_dia_max:.2f}}; width {{cad.north_relief_width_min:g}}–{{cad.north_relief_width_max:g}}; corner R≤{{cad.north_corner_max:g}}."
 
 [[setups.operations]]
@@ -148,8 +150,7 @@ feed = "0.08 mm/rev"
 [[setups.operations]]
 tool = "hss"
 instruction = "North dome R{{cad.north_dome_radius:.2f}}: apex Z0, base {{cad.north_base_z:g}}. Rough: column 1 then 3, leaving {{process.dome_rough_allowance_mm:.2f}} on Ø. Finish: column 2 then 4, R{{process.nose_radius_mm:g}} nose compensated. X outward before Z toward chuck."
-rpm = 1400
-feed = "0.05 mm/rev; hand traverse"
+settings = "shaft-dome-1018"
 inspection = "Height {{cad.north_dome_height_min:g}}–{{cad.north_dome_height_max:g}}; journal length {{cad.journal_length_min:g}}–{{cad.journal_length_max:g}}; shoulder {{cad.shoulder_length_min:.2f}}–{{cad.shoulder_length_max:.2f}}. Break shoulder OD, journal-side relief edge Z{{cad.north_relief_end:g}} and dome rim ≤{{cad.edge_break_max:g}}."
 
 [setups.operations.table]
@@ -168,8 +169,7 @@ instruction = "Fit both ears, shoulder against north ear; scribe south ear outer
 [[setups.operations]]
 tool = "blade"
 instruction = "Part waste at chuck-side blade corner Z+{{cad.parting_z:.2f}}; X{{cad.bearing_dia:.2f}} → X0."
-rpm = 1050
-feed = "Hand plunge, 0.025 mm/rev"
+settings = "shaft-parting-1018"
 
 [[setups.operations]]
 tool = "hss"
@@ -181,6 +181,5 @@ inspection = "Scribe zero 0.00 ±0.05; end {{process.fit_min_mm:.2f}}–{{proces
 [[setups.operations]]
 tool = "hss"
 instruction = "South dome R{{cad.south_dome_radius:.2f}}: apex Z{{process.fit_apex_mm:.2f}}, base Z{{cad.south_base_z:.2f}}. Repeat north table adding +{{process.fit_apex_mm:.2f}} to every Z; X unchanged. Break rim ≤{{cad.edge_break_max:g}}; trial fit; oil."
-rpm = 1400
-feed = "0.05 mm/rev; hand traverse"
+settings = "shaft-dome-1018"
 inspection = "Dome height {{cad.south_dome_height_min:g}}–{{cad.south_dome_height_max:g}}; final length to actual ear fit."
