@@ -158,6 +158,48 @@ def test_bad_input_has_useful_error_without_output(tmp_path, text, message):
     assert not out.exists()
 
 
+@pytest.mark.parametrize("quantity", ["0", "-1", "1.5", "2.0", "true"])
+def test_pro_rejects_invalid_quantity(tmp_path, quantity):
+    text = PLAN + f"\n[parameters]\nquantity = {quantity}\n"
+    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    assert result.returncode == 2
+    assert "parameters.quantity: expected a positive integer" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
+def test_pro_accepts_positive_integer_quantity(tmp_path):
+    text = (
+        PLAN.replace(
+            'stock = "20 × 10 × 40 mm"',
+            'stock = "{{process.quantity}} blanks, 20 × 10 × 40 mm"',
+        )
+        + "\n[parameters]\nquantity = 2\n"
+    )
+    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    assert result.returncode == 0, result.stderr
+    assert "2 blanks, 20 × 10 × 40 mm" in out.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        "blank_length_in",
+        "blank_width_in",
+        "blank_thickness_in",
+        "slot_finish_diameter_in",
+    ],
+)
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_pro_rejects_nonpositive_dimensions(tmp_path, parameter, value):
+    text = PLAN + f"\n[parameters]\n{parameter} = {value}\n"
+    result, out = run_cli(tmp_path, text, "--profile", "pro")
+    assert result.returncode == 2
+    assert f"parameters.{parameter}: expected a positive number" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
 @pytest.mark.parametrize("output_kind", ["input", "hardlink"])
 def test_output_cannot_replace_input_plan(tmp_path, output_kind):
     plan = tmp_path / "plan.toml"

@@ -2,10 +2,13 @@
 
 import base64
 import tomllib
+from dataclasses import dataclass
 from html import escape
+from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
+from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.profiles import PRO, Profile
 
 
@@ -37,9 +40,53 @@ def _tables(table: dict, key: str, where: str) -> list[dict]:
     return value
 
 
-def load_plan(path: Path) -> dict:
+@dataclass
+class LoadedPlan:
+    data: dict
+    path: Path
+    cad: CadData | None
+    parameters: dict
+
+
+def load_plan(path: Path) -> LoadedPlan:
     with path.open("rb") as source:
         plan = tomllib.load(source)
+    parameters = plan.pop("parameters", {})
+    if not isinstance(parameters, dict):
+        raise PlanError("parameters: expected a table")
+    for key, value in parameters.items():
+        if key == "quantity" and (type(value) is not int or value < 1):
+            raise PlanError("parameters.quantity: expected a positive integer")
+        if type(value) not in (int, float):
+            raise PlanError(f"parameters.{key}: expected a finite number")
+        if not isfinite(value):
+            raise PlanError(f"parameters.{key}: expected a finite number")
+        if (
+            key
+            in {
+                "blank_length_in",
+                "blank_width_in",
+                "blank_thickness_in",
+                "slot_finish_diameter_in",
+            }
+            and value <= 0
+        ):
+            raise PlanError(f"parameters.{key}: expected a positive number")
+    cad = None
+    config = plan.pop("cad", None)
+    try:
+        if config is not None:
+            if not isinstance(config, dict):
+                raise PlanError("cad: expected a table")
+            _keys(config, {"file", "adapter"}, "cad")
+            if config.get("adapter") != "harmonic_base_bar":
+                raise PlanError("cad.adapter: expected harmonic_base_bar")
+            cad = load_cad(path.parent / _text(config, "file", "cad"), parameters)
+        # Literal-only plans can also bind authored process parameters.
+        context = cad or CadData({}, (0.0, 0.0, 0.0), path.resolve())
+        plan = bind_data(plan, context, parameters)
+    except CadError as error:
+        raise PlanError(str(error)) from error
     _keys(
         plan,
         {"title", "part", "revision", "material", "stock", "note", "tools", "setups"},
@@ -143,7 +190,7 @@ def load_plan(path: Path) -> dict:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return plan
+    return LoadedPlan(plan, path.resolve(), cad, parameters)
 
 
 CSS = """
@@ -211,7 +258,13 @@ def _html(value: str | int) -> str:
     return escape(str(value), quote=True)
 
 
-def _diagram_html(setup: dict, profile: Profile, source_dir: Path) -> str:
+def _diagram_html(
+    setup: dict,
+    profile: Profile,
+    source_dir: Path,
+    cad: CadData | None,
+    parameters: dict,
+) -> str:
     if "setup_diagrams" not in profile.features:
         return ""
     diagram = setup.get("diagram")
@@ -223,6 +276,10 @@ def _diagram_html(setup: dict, profile: Profile, source_dir: Path) -> str:
     path = source_dir / diagram["file"]
     try:
         content = path.read_bytes()
+        if cad is not None:
+            from prechips.cad_diagrams import render_cad_svg
+
+            content = render_cad_svg(content, cad, parameters)
         root = ElementTree.fromstring(content)
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
@@ -239,10 +296,10 @@ def _diagram_html(setup: dict, profile: Profile, source_dir: Path) -> str:
     )
 
 
-def render_traveler(
-    plan: dict, *, profile: Profile = PRO, source_dir: Path = Path(".")
-) -> str:
-    """Render a loaded plan; diagram paths are relative to the source plan directory."""
+def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
+    """Render a loaded plan; source paths remain relative to its TOML file."""
+    plan = loaded.data
+    source_dir = loaded.path.parent
     tools = {tool["id"]: tool for tool in plan["tools"]}
     lines = [
         "<!doctype html>",
@@ -283,7 +340,9 @@ def render_traveler(
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
             lines.append("</dl>")
         lines.append("</div>")
-        diagram = _diagram_html(setup, profile, source_dir)
+        diagram = _diagram_html(
+            setup, profile, source_dir, loaded.cad, loaded.parameters
+        )
         if diagram:
             lines.append(diagram)
         lines.append(

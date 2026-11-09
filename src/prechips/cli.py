@@ -29,18 +29,22 @@ def main(argv: list[str] | None = None) -> int:
             raise PlanError("output must not overwrite the input plan")
         profile = load_profile(args.profile)
         plan = load_plan(args.plan)
-        html = render_traveler(plan, profile=profile, source_dir=args.plan.parent)
         inputs = []
+        if plan.cad is not None:
+            inputs.append(plan.cad.source)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         if "setup_diagrams" in profile.features:
             inputs.extend(
                 args.plan.parent / setup["diagram"]["file"]
-                for setup in plan["setups"]
+                for setup in plan.data["setups"]
                 if "diagram" in setup
             )
         if args.out.exists() and any(args.out.samefile(path) for path in inputs):
-            raise PlanError("output must not overwrite an input profile or diagram")
+            raise PlanError(
+                "output must not overwrite an input CAD source, profile or diagram"
+            )
+        html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")
     except (

@@ -1,12 +1,14 @@
 # Prechips prototype
 
-Prechips restarted at **v0.10**. The current milestone is **v0.2**: profiles and hobby setup diagrams. It remains a prototype until Pedro finds it useful, not a machining certification system.
+Prechips restarted at **v0.10**. The current milestone is **v0.3**: CAD-sourced dimensions, followed by **v0.4** stock fit. It remains a prototype until Pedro finds it useful, not a machining certification system.
 
 ## Scope and milestones
 
 - Develop in small, usable milestones. Pedro approves each milestone. Never work more than three milestones ahead of his last review.
 - v0.10: a machine-readable manual-manufacturing process in TOML and a simple CLI producing printable traveler HTML for harmonic-analyzer's `ch_rocker_arm_tl_oblique_base_bar`.
 - v0.2: `pro` and `hobby` presets plus custom TOML profiles. Enforcement is limited to setup-rendering completeness. Hobby includes practical authored SVG setup diagrams; no CAD/FreeCAD requirement. Pro is the default.
+- v0.3: bind dimensions, drawing identity and diagram feature geometry to the selected CAD/drawing export. Keep process choices explicit. Prefer released data over importing CAD code or reconstructing dimensions from drawings.
+- v0.4: compare declared rectangular blank dimensions with the CAD nominal envelope in explicit length/width/thickness correspondence. No automatic stock rotation, parent-bar yield or machining simulation.
 - Print only what an experienced operator needs: tools, setups, feeds, speeds and inspections, with the dimensions and instructions necessary to perform them. No tutorials, repeated warnings, checker reports or internal identifiers. Omit routine technique and generic safety reminders ("lock head", "short stickout", "power off", stopping/retracting, cleaning/reseating); retain part-specific workholding, datums and cutting requirements.
 - Specify datum locations and acceptance dimensions, not how to operate measuring tools. Omit edge-finder speeds, hand-feed instructions, tip-radius offsets and compensated inspection readings.
 - The pro base-bar traveler must print on no more than two Letter pages at readable type size. Hobby may use extra pages for readable setup diagrams. Use operator shorthand, not tutorials. Do not print process-status notes such as "untried", "unverified" or certification commentary; state tooling, work instructions and inspection requirements directly.
@@ -17,7 +19,7 @@ Prechips restarted at **v0.10**. The current milestone is **v0.2**: profiles and
 ## Keep it small
 
 - No integrity checks, SHA-256 machinery, validation certificates, attestation systems, evidence bundles or speculative infrastructure.
-- No checker/rule framework, geometry engine, telemetry or inventory database unless an approved milestone demonstrates a real need. Profiles select only implemented features; v0.2 enforcement checks rendering completeness, not machining rules.
+- No general checker/rule framework, geometry engine, telemetry or inventory database unless an approved milestone needs it. Profiles select implemented features only; CAD bindings and the targeted stock-fit comparison do not justify restoring the legacy checker.
 - Basic input errors and HTML escaping are ordinary functionality, not a validation subsystem.
 - Do not invent machining dimensions, feeds, speeds, stock, tooling availability or inspection results. Use source-backed instructions; mark missing operating facts plainly and locally. A rendered sheet is not machining approval.
 - Prefer the standard library and straightforward code. Keep the authored process readable without knowing the implementation.
