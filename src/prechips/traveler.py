@@ -55,6 +55,8 @@ def load_plan(path: Path) -> LoadedPlan:
     if not isinstance(parameters, dict):
         raise PlanError("parameters: expected a table")
     for key, value in parameters.items():
+        if key == "quantity" and (type(value) is not int or value < 1):
+            raise PlanError("parameters.quantity: expected a positive integer")
         if type(value) not in (int, float):
             raise PlanError(f"parameters.{key}: expected a finite number")
         if not isfinite(value):

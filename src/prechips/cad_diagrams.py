@@ -88,13 +88,6 @@ def _process(parameters: dict, key: str) -> float:
     return _positive(parameters, key, "process")
 
 
-def _quantity(parameters: dict) -> int:
-    value = parameters.get("quantity")
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise CadError("process.quantity: expected a positive integer for the diagram")
-    return value
-
-
 def _points(values: dict, key: str) -> list[tuple[float, float]]:
     """Return ``(X, rise)`` pairs; rise = -DRO Y = printed y-down offset."""
     points = values.get(key)
@@ -202,7 +195,9 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     length = _process(parameters, "blank_length_in")
     width = _process(parameters, "blank_width_in")
     thickness = _process(parameters, "blank_thickness_in")
-    quantity = _quantity(parameters)
+    if "quantity" not in parameters:
+        raise CadError("process.quantity: required for the diagram")
+    quantity = parameters["quantity"]
     kerf, rest, x_start, top = 4.0, 134.0, 40.0, 60.0
     scale = min(12.0, (506 - kerf * quantity) / (quantity * length), 90 / width)
     lpx, hpx = length * scale, width * scale
