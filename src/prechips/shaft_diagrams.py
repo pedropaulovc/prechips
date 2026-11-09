@@ -675,7 +675,7 @@ def _fit(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups = _groups()
     arriving = [(left, bearing), (right, bearing)]
     kept = [(left, bearing), *_dome(base, sphere, height)]
-    waste = [(parting, bearing), (right, bearing)]
+    waste = [(parting + blade, bearing), (right, bearing)]
     groups["removed"].append(_solid(frame, arriving, left_break=True, right_break=True))
     groups["waste"].append(_solid(frame, waste, right_break=True))
     groups["arriving"].append(

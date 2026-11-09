@@ -32,7 +32,7 @@
   </g>
 
   <!-- schematic parting blade, chuck-side corner on the parting plane -->
-  <rect x="{{view.blade_x}}" y="{{view.blade_y}}" width="{{view.blade_w}}" height="50" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
+  <rect id="parting-blade" x="{{view.blade_x}}" y="{{view.blade_y}}" width="{{view.blade_w}}" height="50" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
 
   <!-- operation highlights, datums, dimensions and labels -->
   <g id="active" data-cad-group="active" stroke="#e07000" stroke-width="4" stroke-linecap="round"/>

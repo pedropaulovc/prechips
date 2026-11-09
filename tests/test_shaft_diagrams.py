@@ -105,3 +105,13 @@ def test_setup_reversal_and_centre_only_where_supported():
     # Reversed: bearing body in the chuck, dome apex exposed on the right.
     assert stock["reverse"][0] > 0 and stock["reverse"][1] == 0
     assert stock["fit"][0] > 0 and stock["fit"][1] == 0
+
+
+def test_parted_waste_starts_beyond_the_blade_kerf():
+    for width in (1.2, 1.6):
+        root = render("fit", blade_width_mm=width)
+        blade = attrs(root, "parting-blade")
+        waste_left = min(x for x, _ in outline(root, "waste"))
+        assert waste_left == pytest.approx(
+            float(blade["x"]) + float(blade["width"]), abs=0.02
+        )

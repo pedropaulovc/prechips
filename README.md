@@ -20,7 +20,7 @@ The output must be a different file from the input plan, including filesystem al
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
 
-The shaft also supports the built-in `pro` and `hobby` profiles. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup. Part profiles and positions come from the same CAD values and process parameters as the instructions; chuck, centre, rest and tool symbols are schematic. These are generated setup elevations, not STEP projections or collision checks.
+The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Part profiles and positions come from the same CAD values and process parameters as the instructions; chuck, centre, rest and tool symbols are schematic. These are generated setup elevations, not STEP projections or collision checks.
 
 Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
 
