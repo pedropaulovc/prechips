@@ -14,13 +14,14 @@ class Profile:
     name: str
     features: frozenset[str]
     enforce: frozenset[str]
+    turning_config: Path | None = None
 
 
-PRO = Profile("pro", frozenset(), frozenset({"stock_fit"}))
+PRO = Profile("pro", frozenset(), frozenset({"stock_fit", "turning_deflection"}))
 HOBBY = Profile(
     "hobby",
     frozenset({"setup_diagrams", "detailed_instructions"}),
-    frozenset({"setup_diagrams", "stock_fit"}),
+    frozenset({"setup_diagrams", "stock_fit", "turning_deflection"}),
 )
 
 
@@ -36,7 +37,7 @@ def load_profile(value: str) -> Profile:
             data = tomllib.load(source)
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
         raise ProfileError(f"profile {value!r}: {error}") from error
-    unknown = data.keys() - {"name", "features", "enforce"}
+    unknown = data.keys() - {"name", "features", "enforce", "turning_config"}
     if unknown:
         raise ProfileError(f"profile: unknown field(s): {', '.join(sorted(unknown))}")
     name = data.get("name")
@@ -50,7 +51,7 @@ def load_profile(value: str) -> Profile:
         ):
             raise ProfileError(f"profile.{key}: expected an array of names")
         supported = (
-            {"setup_diagrams", "stock_fit"}
+            {"setup_diagrams", "stock_fit", "turning_deflection"}
             if key == "enforce"
             else {"setup_diagrams", "detailed_instructions"}
         )
@@ -64,4 +65,9 @@ def load_profile(value: str) -> Profile:
         raise ProfileError(
             "profile.enforce: setup_diagrams must also be enabled in features"
         )
-    return Profile(name, lists["features"], lists["enforce"])
+    turning_config = data.get("turning_config")
+    if turning_config is not None:
+        if not isinstance(turning_config, str) or not turning_config.strip():
+            raise ProfileError("profile.turning_config: expected a nonempty path")
+        turning_config = (path.parent / turning_config).resolve()
+    return Profile(name, lists["features"], lists["enforce"], turning_config)

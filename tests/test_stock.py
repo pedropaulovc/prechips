@@ -118,6 +118,7 @@ def test_hobby_exact_fit_still_requires_diagrams(tmp_path, capsys):
     ("features", "enforce", "error"),
     [
         ([], ["stock_fit"], None),
+        ([], ["turning_deflection"], None),
         (["setup_diagrams"], ["stock_fit", "setup_diagrams"], None),
         (["stock_fit"], [], "profile.features: unknown requirement"),
         ([], ["setup_diagrams"], "must also be enabled"),

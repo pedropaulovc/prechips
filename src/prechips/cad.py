@@ -425,17 +425,28 @@ def bind_text(
     return _TOKEN.sub(replace, text)
 
 
-def bind_data(value: object, cad: CadData, parameters: dict) -> object:
-    """Bind authored strings and exact whole-field list tokens recursively."""
+def bind_data(
+    value: object, cad: CadData, parameters: dict, *, scalar_mode: str = "text"
+) -> object:
+    """Bind recursively; native mode preserves exact whole-field numeric tokens."""
+    if scalar_mode not in {"text", "native"}:
+        raise ValueError(f"unsupported binding scalar mode {scalar_mode!r}")
     if isinstance(value, str):
         token = _TOKEN.fullmatch(value)
         if token and token[3] is None:
             result = _lookup(token, cad, parameters, None)
-            if isinstance(result, list):
+            if isinstance(result, list) or (
+                scalar_mode == "native" and type(result) in (int, float)
+            ):
                 return result
         return bind_text(value, cad, parameters)
     if isinstance(value, list):
-        return [bind_data(item, cad, parameters) for item in value]
+        return [
+            bind_data(item, cad, parameters, scalar_mode=scalar_mode) for item in value
+        ]
     if isinstance(value, dict):
-        return {key: bind_data(item, cad, parameters) for key, item in value.items()}
+        return {
+            key: bind_data(item, cad, parameters, scalar_mode=scalar_mode)
+            for key, item in value.items()
+        }
     return value

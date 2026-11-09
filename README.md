@@ -12,15 +12,17 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
-uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --out out/pivot-shaft-hobby.html
+uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --out out/pivot-shaft-hobby.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
-The output must be a different file from the input plan, including filesystem aliases.
+The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
+
+The shaft currently exceeds the default finish-bending screen just before follower engagement. The explicit opt-out above renders its authored process unchanged; it is not a physics pass or machining approval.
 
 Radius, height and cap limits come from CAD; frame-edge-to-tip is radius + 4.7625 mm per the [manufacturer's manual, pp. 4–7](https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368). Jaw positions are set back for the attachment, with a 5 mm full-sweep gap required at setup. The retained 1400 rpm is an authored starting speed, not a supplier recommendation. Pictures share the instructions' CAD/process values; fixture symbols are schematic, not physical attachment models or collision checks.
 
@@ -34,7 +36,7 @@ Setups are numbered in order; operations use unique numbers in increments of ten
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile examples/comparison/profile.toml --out out/pivot-shaft.html
 ```
 
-These adaptations retain the archived process choices except the shaft's dome finishing, now using the LMS attachment rather than a stepped contour table. Source files are identified in each TOML header. The shaft, bracket and rocker bind dimensions to their adjacent feature-manifest snapshots; the remaining comparison plans use literal values. The comparison profile renders compact text only and omits stock-fit checking. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
+These adaptations retain the archived process choices except the shaft's dome finishing, now using the LMS attachment rather than a stepped contour table. Source files are identified in each TOML header. The shaft, bracket and rocker bind dimensions to their adjacent feature-manifest snapshots; the remaining comparison plans use literal values. The comparison profile renders compact text only and explicitly omits stock-fit and turning-deflection enforcement. Archived longitudinal cuts without structured analysis data fail under built-in profiles rather than being silently accepted. The cone remains a built-up bonded-sleeve route, and the bracket retains the archive's illustrative dimensional intent.
 
 At 10.5pt on Letter paper, the ring uses one page; the tube, T-nuts, bracket and shaft use two each. Pedro approved three pages for the cone and rocker so their remaining instructions stay readable. The cone's reusable fixture manufacture is a separate two-page `cone-pivot-post-fixtures.toml` job.
 
@@ -86,24 +88,64 @@ For the shaft, `stock_length_mm` is the available bar length. The header specifi
 
 There is no automatic rotation, yield calculation, added allowance or workholding check. Bracket and rocker stock requirements remain unsupported; use their comparison profile.
 
+## Turning deflection
+
+Both built-in profiles enforce `turning_deflection`, a narrow static bending screen for declared longitudinal turning of solid round stock. Default limits are **0.10 mm rough** and **0.005 mm finish**. These are authored total-transverse-bending limits, not guaranteed diameter error or handbook tolerances. A predicted exceedance or missing applicable data exits 2 before creating or replacing output. Successful checks print nothing on the traveler.
+
+Declare `machine_kind = "lathe"` or `"other"` on every setup. Each lathe operation declares `cut_kind = "longitudinal_turning"` or `"other"`; facing, parting, grooves, attachment domes and other unsupported cuts use `"other"` and are outside this model, not checked passes. Longitudinal cuts require root `turning_material`, setup `turning_support`, and nonempty operation `turning_cuts` with explicit numeric geometry, DOC and feed. Printed material names and feed prose are not parsed. Numeric fields can use existing CAD/process bindings.
+
+For numeric analysis fields, use exact whole-field bindings without formatting, such as `start_z_mm = "{{cad.body_cut_start_z}}"`; these preserve the underlying number and precision. Formatted bindings such as `:g` remain text and are refused where analysis requires a number.
+
+Supports are `chuck_only` (`chuck_z_mm`), `tailstock` (also `centre_z_mm`), or `follower` (also `engage_z_mm`, `offset_mm`, `pad_width_mm`). Follower credit requires a toward-chuck traverse and a whole pad band on already-turned continuous cylindrical land produced by the declared pass; before engagement the model uses chuck/centre supports. It checks the declared pad footprint and both sides of engagement, not STEP gaps, actual pad contact/capacity or machine compliance.
+
+Each cut declares `name`, `phase = "rough" | "finish"`, `start_z_mm`, `end_z_mm`, `start_diameter_mm`, `end_diameter_mm`, `max_radial_doc_mm`, `feed_mm_rev`, and `minimum_diameter_mm` (the smallest existing section elsewhere). An optional `max_deflection_mm` overrides that cut's phase limit. Actual radial stepdowns are evaluated with their remaining diameter; the smaller of that diameter and the declared minimum section controls bending stiffness.
+
+Packaged [`turning.toml`](src/prechips/turning.toml) holds editable coefficients and source notes. Unit power comes from *Machinery's Handbook*, printed pp. 1085–1086 (corpus PDF pages 1406–1407); feed and wear factors are on printed p. 1087 (PDF 1408). Default material keys deliberately encode proxies, not measured stock properties:
+
+| Key | Unit-power condition | Elastic-modulus proxy |
+| --- | --- | --- |
+| `aluminum` | Rolled (hard) aluminum | Wrought 2014-T6, 73 GPa |
+| `brass` | Medium brass | Naval brass, 103 GPa |
+| `bronze` | Medium bronze | Phosphor bronze ASTM B159, 103 GPa |
+| `steel_1018` | Authored plain-carbon steel 160–180 HB proxy | SAE 1025, 207 GPa |
+| `steel_o1` | Authored **annealed** tool-steel 200–250 HB proxy; not hardened O1 | Steel-family proxy, 207 GPa |
+
+Nonferrous modulus references are handbook printed p. 204 (PDF 525); steel references are printed p. 474 (PDF 795). Choose data appropriate to actual material condition. The default radial/tangential force ratio of 1.0 is an explicit authored assumption, not a universal measured ratio. The screen combines both components, uses a circular minimum section, and omits machine compliance, chatter, thermal effects, hollow stock and discontinuous/profiled cuts. It is a practical prototype, not a certificate or general machining-safety check.
+
+Override only the values you need; a custom TOML merges partial tables over packaged defaults:
+
+```toml
+# shop-turning.toml
+[limits]
+finish_mm = 0.005
+
+[materials.steel_1018]
+elastic_modulus_gpa = 207.0
+```
+
+Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence. New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
+
+For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. Disabling a check adds no warning, checker status or certificate to the sheet.
+
+
 ## Profiles
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
 | --- | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits the declared requirement |
-| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | Stock fits; every setup has a readable SVG diagram |
+| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; applicable longitudinal turning meets bending limits |
+| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | Stock fits; turning meets bending limits; every setup has a readable SVG diagram |
 
-Enforcement does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
+Enforcement is limited to the declared stock, setup-diagram and static longitudinal-turning contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
 ```toml
 name = "illustrated"
 features = ["setup_diagrams", "detailed_instructions"]
-enforce = []  # Skip stock checking; allow setups without a diagram.
+enforce = []  # Explicitly skip stock/turning checks; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to `enforce` to require CAD and fitting blank dimensions independently of diagrams. These are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
@@ -162,6 +204,7 @@ description = "Tool description and size"
 [[setups]]
 title = "Operation and setup"
 machine = "Machine"
+machine_kind = "other"  # Use "lathe" for lathe setups.
 holding = "Workholding, orientation and necessary clearance"
 datum = "Datum faces, axis directions and zero"
 inspection = ["Setup-level inspection and acceptance limits"]

@@ -3,11 +3,13 @@
 import argparse
 import sys
 import tomllib
+from dataclasses import replace
 from pathlib import Path
 
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
+from prechips.turning import DEFAULT_CONFIG, TurningError, check_turning_deflection
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -24,11 +26,29 @@ def main(argv: list[str] | None = None) -> int:
         metavar="pro|hobby|FILE.toml",
         help="rendering features and completeness requirements (default: pro)",
     )
+    traveler.add_argument(
+        "--disable-check",
+        action="append",
+        default=[],
+        choices=("setup_diagrams", "stock_fit", "turning_deflection"),
+        help="disable an enforced check (repeatable; no sheet warning)",
+    )
+    traveler.add_argument(
+        "--turning-config",
+        type=Path,
+        metavar="FILE.toml",
+        help="override turning coefficients and limits (partial TOML config)",
+    )
     args = parser.parse_args(argv)
     try:
         if args.out.exists() and args.out.samefile(args.plan):
             raise PlanError("output must not overwrite the input plan")
         profile = load_profile(args.profile)
+        profile = replace(
+            profile,
+            enforce=profile.enforce - frozenset(args.disable_check),
+            turning_config=args.turning_config or profile.turning_config,
+        )
         plan = load_plan(args.plan)
         if "stock_fit" in profile.enforce:
             check_stock_fit(plan)
@@ -39,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
+        if "turning_deflection" in profile.enforce:
+            inputs.append(DEFAULT_CONFIG)
+            if profile.turning_config is not None:
+                inputs.append(profile.turning_config)
         if "setup_diagrams" in profile.features:
             inputs.extend(
                 args.plan.parent / setup["diagram"]["file"]
@@ -47,8 +71,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.out.exists() and any(args.out.samefile(path) for path in inputs):
             raise PlanError(
-                "output must not overwrite an input CAD source, profile, diagram or shop"
+                "output must not overwrite an input CAD source, profile, diagram, "
+                "shop or turning config"
             )
+        if "turning_deflection" in profile.enforce:
+            check_turning_deflection(plan, config_path=profile.turning_config)
         html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")
@@ -59,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         PlanError,
         ProfileError,
         StockError,
+        TurningError,
     ) as error:
         print(f"prechips: {error}", file=sys.stderr)
         return 2

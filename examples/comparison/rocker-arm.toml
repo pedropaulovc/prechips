@@ -48,6 +48,7 @@ name = "Hole tools"
 description = "#2 spot 3000 rpm/120 mm/min; D drill Ø6.248 1250/137.5; Ø1.85 drill 3000/120; Ø2 reamer (working 2.004) 2200/369.6; Ø6.5 H7 reamer (working 6.512) 650/163.8."
 
 [[setups]]
+machine_kind = "other"
 title = "Prepare blank — five separate vise holds"
 machine = "4×6 bandsaw; PM-30MV"
 holding = "Saw flat, 4/6 bi-metal blade, dry, 200 ft/min. Mill with 3/4 4fl; each row is a new hold."
@@ -60,6 +61,7 @@ columns = ["Hold", "Orientation / cut"]
 rows = [["1 — reference face", "Flat, 1-1/4 in parallels; face upper broad face, nominal {{cad.face_skim:.3f}} removal."], ["2 — datum edge", "On edge, 1/2 in parallels; reference face at fixed jaw, round bar at moving jaw. Face datum edge, 2 ×{{cad.edge_skim:.1f}}."], ["3 — opposite edge", "Datum edge down, reference face at fixed jaw, right end now left; retain round bar at moving jaw. Face to width {{process.blank_width:.1f}}; nominal 2 ×{{cad.edge_skim:.1f}}."], ["4 — thickness", "Flat, reference face down, datum edge at fixed jaw; 1-1/4 in parallels. Face to {{process.blank_thickness:.1f}}, nominal {{cad.face_skim:.3f}} removal."], ["5 — ends", "Reference face up, datum edge at fixed jaw; both ends overhang ≈{{cad.end_overhang:.1f}}. Side-mill right end X0, then left X{{process.blank_length:.0f}}; 3 ×{{cad.end_step:.1f}} axial steps to Z{{cad.end_cut_z:.1f}}."]]
 
 [[setups]]
+machine_kind = "other"
 title = "Upper side — retain rail frame"
 machine = "PM-30MV"
 holding = "Grip ≥6 on full-thickness rails. Matched 76.2 ×63.5 ×25.4 risers (height match ≤0.01), centres X±40 Y+4.5; 1/2 in parallels under Y−25.5/+34.5. Retain rails Y−28…−20/+31.7…+37 and ears outside X±160."
@@ -75,6 +77,7 @@ tool = "holes"
 instruction = "Pivot X0 Y0: spot 0.50, drill D through; full diameter 2 beyond raw bottom Z{{cad.raw_bottom:.5f}}."
 
 [[setups]]
+machine_kind = "other"
 title = "Lower side — opposed cuts and rod hole"
 machine = "PM-30MV"
 holding = "Turn about X; rod end stays +X, negate Y of upper-side outline. Same rail grip/risers, centres X±40 Y−4.5; parallels Y−34.5/+25.5. Two passive jacks X±40 just bear on finished strap, without lifting rails."
@@ -92,6 +95,7 @@ tool = "mills"
 instruction = "Repeat upper profile rough, mirrored Y; joins +X → bottom → −X, then top. Retain narrow rail Y−37…−31.7, wide rail +20…+28, ears and {{cad.web:.2f}} web."
 
 [[setups]]
+machine_kind = "other"
 title = "Strap-held pivot ream"
 machine = "PM-30MV"
 holding = "Profile plate, upper side up: permanent diamond pin in rod hole; lower strap on pads, hub and rails shimmed without lifting strap. Two padded straps at X±70, studs outside frame."
@@ -102,6 +106,7 @@ instruction = "Record pilot centre, ream Ø6.5 without relocating, 2 beyond hub 
 inspection = "Centre shift ≤0.020 radial; pivot diameter Ø{{cad.pivot_min:.3f}}–{{cad.pivot_max:.3f}}; plugs Ø{{process.pivot_go:.3f}} GO/Ø{{process.pivot_no_go:.3f}} NO-GO; Ra ≤{{cad.pivot_ra:.1f}} µm."
 
 [[setups]]
+machine_kind = "other"
 title = "File integral hub — separate bench hold"
 machine = "Fitting bench"
 holding = "Hardened button on each hub face: rim Ø10.195–10.205, bore Ø6.505–6.515; stud through reamed A, coupling nut hand-tight. Vise grips stud tail, not part."
@@ -109,6 +114,7 @@ holding = "Hardened button on each hub face: rim Ø10.195–10.205, bore Ø6.505
 instruction = "File upper then lower projection to its button rim; safe edge on strap, short strokes inside rails. Both ODs {{cad.hub_min:.2f}}–{{cad.hub_max:.2f}}."
 
 [[setups]]
+machine_kind = "other"
 title = "Locate, release and finish outline"
 machine = "PM-30MV; inspection bench; black-oxide vendor"
 holding = "Reseat lower strap on pads, recheck hub/rail shims. Shoulder screw/washer through A; preload CCW viewed down −Z against permanent rod diamond pin, tighten. Separately clamp narrow scrap rail X±30 Y34.5 and wide rail X±130 Y−25.5. Pin is orientation stop, NOT datum C."

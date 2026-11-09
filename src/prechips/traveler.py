@@ -60,6 +60,58 @@ def _cutting_settings(table: dict, where: str) -> None:
             raise PlanError(f"{where}.rpm: expected a positive integer")
 
 
+def _choice(table: dict, key: str, choices: set[str], where: str) -> None:
+    if key in table and (not isinstance(table[key], str) or table[key] not in choices):
+        raise PlanError(f"{where}.{key}: expected {' or '.join(sorted(choices))}")
+
+
+def _turning_numbers(table: dict, keys: set[str], where: str) -> None:
+    for key in keys & table.keys():
+        value = table[key]
+        if type(value) not in (int, float) or not isfinite(value):
+            raise PlanError(f"{where}.{key}: expected a finite number")
+
+
+def _turning_support(setup: dict, where: str) -> None:
+    if "turning_support" not in setup:
+        return
+    support = setup["turning_support"]
+    where = f"{where}.turning_support"
+    if not isinstance(support, dict):
+        raise PlanError(f"{where}: expected a table")
+    numbers = {
+        "chuck_z_mm",
+        "centre_z_mm",
+        "engage_z_mm",
+        "offset_mm",
+        "pad_width_mm",
+    }
+    _keys(support, {"kind"} | numbers, where)
+    _choice(support, "kind", {"chuck_only", "tailstock", "follower"}, where)
+    _turning_numbers(support, numbers, where)
+
+
+def _turning_cuts(operation: dict, where: str) -> None:
+    if "turning_cuts" not in operation:
+        return
+    numbers = {
+        "start_z_mm",
+        "end_z_mm",
+        "start_diameter_mm",
+        "end_diameter_mm",
+        "max_radial_doc_mm",
+        "feed_mm_rev",
+        "minimum_diameter_mm",
+        "max_deflection_mm",
+    }
+    for index, cut in enumerate(_tables(operation, "turning_cuts", where), 1):
+        cut_where = f"{where}.turning_cuts[{index}]"
+        _keys(cut, {"name", "phase"} | numbers, cut_where)
+        _text(cut, "name", cut_where)
+        _choice(cut, "phase", {"rough", "finish"}, cut_where)
+        _turning_numbers(cut, numbers, cut_where)
+
+
 @dataclass
 class LoadedPlan:
     data: dict
@@ -107,6 +159,21 @@ def load_plan(path: Path) -> LoadedPlan:
             )
         # Literal-only plans can also bind authored process parameters.
         context = cad or CadData({}, stock_requirement=None, source=path.resolve())
+        # Analysis inputs retain full-precision numeric tokens. Printed fields
+        # keep the existing text binding semantics.
+        for setup in _tables(plan, "setups", "plan"):
+            if "turning_support" in setup:
+                setup["turning_support"] = bind_data(
+                    setup["turning_support"], context, parameters, scalar_mode="native"
+                )
+            for operation in _tables(setup, "operations", "setup"):
+                if "turning_cuts" in operation:
+                    operation["turning_cuts"] = bind_data(
+                        operation["turning_cuts"],
+                        context,
+                        parameters,
+                        scalar_mode="native",
+                    )
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error
@@ -124,12 +191,23 @@ def load_plan(path: Path) -> LoadedPlan:
     plan.pop("material_key", None)
     _keys(
         plan,
-        {"title", "part", "revision", "material", "stock", "note", "tools", "setups"},
+        {
+            "title",
+            "part",
+            "revision",
+            "material",
+            "stock",
+            "note",
+            "tools",
+            "setups",
+            "turning_material",
+        },
         "plan",
     )
     for key in ("title", "part", "revision", "material", "stock"):
         _text(plan, key, "plan")
     _text(plan, "note", "plan", optional=True)
+    _text(plan, "turning_material", "plan", optional=True)
 
     tool_ids = set()
     tool_refs = {}
@@ -168,11 +246,15 @@ def load_plan(path: Path) -> LoadedPlan:
                 "diagram",
                 "operations",
                 "inspection",
+                "machine_kind",
+                "turning_support",
             },
             where,
         )
         for key in ("title", "machine"):
             _text(setup, key, where)
+        _choice(setup, "machine_kind", {"lathe", "other"}, where)
+        _turning_support(setup, where)
         for key in ("holding", "datum"):
             _text(setup, key, where, optional=True)
         if "diagram" in setup:
@@ -203,9 +285,13 @@ def load_plan(path: Path) -> LoadedPlan:
                     "feed",
                     "inspection",
                     "table",
+                    "cut_kind",
+                    "turning_cuts",
                 },
                 op_where,
             )
+            _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
+            _turning_cuts(operation, op_where)
             tool_id = _text(operation, "tool", op_where, optional=True)
             if tool_id and tool_id not in tool_ids:
                 raise PlanError(f"{op_where}.tool: unknown tool {tool_id!r}")

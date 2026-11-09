@@ -36,6 +36,7 @@ description = "Centre drill"
 [[setups]]
 title = "Drill"
 machine = "Manual mill"
+machine_kind = "other"
 [[setups.operations]]
 instruction = "X {{cad.slot_paths}}"
 [setups.operations.table]

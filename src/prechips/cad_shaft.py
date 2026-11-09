@@ -232,6 +232,17 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         south_sphere_center_z=fit - domes[1][1],
         parting_z=fit + process("fit_face_allowance_mm"),
     )
+    # Analysis-only values; preserve the operator-facing approach clearance.
+    values.update(
+        supported_chuck_z=thrust_z - north_z,
+        body_cut_start_z=values["plain_end_z"],
+        bearing_finish_radial_doc=(values["bearing_rough_dia"] - values["bearing_dia"])
+        / 2,
+        journal_finish_radial_doc=(values["journal_rough_dia"] - values["journal_dia"])
+        / 2,
+        body_minimum_dia=process("stock_dia_mm"),
+        journal_minimum_dia=min(values["bearing_dia"], values["south_relief_dia"]),
+    )
     values["turn_start_z"] = values["plain_end_z"] + process("turn_start_clearance_mm")
     rest_centre = process("follow_rest_reset_z_mm") + process("follow_rest_lead_mm")
     rest_half_jaw = process("follow_rest_jaw_mm") / 2

@@ -1,0 +1,90 @@
+# Prototype static longitudinal-turning screen, not machining approval.
+# References: Machinery's Handbook corpus/pages/NNNN.md (PDF page NNNN).
+# Coefficients below are condition/family proxies, not measured stock properties.
+# Override any leaf in a custom TOML; new materials require both numeric fields.
+
+[limits]
+# Authored screening criteria, NOT handbook tolerances or actual diameter errors.
+rough_mm = 0.10
+# User-selected finish total-transverse-bending limit.
+finish_mm = 0.005
+
+[force]
+# AUTHORED assumption Fr/Ft, not a universal handbook force-component ratio.
+# Compare hypot(Ft, Fr) with the limits; do not call this actual diameter error.
+radial_ratio = 1.0
+# Table 5, PDF 1408 / printed 1087: normal rough and light finish wear factors.
+rough_wear = 1.30
+finish_wear = 1.10
+# Complete turning Table 4, PDF 1408 / printed 1087: [feed in/rev, factor C].
+# Linear interpolation is our implementation choice; no extrapolation.
+feed_factors = [
+    [0.001, 1.60],
+    [0.002, 1.40],
+    [0.003, 1.30],
+    [0.004, 1.25],
+    [0.005, 1.19],
+    [0.006, 1.15],
+    [0.007, 1.11],
+    [0.008, 1.08],
+    [0.009, 1.06],
+    [0.010, 1.04],
+    [0.011, 1.02],
+    [0.012, 1.00],
+    [0.013, 0.98],
+    [0.014, 0.97],
+    [0.015, 0.96],
+    [0.016, 0.94],
+    [0.018, 0.92],
+    [0.020, 0.90],
+    [0.022, 0.88],
+    [0.025, 0.86],
+    [0.028, 0.84],
+    [0.030, 0.83],
+    [0.032, 0.82],
+    [0.035, 0.80],
+    [0.040, 0.78],
+    [0.060, 0.72],
+]
+
+# Unit power Kp: hp/(in^3/min), sharp-tool basis, PDF 1405-1407 / pp1084-1086.
+# Fc=396000*Kp*C*W*DOC(in)*feed(in/rev) lbf derives from Q=12Vfd and hp.
+# Do not multiply by motor-drive efficiency: this is cutting-edge force.
+[materials.aluminum]
+# Table 3a PDF1406/p1085: rolled (hard) aluminum, not the cast row.
+unit_power_hp_min_per_in3 = 0.33
+# PDF0525/p204: wrought 2014-T6, 10.6 million psi, rounded GPa family proxy.
+elastic_modulus_gpa = 73.0
+
+[materials.brass]
+# Table 3a PDF1406/p1085: medium brass (not leaded/soft/hard universal value).
+unit_power_hp_min_per_in3 = 0.50
+# PDF0525/p204: naval brass, 15 million psi, rounded family proxy.
+elastic_modulus_gpa = 103.0
+
+[materials.bronze]
+# Table 3a PDF1406/p1085: medium bronze; hard bronze has a different row.
+unit_power_hp_min_per_in3 = 0.50
+# PDF0525/p204: phosphor bronze ASTM B159, 15 million psi family proxy.
+elastic_modulus_gpa = 103.0
+
+[materials.steel_1018]
+# AUTHORED condition proxy: plain carbon steel 160-180 HB, Table 3b PDF1407/p1086.
+# Not a grade-specific 1018 measurement or universal cold-drawn hardness.
+unit_power_hp_min_per_in3 = 0.78
+# PDF0795/p474 Table 13: SAE1025 low-carbon steel, 30 million psi proxy.
+elastic_modulus_gpa = 207.0
+
+[materials.steel_o1]
+# AUTHORED annealed tool-steel 200-250 HB proxy, Table 3a PDF1406/p1085.
+# NOT hardened O1. Actual stock hardness/condition must suit the chosen data.
+unit_power_hp_min_per_in3 = 0.88
+# PDF0795/p474: 30 million psi steel-family proxy, not O1-specific measurement.
+elastic_modulus_gpa = 207.0
+
+# Beam formulas: PDF0586/p265 cases11-12 (chuck cantilever), PDF0582/p261
+# cases2-3 (pinned supports at actual load position). Round I=pi*D^4/64:
+# PDF0576/p255. Follower uses chuck/pad point supports only AFTER land engagement.
+# Uniform minimum section is conservative for stepped solid round sections;
+# no hollow stock, gaps, profiles, machine compliance, chatter, thermal effects,
+# plasticity, axial-force buckling, or motion/physical setup certification.
