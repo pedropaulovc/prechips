@@ -1,12 +1,12 @@
 # Source: archive/pre-v0.10-2026-11-08, examples/cone-pivot-post/{built-up.toml,
 # expected/built-up/traveler.html}; examples/{inventory/pedro-shop.toml,cutting-data.toml}.
 # Fixture geometry, cutting settings and trial methods are the archived example's process choices.
-title = "Cone pivot post — reusable fixtures and reamer trials"
+title = "Cone pivot post — fixtures and reamer trials"
 part = "cone-pivot-post-fixtures"
 revision = "v40 example"
 material = "1018 steel; 6061 aluminium; C360 brass"
 stock = "Bond cradle: 1/2 × 3-1/2 in and 3/4 × 2-1/2 in 1018 flat; arbor Ø2 in ×160. Saw cradle: 1-3/4 ×4 in 1018 flat ×99; bridge 5/8 ×1 in ×80; brass pad Ø1 in ×7. Buttons Ø3/4 in 6061; jaws 1×3 in 6061 ×162 each. Trials: two15 mm 1018 offcuts, oneØ25, oneØ19.05."
-note = "All dimensions mm. Complete trials before bonding. Fit bond cradle/arbor to turned post; fit saw land to cured, bored post. Use with cone-pivot-post.toml."
+note = "mm throughout. Trials before bonding; fit bond cradle/arbor to turned post and saw land to cured/bored post. Companion: cone-pivot-post.toml."
 
 [[tools]]
 id = "turn"
@@ -15,29 +15,29 @@ description = "AR turning/facing tool; 1.6 mm parting blade; #2 centre drill."
 [[tools]]
 id = "drill"
 name = "Trials"
-description = "#2 centre drill; Ø11.2 and Ø12.05 drills; 0.4500 in and 0.4835 in reamers."
+description = "Trial drills/reamers: sizes and settings below."
 [[tools]]
 id = "fixture"
 name = "Fixture cuts"
-description = "Boring head / 1/2 in bar; 3/4, 3/16, 1/4, 3/8, 11/16 in end mills; drills #9, #25, #7, Ø3.8, 5/16, 9/32, 13/32, 7/16 in; Ø4.00 reamer; 82° countersink; #10-24, 1/4-20, 3/8-16 hand taps."
+description = "Boring head,1/2 in bar; end mills, drills, reamers, countersink and hand taps sized at each cut."
 
 [[setups]]
 title = "Qualify running-bore reamers before assembly"
 machine = "PM-30MV"
-holding = "Each 15 mm 1018 offcut separately in vise on parallels, bore clear beneath."
+holding = "Each offcut separately in vise; bore clear of parallels."
 [[setups.operations]]
 tool = "drill"
-instruction = "Spot #2 (3000 rpm / 120 mm/min), then drill and ream each trial with oil. Run drill point and reamer lead fully through. Bore-gauge both mouths; replace an oversize-cutting reamer and repeat trial before using it on the part."
+instruction = "#2 spot (3000 rpm/120 mm/min); drill/ream with oil, point/lead fully through. Both mouths must meet bore limits; replace oversize-cutting reamer and repeat trial."
 [setups.operations.table]
 columns = ["Trial", "Drill rpm / mm/min", "Ream rpm / mm/min", "Accept Ø"]
 rows = [["Ø25 offcut: crank", "11.2: 550 / 60.5", "0.4500 in: 400 / 100.8", "11.413–11.443"], ["Ø19.05 offcut: journal", "12.05: 500 / 55", "0.4835 in: 350 / 88.2", "12.256–12.285"]]
 [[setups]]
 title = "Make bonding cradle and setting arbor"
 machine = "PM-30MV / PM-1127VF-LB"
-datum = "Cradle coordinates: X across base; Y along post from B; axis 30 above base top. Dimensions below are fixture dimensions."
+datum = "Cradle: X across base; Y along post from B; axis30 above base top."
 [[setups.operations]]
 tool = "fixture"
-instruction = "Make 1018 pieces; vise each blank on parallels, six faces square (steel milling: 3/4 in, 560 rpm, 0.076 mm/tooth, 1 DOC). Assemble with five #10-24 ×1/2 in screws from below and six Ø4×16 dowels; machine seats and stop only after doweling."
+instruction = "Mill1018 pieces:3/4 in,560 rpm,0.076 mm/tooth,1 DOC. Assemble five #10-24×1/2 in screws from below/six Ø4×16 dowels; finish seats/stop AFTER doweling."
 [setups.operations.table]
 columns = ["Piece / hold change", "Dimensions and cuts"]
 rows = [["Base", "80×134×10; X±40, Y−12…122; faces parallel ≤0.02"], ["Saddles / stop, individually", "Body 60×10×15 at Y10…20; tail 60×20×15 at Y100…120; stop 30×12×15 at Y−12…0"], ["Base underside up", "#9 through at (X±25,Y15), (±25,110), (0,−6):1500 rpm/0.10 mm/rev; 3/8 in counterbores 5.5 deep:900/0.05"], ["Saddle/stop mounting faces up", "Matching #25 holes 12 deep:2000/0.08; hand tap #10-24 10 deep"], ["Assembled base upside down, strapped", "Dowel pairs (±17,15),(±17,110),(±10,−6); drill3.8 to17.5:2000/0.08; ream4.00 to17:1400/0.12; press dowels flush, tighten screws"], ["Upright, strapped; head90°", "Bore body/tail seats on one axis to actual post body/raw tail, nominal Ø42.01/44.45; 450 rpm/0.05,0.5 DOC; blue full seat arcs, no rocking"], ["Rotate cradle90°, head upright", "Side-mill B stop square to axis at Y0; last0.2 pass"]]
@@ -54,7 +54,7 @@ title = "Make saw cradle, cap bridge and final-milling jaws"
 machine = "PM-30MV / PM-1127VF-LB"
 [[setups.operations]]
 tool = "fixture"
-instruction = "Saw cradle from ONE 1018 block (no built-up saddles): mill95×100×39, base19 thick, parallel≤0.02. Coordinates X along post from finished head top toward B, Y transverse. Vise on1-1/4 in parallels: leave integral features below; 3/4 in mill560 rpm/0.076 mm/tooth,1 DOC; clean narrow gaps with1/4 in mill1600/0.025,1 DOC."
+instruction = "Saw cradle: ONE1018 block95×100×39, base19, parallel≤0.02. X from head top toward B, Y transverse. Vise on1-1/4 in parallels; mill integral features below:3/4 in560 rpm/0.076 mm/tooth,1 DOC; narrow gaps1/4 in1600/0.025,1 DOC."
 [setups.operations.table]
 columns = ["Feature", "Extent / finishing"]
 rows = [["Base", "X2…97,Y±50; remove surrounding stock to19 above underside"], ["Saddles", "X28.5…41.5 and66…80, Y±24; tops39 above underside"], ["Cap land", "X48.63…56.63,Y±14; leave top30 above underside for fitting"], ["Stud taps", "X52.63,Y±30:5/16 in drill through1000 rpm/0.13 mm/rev, hand tap3/8-16"], ["Strapped flat; head90°", "Bore both seatsØ43.6 on one axis30.79 above base top (seat bottoms8.99 above top):450 rpm/0.05,0.5 DOC"], ["Head upright; fit land", "Measure seat bottoms/land. Remove excess land height less0.10; blue actual north cap and fit0.02 then0.01/pass until cap prints with body seated, rocking≤0.005"]]
