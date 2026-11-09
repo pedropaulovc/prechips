@@ -18,8 +18,11 @@ def prepare(tmp_path, replacements=(), plan_replacements=()):
         assert old in text
         text = text.replace(old, new)
     (tmp_path / "cad.toml").write_text(text, encoding="utf-8")
-    text = PLAN.read_text(encoding="utf-8").replace(
-        "../cad/pivot-shaft-v40.toml", "cad.toml"
+    (tmp_path / "shop.toml").write_bytes((ROOT / "examples/shop.toml").read_bytes())
+    text = (
+        PLAN.read_text(encoding="utf-8")
+        .replace("../cad/pivot-shaft-v40.toml", "cad.toml")
+        .replace('shop = "../shop.toml"', 'shop = "shop.toml"')
     )
     for old, new in plan_replacements:
         assert old in text

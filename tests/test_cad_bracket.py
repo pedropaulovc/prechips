@@ -19,11 +19,12 @@ def prepare(tmp_path, replacements):
         text = text.replace(old, new)
     source = tmp_path / "cad.toml"
     source.write_text(text, encoding="utf-8")
+    (tmp_path / "shop.toml").write_bytes((ROOT / "examples/shop.toml").read_bytes())
     plan = tmp_path / "plan.toml"
     plan.write_text(
-        PLAN.read_text(encoding="utf-8").replace(
-            "../cad/pivot-bracket-example-v39.toml", "cad.toml"
-        ),
+        PLAN.read_text(encoding="utf-8")
+        .replace("../cad/pivot-bracket-example-v39.toml", "cad.toml")
+        .replace('shop = "../shop.toml"', 'shop = "shop.toml"'),
         encoding="utf-8",
     )
     return plan

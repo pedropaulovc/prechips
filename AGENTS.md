@@ -1,6 +1,6 @@
 # Prechips prototype
 
-Prechips restarted at **v0.10**. The current milestone is **v0.5**: CAD-source bindings for the pivot shaft, pivot bracket and rocker arm. It remains a prototype until Pedro finds it useful, not a machining certification system.
+Prechips restarted at **v0.10**. The current milestone is **v0.6**: shared authored tools and cutting settings. It remains a prototype until Pedro finds it useful, not a machining certification system.
 
 ## Scope and milestones
 
@@ -10,6 +10,7 @@ Prechips restarted at **v0.10**. The current milestone is **v0.5**: CAD-source b
 - v0.3: bind dimensions, drawing identity and diagram feature geometry to the selected CAD/drawing export. Keep process choices explicit. Prefer released data over importing CAD code or reconstructing dimensions from drawings.
 - v0.4: both built-in profiles compare declared rectangular blank dimensions with the CAD nominal envelope in explicit length/width/thickness correspondence; custom profiles may omit `stock_fit`. No automatic stock rotation, parent-bar yield, machining allowance or machining simulation. Successful checks add nothing to the sheet.
 - v0.5: explicit part adapters bind finished dimensions, setup coordinates and inspection limits from the selected feature manifests. Keep source geometry and requirements separate from authored tooling, allowances, fit-to-assembly choices and gauges. The bracket manifest remains illustrative example intent, not a released dimensioned drawing. These adapters do not imply stock-fit support or generated setup pictures.
+- v0.6: plans may explicitly reference one shared shop TOML for tool descriptions and named material/tool cutting settings. Local fields override shared fields individually. Do not infer identities, calculate recommendations or parse settings out of operation prose.
 - Print only what an experienced operator needs: tools, setups, feeds, speeds and inspections, with the dimensions and instructions necessary to perform them. No tutorials, repeated warnings, checker reports or internal identifiers. Omit routine technique and generic safety reminders ("lock head", "short stickout", "power off", stopping/retracting, cleaning/reseating); retain part-specific workholding, datums and cutting requirements.
 - Specify datum locations and acceptance dimensions, not how to operate measuring tools. Omit edge-finder speeds, hand-feed instructions, tip-radius offsets and compensated inspection readings.
 - The pro base-bar traveler must print on no more than two Letter pages at readable type size. Hobby may use extra pages for readable setup diagrams. Use operator shorthand, not tutorials. Do not print process-status notes such as "untried", "unverified" or certification commentary; state tooling, work instructions and inspection requirements directly.

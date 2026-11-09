@@ -8,6 +8,8 @@ revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
 stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; {{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks."
 note = "Inches unless mm. Finished {{cad.size_summary}}. Not mirrored; flip bar 2 in assembly."
+shop = "shop.toml"
+material_key = "6061-t6511"
 
 [cad]
 file = "cad/base-bar-v47.toml"
@@ -26,42 +28,43 @@ slot_finish_diameter_in = 0.53125
 [[tools]]
 id = "saw"
 name = "Saw"
-description = "Aluminium saw"
+ref = "basebar-saw"
 [[tools]]
 id = "em-half"
 name = "1/2 in end mill"
-description = "1/2 in centre-cutting 2-flute end mill; flutes ≥5/8 in"
+ref = "basebar-em-half"
 [[tools]]
 id = "em-face"
 name = "3/4 in end mill"
-description = "3/4 in 4-flute end mill"
+ref = "basebar-em-face"
 [[tools]]
 id = "spot"
 name = "#2 centre drill"
-description = "#2 centre drill"
+ref = "basebar-spot"
 [[tools]]
 id = "rail-drill"
 name = "#29 drill"
-description = "#29 (.136 in) drill"
+ref = "basebar-rail-drill"
 [[tools]]
 id = "bracket-drill"
 name = "#9 drill"
-description = "#9 (.196 in) drill"
+ref = "basebar-bracket-drill"
 [[tools]]
 id = "slot-drill"
 name = "3/8 in drill"
-description = "3/8 in drill"
+ref = "basebar-slot-drill"
 [[tools]]
 id = "tap"
 name = "8-32 tap"
-description = "8-32 plug tap"
+ref = "basebar-tap"
 [[tools]]
 id = "counterbore"
 name = "5/16 in end mill"
-description = "5/16 in centre-cutting 2-flute end mill"
+ref = "basebar-counterbore"
 [[tools]]
 id = "slot-finish"
 name = "{{process.slot_finish_diameter_in:fraction}} in end mill"
+ref = "basebar-slot-finish"
 description = "{{process.slot_finish_diameter_in:fraction}} in centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
 
 [[setups]]
@@ -84,14 +87,12 @@ diagram = { file = "diagrams/width.svg", alt = "Blank on inboard 1-2-3 blocks wi
 [[setups.operations]]
 tool = "em-half"
 instruction = "Cutter .04–.08 below underside. Mill front edge in +X, conventional; rough .050–.080 radial, finish .005–.010. Mark ZERO EDGE both faces. Keep this clamping for opposite edge."
-rpm = 1250
-feed = "6 in/min"
+settings = "basebar-edge-6061-t6511"
 
 [[setups.operations]]
 tool = "em-half"
 instruction = "Mill opposite long edge in −X, conventional; rough .050–.080 radial to {{cad.width_rough_in:.3f}} width, finish to {{cad.width_in:.3f}} from ZERO EDGE."
-rpm = 1250
-feed = "6 in/min"
+settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
 
 [[setups]]
@@ -107,8 +108,7 @@ instruction = "Add two straps over finished long edges near mid-length and tight
 [[setups.operations]]
 tool = "em-half"
 instruction = "Cutter .04 below bar. Square left end in −Y, .020 passes; mark ZERO END both faces and set X0 there. Measure cutter D; cut right end in +Y, .010 passes, final X = {{cad.length_in:.4f}} + D/2."
-rpm = 1250
-feed = "6 in/min"
+settings = "basebar-edge-6061-t6511"
 
 [[setups]]
 title = "Face both sides in vise"
@@ -175,8 +175,7 @@ feed = "slow hand plunge"
 [[setups.operations]]
 tool = "em-half"
 instruction = "Rough slots with .500 cutter, depths {{cad.slot_depths_in}} below top. Traverse between arc centres: {{cad.slot_paths}}."
-rpm = 1250
-feed = "5 in/min"
+settings = "basebar-slot-rough-6061-t6511"
 
 [[setups.operations]]
 tool = "slot-finish"

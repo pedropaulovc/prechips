@@ -1,0 +1,129 @@
+# Literal authored example tooling and cutting settings, not an inventory or
+# automatic recommendations. Part-specific keys do not assert tool equivalence.
+# Material identities preserve each source's stated stock condition; they are
+# not inferred from the printed material text or treated as interchangeable.
+
+# Source: base-bar.toml; source hand traveler dated 2026-11-05 and
+# table-clamped squaring sequence dated 2026-11-07 (see plan provenance).
+[tools.basebar-saw]
+description = "Aluminium saw"
+[tools.basebar-em-half]
+description = "1/2 in centre-cutting 2-flute end mill; flutes ≥5/8 in"
+[tools.basebar-em-face]
+description = "3/4 in 4-flute end mill"
+[tools.basebar-spot]
+description = "#2 centre drill"
+[tools.basebar-rail-drill]
+description = "#29 (.136 in) drill"
+[tools.basebar-bracket-drill]
+description = "#9 (.196 in) drill"
+[tools.basebar-slot-drill]
+description = "3/8 in drill"
+[tools.basebar-tap]
+description = "8-32 plug tap"
+[tools.basebar-counterbore]
+description = "5/16 in centre-cutting 2-flute end mill"
+# Diameter remains a plan-owned parameter and local description override.
+[tools.basebar-slot-finish]
+description = "Centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
+
+[settings.basebar-edge-6061-t6511]
+tool = "basebar-em-half"
+material = "6061-t6511"
+rpm = 1250
+feed = "6 in/min"
+[settings.basebar-slot-rough-6061-t6511]
+tool = "basebar-em-half"
+material = "6061-t6511"
+rpm = 1250
+feed = "5 in/min"
+
+# Source: comparison/pivot-shaft.toml; archived pivot-shaft plan rev 7,
+# inventory/pedro-shop.toml and cutting-data.toml pivot-shaft/DataShaft4 rows.
+# These are authored choices, not drawing requirements (MHA-065 v40).
+[tools.shaft-ar]
+description = "AR carbide turning/facing tool"
+[tools.shaft-centre]
+description = "#2 M42 centre drill, Ø1.98 pilot / 60° seat"
+# Angles, nose radius, blade width and corner radius remain local parameters.
+[tools.shaft-hss]
+description = "3/8 in M42 RH bit"
+[tools.shaft-blade]
+description = "M2 square blade"
+
+[settings.shaft-relief-1018]
+tool = "shaft-blade"
+material = "shaft-1018-cold-finished"
+rpm = 1200
+feed = "0.02 mm/rev"
+[settings.shaft-parting-1018]
+tool = "shaft-blade"
+material = "shaft-1018-cold-finished"
+rpm = 1050
+feed = "Hand plunge, 0.025 mm/rev"
+[settings.shaft-dome-1018]
+tool = "shaft-hss"
+material = "shaft-1018-cold-finished"
+rpm = 1400
+feed = "0.05 mm/rev; hand traverse"
+
+# Source: comparison/pivot-bracket.toml; archived pivot-bracket plan,
+# inventory/pedro-shop.toml, cutting-data.toml and expected/traveler.html.
+# The source says plain carbon steel, not a specific grade or stock condition.
+[tools.bracket-face]
+description = "Ø3/4 in HSS 4-flute end mill"
+[tools.bracket-end]
+description = "Ø3/8 in HSS 4-flute end mill"
+[tools.bracket-long]
+description = "Ø3/8 in centre-cutting HSS 4-flute; 31.75 flutes, 37 projection"
+[tools.bracket-spot-long]
+description = "Ø1/4 in M42 120° spot drill; 50 projection clears ear"
+[tools.bracket-drill15]
+description = "Ø4.572 HSS #15 drill"
+[tools.bracket-spot]
+description = "Ø3/8 in M42 120° spot drill"
+[tools.bracket-drillD]
+description = "Ø6.248 HSS letter D drill"
+[tools.bracket-ream]
+description = "Ø6.512 HSS chucking reamer"
+
+[settings.bracket-end-plain-carbon-steel]
+tool = "bracket-end"
+material = "bracket-plain-carbon-steel"
+rpm = 900
+feed = "90 mm/min"
+[settings.bracket-long-plain-carbon-steel]
+tool = "bracket-long"
+material = "bracket-plain-carbon-steel"
+rpm = 900
+feed = "90 mm/min; any in-stock plunge 45 mm/min"
+
+# Source: comparison/blondihacks-t-nuts.toml; archive/pre-v0.10-2026-11-08
+# (6603afbc), blondihacks-t-nuts inventory/cutting-data and expected traveler.
+# HB120 annealed stock and these numeric settings are source-author selections.
+# Matching rpm/feed does not equate the shoulder rougher and flat-end finisher.
+[tools.tnuts-face]
+description = "3/4-in HSS TiCN square-end mill, 4 flutes"
+[tools.tnuts-rough]
+description = "1/2-in HSS shoulder rougher, 4 flutes"
+[tools.tnuts-finish]
+description = "1/2-in HSS flat-end finisher, 4 flutes"
+[tools.tnuts-saw]
+description = "2-in HSS, 36T; .125 kerf / .120 body; 1/2-in bore"
+[tools.tnuts-spot]
+description = "#3 HSS centre drill"
+[tools.tnuts-drill]
+description = "5/16-in HSS jobber drill, 118° point"
+[tools.tnuts-tap]
+description = "3/8-16 RH HSS taper tap; spring follower"
+
+[settings.tnuts-rough-1018]
+tool = "tnuts-rough"
+material = "tnuts-1018-annealed-hb120"
+rpm = 750
+feed = "3 in/min"
+[settings.tnuts-finish-1018]
+tool = "tnuts-finish"
+material = "tnuts-1018-annealed-hb120"
+rpm = 750
+feed = "3 in/min"

@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
         inputs = []
         if plan.cad is not None:
             inputs.append(plan.cad.source)
+        if plan.shop is not None:
+            inputs.append(plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         if "setup_diagrams" in profile.features:
@@ -45,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.out.exists() and any(args.out.samefile(path) for path in inputs):
             raise PlanError(
-                "output must not overwrite an input CAD source, profile or diagram"
+                "output must not overwrite an input CAD source, profile, diagram or shop"
             )
         html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
