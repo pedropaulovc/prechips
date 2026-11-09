@@ -1,0 +1,72 @@
+# Source: archive/pre-v0.10-2026-11-08, examples/cone-pivot-post/{built-up.toml,
+# expected/built-up/traveler.html}; examples/{inventory/pedro-shop.toml,cutting-data.toml}.
+# Fixture geometry, cutting settings and trial methods are the archived example's process choices.
+title = "Cone pivot post — fixtures and reamer trials"
+part = "cone-pivot-post-fixtures"
+revision = "v40 example"
+material = "1018 steel; 6061 aluminium; C360 brass"
+stock = "Bond cradle: 1/2 × 3-1/2 in and 3/4 × 2-1/2 in 1018 flat; arbor Ø2 in ×160. Saw cradle: 1-3/4 ×4 in 1018 flat ×99; bridge 5/8 ×1 in ×80; brass pad Ø1 in ×7. Buttons Ø3/4 in 6061; jaws 1×3 in 6061 ×162 each. Trials: two15 mm 1018 offcuts, oneØ25, oneØ19.05."
+note = "mm throughout. Trials before bonding; fit bond cradle/arbor to turned post and saw land to cured/bored post. Companion: cone-pivot-post.toml."
+
+[[tools]]
+id = "turn"
+name = "Turn"
+description = "AR turning/facing tool; 1.6 mm parting blade; #2 centre drill."
+[[tools]]
+id = "drill"
+name = "Trials"
+description = "Trial drills/reamers: sizes and settings below."
+[[tools]]
+id = "fixture"
+name = "Fixture cuts"
+description = "Boring head,1/2 in bar; end mills, drills, reamers, countersink and hand taps sized at each cut."
+
+[[setups]]
+title = "Qualify running-bore reamers before assembly"
+machine = "PM-30MV"
+holding = "Each offcut separately in vise; bore clear of parallels."
+[[setups.operations]]
+tool = "drill"
+instruction = "#2 spot (3000 rpm/120 mm/min); drill/ream with oil, point/lead fully through. Both mouths must meet bore limits; replace oversize-cutting reamer and repeat trial."
+[setups.operations.table]
+columns = ["Trial", "Drill rpm / mm/min", "Ream rpm / mm/min", "Accept Ø"]
+rows = [["Ø25 offcut: crank", "11.2: 550 / 60.5", "0.4500 in: 400 / 100.8", "11.413–11.443"], ["Ø19.05 offcut: journal", "12.05: 500 / 55", "0.4835 in: 350 / 88.2", "12.256–12.285"]]
+[[setups]]
+title = "Make bonding cradle and setting arbor"
+machine = "PM-30MV / PM-1127VF-LB"
+datum = "Cradle: X across base; Y along post from B; axis30 above base top."
+[[setups.operations]]
+tool = "fixture"
+instruction = "Mill1018 pieces:3/4 in,560 rpm,0.076 mm/tooth,1 DOC. Assemble five #10-24×1/2 in screws from below/six Ø4×16 dowels; finish seats/stop AFTER doweling."
+[setups.operations.table]
+columns = ["Piece / hold change", "Dimensions and cuts"]
+rows = [["Base", "80×134×10; X±40, Y−12…122; faces parallel ≤0.02"], ["Saddles / stop, individually", "Body 60×10×15 at Y10…20; tail 60×20×15 at Y100…120; stop 30×12×15 at Y−12…0"], ["Base underside up", "#9 through at (X±25,Y15), (±25,110), (0,−6):1500 rpm/0.10 mm/rev; 3/8 in counterbores 5.5 deep:900/0.05"], ["Saddle/stop mounting faces up", "Matching #25 holes 12 deep:2000/0.08; hand tap #10-24 10 deep"], ["Assembled base upside down, strapped", "Dowel pairs (±17,15),(±17,110),(±10,−6); drill3.8 to17.5:2000/0.08; ream4.00 to17:1400/0.12; press dowels flush, tighten screws"], ["Upright, strapped; head90°", "Bore body/tail seats on one axis to actual post body/raw tail, nominal Ø42.01/44.45; 450 rpm/0.05,0.5 DOC; blue full seat arcs, no rocking"], ["Rotate cradle90°, head upright", "Side-mill B stop square to axis at Y0; last0.2 pass"]]
+[[setups.operations]]
+tool = "fixture"
+instruction = "Cradle strapped upright: crank-pin holes (X±6,Y72.70) square through. Cone pins: tilt head12.52°±0.5°, holes leaning toward −X downward; entry coordinates (X0.919,Y33.368), (−14.241,33.368). Spot with3/16 in mill 0.5 deep at2200 rpm/0.02 mm/rev; drill3.8 through at2000/0.08; ream4.00 at1400/0.12 along each axis. Press Ø4 m6 pins (flat Ø3.2 ends): cone +X length16, −X length20; crank length16."
+[[setups.operations]]
+tool = "turn"
+instruction = "Arbor: Ø50.8×160 1018, 30 gripped in 3-jaw; face body end Z0, centre-drill Ø4 mouth (~3.7 deep), support dead centre. In ONE setting turn body section Z0…−25 to actual body Ø, relief Ø30×70, tail section Z−95…−122 to actual raw tail Ø; match each within0.005 at both ends/two diameters. Square shoulders, break edges0.3×45°. Rough660 rpm/0.10,1 DOC; finish660/0.05,0.02 DOC. Groove at−122 toØ22 (320/0.03,0.25 pecks); grip relief in saw, cut web, file stub flush."
+[[setups.operations]]
+instruction = "Seat setting arbor in BOTH saddles against B stop; common post axis is half body-section diameter below its crown. Set pins from that axis, not base: crank tops21.38±0.12 below; cone tops21.01±0.06 along pin axis. Cone high-edge vertical offsets: +X21.76, −X18.56 below axis, each±0.06; paired height errors agree≤0.03. Seats coaxial within0.01. Dry fit: both cone pins contact; crank-socket-mouth −X/+X edges at head top level≤0.05; north cap flush, south cap proud, no rocking."
+[[setups]]
+title = "Make saw cradle, cap bridge and final-milling jaws"
+machine = "PM-30MV / PM-1127VF-LB"
+[[setups.operations]]
+tool = "fixture"
+instruction = "Saw cradle: ONE1018 block95×100×39, base19, parallel≤0.02. X from head top toward B, Y transverse. Vise on1-1/4 in parallels; mill integral features below:3/4 in560 rpm/0.076 mm/tooth,1 DOC; narrow gaps1/4 in1600/0.025,1 DOC."
+[setups.operations.table]
+columns = ["Feature", "Extent / finishing"]
+rows = [["Base", "X2…97,Y±50; remove surrounding stock to19 above underside"], ["Saddles", "X28.5…41.5 and66…80, Y±24; tops39 above underside"], ["Cap land", "X48.63…56.63,Y±14; leave top30 above underside for fitting"], ["Stud taps", "X52.63,Y±30:5/16 in drill through1000 rpm/0.13 mm/rev, hand tap3/8-16"], ["Strapped flat; head90°", "Bore both seatsØ43.6 on one axis30.79 above base top (seat bottoms8.99 above top):450 rpm/0.05,0.5 DOC"], ["Head upright; fit land", "Measure seat bottoms/land. Remove excess land height less0.10; blue actual north cap and fit0.02 then0.01/pass until cap prints with body seated, rocking≤0.005"]]
+[[setups.operations]]
+tool = "fixture"
+instruction = "Bridge: mill1018 beam76×19×12.7 (560 rpm/0.076 mm/tooth);13/32 in holes±30 from centre (750/0.15 mm/rev); centre#7 (1500/0.10), hand tap1/4-20 through. C360 brass pad16×16×6, faces parallel≤0.02 (mill1500/0.12 mm/tooth); centre9/32 in through (2300/0.13 mm/rev),82° countersink400/0.05 until1/4-20×1/2 flat-head screw sits0.5 below pad face. Attach pad centrally; use two3/8-16×3-3/4 studs, washers/nuts."
+[[setups.operations]]
+instruction = "Bridge studs3/8-16×3-3/4 in: insert approximately11 mm into base;1.6 washer and8.33 nut leave approximately4.6 mm above full nut. Do not wind through full19 mm base thickness."
+[[setups.operations]]
+tool = "turn"
+instruction = "Two6061 jaw buttons: each Ø15 face×3.00±0.02 thick, spigotØ12.15–12.20×2. Turn fromØ19.05 bar (2000 rpm/0.08 mm/rev), part3.20 behind shoulder (800/0.03); regripØ15 rim against shoulder, face to3.00 (2000/0.05,≤0.1 DOC), parallel≤0.02; break edges."
+[[setups.operations]]
+tool = "fixture"
+instruction = "Two6061 tall soft jaws: vise-mill158.7×63.5×19.2 (2000 rpm/0.05 mm/tooth,1.5 DOC). Clamp original hardened plate flush at ends/bottom, transfer holes; expect X28.55/130.15,Y22.5 within0.1. Drill7/16 in through (2500/0.15 mm/rev);11/16 in counterbore11.75 deep from gripping face (1500/0.05,3 DOC). Bolt with existing M10×1.5 screws, bottom on bed; tram≤0.02, skim0.10 in place to19.1 thick, faces parallel≤0.02."
+

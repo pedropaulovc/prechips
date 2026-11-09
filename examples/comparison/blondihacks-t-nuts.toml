@@ -1,0 +1,151 @@
+# Source: archive/pre-v0.10-2026-11-08 (6603afbc), examples/blondihacks-t-nuts/
+# plan.toml (29 physical setups / 64 ops / 14 families), README.md:21-55,80-102,
+# features.toml, inventory.toml, cutting-data.toml, expected/traveler.html.
+# Combined example design, not a recovered drawing: five +/- .002-in size bands,
+# .05-mm edge-break maximum, HB120 annealed stock and numeric cutting settings
+# are source-author selections. Thread class and position tolerance are unspecified.
+# Cutting feeds: cutting-data.toml; milling = rpm x four flutes x chip load.
+# Repeated per-piece instructions retain independent inspection of all four nuts.
+title = "Four T-nuts"
+part = "blondihacks-t-nuts"
+revision = "BH-TN-EXAMPLE / catalog-design-1"
+material = "1018 steel"
+stock = "1 × 5/8 × 5 in flat bar; four finished nuts"
+note = "Inches unless marked. Conventional milling. Flood: squaring, separation, end facing. Cutting oil: shoulders, drilling, tapping."
+
+[[tools]]
+id = "face"
+name = "3/4-in mill"
+description = "3/4-in HSS TiCN square-end mill, 4 flutes"
+[[tools]]
+id = "rough"
+name = "1/2-in rougher"
+description = "1/2-in HSS shoulder rougher, 4 flutes"
+[[tools]]
+id = "finish"
+name = "1/2-in finisher"
+description = "1/2-in HSS flat-end finisher, 4 flutes"
+[[tools]]
+id = "saw"
+name = "Slitting saw"
+description = "2-in HSS, 36T; .125 kerf / .120 body; 1/2-in bore"
+[[tools]]
+id = "spot"
+name = "#3 centre drill"
+description = "#3 HSS centre drill"
+[[tools]]
+id = "drill"
+name = "5/16-in drill"
+description = "5/16-in HSS jobber drill, 118° point"
+[[tools]]
+id = "tap"
+name = "3/8-16 tap"
+description = "3/8-16 RH HSS taper tap; spring follower"
+
+[[setups]]
+title = "Slot pickup and batch cutoff"
+machine = "Bench / portable bandsaw"
+holding = "Bar in bench vise; support scrap independently."
+[[setups.operations]]
+instruction = "Measure slot throat, undercut and depth; confirm 3/8-16, not M10 × 1.5. Mark original starting end; measure 4.475 from it and cut with 14-TPI bi-metal blade, kerf on scrap side."
+feed = "135 sfm band; 1 in/min descent"
+
+[[setups]]
+title = "Square batch — four holds"
+machine = "PM-25MV-BD mill"
+datum = "First machined long face = bottom reference; adjacent face establishes square corner."
+[[setups.operations]]
+tool = "face"
+instruction = "Face .0625 in each hold; leave both ends unmachined."
+rpm = 500
+feed = "6 in/min"
+[setups.operations.table]
+columns = ["Hold", "Orientation / support", "Finish"]
+rows = [
+  ["1", "1-in face up, .625 vertical; 30-mm parallels, 10-mm grip", "Bottom reference"],
+  ["2", "Bottom against fixed jaw; moving-jaw round bar; adjacent narrow face up; 25-mm parallels, 15-mm grip", "Square corner"],
+  ["3", "Square corner down / against fixed jaw; opposite narrow face up; 25-mm parallels, 15-mm grip", ".875 base width"],
+  ["4", "Bottom down; opposite wide face up; 30-mm parallels, 10-mm grip", ".500 height"],
+]
+
+[[setups]]
+title = "Both shoulders along batch"
+machine = "Mill"
+holding = "Bottom on 35-mm parallels; 5-mm lower grip, shoulders clear of jaws."
+datum = "Y0 = midpoint of actual base sides; Z0 = finished top."
+[[setups.operations]]
+tool = "rough"
+instruction = "Rough both shoulders at Y ±.5075, Z−.125 then −.250; leave .010 on walls. Feed +X at −Y, −X at +Y; cross only beyond ends."
+rpm = 750
+feed = "3 in/min"
+[[setups.operations]]
+tool = "finish"
+instruction = "Finish walls at Y ±.4975, Z−.250; floors unchanged. Target .495 stem, .250 flange."
+rpm = 750
+feed = "3 in/min"
+
+[[setups]]
+title = "Separate — three holds"
+machine = "Mill"
+holding = "Upright on original starting end, 25-mm parallels, 15-mm grip; flange toward moving jaw, stem toward fixed jaw. Capture upper cutoff independently; reseat remainder/reposition capture each cut."
+datum = "Z0 = original starting end; repeat front-face / left-stem / blade-body pickups for each hold."
+[[setups.operations]]
+tool = "saw"
+instruction = "Three .125 kerfs produce four 1.025-long blanks. Retain each upper blank and carry lower remainder forward."
+rpm = 160
+feed = "2.304 in/min"
+[setups.operations.table]
+columns = ["Hold", "Kerf centre Z", "Retained pieces / holding change"]
+rows = [
+  ["1", "3.3875", "Upper nut 1; lower remainder"],
+  ["2", "2.2375", "Upper nut 2; lower remainder"],
+  ["3", "1.0875", "Remainder at left jaw end; nut 1 balances other end. .002 paper at cutting-piece/moving-jaw contact only. Upper nut 3, lower nut 4; retrieve nut 1."],
+]
+
+[[setups]]
+title = "End face — repeat for nuts 1–4"
+machine = "Mill"
+holding = "Stem up; bottom on 35-mm parallels, 5-mm flange grip. Rod stop: lower slitting face (toward original start) on nuts 1–3; upper slitting face on nut 4."
+datum = "Stop face X+.500; finished free end X−.500; stem midpoint Y0; top Z0."
+[[setups.operations]]
+tool = "finish"
+instruction = "Face free end only, .025 at full .500 height, to 1.000 length: nut 1 bandsawn end, nuts 2–3 upper slitting ends, nut 4 original starting end."
+rpm = 750
+feed = "3 in/min"
+
+[[setups]]
+title = "Drill and tap — repeat for nuts 1–4"
+machine = "Mill"
+holding = "Each nut stem up, 5-mm grip; hole clear between 35-mm parallels."
+datum = "Finished free end X−.500; hole X0 at length midpoint; Y0 = stem midpoint; Z0 = top."
+[[setups.operations]]
+tool = "spot"
+instruction = "Spot centred hole to tip Z−.060."
+rpm = 1200
+feed = "1.2 in/min"
+[[setups.operations]]
+tool = "drill"
+instruction = "Drill 5/16 through .500 section; tip Z−.7088 includes exit allowance."
+rpm = 1200
+feed = "7.2 in/min"
+[[setups.operations]]
+tool = "tap"
+instruction = "Hand tap 3/8-16 RH through, with oil and spring follower. Tip depth 1.025 below top clears .500 lead."
+
+[[setups]]
+title = "Finish and inspect — each nut"
+machine = "Bench"
+holding = "For staking: bottom-up, vise gripping flange side flats; bottom flush with jaw tops, not vise bed."
+[[setups.operations]]
+instruction = "Deburr both mouths, no countersink; file exterior burrs, edge break ≤.05 mm. Preserve entry threads/bearing faces. Stake last bottom thread only."
+[[setups.operations]]
+instruction = "Mandatory: acetone-degrease, detergent-clean; JAX Iron/Steel/Nickel Blackener neat per directions. Rinse, dry, remove residue; ISO-VG32 oil, wipe excess."
+[[setups.operations]]
+instruction = "After blackening, inspect nuts 1–4 individually: base .873–.877; height .498–.502; stem .493–.497; length .998–1.002; BOTH bottom-to-shelf flange thicknesses .248–.252."
+[setups.operations.table]
+columns = ["Check", "Acceptance"]
+rows = [
+  ["Slot", "Slides without binding/objectionable rocking; both shelves bear under lips; no bottoming/wedging; top below table; cannot rotate or pass through"],
+  ["3/8-16 RH stud", "Free top entry; bottom stake stops stud before exit"],
+  ["Finish", "Uniform black/oiled; no loose residue or obstructed fit/threads"],
+]

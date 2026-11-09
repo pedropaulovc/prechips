@@ -1,0 +1,104 @@
+# Source: archive/pre-v0.10-2026-11-08; examples/rocker-arm/{plan,features}.toml,
+# examples/inventory/pedro-shop.toml, examples/cutting-data.toml,
+# examples/rocker-arm/expected/traveler.html. Legacy archive remains read-only.
+# 1018, blank, fixtures, aims and settings are original illustrative example
+# choices, not drawing facts or measured shop values. Drawing material family:
+# LOW-CARBON STEEL OR GRAY IRON. Cutting settings reproduce expected traveler.
+# Drawing says turn hub and ream bore together; example uses bore-centred filing
+# buttons and final coaxiality inspection instead. Preserve that example route.
+# Manifest rod band 1.994–2.094 differs from plan's rounded drawing plug limits
+# 2.000/2.090 and tighter 2.010 process NO-GO. Printed gauges follow source plan.
+title = "Rocker arm — 20 pieces"
+part = "MHA-071 rocker-arm"
+revision = "v40"
+material = "1018 low-carbon steel"
+stock = "20 × 345 mm blanks, 3 × 3/4 in flat; prepare 340 × 65 × 16 mm"
+note = "mm throughout. Repeat route ×20. Conventional milling, brush cutting oil. Retain full-thickness rails and end ears through opposed machining, reaming and hub filing."
+
+[[tools]]
+id = "mills"
+name = "End mills"
+description = "HSS: 3/4 4fl 450 rpm/90 mm/min; 3/8 2fl 900/45; 3/8 4fl 900/90; 1/4 2fl 1400/70; 1/4 4fl 1400/140."
+[[tools]]
+id = "holes"
+name = "Hole tools"
+description = "#2 spot 3000 rpm/120 mm/min; D drill Ø6.248 1250/137.5; Ø1.85 drill 3000/120; Ø2 reamer (working 2.004) 2200/369.6; Ø6.5 H7 reamer (working 6.512) 650/163.8."
+
+[[setups]]
+title = "Prepare blank — five separate vise holds"
+machine = "4×6 bandsaw; PM-30MV"
+holding = "Saw flat, 4/6 bi-metal blade, dry, 200 ft/min. Mill with 3/4 4fl; each row is a new hold."
+[[setups.operations]]
+tool = "mills"
+instruction = "Saw 345 long; square six faces in the order below. Facing step-over 12.7; Z0 is each finished face."
+inspection = "Prepared length 340.0 ±0.2; width 65.0 ±0.1; thickness 16.0 ±0.05. Flatness, squareness and parallelism ≤0.05."
+[setups.operations.table]
+columns = ["Hold", "Orientation / cut"]
+rows = [["1 — reference face", "Flat, 1-1/4 in parallels; face upper broad face, nominal 1.525 removal."], ["2 — datum edge", "On edge, 1/2 in parallels; reference face at fixed jaw, round bar at moving jaw. Face datum edge, 2 ×2.8."], ["3 — opposite edge", "Datum edge down, reference face at fixed jaw, right end now left; retain round bar at moving jaw. Face to width 65.0; nominal 2 ×2.8."], ["4 — thickness", "Flat, reference face down, datum edge at fixed jaw; 1-1/4 in parallels. Face to 16.0, nominal 1.525 removal."], ["5 — ends", "Reference face up, datum edge at fixed jaw; both ends overhang ≈93.5. Side-mill right end X0, then left X340; 3 ×5.5 axial steps to Z−16.5."]]
+
+[[setups]]
+title = "Upper side — retain rail frame"
+machine = "PM-30MV"
+holding = "Grip ≥6 on full-thickness rails. Matched 76.2 ×63.5 ×25.4 risers (height match ≤0.01), centres X±40 Y+4.5; 1/2 in parallels under Y−25.5/+34.5. Retain rails Y−28…−20/+31.7…+37 and ears outside X±160."
+datum = "Pivot X0 Y0; rod end +X; blank left end X−170, datum edge Y−28. Upper hub face Z0, raw top +4.47175."
+[[setups.operations]]
+tool = "mills"
+instruction = "Rough/finish field to hub Z0, then strap Z−2.27825: 3/8 2fl ≤1.5 DOC, leave 0.20; 3/8 4fl finish. Protect Ø11 hub island rough/Ø10.6 finish. Stair-rough hub wall to 0.20 above strap (0.20 radial leave/≤0.25 cusp); finish remaining strap corners. Rails/ears untouched."
+[[setups.operations]]
+tool = "mills"
+instruction = "Use final outline geometry below. 3/8 2fl: bottom arc, lands, tapers (−X join → bottom → +X join); 1/4 2fl: top arc. Stair-rough ≤1.5 DOC to −3.32825, 0.20 allowance/≤0.40 cusp. Keep rails/ears intact; opposed cuts leave 0.42 web."
+[[setups.operations]]
+tool = "holes"
+instruction = "Pivot X0 Y0: spot 0.50, drill D through; full diameter 2 beyond raw bottom Z−11.52825."
+
+[[setups]]
+title = "Lower side — opposed cuts and rod hole"
+machine = "PM-30MV"
+holding = "Turn about X; rod end stays +X, negate Y of upper-side outline. Same rail grip/risers, centres X±40 Y−4.5; parallels Y−34.5/+25.5. Two passive jacks X±40 just bear on finished strap, without lifting rails."
+datum = "Pivot pilot X0 Y0, ≤0.02 TIR. Lower hub Z0, 7.080 below upper hub; raw top +4.44825."
+[[setups.operations]]
+tool = "mills"
+instruction = "Repeat upper-side field, strap and hub-wall rough/finish, mirrored Y; same depths/keep-outs. Measure hub after roughing to set finishing Z for 7.080 length; check strap after facing and corner cleanup."
+inspection = "Hub length 7.0565–7.1065; strap 1.99–3.01, aim 2.5235."
+[[setups.operations]]
+tool = "holes"
+instruction = "Rod X133.067 Y−8.456: spot 0.50 from strap face; Ø1.85 drill then Ø2 ream, 1.5 beyond strap exit. Gauge BEFORE outer pockets: Ø2.000 GO passes; Ø2.010 process and Ø2.090 drawing NO-GO do not enter."
+[[setups.operations]]
+tool = "mills"
+instruction = "Repeat upper profile rough, mirrored Y; joins +X → bottom → −X, then top. Retain narrow rail Y−37…−31.7, wide rail +20…+28, ears and 0.42 web."
+
+[[setups]]
+title = "Strap-held pivot ream"
+machine = "PM-30MV"
+holding = "Profile plate, upper side up: permanent diamond pin in rod hole; lower strap on pads, hub and rails shimmed without lifting strap. Two padded straps at X±70, studs outside frame."
+datum = "Plate edge tram ≤0.01/300; pilot ≤0.20 radial from plate bore, pickup ≤0.02 TIR. Upper hub Z0."
+[[setups.operations]]
+tool = "holes"
+instruction = "Record pilot centre, ream Ø6.5 without relocating, 2 beyond hub exit; re-indicate centre."
+inspection = "Centre shift ≤0.020 radial; Ø6.500 GO/Ø6.530 NO-GO; Ra ≤1.6 µm."
+
+[[setups]]
+title = "File integral hub — separate bench hold"
+machine = "Fitting bench"
+holding = "Hardened button on each hub face: rim Ø10.195–10.205, bore Ø6.505–6.515; stud through reamed A, coupling nut hand-tight. Vise grips stud tail, not part."
+[[setups.operations]]
+instruction = "File upper then lower projection to its button rim; safe edge on strap, short strokes inside rails. Both ODs 9.69–10.71."
+
+[[setups]]
+title = "Locate, release and finish outline"
+machine = "PM-30MV; inspection bench; black-oxide vendor"
+holding = "Reseat lower strap on pads, recheck hub/rail shims. Shoulder screw/washer through A; preload CCW viewed down −Z against permanent rod diamond pin, tighten. Separately clamp narrow scrap rail X±30 Y34.5 and wide rail X±130 Y−25.5. Pin is orientation stop, NOT datum C."
+datum = "Lapped screw-head pickup ≤0.01 TIR; upper strap Z−2.27825 (hub covered)."
+[[setups.operations]]
+instruction = "Scribing template (outline ±0.02): bush over Ø8 screw head, flat on strap; Ø2 sight hole concentric with rod hole. Scribe top then bottom/tapers/both lands without moving template. Remove template."
+[setups.operations.table]
+columns = ["Outline from A", "Geometry"]
+rows = [["Common centre", "X0 Y808; top R800, bottom R816"], ["Each end: top → land → bottom", "(±145.240,21.295) → (±146.255,15.800) → (±132.757,2.872); 5.59 radial land then straight taper"]]
+[[setups.operations]]
+tool = "mills"
+instruction = "1/4 4fl: top stairs, then −X join → bottom → +X closing join; scrap-side entry, Z−6.02825, 0.20 allowance/≤0.25 cusp. Before +X join, Ø2.286 gauge pin must pass cutter-to-locator at closest positions/depth. All scrap clamps stay tight through release and cutter clearance; remove scrap. Part remains screw/pin/pad-held."
+[[setups.operations]]
+instruction = "Draw-file top, then bottom/tapers/BOTH lands to scribe, square to strap. Near +X pin: safe edge toward pin, short strokes stopping before contact; pin stays fitted. Inspect off-machine below, then deburr R0.25/chamfer 0.25 max. Matte black oxide, holes open; re-gauge both holes afterward."
+[setups.operations.table]
+columns = ["Final inspection", "Acceptance"]
+rows = [["Top / bottom arcs", "R799.49–800.51 / R815.49–816.51; arc lengths 291.59–292.61 / 266.19–267.21; top height over pivot 8.00–8.50."], ["Both radial lands", "Width 5.08–6.10; 89–91° to top edge."], ["Rod-hole position", "Basic X133.067 Y+8.456 from A, upper-side-up outline frame; Ø0.20 RFS to A|B|C. A: reamed pivot bore; B: upper strap face; C: finished +X radial land."], ["Both hub projections", "OD 9.69–10.71; coaxiality Ø0.50 to reamed pivot bore A."], ["After black oxide", "Pivot Ø6.500 GO/Ø6.530 NO-GO; rod Ø2.000 GO/Ø2.090 NO-GO, both mouths."]]
