@@ -1,4 +1,4 @@
-# Prechips v0.6
+# Prechips v0.7
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -12,12 +12,15 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
+uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --out out/pivot-shaft-hobby.html
 ```
 
-Open either HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Both files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
+Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan, including filesystem aliases.
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
+
+The shaft also supports the built-in `pro` and `hobby` profiles. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup. Part profiles and positions come from the same CAD values and process parameters as the instructions; chuck, centre, rest and tool symbols are schematic. These are generated setup elevations, not STEP projections or collision checks.
 
 Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
 
@@ -40,7 +43,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | Adapter | Source | Bound values |
 | --- | --- | --- |
 | `harmonic_base_bar` | Released v47 export | Dimensions, holes, slots and setup-diagram geometry |
-| `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, dome contour, setup coordinates and limits |
+| `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, dome contour, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 
@@ -70,17 +73,22 @@ Changing CAD dimensions does not select new tools or redesign the machining proc
 
 ## Stock fit
 
-Both built-in profiles require declared blank length, width and thickness in inches and compare them with the CAD nominal envelope in matching axes. Exact fits pass. An undersized or missing dimension stops the command with exit 2 before writing output; the error names the affected axis and required size. Successful checks add nothing to the printed sheet.
+Both built-in profiles enforce stock fit. Exact fits pass; an undersized or missing dimension stops the command with exit 2 before writing output. Successful checks add nothing to the sheet.
 
-This compares each rectangular blank, not the parent bar. It does not rotate stock, reserve machining allowance, calculate yield or check workholding.
+| Part | Declared stock | Required size |
+| --- | --- | --- |
+| Base bar | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope in matching axes |
+| Pivot shaft | `stock_dia_mm`, `stock_length_mm` | Maximum nominal shaft diameter and authored sawn-blank demand |
 
-Stock fit currently requires the base-bar adapter's nominal envelope. The shaft, bracket and rocker adapters do not reconstruct an envelope from feature fragments; requesting `stock_fit` with one of them fails explicitly. Use the comparison profile for those plans.
+For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
+
+There is no automatic rotation, yield calculation, added allowance or workholding check. Bracket and rocker stock requirements remain unsupported; use their comparison profile.
 
 ## Profiles
 
 | Preset | Setup diagrams | Enforcement |
 | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Stock fits the CAD envelope |
+| `pro` (default) | Omitted; diagram files are not opened | Stock fits the declared requirement |
 | `hobby` | Included for every setup | Stock fits; every setup has a readable SVG diagram |
 
 Enforcement does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
@@ -183,4 +191,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; pivot-shaft hobby pictures and round-stock support are the next milestone.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement.

@@ -4,7 +4,15 @@ import math
 import tomllib
 from pathlib import Path
 
-from prechips.cad import CadData, CadError, RoundStock, _band, _number, _positive, _string
+from prechips.cad import (
+    CadData,
+    CadError,
+    RoundStock,
+    _band,
+    _number,
+    _positive,
+    _string,
+)
 
 
 def _contour_rows(radius: float, height: float, parameters: dict) -> list[list[str]]:

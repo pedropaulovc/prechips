@@ -110,9 +110,7 @@ def test_round_stock_length_gate_runs_before_output(tmp_path, capsys, length):
         if not line.startswith("stock_length_mm =")
     )
     if length is not None:
-        text = text.replace(
-            "[parameters]", f"[parameters]\nstock_length_mm = {length}"
-        )
+        text = text.replace("[parameters]", f"[parameters]\nstock_length_mm = {length}")
     path.write_text(text, encoding="utf-8")
     output = tmp_path / "out/traveler.html"
     result = main(["traveler", str(path), "--out", str(output), "--profile", "pro"])

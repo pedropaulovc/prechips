@@ -13,13 +13,6 @@ SOURCE = ROOT / "examples/cad/pivot-shaft-v40.toml"
 PLAN = ROOT / "examples/comparison/pivot-shaft.toml"
 DIAGRAMS = ROOT / "examples/comparison/diagrams/pivot-shaft"
 NS = "{http://www.w3.org/2000/svg}"
-PICTURES = {
-    "short_grip_mm": 20.0,
-    "short_projection_mm": 15.0,
-    "reverse_grip_mm": 25.0,
-    "fit_grip_mm": 25.0,
-    "fit_jaw_offset_mm": 8.0,
-}
 CAP = [
     ('"height_nominal" = 1.5', '"height_nominal" = 1.6'),
     ('"sphere_radius" = 4.1102083333333335', '"sphere_radius" = 3.9501953125'),
@@ -28,7 +21,7 @@ CAP = [
 
 def render(name, tmp_path=None, replacements=(), **changes):
     with PLAN.open("rb") as plan:
-        parameters = {**PICTURES, **tomllib.load(plan)["parameters"], **changes}
+        parameters = {**tomllib.load(plan)["parameters"], **changes}
     source = SOURCE
     if replacements:
         text = SOURCE.read_text(encoding="utf-8")

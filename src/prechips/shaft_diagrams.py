@@ -413,9 +413,7 @@ def _supported(values: dict, parameters: dict, root: ElementTree.Element) -> Lay
         _line(frame.x(0), frame.up(radius) - 8, frame.x(0), frame.down(radius) + 8)
     )
     arrow_y = frame.down(radius) + 12
-    groups["arrows"].append(
-        _line(frame.x(reset) - 8, arrow_y, frame.x(0) + 3, arrow_y)
-    )
+    groups["arrows"].append(_line(frame.x(reset) - 8, arrow_y, frame.x(0) + 3, arrow_y))
     window = (-shoulder - 2, relief_high + 5)
     groups["leaders"].append(
         _el(
@@ -678,9 +676,7 @@ def _fit(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     arriving = [(left, bearing), (right, bearing)]
     kept = [(left, bearing), *_dome(base, sphere, height)]
     waste = [(parting, bearing), (right, bearing)]
-    groups["removed"].append(
-        _solid(frame, arriving, left_break=True, right_break=True)
-    )
+    groups["removed"].append(_solid(frame, arriving, left_break=True, right_break=True))
     groups["waste"].append(_solid(frame, waste, right_break=True))
     groups["arriving"].append(
         _solid(frame, arriving, left_break=True, right_break=True)
