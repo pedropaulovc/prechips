@@ -1,3 +1,4 @@
+import base64
 import subprocess
 from html.parser import HTMLParser
 
@@ -64,12 +65,12 @@ class OperatorText(HTMLParser):
             self.parts.append(data.strip())
 
 
-def run_cli(tmp_path, text):
+def run_cli(tmp_path, text, *options):
     plan = tmp_path / "plan.toml"
     out = tmp_path / "out" / "traveler.html"
     plan.write_text(text, encoding="utf-8")
     result = subprocess.run(
-        ["prechips", "traveler", str(plan), "--out", str(out)],
+        ["prechips", "traveler", str(plan), "--out", str(out), *options],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -174,3 +175,79 @@ def test_output_cannot_replace_input_plan(tmp_path, output_kind):
     assert result.returncode == 2
     assert plan.read_text(encoding="utf-8") == PLAN
     assert out.read_text(encoding="utf-8") == PLAN
+
+
+def with_diagram(text, file="diagrams/setup.svg", alt="Vise & stock <side view>"):
+    return text.replace(
+        'machine = "Manual mill"',
+        f'machine = "Manual mill"\ndiagram = {{ file = "{file}", alt = "{alt}" }}',
+    )
+
+
+def test_default_pro_does_not_read_unused_diagram(tmp_path):
+    result, out = run_cli(tmp_path, with_diagram(PLAN, file="missing.svg"))
+    assert result.returncode == 0, result.stderr
+    assert "<img " not in out.read_text(encoding="utf-8")
+
+
+def test_hobby_embeds_each_setup_diagram_before_operations(tmp_path):
+    diagrams = tmp_path / "diagrams"
+    diagrams.mkdir()
+    first = b'<svg xmlns="http://www.w3.org/2000/svg"><text>First</text></svg>'
+    second = b'<svg xmlns="http://www.w3.org/2000/svg"><text>Second</text></svg>'
+    (diagrams / "setup.svg").write_bytes(first)
+    (diagrams / "drill.svg").write_bytes(second)
+    text = with_diagram(PLAN) + with_diagram(
+        SECOND_SETUP, file="diagrams/drill.svg", alt="Drill pattern"
+    )
+    result, out = run_cli(tmp_path, text, "--profile", "hobby")
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    first_image = "data:image/svg+xml;base64," + base64.b64encode(first).decode("ascii")
+    second_image = "data:image/svg+xml;base64," + base64.b64encode(second).decode(
+        "ascii"
+    )
+    assert html.count("<img ") == 2
+    assert html.index(first_image) < html.index("Face to thickness.")
+    assert html.index("Setup 2 — Drill pattern") < html.index(second_image)
+    assert html.index(second_image) < html.index("Locate the pattern.")
+    assert 'alt="Vise &amp; stock &lt;side view&gt;"' in html
+    assert "<svg" not in html
+
+
+@pytest.mark.parametrize("asset", [None, "missing.svg", "invalid.svg"])
+def test_hobby_requires_usable_diagram_for_named_setup(tmp_path, asset):
+    (tmp_path / "invalid.svg").write_text("<html/>", encoding="utf-8")
+    text = PLAN if asset is None else with_diagram(PLAN, file=asset)
+    result, out = run_cli(tmp_path, text, "--profile", "hobby")
+    assert result.returncode == 2
+    assert "Face stock" in result.stderr
+    assert "diagram" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
+def test_custom_optional_diagrams_and_plan_relative_paths(tmp_path):
+    profile = tmp_path / "optional.toml"
+    profile.write_text(
+        'name = "Optional pictures"\nfeatures = ["setup_diagrams"]\nenforce = []\n',
+        encoding="utf-8",
+    )
+    result, out = run_cli(tmp_path, PLAN, "--profile", str(profile))
+    assert result.returncode == 0, result.stderr
+    assert "<img " not in out.read_text(encoding="utf-8")
+    diagrams = tmp_path / "diagrams"
+    diagrams.mkdir()
+    (diagrams / "setup.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8"
+    )
+    result, out = run_cli(tmp_path, with_diagram(PLAN), "--profile", str(profile))
+    assert result.returncode == 0, result.stderr
+    assert "<img " in out.read_text(encoding="utf-8")
+    out.unlink()
+    result, out = run_cli(
+        tmp_path, with_diagram(PLAN, file="missing.svg"), "--profile", str(profile)
+    )
+    assert result.returncode == 2
+    assert "Face stock" in result.stderr
+    assert not out.exists()

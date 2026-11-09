@@ -1,8 +1,12 @@
 """Read the small process-plan format and render a self-contained print sheet."""
 
+import base64
 import tomllib
 from html import escape
 from pathlib import Path
+from xml.etree import ElementTree
+
+from prechips.profiles import PRO, Profile
 
 
 class PlanError(ValueError):
@@ -60,13 +64,29 @@ def load_plan(path: Path) -> dict:
         where = f"setups[{index}]"
         _keys(
             setup,
-            {"title", "machine", "holding", "datum", "operations", "inspection"},
+            {
+                "title",
+                "machine",
+                "holding",
+                "datum",
+                "diagram",
+                "operations",
+                "inspection",
+            },
             where,
         )
         for key in ("title", "machine"):
             _text(setup, key, where)
         for key in ("holding", "datum"):
             _text(setup, key, where, optional=True)
+        if "diagram" in setup:
+            diagram = setup["diagram"]
+            diagram_where = f"{where}.diagram"
+            if not isinstance(diagram, dict):
+                raise PlanError(f"{diagram_where}: expected a table")
+            _keys(diagram, {"file", "alt"}, diagram_where)
+            _text(diagram, "file", diagram_where)
+            _text(diagram, "alt", diagram_where)
         checks = setup.get("inspection", [])
         if not isinstance(checks, list) or any(
             not isinstance(check, str) or not check.strip() for check in checks
@@ -167,6 +187,8 @@ th:last-child, td:last-child { padding-right: 0; }
 .setup-heading { break-inside: avoid; break-after: avoid; }
 .setup-heading h2 { display: flex; justify-content: space-between; gap: 0.12in; }
 .machine { font-size: var(--body-size); font-weight: normal; text-align: right; }
+.setup-diagram { margin: 0.08in 0; break-inside: avoid; }
+.setup-diagram img { display: block; width: 100%; max-height: 4in; object-fit: contain; }
 .operations { table-layout: fixed; break-before: avoid; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
@@ -189,8 +211,38 @@ def _html(value: str | int) -> str:
     return escape(str(value), quote=True)
 
 
-def render_traveler(plan: dict) -> str:
-    """Render a plan returned by load_plan; authored strings are always plain text."""
+def _diagram_html(setup: dict, profile: Profile, source_dir: Path) -> str:
+    if "setup_diagrams" not in profile.features:
+        return ""
+    diagram = setup.get("diagram")
+    where = f"setup {setup['title']!r}.diagram"
+    if diagram is None:
+        if "setup_diagrams" in profile.enforce:
+            raise PlanError(f"{where}: required by profile {profile.name!r}")
+        return ""
+    path = source_dir / diagram["file"]
+    try:
+        content = path.read_bytes()
+        root = ElementTree.fromstring(content)
+        if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
+            raise ValueError("expected an SVG root element")
+    except (OSError, ElementTree.ParseError, ValueError) as error:
+        raise PlanError(
+            f"{where}: cannot use SVG {diagram['file']!r}: {error}"
+        ) from error
+    image = base64.b64encode(content).decode("ascii")
+    alt = _html(diagram["alt"])
+    return (
+        '<figure class="setup-diagram">'
+        f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
+        "</figure>"
+    )
+
+
+def render_traveler(
+    plan: dict, *, profile: Profile = PRO, source_dir: Path = Path(".")
+) -> str:
+    """Render a loaded plan; diagram paths are relative to the source plan directory."""
     tools = {tool["id"]: tool for tool in plan["tools"]}
     lines = [
         "<!doctype html>",
@@ -231,6 +283,9 @@ def render_traveler(plan: dict) -> str:
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
             lines.append("</dl>")
         lines.append("</div>")
+        diagram = _diagram_html(setup, profile, source_dir)
+        if diagram:
+            lines.append(diagram)
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
             '<col class="work-column"><col class="settings-column"></colgroup>'

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350" width="720" height="350" font-family="Arial, Helvetica, sans-serif" font-size="15">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#111"/>
+    </marker>
+    <pattern id="cut" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#a33" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="720" height="350" fill="#fff"/>
+
+  <!-- transfer sequence -->
+  <text x="20" y="20">1  Add 2 long-edge straps near mid-length</text>
+  <text x="20" y="40">2  Then remove end straps (dashed); part stays put</text>
+
+  <!-- mill table, top view -->
+  <rect x="10" y="48" width="640" height="262" fill="#f1f2f3" stroke="#999"/>
+  <g fill="#d6d8db">
+    <rect x="10" y="132" width="640" height="8"/>
+    <rect x="10" y="212" width="640" height="8"/>
+  </g>
+
+  <!-- bar, both long edges finished; end stock hatched -->
+  <rect x="90" y="100" width="470" height="148" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <rect x="90" y="100" width="5" height="148" fill="url(#cut)"/>
+  <rect x="555" y="100" width="5" height="148" fill="url(#cut)"/>
+  <line x1="95" y1="100" x2="95" y2="248" stroke="#a33" stroke-width="3"/>
+  <line x1="555" y1="100" x2="555" y2="248" stroke="#a33" stroke-width="1.5" stroke-dasharray="6 3"/>
+
+  <!-- same two 1-2-3 blocks, inboard of both end cuts -->
+  <g fill="none" stroke="#333" stroke-width="1.3" stroke-dasharray="4 3">
+    <rect x="125" y="135" width="27" height="78"/>
+    <rect x="498" y="135" width="27" height="78"/>
+  </g>
+
+  <!-- old end straps: removed after transfer -->
+  <g fill="none" stroke="#666" stroke-width="1.3" stroke-dasharray="5 4">
+    <rect x="36" y="159" width="16" height="30"/>
+    <rect x="44" y="163" width="104" height="22"/>
+    <rect x="598" y="159" width="16" height="30"/>
+    <rect x="502" y="163" width="104" height="22"/>
+  </g>
+
+  <!-- new long-edge straps near mid-length -->
+  <g fill="#8a9099" stroke="#111" stroke-width="1.2">
+    <rect x="309" y="52" width="32" height="14"/>
+    <rect x="309" y="282" width="32" height="14"/>
+  </g>
+  <g fill="#6b7178" stroke="#111" stroke-width="1.2">
+    <rect x="314" y="58" width="22" height="70"/>
+    <rect x="314" y="220" width="22" height="70"/>
+  </g>
+  <circle cx="325" cy="82" r="6" fill="#ddd" stroke="#111"/>
+  <circle cx="325" cy="266" r="6" fill="#ddd" stroke="#111"/>
+
+  <!-- end cuts by Y travel -->
+  <circle cx="88" cy="112" r="7" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
+  <line x1="24" y1="112" x2="24" y2="236" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="16" y="258">−Y</text>
+  <circle cx="562" cy="236" r="7" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
+  <line x1="630" y1="236" x2="630" y2="112" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="621" y="100">+Y</text>
+
+  <!-- in-figure labels -->
+  <text x="325" y="165" text-anchor="middle">blocks clear both end cuts</text>
+  <text x="325" y="190" text-anchor="middle">A / ZERO EDGE front</text>
+  <text x="100" y="272">3  First end: ZERO END, X0</text>
+  <text x="550" y="272" text-anchor="end">4  Second end: 17.32</text>
+
+  <!-- 17.32 from ZERO END -->
+  <g stroke="#111" stroke-width="1">
+    <line x1="95" y1="276" x2="95" y2="328"/>
+    <line x1="555" y1="250" x2="555" y2="260"/>
+    <line x1="555" y1="278" x2="555" y2="328"/>
+    <line x1="96" y1="322" x2="554" y2="322" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  </g>
+  <text x="200" y="340" text-anchor="middle">17.32</text>
+
+  <!-- axes -->
+  <g stroke="#111" stroke-width="1.5">
+    <line x1="610" y1="335" x2="655" y2="335" marker-end="url(#arr)"/>
+    <line x1="610" y1="335" x2="610" y2="300" marker-end="url(#arr)"/>
+  </g>
+  <text x="660" y="340">+X</text>
+  <text x="618" y="310">+Y</text>
+</svg>
