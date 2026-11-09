@@ -1,8 +1,8 @@
-# Prechips v0.2
+# Prechips v0.3
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
-This is a prototype, not a geometry checker or machining certificate. v0.2 adds profiles and setup diagrams to the v0.10 restart. The previous implementation is preserved on [`archive/pre-v0.10-2026-11-08`](https://github.com/pedropaulovc/prechips/tree/archive/pre-v0.10-2026-11-08); old code returns only when a useful milestone needs it.
+This prototype binds traveler dimensions to a selected CAD/drawing export. Process choices remain authored. The previous implementation is preserved on [`archive/pre-v0.10-2026-11-08`](https://github.com/pedropaulovc/prechips/tree/archive/pre-v0.10-2026-11-08); old code returns only when a useful milestone needs it.
 
 ## Run
 
@@ -17,9 +17,35 @@ uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-b
 Open either HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Both files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan, including filesystem aliases.
 
-The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. The November 7 squaring discussion supplies the table-clamped sequence: generate both long edges, transfer clamps without moving the bar, then square both ends before vise facing. Drawing dimensions and cutting settings remain sourced from the v47 drawing and November 5 guide, including the reviewed 17/32 in slot finish. Source references are in TOML comments.
+The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
 
 Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
+
+## CAD dimensions
+
+The example reads `examples/cad/base-bar-v47.toml`, an unchanged copy of the released harmonic-analyzer `features.toml`. Point `cad.file` at another export to use that file directly. No STEP reader, FreeCAD, network access or hash checking is involved.
+
+```toml
+[cad]
+file = "cad/base-bar-v47.toml"
+adapter = "harmonic_base_bar"
+
+[parameters]
+blank_length_in = 17.4375
+blank_width_in = 6.0
+blank_thickness_in = 0.5
+quantity = 2
+width_rough_allowance_in = 0.015
+slot_breakthrough_in = 0.02
+slot_step_in = 0.12
+slot_finish_diameter_in = 0.53125
+```
+
+Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
+
+The adapter uses exported requirement limits and drawing targets, converts millimetres to inches, and applies the authored setup's negative-Y convention. It distinguishes drawing-rounded positions from model coordinates. Printed dimensions, coordinate tables, diagram labels and feature positions share these values. Literal-only plans still work.
+
+Only the harmonic-analyzer base-bar export is supported by this adapter. Changing CAD dimensions does not select new tools or redesign the machining process. Stock fit is the next milestone.
 
 ## Profiles
 
@@ -28,7 +54,7 @@ Setups are numbered in order; operations use unique numbers in increments of ten
 | `pro` (default) | Omitted; diagram files are not opened | Ordinary process input errors only |
 | `hobby` | Included for every setup | Missing, unreadable or invalid SVG diagrams fail with exit 2 |
 
-v0.2 enforcement covers rendering completeness only. It does not check feeds, clearances or machining safety. The diagrams are authored setup illustrations, not CAD-derived fixture assemblies; no FreeCAD is needed.
+Profile enforcement covers rendering completeness only. It does not check feeds, clearances or machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
@@ -38,7 +64,7 @@ features = ["setup_diagrams"]
 enforce = []  # Include declared diagrams; allow setups without one.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup. It must also appear in `features`. These are the only feature and enforcement keys supported in v0.2; unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup. It must also appear in `features`. These are the only feature and enforcement keys currently supported; unknown keys are errors.
 
 ## Process TOML
 
@@ -91,4 +117,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review; v0.2 is the current review target.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.3 is the CAD-binding review target; v0.4 adds stock-fit validation separately.
