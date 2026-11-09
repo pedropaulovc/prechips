@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,4 +19,23 @@ jobs:
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --python 3.12
       - run: uv run pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --python 3.12
+      - run: uv build
