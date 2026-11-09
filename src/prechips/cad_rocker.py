@@ -146,6 +146,10 @@ def load_rocker(path: Path, parameters: dict) -> CadData:
     bottom_radius = _positive(
         profile.get("bottom_radius_nominal"), "cad.profile.bottom_radius_nominal"
     )
+    if not values["top_radius_min"] <= top_radius <= values["top_radius_max"]:
+        raise CadError("cad: nominal top radius lies outside source limits")
+    if not values["bottom_radius_min"] <= bottom_radius <= values["bottom_radius_max"]:
+        raise CadError("cad: nominal bottom radius lies outside source limits")
     top_height = centre[1] - top_radius - pivot_at[1]
     if not values["top_height_min"] <= top_height <= values["top_height_max"]:
         raise CadError("cad: nominal top height lies outside source limits")

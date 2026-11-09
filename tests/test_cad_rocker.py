@@ -182,6 +182,10 @@ def test_process_blank_and_hub_aim_reach_dependent_targets(tmp_path):
         ('"lower_z" = -1.25', '"lower_z" = -1.30'),
         ('"at" = [0.0, 8.0, 0.0]', '"at" = [1.0, 8.0, 0.0]'),
         ('"at" = [0.0, 8.0, 0.0]', '"at" = [0.0, 9.0, 0.0]'),
+        ('"radius" = [799.49, 800.51]', '"radius" = [800.01, 800.51]'),
+        ('"radius" = [799.49, 800.51]', '"radius" = [799.49, 799.99]'),
+        ('"bottom_radius_nominal" = 816.0', '"bottom_radius_nominal" = 815.0'),
+        ('"bottom_radius_nominal" = 816.0', '"bottom_radius_nominal" = 817.0'),
     ],
 )
 def test_unsupported_or_unusable_required_source_fails_before_render(
