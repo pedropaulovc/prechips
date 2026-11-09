@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" width="720" height="320" font-family="Arial, Helvetica, sans-serif" font-size="15">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#111"/>
+    </marker>
+  </defs>
+  <rect width="720" height="320" fill="#fff"/>
+
+  <!-- Top view: bar with two blanks marked -->
+  <text x="40" y="20" fill="#555" font-style="italic">Top view</text>
+  <rect x="40" y="60" width="209" height="72" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <rect x="253" y="60" width="209" height="72" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <path d="M466 60H600L592 78L606 96L594 114L600 132H466Z" fill="#f2f2f2" stroke="#111" stroke-width="1.5"/>
+  <line x1="251" y1="50" x2="251" y2="142" stroke="#a33" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <line x1="464" y1="50" x2="464" y2="142" stroke="#a33" stroke-width="1.6" stroke-dasharray="6 4"/>
+  <text x="144.5" y="101" text-anchor="middle">BLANK 1</text>
+  <text x="357.5" y="101" text-anchor="middle">BLANK 2</text>
+  <text x="530" y="101" text-anchor="middle">1/2 × 6 bar</text>
+
+  <!-- length dimensions -->
+  <g stroke="#111" stroke-width="1">
+    <line x1="40" y1="58" x2="40" y2="40"/>
+    <line x1="249" y1="48" x2="249" y2="40"/>
+    <line x1="253" y1="48" x2="253" y2="40"/>
+    <line x1="462" y1="48" x2="462" y2="40"/>
+    <line x1="41" y1="44" x2="248" y2="44" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <line x1="254" y1="44" x2="461" y2="44" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  </g>
+  <text x="144.5" y="37" text-anchor="middle">17 7/16 in</text>
+  <text x="357.5" y="37" text-anchor="middle">17 7/16 in</text>
+
+  <!-- width dimension -->
+  <g stroke="#111" stroke-width="1">
+    <line x1="38" y1="60" x2="20" y2="60"/>
+    <line x1="38" y1="132" x2="20" y2="132"/>
+    <line x1="26" y1="61" x2="26" y2="131" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  </g>
+  <text transform="translate(17 96) rotate(-90)" text-anchor="middle">6 in</text>
+
+  <!-- cutline label -->
+  <text x="357" y="168" text-anchor="middle">cutlines</text>
+  <g stroke="#111" stroke-width="1" fill="none">
+    <line x1="326" y1="160" x2="253" y2="144"/>
+    <line x1="388" y1="160" x2="462" y2="144"/>
+  </g>
+
+  <!-- Side view: bar on saw bed with supports -->
+  <text x="40" y="196" fill="#555" font-style="italic">Side view</text>
+  <path d="M40 220H600L596 226L600 232H40Z" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <line x1="251" y1="212" x2="251" y2="240" stroke="#a33" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <rect x="248" y="176" width="6" height="42" fill="#555"/>
+  <line x1="268" y1="198" x2="268" y2="216" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="292" y="190">saw blade</text>
+  <line x1="288" y1="185" x2="256" y2="185" stroke="#111" stroke-width="1"/>
+
+  <rect x="190" y="232" width="120" height="50" fill="#b5b9bf" stroke="#111" stroke-width="1.5"/>
+  <text x="250" y="262" text-anchor="middle">saw bed</text>
+
+  <g fill="#8a9099" stroke="#111" stroke-width="1">
+    <rect x="70" y="232" width="40" height="4"/>
+    <rect x="87" y="236" width="6" height="44"/>
+    <rect x="74" y="280" width="32" height="4"/>
+    <rect x="500" y="232" width="40" height="4"/>
+    <rect x="517" y="236" width="6" height="44"/>
+    <rect x="504" y="280" width="32" height="4"/>
+  </g>
+  <text x="100" y="262">support</text>
+  <text x="530" y="262">support</text>
+  <line x1="30" y1="284" x2="640" y2="284" stroke="#555" stroke-width="1.5"/>
+  <text x="335" y="306" text-anchor="middle">bar level across saw bed and both supports</text>
+</svg>

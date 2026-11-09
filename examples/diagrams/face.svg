@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" font-family="Arial, Helvetica, sans-serif" font-size="15">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#111"/>
+    </marker>
+  </defs>
+  <rect width="720" height="340" fill="#fff"/>
+
+  <!-- Front view (from operator side) -->
+  <text x="10" y="22" fill="#555" font-style="italic">Front view</text>
+  <rect x="20" y="200" width="680" height="16" fill="#6b7178"/>
+  <text x="30" y="213" fill="#fff" font-size="14">mill table</text>
+  <rect x="239" y="172" width="188" height="28" fill="#8a9099" stroke="#111" stroke-width="1.2"/>
+
+  <!-- bar flat, ends overhanging -->
+  <rect x="90" y="120" width="486" height="13" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <!-- front jaw with parallels hidden behind -->
+  <rect x="249" y="126" width="168" height="46" fill="#b5b9bf" stroke="#111" stroke-width="1.2"/>
+  <rect x="255" y="133" width="156" height="38.5" fill="none" stroke="#333" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="333" y="148" text-anchor="middle">front jaw</text>
+  <text x="333" y="165" text-anchor="middle" font-size="14">1-3/8 parallels behind</text>
+
+  <!-- screw jacks under both ends -->
+  <g fill="#8a9099" stroke="#111" stroke-width="1.2">
+    <rect x="157" y="133" width="6" height="25"/>
+    <rect x="148" y="158" width="24" height="42"/>
+    <rect x="503" y="133" width="6" height="25"/>
+    <rect x="494" y="158" width="24" height="42"/>
+  </g>
+  <text x="142" y="186" text-anchor="end">screw jack</text>
+  <text x="526" y="186">screw jack</text>
+
+  <!-- 1/2 end mill squaring the right end -->
+  <rect x="570" y="44" width="26" height="30" fill="#8a9099" stroke="#111" stroke-width="1.2"/>
+  <rect x="576" y="74" width="14" height="62" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
+  <text x="602" y="80">1/2 in end mill</text>
+  <text x="602" y="98">squares ends;</text>
+  <text x="602" y="116">right end +Y</text>
+  <text x="90" y="110">left end −Y</text>
+
+  <!-- 3/4 end mill facing the top (shown dashed) -->
+  <rect x="225" y="44" width="31" height="26" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <rect x="230" y="70" width="21" height="50" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="262" y="86">3/4 in end mill faces top</text>
+  <line x1="262" y1="102" x2="350" y2="102" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="356" y="107">+X</text>
+
+  <!-- Top view: orientation -->
+  <text x="10" y="240" fill="#555" font-style="italic">Top view</text>
+  <rect x="159.5" y="240" width="84" height="10" fill="#8a9099" stroke="#111" stroke-width="1.2"/>
+  <rect x="80" y="250" width="243" height="77" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
+  <line x1="80" y1="251" x2="323" y2="251" stroke="#a33" stroke-width="3"/>
+  <rect x="159.5" y="327" width="84" height="10" fill="#b5b9bf" stroke="#111" stroke-width="1.2"/>
+  <g fill="none" stroke="#333" stroke-width="1.2" stroke-dasharray="3 3">
+    <circle cx="98" cy="288" r="6"/>
+    <circle cx="305" cy="288" r="6"/>
+  </g>
+  <text x="201.5" y="294" text-anchor="middle">top face: C'BORE SIDE</text>
+  <text x="74" y="294" text-anchor="end">ZERO END</text>
+
+  <text x="340" y="250">fixed jaw: ZERO EDGE against it</text>
+  <line x1="336" y1="246" x2="245" y2="245" stroke="#111" stroke-width="1"/>
+  <text x="340" y="284">side 2: flip end-for-end,</text>
+  <text x="340" y="302">ZERO EDGE stays at fixed jaw</text>
+  <text x="340" y="334">front jaw</text>
+  <line x1="336" y1="330" x2="245" y2="332" stroke="#111" stroke-width="1"/>
+</svg>
