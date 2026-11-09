@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from prechips.cad import CadError, load_cad
+from prechips.cad import CadError, RoundStock, load_cad
 from prechips.cli import main
 from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
@@ -46,9 +46,83 @@ def test_shaft_contour_tip_and_rough_stair_reach_table():
     html = render_traveler(plan)
     assert "−1.65 / 6.17" in html
     assert "6.330–6.350" in html
-    assert plan.cad.envelope_mm is None
-    with pytest.raises(StockError, match="envelope"):
+    assert plan.cad.stock_requirement == RoundStock(10.0, 180.5)
+
+
+@pytest.mark.parametrize(
+    "diameter,length,error",
+    [
+        (10.0, 180.5, None),
+        (9.999999, 180.5, "diameter"),
+        (10.0, 180.499999, "length"),
+    ],
+)
+def test_round_stock_exact_and_short_dimensions(diameter, length, error):
+    plan = load_plan(PLAN)
+    plan.parameters.update(stock_dia_mm=diameter, stock_length_mm=length)
+    if error is None:
         check_stock_fit(plan)
+    else:
+        with pytest.raises(StockError, match=f"stock_fit: {error}:") as caught:
+            check_stock_fit(plan)
+        required = "10" if error == "diameter" else "180.5"
+        assert f"{required} mm" in str(caught.value)
+
+
+@pytest.mark.parametrize("key", ["stock_dia_mm", "stock_length_mm"])
+@pytest.mark.parametrize("value", [None, 0, -1, float("nan"), float("inf"), True])
+def test_round_stock_requires_finite_positive_actual_dimensions(key, value):
+    plan = load_plan(PLAN)
+    plan.parameters.update(stock_dia_mm=10.0, stock_length_mm=180.5)
+    if value is None:
+        del plan.parameters[key]
+    else:
+        plan.parameters[key] = value
+    with pytest.raises(StockError, match=rf"parameters\.{key}"):
+        check_stock_fit(plan)
+
+
+def test_shaft_without_stock_requirement_is_not_implicitly_accepted():
+    plan = load_plan(PLAN)
+    plan.cad.stock_requirement = None
+    with pytest.raises(StockError, match="does not provide a stock requirement"):
+        check_stock_fit(plan)
+
+
+def test_round_stock_diameter_tracks_nominal_not_source_limit(tmp_path):
+    path = prepare(
+        tmp_path,
+        [('"dia_nominal" = 10.0', '"dia_nominal" = 10.1')],
+    )
+    plan = load_plan(path)
+    assert plan.cad.stock_requirement == RoundStock(10.1, 180.5)
+    plan.parameters["stock_length_mm"] = 180.5
+    with pytest.raises(StockError, match="diameter"):
+        check_stock_fit(plan)
+
+
+@pytest.mark.parametrize("length", [None, 180.499999, 180.5])
+def test_round_stock_length_gate_runs_before_output(tmp_path, capsys, length):
+    path = prepare(tmp_path)
+    text = "\n".join(
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("stock_length_mm =")
+    )
+    if length is not None:
+        text = text.replace("[parameters]", f"[parameters]\nstock_length_mm = {length}")
+    path.write_text(text, encoding="utf-8")
+    output = tmp_path / "out/traveler.html"
+    result = main(["traveler", str(path), "--out", str(output), "--profile", "pro"])
+    if length == 180.5:
+        assert result == 0
+        assert output.exists()
+    else:
+        assert result == 2
+        error = capsys.readouterr().err
+        assert "stock_fit: length:" in error
+        assert "180.5 mm" in error
+        assert not output.parent.exists()
 
 
 def test_source_limits_and_finish_reach_both_inspections(tmp_path):
@@ -171,10 +245,11 @@ def test_authored_nose_and_sampling_change_only_dependent_readings(tmp_path):
         ('"height_nominal" = 1.5', '"missing_height" = 1.5'),
     ],
 )
-def test_unusable_source_refuses_before_output(tmp_path, old, new):
+def test_unusable_source_refuses_before_output(tmp_path, capsys, old, new):
     path = prepare(tmp_path, [(old, new)])
     output = tmp_path / "out/traveler.html"
     assert main(["traveler", str(path), "--out", str(output)]) == 2
+    assert "stock_fit:" not in capsys.readouterr().err
     assert not output.parent.exists()
 
 
@@ -185,6 +260,7 @@ def test_unusable_source_refuses_before_output(tmp_path, old, new):
         ("entering_angle_deg = 93.0", "entering_angle_deg = 60.0"),
         ("contour_step_mm = 0.1", "contour_step_mm = 0.0"),
         ("supply_length_mm = 175.0", "supply_length_mm = 174.0"),
+        ("short_grip_mm = 20.0", "short_grip_mm = -1.0"),
     ],
 )
 def test_unsupported_authored_tool_strategy_refuses(tmp_path, old, new):
@@ -226,6 +302,7 @@ def test_blank_and_facing_follow_authored_inputs(
     path = prepare(tmp_path, plan_replacements=[(old, new)])
     plan = load_plan(path)
     assert plan.cad.values["blank_length"] == pytest.approx(blank)
+    assert plan.cad.stock_requirement.length_mm == pytest.approx(blank)
     assert plan.cad.values["north_grip"] == pytest.approx(grip)
     assert plan.cad.values["plain_end_face_passes"] == passes
     assert str(blank) in plan.data["stock"]

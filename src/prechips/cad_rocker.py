@@ -253,4 +253,4 @@ def load_rocker(path: Path, parameters: dict) -> CadData:
         table(raw, "material").get("finish"), "cad.material.finish"
     )
     values["finish"] = values["finish"][0].upper() + values["finish"][1:]
-    return CadData(values, None, path.resolve())
+    return CadData(values, stock_requirement=None, source=path.resolve())

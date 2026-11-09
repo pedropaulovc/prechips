@@ -1,6 +1,6 @@
 [project]
 name = "prechips"
-version = "0.6.0"
+version = "0.7.0"
 description = "Printable manual-manufacturing travelers from TOML"
 readme = "README.md"
 requires-python = ">=3.12"

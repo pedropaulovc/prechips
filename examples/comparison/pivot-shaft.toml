@@ -23,6 +23,13 @@ file = "../cad/pivot-shaft-v40.toml"
 # Authored tooling, stock and process choices, not shaft drawing requirements.
 [parameters]
 stock_dia_mm = 10.0
+# Available round-stock length; the route requires the sawn blank printed above.
+stock_length_mm = 180.5
+short_grip_mm = 20.0
+short_projection_mm = 15.0
+reverse_grip_mm = 25.0
+fit_grip_mm = 25.0
+fit_jaw_offset_mm = 8.0
 supply_length_mm = 175.0
 plain_end_face_allowance_mm = 0.5
 blade_width_mm = 1.6
@@ -71,8 +78,9 @@ description = "{{process.blade_width_mm:g}} mm M2 square blade, corner R{{proces
 [[setups]]
 title = "Short hold — face and centre plain end"
 machine = "PM-1127VF-LB lathe"
-holding = "3-jaw: 20 mm grip, 15 mm plain-end projection; remainder through spindle."
+holding = "3-jaw: {{process.short_grip_mm:g}} mm grip, {{process.short_projection_mm:g}} mm plain-end projection; remainder through spindle."
 datum = "Sawn end Z+{{process.plain_end_face_allowance_mm:g}}; faced end Z0; X diametric."
+diagram = { file = "diagrams/pivot-shaft/short.svg", alt = "Short plain-end hold: facing and centre drilling, with the remaining blank through the spindle." }
 
 [[setups.operations]]
 tool = "ar"
@@ -91,6 +99,7 @@ title = "Supported body and thrust shoulder"
 machine = "PM-1127VF-LB lathe"
 holding = "North-stub grip {{cad.north_grip:g}} mm; projection {{cad.supported_projection:.1f}} ±0.3. Lubricated MT3 dead centre. Follow rest {{process.follow_rest_lead_mm:g}} mm behind tool; reset each rough/finish pass at Z{{process.follow_rest_reset_z_mm:g}} in waste."
 datum = "All tools: thrust face Z0; plain end Z{{cad.plain_end_z:g}}. Blade Z at chuck-side corner."
+diagram = { file = "diagrams/pivot-shaft/supported.svg", alt = "North stub in the chuck, bearing turning toward the chuck, dead-centre support and follow rest at the reset position." }
 
 [[setups.operations]]
 instruction = "Check shoulder OD; retain bar surface."
@@ -125,8 +134,9 @@ inspection = "Relief Ø{{cad.south_relief_dia_min:.2f}}–{{cad.south_relief_dia
 [[setups]]
 title = "Reverse — journal, north relief and dome"
 machine = "PM-1127VF-LB lathe"
-holding = "Protected body grip 25 mm; thrust face against jaw fronts; nominal {{cad.reverse_projection:g}} mm projection, unsupported."
+holding = "Protected body grip {{process.reverse_grip_mm:g}} mm; thrust face against jaw fronts; nominal {{cad.reverse_projection:g}} mm projection, unsupported."
 datum = "All tools: apex Z0, thrust Z{{cad.thrust_z:g}}. Measure M = thrust-to-stub-end before clamping; stub Z=M{{cad.thrust_z:+g}}. Blade Z at chuck-side corner."
+diagram = { file = "diagrams/pivot-shaft/reverse.svg", alt = "Reversed shaft with the thrust face at the jaws: journal, relief and north dome machining." }
 
 [[setups.operations]]
 tool = "hss"
@@ -160,8 +170,9 @@ rows = "{{cad.contour_rows}}"
 [[setups]]
 title = "Fit-scribe — finish plain end"
 machine = "PM-1127VF-LB lathe / assembly bench"
-holding = "After scribing: protected body grip 25 mm; jaws 8 mm north of scribe. Stickout = scribe-to-end +8. Runout ≤0.02 TIR."
+holding = "After scribing: protected body grip {{process.fit_grip_mm:g}} mm; jaws {{process.fit_jaw_offset_mm:g}} mm north of scribe. Stickout = scribe-to-end +{{process.fit_jaw_offset_mm:g}}. Runout ≤0.02 TIR."
 datum = "All tools: scribe Z0; X trial cut on waste Z6…end. Blade Z at chuck-side corner."
+diagram = { file = "diagrams/pivot-shaft/fit.svg", alt = "Fit-scribe datum, waste parting plane and final south dome; waste length follows the actual fit-up." }
 
 [[setups.operations]]
 instruction = "Fit both ears, shoulder against north ear; scribe south ear outer face. Scribe-to-end {{cad.scribe_expected_min:.2f}}–{{cad.scribe_expected_max:.2f}} reference; otherwise refit/rescribe. If still ≥{{cad.rest_scribe_min:.2f}}, use actual reading. Below {{cad.rest_scribe_min:.2f}} correct bank: rest mark would remain."

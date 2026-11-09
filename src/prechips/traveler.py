@@ -106,7 +106,7 @@ def load_plan(path: Path) -> LoadedPlan:
                 _text(config, "adapter", "cad"),
             )
         # Literal-only plans can also bind authored process parameters.
-        context = cad or CadData({}, None, path.resolve())
+        context = cad or CadData({}, stock_requirement=None, source=path.resolve())
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error

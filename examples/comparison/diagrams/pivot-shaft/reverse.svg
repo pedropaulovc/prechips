@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="shaft-reverse" viewBox="0 {{view.top}} 720 {{view.height}}" width="720" height="{{view.height}}" font-family="Arial, Helvetica, sans-serif" font-size="14">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#111"/>
+    </marker>
+    <pattern id="cut" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#fbe1dd"/>
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#b33" stroke-width="1.6"/>
+    </pattern>
+  </defs>
+  <rect y="{{view.top}}" width="720" height="{{view.height}}" fill="#fff"/>
+
+  <!-- schematic 3-jaw chuck body, behind the work -->
+  <rect x="{{view.chuck_x}}" y="{{view.chuck_y}}" width="{{view.chuck_w}}" height="{{view.chuck_h}}" fill="#e6e7e9" stroke="#888" stroke-width="1.2"/>
+
+  <!-- setup material from CAD values and authored parameters -->
+  <g id="removed" data-cad-group="removed" fill="url(#cut)" stroke="none"/>
+  <g id="waste" data-cad-group="waste" fill="#c9cbce" stroke="#555" stroke-width="1.2"/>
+  <g id="arriving" data-cad-group="arriving" fill="none" stroke="#444" stroke-width="1.3" stroke-dasharray="6 4"/>
+  <g id="kept" data-cad-group="kept" fill="#d7e1ec" stroke="#111" stroke-width="1.6"/>
+  <g id="centre" data-cad-group="centre" stroke="#555" stroke-width="0.9" stroke-dasharray="16 3 3 3"/>
+
+  <!-- schematic jaws with protective shims -->
+  <g fill="#8a9099" stroke="#111" stroke-width="1.2">
+    <rect id="jaw-upper" x="{{view.jaw_x}}" y="{{view.jaw_upper_y}}" width="{{view.jaw_w}}" height="{{view.jaw_h}}"/>
+    <rect x="{{view.jaw_x}}" y="{{view.jaw_lower_y}}" width="{{view.jaw_w}}" height="{{view.jaw_h}}"/>
+  </g>
+  <g fill="#c8a165" stroke="#6b4f1f" stroke-width="0.8">
+    <rect x="{{view.jaw_x}}" y="{{view.shim_upper_y}}" width="{{view.jaw_w}}" height="{{view.shim_h}}"/>
+    <rect x="{{view.jaw_x}}" y="{{view.shim_lower_y}}" width="{{view.jaw_w}}" height="{{view.shim_h}}"/>
+  </g>
+
+  <!-- operation highlights, datums, dimensions and labels -->
+  <g id="active" data-cad-group="active" stroke="#e07000" stroke-width="4" stroke-linecap="round"/>
+  <g id="planes" data-cad-group="planes" stroke="#b22" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <g id="datum" data-cad-group="datum" stroke="#b22" stroke-width="2.4"/>
+  <g id="arrows" data-cad-group="arrows" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <g id="dims" data-cad-group="dims" stroke="#111" stroke-width="1"/>
+  <g id="leaders" data-cad-group="leaders" fill="none" stroke="#333" stroke-width="0.9"/>
+  <g id="labels" data-cad-group="labels" fill="#111"/>
+
+  <!-- legend -->
+  <g transform="translate({{view.legend_x}} {{view.legend_y}})">
+    <rect x="0" y="0" width="26" height="12" fill="none" stroke="#444" stroke-width="1.3" stroke-dasharray="6 4"/>
+    <text x="34" y="11">arriving material</text>
+    <rect x="220" y="0" width="26" height="12" fill="url(#cut)"/>
+    <text x="254" y="11">removed in this setup</text>
+    <rect x="0" y="20" width="26" height="12" fill="#d7e1ec" stroke="#111" stroke-width="1.6"/>
+    <text x="34" y="31">kept after this setup</text>
+    <rect x="220" y="20" width="26" height="12" fill="#e6e7e9" stroke="#888"/>
+    <text x="254" y="31">fixtures, tools: schematic</text>
+  </g>
+</svg>

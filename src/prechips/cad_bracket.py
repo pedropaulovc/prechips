@@ -220,4 +220,4 @@ def load_bracket(path: Path, parameters: dict) -> CadData:
         strip_y_min=-inner - process("wall_leave_mm"),
         crown_finish_depth=-(inner - outer) - process("arch_breakthrough_mm"),
     )
-    return CadData(values, None, path.resolve())
+    return CadData(values, stock_requirement=None, source=path.resolve())
