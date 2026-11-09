@@ -78,12 +78,6 @@
   <text x="686" y="27">+X</text>
   <text x="640" y="60">−Y</text>
 
-  <!-- final end cut -->
-  <circle cx="623" cy="236" r="8" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
-  <line x1="623" y1="224" x2="623" y2="188" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="634" y="150">end cut, +Y</text>
-  <text x="634" y="168">1/2 in mill</text>
-
   <!-- front jaw and length -->
   <text x="337" y="282" text-anchor="middle">front jaw · 1-3/8 parallels under bar</text>
   <g stroke="#111" stroke-width="1">

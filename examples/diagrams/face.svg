@@ -31,38 +31,38 @@
   <text x="142" y="186" text-anchor="end">screw jack</text>
   <text x="526" y="186">screw jack</text>
 
-  <!-- 1/2 end mill squaring the right end -->
-  <rect x="570" y="44" width="26" height="30" fill="#8a9099" stroke="#111" stroke-width="1.2"/>
-  <rect x="576" y="74" width="14" height="62" fill="#c9a227" stroke="#111" stroke-width="1.2"/>
-  <text x="602" y="80">1/2 in end mill</text>
-  <text x="602" y="98">squares ends;</text>
-  <text x="602" y="116">right end +Y</text>
-  <text x="90" y="110">left end −Y</text>
+  <!-- left and right halves of the face -->
+  <g stroke="#111" stroke-width="1">
+    <line x1="90" y1="116" x2="90" y2="104"/>
+    <line x1="333" y1="116" x2="333" y2="104"/>
+    <line x1="576" y1="116" x2="576" y2="104"/>
+    <line x1="91" y1="110" x2="332" y2="110" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <line x1="334" y1="110" x2="575" y2="110" marker-start="url(#arr)" marker-end="url(#arr)"/>
+  </g>
+  <text x="211" y="100" text-anchor="middle">left half</text>
+  <text x="454" y="100" text-anchor="middle">right half</text>
 
   <!-- 3/4 end mill facing the top (shown dashed) -->
-  <rect x="225" y="44" width="31" height="26" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
-  <rect x="230" y="70" width="21" height="50" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
-  <text x="262" y="86">3/4 in end mill faces top</text>
-  <line x1="262" y1="102" x2="350" y2="102" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="356" y="107">+X</text>
+  <rect x="345" y="34" width="31" height="26" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <rect x="350" y="60" width="21" height="28" fill="none" stroke="#111" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="384" y="56">3/4 in end mill faces top</text>
+  <line x1="384" y1="74" x2="472" y2="74" stroke="#111" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="478" y="79">+X</text>
 
-  <!-- Top view: orientation -->
+  <!-- Top view: final orientation for marking -->
   <text x="10" y="240" fill="#555" font-style="italic">Top view</text>
   <rect x="159.5" y="240" width="84" height="10" fill="#8a9099" stroke="#111" stroke-width="1.2"/>
   <rect x="80" y="250" width="243" height="77" fill="#dfe6ee" stroke="#111" stroke-width="1.5"/>
   <line x1="80" y1="251" x2="323" y2="251" stroke="#a33" stroke-width="3"/>
+  <line x1="81" y1="250" x2="81" y2="327" stroke="#a33" stroke-width="3"/>
   <rect x="159.5" y="327" width="84" height="10" fill="#b5b9bf" stroke="#111" stroke-width="1.2"/>
-  <g fill="none" stroke="#333" stroke-width="1.2" stroke-dasharray="3 3">
-    <circle cx="98" cy="288" r="6"/>
-    <circle cx="305" cy="288" r="6"/>
-  </g>
-  <text x="201.5" y="294" text-anchor="middle">top face: C'BORE SIDE</text>
+  <text x="201.5" y="294" text-anchor="middle">mark top: C'BORE SIDE</text>
   <text x="74" y="294" text-anchor="end">ZERO END</text>
 
   <text x="340" y="250">fixed jaw: ZERO EDGE against it</text>
   <line x1="336" y1="246" x2="245" y2="245" stroke="#111" stroke-width="1"/>
-  <text x="340" y="284">side 2: flip end-for-end,</text>
-  <text x="340" y="302">ZERO EDGE stays at fixed jaw</text>
-  <text x="340" y="334">front jaw</text>
-  <line x1="336" y1="330" x2="245" y2="332" stroke="#111" stroke-width="1"/>
+  <text x="340" y="276">side 2: flip end-for-end,</text>
+  <text x="340" y="294">ZERO EDGE stays at fixed jaw.</text>
+  <text x="340" y="312">After both faces: ZERO END left,</text>
+  <text x="340" y="330">ZERO EDGE back, then mark top.</text>
 </svg>

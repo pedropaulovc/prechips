@@ -17,7 +17,7 @@ uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-b
 Open either HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Both files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan, including filesystem aliases.
 
-The pro base-bar example stays within two Letter pages at 10.5pt. Hobby uses extra pages for readable diagrams of all five setups. Both retain professional operator wording without routine technique or generic safety reminders. The base-bar route follows the November 5 hand guide, with the reviewed 17/32 in slot-finishing method. Source references and the cutting-data derivation are in TOML comments.
+The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. The November 7 squaring discussion supplies the table-clamped sequence: generate both long edges, transfer clamps without moving the bar, then square both ends before vise facing. Drawing dimensions and cutting settings remain sourced from the v47 drawing and November 5 guide, including the reviewed 17/32 in slot finish. Source references are in TOML comments.
 
 Setups are numbered in order; operations use unique numbers in increments of ten. Operation tables align work instructions with tooling and cutting settings. Coordinate and inspection tables keep related values together.
 
