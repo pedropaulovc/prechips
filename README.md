@@ -253,20 +253,20 @@ The base bar binds its stacks from CAD/blank sizes and process parameters: the s
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
 | --- | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; applicable longitudinal turning meets bending limits |
-| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | Stock fits; turning meets bending limits; every setup has a readable SVG diagram |
+| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; turning meets bending limits; every declared-input check passes |
+| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | As `pro`; every setup has a readable SVG diagram |
 
-Enforcement is limited to the declared stock, setup-diagram and static longitudinal-turning contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
+Enforcement is limited to the declared stock, setup-diagram, static longitudinal-turning and declared-input contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
 ```toml
 name = "illustrated"
 features = ["setup_diagrams", "detailed_instructions"]
-enforce = []  # Explicitly skip stock/turning checks; allow missing diagrams.
+enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
