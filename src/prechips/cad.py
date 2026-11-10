@@ -423,6 +423,8 @@ _TOKEN = re.compile(
     r"\{\{(cad|process|view)\.([A-Za-z_][A-Za-z_0-9]*)(?::([^{}]+))?\}\}"
 )
 _FORMAT = re.compile(r"(?:[+ -])?(?:[1-9][0-9]?)?(?:\.[0-9])?[fge%]|d")
+# Shop shorthand: fixed places without the leading zero, as in ".4" or ".04".
+_DOT = re.compile(r"\.([0-9])dot")
 
 
 def _lookup(
@@ -473,6 +475,10 @@ def bind_text(
                         )
                         + (f"{numerator}/{fraction.denominator}" if numerator else "")
                     )
+            elif spec and (dot := _DOT.fullmatch(spec)):
+                result = format(value, f".{dot[1]}f")
+                if result.lstrip("-").startswith("0."):
+                    result = result.replace("0.", ".", 1)
             elif spec:
                 if not _FORMAT.fullmatch(spec) or (spec == "d" and value != int(value)):
                     raise CadError(f"{match[0]}: unsupported numeric format")

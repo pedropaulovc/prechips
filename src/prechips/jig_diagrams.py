@@ -4,21 +4,22 @@ The end bracket (TL-28) and feed lever (TL-26) are drawn from their adapter
 values and authored holding parameters. Vise top views look down from the
 operator's side: +X right from the part's X0 end, +Y toward the operator, down
 the page. Arriving material is dashed, material kept after the setup solid,
-material removed in the setup hatched, threads cross-hatched and pieces for
-another sheet grey. Jaws, parallels, cutters, taps, kerfs and soft jaws are
-schematic symbols owned by the SVG styles; only their positions follow the
-holding parameters. Labels outside the part sit on rows spread so they cannot
-overlap, with leaders back to their features.
+material removed in the setup hatched and threads cross-hatched. Jaws,
+parallels, cutters, taps, kerfs and soft jaws are schematic symbols; only their
+positions follow the holding parameters. A jig template is a bare ``<svg>``
+root naming its layout: the shared shell (patterns, group styles) is installed
+here and the legend lists only what the picture draws. Labels outside the part
+sit on rows spread so they cannot overlap, with leaders back to their features.
 """
 
 from __future__ import annotations
 
-from fractions import Fraction
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
 from prechips.cad_diagrams import (
     MM_PER_IN,
+    SVG_NS,
     Element,
     Layout,
     _cad,
@@ -30,32 +31,92 @@ from prechips.cad_diagrams import (
     _text,
     _view,
 )
-from prechips.shaft_diagrams import _callouts, _dimension
+from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 JAW = 14.0  # schematic jaw-plate depth in top views
-LEGEND = 44.0
-GROUPS = (
-    "fixture",
-    "jaws",
-    "hidden",
-    "other",
-    "arriving",
-    "kept",
-    "removed",
-    "threads",
-    "holes",
-    "tool",
-    "active",
-    "datum",
-    "arrows",
-    "dims",
-    "leaders",
-    "labels",
-    "titles",
+_DEFS = f"""<defs xmlns="{SVG_NS}">
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+      markerHeight="7" orient="auto-start-reverse">
+    <path d="M0 0L10 5L0 10z" fill="#111"/>
+  </marker>
+  <pattern id="cut" width="6" height="6" patternUnits="userSpaceOnUse"
+      patternTransform="rotate(45)">
+    <rect width="6" height="6" fill="#fbe1dd"/>
+    <line x1="0" y1="0" x2="0" y2="6" stroke="#b33" stroke-width="1.6"/>
+  </pattern>
+  <pattern id="thread" width="4" height="4" patternUnits="userSpaceOnUse">
+    <rect width="4" height="4" fill="#fff"/>
+    <path d="M0 0L4 4M4 0L0 4" stroke="#333" stroke-width="0.8"/>
+  </pattern>
+</defs>"""
+# Group styles in drawing order.
+_STYLES: dict[str, dict[str, str]] = {
+    "fixture": {"fill": "#e6e7e9", "stroke": "#888", "stroke-width": "1.2"},
+    "jaws": {"fill": "#8a9099", "stroke": "#111", "stroke-width": "1.2"},
+    "other": {"fill": "#eceef0", "stroke": "#888", "stroke-width": "1.2"},
+    "arriving": {
+        "fill": "none",
+        "stroke": "#444",
+        "stroke-width": "1.3",
+        "stroke-dasharray": "6 4",
+    },
+    "kept": {"fill": "#d7e1ec", "stroke": "#111", "stroke-width": "1.6"},
+    "removed": {"fill": "url(#cut)", "stroke": "none"},
+    "threads": {"fill": "url(#thread)", "stroke": "#555", "stroke-width": "0.6"},
+    "holes": {"fill": "#fff", "stroke": "#111", "stroke-width": "1.2"},
+    "hidden": {
+        "fill": "none",
+        "stroke": "#555",
+        "stroke-width": "1.1",
+        "stroke-dasharray": "5 3",
+    },
+    "tool": {"fill": "#c9a227", "stroke": "#111", "stroke-width": "1.2"},
+    "active": {
+        "fill": "none",
+        "stroke": "#e07000",
+        "stroke-width": "3",
+        "stroke-linecap": "round",
+    },
+    "datum": {"fill": "#b22", "stroke": "#b22", "stroke-width": "2.4"},
+    "arrows": {"stroke": "#111", "stroke-width": "1.5", "marker-end": "url(#arr)"},
+    "dims": {"stroke": "#111", "stroke-width": "1"},
+    "leaders": {"fill": "none", "stroke": "#333", "stroke-width": "0.9"},
+    "labels": {"fill": "#111"},
+    "titles": {"fill": "#555", "font-style": "italic"},
+    "legend": {"font-size": "13"},
+}
+GROUPS = tuple(_STYLES)
+# Legend entries: the groups that show one, the swatch style, the text.
+_LEGEND = (
+    (("arriving",), "arriving", "arriving material"),
+    (("removed",), "removed", "removed in this setup"),
+    (("kept",), "kept", "kept after this setup"),
+    (("active",), "active", "cut or tapped here"),
+    (("threads",), "threads", "thread"),
+    (("other",), "other", "rest of the bar"),
+    (("fixture", "jaws", "tool"), "jaws", "fixtures, tools: schematic"),
 )
 
 
-def _groups() -> dict[str, list[Element]]:
+def _groups(root: ElementTree.Element) -> dict[str, list[Element]]:
+    """Install the shared shell on the bare template root; return its groups."""
+    root.attrib.update(
+        {
+            "viewBox": "0 0 720 {{view.height}}",
+            "width": "720",
+            "height": "{{view.height}}",
+            "font-family": "Arial, Helvetica, sans-serif",
+            "font-size": "14",
+        }
+    )
+    root.append(ElementTree.fromstring(_DEFS))
+    ElementTree.SubElement(
+        root, f"{{{SVG_NS}}}rect", width="720", height="{{view.height}}", fill="#fff"
+    )
+    for name, style in _STYLES.items():
+        ElementTree.SubElement(
+            root, f"{{{SVG_NS}}}g", {"data-cad-group": name, **style}
+        )
     return {name: [] for name in GROUPS}
 
 
@@ -92,15 +153,6 @@ def _trim(blank: float, length: float, key: str) -> float:
 def _inch(value: float, places: int = 3) -> str:
     text = f"{value:.{places}f}"
     return text[1:] if text.startswith("0.") else text
-
-
-def _fraction(value: float) -> str:
-    fraction = Fraction(value).limit_denominator(64)
-    whole, part = divmod(fraction.numerator, fraction.denominator)
-    if part == 0:
-        return str(whole)
-    tail = f"{part}/{fraction.denominator}"
-    return f"{whole} {tail}" if whole else tail
 
 
 def _title(groups: dict[str, list[Element]], x: float, y: float, text: str) -> None:
@@ -198,71 +250,72 @@ def _axes(groups: dict[str, list[Element]], x: float, y: float) -> None:
     _label(groups, x + 6, y + 32, "+Y")
 
 
-def _finish(groups: dict[str, list[Element]], bottom: float, **view: float) -> Layout:
-    """Legend under ``bottom`` and the picture height."""
-    legend_y = bottom + 12
-    return _view(**view, legend_x=12.0, legend_y=legend_y, height=legend_y + LEGEND), (
-        groups
-    )
+def _finish(groups: dict[str, list[Element]], bottom: float) -> Layout:
+    """Legend of the groups this picture draws under ``bottom``; the height."""
+    entries = [
+        (style, text)
+        for names, style, text in _LEGEND
+        if any(groups[name] for name in names)
+    ]
+    top = bottom + 12
+    for index, (style, text) in enumerate(entries):
+        x, y = 12 + 232 * (index % 3), top + 20 * (index // 3)
+        groups["legend"] += [
+            _rect(x, y, 26, 12, **_STYLES[style]),
+            _text(x + 34, y + 11, text),
+        ]
+    rows = (len(entries) + 2) // 3
+    return _view(height=top + 20 * rows + 4), groups
 
 
 def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Saw setup: the shared 1165 bar's cut list, this sheet's pieces kept."""
-    active = root.get("data-active")
-    if active == "lever":
-        lever = _param(parameters, "blank_length_in")
-        bracket = _param(parameters, "bracket_blank_in")
-        brackets = _count(parameters, "bracket_quantity")
-    elif active == "brackets":
-        lever = _param(parameters, "lever_blank_in")
-        bracket = _param(parameters, "blank_length_in")
-        brackets = _count(parameters, "quantity")
-    else:
-        raise CadError("diagram data-active: expected 'lever' or 'brackets'")
-    bar = _param(parameters, "bar_length_in")
+    """Saw setup: this sheet's blanks from the bar end, the rest of the bar beyond."""
+    length = _param(parameters, "blank_length_in")
+    count = _count(parameters, "quantity")
     kerf = _param(parameters, "kerf_in")
     width = _param(parameters, "blank_width_in")
-    minimum = _param(parameters, "blank_min_length_in")
-    pieces = [("lever", lever, "TL-26 lever")] + [("brackets", bracket, "TL-28")] * (
-        brackets
-    )
-    rest = bar - sum(length for _, length, _ in pieces) - kerf * len(pieces)
-    if rest < 0:
-        raise CadError("process.bar_length_in: the cut list is longer than the bar")
-    scale = (720 - 80) / bar
+    rest = 1.5  # schematic stub of the remaining bar, inches
+    scale = min(60.0, 640 / (count * (length + kerf) + rest))
     x, top = 40.0, 74.0
     bottom = top + width * scale
-    groups = _groups()
-    _title(groups, 40, 24, "Top view of the bar, measured end at the left")
-    callouts = []
-    number = 0
-    for kind, length, name in pieces:
+    groups = _groups(root)
+    _title(groups, 40, 24, "Top view, bar end at the left")
+    for number in range(1, count + 1):
         x1 = x + length * scale
-        groups["kept" if kind == active else "other"].append(
-            _rect(x, top, x1 - x, bottom - top)
+        groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
+        name = f"blank {number}" if count > 1 else "blank"
+        _label(
+            groups,
+            (x + x1) / 2,
+            (top + bottom) / 2 + 5,
+            name + ", ≥{{process.blank_min_length_in:.2f}}",
+            "middle",
         )
-        _label(groups, (x + x1) / 2, (top + bottom) / 2 + 5, name, "middle")
-        _dimension(groups, x, x1, top - 16, top, f"{length:.2f}")
-        if kind == active:
-            number += 1
-            what = "lever blank" if kind == "lever" else f"blank {number}"
-            callouts.append(((x + x1) / 2, bottom, [what, f"≥{minimum:.2f}"]))
+        _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
         groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         x = x1 + kerf * scale
-    groups["other"].append(_rect(x, top, rest * scale, bottom - top))
-    _label(
+    end = x + rest * scale
+    groups["other"].append(
+        _el(
+            "path",
+            d=f"M{_fmt(x)} {_fmt(top)}H{_fmt(end)}{_break(end, top, bottom)}"
+            f"H{_fmt(x)}Z",
+        )
+    )
+    kerf_x = 40 + length * scale + kerf * scale / 2
+    end_y = _callouts(
         groups,
-        x + rest * scale / 2,
-        (top + bottom) / 2 + 5,
-        f"rest ≈{rest:.1f}, keep",
-        "middle",
+        [
+            (
+                kerf_x,
+                bottom,
+                ["kerf ~{{process.kerf_in:fraction}}", "waste side of line"],
+            )
+        ],
+        bottom + 4,
+        above=False,
     )
-    first_kerf = 40 + lever * scale + kerf * scale / 2
-    callouts.append(
-        (first_kerf, bottom, [f"kerf ~{_fraction(kerf)}", "waste side of line"])
-    )
-    end = _callouts(groups, callouts, bottom + 4, above=False)
-    return _finish(groups, end)
+    return _finish(groups, end_y)
 
 
 def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
@@ -280,7 +333,7 @@ def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> 
     radius = cutter / 2 * scale
     back = 96.0
     front = back + width * scale
-    groups = _groups()
+    groups = _groups(root)
 
     # Hold 1: blank end ~over past the left jaw side; clean up INNER END.
     jaw_left = 24 + (cutter + over) * scale
@@ -339,7 +392,7 @@ def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> 
             (
                 inner - radius,
                 front + 2 * radius + 4,
-                ["1/2 end mill", "feed toward you"],
+                ["end mill", "feed toward you"],
             ),
             (inner, front, ["INNER END"]),
             (
@@ -371,13 +424,14 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     parallel = _param_in(parameters, "parallel_thickness_mm")
     parallel_height = _param_in(parameters, "parallel_height_mm")
     jaw_height = _param_in(parameters, "vise_jaw_height_mm")
-    touch = _param(parameters, "y_touch_x_in")
-    groups = _groups()
+    touch = _param(parameters, "y_touch_x_in") if face == "bar" else 0.0
+    groups = _groups(root)
 
     # Top view: INNER END ~over out left; ROW EDGE at the fixed jaw for BAR
-    # SIDE, at the moving jaw once rolled over for KP08 SIDE.
-    scale = 52.0
+    # SIDE, at the moving jaw once rolled over for KP08 SIDE. It ends before
+    # the section at x 470.
     zero, back = 92.0, 130.0
+    scale = min(52.0, (440 - zero) / max(over + jaw, length, touch + 0.2))
     front = back + thickness * scale
     row_y = back + (row if face == "bar" else thickness - row) * scale
     jaw_left = zero + over * scale
@@ -406,16 +460,18 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     groups["datum"].append(_el("circle", cx=zero, cy=back, r=3.5))
     _datum_label(groups, zero - 4, back - 6, "X0 Y0", "end")
     _label(groups, zero - 4, (back + front) / 2 + 5, "INNER END", "end")
-    finder = zero + touch * scale
-    finder_r = 0.1 * scale
-    groups["tool"].append(_el("circle", cx=finder, cy=back + finder_r, r=finder_r))
-    _datum_label(
-        groups,
-        finder + finder_r + 5,
-        (back + front) / 2 + 5,
-        f"Y0 touch, ~X {touch:g}",
-        "start",
-    )
+    if face == "bar":
+        # Y0 is touched on the fixed jaw here; Setup 4 keeps it.
+        finder = zero + touch * scale
+        finder_r = 0.1 * scale
+        groups["tool"].append(_el("circle", cx=finder, cy=back + finder_r, r=finder_r))
+        _datum_label(
+            groups,
+            finder + finder_r + 5,
+            (back + front) / 2 + 5,
+            "Y0 touch, ~X {{process.y_touch_x_in:g}}",
+            "start",
+        )
     up = "BAR SIDE up" if face == "bar" else "KP08 SIDE up"
     end_y = _callouts(
         groups,
@@ -435,7 +491,7 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     top_bottom = end_y + 40
 
     # Section through H1 looking +X: fixed jaw left, moving jaw right.
-    s = 90.0
+    s = min(90.0, 180 / (parallel_height + width))
     centre, bed = 560.0, 300.0
     half = thickness * s / 2
     part_left, part_right = centre - half, centre + half
@@ -474,11 +530,10 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
             )
         return (y0 + y1) / 2
 
-    up_key = "bar" if face == "bar" else "kp08"
     up_zone = zone(
         True,
-        _cad(values, f"{up_key}_thread_min_in"),
-        _cad(values, f"{up_key}_thread_max_in"),
+        _cad(values, f"{face}_thread_min_in"),
+        _cad(values, f"{face}_thread_max_in"),
         True,
     )
     if face == "kp08":
@@ -489,7 +544,7 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
             False,
         )
     groups["holes"].append(_rect(hole_x - hole_w / 2, part_top, hole_w, width * s))
-    tips = [_cad(values, f"{up_key}_tip_{end}_in") for end in ("min", "max")]
+    tips = [_cad(values, f"{face}_tip_{end}_in") for end in ("min", "max")]
     for tip in tips:
         y = part_top + tip * s
         groups["datum"].append(
@@ -514,13 +569,13 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         )
     )
     _label(groups, part_left - 4, part_top + 13, up.removesuffix(" up"), "end")
-    low, high = (_cad(values, f"{up_key}_thread_{end}_in") for end in ("min", "max"))
+    low, high = (_cad(values, f"{face}_thread_{end}_in") for end in ("min", "max"))
     rows = [
         (
             part_top - 30,
             hole_x + hole_w / 2 + 8,
             part_top - 30,
-            ["#29 drill, taps" if face == "bar" else "taps"],
+            ["drill, then taps" if face == "bar" else "taps"],
         ),
         (
             part_top + 14,
@@ -546,10 +601,7 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
                 ["BAR thread", f"{_inch(low_b)}–{_inch(high_b)}"],
             )
         )
-    gap = thickness - 2 * parallel
-    rows.append(
-        (bed - 30, centre, (para_top + bed) / 2, [f"{_fraction(gap)} gap below"])
-    )
+    rows.append((bed - 30, centre, (para_top + bed) / 2, ["open gap", "below hole"]))
     for y, ax, ay, lines in rows:
         groups["leaders"] += [
             _el("polyline", points=f"{_fmt(618)} {_fmt(y - 4)} {_fmt(ax)} {_fmt(ay)}"),
@@ -571,9 +623,10 @@ def _bracket_inspect(
     drill = _cad(values, "tap_drill_in")
     tolerance = _cad(values, "station_tol_mm")
     stations = _stations(values)
-    groups = _groups()
-    s = 150.0
+    groups = _groups(root)
+    # The side view ends before the end view at x 600; both fit 160 px tall.
     x0, top = 110.0, 70.0
+    s = min(150.0, 460 / length, 160 / width, 100 / thickness)
     x1, bottom = x0 + length * s, top + width * s
     hole_w = drill * s
     thread_w = hole_w + 8
@@ -596,17 +649,16 @@ def _bracket_inspect(
             _line(x - hole_w / 2, top, x - hole_w / 2, bottom),
             _line(x + hole_w / 2, top, x + hole_w / 2, bottom),
         ]
-        y = bottom + 22 + 30 * index
-        groups["dims"] += [
-            _line(x0, bottom, x0, y + 4),
-            _line(x, bottom, x, y + 4),
-            _line(x0, y, x, y, marker_start="url(#arr)", marker_end="url(#arr)"),
-        ]
         text = f"{station * MM_PER_IN:.3f} ±{tolerance:.2f} mm"
-        if len(text) * 7.5 < x - x0 - 10:
-            _label(groups, (x0 + x) / 2, y - 5, text, "middle")
-        else:
-            _label(groups, x + 6, y + 5, text)
+        _dimension(
+            groups,
+            x0,
+            x,
+            bottom + 22 + 30 * index,
+            bottom,
+            text,
+            beside=len(text) * 7.5 > x - x0 - 10,
+        )
         _label(groups, x, top - 6, f"H{index + 1}", "middle")
     middle = (x0 + stations[0] * s + x0 + stations[1] * s) / 2
     reach = x0 + stations[1] * s - thread_w / 2 - 4
@@ -656,14 +708,16 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
     parallel = _param_in(parameters, "parallel_thickness_mm")
     cutter = _param_in(parameters, "cutter_dia_mm")
     trim = _trim(blank, length, "blank_length_in")
-    scale = 48.0
+    touch = _param(parameters, "y_touch_x_in") if hold == "zero" else 0.0
+    x0 = 84.0  # finished X0 (ZERO END)
+    # The blank plus a cutter at either end, and the Y0 finder, fit by x 700.
+    scale = min(48.0, (700 - x0) / max(blank + cutter, touch + 0.3))
     trim_px = max(trim * scale, 4.0)
     radius = cutter / 2 * scale
     back = 120.0
     front = back + width * scale
     mid = (back + front) / 2
-    groups = _groups()
-    x0 = 84.0  # finished X0 (ZERO END)
+    groups = _groups(root)
     row_y = back + row * scale
 
     def holes(active: bool) -> None:
@@ -680,7 +734,10 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
         right = left + blank * scale
         jaw_left = left + over * scale
         _title(
-            groups, 20, 30, f"ZERO END ~{_inch(over, 1)} out left, the rest out right"
+            groups,
+            20,
+            30,
+            "ZERO END ~{{process.overhang_in:.1dot}} out left, the rest out right",
         )
         _vise(
             groups,
@@ -707,19 +764,22 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
         groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
         _datum_label(groups, x0 - 6, back - 8, "X0 Y0", "end")
         _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
-        touch = _param(parameters, "y_touch_x_in")
         finder = x0 + touch * scale
         finder_r = 0.1 * scale
         groups["tool"].append(_el("circle", cx=finder, cy=back - finder_r, r=finder_r))
         _datum_label(
-            groups, finder, back - 2 * finder_r - 6, f"Y0 touch ~X {touch:g}", "middle"
+            groups,
+            finder,
+            back - 2 * finder_r - 6,
+            "Y0 touch ~X {{process.y_touch_x_in:g}}",
+            "middle",
         )
         overhang = jaw_left + jaw * scale
         _label(
             groups, (overhang + right) / 2, mid + 5, "overhang: keep clear", "middle"
         )
         items = [
-            (x0 - radius, front + 2 * radius + 4, ["1/2 end mill", "feed toward you"]),
+            (x0 - radius, front + 2 * radius + 4, ["end mill", "feed toward you"]),
             (x0, front, ["ZERO END"]),
             ((x0 + (stations[0] + stations[1]) / 2 * scale), front, ["H1, H2 through"]),
             (right, front, ["grip end"]),
@@ -730,7 +790,12 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
         if right - finish < 4:
             right = finish + 4
         jaw_right = right - over * scale
-        _title(groups, 20, 30, f"Slid left: grip end ~{_inch(over, 1)} out right")
+        _title(
+            groups,
+            20,
+            30,
+            "Slid left: grip end ~{{process.overhang_in:.1dot}} out right",
+        )
         _vise(
             groups,
             jaw_right - jaw * scale,
@@ -776,11 +841,11 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
     radius = _param(parameters, "corner_radius_in")
     layout = _param(parameters, "corner_layout_in")
     band = _cad(values, "linear_1pl_in")
-    groups = _groups()
+    groups = _groups(root)
 
-    # Whole lever, top face.
-    s = 48.0
+    # Whole lever, top face; "grip end" (~70 px) fits after it by x 720.
     x0, top = 90.0, 56.0
+    s = min(48.0, (720 - x0 - 80) / length)
     x1, bottom = x0 + length * s, top + width * s
     r = radius * s
     _title(groups, 20, 30, "Finished lever, top face")
@@ -906,22 +971,34 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             fill="none",
         ),
     ]
+    check = (radius + band) * d
     rows = [
         (
             end_y - 4,
             right - ld,
             end_y - 6,
-            [f"scribed {_inch(layout, 2)} from each side"],
+            ["scribed {{process.corner_layout_in:.2dot}} from each side"],
         ),
-        (end_y + 24, right + 8, end_y + ld, [f"and {_inch(layout, 2)} from the end"]),
         (
-            end_y + 62,
+            end_y + 24,
+            right + 8,
+            end_y + ld,
+            ["and {{process.corner_layout_in:.2dot}} from the end"],
+        ),
+        (
+            end_y + 58,
             right - rd * 0.29,
             end_y + rd * 0.29,
             [
-                f"file both vertical corners to R{_inch(radius, 1)}",
-                f"R{_inch(radius - band, 1)}–R{_inch(radius + band, 1)}, inside the lines",
+                "file both vertical corners to R{{process.corner_radius_in:.1dot}},",
+                "arcs touching both lines",
             ],
+        ),
+        (
+            end_y + 106,
+            right - check * 0.29,
+            end_y + check * 0.29,
+            [f"check R{_inch(radius - band, 1)}–R{_inch(radius + band, 1)} (dashed)"],
         ),
     ]
     for y, ax, ay, lines in rows:

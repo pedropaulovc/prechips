@@ -87,6 +87,9 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert bind_text("{{cad.slot_depth_in:.2f}}", cad, PARAMETERS) == "0.49"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 17.4375}) == "17 7/16"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 6.008}) == "6.008"
+    assert bind_text("{{process.x:.1dot}}", cad, {"x": 0.4}) == ".4"
+    assert bind_text("{{process.x:.2dot}}", cad, {"x": -0.04}) == "-.04"
+    assert bind_text("{{process.x:.1dot}}", cad, {"x": 12.25}) == "12.2"
     assert bind_text("{{view.x:.2f}}", cad, {}, extra={"view": {"x": 1.25}}) == "1.25"
     assert bind_text("{{process.label}}", cad, {"label": "<&"}, xml=True) == "&lt;&amp;"
     assert (
