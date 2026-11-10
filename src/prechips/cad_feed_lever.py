@@ -1,6 +1,5 @@
 """Bindings for the released harmonic oblique-trammel feed lever (MHA-CH-06-TL-26)."""
 
-import tomllib
 from pathlib import Path
 
 from .cad import (
@@ -9,38 +8,23 @@ from .cad import (
     StockAxis,
     StockRequirement,
     _band,
+    _blank_mm,
+    _edge_breaks,
+    _harmonic_manifest,
     _inch_limits,
     _mid,
     _model_frame,
     _number,
     _positive,
-    _string,
 )
 
 
 def load_feed_lever(path: Path, parameters: dict) -> CadData:
     """Bind the lever envelope and its two clearance holes near the zero end."""
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if (
-        raw.get("units") != "mm"
-        or raw.get("part") != "ch-rocker-arm-tl-oblique-feed-lever"
-    ):
-        raise CadError(
-            "cad: harmonic_feed_lever requires ch-rocker-arm-tl-oblique-feed-lever in mm"
-        )
+    raw, values, features = _harmonic_manifest(
+        path, "ch-rocker-arm-tl-oblique-feed-lever", "harmonic_feed_lever"
+    )
     _model_frame(raw)
-    drawing = raw.get("drawing", {})
-    if not isinstance(drawing, dict):
-        raise CadError("cad.drawing: expected a table")
-    values = {
-        "part": raw["part"],
-        "drawing_number": _string(drawing.get("number"), "cad.drawing.number"),
-        "revision": _string(drawing.get("revision"), "cad.drawing.revision"),
-    }
-    features = raw.get("features")
-    if not isinstance(features, dict):
-        raise CadError("cad.features: expected a table")
 
     # Model X runs along the lever from the zero end, Y through the 1/2 in
     # thickness from the carrier seat (Y0) and Z across the 1 in width, the
@@ -73,8 +57,8 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         ),
         key=lambda pair: _number(pair[1].get("station_nominal"), pair[0]),
     )
-    if len(holes) < 2:
-        raise CadError("cad.features: expected the lever's bolt_hole_ holes")
+    if len(holes) != 2:
+        raise CadError("cad.features: expected exactly two bolt_hole_ holes (H1, H2)")
     stations, tolerances, rows, diameters = [], [], [], []
     for index, (name, item) in enumerate(holes, 1):
         at = item.get("at")
@@ -96,7 +80,6 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}.at: row outside width band")
         stations.append(_mid(station))
         tolerances.append((station[1] - station[0]) / 2)
-        values[f"hole_{index}_x_mm"] = _mid(station)
         values[f"hole_{index}_station_band_mm"] = list(station)
         rows.append(row)
         diameters.append(_band(item, "dia", name))
@@ -112,21 +95,11 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         for index, x in enumerate(stations, 1)
     ]
 
-    general = raw.get("general_tolerances", {})
-    if not isinstance(general, dict):
-        raise CadError("cad.general_tolerances: expected a table")
-    for key, field in (
-        ("edge_break_in", "edge_break_r"),
-        ("chamfer_max_in", "chamfer_max"),
-        # The grip-end corner radius has no feature record; its one-place
-        # title-block band is the only drawing limit available for it.
-        ("linear_1pl_in", "linear_1pl"),
-    ):
-        values[key] = (
-            _positive(general.get(field), f"general_tolerances.{field}") / 25.4
-        )
-    # Analysis fields are millimetres; the plan declares its blank in inches.
-    for key in ("length", "thickness", "width"):
-        if f"blank_{key}_in" in parameters:
-            values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
+    general = _edge_breaks(raw, values)
+    # The grip-end corner radius has no feature record; its one-place
+    # title-block band is the only drawing limit available for it.
+    values["linear_1pl_in"] = (
+        _positive(general.get("linear_1pl"), "general_tolerances.linear_1pl") / 25.4
+    )
+    _blank_mm(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())

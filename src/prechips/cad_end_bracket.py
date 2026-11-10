@@ -2,7 +2,6 @@
 
 import math
 import re
-import tomllib
 from pathlib import Path
 
 from .cad import (
@@ -11,6 +10,9 @@ from .cad import (
     StockAxis,
     StockRequirement,
     _band,
+    _blank_mm,
+    _edge_breaks,
+    _harmonic_manifest,
     _inch_limits,
     _mid,
     _model_frame,
@@ -19,9 +21,12 @@ from .cad import (
     _string,
 )
 
-# The drawing states the opposed thread zones only as words: in the tap callout
+# The single deliberate exception to "no values from prose" (AGENTS.md): the
+# v48 export states the opposed thread zones only as words, in the tap callout
 # note (mm, by face) and in the process note (inch, with the bottoming-tap tip
-# marks). Both must match these exact phrasings; a reworded note fails.
+# marks). Both must match these exact phrasings and agree; anything else is
+# refused. Replace with structured thread_zone/tip_mark fields once
+# harmonic-analyzer exports them.
 _NOTE_ZONES = re.compile(
     r"FULL THREAD (\d+\.\d+) TO (\d+\.\d+) mm FROM THE TOP FACE "
     r"AND (\d+\.\d+) TO (\d+\.\d+) mm FROM THE BOTTOM FACE"
@@ -36,27 +41,10 @@ _PRINTED_IN = 0.0005  # The process note prints three-place inches.
 
 def load_end_bracket(path: Path, parameters: dict) -> CadData:
     """Bind the bracket envelope, both shared-axis taps and their thread zones."""
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if (
-        raw.get("units") != "mm"
-        or raw.get("part") != "ch-rocker-arm-tl-oblique-end-bracket"
-    ):
-        raise CadError(
-            "cad: harmonic_end_bracket requires ch-rocker-arm-tl-oblique-end-bracket in mm"
-        )
+    raw, values, features = _harmonic_manifest(
+        path, "ch-rocker-arm-tl-oblique-end-bracket", "harmonic_end_bracket"
+    )
     _model_frame(raw)
-    drawing = raw.get("drawing", {})
-    if not isinstance(drawing, dict):
-        raise CadError("cad.drawing: expected a table")
-    values = {
-        "part": raw["part"],
-        "drawing_number": _string(drawing.get("number"), "cad.drawing.number"),
-        "revision": _string(drawing.get("revision"), "cad.drawing.revision"),
-    }
-    features = raw.get("features")
-    if not isinstance(features, dict):
-        raise CadError("cad.features: expected a table")
 
     def feature(name: str) -> dict:
         item = features.get(name)
@@ -100,8 +88,8 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
         ),
         key=lambda pair: _number(pair[1].get("station_nominal"), pair[0]),
     )
-    if len(holes) < 2:
-        raise CadError("cad.features: expected the bracket's tap_ holes")
+    if len(holes) != 2:
+        raise CadError("cad.features: expected exactly two tap_ holes (H1, H2)")
     shared = {}
     stations, station_tolerances, rows = [], [], []
     for name, item in holes:
@@ -138,9 +126,7 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
     values["thread"] = _string(shared["thread"], "tap_1.thread")
     _inch_limits(values, "tap_drill", _band(holes[0][1], "dia", holes[0][0]))
     values["hole_count"] = len(holes)
-    values["hole_x_mm"] = stations
     values["hole_stations_mm"] = ", ".join(f"{x:.3f}" for x in stations)
-    values["hole_stations_in"] = ", ".join(f"{x / 25.4:.3f}" for x in stations)
     values["station_tol_mm"] = min(station_tolerances)
     values["station_tol_in"] = values["station_tol_mm"] / 25.4
     values["hole_rows"] = [
@@ -182,18 +168,6 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
         values[f"{key}_min_in"] = low
         values[f"{key}_max_in"] = high
 
-    general = raw.get("general_tolerances", {})
-    if not isinstance(general, dict):
-        raise CadError("cad.general_tolerances: expected a table")
-    for key, field in (
-        ("edge_break_in", "edge_break_r"),
-        ("chamfer_max_in", "chamfer_max"),
-    ):
-        values[key] = (
-            _positive(general.get(field), f"general_tolerances.{field}") / 25.4
-        )
-    # Analysis fields are millimetres; the plan declares its blank in inches.
-    for key in ("length", "thickness", "width"):
-        if f"blank_{key}_in" in parameters:
-            values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
+    _edge_breaks(raw, values)
+    _blank_mm(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())

@@ -40,7 +40,6 @@ half_mill_projection_min_mm = 41.0
 half_mill_projection_max_mm = 50.0
 drill_chuck_gauge_mm = 95.0      # Archive holders.drill-chuck-r8.gauge_len_mm.
 spot_projection_mm = 27.0        # Archive center-drills-lms-4859 #2, drill chuck.
-drill_projection_mm = 52.4       # Archive drill-index-115 #29, drill chuck.
 tap_oal_mm = 53.975              # Archive taps-unc-hand 8-32 oal 2.125 in.
 # Hand sheet: stop as soon as the drill is through. Archive #29 has a 118°
 # point, so its tip stands (3.4544 / 2) / tan 59° below the underside.
@@ -144,7 +143,7 @@ rows = "{{cad.hole_rows}}"
 speed_kind = "spindle"
 tool = "drill"
 sizing = { kind = "band", band_mm = "{{cad.tap_drill_band_mm}}" }
-instruction = "H1–H{{cad.hole_count:d}} through; peck .1, stop once through."
+instruction = "H1–H{{cad.hole_count:d}} through; peck .1."
 rpm = 3000
 feed = "hand"
 inspection = "Stations {{cad.hole_stations_mm}} mm ±{{cad.station_tol_mm:.2f}} from INNER END; row {{cad.row_min_in:.3f}}–{{cad.row_max_in:.3f}} from ROW EDGE."
@@ -154,7 +153,7 @@ gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}"
 speed_kind = "other"
 tool = "plug"
 sizing = "other"
-instruction = "Start H1–H{{cad.hole_count:d}} square from the drill chuck, spindle off, then by hand. Plug tip not past {{cad.bar_tip_max_in:.3f}} below BAR SIDE."
+instruction = "Start H1–H{{cad.hole_count:d}}. Plug tip not past {{cad.bar_tip_max_in:.3f}} below BAR SIDE."
 feed = "hand"
 
 [[setups.operations]]
@@ -183,7 +182,7 @@ envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.thickness_mm}}"
 speed_kind = "other"
 tool = "plug"
 sizing = "other"
-instruction = "Start H1–H{{cad.hole_count:d}} as before. Plug tip not past {{cad.kp08_tip_max_in:.3f}} below KP08 SIDE."
+instruction = "Start H1–H{{cad.hole_count:d}}. Plug tip not past {{cad.kp08_tip_max_in:.3f}} below KP08 SIDE."
 feed = "hand"
 
 [[setups.operations]]

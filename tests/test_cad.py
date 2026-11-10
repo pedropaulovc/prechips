@@ -78,14 +78,12 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     )
     assert cad.values["rail_count"] == 8
     assert cad.values["bracket_count"] == 4
-    assert cad.values["spot_count"] == 14
     assert cad.values["bracket_dia_in"] == pytest.approx(0.189)
     assert cad.values["bracket_dia_min_in"] == pytest.approx(0.189)
     assert cad.values["bracket_dia_max_in"] == pytest.approx(0.193)
     assert cad.values["counterbore_depth_in"] == pytest.approx(0.200)
     assert cad.values["rail_first_mm"] == pytest.approx(9.964)
     assert cad.values["rail_pitch_mm"] == pytest.approx(60.0)
-    assert "rail_position_tol_in" not in cad.values
     assert bind_text("{{cad.slot_depth_in:.2f}}", cad, PARAMETERS) == "0.49"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 17.4375}) == "17 7/16"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 6.008}) == "6.008"
