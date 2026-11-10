@@ -121,6 +121,10 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
         from prechips.cad_end_bracket import load_end_bracket
 
         return load_end_bracket(path, parameters)
+    if adapter == "harmonic_feed_lever":
+        from prechips.cad_feed_lever import load_feed_lever
+
+        return load_feed_lever(path, parameters)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
