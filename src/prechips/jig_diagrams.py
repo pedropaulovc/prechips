@@ -197,8 +197,10 @@ def _vise(
         _rect(left, front - parallel, right - left, parallel),
     ]
     x, anchor = (right - 4, "end") if labels_right else (left + 4, "start")
-    _label(groups, x, back - JAW - 5, fixed, anchor)
-    _label(groups, x, front + JAW + 15, moving, anchor)
+    if fixed:
+        _label(groups, x, back - JAW - 5, fixed, anchor)
+    if moving:
+        _label(groups, x, front + JAW + 15, moving, anchor)
 
 
 def _blank(
@@ -319,7 +321,11 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
 
 
 def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """End-bracket setup 2: two holds; INNER END cleaned, then cut to length."""
+    """End-bracket setup 2: both blanks, one at each jaw end, in two holds.
+
+    Hold 1 cleans up each outboard end (its INNER END); hold 2 turns both
+    end-for-end and cuts each new outboard end to length from its INNER END.
+    """
     blank = _param(parameters, "blank_length_in")
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
@@ -328,84 +334,99 @@ def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> 
     parallel = _param_in(parameters, "parallel_thickness_mm")
     cutter = _param_in(parameters, "cutter_dia_mm")
     trim = _trim(blank, length, "blank_length_in")
-    scale = min(48.0, 300 / (jaw + over + cutter + 0.3))
+    total = jaw + 2 * (over + cutter)
+    scale = min(56.0, 640 / total)
     trim_px = max(trim * scale, 4.0)
     radius = cutter / 2 * scale
-    back = 96.0
-    front = back + width * scale
+    jaw_left = (720 - total * scale) / 2 + (cutter + over) * scale
+    jaw_right = jaw_left + jaw * scale
+    out_left, out_right = jaw_left - over * scale, jaw_right + over * scale
     groups = _groups(root)
 
-    # Hold 1: blank end ~over past the left jaw side; clean up INNER END.
-    jaw_left = 24 + (cutter + over) * scale
-    left = jaw_left - over * scale
-    inner = left + trim_px
-    _title(groups, 20, 30, "1  Left end out: clean up INNER END")
-    _vise(
-        groups,
-        jaw_left,
-        jaw_left + jaw * scale,
-        back,
-        front,
-        parallel * scale,
-        "fixed jaw",
-        "moving jaw",
-    )
-    _blank(groups, left, left + blank * scale, inner, left + blank * scale, back, front)
-    _label(
-        groups,
-        (inner + left + blank * scale) / 2,
-        (back + front) / 2 + 5,
-        "1 in face up",
-        "middle",
-    )
-    _cutter(groups, inner - radius, radius, back, front + radius + 4, at_end=True)
+    def hold(title: str, back: float, labels: bool) -> float:
+        front = back + width * scale
+        _title(groups, 20, back - JAW - (18 if labels else 6), title)
+        jaws = ("fixed jaw", "moving jaw") if labels else ("", "")
+        _vise(
+            groups,
+            jaw_left,
+            jaw_right,
+            back,
+            front,
+            parallel * scale,
+            *jaws,
+            labels_right=True,
+        )
+        return front
 
-    # Hold 2: slid right, the far end ~over past the right jaw side.
-    jaw_right = 712 - (cutter + over) * scale
-    end = jaw_right + over * scale
-    zero = end - (blank - trim) * scale
-    finish = zero + length * scale
-    if end - finish < 4:
-        finish = end - 4
-    _title(groups, 378, 30, "2  Slid right: X0 INNER END, cut to length")
-    _vise(
-        groups,
-        jaw_right - jaw * scale,
-        jaw_right,
-        back,
-        front,
-        parallel * scale,
-        "fixed jaw",
-        "moving jaw",
+    # Hold 1: each blank's outboard end ~over past its jaw side; clean it up.
+    back = 46.0
+    front = hold(
+        "1  One blank at each jaw end: clean up both outboard ends", back, True
     )
-    _blank(groups, zero, end, zero, finish, back, front)
-    groups["datum"] += [
-        _line(zero, back, zero, front),
-        _el("circle", cx=zero, cy=back, r=3.5),
-    ]
-    _datum_label(groups, zero + 4, (back + front) / 2 + 5, "X0", "start")
-    _cutter(groups, finish + radius, radius, front + radius + 4, back - 2, at_end=False)
-    _dimension(groups, zero, finish, front + JAW + 34, front, "{{cad.length_in:.3f}}")
+    left_end = out_left + blank * scale
+    right_start = out_right - blank * scale
+    _blank(groups, out_left, left_end, out_left + trim_px, left_end, back, front)
+    _blank(
+        groups, right_start, out_right, right_start, out_right - trim_px, back, front
+    )
+    middle = front - 10
+    _label(groups, (out_left + left_end) / 2, middle, "left part", "middle")
+    _label(groups, (right_start + out_right) / 2, middle, "right part", "middle")
+    _label(groups, out_left + trim_px + 4, back + 19, "INNER END")
+    _label(groups, out_right - trim_px - 4, back + 19, "INNER END", "end")
+    left_cut = out_left + trim_px - radius
+    right_cut = out_right - trim_px + radius
+    _cutter(groups, left_cut, radius, back, front + radius + 4, at_end=True)
+    _cutter(groups, right_cut, radius, front + radius + 4, back - 2, at_end=False)
     end_y = _callouts(
         groups,
         [
-            (
-                inner - radius,
-                front + 2 * radius + 4,
-                ["end mill", "feed toward you"],
-            ),
-            (inner, front, ["INNER END"]),
-            (
-                finish + radius,
-                front + 2 * radius + 4,
-                ["feed away", "last pass L + D/2"],
-            ),
+            (left_cut, front + 2 * radius + 4, ["end mill, feed toward you"]),
+            (right_cut, front + 2 * radius + 4, ["feed away"]),
         ],
-        front + JAW + 44,
+        front + JAW + 8,
         above=False,
     )
-    _axes(groups, 660, end_y + 4)
-    return _finish(groups, end_y + 36)
+
+    # Hold 2: both turned end-for-end, INNER ENDs inboard either side of the gap.
+    back = end_y + JAW + 22
+    front = hold(
+        "2  Both turned end-for-end: X0, XR on the INNER ENDs; cut to length",
+        back,
+        False,
+    )
+    arrived = (blank - trim) * scale
+    zero, right_zero = out_left + arrived, out_right - arrived
+    finish = max(zero - length * scale, out_left + 4)
+    right_finish = min(right_zero + length * scale, out_right - 4)
+    _blank(groups, out_left, zero, finish, zero, back, front)
+    _blank(groups, right_zero, out_right, right_zero, right_finish, back, front)
+    for x in (zero, right_zero):
+        groups["datum"] += [
+            _line(x, back, x, front),
+            _el("circle", cx=x, cy=back, r=3.5),
+        ]
+    middle = (back + front) / 2 + 5
+    _datum_label(groups, zero + 4, middle, "X0", "start")
+    _datum_label(groups, right_zero - 4, middle, "XR", "end")
+    left_cut, right_cut = finish - radius, right_finish + radius
+    _cutter(groups, left_cut, radius, back, front + radius + 4, at_end=True)
+    _cutter(groups, right_cut, radius, front + radius + 4, back - 2, at_end=False)
+    dim_y = front + JAW + 22
+    _dimension(groups, finish, zero, dim_y, front, "{{cad.length_in:.3f}}")
+    _dimension(groups, right_zero, right_finish, dim_y, front, "{{cad.length_in:.3f}}")
+    end_y = _callouts(
+        groups,
+        [
+            (left_cut, front + 2 * radius + 4, ["feed toward you, last −(L + D/2)"]),
+            (right_cut, front + 2 * radius + 4, ["feed away, last XR + L + D/2"]),
+        ],
+        dim_y + 6,
+        above=False,
+    )
+    _axes(groups, out_right + cutter * scale + 24, back - 4)
+    return _finish(groups, end_y)
 
 
 def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
@@ -427,15 +448,20 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     touch = _param(parameters, "y_touch_x_in") if face == "bar" else 0.0
     groups = _groups(root)
 
-    # Top view: INNER END ~over out left; ROW EDGE at the fixed jaw for BAR
-    # SIDE, at the moving jaw once rolled over for KP08 SIDE. It ends before
-    # the section at x 470.
+    # Top view, both parts with INNER END left: the left part's INNER END and
+    # the right part's far end ~over past the jaw sides. ROW EDGE at the fixed
+    # jaw for BAR SIDE, at the moving jaw once rolled over for KP08 SIDE. It
+    # ends before the section at x 470.
     zero, back = 92.0, 130.0
-    scale = min(52.0, (440 - zero) / max(over + jaw, length, touch + 0.2))
+    span = jaw + 2 * over
+    scale = min(52.0, (440 - zero) / span)
     front = back + thickness * scale
     row_y = back + (row if face == "bar" else thickness - row) * scale
     jaw_left = zero + over * scale
-    _title(groups, 20, 30, "Top view")
+    right_zero = zero + (span - length) * scale
+    if right_zero < zero + length * scale:
+        raise CadError("diagram: two parts do not fit one at each jaw end")
+    _title(groups, 20, 30, "Top view, both parts")
     _vise(
         groups,
         jaw_left,
@@ -447,46 +473,38 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         "moving jaw" if face == "bar" else "moving jaw · ROW EDGE",
         labels_right=True,
     )
-    end = zero + length * scale
-    groups["kept"].append(_rect(zero, back, end - zero, front - back))
     hole_r = drill / 2 * scale
+    for start in (zero, right_zero):
+        groups["kept"].append(_rect(start, back, length * scale, front - back))
+        for station in stations:
+            x = start + station * scale
+            groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole_r))
+            groups["active"].append(
+                _el("circle", cx=x, cy=row_y, r=hole_r + 3, fill="none")
+            )
+        groups["datum"].append(_el("circle", cx=start, cy=back, r=3.5))
     for index, station in enumerate(stations):
         x = zero + station * scale
-        groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole_r))
-        groups["active"].append(
-            _el("circle", cx=x, cy=row_y, r=hole_r + 3, fill="none")
-        )
         _dimension(groups, zero, x, back - JAW - 10 - 18 * index, back, _inch(station))
-    groups["datum"].append(_el("circle", cx=zero, cy=back, r=3.5))
     _datum_label(groups, zero - 4, back - 6, "X0 Y0", "end")
     _label(groups, zero - 4, (back + front) / 2 + 5, "INNER END", "end")
+    up = "BAR SIDE up" if face == "bar" else "KP08 SIDE up"
+    callouts = [
+        (zero + stations[0] * scale, row_y, ["H1"]),
+        (zero + sum(stations) / 2 * scale, front, [up]),
+        (zero + stations[1] * scale, row_y, ["H2"]),
+        (right_zero, front, ["XR"]),
+    ]
     if face == "bar":
-        # Y0 is touched on the fixed jaw here; Setup 4 keeps it.
+        # Y0 is touched on the fixed jaw in the gap between the parts; Setup 4
+        # keeps it.
         finder = zero + touch * scale
         finder_r = 0.1 * scale
+        if not length + 0.1 <= touch <= span - length - 0.1:
+            raise CadError("process.y_touch_x_in: not in the gap between the parts")
         groups["tool"].append(_el("circle", cx=finder, cy=back + finder_r, r=finder_r))
-        _datum_label(
-            groups,
-            finder + finder_r + 5,
-            (back + front) / 2 + 5,
-            "Y0 touch, ~X {{process.y_touch_x_in:g}}",
-            "start",
-        )
-    up = "BAR SIDE up" if face == "bar" else "KP08 SIDE up"
-    end_y = _callouts(
-        groups,
-        [
-            (zero + stations[0] * scale, row_y, ["H1"]),
-            (
-                (zero + stations[0] * scale + zero + stations[1] * scale) / 2,
-                front,
-                [up],
-            ),
-            (zero + stations[1] * scale, row_y, ["H2"]),
-        ],
-        front + JAW + 22,
-        above=False,
-    )
+        callouts.append((finder, back + 2 * finder_r, [f"Y0 touch ~X {touch:g}"]))
+    end_y = _callouts(groups, callouts, front + JAW + 22, above=False)
     _axes(groups, 24, end_y + 6)
     top_bottom = end_y + 40
 

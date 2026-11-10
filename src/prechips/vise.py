@@ -1,5 +1,5 @@
-"""Milling-vise holding: opening, seating, grip depth, stick-up, engagement,
-overhang and squaring contact per hold."""
+"""Milling-vise holding: opening, seating, grip depth, engagement and
+squaring contact per hold."""
 
 from __future__ import annotations
 
@@ -13,14 +13,15 @@ if TYPE_CHECKING:
     from prechips.traveler import LoadedPlan
 
 _POSITIVE = ("across_jaws_mm", "along_jaws_mm", "part_height_mm")
+_NON_NEGATIVE = ("parallel_height_mm",)
 _CHOICES = {
-    "overhang_support": ("none", "jacks"),
     "jaw_offset": ("centred", "balanced"),
     "fixed_jaw_face": ("machined", "as_bought", "sawn"),
     "moving_jaw_face": ("machined", "as_bought", "sawn"),
     "moving_jaw_contact": ("flat", "rod"),
 }
-_FIELDS = {"vise", "parallel_height_mm", "overhang_mm", *_POSITIVE, *_CHOICES}
+_BALANCE = ("twin_part", "spacer")
+_FIELDS = {"vise", "overhang_mm", *_POSITIVE, *_NON_NEGATIVE, *_CHOICES}
 # Authored overhangs are rounded to 0.01 mm; their sum with the gripped length
 # may differ from along_jaws_mm by that much without contradicting it.
 _ROUNDING_MM = 0.01
@@ -42,10 +43,11 @@ def _limit(shop_data: dict, key: str, at: str) -> float:
 def _hold(shop_data: dict, value: object, where: str) -> dict:
     if not isinstance(value, dict):
         raise CheckError(f"{where}: expected a table")
-    unknown = value.keys() - _FIELDS
+    fields = _FIELDS | ({"balance"} if value.get("jaw_offset") == "balanced" else set())
+    unknown = value.keys() - fields
     if unknown:
         raise CheckError(f"{where}: unknown field(s): {', '.join(sorted(unknown))}")
-    missing = _FIELDS - value.keys()
+    missing = fields - value.keys()
     if missing:
         raise CheckError(f"{where}: missing field(s): {', '.join(sorted(missing))}")
     held = {}
@@ -53,11 +55,10 @@ def _hold(shop_data: dict, value: object, where: str) -> dict:
         held[key] = _number(value[key], f"{where}.{key}")
         if held[key] <= 0:
             raise CheckError(f"{where}.{key}: expected a positive number")
-    held["parallel_height_mm"] = _number(
-        value["parallel_height_mm"], f"{where}.parallel_height_mm"
-    )
-    if held["parallel_height_mm"] < 0:
-        raise CheckError(f"{where}.parallel_height_mm: must not be negative")
+    for key in _NON_NEGATIVE:
+        held[key] = _number(value[key], f"{where}.{key}")
+        if held[key] < 0:
+            raise CheckError(f"{where}.{key}: must not be negative")
     overhang = value["overhang_mm"]
     if not isinstance(overhang, list) or len(overhang) != 2:
         raise CheckError(f"{where}.overhang_mm: expected [left, right]")
@@ -71,6 +72,10 @@ def _hold(shop_data: dict, value: object, where: str) -> dict:
         if value[key] not in choices:
             raise CheckError(f"{where}.{key}: expected {' or '.join(choices)}")
         held[key] = value[key]
+    if "balance" in fields:
+        if value["balance"] not in _BALANCE:
+            raise CheckError(f"{where}.balance: expected {' or '.join(_BALANCE)}")
+        held["balance"] = value["balance"]
     held["vise"] = shop.record(shop_data, "workholding", value["vise"], f"{where}.vise")
     if shop.fact(held["vise"], "kind") != "vise":
         raise CheckError(f"{where}.vise: {held['vise']['where']} is not a vise")
@@ -126,16 +131,14 @@ def _check(shop_data: dict, held: dict, at: str) -> None:
         raise CheckError(
             f"{at}: grip depth {grip:g} mm is below vise_grip_min_mm {minimum:g} mm"
         )
-    stickup = max(0.0, parallel + height - jaw)
-    if stickup > 0:
-        ratio = _limit(
-            shop_data, "vise_stickup_ratio_max", f"{at}: stick-up {stickup:g} mm"
+    fraction = _limit(
+        shop_data, "vise_grip_fraction_min", f"{at}: grip depth {grip:g} mm"
+    )
+    if grip < fraction * height:
+        raise CheckError(
+            f"{at}: grip depth {grip:g} mm is below vise_grip_fraction_min "
+            f"{fraction:g} × part height {height:g} = {fraction * height:g} mm"
         )
-        if stickup > ratio * grip:
-            raise CheckError(
-                f"{at}: stick-up {stickup:g} mm above the jaws exceeds "
-                f"{ratio:g} × grip {grip:g} = {ratio * grip:g} mm"
-            )
     # Along the jaws from the left jaw side: the part spans [-left, width + right];
     # a negative overhang is the part end's inset from that jaw side.
     width = shop.fact(vise, "jaw_width_mm")
@@ -157,22 +160,15 @@ def _check(shop_data: dict, held: dict, at: str) -> None:
     if held["jaw_offset"] == "centred" and not start <= centre <= end:
         raise CheckError(
             f"{at}: gripped {start:g}–{end:g} mm along the jaws misses the jaw "
-            f"centre {centre:g} mm; centre the part or declare a balanced spacer"
+            f"centre {centre:g} mm; centre the part or declare it balanced"
         )
-    longest = max(left, right)
-    if held["overhang_support"] == "none" and longest > 0:
-        ratio = _limit(
-            shop_data,
-            "vise_overhang_ratio_max",
-            f"{at}: unsupported overhang {longest:g} mm",
+    # A twin part sits mirrored at the other jaw end; both fit only when this
+    # part lies wholly on one side of the jaw centre.
+    if held.get("balance") == "twin_part" and -left < centre < width + right:
+        raise CheckError(
+            f"{at}: the part spans {-left:g}–{width + right:g} mm along the jaws, "
+            f"across the jaw centre {centre:g} mm, so no twin fits at the other end"
         )
-        section = min(across, height)
-        for side, overhang in (("left", left), ("right", right)):
-            if overhang > ratio * section:
-                raise CheckError(
-                    f"{at}: unsupported {side} overhang {overhang:g} mm exceeds "
-                    f"{ratio:g} × section {section:g} = {ratio * section:g} mm"
-                )
     fixed, moving = held["fixed_jaw_face"], held["moving_jaw_face"]
     if fixed == "sawn":
         raise CheckError(f"{at}: a sawn face must not seat against the fixed jaw")

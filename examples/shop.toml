@@ -94,11 +94,13 @@ tool_change_clearance_mm = 25.0
 # height in the jaws. No published minimum exists for smooth jaws; Mitee-Bite
 # says only that they need "much more than .060"" clamped.
 vise_grip_min_mm = 6.0
-# vise_stickup_ratio_max and vise_overhang_ratio_max are deliberately not
-# declared: no handbook (Machinery's Handbook 27th ed. has no vise guidance),
-# vise maker (Kurt, Tormach, Haas) or training text (TC 9-524, Krar Unit 62,
-# Introduction to Machining §9.5/§9.11) gives either ratio. Holds that need
-# one refuse until Pedro declares a house value.
+# Common rule of thumb, not a standard: Engineer Underground, "Workholding and
+# Fixturing": "Hold at least one-third of the part's height in the jaws (more
+# for tall, thin parts), and cut only the part that sticks out."
+# https://engineerunderground.com/resources/makers-fabrication/cnc-machining/workholding-fixturing/
+# Training texts are stricter (Introduction to Machining §9.5: no more than
+# 1/8 in above the jaw plates beyond the cut); raise the fraction to follow them.
+vise_grip_fraction_min = 0.3333
 
 # Source: base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).

@@ -7,11 +7,7 @@ from prechips.cli import main
 from prechips.traveler import LoadedPlan
 from prechips.vise import check
 
-LIMITS = {
-    "vise_grip_min_mm": 6.0,
-    "vise_stickup_ratio_max": 1.0,
-    "vise_overhang_ratio_max": 2.0,
-}
+LIMITS = {"vise_grip_min_mm": 6.0, "vise_grip_fraction_min": 0.5}
 SHOP = {
     "workholding": {
         "vise": {
@@ -27,7 +23,7 @@ SHOP = {
 
 
 def _hold(**changes):
-    # Grip min(10, 40 - 30) = 10, no stick-up, part exactly the jaw width.
+    # Grip min(10, 40 - 30) = 10 of a 10 mm part, exactly the jaw width long.
     hold = {
         "vise": "vise",
         "across_jaws_mm": 25.0,
@@ -35,7 +31,6 @@ def _hold(**changes):
         "part_height_mm": 10.0,
         "parallel_height_mm": 30.0,
         "overhang_mm": [0.0, 0.0],
-        "overhang_support": "none",
         "jaw_offset": "centred",
         "fixed_jaw_face": "as_bought",
         "moving_jaw_face": "as_bought",
@@ -43,6 +38,17 @@ def _hold(**changes):
     }
     hold.update(changes)
     return hold
+
+
+def _twin(**changes):
+    # 40 mm part at the left jaw end, 10 mm out: it spans -10..30 mm.
+    twin = {
+        "along_jaws_mm": 40.0,
+        "overhang_mm": [10.0, "rest"],
+        "jaw_offset": "balanced",
+        "balance": "twin_part",
+    }
+    return _hold(**{**twin, **changes})
 
 
 def _plan(setup, limits=LIMITS):
@@ -63,15 +69,19 @@ def _plan(setup, limits=LIMITS):
         _hold(),
         _hold(across_jaws_mm=80.0),  # opening
         _hold(part_height_mm=6.0),  # grip minimum
-        _hold(part_height_mm=20.0),  # stick-up 10 = 1.0 x grip 10
-        _hold(along_jaws_mm=120.0, overhang_mm=[20.0, 0.0]),  # 2.0 x section 10
+        _hold(part_height_mm=20.0),  # grip 10 = 0.5 x part height 20
+        _hold(along_jaws_mm=400.0, overhang_mm=[150.0, "rest"]),  # overhang unjudged
         _hold(along_jaws_mm=120.0, overhang_mm=["rest", 20.0]),
         _hold(along_jaws_mm=100.009, overhang_mm=[0.0, 0.0]),  # authored rounding
         _hold(along_jaws_mm=50.0, overhang_mm=[0.0, "rest"]),  # reaches the centre
-        _hold(along_jaws_mm=40.0, overhang_mm=[0.0, "rest"], jaw_offset="balanced"),
         _hold(
-            along_jaws_mm=400.0, overhang_mm=[150.0, "rest"], overhang_support="jacks"
+            along_jaws_mm=40.0,
+            overhang_mm=[0.0, "rest"],
+            jaw_offset="balanced",
+            balance="spacer",
         ),
+        _twin(),
+        _twin(along_jaws_mm=60.0),  # ends at the jaw centre: the twin still fits
         _hold(
             fixed_jaw_face="machined", moving_jaw_face="sawn", moving_jaw_contact="rod"
         ),
@@ -87,39 +97,17 @@ def test_coverage_and_reholds():
     check(_plan({"vise_hold": "other"}))
     check(_plan({"machine_kind": "lathe"}))
     check(_plan({"vise_hold": [_hold(), _hold(part_height_mm=20.0)]}))
-    with pytest.raises(CheckError, match=r"setup 1 \(Mill\) hold 2: stick-up 10.5 mm"):
+    with pytest.raises(CheckError, match=r"setup 1 \(Mill\) hold 2: grip depth 10 mm"):
         check(_plan({"vise_hold": [_hold(), _hold(part_height_mm=20.5)]}))
 
 
-def test_ratios_needed_only_when_used():
-    limits = {"vise_grip_min_mm": 6.0}
-    check(_plan({"vise_hold": _hold()}, limits))
-    check(
-        _plan(
-            {
-                "vise_hold": _hold(
-                    along_jaws_mm=400.0,
-                    overhang_mm=[150.0, "rest"],
-                    overhang_support="jacks",
-                )
-            },
-            limits,
-        )
-    )
+def test_limits_must_be_declared():
     with pytest.raises(
         CheckError,
-        match=r"setup 1 \(Mill\): stick-up 0.5 mm needs "
-        r"shop.limits.vise_stickup_ratio_max: required but not declared",
+        match=r"setup 1 \(Mill\): grip depth 10 mm needs "
+        r"shop.limits.vise_grip_fraction_min: required but not declared",
     ):
-        check(_plan({"vise_hold": _hold(part_height_mm=10.5)}, limits))
-    with pytest.raises(
-        CheckError, match="overhang 5 mm needs shop.limits.vise_overhang"
-    ):
-        check(
-            _plan(
-                {"vise_hold": _hold(along_jaws_mm=105.0, overhang_mm=[5.0, 0])}, limits
-            )
-        )
+        check(_plan({"vise_hold": _hold()}, {"vise_grip_min_mm": 6.0}))
 
 
 @pytest.mark.parametrize(
@@ -136,6 +124,12 @@ def test_ratios_needed_only_when_used():
             {"vise_hold": _hold(overhang_mm=["rest", "rest"])},
             'at most one side may be "rest"',
         ),
+        ({"vise_hold": _hold(jaw_offset="balanced")}, r"missing field\(s\): balance"),
+        ({"vise_hold": _hold(balance="spacer")}, r"unknown field\(s\): balance"),
+        (
+            {"vise_hold": _twin(balance="block")},
+            "balance: expected twin_part or spacer",
+        ),
         (
             {"vise_hold": _hold(across_jaws_mm=80.001)},
             "80.001 mm across the jaws exceeds shop.workholding.vise opening 80 mm",
@@ -150,19 +144,19 @@ def test_ratios_needed_only_when_used():
         ),
         (
             {"vise_hold": _hold(part_height_mm=20.001)},
-            r"stick-up 10.001 mm above the jaws exceeds 1 × grip 10 = 10 mm",
+            "grip depth 10 mm is below vise_grip_fraction_min 0.5 × part height 20.001",
         ),
         (
             {"vise_hold": _hold(along_jaws_mm=100.0, overhang_mm=[5.0, 5.0])},
             r"overhangs 5 \+ 5 mm and shop.workholding.vise jaw width 100 mm contradict",
         ),
         (
-            {"vise_hold": _hold(along_jaws_mm=120.001, overhang_mm=[0.0, "rest"])},
-            "unsupported right overhang 20.001 mm exceeds 2 × section 10 = 20 mm",
-        ),
-        (
             {"vise_hold": _hold(along_jaws_mm=49.999, overhang_mm=[0.0, "rest"])},
             "gripped 0–49.999 mm along the jaws misses the jaw centre 50 mm",
+        ),
+        (
+            {"vise_hold": _twin(along_jaws_mm=60.001)},
+            "spans -10–50.001 mm along the jaws, across the jaw centre 50 mm",
         ),
         (
             {"vise_hold": _hold(along_jaws_mm=10.0, overhang_mm=[-100.0, "rest"])},
@@ -199,7 +193,7 @@ description = "End mill"
 title = "Face"
 machine = "Mill"
 machine_kind = "other"
-vise_hold = {{ vise = "vise-pm-6", across_jaws_mm = 25.4, along_jaws_mm = 158.6738, part_height_mm = "{{{{process.height}}}}", parallel_height_mm = 25.4, overhang_mm = [0, 0], overhang_support = "none", jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }}
+vise_hold = {{ vise = "vise-pm-6", across_jaws_mm = 25.4, along_jaws_mm = 158.6738, part_height_mm = "{{{{process.height}}}}", parallel_height_mm = 25.4, overhang_mm = [0, 0], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }}
 
 [[setups.operations]]
 tool = "em"
@@ -223,18 +217,4 @@ def test_cli_enforces_through_custom_profile(tmp_path, capsys, height, code):
         assert "setup 1 (Face): grip depth 5.9 mm is below vise_grip_min_mm 6 mm" in (
             capsys.readouterr().err
         )
-    assert main([*args, "--disable-check", "vise_holding"]) == 0
-
-
-def test_base_bar_needs_an_undeclared_stickup_limit(tmp_path, capsys):
-    # 1-3/8 in parallels leave the 1/2 in blank 2.68 mm above the 1.7695 in
-    # jaws; no source gives a stick-up ratio, so the shop declares none.
-    plan = Path(__file__).parents[1] / "examples/base-bar.toml"
-    out = tmp_path / "base-bar.html"
-    args = ["traveler", str(plan), "--out", str(out)]
-    assert main(args) == 2
-    assert (
-        "setup 4 (Face both sides in vise): stick-up 2.6797 mm needs "
-        "shop.limits.vise_stickup_ratio_max: required but not declared"
-    ) in capsys.readouterr().err
     assert main([*args, "--disable-check", "vise_holding"]) == 0

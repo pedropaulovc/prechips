@@ -11,19 +11,9 @@ SOURCE = ROOT / "examples/cad/end-bracket-v48.toml"
 PLAN = ROOT / "examples/end-bracket.toml"
 
 
-def test_pro_plan_refuses_the_one_end_hold_then_renders_with_its_opt_out(
-    tmp_path, capsys
-):
+def test_pro_plan_renders_with_every_check(tmp_path):
     out = tmp_path / "end-bracket.html"
-    command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]
-    # The hand sheet grips the 2.85 in blank at one end of the 6.247 in jaws
-    # with no spacer opposite: a finding about the plan, not tuned away.
-    assert main(command) == 2
-    assert "hold 1: gripped 0–67.31 mm along the jaws misses the jaw centre" in (
-        capsys.readouterr().err
-    )
-    assert not out.exists()
-    assert main([*command, "--disable-check", "vise_holding"]) == 0
+    assert main(["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-28" in html
     assert "0.5482 (13.925 mm)" in html
@@ -32,8 +22,7 @@ def test_pro_plan_refuses_the_one_end_hold_then_renders_with_its_opt_out(
 
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "end-bracket-hobby.html"
-    command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
-    assert main([*command, "--disable-check", "vise_holding"]) == 0
+    assert main(["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 5
     assert "Tape a flag on the bottoming tap 0.433–0.527" in html

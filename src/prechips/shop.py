@@ -110,8 +110,7 @@ _LIMITS = {
     "stickout_ld_max": _positive,
     "tool_change_clearance_mm": _positive,
     "vise_grip_min_mm": _positive,
-    "vise_stickup_ratio_max": _positive,
-    "vise_overhang_ratio_max": _positive,
+    "vise_grip_fraction_min": _positive,
 }
 
 
