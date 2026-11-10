@@ -189,6 +189,18 @@ settings = "shaft-finish-turn-hss-1018"
 cut_diameter_mm = "{{cad.bearing_dia}}"  # 6.35 -> 1700 rpm
 ```
 
+### Tool sizing
+
+Key `tool_sizing`. Every operation with a `tool` declares `sizing`; an operation without a tool must not. Use `sizing = "other"` when no drawing size binds the cutter (saws, roughers, spot and pilot drills, taps, lathe tools), or a table:
+
+```toml
+sizing = { kind = "band", band_mm = "{{cad.bracket_dia_band_mm}}" }  # [low, high]
+sizing = { kind = "tap_drill", tap = "tap" }                         # a plan tool id
+```
+
+A band passes when the operation tool's `diameter_mm` lies inside the inclusive band; a reversed band refuses. A tap drill passes when the operation tool's `diameter_mm` equals the named tap's `tap_drill_mm` within 1e-6 mm. Plan `[[tools]]` and shop `[tools.<ref>]` records take numeric `diameter_mm` and `tap_drill_mm` (never printed); shop values flow into the plan tool unless it sets its own. A missing diameter or tap drill, an unknown tap id or a missing `sizing` refuses. The base-bar adapter supplies each drawing limit as `<limit>_band_mm` (such as `bracket_dia_band_mm`, `counterbore_dia_band_mm`, `slot_width_band_mm`) and `slot_finish_diameter_mm` from the process parameter.
+
+Only the selected tool is compared; no nearer tool is suggested. Thread designation, tap class, operation order, reaming allowance and actual cut size (runout, drill wander) are not checked.
 ## Profiles
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |

@@ -232,11 +232,11 @@ def load_plan(path: Path) -> LoadedPlan:
                 raise PlanError(f"{where}.ref: requires plan.shop")
             shared = _shop_record(shop, "tools", ref, f"{where}.ref")
             shared_where = f"shop.tools.{ref}"
-            _keys(shared, {"name", "description"}, shared_where)
+            _keys(shared, {"name", "description"} | check_fields("tool"), shared_where)
             _text(shared, "description", shared_where)
             _text(shared, "name", shared_where, optional=True)
-            for key in ("name", "description"):
-                if key not in tool and key in shared:
+            for key in shared:
+                if key not in tool:
                     tool[key] = shared[key]
             tool_refs[tool_id] = tool.pop("ref")
         _text(tool, "name", where, optional=True)

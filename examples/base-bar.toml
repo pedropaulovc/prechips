@@ -65,6 +65,7 @@ ref = "basebar-counterbore"
 id = "slot-finish"
 name = "{{process.slot_finish_diameter_in:fraction}} in end mill"
 ref = "basebar-slot-finish"
+diameter_mm = "{{cad.slot_finish_diameter_mm}}"
 description = "{{process.slot_finish_diameter_in:fraction}} in centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
 
 [[setups]]
@@ -76,6 +77,7 @@ diagram = { file = "diagrams/saw.svg", alt = "{{process.quantity:d}} × {{proces
 [[setups.operations]]
 speed_kind = "other"
 tool = "saw"
+sizing = "other"
 instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks from {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar."
 feed = "hand"
 
@@ -91,12 +93,14 @@ diagram = { file = "diagrams/width.svg", alt = "Blank on inboard 1-2-3 blocks wi
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Cutter .04–.08 below underside. Mill front edge in +X, conventional; rough .050–.080 radial, finish .005–.010. Mark ZERO EDGE both faces. Keep this clamping for opposite edge."
 settings = "basebar-edge-6061-t6511"
 
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Mill opposite long edge in −X, conventional; rough .050–.080 radial to {{cad.width_rough_in:.3f}} width, finish to {{cad.width_in:.3f}} from ZERO EDGE."
 settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
@@ -116,6 +120,7 @@ instruction = "Add two straps over finished long edges near mid-length and tight
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Cutter .04 below bar. Square left end in −Y, .020 passes; mark ZERO END both faces and set X0 there. Measure cutter D; cut right end in +Y, .010 passes, final X = {{cad.length_in:.4f}} + D/2."
 settings = "basebar-edge-6061-t6511"
 
@@ -131,6 +136,7 @@ diagram = { file = "diagrams/face.svg", alt = "Bar in vise on 1-3/8 in parallels
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-face"
+sizing = "other"
 instruction = "Face left and right halves of each face. Rough .010 per pass, +X, +Y stepover .60; remove half allowance on side 1. Flip end-for-end, ZERO EDGE still at fixed jaw; finish side 2 to {{cad.thickness_in:.4f}}. Reorient ZERO END left, ZERO EDGE back; mark upper face C'BORE SIDE."
 rpm = 840
 feed = "3.3 in/min rough; 2.4 finish"
@@ -150,6 +156,7 @@ instruction = "Before drilling: from the rail end that goes at ZERO END, check t
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "spot"
+sizing = "other"
 instruction = "Spot {{cad.spot_count:d}} holes to Ø.125. All drills: .125 pecks, drill tip .125 past underside. Inches; IDs follow coordinate order. Rail X ±{{cad.rail_position_tol_in:.3f}}; bracket X/Y ±{{cad.bracket_position_tol_in:.3f}}; rail row ±{{cad.rail_row_tol_in:.2f}}; slot positions ±{{cad.slot_position_tol_in:.2f}}."
 rpm = 3000
 feed = "hand"
@@ -161,6 +168,7 @@ rows = "{{cad.hole_rows}}"
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "rail-drill"
+sizing = { kind = "tap_drill", tap = "tap" }
 instruction = "{{cad.rail_range}} through."
 rpm = 3000
 feed = "hand"
@@ -168,6 +176,7 @@ feed = "hand"
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "bracket-drill"
+sizing = { kind = "band", band_mm = "{{cad.bracket_dia_band_mm}}" }
 instruction = "{{cad.bracket_range}} through."
 rpm = 3000
 feed = "hand"
@@ -175,6 +184,7 @@ feed = "hand"
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "slot-drill"
+sizing = "other"
 instruction = "{{cad.slot_range}} through."
 rpm = 2000
 feed = "hand"
@@ -182,12 +192,14 @@ feed = "hand"
 [[setups.operations]]
 speed_kind = "other"
 tool = "tap"
+sizing = "other"
 instruction = "Tap {{cad.rail_range}} through."
 feed = "hand"
 
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "counterbore"
+sizing = { kind = "band", band_mm = "{{cad.counterbore_dia_band_mm}}" }
 instruction = "Counterbore {{cad.bracket_range}}, {{cad.counterbore_depth_in:.3f}} deep from top."
 rpm = 2000
 feed = "slow hand plunge"
@@ -195,12 +207,14 @@ feed = "slow hand plunge"
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Rough slots with .500 cutter, depths {{cad.slot_depths_in}} below top. Traverse between arc centres: {{cad.slot_paths}}."
 settings = "basebar-slot-rough-6061-t6511"
 
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "slot-finish"
+sizing = { kind = "band", band_mm = "{{cad.slot_width_band_mm}}" }
 instruction = "Finish {{cad.slot_range}} at {{cad.slot_depth_in:.2f}} below top, same X and arc-centre Y ranges as roughing. Drawing target: {{cad.slot_width_in:.3f}} wide with {{cad.slot_spacing_in:.3f}} arc-centre spacing."
 settings = "basebar-slot-finish-6061-t6511"
 cut_diameter_mm = "{{cad.slot_finish_diameter_mm}}"

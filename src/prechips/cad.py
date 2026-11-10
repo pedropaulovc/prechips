@@ -126,6 +126,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values[f"{key}_in"] = _mid(bands[0]) / 25.4
         values[f"{key}_min_in"] = low / 25.4
         values[f"{key}_max_in"] = high / 25.4
+        values[f"{key}_band_mm"] = [low, high]
 
     envelope = []
     for key, name, field in (

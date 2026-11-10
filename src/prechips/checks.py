@@ -28,6 +28,11 @@ CHECKS: dict[str, Check] = {
         module="prechips.speeds",
         operation_fields=frozenset({"speed_kind", "cut_diameter_mm"}),
     ),
+    "tool_sizing": Check(
+        module="prechips.sizing",
+        tool_fields=frozenset({"diameter_mm", "tap_drill_mm"}),
+        operation_fields=frozenset({"sizing"}),
+    ),
 }
 
 
