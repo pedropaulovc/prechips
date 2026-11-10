@@ -46,63 +46,75 @@ name = "Hand deburrer"
 description = "Conical hand deburring tool."
 
 [[setups]]
+machine_kind = "lathe"
 title = "One chucking — face, turn, groove and drill-release"
 machine = "Precision Matthews PM-1022V lathe"
 holding = "Three-jaw chuck on scrap; retain chucking throughout. Grip, stickout and rear travel limit to be established, allowing wide-tool clearance."
 datum = "Front face is axial reference; groove position by scale. Cross-slide dial: diameter reduction, 0.002 in/div."
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "turn"
 instruction = "Face clean; approximately 0.020 in axial passes."
 rpm = 450
 
 [[setups.operations]]
+cut_kind = "longitudinal_turning"
 tool = "turn"
 instruction = "Clean OD and old step: 0.020 in diameter reduction (0.010 in radial DOC). Turn dry throughout."
 rpm = 380
 inspection = "Measure OD; calculate stock to Ø0.725 in."
 
 [[setups.operations]]
+cut_kind = "longitudinal_turning"
 tool = "turn"
 instruction = "TWO roughing passes, each 0.100 in diameter reduction (0.050 in radial DOC). Adjust to actual stock; leave finish allowance."
 rpm = 380
 inspection = "Remeasure OD before finishing."
 
 [[setups.operations]]
+cut_kind = "longitudinal_turning"
 tool = "turn"
 instruction = "Finish-turn Ø0.725 in (a little over 500 rpm)."
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "groove"
 instruction = "Groove ring-side edge 0.100 in behind front face; 0.100 in diameter reduction plus extra depth. Do not part off."
 rpm = 140
 inspection = "Release requires root below actual final drill-cut diameter; extra depth, positive margin, drill-point travel and ring retention remain to be established."
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "file"
 instruction = "File both outer edges before drilling; rear edge through groove."
 rpm = 200
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "spot"
 instruction = "Spot (≈800–900 rpm). Penetration to be established. Use cutting oil for all drilling."
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "drills"
 instruction = "Drill 1/4 in → 5/16 in to established depth."
 rpm = 400
 feed = "5/16 in drill can grab/self-feed"
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "drills"
 instruction = "Enlarge 7/16 in → 1/2 in to established depth."
 
 [[setups.operations]]
+cut_kind = "other"
 tool = "drills"
 instruction = "Drill 5/8 in: full-diameter breakthrough intersects groove and releases ring onto drill; no final part-off."
 rpm = 150
 
 [[setups]]
+machine_kind = "other"
 title = "Hand finish — inner edges and dimensional record"
 machine = "Wooden bench"
 holding = "Small-ring retention method to be established."

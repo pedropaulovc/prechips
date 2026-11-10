@@ -45,6 +45,7 @@ name = "3/8-16 tap"
 ref = "tnuts-tap"
 
 [[setups]]
+machine_kind = "other"
 title = "Slot pickup and batch cutoff"
 machine = "Bench / portable bandsaw"
 holding = "Bar in bench vise; support scrap independently."
@@ -53,6 +54,7 @@ instruction = "Measure slot throat, undercut and depth; confirm 3/8-16, not M10 
 feed = "135 sfm band; 1 in/min descent"
 
 [[setups]]
+machine_kind = "other"
 title = "Square batch — four holds"
 machine = "PM-25MV-BD mill"
 datum = "First machined long face = bottom reference; adjacent face establishes square corner."
@@ -71,6 +73,7 @@ rows = [
 ]
 
 [[setups]]
+machine_kind = "other"
 title = "Both shoulders along batch"
 machine = "Mill"
 holding = "Bottom on 35-mm parallels; 5-mm lower grip, shoulders clear of jaws."
@@ -85,6 +88,7 @@ instruction = "Finish walls at Y ±.4975, Z−.250; floors unchanged. Target .49
 settings = "tnuts-finish-1018"
 
 [[setups]]
+machine_kind = "other"
 title = "Separate — three holds"
 machine = "Mill"
 holding = "Upright on original starting end, 25-mm parallels, 15-mm grip; flange toward moving jaw, stem toward fixed jaw. Capture upper cutoff independently; reseat remainder/reposition capture each cut."
@@ -103,6 +107,7 @@ rows = [
 ]
 
 [[setups]]
+machine_kind = "other"
 title = "End face — repeat for nuts 1–4"
 machine = "Mill"
 holding = "Stem up; bottom on 35-mm parallels, 5-mm flange grip. Rod stop: lower slitting face (toward original start) on nuts 1–3; upper slitting face on nut 4."
@@ -113,6 +118,7 @@ instruction = "Face free end only, .025 at full .500 height, to 1.000 length: nu
 settings = "tnuts-finish-1018"
 
 [[setups]]
+machine_kind = "other"
 title = "Drill and tap — repeat for nuts 1–4"
 machine = "Mill"
 holding = "Each nut stem up, 5-mm grip; hole clear between 35-mm parallels."
@@ -132,6 +138,7 @@ tool = "tap"
 instruction = "Hand tap 3/8-16 RH through, with oil and spring follower. Tip depth 1.025 below top clears .500 lead."
 
 [[setups]]
+machine_kind = "other"
 title = "Finish and inspect — each nut"
 machine = "Bench"
 holding = "For staking: bottom-up, vise gripping flange side flats; bottom flush with jaw tops, not vise bed."

@@ -111,7 +111,18 @@ def test_round_stock_length_gate_runs_before_output(tmp_path, capsys, length):
         text = text.replace("[parameters]", f"[parameters]\nstock_length_mm = {length}")
     path.write_text(text, encoding="utf-8")
     output = tmp_path / "out/traveler.html"
-    result = main(["traveler", str(path), "--out", str(output), "--profile", "pro"])
+    result = main(
+        [
+            "traveler",
+            str(path),
+            "--out",
+            str(output),
+            "--profile",
+            "pro",
+            "--disable-check",
+            "turning_deflection",
+        ]
+    )
     if length == 180.5:
         assert result == 0
         assert output.exists()
@@ -366,3 +377,72 @@ def test_shorter_journal_updates_follow_rest_waste_threshold(tmp_path):
     html = render_traveler(plan)
     assert "12.30" in html
     assert "11.50" not in html
+
+
+@pytest.mark.parametrize("profile", ["pro", "hobby"])
+def test_authored_shaft_default_refuses_pre_follower_finish(tmp_path, capsys, profile):
+    path = prepare(tmp_path)
+    output = tmp_path / "out" / "traveler.html"
+    assert (
+        main(
+            [
+                "traveler",
+                str(path),
+                "--out",
+                str(output),
+                "--profile",
+                profile,
+                "--disable-check",
+                "setup_diagrams",
+            ]
+        )
+        == 2
+    )
+    error = capsys.readouterr().err
+    assert "turning_deflection" in error
+    assert "Body finish" in error
+    assert "before follower" in error
+    assert not output.parent.exists()
+
+
+def test_analysis_bindings_follow_cad_and_process_as_numbers(tmp_path):
+    baseline = load_plan(PLAN)
+    path = prepare(
+        tmp_path,
+        [('"dia_nominal" = 5.7', '"dia_nominal" = 5.8')],
+        [
+            ("supply_length_mm = 175.0", "supply_length_mm = 176.0"),
+            ("follow_rest_lead_mm = 8.0", "follow_rest_lead_mm = 9.0"),
+        ],
+    )
+    changed = load_plan(path)
+
+    def cuts(plan):
+        return {
+            cut["name"]: cut
+            for setup in plan.data["setups"]
+            for operation in setup["operations"]
+            for cut in operation.get("turning_cuts", [])
+        }
+
+    before, after = cuts(baseline), cuts(changed)
+    support = changed.data["setups"][1]["turning_support"]
+    for key in (
+        "chuck_z_mm",
+        "centre_z_mm",
+        "engage_z_mm",
+        "offset_mm",
+        "pad_width_mm",
+    ):
+        assert isinstance(support[key], (int, float))
+    assert support["offset_mm"] == 9.0
+    assert after["Body rough"]["start_z_mm"] == pytest.approx(
+        before["Body rough"]["start_z_mm"] + 1.0
+    )
+    assert after["Journal finish"]["minimum_diameter_mm"] == pytest.approx(
+        before["Journal finish"]["minimum_diameter_mm"] + 0.1
+    )
+    for cut in after.values():
+        for key, value in cut.items():
+            if key not in {"name", "phase"}:
+                assert isinstance(value, (int, float)), (cut["name"], key, value)

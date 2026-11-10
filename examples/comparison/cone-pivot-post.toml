@@ -30,11 +30,13 @@ name = "Saw"
 description = "4/6 bimetal blade,1.5 mm kerf."
 
 [[setups]]
+machine_kind = "lathe"
 title = "Turn body → cone sleeve → crank sleeve (three chuckings)"
 machine = "PM-1127VF-LB"
 holding = "3-jaw,25 raw grip each. Body102 nominal out, runout≤0.1. Cone50 out, cap-to-jaws48.5–49.5. Crank80 out, face-to-jaws78.5–79.5; unsupported."
 datum = "Diametric X; body B=Z0, shoulder−59.4. Cone north cap+21.0055; crank north face0."
 [[setups.operations]]
+cut_kind = "longitudinal_turning"
 tool = "turn"
 instruction = "Face body125.0 from tail; retain tail. Turn head through Z−95, body to shoulder−59.4 with R0.2 tool. Face cone74.0/crank104.0 from grip end. Cone turn to Z−23; crank turn−73. Reference parting blade TAILSTOCK-side face on cone north cap Z+21.0055/crank north face Z0; part with that face at cone−21.0505/crank−72.0344. Deburr without shortening."
 [setups.operations.table]
@@ -42,6 +44,7 @@ columns = ["Cut", "rpm / mm per rev", "Radial DOC; acceptance"]
 rows = [["B face", "650 /0.08", "0.5; Ra≤3.2 µm"], ["Head rough→finish", "650 /0.10→800 /0.05", "0.35→0.20; Ø42.0–43.6"], ["Body rough→finish", "700 /0.10→800 /0.05", "0.25→0.15; Ø41.99–42.03, three stations; corner R≤0.25"], ["Cone face / rough / finish / part", "1550 /0.05;1650 /0.08;1950 /0.045;350 /0.025", "0.25/0.4/0.1/0.25; Ø17.194–17.206, length42.04–42.08; north cap Ra≤1.6"], ["Crank face / rough / finish / part", "1150 /0.05;1300 /0.05;1550 /0.045;250 /0.025", "0.25/0.25/0.1/0.25; Ø21.924–21.936, length72.00–72.08"]]
 
 [[setups]]
+machine_kind = "other"
 title = "Two sleeve sockets — one tail chucking"
 machine = "PM-30MV · BS-0 / independent4-jaw"
 holding = "Spindle along X; tail20 against chuck body,105 out. Head/body runout≤0.02, B square; axis alignment≤0.01. Crank socket up/index zero."
@@ -54,6 +57,7 @@ columns = ["Socket X/Y", "Open rpm/feed → ream rpm/feed", "Accept Ø / full-Ø
 rows = [["Crank −72.700/0", "Ø21.8:300/54 → Ø22.01:200/50.4", "22.000–22.020 / Z−22.300"], ["Cone −33.368/0 after index", "Ø17.05:350/63 → Ø17.26:250/63", "17.250–17.270 / Z−21.525"]]
 
 [[setups]]
+machine_kind = "other"
 title = "Bond cone sleeve; then crank sleeve after cone cure"
 machine = "Bench · bonding cradle"
 holding = "B at stop; body/tail saddles, gravity only. Cone north cap on pins14.8 apart; crank socket vertical. Second bond: crank north face on crank pins."
@@ -64,6 +68,7 @@ columns = ["Joint, order", "Diametral clearance", "Position / after-cure checks"
 rows = [["1 Cone", "0.044–0.076", "Before grab, −X/+X edges of crank-socket mouth at head top: height difference≤0.05; cap-to-cap42.04–42.08"], ["2 Crank, cone cured", "0.064–0.096", "North-face station20.87–21.89 from post axis; length72.00–72.08"]]
 
 [[setups]]
+machine_kind = "other"
 title = "Post-cure running bores — one new tail chucking"
 machine = "PM-30MV · BS-0 /4-jaw"
 holding = "Tail20 against chuck body,105 out. Crank north face up/index zero; runout≤0.02, B square, axis alignment≤0.01. Journal: unchanged jaws, same1 turn+9 spaces, north cone cap up."
@@ -76,6 +81,7 @@ columns = ["Bore X/Y", "Drill → ream rpm/feed", "Length / acceptance"]
 rows = [["Crank −72.885/0", "Ø11.2:550/60.5,6 mm pecks →0.4500 in:400/100.8", "72.08; Ø11.413–11.443"], ["Journal A −33.368/0, indexed", "Ø12.05:500/55,8 mm pecks →0.4835 in:350/88.2", "42.08; Ø12.256–12.285; height from B33.118–33.618"]]
 
 [[setups]]
+machine_kind = "other"
 title = "Saw tail off"
 machine = "4×6 bandsaw"
 holding = "Body seated in integral cradle saddles; north cap on land, south cap under brass bridge pad. Blued land/pad must print only on cap annuli, no blue on body. Bridge wrench-tight before gripping base in saw vise; tail unsupported."
@@ -85,6 +91,7 @@ instruction = "Blade-centre line87.75 from B; kerf1.5 leaves87.0 overall,1.0 fac
 feed = "Blade200 ft/min; bow descent65 mm/min (~40 s cut)."
 
 [[setups]]
+machine_kind = "other"
 title = "Face top; two mounting holes"
 machine = "PM-30MV · tall soft jaws/buttons"
 holding = "B on1/2 in×1/8 in parallels, Y±19.4; buttons on cone caps, jaws3 clear of body. Crank over front jaw. Jaw clearance: shoulder8.6, crank10.9. Tram≤0.0254/100."
@@ -101,6 +108,7 @@ rows = [["West", "−12.67", "+2.815"], ["East", "+12.67", "−2.815"]]
 [[setups.operations]]
 instruction = "Both holes Ø7.14248–7.24248, radial station12.47–13.49; counterbores Ø11.0–12.02×5.51–6.53 deep. Deburr top/counterbores/mount exits/B: R0.25/chamfer0.25 max; running rims≤0.1. Check mount breakout into cone bore. Head length25.8–27.4; overall85.2–86.8; final diameters as above."
 [[setups]]
+machine_kind = "other"
 title = "Bench inspection → paint → oil"
 machine = "Bench / surface plate; cradle, then standing on masked B for paint"
 [[setups.operations]]

@@ -232,12 +232,28 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         south_sphere_center_z=fit - domes[1][1],
         parting_z=fit + process("fit_face_allowance_mm"),
     )
+    # Analysis-only values; preserve the operator-facing approach clearance.
+    values.update(
+        supported_chuck_z=thrust_z - north_z,
+        body_cut_start_z=values["plain_end_z"],
+        bearing_finish_radial_doc=(values["bearing_rough_dia"] - values["bearing_dia"])
+        / 2,
+        journal_finish_radial_doc=(values["journal_rough_dia"] - values["journal_dia"])
+        / 2,
+        body_minimum_dia=process("stock_dia_mm"),
+        journal_minimum_dia=min(values["bearing_dia"], values["south_relief_dia"]),
+    )
     values["turn_start_z"] = values["plain_end_z"] + process("turn_start_clearance_mm")
     rest_centre = process("follow_rest_reset_z_mm") + process("follow_rest_lead_mm")
     rest_half_jaw = process("follow_rest_jaw_mm") / 2
     rest_low, rest_high = rest_centre - rest_half_jaw, rest_centre + rest_half_jaw
     if rest_low < 0 or rest_high >= values["plain_end_z"]:
         raise CadError("process.follow_rest: jaw band must lie before the plain end")
+    # Longest body the fit-scribe can keep: its dome base must stay the waste
+    # margin short of the follower pad band, so the apex can reach this Z.
+    values["body_kept_end_z"] = (
+        rest_low - process("follow_rest_waste_margin_mm") + domes[1][0]
+    )
     values["rest_scribe_min"] = (
         values["plain_end_z"]
         - rest_low
@@ -261,9 +277,14 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         raise CadError(
             "process: rough turning target must be below authored bar diameter"
         )
-    if stock_dia - min(values["bearing_rough_dia"], values["journal_rough_dia"]) > 4:
+    rough_doc = process("rough_radial_doc_mm")
+    if (
+        stock_dia - min(values["bearing_rough_dia"], values["journal_rough_dia"])
+        > 8 * rough_doc
+    ):
         raise CadError(
-            "process: four rough passes at 0.5 mm radial depth cannot reach target"
+            f"process: four rough passes at {rough_doc:g} mm radial depth "
+            "cannot reach target"
         )
     if process("blade_corner_radius_mm") > min(
         values["north_corner_max"], values["south_corner_max"]

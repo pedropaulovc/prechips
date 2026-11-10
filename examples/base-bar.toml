@@ -68,6 +68,7 @@ ref = "basebar-slot-finish"
 description = "{{process.slot_finish_diameter_in:fraction}} in centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
 
 [[setups]]
+machine_kind = "other"
 title = "Saw blanks"
 machine = "Saw / bench"
 diagram = { file = "diagrams/saw.svg", alt = "{{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks marked on the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; bar supported level on saw bed and stands at the cutline." }
@@ -78,6 +79,7 @@ instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:fraction}
 feed = "hand"
 
 [[setups]]
+machine_kind = "other"
 title = "Mill both long edges"
 machine = "PM-30MV; inch DRO"
 holding = "Vise off; 1-2-3 blocks inboard, supporting middle ~4 in; both long edges overhang .75–1 in. Strap across mid-width of each end, clear of both long-edge cuts."
@@ -96,6 +98,7 @@ settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
 
 [[setups]]
+machine_kind = "other"
 title = "Square both ends on table"
 machine = "PM-30MV; inch DRO"
 holding = "Keep bar fixed on inboard supports; supports clear of both end cuts."
@@ -111,6 +114,7 @@ instruction = "Cutter .04 below bar. Square left end in −Y, .020 passes; mark 
 settings = "basebar-edge-6061-t6511"
 
 [[setups]]
+machine_kind = "other"
 title = "Face both sides in vise"
 machine = "PM-30MV / vise, swivel off"
 holding = "Flat on 1-3/8 in parallels, ZERO EDGE at fixed jaw; screw jack (3.9–5.5 in range) under each overhanging end."
@@ -124,6 +128,7 @@ rpm = 840
 feed = "3.3 in/min rough; 2.4 finish"
 
 [[setups]]
+machine_kind = "other"
 title = "Drill / tap / counterbore / slots"
 machine = "PM-30MV; inch DRO"
 holding = "ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up; 1-3/8 in parallels. Support both overhangs with jacks clear of hole/slot paths."
@@ -187,6 +192,7 @@ rpm = 1200
 feed = "4.8 in/min"
 
 [[setups]]
+machine_kind = "other"
 title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
 datum = "Marked end/edge; rail on face opposite C'BORE SIDE."

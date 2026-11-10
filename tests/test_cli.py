@@ -19,6 +19,7 @@ description = "6 mm end mill"
 [[setups]]
 title = "Face stock"
 machine = "Manual mill"
+machine_kind = "other"
 holding = "Vise on parallels"
 datum = "Top face; left end"
 inspection = ["Check thickness & squareness."]
@@ -35,6 +36,7 @@ SECOND_SETUP = """
 [[setups]]
 title = "Drill pattern"
 machine = "Manual mill"
+machine_kind = "other"
 
 [[setups.operations]]
 instruction = "Locate the pattern."
@@ -80,7 +82,7 @@ def run_cli(tmp_path, text, *options):
 
 
 def stock_free_profile(tmp_path, *, diagrams=False):
-    """Keep literal-plan rendering tests independent of CAD/stock enforcement."""
+    """Keep literal-plan rendering tests independent of optional enforcement."""
     profile = tmp_path / "rendering.toml"
     names = '["setup_diagrams"]' if diagrams else "[]"
     profile.write_text(
@@ -350,3 +352,302 @@ def test_output_cannot_replace_profile_or_used_diagram(
     assert "output must not overwrite" in result.stderr
     assert source.read_bytes() == before
     assert out.read_bytes() == before
+
+
+TURNING_PLAN = (
+    PLAN.replace(
+        'material = "Aluminium"', 'material = "Steel"\nturning_material = "steel_1018"'
+    )
+    .replace('machine_kind = "other"', 'machine_kind = "lathe"')
+    .replace(
+        'holding = "Vise on parallels"',
+        'turning_support = { kind = "chuck_only", chuck_z_mm = 0.0 }',
+    )
+    .replace(
+        'tool = "internal-mill-id"',
+        'cut_kind = "longitudinal_turning"\ntool = "internal-mill-id"',
+    )
+    + """
+[[setups.operations.turning_cuts]]
+name = "Body finish"
+phase = "finish"
+start_z_mm = 1.0
+end_z_mm = 2.0
+kept_start_z_mm = 1.0
+kept_end_z_mm = 2.0
+start_diameter_mm = 20.1
+end_diameter_mm = 20.0
+max_radial_doc_mm = 0.05
+feed_mm_rev = 0.05
+minimum_diameter_mm = 20.0
+"""
+)
+
+
+@pytest.fixture
+def run_turning_cli(capsys):
+    from prechips.cli import main
+
+    def invoke(tmp_path, text, *options):
+        plan = tmp_path / "plan.toml"
+        out = tmp_path / "out" / "traveler.html"
+        plan.write_text(text, encoding="utf-8")
+        args = ["traveler", str(plan), "--out", str(out), *options]
+        returncode = main(args)
+        captured = capsys.readouterr()
+        return (
+            subprocess.CompletedProcess(args, returncode, captured.out, captured.err),
+            out,
+        )
+
+    return invoke
+
+
+@pytest.mark.parametrize("profile", ["pro", "hobby"])
+def test_builtin_profiles_enforce_turning_before_output(tmp_path, profile):
+    text = TURNING_PLAN + "max_deflection_mm = 1e-20\n"
+    result, out = run_cli(
+        tmp_path,
+        text,
+        "--profile",
+        profile,
+        "--disable-check",
+        "stock_fit",
+        "--disable-check",
+        "setup_diagrams",
+    )
+    assert result.returncode == 2
+    assert "turning_deflection" in result.stderr
+    assert "Body finish" in result.stderr
+    assert "--disable-check turning_deflection" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.parent.exists()
+
+
+@pytest.mark.parametrize("profile", ["pro", "hobby"])
+def test_repeatable_disable_check_includes_existing_checks_without_sheet_warnings(
+    tmp_path, profile, run_turning_cli
+):
+    # No CAD, diagrams or machine classification: every opt-out must take effect.
+    text = PLAN.replace('machine_kind = "other"\n', "")
+    result, out = run_turning_cli(
+        tmp_path,
+        text,
+        "--profile",
+        profile,
+        "--disable-check",
+        "stock_fit",
+        "--disable-check",
+        "setup_diagrams",
+        "--disable-check",
+        "turning_deflection",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    html = out.read_text(encoding="utf-8").lower()
+    for internal in ("turning_deflection", "disabled", "warning", "certificate"):
+        assert internal not in html
+
+
+def turning_profile(tmp_path):
+    directory = tmp_path / "profiles"
+    directory.mkdir()
+    config = directory / "limits.toml"
+    config.write_text("[limits]\nfinish_mm = 1e-20\n", encoding="utf-8")
+    profile = directory / "turning.toml"
+    profile.write_text(
+        'name = "Turning"\nfeatures = []\nenforce = ["turning_deflection"]\n'
+        'turning_config = "limits.toml"\n',
+        encoding="utf-8",
+    )
+    return profile, config
+
+
+def test_profile_relative_partial_turning_config_and_cli_override(
+    tmp_path, run_turning_cli
+):
+    profile, _ = turning_profile(tmp_path)
+    result, out = run_turning_cli(tmp_path, TURNING_PLAN, "--profile", str(profile))
+    assert result.returncode == 2
+    assert "turning_deflection" in result.stderr
+    assert not out.exists()
+    override = tmp_path / "override.toml"
+    override.write_text("[limits]\nfinish_mm = 0.005\n", encoding="utf-8")
+    result, out = run_turning_cli(
+        tmp_path,
+        TURNING_PLAN,
+        "--profile",
+        str(profile),
+        "--turning-config",
+        str(override),
+    )
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    assert "turning_deflection" not in html
+    assert "Body finish" not in html
+    assert "certificate" not in html.lower()
+
+
+@pytest.mark.parametrize(
+    "source_kind", ["profile_config", "cli_config", "default_config"]
+)
+@pytest.mark.parametrize("alias", ["direct", "hardlink"])
+def test_output_cannot_replace_active_turning_config(
+    tmp_path, source_kind, alias, monkeypatch, capsys
+):
+    from prechips.cli import main
+    from prechips.turning import DEFAULT_CONFIG
+
+    profile, config = turning_profile(tmp_path)
+    options = ["--profile", str(profile)]
+    source = config
+    if source_kind == "cli_config":
+        source = tmp_path / "override.toml"
+        source.write_text("[limits]\nfinish_mm = 0.005\n", encoding="utf-8")
+        options += ["--turning-config", str(source)]
+    elif source_kind == "default_config":
+        source = tmp_path / "default-turning.toml"
+        source.write_bytes(DEFAULT_CONFIG.read_bytes())
+        monkeypatch.setattr("prechips.cli.DEFAULT_CONFIG", source)
+        monkeypatch.setattr("prechips.turning.DEFAULT_CONFIG", source)
+    before = source.read_bytes()
+    output = source
+    if alias == "hardlink":
+        output = tmp_path / "alias.html"
+        output.hardlink_to(source)
+    plan = tmp_path / "plan.toml"
+    plan.write_text(TURNING_PLAN, encoding="utf-8")
+    assert main(["traveler", str(plan), "--out", str(output), *options]) == 2
+    assert "output must not overwrite" in capsys.readouterr().err
+    assert source.read_bytes() == before
+    assert output.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ('machine_kind = "lathe"', 'machine_kind = "mill"', "machine_kind"),
+        ('cut_kind = "longitudinal_turning"', 'cut_kind = "facing"', "cut_kind"),
+        ('phase = "finish"', 'phase = "polish"', "phase"),
+        ('kind = "chuck_only"', 'kind = "steady"', "kind"),
+    ],
+)
+def test_turning_schema_enums_apply_even_when_check_is_disabled(
+    tmp_path, old, new, message, run_turning_cli
+):
+    result, out = run_turning_cli(
+        tmp_path,
+        TURNING_PLAN.replace(old, new),
+        "--profile",
+        stock_free_profile(tmp_path),
+    )
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ('machine_kind = "lathe"\n', "", "machine_kind"),
+        ('cut_kind = "longitudinal_turning"\n', "", "cut_kind"),
+        ('turning_material = "steel_1018"\n', "", "turning_material"),
+        (
+            'turning_material = "steel_1018"',
+            'turning_material = "unlisted"',
+            "unlisted",
+        ),
+        (
+            'turning_support = { kind = "chuck_only", chuck_z_mm = 0.0 }\n',
+            "",
+            "turning_support",
+        ),
+        ("\n[[setups.operations.turning_cuts]]", "", "turning_cuts"),
+    ],
+)
+def test_missing_applicable_turning_data_fails_without_output(
+    tmp_path, old, new, message, run_turning_cli
+):
+    profile, config = turning_profile(tmp_path)
+    config.write_text("[limits]\nfinish_mm = 0.005\n", encoding="utf-8")
+    if message == "turning_cuts":
+        text = TURNING_PLAN.split(old)[0]
+    else:
+        text = TURNING_PLAN.replace(old, new)
+    result, out = run_turning_cli(tmp_path, text, "--profile", str(profile))
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.parent.exists()
+
+
+def test_turning_failure_preserves_previous_output(tmp_path, run_turning_cli):
+    profile, _ = turning_profile(tmp_path)
+    out = tmp_path / "out" / "traveler.html"
+    out.parent.mkdir()
+    out.write_bytes(b"Previous traveler")
+    result, out = run_turning_cli(tmp_path, TURNING_PLAN, "--profile", str(profile))
+    assert result.returncode == 2
+    assert "turning_deflection" in result.stderr
+    assert out.read_bytes() == b"Previous traveler"
+
+
+@pytest.mark.parametrize("profile", ["pro", "hobby"])
+def test_default_turning_pass_is_silent_on_sheet(tmp_path, profile, run_turning_cli):
+    result, out = run_turning_cli(
+        tmp_path,
+        TURNING_PLAN,
+        "--profile",
+        profile,
+        "--disable-check",
+        "stock_fit",
+        "--disable-check",
+        "setup_diagrams",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    html = out.read_text(encoding="utf-8")
+    assert "turning_deflection" not in html
+    assert "Body finish" not in html
+    assert "certificate" not in html.lower()
+
+
+def test_native_numeric_binding_preserves_out_of_range_feed_precision(
+    tmp_path, run_turning_cli
+):
+    from prechips.traveler import load_plan
+
+    profile, config = turning_profile(tmp_path)
+    config.write_text("[limits]\nfinish_mm = 0.005\n", encoding="utf-8")
+    # A default text binding rounds this to the valid 0.0254 mm/rev endpoint.
+    # Analysis must retain the actual below-table number and refuse it.
+    feed = 0.025399999999999997
+    text = TURNING_PLAN.replace(
+        "[[tools]]", f"[parameters]\ncut_feed = {feed!r}\n\n[[tools]]", 1
+    ).replace("feed_mm_rev = 0.05", 'feed_mm_rev = "{{process.cut_feed}}"')
+    result, out = run_turning_cli(tmp_path, text, "--profile", str(profile))
+    assert result.returncode == 2
+    assert "outside configured feed-factor table" in result.stderr
+    assert "no extrapolation" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not out.exists()
+    loaded = load_plan(tmp_path / "plan.toml")
+    cut = loaded.data["setups"][0]["operations"][0]["turning_cuts"][0]
+    assert cut["feed_mm_rev"] == feed
+
+
+@pytest.mark.parametrize("machine_kind", ["lathe", "other"])
+def test_explicitly_out_of_scope_operations_need_no_turning_inputs(
+    tmp_path, machine_kind, run_turning_cli
+):
+    profile, _ = turning_profile(tmp_path)
+    text = PLAN.replace('machine_kind = "other"', f'machine_kind = "{machine_kind}"')
+    if machine_kind == "lathe":
+        text = text.replace(
+            'tool = "internal-mill-id"',
+            'cut_kind = "other"\ntool = "internal-mill-id"',
+        )
+    result, out = run_turning_cli(tmp_path, text, "--profile", str(profile))
+    assert result.returncode == 0, result.stderr
+    assert "turning_deflection" not in out.read_text(encoding="utf-8")
