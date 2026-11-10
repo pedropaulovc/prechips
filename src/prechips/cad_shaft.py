@@ -249,6 +249,11 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     rest_low, rest_high = rest_centre - rest_half_jaw, rest_centre + rest_half_jaw
     if rest_low < 0 or rest_high >= values["plain_end_z"]:
         raise CadError("process.follow_rest: jaw band must lie before the plain end")
+    # Longest body the fit-scribe can keep: its dome base must stay the waste
+    # margin short of the follower pad band, so the apex can reach this Z.
+    values["body_kept_end_z"] = (
+        rest_low - process("follow_rest_waste_margin_mm") + domes[1][0]
+    )
     values["rest_scribe_min"] = (
         values["plain_end_z"]
         - rest_low

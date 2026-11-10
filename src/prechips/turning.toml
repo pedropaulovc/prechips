@@ -4,14 +4,17 @@
 # Override any leaf in a custom TOML; new materials require both numeric fields.
 
 [limits]
-# Authored screening criteria, NOT handbook tolerances or actual diameter errors.
+# Authored screening criteria on RADIAL bending at the tool, NOT handbook
+# tolerances. Diameter error left behind is about twice the radial value.
 rough_mm = 0.10
-# User-selected finish total-transverse-bending limit.
+# User-selected finish radial-bending limit (about 0.010 mm on diameter).
 finish_mm = 0.005
 
 [force]
 # AUTHORED assumption Fr/Ft, not a universal handbook force-component ratio.
-# Compare hypot(Ft, Fr) with the limits; do not call this actual diameter error.
+# Radial force = Ft * radial_ratio is what bends the work toward/away from the
+# tool; Ft itself only moves the work along the cutting direction (reported,
+# not compared). Small DOC on a nose radius pushes Fr toward Ft, hence 1.0.
 radial_ratio = 1.0
 # Table 5, PDF 1408 / printed 1087: normal rough and light finish wear factors.
 rough_wear = 1.30

@@ -1,9 +1,11 @@
 """Static workpiece bending screen for explicitly declared longitudinal cuts.
 
-This is total transverse displacement at the moving tool, not actual diameter
-error. All empirical coefficients and authored numerical assumptions live in
-turning.toml. Ideal supports and a solid uniform minimum section omit machine
-compliance, dynamics, heat and axial-force effects; this is not certification.
+The compared quantity is radial displacement at the moving tool; the diameter
+error it leaves is about twice that. The tangential component is reported but
+moves the work along the cutting direction, a second-order diameter effect. All
+empirical coefficients and authored numerical assumptions live in turning.toml.
+Ideal supports and a solid uniform minimum section omit machine compliance,
+dynamics, heat and axial-force effects; this is not certification.
 """
 
 from __future__ import annotations
@@ -87,12 +89,9 @@ def _load_config(path: Path | None) -> dict:
     ):
         table = _table(config.get(section), section)
         _keys(table, keys, section)
-        for key in keys - {"feed_factors", "radial_ratio"}:
+        for key in keys - {"feed_factors"}:
             table[key] = _positive(table.get(key), f"{section}.{key}")
     force = config["force"]
-    force["radial_ratio"] = _number(
-        force.get("radial_ratio"), "force.radial_ratio", minimum=0
-    )
     pairs = force.get("feed_factors")
     if not isinstance(pairs, list) or len(pairs) < 2:
         raise TurningError(
@@ -148,9 +147,16 @@ def _follower_factor(x: float, offset: float) -> float:
 
 
 def _bending_factor(
-    support: dict, start: float, end: float
+    support: dict,
+    start: float,
+    end: float,
+    checked: tuple[float, float] | None = None,
 ) -> tuple[float, float, str]:
-    """Return maximum delta*EI/F, authored Z and support state at that tool Z."""
+    """Return maximum delta*EI/F, authored Z and support state at that tool Z.
+
+    The whole traverse is validated against the supports; the maximum is taken
+    over ``checked`` (authored Z pair inside the traverse) when given.
+    """
     kind = support.get("kind")
     keys = {"kind", "chuck_z_mm"}
     if kind in {"tailstock", "follower"}:
@@ -165,13 +171,21 @@ def _bending_factor(
     chuck = _number(support.get("chuck_z_mm"), "turning_support.chuck_z_mm")
     if start == end:
         raise TurningError("start_z_mm and end_z_mm must describe a nonzero traverse")
+    c_start, c_end = checked or (start, end)
+    if (
+        not min(start, end)
+        <= min(c_start, c_end)
+        <= max(c_start, c_end)
+        <= max(start, end)
+    ):
+        raise TurningError("checked range must lie within the declared traverse")
     if kind == "chuck_only":
         a, b = start - chuck, end - chuck
         if min(a, b) < 0 < max(a, b):
             raise TurningError(
                 "cut crosses chuck support; declare only exposed cut stock"
             )
-        z = max((start, end), key=lambda value: abs(value - chuck))
+        z = max((c_start, c_end), key=lambda value: abs(value - chuck))
         return abs(z - chuck) ** 3 / 3, z, "chuck only"
     centre = _number(support.get("centre_z_mm"), "turning_support.centre_z_mm")
     span = abs(centre - chuck)
@@ -181,8 +195,9 @@ def _bending_factor(
     a, b = (start - chuck) * direction, (end - chuck) * direction
     if not 0 <= min(a, b) <= max(a, b) <= span:
         raise TurningError("cut must lie within the chuck-to-centre span")
+    c_low, c_high = sorted(((c_start - chuck) * direction, (c_end - chuck) * direction))
     if kind == "tailstock":
-        factor, x = _pinned_factor(a, b, span)
+        factor, x = _pinned_factor(c_low, c_high, span)
         return factor, chuck + direction * x, "chuck and tailstock"
     engage = _number(support.get("engage_z_mm"), "turning_support.engage_z_mm")
     e = (engage - chuck) * direction
@@ -199,13 +214,22 @@ def _bending_factor(
         )
     # The pad band stays between cut end and cut start throughout the remaining
     # toward-chuck traverse. Credit no support on a merely asserted contact flag.
-    before, before_x = _pinned_factor(a, e, span)
-    # After engagement, chuck and follower are pinned supports with span x+s.
-    # x^2*s^2/(3*(x+s)) increases with x >= 0: maximum at engagement.
-    after = _follower_factor(e, offset)
-    if before >= after:
-        return before, chuck + direction * before_x, "before follower engagement"
-    return after, engage, "follower engaged"
+    # Before engagement the tool is at x >= e on chuck/centre supports; after it,
+    # chuck and follower are pinned supports with span x+s, and
+    # x^2*s^2/(3*(x+s)) increases with x >= 0, so that maximum is at the
+    # engagement end of the checked range.
+    candidates = []
+    if c_high >= e:
+        before, before_x = _pinned_factor(max(c_low, e), c_high, span)
+        candidates.append(
+            (before, chuck + direction * before_x, "before follower engagement")
+        )
+    if c_low <= e:
+        x = min(c_high, e)
+        candidates.append(
+            (_follower_factor(x, offset), chuck + direction * x, "follower engaged")
+        )
+    return max(candidates, key=lambda candidate: candidate[0])
 
 
 def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
@@ -222,6 +246,8 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
             "feed_mm_rev",
             "minimum_diameter_mm",
             "max_deflection_mm",
+            "checked_start_z_mm",
+            "checked_end_z_mm",
         },
         "turning cut",
     )
@@ -245,11 +271,23 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
         phase_limit,
         _positive(cut.get("max_deflection_mm", phase_limit), "max_deflection_mm"),
     )
-    factor, worst_z, support_state = _bending_factor(support, start_z, end_z)
+    checked = None
+    if "checked_start_z_mm" in cut or "checked_end_z_mm" in cut:
+        checked = (
+            _number(cut.get("checked_start_z_mm", start_z), "checked_start_z_mm"),
+            _number(cut.get("checked_end_z_mm", end_z), "checked_end_z_mm"),
+        )
+    traverse = _bending_factor(support, start_z, end_z)
+    factor, worst_z, support_state = (
+        traverse
+        if checked is None
+        else _bending_factor(support, start_z, end_z, checked)
+    )
     feed = numbers["feed_mm_rev"] / 25.4
     force_config = config["force"]
     feed_factor = _feed_factor(feed, force_config["feed_factors"])
-    force_per_doc = (
+    # Handbook cutting (tangential) force per mm of radial DOC, in newtons.
+    tangential_per_doc = (
         396000
         * material["unit_power_hp_min_per_in3"]
         * feed_factor
@@ -257,7 +295,6 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
         * feed
         / 25.4
         * 4.4482216152605
-        * math.hypot(1, force_config["radial_ratio"])
     )
     modulus = material["elastic_modulus_gpa"] * 1000
     total_removal = (numbers["start_diameter_mm"] - numbers["end_diameter_mm"]) / 2
@@ -271,20 +308,33 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     doc = min(numbers["max_radial_doc_mm"], total_removal)
     diameter = min(numbers["end_diameter_mm"], numbers["minimum_diameter_mm"])
     inertia = math.pi * diameter**4 / 64
-    force = force_per_doc * doc
+    tangential = tangential_per_doc * doc
+    force = tangential * force_config["radial_ratio"]
     rigidity = modulus * inertia
     if not math.isfinite(rigidity) or rigidity <= 0:
         raise TurningError("numerical range exceeded in bending stiffness")
     deflection = force * factor / rigidity
-    if not all(math.isfinite(value) for value in (force, factor, deflection)):
+    traverse_deflection = force * traverse[0] / rigidity
+    if not all(
+        math.isfinite(value)
+        for value in (force, factor, deflection, traverse_deflection)
+    ):
         raise TurningError("numerical range exceeded in bending estimate")
-    if deflection > limit:
-        raise TurningError(
-            f"estimated total transverse bending {deflection:.6g} mm exceeds "
-            f"limit {limit:.6g} mm; transverse force {force:.6g} N, "
-            f"worst Z {worst_z:.6g} mm ({support_state}), radial DOC {doc:.6g} mm, "
-            f"model diameter {diameter:.6g} mm; not actual diameter error"
+    if deflection <= limit:
+        return
+    extent = ""
+    if checked is not None:
+        extent = (
+            f" over checked Z {checked[0]:.6g}..{checked[1]:.6g} mm; whole traverse "
+            f"{traverse_deflection:.6g} mm at Z {traverse[1]:.6g} mm ({traverse[2]})"
         )
+    raise TurningError(
+        f"estimated radial bending {deflection:.6g} mm (about {2 * deflection:.6g} mm "
+        f"on diameter) exceeds limit {limit:.6g} mm at Z {worst_z:.6g} mm "
+        f"({support_state}){extent}; radial force {force:.6g} N, tangential "
+        f"{tangential:.6g} N, radial DOC {doc:.6g} mm, model diameter "
+        f"{diameter:.6g} mm; static estimate, not measured diameter error"
+    )
 
 
 def check_turning_deflection(plan: LoadedPlan, config_path: Path | None = None) -> None:

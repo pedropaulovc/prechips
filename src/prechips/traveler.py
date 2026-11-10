@@ -103,6 +103,8 @@ def _turning_cuts(operation: dict, where: str) -> None:
         "feed_mm_rev",
         "minimum_diameter_mm",
         "max_deflection_mm",
+        "checked_start_z_mm",
+        "checked_end_z_mm",
     }
     for index, cut in enumerate(_tables(operation, "turning_cuts", where), 1):
         cut_where = f"{where}.turning_cuts[{index}]"

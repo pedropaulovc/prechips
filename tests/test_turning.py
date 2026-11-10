@@ -62,7 +62,7 @@ def _oracle_config(tmp_path):
     path = tmp_path / "force.toml"
     path.write_text(
         "[limits]\nfinish_mm=1.0\n"
-        "[force]\nradial_ratio=0.0\nfinish_wear=1.0\nrough_wear=1.0\n"
+        "[force]\nradial_ratio=1.0\nfinish_wear=1.0\nrough_wear=1.0\n"
         "feed_factors=[[0.001,1.0],[0.060,1.0]]\n"
         "[materials.steel_1018]\nunit_power_hp_min_per_in3=1.0\n"
         "elastic_modulus_gpa=200.0\n",
@@ -164,24 +164,24 @@ def test_uneven_pass_order_cannot_escape_final_diameter_bound(tmp_path):
     cut["max_deflection_mm"] = expected * 1.000001
     check_turning_deflection(_plan(cut), config)
     cut["max_deflection_mm"] = expected * 0.999999
-    with pytest.raises(TurningError, match="estimated total transverse bending"):
+    with pytest.raises(TurningError, match="estimated radial bending"):
         check_turning_deflection(_plan(cut), config)
 
 
-def test_force_units_radial_resultant_and_existing_minimum_section(tmp_path):
+def test_force_units_radial_ratio_and_existing_minimum_section(tmp_path):
     config = _oracle_config(tmp_path)
-    # 0.01in radial DOC and feed: Fc=39.6lbf=176.149575964N.
+    # 0.01in radial DOC and feed: Ft=39.6lbf=176.149575964N; Fr=Ft at ratio 1.
     # Existing D5 relief, not new D10 cut, controls uniform minimum-section I.
     force = 39.6 * 4.4482216152605
     expected = force * 10**3 / (3 * 200000 * math.pi * 5**4 / 64)
     cut = _cut(minimum_diameter_mm=5, max_deflection_mm=expected * 1.000001)
     check_turning_deflection(_plan(cut), config)
-    # Doubling E alone halves bending: partial overrides retain all other leaves.
+    # Only the radial component bends toward the tool: doubling the ratio fails.
     text = config.read_text(encoding="utf-8")
     config.write_text(
-        text.replace("radial_ratio=0.0", "radial_ratio=1.0"), encoding="utf-8"
+        text.replace("radial_ratio=1.0", "radial_ratio=2.0"), encoding="utf-8"
     )
-    with pytest.raises(TurningError, match="transverse force"):
+    with pytest.raises(TurningError, match="radial force"):
         check_turning_deflection(_plan(cut), config)
     config.write_text(
         text.replace("elastic_modulus_gpa=200.0", "elastic_modulus_gpa=400.0"),
@@ -228,6 +228,7 @@ def test_partial_config_and_new_material(tmp_path):
         "[limits]\nfinish_mm=nan",
         "[force]\nrough_wear=true",
         "[force]\nradial_ratio=-1",
+        "[force]\nradial_ratio=0",
         "[limits]\nfinish_mmm=0.1",
         "[materials.custom]\nelastic_modulus_gpa=200",
         "[force]\nfeed_factors=[[0.01,1],[0.01,2]]",
@@ -283,10 +284,10 @@ def test_failure_names_cut_and_pre_engagement_state():
         "Op 10",
         "body finish",
         "before follower engagement",
-        "worst Z 50",
-        "transverse force",
+        "at Z 50",
+        "radial force",
         "limit",
-        "not actual diameter error",
+        "not measured diameter error",
         "--disable-check turning_deflection",
     ):
         assert fragment in message
@@ -308,11 +309,14 @@ def test_numbering_counts_other_setups_and_other_operations():
 
 
 def test_current_shaft_finish_independent_hand_oracle():
-    # Parent's independent handbook calculation: Ft/resultant=23.295079 N,
-    # D6.35, chuck Z=-1.5, centre166, at Z152 BEFORE follower engagement.
+    # Parent's independent handbook calculation: Ft=Fr=16.4721 N, D6.35,
+    # chuck Z=-1.5, centre166, kept body to Z156.25, at Z152 BEFORE follower
+    # engagement. The checked range still reaches past engagement, so the
+    # refusal stands with identical checked and whole-traverse maxima.
     cut = _cut(
         start_z_mm=166,
         end_z_mm=0,
+        checked_start_z_mm=156.25,
         start_diameter_mm=6.55,
         end_diameter_mm=6.35,
         max_radial_doc_mm=0.1,
@@ -329,12 +333,68 @@ def test_current_shaft_finish_independent_hand_oracle():
     with pytest.raises(TurningError) as caught:
         check_turning_deflection(_plan(cut, support))
     for fragment in (
-        "0.0129588 mm",
-        "limit 0.005 mm",
-        "23.2951 N",
-        "worst Z 152 mm (before follower engagement)",
+        "0.00916328 mm (about 0.0183266 mm on diameter)",
+        "limit 0.005 mm at Z 152 mm (before follower engagement)",
+        "over checked Z 156.25..0 mm; whole traverse 0.00916328 mm at Z 152 mm",
+        "radial force 16.4721 N, tangential 16.4721 N",
     ):
         assert fragment in str(caught.value)
+
+
+def test_checked_range_bounds_the_maximum_not_the_support_checks():
+    chuck = {"kind": "chuck_only", "chuck_z_mm": 0}
+    # Sacrificial stub beyond Z5 is traversed but not held to the limit.
+    factor, z, _ = _bending_factor(chuck, 10, 1, (5, 1))
+    assert (factor, z) == (5**3 / 3, 5)
+    assert _bending_factor(chuck, 10, 1, (5, 1)) == _bending_factor(
+        chuck, 10, 1, (1, 5)
+    )
+    with pytest.raises(TurningError, match="checked range must lie within"):
+        _bending_factor(chuck, 10, 1, (11, 1))
+    # A narrowed range never relaxes traverse validity: the cut still crosses.
+    with pytest.raises(TurningError, match="crosses chuck"):
+        _bending_factor(chuck, 10, -1, (5, 1))
+    # Tailstock: the maximum moves to the checked end nearest midspan.
+    support = {"kind": "tailstock", "chuck_z_mm": 0, "centre_z_mm": 100}
+    factor, z, _ = _bending_factor(support, 90, 10, (90, 70))
+    assert z == 70
+    assert factor == pytest.approx(70**2 * 30**2 / 300)
+
+
+def test_checked_range_entirely_after_follower_engagement_uses_pad_support():
+    support = _follower()
+    factor, z, state = _bending_factor(support, 90, 10, (30, 10))
+    assert (z, state) == (30, "follower engaged")
+    assert factor == pytest.approx(30**2 * 8**2 / (3 * 38))
+    # Straddling engagement keeps the pre-engagement interior maximum.
+    factor, z, state = _bending_factor(support, 90, 10, (60, 10))
+    assert (z, state) == (50, "before follower engagement")
+    assert factor == pytest.approx(100**3 / 48)
+
+
+def test_refusal_reports_checked_and_whole_traverse_maxima(tmp_path):
+    config = _oracle_config(tmp_path)
+    cut = _cut(start_z_mm=10, end_z_mm=1, checked_start_z_mm=5, max_deflection_mm=1e-9)
+    with pytest.raises(TurningError) as caught:
+        check_turning_deflection(_plan(cut), config)
+    message = str(caught.value)
+    assert "at Z 5 mm (chuck only) over checked Z 5..1 mm; whole traverse" in message
+    assert "at Z 10 mm (chuck only)" in message
+    # Narrowing to the kept stub-free region passes under the same limit that
+    # the whole traverse exceeds; one omitted bound defaults to the traverse end.
+    limit = 176.149575964 * 5**3 / (3 * 200000 * math.pi * 10**4 / 64) * 1.000001
+    check_turning_deflection(
+        _plan(
+            _cut(
+                start_z_mm=10, end_z_mm=1, checked_start_z_mm=5, max_deflection_mm=limit
+            )
+        ),
+        config,
+    )
+    with pytest.raises(TurningError, match="at Z 10 mm"):
+        check_turning_deflection(
+            _plan(_cut(start_z_mm=10, end_z_mm=1, max_deflection_mm=limit)), config
+        )
 
 
 def test_pad_band_can_exactly_fit_and_axis_can_be_reversed():
