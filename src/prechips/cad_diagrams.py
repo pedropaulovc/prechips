@@ -1,7 +1,8 @@
 """Bind released-CAD geometry into the setup-diagram SVG templates.
 
 An SVG opts in with a root ``data-cad-template`` naming one of the layouts
-below or a ``shaft-*`` layout from :mod:`prechips.shaft_diagrams`. A layout
+below, a ``shaft-*`` layout from :mod:`prechips.shaft_diagrams` or a ``jig-*``
+layout from :mod:`prechips.jig_diagrams`. A layout
 turns finished CAD geometry and authored blank parameters into
 ``view`` scalars for ``{{view.KEY}}`` tokens and fills elements marked
 ``data-cad-group`` with repeated features (blanks, holes, slots, sections).
@@ -526,7 +527,6 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _cad(values, "thickness_in")
-    rail_length = _root_mm(root, "data-rail-length-mm") / MM_PER_IN
     rail_width = _root_mm(root, "data-rail-width-mm") / MM_PER_IN
     rail_height = _root_mm(root, "data-rail-height-mm") / MM_PER_IN
     head_dia = _root_mm(root, "data-screw-head-dia-mm") / MM_PER_IN
@@ -535,22 +535,15 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     shank_length = _root_mm(root, "data-screw-length-mm") / MM_PER_IN
     rail_rise = -_number(values, "rail_y_in", "cad")
 
-    # Plan view, ZERO END left / ZERO EDGE top, rail flush at ZERO END.
-    scale = min(22.0, 390 / max(length, rail_length), 121 / width)
+    # Plan view, ZERO END left / ZERO EDGE top; the rail is trimmed flush with
+    # both ends of the bar.
+    scale = min(22.0, 390 / length, 121 / width)
     x0, top = 30.0, 60.0
     x1, bottom = x0 + length * scale, top + width * scale
     groups = _top_view_features(values, x0, top, scale)
     rail_y = top + rail_rise * scale
     rail_px = rail_width * scale
-    rail_end = x0 + rail_length * scale
-    groups["rail-hidden"] = [
-        _rect(x0, rail_y - rail_px / 2, min(x1, rail_end) - x0, rail_px)
-    ]
-    groups["rail-overhang"] = (
-        [_rect(x1, rail_y - rail_px / 2, rail_end - x1, rail_px)]
-        if rail_end > x1
-        else []
-    )
+    groups["rail-hidden"] = [_rect(x0, rail_y - rail_px / 2, x1 - x0, rail_px)]
     first, column = _columns(_points(values, "bracket_points_in"))[-1]
     section_x = x0 + column[0][0] * scale
     slot = _slots(values)[-1]
@@ -622,7 +615,7 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         rail_note_y=bottom + 33,
         rail_leader_x1=394.0,
         rail_leader_y1=bottom + 27,
-        rail_leader_x2=rail_end - 4,
+        rail_leader_x2=x1 - 4,
         rail_leader_y2=rail_y + 8,
         section_x=section_x,
         section_top=top - 10,
@@ -682,10 +675,12 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         return bind_text(content.decode("utf-8"), cad, parameters, xml=True).encode(
             "utf-8"
         )
-    # The shaft layouts build on this module's primitives, so import them here.
+    # The shaft and jig layouts build on this module's primitives, so import
+    # them here.
+    from prechips.jig_diagrams import JIG_LAYOUTS
     from prechips.shaft_diagrams import SHAFT_LAYOUTS
 
-    layout = (LAYOUTS | SHAFT_LAYOUTS).get(name)
+    layout = (LAYOUTS | SHAFT_LAYOUTS | JIG_LAYOUTS).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
     view, groups = layout(cad.values, parameters, root)

@@ -3,6 +3,7 @@
 import math
 import re
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
 from html import escape
@@ -74,6 +75,75 @@ def _mid(band: tuple[float, float]) -> float:
     return band[0] / 2 + band[1] / 2
 
 
+def _inch_limits(values: dict, key: str, band: tuple[float, float]) -> None:
+    """Bind one positive drawing band as `<key>_in`/`_min_in`/`_max_in`/`_band_mm`."""
+    low, high = band
+    if low <= 0:
+        raise CadError(f"cad.{key}: expected positive drawing limits")
+    values[f"{key}_in"] = _mid(band) / 25.4
+    values[f"{key}_min_in"] = low / 25.4
+    values[f"{key}_max_in"] = high / 25.4
+    values[f"{key}_band_mm"] = [low, high]
+
+
+def _model_frame(raw: dict) -> None:
+    """Require the identity model frame the harmonic jig adapters read."""
+    frames = raw.get("frames")
+    model = frames.get("model") if isinstance(frames, dict) else None
+    if not isinstance(model, dict) or any(
+        model.get(key) != expected
+        for key, expected in (
+            ("origin", [0, 0, 0]),
+            ("x", [1, 0, 0]),
+            ("y", [0, 1, 0]),
+            ("z", [0, 0, 1]),
+        )
+    ):
+        raise CadError("cad.frames.model: expected the identity model frame")
+
+
+def _harmonic_manifest(path: Path, part: str, adapter: str) -> tuple[dict, dict, dict]:
+    """Read one mm manifest for `part`: raw table, drawing identity and features."""
+    with path.open("rb") as source:
+        raw = tomllib.load(source)
+    if raw.get("units") != "mm" or raw.get("part") != part:
+        raise CadError(f"cad: {adapter} requires {part} in mm")
+    drawing = raw.get("drawing", {})
+    if not isinstance(drawing, dict):
+        raise CadError("cad.drawing: expected a table")
+    values = {
+        "part": part,
+        "drawing_number": _string(drawing.get("number"), "cad.drawing.number"),
+        "revision": _string(drawing.get("revision"), "cad.drawing.revision"),
+    }
+    features = raw.get("features")
+    if not isinstance(features, dict):
+        raise CadError("cad.features: expected a table")
+    return raw, values, features
+
+
+def _edge_breaks(raw: dict, values: dict) -> dict:
+    """Bind the title-block edge break in inches; return the tolerance table."""
+    general = raw.get("general_tolerances", {})
+    if not isinstance(general, dict):
+        raise CadError("cad.general_tolerances: expected a table")
+    for key, field in (
+        ("edge_break_in", "edge_break_r"),
+        ("chamfer_max_in", "chamfer_max"),
+    ):
+        values[key] = (
+            _positive(general.get(field), f"general_tolerances.{field}") / 25.4
+        )
+    return general
+
+
+def _blank_mm(values: dict, parameters: dict) -> None:
+    """Analysis fields are millimetres; plans declare their blanks in inches."""
+    for key in ("length", "width", "thickness"):
+        if f"blank_{key}_in" in parameters:
+            values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
+
+
 def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
     """Dispatch a required, explicit part adapter without guessing from the source."""
     if adapter == "harmonic_base_bar":
@@ -90,26 +160,22 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
         from prechips.cad_rocker import load_rocker
 
         return load_rocker(path, parameters)
+    if adapter == "harmonic_end_bracket":
+        from prechips.cad_end_bracket import load_end_bracket
+
+        return load_end_bracket(path, parameters)
+    if adapter == "harmonic_feed_lever":
+        from prechips.cad_feed_lever import load_feed_lever
+
+        return load_feed_lever(path, parameters)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
 def _load_base_bar(path: Path, parameters: dict) -> CadData:
     """Normalize only the supported harmonic base-bar manifest, in physical mm."""
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if raw.get("units") != "mm":
-        raise CadError("cad.units: harmonic_base_bar requires mm")
-    if raw.get("part") != "ch-rocker-arm-tl-oblique-base-bar":
-        raise CadError("cad.part: unsupported harmonic_base_bar part")
-    features = raw.get("features")
-    if not isinstance(features, dict):
-        raise CadError("cad.features: expected a table")
-    values = {"part": raw["part"]}
-    drawing = raw.get("drawing", {})
-    if not isinstance(drawing, dict):
-        raise CadError("cad.drawing: expected a table")
-    for key, source_key in (("drawing_number", "number"), ("revision", "revision")):
-        values[key] = _string(drawing.get(source_key), f"cad.drawing.{source_key}")
+    raw, values, features = _harmonic_manifest(
+        path, "ch-rocker-arm-tl-oblique-base-bar", "harmonic_base_bar"
+    )
 
     def feature(name: str) -> dict:
         result = features.get(name)
@@ -120,13 +186,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     def limits(key: str, bands: list[tuple[float, float]]) -> None:
         if not bands or any(band != bands[0] for band in bands):
             raise CadError(f"cad.{key}: missing or inconsistent drawing limits")
-        low, high = bands[0]
-        if low <= 0:
-            raise CadError(f"cad.{key}: expected positive drawing limits")
-        values[f"{key}_in"] = _mid(bands[0]) / 25.4
-        values[f"{key}_min_in"] = low / 25.4
-        values[f"{key}_max_in"] = high / 25.4
-        values[f"{key}_band_mm"] = [low, high]
+        _inch_limits(values, key, bands[0])
 
     envelope = []
     for key, name, field in (
@@ -150,17 +210,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             f"{values[f'{key}_in']:.2f} (±{band:.2f})"
             for key, band in zip(dimensions, halfbands)
         )
-    general = raw.get("general_tolerances", {})
-    if not isinstance(general, dict):
-        raise CadError("cad.general_tolerances: expected a table")
-    for key, source_key in (
-        ("edge_break_in", "edge_break_r"),
-        ("chamfer_max_in", "chamfer_max"),
-    ):
-        values[key] = (
-            _positive(general.get(source_key), f"general_tolerances.{source_key}")
-            / 25.4
-        )
+    _edge_breaks(raw, values)
     finishes = []
     for name in ("top_seat", "underside_seat"):
         item = feature(name)
@@ -193,7 +243,9 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if not slots:
         raise CadError("cad.features: missing slots")
 
-    def points(items: list[tuple[str, dict]]) -> list[list[float]]:
+    def points(
+        items: list[tuple[str, dict]], station: Callable[[str, dict], float]
+    ) -> list[list[float]]:
         result = []
         for name, item in items:
             if (
@@ -204,27 +256,36 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                     f"{name}: requires through geometry measured from bar_low_side"
                 )
             result.append(
-                [
-                    _mid(_band(item, "station", name)) / 25.4,
-                    -_mid(_band(item, "height", name)) / 25.4,
-                ]
+                [station(name, item) / 25.4, -_mid(_band(item, "height", name)) / 25.4]
             )
         return sorted(result, key=lambda point: (point[0], -point[1]))
 
-    rail_points = points(rails)
-    bracket_points = points(brackets)
+    def reference_station(name: str, item: dict) -> float:
+        # Rail stations print REF; the actual trimmed rail transfers them.
+        return _positive(item.get("station_nominal"), f"{name}.station_nominal")
+
+    def toleranced_station(name: str, item: dict) -> float:
+        return _mid(_band(item, "station", name))
+
+    for name, item in rails:
+        if "station" in item.get("requirements", []):
+            raise CadError(f"{name}.station: expected a REF rail station")
+    rail_points = points(rails, reference_station)
+    bracket_points = points(brackets, toleranced_station)
     values["rail_points_in"] = rail_points
     values["bracket_points_in"] = bracket_points
     values["rail_x_in"] = [point[0] for point in rail_points]
     values["rail_x_mm"] = [point[0] * 25.4 for point in rail_points]
-    values["rail_stations_mm"] = ", ".join(
-        f"{station:.2f}".rstrip("0").rstrip(".") for station in values["rail_x_mm"]
-    )
+    # The drawing prints hole 1's REF station and one REF pitch for the pattern.
+    pitches = [b - a for a, b in zip(values["rail_x_mm"], values["rail_x_mm"][1:])]
+    if not pitches or any(not math.isclose(p, pitches[0]) for p in pitches):
+        raise CadError("cad.rail_pitch_mm: rail holes are not one regular pattern")
+    values["rail_first_mm"] = values["rail_x_mm"][0]
+    values["rail_pitch_mm"] = pitches[0]
     if len({point[1] for point in rail_points}) != 1:
         raise CadError("cad.rail_y_in: rail holes must share a drawing row")
     values["rail_y_in"] = rail_points[0][1]
     for key, items, field in (
-        ("rail_position_tol", rails, "station"),
         ("rail_row_tol", rails, "height"),
         ("bracket_position_tol", brackets, "station"),
         ("slot_position_tol", slots, "station"),
@@ -238,8 +299,6 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                 for low, high in [_band(item, "height", name)]
             )
         values[f"{key}_in"] = min(tolerances) / 25.4
-        if key == "rail_position_tol":
-            values["rail_position_tol_mm"] = min(tolerances)
     limits("bracket_dia", [_band(item, "dia", name) for name, item in brackets])
     bracket_diameters = [
         _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -297,7 +356,6 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values[f"{key}_range"] = (
             f"{prefix}1–{prefix}{count}" if count > 1 else f"{prefix}1"
         )
-    values["spot_count"] = len(rails) + len(brackets) + len(slots)
     bracket_x = sorted({point[0] for point in bracket_points})
     bracket_y = sorted({point[1] for point in bracket_points}, reverse=True)
     if len(bracket_points) == len(bracket_x) * len(bracket_y):
@@ -317,7 +375,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         [
             [
                 f"Rail {values['rail_range']}",
-                ", ".join(f"{point[0]:.4f}" for point in rail_points),
+                ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
                 f"{values['rail_y_in']:.4f}",
             ]
         ]
@@ -357,8 +415,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values["slot_finish_diameter_mm"] = parameters["slot_finish_diameter_in"] * 25.4
     for key in ("length", "width", "thickness"):
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
-        if f"blank_{key}_in" in parameters:
-            values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
+    _blank_mm(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 
@@ -366,6 +423,8 @@ _TOKEN = re.compile(
     r"\{\{(cad|process|view)\.([A-Za-z_][A-Za-z_0-9]*)(?::([^{}]+))?\}\}"
 )
 _FORMAT = re.compile(r"(?:[+ -])?(?:[1-9][0-9]?)?(?:\.[0-9])?[fge%]|d")
+# Shop shorthand: fixed places without the leading zero, as in ".4" or ".04".
+_DOT = re.compile(r"\.([0-9])dot")
 
 
 def _lookup(
@@ -416,6 +475,12 @@ def bind_text(
                         )
                         + (f"{numerator}/{fraction.denominator}" if numerator else "")
                     )
+            elif spec and (dot := _DOT.fullmatch(spec)):
+                result = format(value, f".{dot[1]}f")
+                if float(result) == 0:
+                    result = result.lstrip("-")
+                if result.lstrip("-").startswith("0."):
+                    result = result.replace("0.", ".", 1)
             elif spec:
                 if not _FORMAT.fullmatch(spec) or (spec == "d" and value != int(value)):
                     raise CadError(f"{match[0]}: unsupported numeric format")

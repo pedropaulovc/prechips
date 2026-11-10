@@ -235,15 +235,23 @@ def _dimension(
     y: float,
     edge: float,
     text: str,
+    *,
+    beside: bool = False,
 ) -> None:
-    """Dimension at ``y`` with extension lines from ``edge``; text above it."""
+    """Dimension at ``y`` with extension lines from ``edge``.
+
+    The text sits above the line, or past its ``x1`` end when ``beside``.
+    """
     beyond = y + 4 if y > edge else y - 4
     groups["dims"] += [
         _line(x0, edge, x0, beyond),
         _line(x1, edge, x1, beyond),
         _line(x0, y, x1, y, marker_start="url(#arr)", marker_end="url(#arr)"),
     ]
-    groups["labels"].append(_text((x0 + x1) / 2, y - 5, text, text_anchor="middle"))
+    if beside:
+        groups["labels"].append(_text(x1 + 6, y + 5, text))
+    else:
+        groups["labels"].append(_text((x0 + x1) / 2, y - 5, text, text_anchor="middle"))
 
 
 def _chuck(

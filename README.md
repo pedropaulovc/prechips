@@ -1,4 +1,4 @@
-# Prechips v0.8
+# Prechips v0.9
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -14,13 +14,23 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
+uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-bracket-pro.html
+uv run prechips traveler examples/end-bracket.toml --profile hobby --out out/end-bracket-hobby.html
+uv run prechips traveler examples/feed-lever.toml --profile pro --disable-check tool_sizing --out out/feed-lever-pro.html
+uv run prechips traveler examples/feed-lever.toml --profile hobby --disable-check tool_sizing --out out/feed-lever-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
-The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
+The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
+
+The end-bracket example (TL-28) prints two pro pages or five hobby pages, one per setup. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v48 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. v48 states those thread zones and tip marks only in note text, so the adapter reads them with exact patterns and refuses reworded notes or an inch/mm disagreement. This is the single deliberate prose-parsing exception, kept until harmonic-analyzer exports structured `thread_zone`/`tip_mark` fields. Hobby pictures both blanks from the bar end the lever leaves, both end-squaring holds, each tapping face as a vise top view with a section through H1 (thread zone and tip mark of the face being tapped), and the finished bracket; its tap operations add the hand sheet's tape-flag method.
+
+The feed-lever example (TL-26) prints two pro pages or four hobby pages from the same hand-traveler date and the v48 manifest, which agree on its dimensions. It refuses `tool_sizing`: the hand sheet's 11/32 in drill (8.731 mm) is under the drawing's Ø.344 in (8.738 mm) minimum. That is a finding about the plan; render it with `--disable-check tool_sizing`. The manifest has no record for the 2X R.2 grip-end corners, so the radius stays an authored hand-sheet value, checked visually against scribed lines within the drawing's one-place band. Hobby pictures the lever blank from the measured bar end, both vise holds and the grip end upright in soft jaws with its scribed lines and dashed inspection band; the corner operation adds the hand sheet's filing method.
+
+Both jig parts draw from their adapter values (length, section, hole stations and row, hole or tap-drill size, thread zones) and authored holding parameters (jaw width and height, parallel thickness, overhang, edge-finder touch station, kerf). Each saw picture shows only that sheet's blanks; the bar beyond them is an unlabelled stub, so neither plan carries the other part's lengths. Jaws, parallels, cutters, taps and soft jaws are schematic symbols.
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
@@ -48,14 +58,16 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 
 | Adapter | Source | Bound values |
 | --- | --- | --- |
-| `harmonic_base_bar` | Released v47 export | Dimensions, holes, slots and setup-diagram geometry |
+| `harmonic_base_bar` | Released v48 export | Dimensions, REF rail stations, holes, slots and setup-diagram geometry |
 | `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
+| `harmonic_end_bracket` | Released v48 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones, bottoming-tap tip marks by face and setup-picture geometry |
+| `harmonic_feed_lever` | Released v48 export | Length/section limits, both clearance-hole stations, row and diameter band, title-block one-place band and setup-picture geometry |
 
 ```toml
 [cad]
-file = "cad/base-bar-v47.toml"
+file = "cad/base-bar-v48.toml"
 adapter = "harmonic_base_bar"
 
 [parameters]
@@ -71,7 +83,7 @@ slot_finish_diameter_in = 0.53125
 
 All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_in`, `blank_thickness_in` and `slot_finish_diameter_in`, when supplied, must be positive in every profile. `quantity`, when supplied, must be a positive integer (not a fractional value, float or boolean) in every profile. Literal-only plans can omit parameters, including `quantity`; the saw diagram requires `quantity`.
 
-Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
+Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. `:.1dot` (any one-digit precision) prints fixed places in shop shorthand without the leading zero, as in `~{{process.overhang_in:.1dot}}` → `~.4`. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
 
 Each adapter applies the selected plan's setup frames and distinguishes model geometry from requirement limits. Named bindings update repeated dimensions and coordinate tables together. Conflicting machining targets and source acceptance limits are input errors. The shaft's reference span remains REF: its final length still follows the assembly fit. The rocker's hub-length aim is authored; its strap aim follows that aim and the bound face depths. Selected tools and gauges remain separate from source acceptance limits.
 
@@ -87,6 +99,8 @@ Both built-in profiles enforce stock fit. Exact fits pass; an undersized or miss
 | Pivot shaft | `stock_dia_mm`, `stock_length_mm` | Maximum nominal shaft diameter and authored sawn-blank demand |
 | Pivot bracket | `raw_width_mm`, `raw_length_mm`, `sawn_height_mm` (mm) | CAD nominal envelope: model X across foot and ear, model Z outer face to foot free end, model Y seat to arch crown |
 | Rocker arm | `stock_length`, `stock_width`, `stock_thickness` (mm) | CAD nominal envelope: model X between radial tip lands, model Y bottom-arc low point to top-edge ends, model Z between hub faces |
+| End bracket | `blank_length_in`, `blank_thickness_in`, `blank_width_in` | CAD nominal envelope: model X length, model Y across the 1/2 in bar, model Z up the 1 in bar |
+| Feed lever | `blank_length_in`, `blank_thickness_in`, `blank_width_in` | CAD nominal envelope: model X length, model Y through the 1/2 in thickness, model Z across the 1 in width |
 
 For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
 
@@ -270,7 +284,7 @@ Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also
 
 ## Shared tools and cutting settings
 
-Plans can reference one shop file. The base-bar, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
+Plans can reference one shop file. The base-bar, end-bracket, feed-lever, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
 
 ```toml
 # In the plan, before any tables:
@@ -360,4 +374,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby.

@@ -7,7 +7,7 @@ from prechips.cad import CadError, bind_text, load_cad
 from prechips.cli import main
 from prechips.traveler import load_plan, render_traveler
 
-SOURCE = Path(__file__).resolve().parents[1] / "examples/cad/base-bar-v47.toml"
+SOURCE = Path(__file__).resolve().parents[1] / "examples/cad/base-bar-v48.toml"
 PARAMETERS = {
     "width_rough_allowance_in": 0.015,
     "slot_breakthrough_in": 0.02,
@@ -71,17 +71,26 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(0.87)
     assert cad.values["slot_shapes_in"][0]["near_y_in"] == pytest.approx(-1.94)
     assert cad.values["slot_shapes_in"][0]["far_y_in"] == pytest.approx(-2.10)
-    assert cad.values["rail_points_in"][0] == pytest.approx([15 / 25.4, -3.5])
-    assert cad.values["bracket_points_in"][0] == pytest.approx([57 / 25.4, -0.245])
+    # v48 rail stations are REF nominals: the actual trimmed rail transfers them.
+    assert cad.values["rail_points_in"][0] == pytest.approx([9.964 / 25.4, -3.5])
+    assert cad.values["bracket_points_in"][0] == pytest.approx(
+        [47.484 / 25.4, -12.909 / 25.4]
+    )
     assert cad.values["rail_count"] == 8
-    assert cad.values["spot_count"] == 18
-    assert cad.values["bracket_dia_in"] == pytest.approx(0.196)
-    assert cad.values["bracket_dia_min_in"] == pytest.approx(0.196)
-    assert cad.values["bracket_dia_max_in"] == pytest.approx(0.200)
-    assert cad.values["rail_stations_mm"] == "15, 75, 135, 195, 255, 315, 375, 435"
+    assert cad.values["bracket_count"] == 4
+    assert cad.values["bracket_dia_in"] == pytest.approx(0.189)
+    assert cad.values["bracket_dia_min_in"] == pytest.approx(0.189)
+    assert cad.values["bracket_dia_max_in"] == pytest.approx(0.193)
+    assert cad.values["counterbore_depth_in"] == pytest.approx(0.200)
+    assert cad.values["rail_first_mm"] == pytest.approx(9.964)
+    assert cad.values["rail_pitch_mm"] == pytest.approx(60.0)
     assert bind_text("{{cad.slot_depth_in:.2f}}", cad, PARAMETERS) == "0.49"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 17.4375}) == "17 7/16"
     assert bind_text("{{process.blank:fraction}}", cad, {"blank": 6.008}) == "6.008"
+    assert bind_text("{{process.x:.1dot}}", cad, {"x": 0.4}) == ".4"
+    assert bind_text("{{process.x:.2dot}}", cad, {"x": -0.04}) == "-.04"
+    assert bind_text("{{process.x:.1dot}}", cad, {"x": -0.01}) == ".0"
+    assert bind_text("{{process.x:.1dot}}", cad, {"x": 12.25}) == "12.2"
     assert bind_text("{{view.x:.2f}}", cad, {}, extra={"view": {"x": 1.25}}) == "1.25"
     assert bind_text("{{process.label}}", cad, {"label": "<&"}, xml=True) == "&lt;&amp;"
     assert (
@@ -186,3 +195,15 @@ def test_source_changes_reach_embedded_svg_geometry(tmp_path):
     after_slot = ElementTree.fromstring(after).find(".//*[@id='slots']")[0]
     assert float(after_slot.attrib["x"]) > float(before_slot.attrib["x"])
     assert b"{{" not in after
+
+
+def test_toleranced_rail_station_is_refused(tmp_path):
+    # A drawing station band would contradict the plan's transfer-from-rail step.
+    text = SOURCE.read_text(encoding="utf-8").replace(
+        '"requirements" = ["thread", "dia", "height", "thru", "note"]',
+        '"requirements" = ["thread", "dia", "station", "height", "thru", "note"]',
+        1,
+    )
+    _, source = prepare(tmp_path, text)
+    with pytest.raises(CadError, match="rail_hole_1.station: expected a REF"):
+        load_cad(source, PARAMETERS, "harmonic_base_bar")
