@@ -20,6 +20,14 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     assert "0.433–0.527" in html  # Bar-face bottoming-tap tip mark.
 
 
+def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
+    out = tmp_path / "end-bracket-hobby.html"
+    assert main(["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]) == 0
+    html = out.read_text(encoding="utf-8")
+    assert html.count('class="setup-diagram"') == 5
+    assert "Tape a flag on the bottoming tap 0.433–0.527" in html
+
+
 def test_thread_zones_bind_by_face_from_the_drawing_notes():
     cad = load_end_bracket(SOURCE, {})
     # The tap note's TOP face is the KP08 side; the bar seat is the bottom.

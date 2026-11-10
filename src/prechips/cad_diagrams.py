@@ -1,7 +1,8 @@
 """Bind released-CAD geometry into the setup-diagram SVG templates.
 
 An SVG opts in with a root ``data-cad-template`` naming one of the layouts
-below or a ``shaft-*`` layout from :mod:`prechips.shaft_diagrams`. A layout
+below, a ``shaft-*`` layout from :mod:`prechips.shaft_diagrams` or a ``jig-*``
+layout from :mod:`prechips.jig_diagrams`. A layout
 turns finished CAD geometry and authored blank parameters into
 ``view`` scalars for ``{{view.KEY}}`` tokens and fills elements marked
 ``data-cad-group`` with repeated features (blanks, holes, slots, sections).
@@ -674,10 +675,12 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         return bind_text(content.decode("utf-8"), cad, parameters, xml=True).encode(
             "utf-8"
         )
-    # The shaft layouts build on this module's primitives, so import them here.
+    # The shaft and jig layouts build on this module's primitives, so import
+    # them here.
+    from prechips.jig_diagrams import JIG_LAYOUTS
     from prechips.shaft_diagrams import SHAFT_LAYOUTS
 
-    layout = (LAYOUTS | SHAFT_LAYOUTS).get(name)
+    layout = (LAYOUTS | SHAFT_LAYOUTS | JIG_LAYOUTS).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
     view, groups = layout(cad.values, parameters, root)

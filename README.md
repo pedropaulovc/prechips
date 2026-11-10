@@ -15,7 +15,9 @@ uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
 uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-bracket-pro.html
+uv run prechips traveler examples/end-bracket.toml --profile hobby --out out/end-bracket-hobby.html
 uv run prechips traveler examples/feed-lever.toml --profile pro --disable-check tool_sizing --out out/feed-lever-pro.html
+uv run prechips traveler examples/feed-lever.toml --profile hobby --disable-check tool_sizing --out out/feed-lever-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
@@ -24,9 +26,11 @@ The output must be a different file from the input plan and every active input, 
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
 
-The end-bracket example (TL-28) prints two pro pages. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v48 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. v48 states those thread zones and tip marks only in note text, so the adapter reads them with exact patterns and refuses reworded notes or an inch/mm disagreement. This is the single deliberate prose-parsing exception, kept until harmonic-analyzer exports structured `thread_zone`/`tip_mark` fields. There are no setup diagrams, so it renders under `pro` only.
+The end-bracket example (TL-28) prints two pro pages or five hobby pages, one per setup. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v48 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. v48 states those thread zones and tip marks only in note text, so the adapter reads them with exact patterns and refuses reworded notes or an inch/mm disagreement. This is the single deliberate prose-parsing exception, kept until harmonic-analyzer exports structured `thread_zone`/`tip_mark` fields. Hobby pictures the shared-bar cut list, both end-squaring holds, each tapping face as a vise top view with a section through H1 (thread zone and tip mark of the face being tapped), and the finished bracket; its tap operations add the hand sheet's tape-flag method.
 
-The feed-lever example (TL-26) prints two pro pages from the same hand-traveler date and the v48 manifest, which agree on its dimensions. It refuses `tool_sizing`: the hand sheet's 11/32 in drill (8.731 mm) is under the drawing's Ø.344 in (8.738 mm) minimum. That is a finding about the plan; render it with `--disable-check tool_sizing`. The manifest has no record for the 2X R.2 grip-end corners, so the radius stays an authored hand-sheet value, checked visually against scribed lines within the drawing's one-place band.
+The feed-lever example (TL-26) prints two pro pages or four hobby pages from the same hand-traveler date and the v48 manifest, which agree on its dimensions. It refuses `tool_sizing`: the hand sheet's 11/32 in drill (8.731 mm) is under the drawing's Ø.344 in (8.738 mm) minimum. That is a finding about the plan; render it with `--disable-check tool_sizing`. The manifest has no record for the 2X R.2 grip-end corners, so the radius stays an authored hand-sheet value, checked visually against scribed lines within the drawing's one-place band. Hobby pictures the cut list, both vise holds and the grip end upright in soft jaws with its scribed lines and corner band; the corner operation adds the hand sheet's filing method.
+
+Both jig parts draw from their adapter values (length, section, hole stations and row, hole or tap-drill size, thread zones) and authored holding parameters (jaw width and height, parallel thickness, overhang, edge-finder touch station, cut list). Jaws, parallels, cutters, taps and soft jaws are schematic symbols.
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
@@ -58,8 +62,8 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
-| `harmonic_end_bracket` | Released v48 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones and bottoming-tap tip marks by face |
-| `harmonic_feed_lever` | Released v48 export | Length/section limits, both clearance-hole stations, row and diameter band, title-block one-place band |
+| `harmonic_end_bracket` | Released v48 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones, bottoming-tap tip marks by face and setup-picture geometry |
+| `harmonic_feed_lever` | Released v48 export | Length/section limits, both clearance-hole stations, row and diameter band, title-block one-place band and setup-picture geometry |
 
 ```toml
 [cad]
@@ -370,4 +374,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby.

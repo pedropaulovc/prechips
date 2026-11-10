@@ -127,6 +127,7 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
     _inch_limits(values, "tap_drill", _band(holes[0][1], "dia", holes[0][0]))
     values["hole_count"] = len(holes)
     values["hole_stations_mm"] = ", ".join(f"{x:.3f}" for x in stations)
+    values["hole_x_in"] = [x / 25.4 for x in stations]
     values["station_tol_mm"] = min(station_tolerances)
     values["station_tol_in"] = values["station_tol_mm"] / 25.4
     values["hole_rows"] = [

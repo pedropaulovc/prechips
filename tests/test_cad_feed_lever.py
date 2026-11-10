@@ -24,6 +24,15 @@ def test_pro_plan_refuses_the_hand_sheet_drill_then_renders_with_its_opt_out(
     assert "final X = 11.800 + D/2" in html
 
 
+def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
+    out = tmp_path / "feed-lever-hobby.html"
+    command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
+    assert main([*command, "--disable-check", "tool_sizing"]) == 0
+    html = out.read_text(encoding="utf-8")
+    assert html.count('class="setup-diagram"') == 4
+    assert "file each vertical grip-end corner flat at 45°" in html
+
+
 def test_envelope_and_holes_follow_the_model_axes():
     cad = load_feed_lever(SOURCE, {})
     assert [axis.required_mm for axis in cad.stock_requirement.axes] == [

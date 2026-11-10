@@ -89,6 +89,7 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         _inch_limits(values, key, bands[0])
     values["hole_count"] = len(holes)
     values["hole_stations_in"] = ", ".join(f"{x / 25.4:.2f}" for x in stations)
+    values["hole_x_in"] = [x / 25.4 for x in stations]
     values["station_tol_in"] = min(tolerances) / 25.4
     values["hole_rows"] = [
         [f"H{index}", f"{x / 25.4:.3f}", f"{values['row_in']:.3f}"]
