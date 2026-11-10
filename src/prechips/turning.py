@@ -214,7 +214,7 @@ def _bending_factor(
     # Before engagement the tool is at x >= e on chuck/centre supports; after it,
     # chuck and follower are pinned supports with span x+s, and
     # x^2*s^2/(3*(x+s)) increases with x >= 0, so that maximum is at the
-    # engagement end of the checked range.
+    # engagement end of the kept range.
     candidates = []
     if c_high >= e:
         before, before_x = _pinned_factor(max(c_low, e), c_high, span)
