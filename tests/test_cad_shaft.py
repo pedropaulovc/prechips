@@ -132,6 +132,8 @@ def test_round_stock_length_gate_runs_before_output(tmp_path, capsys, length):
             "pro",
             "--disable-check",
             "turning_deflection",
+            "--disable-check",
+            "lathe_holding",
         ]
     )
     if length == 180.5:

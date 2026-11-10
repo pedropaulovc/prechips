@@ -96,6 +96,7 @@ machine_ref = "pm-1127vf-lb"
 holding = "3-jaw: {{process.short_grip_mm:g}} mm grip, {{process.short_projection_mm:g}} mm plain-end projection; remainder through spindle."
 datum = "Sawn end Z+{{process.plain_end_face_allowance_mm:g}}; faced end Z0; X diametric."
 diagram = { file = "diagrams/pivot-shaft/short.svg", alt = "Short plain-end hold: facing and centre drilling, with the remaining blank through the spindle." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{process.stock_dia_mm}}", stock_diameter_mm = "{{process.stock_dia_mm}}", stickout_mm = "{{process.short_projection_mm}}", minimum_diameter_mm = "{{process.stock_dia_mm}}", support = "none" }
 
 [[setups.operations]]
 cut_kind = "other"
@@ -126,6 +127,8 @@ holding = "North-stub grip {{cad.north_grip:g}} mm; projection {{cad.supported_p
 datum = "All tools: thrust face Z0; plain end Z{{cad.plain_end_z:g}}. Blade Z at chuck-side corner."
 diagram = { file = "diagrams/pivot-shaft/supported.svg", alt = "North stub in the chuck, bearing turning toward the chuck, dead-centre support and follow rest at the reset position." }
 turning_support = { kind = "follower", chuck_z_mm = "{{cad.supported_chuck_z}}", centre_z_mm = "{{cad.plain_end_z}}", engage_z_mm = "{{process.follow_rest_reset_z_mm}}", offset_mm = "{{process.follow_rest_lead_mm}}", pad_width_mm = "{{process.follow_rest_jaw_mm}}" }
+# Smallest exposed section: the south relief plunged in this setup.
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{process.stock_dia_mm}}", stock_diameter_mm = "{{process.stock_dia_mm}}", stickout_mm = "{{cad.supported_projection}}", minimum_diameter_mm = "{{cad.south_relief_dia}}", support = "tailstock" }
 
 [[setups.operations]]
 cut_kind = "other"
@@ -198,6 +201,7 @@ holding = "Protected body grip {{process.reverse_grip_mm:g}} mm; thrust face {{p
 datum = "All tools: apex Z0; touch thrust plane at Z{{cad.thrust_z:g}}, not jaw face. Measure M = thrust-to-stub-end before clamping; stub Z=M{{cad.thrust_z:+g}}. Blade Z at chuck-side corner."
 diagram = { file = "diagrams/pivot-shaft/reverse.svg", alt = "Reversed shaft with the thrust face beyond the jaw fronts: journal, relief and north dome machining." }
 turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.reverse_jaw_z}}" }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.bearing_dia}}", stock_diameter_mm = "{{process.stock_dia_mm}}", stickout_mm = "{{cad.reverse_projection}}", minimum_diameter_mm = "{{cad.journal_minimum_dia}}", support = "none" }
 
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
@@ -268,6 +272,8 @@ machine_ref = "pm-1127vf-lb"
 holding = "After scribing: protected body grip {{process.fit_grip_mm:g}} mm; jaws {{process.fit_jaw_offset_mm:g}} mm north of scribe. Stickout = scribe-to-end +{{process.fit_jaw_offset_mm:g}}. Runout ≤0.02 TIR. Require ≥5 mm jaw-to-frame gap throughout full attachment sweep."
 datum = "All tools: scribe Z0; X trial cut on waste Z6…end. Blade Z at chuck-side corner."
 diagram = { file = "diagrams/pivot-shaft/fit.svg", alt = "Fit-scribe datum, waste parting plane and final south dome; waste length follows the actual fit-up." }
+# Stick-out follows the actual scribe; bind the largest expected reading + jaw offset.
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.bearing_dia}}", stock_diameter_mm = "{{process.stock_dia_mm}}", stickout_mm = "{{cad.fit_stickout_max}}", minimum_diameter_mm = "{{cad.bearing_dia}}", support = "none" }
 
 [[setups.operations]]
 cut_kind = "other"

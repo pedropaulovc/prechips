@@ -14,7 +14,7 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
-uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --out out/pivot-shaft-hobby.html
+uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
@@ -24,7 +24,7 @@ The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
-The shaft currently exceeds the default finish-bending screen on the last few millimetres of kept body cut before the follower engages (see Turning deflection). The explicit opt-out above renders its authored process unchanged; it is not a physics pass or machining approval.
+The shaft currently exceeds the default finish-bending screen on the last few millimetres of kept body cut before the follower engages (see Turning deflection), and its fit-scribe hold exceeds the unsupported stick-out limit (see Lathe holding). The explicit opt-outs above render its authored process unchanged; they are not a physics pass or machining approval.
 
 Radius, height and cap limits come from CAD; frame-edge-to-tip is radius + 4.7625 mm per the [manufacturer's manual, pp. 4–7](https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368). Jaw positions are set back for the attachment, with a 5 mm full-sweep gap required at setup. The retained 1400 rpm is an authored starting speed, not a supplier recommendation. Pictures share the instructions' CAD/process values; fixture symbols are schematic, not physical attachment models or collision checks.
 
@@ -224,6 +224,18 @@ gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.bearing_dia_min}}", "
 ```
 
 `gauge` names a `[gauges]` record. Its `range_mm` must contain both ends of `band_mm`, and its `resolution_mm` must not exceed the band width (high − low); a one-sided MAX limit is the band `[0, max]`. Text that mixes dimensional and non-dimensional limits declares only the dimensional ones (the Ra above). Gauge kind, datum and reading method, check timing, GO/NO-GO pairs and roughness ranges are not checked, and the inspection text is not parsed.
+
+### Lathe holding
+
+`lathe_holding` checks each lathe setup's grip and unsupported stick-out. Every setup declares `machine_kind`; every lathe setup declares `lathe_hold`, either `"other"` (explicit opt-out, e.g. faceplate work) or:
+
+```toml
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = 10.0, stock_diameter_mm = 10.0, stickout_mm = 15.0, minimum_diameter_mm = 10.0, support = "none" }
+```
+
+`chuck` names a `[workholding]` record. `grip_diameter_mm` must lie inside a chuck's inclusive `grip_range_mm`, or equal (within 1e-6 mm) one of a collet's `grip_sizes_mm`. `stock_diameter_mm` is the largest swung diameter and must be at least the grip and minimum diameters. With `support = "none"`, `stickout_mm` (jaw fronts to free end) must not exceed `limits.stickout_ld_max` × `minimum_diameter_mm`, the smallest diameter in the exposed span; equality passes. `support = "tailstock"` or `"steady_rest"` lifts that limit. A setup with `turning_support` must agree: `chuck_only` ↔ `none`, `tailstock`/`follower` → `tailstock`. Non-lathe setups must not carry `lathe_hold`. Not checked: jaw depth or clamping force, runout, supported bending, spindle-bore clearance, or whether the declared support is installed.
+
+The shaft's first three setups pass (the reversed hold is 22 mm against 4 × Ø5.7 = 22.8 mm). The fit-scribe setup refuses: its stick-out follows the actual scribe, bound as the largest expected reading plus the 16 mm attachment-clearance jaw offset (`fit_stickout_max` = 17.33 + 16 = 33.33 mm), against 4 × Ø6.35 = 25.4 mm on the unsupported bearing. That is a finding about the plan; render it with `--disable-check lathe_holding`.
 
 ## Profiles
 

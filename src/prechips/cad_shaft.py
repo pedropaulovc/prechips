@@ -265,6 +265,10 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     tolerance = process("scribe_expectation_tolerance_mm")
     values["scribe_expected_min"] = scribe_expectation - tolerance
     values["scribe_expected_max"] = scribe_expectation + tolerance
+    # Longest expected fit-scribe stick-out: jaws sit north of the scribe.
+    values["fit_stickout_max"] = values["scribe_expected_max"] + process(
+        "fit_jaw_offset_mm"
+    )
     if values["plain_end_z"] <= 0 or not process("fit_min_mm") <= fit <= process(
         "fit_max_mm"
     ):
