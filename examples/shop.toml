@@ -76,7 +76,8 @@ tool_change_clearance_mm = 25.0
 # Source: base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).
 # diameter_mm: standard nominal size stated in each description, × 25.4.
-# The 8-32 tap records the plan's authored #29 (.136 in) tap drill.
+# The 8-32 tap records the plan's authored #29 (.136 in) tap drill. The v48
+# drawing calls the #12 bracket drill (notes.process).
 [tools.basebar-saw]
 description = "Aluminium saw"
 [tools.basebar-em-half]
@@ -91,8 +92,8 @@ description = "#2 centre drill"
 description = "#29 (.136 in) drill"
 diameter_mm = 3.4544
 [tools.basebar-bracket-drill]
-description = "#9 (.196 in) drill"
-diameter_mm = 4.9784
+description = "#12 (.189 in) drill"
+diameter_mm = 4.8006
 [tools.basebar-slot-drill]
 description = "3/8 in drill"
 diameter_mm = 9.525

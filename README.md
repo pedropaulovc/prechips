@@ -1,4 +1,4 @@
-# Prechips v0.8
+# Prechips v0.9
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -20,7 +20,7 @@ uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
-The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v47 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices.
+The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
@@ -48,14 +48,14 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 
 | Adapter | Source | Bound values |
 | --- | --- | --- |
-| `harmonic_base_bar` | Released v47 export | Dimensions, holes, slots and setup-diagram geometry |
+| `harmonic_base_bar` | Released v48 export | Dimensions, REF rail stations, holes, slots and setup-diagram geometry |
 | `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 
 ```toml
 [cad]
-file = "cad/base-bar-v47.toml"
+file = "cad/base-bar-v48.toml"
 adapter = "harmonic_base_bar"
 
 [parameters]
@@ -360,4 +360,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release.

@@ -193,7 +193,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if not slots:
         raise CadError("cad.features: missing slots")
 
-    def points(items: list[tuple[str, dict]]) -> list[list[float]]:
+    def points(items: list[tuple[str, dict]], reference: bool) -> list[list[float]]:
         result = []
         for name, item in items:
             if (
@@ -203,28 +203,34 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                 raise CadError(
                     f"{name}: requires through geometry measured from bar_low_side"
                 )
-            result.append(
-                [
-                    _mid(_band(item, "station", name)) / 25.4,
-                    -_mid(_band(item, "height", name)) / 25.4,
-                ]
+            # Reference stations print REF; the actual mate transfers them.
+            station = (
+                _positive(item.get("station_nominal"), f"{name}.station_nominal")
+                if reference
+                else _mid(_band(item, "station", name))
             )
+            result.append([station / 25.4, -_mid(_band(item, "height", name)) / 25.4])
         return sorted(result, key=lambda point: (point[0], -point[1]))
 
-    rail_points = points(rails)
-    bracket_points = points(brackets)
+    for name, item in rails:
+        if "station" in item.get("requirements", []):
+            raise CadError(f"{name}.station: expected a REF rail station")
+    rail_points = points(rails, reference=True)
+    bracket_points = points(brackets, reference=False)
     values["rail_points_in"] = rail_points
     values["bracket_points_in"] = bracket_points
     values["rail_x_in"] = [point[0] for point in rail_points]
     values["rail_x_mm"] = [point[0] * 25.4 for point in rail_points]
-    values["rail_stations_mm"] = ", ".join(
-        f"{station:.2f}".rstrip("0").rstrip(".") for station in values["rail_x_mm"]
-    )
+    # The drawing prints hole 1's REF station and one REF pitch for the pattern.
+    pitches = [b - a for a, b in zip(values["rail_x_mm"], values["rail_x_mm"][1:])]
+    if not pitches or any(not math.isclose(p, pitches[0]) for p in pitches):
+        raise CadError("cad.rail_pitch_mm: rail holes are not one regular pattern")
+    values["rail_first_mm"] = values["rail_x_mm"][0]
+    values["rail_pitch_mm"] = pitches[0]
     if len({point[1] for point in rail_points}) != 1:
         raise CadError("cad.rail_y_in: rail holes must share a drawing row")
     values["rail_y_in"] = rail_points[0][1]
     for key, items, field in (
-        ("rail_position_tol", rails, "station"),
         ("rail_row_tol", rails, "height"),
         ("bracket_position_tol", brackets, "station"),
         ("slot_position_tol", slots, "station"),
@@ -238,8 +244,6 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                 for low, high in [_band(item, "height", name)]
             )
         values[f"{key}_in"] = min(tolerances) / 25.4
-        if key == "rail_position_tol":
-            values["rail_position_tol_mm"] = min(tolerances)
     limits("bracket_dia", [_band(item, "dia", name) for name, item in brackets])
     bracket_diameters = [
         _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -317,7 +321,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         [
             [
                 f"Rail {values['rail_range']}",
-                ", ".join(f"{point[0]:.4f}" for point in rail_points),
+                ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
                 f"{values['rail_y_in']:.4f}",
             ]
         ]

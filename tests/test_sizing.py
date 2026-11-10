@@ -106,12 +106,13 @@ def test_cli_base_bar_passes(tmp_path):
     ("old", "new", "message"),
     [
         (
+            # The v47 #9 bracket drill no longer fits the v48 #12 band.
+            "diameter_mm = 4.8006",
             "diameter_mm = 4.9784",
-            "diameter_mm = 5.1054",
             (
                 "tool_sizing: setup 5 (Drill / tap / counterbore / slots), Op 100, "
-                "sizing: tool 'bracket-drill' diameter 5.1054 mm is outside band "
-                "4.9784–5.08 mm"
+                "sizing: tool 'bracket-drill' diameter 4.9784 mm is outside band "
+                "4.8006–4.9022 mm"
             ),
         ),
         (
