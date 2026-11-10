@@ -254,3 +254,31 @@ tool = "tnuts-finish"
 material = "tnuts-1018-annealed-hb120"
 rpm = 750
 feed = "3 in/min"
+
+# Source: end-bracket.toml; hand traveler dated 2026-11-02 (MHA-CH-06-TL-28
+# v47), the v48 manifest notes (#29 tap
+# drill, plug-start then bottoming-finish taps) and the archived
+# taps-unc-hand 8-32 plug/bottoming records. Speeds are the hand sheets'
+# LittleMachineShop 6061-T6 row: 165 ft/min milling -> 1250 rpm.
+[tools.jig-saw]
+description = "Miter saw or bandsaw"
+[tools.jig-em-half]
+description = "1/2 in centre-cutting 2-flute end mill"
+diameter_mm = 12.7
+[tools.jig-spot]
+description = "#2 centre drill"
+[tools.jig-drill-29]
+description = "#29 (.136 in) drill"
+diameter_mm = 3.4544
+[tools.jig-tap-8-32-plug]
+description = "8-32 UNC plug tap; T-handle wrench"
+tap_drill_mm = 3.4544
+[tools.jig-tap-8-32-bottoming]
+description = "8-32 UNC bottoming tap (1–2 chamfered threads); T-handle wrench"
+tap_drill_mm = 3.4544
+
+[settings.jig-em-half-6061-t6511]
+tool = "jig-em-half"
+material = "6061-t6511"
+rpm = 1250
+feed = "3 in/min"

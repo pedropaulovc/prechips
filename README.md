@@ -14,6 +14,7 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
+uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-bracket-pro.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
@@ -21,6 +22,8 @@ Open the HTML in a browser. Print on Letter paper at 100% scale with browser hea
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
+
+The end-bracket example (TL-28) prints two pro pages. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v48 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. The adapter reads the thread zones and tip marks from the drawing's note wording with exact patterns and refuses reworded or disagreeing notes. There are no setup diagrams, so it renders under `pro` only.
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
@@ -52,6 +55,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
+| `harmonic_end_bracket` | Released v48 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones and bottoming-tap tip marks by face |
 
 ```toml
 [cad]
@@ -87,6 +91,7 @@ Both built-in profiles enforce stock fit. Exact fits pass; an undersized or miss
 | Pivot shaft | `stock_dia_mm`, `stock_length_mm` | Maximum nominal shaft diameter and authored sawn-blank demand |
 | Pivot bracket | `raw_width_mm`, `raw_length_mm`, `sawn_height_mm` (mm) | CAD nominal envelope: model X across foot and ear, model Z outer face to foot free end, model Y seat to arch crown |
 | Rocker arm | `stock_length`, `stock_width`, `stock_thickness` (mm) | CAD nominal envelope: model X between radial tip lands, model Y bottom-arc low point to top-edge ends, model Z between hub faces |
+| End bracket | `blank_length_in`, `blank_thickness_in`, `blank_width_in` | CAD nominal envelope: model X length, model Y across the 1/2 in bar, model Z up the 1 in bar |
 
 For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
 
@@ -270,7 +275,7 @@ Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also
 
 ## Shared tools and cutting settings
 
-Plans can reference one shop file. The base-bar, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
+Plans can reference one shop file. The base-bar, end-bracket, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
 
 ```toml
 # In the plan, before any tables:

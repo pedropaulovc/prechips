@@ -74,6 +74,33 @@ def _mid(band: tuple[float, float]) -> float:
     return band[0] / 2 + band[1] / 2
 
 
+def _inch_limits(values: dict, key: str, band: tuple[float, float]) -> None:
+    """Bind one positive drawing band as `<key>_in`/`_min_in`/`_max_in`/`_band_mm`."""
+    low, high = band
+    if low <= 0:
+        raise CadError(f"cad.{key}: expected positive drawing limits")
+    values[f"{key}_in"] = _mid(band) / 25.4
+    values[f"{key}_min_in"] = low / 25.4
+    values[f"{key}_max_in"] = high / 25.4
+    values[f"{key}_band_mm"] = [low, high]
+
+
+def _model_frame(raw: dict) -> None:
+    """Require the identity model frame the harmonic jig adapters read."""
+    frames = raw.get("frames")
+    model = frames.get("model") if isinstance(frames, dict) else None
+    if not isinstance(model, dict) or any(
+        model.get(key) != expected
+        for key, expected in (
+            ("origin", [0, 0, 0]),
+            ("x", [1, 0, 0]),
+            ("y", [0, 1, 0]),
+            ("z", [0, 0, 1]),
+        )
+    ):
+        raise CadError("cad.frames.model: expected the identity model frame")
+
+
 def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
     """Dispatch a required, explicit part adapter without guessing from the source."""
     if adapter == "harmonic_base_bar":
@@ -90,6 +117,10 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
         from prechips.cad_rocker import load_rocker
 
         return load_rocker(path, parameters)
+    if adapter == "harmonic_end_bracket":
+        from prechips.cad_end_bracket import load_end_bracket
+
+        return load_end_bracket(path, parameters)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
@@ -120,13 +151,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     def limits(key: str, bands: list[tuple[float, float]]) -> None:
         if not bands or any(band != bands[0] for band in bands):
             raise CadError(f"cad.{key}: missing or inconsistent drawing limits")
-        low, high = bands[0]
-        if low <= 0:
-            raise CadError(f"cad.{key}: expected positive drawing limits")
-        values[f"{key}_in"] = _mid(bands[0]) / 25.4
-        values[f"{key}_min_in"] = low / 25.4
-        values[f"{key}_max_in"] = high / 25.4
-        values[f"{key}_band_mm"] = [low, high]
+        _inch_limits(values, key, bands[0])
 
     envelope = []
     for key, name, field in (
