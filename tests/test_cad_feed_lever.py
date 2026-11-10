@@ -8,7 +8,7 @@ SOURCE = ROOT / "examples/cad/feed-lever-v48.toml"
 PLAN = ROOT / "examples/feed-lever.toml"
 
 
-def test_pro_plan_refuses_the_hand_sheet_drill_then_renders_with_its_opt_out(
+def test_pro_plan_refuses_the_drill_and_the_overhang_then_renders_with_opt_outs(
     tmp_path, capsys
 ):
     out = tmp_path / "feed-lever.html"
@@ -18,7 +18,15 @@ def test_pro_plan_refuses_the_hand_sheet_drill_then_renders_with_its_opt_out(
     assert main(command) == 2
     assert "8.73125 mm is outside band 8.7376" in capsys.readouterr().err
     assert not out.exists()
-    assert main([*command, "--disable-check", "tool_sizing"]) == 0
+    command = [*command, "--disable-check", "tool_sizing"]
+    # Setup 2 leaves ~5.25 in of 1/2 x 1 in bar unsupported past the jaws, and
+    # the shop declares no overhang limit (no source gives one).
+    assert main(command) == 2
+    assert (
+        "setup 2 (Zero end and both holes): unsupported overhang 133.426 mm needs "
+        "shop.limits.vise_overhang_ratio_max: required but not declared"
+    ) in capsys.readouterr().err
+    assert main([*command, "--disable-check", "vise_holding"]) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-26" in html
     assert "final X = 11.800 + D/2" in html
@@ -27,7 +35,8 @@ def test_pro_plan_refuses_the_hand_sheet_drill_then_renders_with_its_opt_out(
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "feed-lever-hobby.html"
     command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
-    assert main([*command, "--disable-check", "tool_sizing"]) == 0
+    opt_outs = ["--disable-check", "tool_sizing", "--disable-check", "vise_holding"]
+    assert main([*command, *opt_outs]) == 0
     html = out.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 4
     assert "file each vertical grip-end corner flat at 45°" in html

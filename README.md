@@ -1,4 +1,4 @@
-# Prechips v0.9
+# Prechips v0.10
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
@@ -12,16 +12,17 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uv sync --locked
-uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
-uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
-uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-bracket-pro.html
-uv run prechips traveler examples/end-bracket.toml --profile hobby --out out/end-bracket-hobby.html
-uv run prechips traveler examples/feed-lever.toml --profile pro --disable-check tool_sizing --out out/feed-lever-pro.html
-uv run prechips traveler examples/feed-lever.toml --profile hobby --disable-check tool_sizing --out out/feed-lever-hobby.html
+uv run prechips traveler examples/base-bar.toml --profile pro --disable-check vise_holding --out out/base-bar-pro.html
+uv run prechips traveler examples/base-bar.toml --profile hobby --disable-check vise_holding --out out/base-bar-hobby.html
+uv run prechips traveler examples/end-bracket.toml --profile pro --disable-check vise_holding --out out/end-bracket-pro.html
+uv run prechips traveler examples/end-bracket.toml --profile hobby --disable-check vise_holding --out out/end-bracket-hobby.html
+uv run prechips traveler examples/feed-lever.toml --profile pro --disable-check tool_sizing --disable-check vise_holding --out out/feed-lever-pro.html
+uv run prechips traveler examples/feed-lever.toml --profile hobby --disable-check tool_sizing --disable-check vise_holding --out out/feed-lever-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
+The three harmonic-analyzer examples refuse `vise_holding` (see Vise holding); the opt-outs above render their authored holds unchanged.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
 The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
@@ -251,6 +252,28 @@ lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = 10.0, stock_diameter_m
 
 The shaft's first three setups pass (the reversed hold is 22 mm against 4 × Ø5.7 = 22.8 mm). The fit-scribe setup refuses: its stick-out follows the actual scribe, bound as the largest expected reading plus the 16 mm attachment-clearance jaw offset (`fit_stickout_max` = 17.33 + 16 = 33.33 mm), against 4 × Ø6.35 = 25.4 mm on the unsupported bearing. That is a finding about the plan; render it with `--disable-check lathe_holding`.
 
+### Vise holding
+
+`vise_holding` checks each milling-vise hold. Every non-lathe setup declares `vise_hold`: `"other"` (table clamps, saw, bench: no milling vise), a table, or an array of tables when the setup re-grips the part (refusals then name `hold N`). Lathe setups must not carry it.
+
+```toml
+vise_hold = { vise = "vise-pm-6", across_jaws_mm = 25.4, along_jaws_mm = 302.26, part_height_mm = 12.7, parallel_height_mm = 25.4, overhang_mm = [10.16, "rest"], overhang_support = "none", jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
+```
+
+`vise` names a `[workholding]` record with `kind = "vise"`, `jaw_width_mm`, `opening_mm` and `jaw_height_mm` (vise bed, where parallels sit, to jaw top); `bed_height_mm` (table to vise bed) is recorded but this check does not use it. `parallel_height_mm` is 0 for work on the bed. `overhang_mm` is `[left, right]` past the jaw sides; a negative value is the part end's inset inside the jaws. One side may be `"rest"`: along − jaw width − the other side. Two numbers must agree with jaw width and `along_jaws_mm` within 0.01 mm of authored rounding. `overhang_support` is `"none"` or `"jacks"`; `jaw_offset` is `"centred"` or `"balanced"` (a same-thickness spacer at the other jaw end); faces are `"machined"`, `"as_bought"` or `"sawn"`; `moving_jaw_contact` is `"flat"` or `"rod"`. Equalities pass:
+
+- `across_jaws_mm` ≤ `opening_mm`.
+- `parallel_height_mm` < `jaw_height_mm`. Kurt: "select a size that keeps the bottom of the clamped part at or below the top of the movable and stationary jaws" ([DX6 manual](https://www.kurtworkholding.com/wp-content/uploads/2024/05/Kurt-DX6_Manual_2024-05-30.pdf), p. 5).
+- Grip depth min(part height, jaw height − parallels) ≥ `limits.vise_grip_min_mm`.
+- Stick-up max(0, parallels + part height − jaw height) ≤ `limits.vise_stickup_ratio_max` × grip depth.
+- `"centred"` requires the gripped span to include the jaw-width centre; otherwise declare `"balanced"`. "Whenever possible, the workpiece should be clamped in the center of the vise jaws. However, when necessary to mill a short workpiece which must be held at the end of the vise, a spacing block of the same thickness as the piece should be placed at the opposite end of the jaws." ([TC 9-524](https://armypubs.army.mil/epubs/DR_pubs/DR_a/pdf/web/tc9_524.pdf), p. 8-16; Kurt DX6 p. 5 agrees.)
+- With `overhang_support = "none"`, each overhang ≤ `limits.vise_overhang_ratio_max` × min(across, part height); `"jacks"` lifts the limit.
+- A machined fixed-jaw face against an unmachined moving-jaw face needs `moving_jaw_contact = "rod"`: Krar, *Technology of Machine Tools* 6th ed., Unit 62 ("Place round bar between side 4 and movable jaw"), and [*Introduction to Machining* §9.11](https://workforce.libretexts.org/Sandboxes/a072766d-16cb-4dbc-9dd2-2f3c784c59e6/Introduction_to_Machining/09%3A_Manual_Vertical_Milling_Machines/9.11%3A_Block_Squaring). A rod between two machined faces is allowed: Krar says "not required", §9.11 "Do not use a round bar", Anderson & Tatro's *Shop Theory* (p. 309) still uses it. A sawn face against the fixed jaw is refused; that is a house rule with no published source.
+
+The example shop declares `vise_grip_min_mm = 6.0`, Pedro's house choice: no published minimum exists for smooth jaws (Mitee-Bite says only that they need "much more than .060"" clamped). No handbook, vise maker or training text gives a stick-up or overhang ratio, so the shop declares neither, and a hold that needs one refuses as required but not declared. The only sourced stick-up number is absolute, not a ratio: "no more than ⅛" of extra material above the jaw plates" beyond the cut ([*Introduction to Machining* §9.5](https://openwa.pressbooks.pub/intromachining1/chapter/wa9-5/)). *Machinery's Handbook* (27th ed.) has no vise guidance. Not checked: clamping force, jaw lift, cutting loads, deflection, part stability on the parallels, soft jaws or jaw depth.
+
+Findings in the examples, rendered with `--disable-check vise_holding`: the base bar's setups 4 and 5 stand 2.68 and 1.92 mm above the jaws on 1-3/8 in parallels and need the undeclared stick-up limit. The end bracket grips its 2.85 in blank at one jaw end with no spacer in all three vise setups (setup 2 hold 1 grips 0–67.31 mm against the 79.34 mm jaw centre); setups 3 and 4 also stand 5.85 mm above the jaws. The feed lever leaves 133.4 mm (~5.25 in) unsupported past a jaw side in setups 2 and 3, 10.5 × its 12.7 mm section, and needs the undeclared overhang limit. Envelopes and jig pictures still read jaw and bed sizes from plan parameters that repeat the shop vise record; plan bindings cannot read shop records.
+
 ### Machine capacity
 
 `machine_capacity` screens each setup against its `machine_ref` machine. Lathe setups use their `lathe_hold` (opt out with `lathe_hold = "other"`) and the chuck's `body_diameter_mm`/`body_length_mm`: max(stock Ø, chuck body Ø) ≤ `swing_over_bed_mm`, stock Ø ≤ `swing_over_cross_slide_mm`, and `stickout_mm` + chuck body length ≤ `between_centres_mm`. Every other setup declares `envelope`: `"other"` (saw, bench, no machine) or a table checked against a mill:
@@ -280,7 +303,7 @@ features = ["setup_diagrams", "detailed_instructions"]
 enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
@@ -374,4 +397,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby; v0.10 adds the `vise_holding` check.

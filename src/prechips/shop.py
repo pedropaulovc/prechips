@@ -91,11 +91,15 @@ _RECORDS = {
         "direct_index_positions": _count,
     },
     "workholding": {
-        "kind": _choice("chuck", "collet"),
+        "kind": _choice("chuck", "collet", "vise"),
         "grip_range_mm": _pair,
         "grip_sizes_mm": _sizes,
         "body_diameter_mm": _positive,
         "body_length_mm": _positive,
+        "jaw_width_mm": _positive,
+        "jaw_height_mm": _positive,
+        "opening_mm": _positive,
+        "bed_height_mm": _positive,
     },
     "gauges": {
         "range_mm": _pair,
@@ -105,6 +109,9 @@ _RECORDS = {
 _LIMITS = {
     "stickout_ld_max": _positive,
     "tool_change_clearance_mm": _positive,
+    "vise_grip_min_mm": _positive,
+    "vise_stickup_ratio_max": _positive,
+    "vise_overhang_ratio_max": _positive,
 }
 
 
