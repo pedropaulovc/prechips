@@ -8,7 +8,10 @@ from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
+from prechips import indexing, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
+from prechips.checks import CheckError
+from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
 
 
@@ -121,6 +124,7 @@ class LoadedPlan:
     cad: CadData | None
     parameters: dict
     shop: Path | None
+    shop_data: dict
 
 
 def load_plan(path: Path) -> LoadedPlan:
@@ -163,19 +167,24 @@ def load_plan(path: Path) -> LoadedPlan:
         context = cad or CadData({}, stock_requirement=None, source=path.resolve())
         # Analysis inputs retain full-precision numeric tokens. Printed fields
         # keep the existing text binding semantics.
-        for setup in _tables(plan, "setups", "plan"):
-            if "turning_support" in setup:
-                setup["turning_support"] = bind_data(
-                    setup["turning_support"], context, parameters, scalar_mode="native"
+        native = {
+            "tools": check_fields("tool"),
+            "setups": {"turning_support"} | check_fields("setup"),
+            "operations": {"turning_cuts"} | check_fields("operation"),
+        }
+
+        def keep_numbers(table: dict, kind: str) -> None:
+            for key in native[kind] & table.keys():
+                table[key] = bind_data(
+                    table[key], context, parameters, scalar_mode="native"
                 )
+
+        for tool in _tables(plan, "tools", "plan"):
+            keep_numbers(tool, "tools")
+        for setup in _tables(plan, "setups", "plan"):
+            keep_numbers(setup, "setups")
             for operation in _tables(setup, "operations", "setup"):
-                if "turning_cuts" in operation:
-                    operation["turning_cuts"] = bind_data(
-                        operation["turning_cuts"],
-                        context,
-                        parameters,
-                        scalar_mode="native",
-                    )
+                keep_numbers(operation, "operations")
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error
@@ -215,7 +224,7 @@ def load_plan(path: Path) -> LoadedPlan:
     tool_refs = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
-        _keys(tool, {"id", "name", "description", "ref"}, where)
+        _keys(tool, {"id", "name", "description", "ref"} | check_fields("tool"), where)
         tool_id = _text(tool, "id", where)
         if "ref" in tool:
             ref = _text(tool, "ref", where)
@@ -223,11 +232,11 @@ def load_plan(path: Path) -> LoadedPlan:
                 raise PlanError(f"{where}.ref: requires plan.shop")
             shared = _shop_record(shop, "tools", ref, f"{where}.ref")
             shared_where = f"shop.tools.{ref}"
-            _keys(shared, {"name", "description"}, shared_where)
+            _keys(shared, {"name", "description"} | check_fields("tool"), shared_where)
             _text(shared, "description", shared_where)
             _text(shared, "name", shared_where, optional=True)
-            for key in ("name", "description"):
-                if key not in tool and key in shared:
+            for key in shared:
+                if key not in tool:
                     tool[key] = shared[key]
             tool_refs[tool_id] = tool.pop("ref")
         _text(tool, "name", where, optional=True)
@@ -243,6 +252,7 @@ def load_plan(path: Path) -> LoadedPlan:
             {
                 "title",
                 "machine",
+                "machine_ref",
                 "holding",
                 "datum",
                 "diagram",
@@ -250,11 +260,17 @@ def load_plan(path: Path) -> LoadedPlan:
                 "inspection",
                 "machine_kind",
                 "turning_support",
-            },
+            }
+            | check_fields("setup"),
             where,
         )
         for key in ("title", "machine"):
             _text(setup, key, where)
+        if "machine_ref" in setup:
+            ref = _text(setup, "machine_ref", where)
+            if shop_path is None:
+                raise PlanError(f"{where}.machine_ref: requires plan.shop")
+            _shop_record(shop, "machines", ref, f"{where}.machine_ref")
         _choice(setup, "machine_kind", {"lathe", "other"}, where)
         _turning_support(setup, where)
         for key in ("holding", "datum"):
@@ -289,11 +305,13 @@ def load_plan(path: Path) -> LoadedPlan:
                     "table",
                     "cut_kind",
                     "turning_cuts",
-                },
+                }
+                | check_fields("operation"),
                 op_where,
             )
             _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
             _turning_cuts(operation, op_where)
+            _cutting_settings(operation, op_where)
             tool_id = _text(operation, "tool", op_where, optional=True)
             if tool_id and tool_id not in tool_ids:
                 raise PlanError(f"{op_where}.tool: unknown tool {tool_id!r}")
@@ -303,11 +321,24 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(f"{op_where}.settings: requires plan.shop")
                 shared = _shop_record(shop, "settings", ref, f"{op_where}.settings")
                 shared_where = f"shop.settings.{ref}"
-                _keys(shared, {"tool", "material", "rpm", "feed"}, shared_where)
+                _keys(
+                    shared,
+                    {"tool", "material", "rpm", "feed"} | speeds.SETTING_FIELDS,
+                    shared_where,
+                )
                 shared_tool = _text(shared, "tool", shared_where)
                 shared_material = _text(shared, "material", shared_where)
                 _cutting_settings(shared, shared_where)
-                if not {"rpm", "feed"} & shared.keys():
+                if (
+                    not {
+                        "rpm",
+                        "sfm",
+                        "feed",
+                        "feed_mm_rev",
+                        "chip_load_mm_per_tooth",
+                    }
+                    & shared.keys()
+                ):
                     raise PlanError(f"{shared_where}: expected rpm or feed")
                 if not tool_id or tool_refs.get(tool_id) != shared_tool:
                     raise PlanError(
@@ -318,14 +349,24 @@ def load_plan(path: Path) -> LoadedPlan:
                         f"{op_where}.settings: {ref!r} requires "
                         f"material_key {shared_material!r}"
                     )
-                for key in ("rpm", "feed"):
-                    if key not in operation and key in shared:
-                        operation[key] = shared[key]
+                try:
+                    values = speeds.setting_values(
+                        shared,
+                        shared_where,
+                        operation,
+                        op_where,
+                        setup.get("machine_ref"),
+                        shop,
+                    )
+                except CheckError as error:
+                    raise PlanError(str(error)) from error
+                for key, value in values.items():
+                    if key not in operation:
+                        operation[key] = value
                 operation.pop("settings")
             _text(operation, "instruction", op_where)
             _text(operation, "instruction_detailed", op_where, optional=True)
             _text(operation, "inspection", op_where, optional=True)
-            _cutting_settings(operation, op_where)
             if "table" in operation:
                 data = operation["table"]
                 table_where = f"{op_where}.table"
@@ -358,7 +399,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path)
+    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path, shop)
 
 
 CSS = """
@@ -501,11 +542,18 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             f"<h2>Setup {setup_number} — {_html(setup['title'])}"
             f'<span class="machine">{_html(setup["machine"])}</span></h2>'
         )
-        if "holding" in setup or "datum" in setup:
+        index = indexing.setting(
+            loaded, setup, f"setup {setup_number} ({setup['title']})"
+        )
+        if "holding" in setup or "datum" in setup or index is not None:
             lines.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+            if index is not None:
+                lines.append(
+                    f"<dt>Index:</dt><dd>{_html(indexing.describe(index))}</dd>"
+                )
             lines.append("</dl>")
         lines.append("</div>")
         diagram = _diagram_html(

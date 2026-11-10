@@ -6,6 +6,7 @@ import tomllib
 from dataclasses import replace
 from pathlib import Path
 
+from prechips import checks
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
@@ -30,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         "--disable-check",
         action="append",
         default=[],
-        choices=("setup_diagrams", "stock_fit", "turning_deflection"),
+        choices=("setup_diagrams", "stock_fit", "turning_deflection", *checks.CHECKS),
         help="disable an enforced check (repeatable; no sheet warning)",
     )
     traveler.add_argument(
@@ -76,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         if "turning_deflection" in profile.enforce:
             check_turning_deflection(plan, config_path=profile.turning_config)
+        for name in checks.CHECKS:
+            if name in profile.enforce:
+                checks.run(name, plan)
         html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")
@@ -84,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         UnicodeError,
         tomllib.TOMLDecodeError,
         PlanError,
+        checks.CheckError,
         ProfileError,
         StockError,
         TurningError,

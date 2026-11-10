@@ -5,6 +5,7 @@
 # v40 limits retain documented feature-file divergences. Crank bore moves 0.185 toward head
 # top, sleeve unchanged. Conservative shop separation39.34–39.70 vs feature39.332–39.702;
 # journal shop12.256–12.285 vs feature12.2558–12.2858.
+shop = "../shop.toml"
 title = "Cone pivot post — body + two bonded sleeves"
 part = "MHA-016 · cone-pivot-post · quantity 1"
 revision = "v40 example"
@@ -33,6 +34,7 @@ description = "4/6 bimetal blade,1.5 mm kerf."
 machine_kind = "lathe"
 title = "Turn body → cone sleeve → crank sleeve (three chuckings)"
 machine = "PM-1127VF-LB"
+indexing = "none"
 holding = "3-jaw,25 raw grip each. Body102 nominal out, runout≤0.1. Cone50 out, cap-to-jaws48.5–49.5. Crank80 out, face-to-jaws78.5–79.5; unsupported."
 datum = "Diametric X; body B=Z0, shoulder−59.4. Cone north cap+21.0055; crank north face0."
 [[setups.operations]]
@@ -47,11 +49,13 @@ rows = [["B face", "650 /0.08", "0.5; Ra≤3.2 µm"], ["Head rough→finish", "6
 machine_kind = "other"
 title = "Two sleeve sockets — one tail chucking"
 machine = "PM-30MV · BS-0 / independent4-jaw"
+# Archived features.toml crank_bore: land_angle_nominal_deg 12.5182, angle_tol_deg 0.0795.
+indexing = { head = "bs-0", tolerance_deg = 0.0795, angle_deg = 12.5182 }
 holding = "Spindle along X; tail20 against chuck body,105 out. Head/body runout≤0.02, B square; axis alignment≤0.01. Crank socket up/index zero."
 datum = "B X0, foot toward+X; axis Y0/Z0, body crest Z+21.0055."
 [[setups.operations]]
 tool = "bore"
-instruction = "Crank first; keep jaws/zeros, index cone: B23-hole circle,1 turn+9 spaces, work CCW from free end, same-direction approach. Lock/recheck≤0.02; actual12.5217°, target12.5182°. Both: #2 spot2 deep (3000/120),7/16 pilot (550/60.5),6 mm pecks; open/ream with full diameter reaching exit Z below; rims≤0.1."
+instruction = "Crank first; keep jaws/zeros, index cone: work CCW from free end, same-direction approach. Lock/recheck≤0.02. Both: #2 spot2 deep (3000/120),7/16 pilot (550/60.5),6 mm pecks; open/ream with full diameter reaching exit Z below; rims≤0.1."
 [setups.operations.table]
 columns = ["Socket X/Y", "Open rpm/feed → ream rpm/feed", "Accept Ø / full-Ø exit"]
 rows = [["Crank −72.700/0", "Ø21.8:300/54 → Ø22.01:200/50.4", "22.000–22.020 / Z−22.300"], ["Cone −33.368/0 after index", "Ø17.05:350/63 → Ø17.26:250/63", "17.250–17.270 / Z−21.525"]]
@@ -60,6 +64,7 @@ rows = [["Crank −72.700/0", "Ø21.8:300/54 → Ø22.01:200/50.4", "22.000–22
 machine_kind = "other"
 title = "Bond cone sleeve; then crank sleeve after cone cure"
 machine = "Bench · bonding cradle"
+indexing = "none"
 holding = "B at stop; body/tail saddles, gravity only. Cone north cap on pins14.8 apart; crank socket vertical. Second bond: crank north face on crank pins."
 [[setups.operations]]
 instruction = "Solvent-degrease/dry; check clearance both mouths/ends. Wet socket/bead sleeve with Loctite638, twist onto BOTH pins;0.05 feeler excluded. Wipe excess. EACH bond:24 h room-temperature cure, no joint clamping. Bore only after both cures."
@@ -71,7 +76,9 @@ rows = [["1 Cone", "0.044–0.076", "Before grab, −X/+X edges of crank-socket 
 machine_kind = "other"
 title = "Post-cure running bores — one new tail chucking"
 machine = "PM-30MV · BS-0 /4-jaw"
-holding = "Tail20 against chuck body,105 out. Crank north face up/index zero; runout≤0.02, B square, axis alignment≤0.01. Journal: unchanged jaws, same1 turn+9 spaces, north cone cap up."
+# Archived features.toml crank_bore: land_angle_nominal_deg 12.5182, angle_tol_deg 0.0795.
+indexing = { head = "bs-0", tolerance_deg = 0.0795, angle_deg = 12.5182 }
+holding = "Tail20 against chuck body,105 out. Crank north face up/index zero; runout≤0.02, B square, axis alignment≤0.01. Journal: unchanged jaws, same index, north cone cap up."
 datum = "B X0; axis Y0. Crank face Z0; journal north cap Z+21.0055."
 [[setups.operations]]
 tool = "bore"
@@ -84,6 +91,7 @@ rows = [["Crank −72.885/0", "Ø11.2:550/60.5,6 mm pecks →0.4500 in:400/100.8
 machine_kind = "other"
 title = "Saw tail off"
 machine = "4×6 bandsaw"
+indexing = "none"
 holding = "Body seated in integral cradle saddles; north cap on land, south cap under brass bridge pad. Blued land/pad must print only on cap annuli, no blue on body. Bridge wrench-tight before gripping base in saw vise; tail unsupported."
 [[setups.operations]]
 tool = "saw"
@@ -94,6 +102,7 @@ feed = "Blade200 ft/min; bow descent65 mm/min (~40 s cut)."
 machine_kind = "other"
 title = "Face top; two mounting holes"
 machine = "PM-30MV · tall soft jaws/buttons"
+indexing = "none"
 holding = "B on1/2 in×1/8 in parallels, Y±19.4; buttons on cone caps, jaws3 clear of body. Crank over front jaw. Jaw clearance: shoulder8.6, crank10.9. Tram≤0.0254/100."
 datum = "Head centre X0/Y0; B Z0 from measured sawn height. Cone axis alongY, north cap+Y."
 [[setups.operations]]
@@ -111,6 +120,7 @@ instruction = "Both holes Ø7.14248–7.24248, radial station12.47–13.49; coun
 machine_kind = "other"
 title = "Bench inspection → paint → oil"
 machine = "Bench / surface plate; cradle, then standing on masked B for paint"
+indexing = "none"
 [[setups.operations]]
 instruction = "Running bores: dimensions/A height as above; Ra≤1.6 µm, no chatter/tear/score. Centre separation39.34–39.70. Crank-axis angularity: Ø0.10 zone, basic12.5182° to journal A, parallel to foot B."
 

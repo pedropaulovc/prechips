@@ -61,6 +61,7 @@ def _plan(cut=None, support=None):
         cad=None,
         parameters={},
         shop=None,
+        shop_data={},
     )
 
 

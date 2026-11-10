@@ -24,6 +24,30 @@ width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 slot_step_in = 0.12
 slot_finish_diameter_in = 0.53125
+# Machine-capacity inputs (mm). Heights are above the mill table; tool lengths
+# run from spindle nose to tip (holder gauge + projection). The archived
+# inventory is archive/pre-v0.10-2026-11-08 examples/inventory/pedro-shop.toml.
+edge_x_travel_mm = 469.9         # Edge setup datum: required X travel ~18.5 in.
+block_height_mm = 25.4           # 1-2-3 blocks lying flat, 1 in face up.
+parallel_height_mm = 34.925      # 1-3/8 in parallels (vise setups).
+vise_bed_height_mm = 73.3044     # Archive fixtures.vise-pm-6.bed_height_in 2.886.
+edge_cut_tip_z_mm = -2.032       # Edge cutter .04–.08 in below the underside.
+end_cut_tip_z_mm = -1.016        # End cutter .04 in below the bar.
+drill_tip_z_mm = -3.175          # Drill tips .125 in past the underside.
+half_cutter_dia_mm = 12.7        # 1/2 in end mill.
+face_cutter_dia_mm = 19.05       # 3/4 in end mill.
+r8_collet_gauge_mm = 6.0         # Archive holders.r8-collets-lms-4860.gauge_len_mm.
+drill_chuck_gauge_mm = 95.0      # Archive holders.drill-chuck-r8.gauge_len_mm.
+# Archive LMS 6784 set projections from the R8 collet grow with size: 3/16 and
+# 1/4 in 25, 3/8 in 38, 7/16 in 41, 11/16 in 50, 3/4 in 57. The 1/2 and 5/16 in
+# cutters have no member record, so they are bounded by their neighbours.
+half_mill_projection_min_mm = 41.0
+half_mill_projection_max_mm = 50.0
+face_mill_projection_mm = 57.0
+small_mill_projection_min_mm = 25.0
+# Archive drill-index-115 13/32 in member, 112.8 out of drill-chuck-r8: the next
+# recorded jobber above the 3/8 in drill, so it bounds the longest drill.
+drill_projection_max_mm = 112.8
 
 [[tools]]
 id = "saw"
@@ -65,16 +89,21 @@ ref = "basebar-counterbore"
 id = "slot-finish"
 name = "{{process.slot_finish_diameter_in:fraction}} in end mill"
 ref = "basebar-slot-finish"
+diameter_mm = "{{cad.slot_finish_diameter_mm}}"
 description = "{{process.slot_finish_diameter_in:fraction}} in centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
 
 [[setups]]
 machine_kind = "other"
 title = "Saw blanks"
 machine = "Saw / bench"
+indexing = "none"
 diagram = { file = "diagrams/saw.svg", alt = "{{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks marked on the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; bar supported level on saw bed and stands at the cutline." }
+envelope = "other"
 
 [[setups.operations]]
+speed_kind = "other"
 tool = "saw"
+sizing = "other"
 instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks from {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar."
 feed = "hand"
 
@@ -82,34 +111,48 @@ feed = "hand"
 machine_kind = "other"
 title = "Mill both long edges"
 machine = "PM-30MV; inch DRO"
+indexing = "none"
+machine_ref = "pm-30mv"
 holding = "Vise off; 1-2-3 blocks inboard, supporting middle ~4 in; both long edges overhang .75–1 in. Strap across mid-width of each end, clear of both long-edge cuts."
 datum = "Front machined edge becomes ZERO EDGE. X along length; +X cutter right, +Y away. Required X travel ~18.5 in."
 diagram = { file = "diagrams/width.svg", alt = "Blank on inboard 1-2-3 blocks with straps at mid-width of each end; both long edges exposed. Front edge cut in +X makes ZERO EDGE; opposite edge cut in −X finishes width without moving the bar." }
+envelope = { x_span_mm = "{{process.edge_x_travel_mm}}", y_span_mm = ["{{cad.blank_width_mm}}", "{{process.half_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{process.edge_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Cutter .04–.08 below underside. Mill front edge in +X, conventional; rough .050–.080 radial, finish .005–.010. Mark ZERO EDGE both faces. Keep this clamping for opposite edge."
 settings = "basebar-edge-6061-t6511"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Mill opposite long edge in −X, conventional; rough .050–.080 radial to {{cad.width_rough_in:.3f}} width, finish to {{cad.width_in:.3f}} from ZERO EDGE."
 settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
 
 [[setups]]
 machine_kind = "other"
 title = "Square both ends on table"
 machine = "PM-30MV; inch DRO"
+indexing = "none"
+machine_ref = "pm-30mv"
 holding = "Keep bar fixed on inboard supports; supports clear of both end cuts."
 datum = "First squared end becomes ZERO END / X0. Retain ZERO EDGE."
 diagram = { file = "diagrams/ends.svg", alt = "Bar stays fixed on table supports. Add straps over finished long edges near mid-length before removing end straps; end mill squares the left end in −Y and finishes the right end in +Y to {{cad.length_in:.2f}} from ZERO END." }
+# Cutter centre runs past both ends (final X = length + D/2) and across the width.
+envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.half_cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.half_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 
 [[setups.operations]]
 instruction = "Add two straps over finished long edges near mid-length and tighten before removing end straps. Do not move bar."
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Cutter .04 below bar. Square left end in −Y, .020 passes; mark ZERO END both faces and set X0 there. Measure cutter D; cut right end in +Y, .010 passes, final X = {{cad.length_in:.4f}} + D/2."
 settings = "basebar-edge-6061-t6511"
 
@@ -117,12 +160,18 @@ settings = "basebar-edge-6061-t6511"
 machine_kind = "other"
 title = "Face both sides in vise"
 machine = "PM-30MV / vise, swivel off"
+indexing = "none"
+machine_ref = "pm-30mv"
 holding = "Flat on 1-3/8 in parallels, ZERO EDGE at fixed jaw; screw jack (3.9–5.5 in range) under each overhanging end."
 datum = "Jaw indicated <.001 along X; Z0 underside from measured thickness. Preserve marked ZERO END."
 diagram = { file = "diagrams/face.svg", alt = "Bar in vise on 1-3/8 in parallels, ZERO EDGE at fixed jaw, jacks under both overhangs; 3/4 in end mill faces left and right halves. After both faces, orient ZERO END left and ZERO EDGE back before marking upper face C'BORE SIDE." }
+# Arrives at blank thickness; the deepest pass leaves the finished top.
+envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"] }
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-face"
+sizing = "other"
 instruction = "Face left and right halves of each face. Rough .010 per pass, +X, +Y stepover .60; remove half allowance on side 1. Flip end-for-end, ZERO EDGE still at fixed jaw; finish side 2 to {{cad.thickness_in:.4f}}. Reorient ZERO END left, ZERO EDGE back; mark upper face C'BORE SIDE."
 rpm = 840
 feed = "3.3 in/min rough; 2.4 finish"
@@ -131,15 +180,22 @@ feed = "3.3 in/min rough; 2.4 finish"
 machine_kind = "other"
 title = "Drill / tap / counterbore / slots"
 machine = "PM-30MV; inch DRO"
+indexing = "none"
+machine_ref = "pm-30mv"
 holding = "ZERO EDGE at back jaw, ZERO END left, C'BORE SIDE up; 1-3/8 in parallels. Support both overhangs with jacks clear of hole/slot paths."
 datum = "Drawing lower edge = ZERO EDGE; left end = ZERO END; far face = C'BORE SIDE. Back-left X0/Y0; +X right, drawing Y dimensions become −Y."
 diagram = { file = "diagrams/holes.svg", alt = "Finished {{cad.length_in:.2f}} in bar in vise: C'BORE SIDE up, ZERO EDGE at back fixed jaw, ZERO END left, X0 Y0 back-left; rail holes {{cad.rail_range}}, counterbored {{cad.bracket_range}}, slots {{cad.slot_range}} and jacks under both overhangs." }
+# Hole and slot centres lie inside the finished bar. Longest: a drill in the
+# drill chuck; shortest: the 5/16 in counterbore cutter in an R8 collet.
+envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
 
 [[setups.operations]]
 instruction = "Before drilling: from the rail end that goes at ZERO END, check the {{cad.rail_count:d}} hole centres at {{cad.rail_stations_mm}} mm, each ±{{cad.rail_position_tol_mm:.2f}} mm. Stop if different."
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "spot"
+sizing = "other"
 instruction = "Spot {{cad.spot_count:d}} holes to Ø.125. All drills: .125 pecks, drill tip .125 past underside. Inches; IDs follow coordinate order. Rail X ±{{cad.rail_position_tol_in:.3f}}; bracket X/Y ±{{cad.bracket_position_tol_in:.3f}}; rail row ±{{cad.rail_row_tol_in:.2f}}; slot positions ±{{cad.slot_position_tol_in:.2f}}."
 rpm = 3000
 feed = "hand"
@@ -149,54 +205,67 @@ columns = ["Holes", "X", "Y"]
 rows = "{{cad.hole_rows}}"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "rail-drill"
+sizing = { kind = "tap_drill", tap = "tap" }
 instruction = "{{cad.rail_range}} through."
 rpm = 3000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "bracket-drill"
+sizing = { kind = "band", band_mm = "{{cad.bracket_dia_band_mm}}" }
 instruction = "{{cad.bracket_range}} through."
 rpm = 3000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "slot-drill"
+sizing = "other"
 instruction = "{{cad.slot_range}} through."
 rpm = 2000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "other"
 tool = "tap"
+sizing = "other"
 instruction = "Tap {{cad.rail_range}} through."
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "counterbore"
+sizing = { kind = "band", band_mm = "{{cad.counterbore_dia_band_mm}}" }
 instruction = "Counterbore {{cad.bracket_range}}, {{cad.counterbore_depth_in:.3f}} deep from top."
 rpm = 2000
 feed = "slow hand plunge"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
+sizing = "other"
 instruction = "Rough slots with .500 cutter, depths {{cad.slot_depths_in}} below top. Traverse between arc centres: {{cad.slot_paths}}."
 settings = "basebar-slot-rough-6061-t6511"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "slot-finish"
+sizing = { kind = "band", band_mm = "{{cad.slot_width_band_mm}}" }
 instruction = "Finish {{cad.slot_range}} at {{cad.slot_depth_in:.2f}} below top, same X and arc-centre Y ranges as roughing. Drawing target: {{cad.slot_width_in:.3f}} wide with {{cad.slot_spacing_in:.3f}} arc-centre spacing."
-# Authored starting settings from the source guide's 165 ft/min HSS milling
-# speed and .002 in/tooth: 12*165/(pi*17/32)=1186 rpm, rounded to 1200;
-# 1200 rpm * 2 flutes * .002 in/tooth = 4.8 in/min.
-rpm = 1200
-feed = "4.8 in/min"
+settings = "basebar-slot-finish-6061-t6511"
+cut_diameter_mm = "{{cad.slot_finish_diameter_mm}}"
 
 [[setups]]
 machine_kind = "other"
 title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
+indexing = "none"
 datum = "Marked end/edge; rail on face opposite C'BORE SIDE."
 diagram = { file = "diagrams/inspect.svg", alt = "Finished bar from C'BORE SIDE with section through bracket holes {{cad.bracket_range}}: socket heads recessed in counterbores; HGR15 rail on the opposite face, flush at ZERO END and overhanging the right end; slot stud fit." }
+envelope = "other"
 
 [[setups.operations]]
 instruction = "Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; clear threads; fit rail/screws and slot stud."

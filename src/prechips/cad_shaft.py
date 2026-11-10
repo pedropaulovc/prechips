@@ -7,7 +7,8 @@ from pathlib import Path
 from prechips.cad import (
     CadData,
     CadError,
-    RoundStock,
+    StockAxis,
+    StockRequirement,
     _band,
     _number,
     _positive,
@@ -264,6 +265,10 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
     tolerance = process("scribe_expectation_tolerance_mm")
     values["scribe_expected_min"] = scribe_expectation - tolerance
     values["scribe_expected_max"] = scribe_expectation + tolerance
+    # Longest expected fit-scribe stick-out: jaws sit north of the scribe.
+    values["fit_stickout_max"] = values["scribe_expected_max"] + process(
+        "fit_jaw_offset_mm"
+    )
     if values["plain_end_z"] <= 0 or not process("fit_min_mm") <= fit <= process(
         "fit_max_mm"
     ):
@@ -294,9 +299,21 @@ def load_shaft(path: Path, parameters: dict) -> CadData:
         )
     return CadData(
         values,
-        RoundStock(
-            max(values["bearing_dia"], values["journal_dia"], values["shoulder_dia"]),
-            values["blank_length"],
+        StockRequirement(
+            "mm",
+            (
+                StockAxis(
+                    "diameter",
+                    "stock_dia_mm",
+                    max(
+                        values["bearing_dia"],
+                        values["journal_dia"],
+                        values["shoulder_dia"],
+                    ),
+                ),
+                StockAxis("length", "stock_length_mm", values["blank_length"]),
+            ),
+            "required",
         ),
         path.resolve(),
     )

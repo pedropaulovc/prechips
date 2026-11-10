@@ -1,8 +1,10 @@
-# Prechips v0.7
+# Prechips v0.8
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
 This prototype binds traveler dimensions to a selected CAD/drawing export. Process choices remain authored. The previous implementation is preserved on [`archive/pre-v0.10-2026-11-08`](https://github.com/pedropaulovc/prechips/tree/archive/pre-v0.10-2026-11-08); old code returns only when a useful milestone needs it.
+
+Plans, CAD manifests and shop files are expected to be written by an AI agent, so they are expected to be comprehensive. Built-in profiles require every applicable setup and operation to declare the structured data each check reads, or an explicit opt-out value; nothing is skipped because a field was left out. Values in the inputs are used as written.
 
 ## Run
 
@@ -12,7 +14,7 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 uv sync --locked
 uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
 uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
-uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --out out/pivot-shaft-hobby.html
+uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
@@ -22,7 +24,7 @@ The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes
 
 The shaft prints two pro pages or four hobby pages, one per setup. Hobby shows its short hold, supported turning, reversal and fit-scribed finishing setup, distinguishing cuts from the kept part and parted waste. Both domes use the [LMS 2569 ball/radius attachment](https://littlemachineshop.com/products/ball-and-radius-turning-tool-small) with its supplied HSS bit; hobby substitutes the attachment method in place of the compact instruction.
 
-The shaft currently exceeds the default finish-bending screen on the last few millimetres of kept body cut before the follower engages (see Turning deflection). The explicit opt-out above renders its authored process unchanged; it is not a physics pass or machining approval.
+The shaft currently exceeds the default finish-bending screen on the last few millimetres of kept body cut before the follower engages (see Turning deflection), and its fit-scribe hold exceeds the unsupported stick-out limit (see Lathe holding). The explicit opt-outs above render its authored process unchanged; they are not a physics pass or machining approval.
 
 Radius, height and cap limits come from CAD; frame-edge-to-tip is radius + 4.7625 mm per the [manufacturer's manual, pp. 4–7](https://littlemachineshop.com/cdn/shop/files/SmallRadiustoolinstructions.pdf?v=15026407504268274368). Jaw positions are set back for the attachment, with a 5 mm full-sweep gap required at setup. The retained 1400 rpm is an authored starting speed, not a supplier recommendation. Pictures share the instructions' CAD/process values; fixture symbols are schematic, not physical attachment models or collision checks.
 
@@ -83,10 +85,14 @@ Both built-in profiles enforce stock fit. Exact fits pass; an undersized or miss
 | --- | --- | --- |
 | Base bar | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope in matching axes |
 | Pivot shaft | `stock_dia_mm`, `stock_length_mm` | Maximum nominal shaft diameter and authored sawn-blank demand |
+| Pivot bracket | `raw_width_mm`, `raw_length_mm`, `sawn_height_mm` (mm) | CAD nominal envelope: model X across foot and ear, model Z outer face to foot free end, model Y seat to arch crown |
+| Rocker arm | `stock_length`, `stock_width`, `stock_thickness` (mm) | CAD nominal envelope: model X between radial tip lands, model Y bottom-arc low point to top-edge ends, model Z between hub faces |
 
 For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
 
-There is no automatic rotation, yield calculation, added allowance or workholding check. Bracket and rocker stock requirements remain unsupported; use their comparison profile.
+For the bracket and rocker, the declared values are the sawn flat-bar blank, not the authored prepared (squared) blank. Their adapters already refuse raw stock smaller than the prepared blank (except the rocker's `stock_length`, which the adapter does not read), so that input error comes first unless the prepared size is also below the CAD envelope.
+
+There is no automatic rotation, yield calculation, added allowance or workholding check.
 
 ## Turning deflection
 
@@ -132,24 +138,135 @@ Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop
 For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. When turning is disabled, its configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
 
 
+## Declared-input checks
+
+v0.8 adds checks that read explicit structured plan fields and shared shop records. Both built-in profiles enforce every one after stock fit and turning deflection. A refusal exits 2 before output is created or replaced and names the check; a pass prints no checker text. Each key works with `--disable-check` and in a custom profile's `enforce` list.
+
+Numeric fields are millimetres and accept exact whole-field bindings such as `"{{cad.bearing_dia}}"`. Setups name their machine with `machine_ref`, a key under `[machines]` in the shop file. Only shop records a plan references are validated; unknown fields in a referenced record are errors.
+
+```toml
+# In the shop file:
+[machines.pm-30mv]
+kind = "mill"                 # mill, lathe or dividing_head
+rpm_ranges = [[50, 3000]]
+travel_mm = { x = 584.2, y = 222.25, z = 355.6 }
+spindle_to_table_mm = [60.96, 431.8]
+
+[workholding.chuck-3jaw-6]
+kind = "chuck"                # chuck or collet
+grip_range_mm = [3.0, 140.0]  # or grip_sizes_mm = [...]
+body_diameter_mm = 158.0
+body_length_mm = 72.0
+
+[gauges.micrometers]
+range_mm = [0.0, 76.2]
+resolution_mm = 0.00254
+
+[limits]
+stickout_ld_max = 4.0
+tool_change_clearance_mm = 25.0
+```
+
+Lathes also take `swing_over_bed_mm`, `swing_over_cross_slide_mm` and `between_centres_mm`; dividing heads take `worm_ratio`, `plate_holes` and `direct_index_positions`.
+
+### Cutting speeds
+
+Key `cutting_speeds`. Every operation with a `tool` declares `speed_kind = "spindle"` or `"other"` (hand tapping, sawing, bench work). A `spindle` operation needs an rpm (authored, shared or calculated) inside one of its setup machine's `rpm_ranges`, inclusive; an `other` operation, or one without a tool, must not carry an rpm. Feeds, feed text and cutting performance are not checked.
+
+Independently of enforcement, a shared setting may calculate its values. `sfm` replaces a literal `rpm` (never both): the operation supplies `cut_diameter_mm` and its setup a `machine_ref`; rpm = 12·sfm/(π·D_in), rounded to the nearest 50 with ties to even, clamped to the machine's lowest and highest speed, and dropped to the top of the range below when it falls in a gap. Instead of literal `feed`, declare `feed_mm_rev` (prints `0.05 mm/rev`) or `chip_load_mm_per_tooth` with `flutes` (feed = rpm × flutes × chip load, printed to whole `mm/min` or, with `feed_unit = "in/min"`, to 0.1 in/min). An authored operation `rpm` or `feed` still wins and is neither rounded nor clamped; a per-tooth feed uses the operation's resulting rpm.
+
+```toml
+[settings.shaft-finish-turn-hss-1018]  # shop file
+tool = "shaft-hss"
+material = "shaft-1018-cold-finished"
+sfm = 110
+feed_mm_rev = 0.05
+
+[[setups.operations]]                  # plan; setup has machine_ref
+speed_kind = "spindle"
+tool = "hss"
+settings = "shaft-finish-turn-hss-1018"
+cut_diameter_mm = "{{cad.bearing_dia}}"  # 6.35 -> 1700 rpm
+```
+
+### Tool sizing
+
+Key `tool_sizing`. Every operation with a `tool` declares `sizing`; an operation without a tool must not. Use `sizing = "other"` when no drawing size binds the cutter (saws, roughers, spot and pilot drills, taps, lathe tools), or a table:
+
+```toml
+sizing = { kind = "band", band_mm = "{{cad.bracket_dia_band_mm}}" }  # [low, high]
+sizing = { kind = "tap_drill", tap = "tap" }                         # a plan tool id
+```
+
+A band passes when the operation tool's `diameter_mm` lies inside the inclusive band; a reversed band refuses. A tap drill passes when the operation tool's `diameter_mm` equals the named tap's `tap_drill_mm` within 1e-6 mm. Plan `[[tools]]` and shop `[tools.<ref>]` records take numeric `diameter_mm` and `tap_drill_mm` (never printed); shop values flow into the plan tool unless it sets its own. A missing diameter or tap drill, an unknown tap id or a missing `sizing` refuses. The base-bar adapter supplies each drawing limit as `<limit>_band_mm` (such as `bracket_dia_band_mm`, `counterbore_dia_band_mm`, `slot_width_band_mm`) and `slot_finish_diameter_mm` from the process parameter.
+
+Only the selected tool is compared; no nearer tool is suggested. Thread designation, tap class, operation order, reaming allowance and actual cut size (runout, drill wander) are not checked.
+
+### Indexing
+
+Every setup declares `indexing`: `"none"`, or a dividing-head table naming a shop machine of kind `dividing_head`.
+
+```toml
+indexing = { head = "bs-0", tolerance_deg = 0.0795, angle_deg = 12.5182 }  # one setting
+# indexing = { head = "bs-0", tolerance_deg = 0.05, angle_deg = 30, positions = 3 }  # open pattern
+# indexing = { head = "bs-0", tolerance_deg = 0.05, positions = 7 }  # full circle, step 360/7
+```
+
+Candidates are direct indexing (`direct_index_positions`) and every `plate_holes` circle through `worm_ratio` (spaces = angle × ratio × holes / 360), in exact rational arithmetic on the authored decimals. An exact representation wins; otherwise the smallest one-step error, then direct, plate name and smaller circle. Each cumulative landing error, and for a full circle the closure against the nearest whole revolution, must be within `tolerance_deg`. The sheet prints the selection whenever a table is declared, independent of enforcement, as an `Index:` line such as `B 23-hole circle: 1 turn + 9 spaces; 12.5217° (target 12.5182°)`; an uncomputable table (unknown head, no plate data, neither angle nor `positions >= 2`) is an input error. Backlash, fixture tilt, locating the work and cutter access are not checked.
+
+### Gauge capability
+
+`gauge_capability` requires `gauge_checks` on every setup and operation that has `inspection` text, and refuses it where there is none. Use `gauge_checks = "other"` for non-dimensional acceptance (finish, fit-up, visual), or one entry per dimensional limit the inspection text states:
+
+```toml
+inspection = "Ø{{cad.bearing_dia_min:.3f}}–{{cad.bearing_dia_max:.3f}}; Ra ≤{{cad.bearing_finish:g}} µm."
+gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.bearing_dia_min}}", "{{cad.bearing_dia_max}}"] }]
+```
+
+`gauge` names a `[gauges]` record. Its `range_mm` must contain both ends of `band_mm`, and its `resolution_mm` must not exceed the band width (high − low); a one-sided MAX limit is the band `[0, max]`. Text that mixes dimensional and non-dimensional limits declares only the dimensional ones (the Ra above). Gauge kind, datum and reading method, check timing, GO/NO-GO pairs and roughness ranges are not checked, and the inspection text is not parsed.
+
+### Lathe holding
+
+`lathe_holding` checks each lathe setup's grip and unsupported stick-out. Every setup declares `machine_kind`; every lathe setup declares `lathe_hold`, either `"other"` (explicit opt-out, e.g. faceplate work) or:
+
+```toml
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = 10.0, stock_diameter_mm = 10.0, stickout_mm = 15.0, minimum_diameter_mm = 10.0, support = "none" }
+```
+
+`chuck` names a `[workholding]` record. `grip_diameter_mm` must lie inside a chuck's inclusive `grip_range_mm`, or equal (within 1e-6 mm) one of a collet's `grip_sizes_mm`. `stock_diameter_mm` is the largest swung diameter and must be at least the grip and minimum diameters. With `support = "none"`, `stickout_mm` (jaw fronts to free end) must not exceed `limits.stickout_ld_max` × `minimum_diameter_mm`, the smallest diameter in the exposed span; equality passes. `support = "tailstock"` or `"steady_rest"` lifts that limit. A setup with `turning_support` must agree: `chuck_only` ↔ `none`, `tailstock`/`follower` → `tailstock`. Non-lathe setups must not carry `lathe_hold`. Not checked: jaw depth or clamping force, runout, supported bending, spindle-bore clearance, or whether the declared support is installed.
+
+The shaft's first three setups pass (the reversed hold is 22 mm against 4 × Ø5.7 = 22.8 mm). The fit-scribe setup refuses: its stick-out follows the actual scribe, bound as the largest expected reading plus the 16 mm attachment-clearance jaw offset (`fit_stickout_max` = 17.33 + 16 = 33.33 mm), against 4 × Ø6.35 = 25.4 mm on the unsupported bearing. That is a finding about the plan; render it with `--disable-check lathe_holding`.
+
+### Machine capacity
+
+`machine_capacity` screens each setup against its `machine_ref` machine. Lathe setups use their `lathe_hold` (opt out with `lathe_hold = "other"`) and the chuck's `body_diameter_mm`/`body_length_mm`: max(stock Ø, chuck body Ø) ≤ `swing_over_bed_mm`, stock Ø ≤ `swing_over_cross_slide_mm`, and `stickout_mm` + chuck body length ≤ `between_centres_mm`. Every other setup declares `envelope`: `"other"` (saw, bench, no machine) or a table checked against a mill:
+
+```toml
+envelope = { x_span_mm = 469.9, y_span_mm = [152.4, 12.7], work_top_mm = [25.4, 12.7], deepest_cut_mm = [25.4, -2.032], longest_tool_mm = [6.0, 50.0], shortest_tool_mm = [6.0, 41.0] }
+```
+
+Each value is a number or an array summed as a stack, so bindings can name the layers (block + stock, holder gauge + projection, support height + tip Z below the underside). Heights are measured from the table and tool lengths from spindle nose to tip. X/Y spans are the cutter-centre travel the table must make and must not exceed `travel_mm`. Tool change above the work needs `work_top_mm + longest_tool_mm + limits.tool_change_clearance_mm <= spindle_to_table_mm[1]`; reaching the deepest cut needs `deepest_cut_mm + shortest_tool_mm >= spindle_to_table_mm[0]`. Equalities pass. Pairing the deepest cut with the shortest tool is deliberately conservative. Not checked: Z travel, fixture or jaw obstruction, clamps, toolpaths, collisions or fixture footprint on the table.
+
+The base bar binds its stacks from CAD/blank sizes and process parameters: the stated ~18.5 in edge travel, 1-2-3 blocks lying flat (1 in), 1-3/8 in parallels, and archived inventory facts for the vise bed height and R8 collet/drill chuck gauge lengths. Its 1/2 and 5/16 in end mills and 3/8 in drill have no archived length, so the plan bounds them by the neighbouring archived sizes. All base-bar and shaft setups pass.
+
 ## Profiles
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
 | --- | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; applicable longitudinal turning meets bending limits |
-| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | Stock fits; turning meets bending limits; every setup has a readable SVG diagram |
+| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; turning meets bending limits; every declared-input check passes |
+| `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | As `pro`; every setup has a readable SVG diagram |
 
-Enforcement is limited to the declared stock, setup-diagram and static longitudinal-turning contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
+Enforcement is limited to the declared stock, setup-diagram, static longitudinal-turning and declared-input contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
 ```toml
 name = "illustrated"
 features = ["setup_diagrams", "detailed_instructions"]
-enforce = []  # Explicitly skip stock/turning checks; allow missing diagrams.
+enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
@@ -186,7 +303,7 @@ feed = "0.02 mm/rev"
 
 Tool `name` and `description` overrides are independent, as are operation `rpm` and `feed` overrides. A referenced setting must match the tool's shared identity and the plan's `material_key`, even when both cutting fields are overridden. These identities are explicit; printed material descriptions are not parsed.
 
-Shared strings are literal. Plan-owned overrides retain CAD/process bindings. Missing references, mismatched identities and invalid selected records fail before output. Inline-only plans remain supported, and the shared input file cannot be used as the output. This is an authored library, not tool selection or a cutting calculator.
+Shared strings are literal. Plan-owned overrides retain CAD/process bindings. Missing references, mismatched identities and invalid selected records fail before output. Inline-only plans remain supported, and the shared input file cannot be used as the output. This is an authored library, not tool selection; the only calculation is a setting's declared surface speed and feed rate (see [Cutting speeds](#cutting-speeds)).
 
 ## Process TOML
 
@@ -241,6 +358,6 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
+Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks.

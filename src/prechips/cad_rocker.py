@@ -4,7 +4,16 @@ import math
 import tomllib
 from pathlib import Path
 
-from .cad import CadData, CadError, _band, _number, _positive, _string
+from .cad import (
+    CadData,
+    CadError,
+    StockAxis,
+    StockRequirement,
+    _band,
+    _number,
+    _positive,
+    _string,
+)
 
 
 def load_rocker(path: Path, parameters: dict) -> CadData:
@@ -253,4 +262,23 @@ def load_rocker(path: Path, parameters: dict) -> CadData:
         table(raw, "material").get("finish"), "cad.material.finish"
     )
     values["finish"] = values["finish"][0].upper() + values["finish"][1:]
-    return CadData(values, stock_requirement=None, source=path.resolve())
+    # Nominal finished envelope in the sawn flat-bar blank's axes, no rotation:
+    # stock_length spans model X between the mirrored profile vertices; stock_width
+    # spans model Y from the bottom arc's low point on the mirror axis (centre above
+    # the part) to the highest profile vertex or hub; stock_thickness spans model Z
+    # between the hub faces, which enclose the strap faces.
+    ys = [y for _, y in points]
+    high_y = max(*ys, pivot_at[1] + hub_nominal / 2)
+    if centre[1] <= high_y:
+        raise CadError("cad: stock envelope needs the profile arc centre above part")
+    low_y = min(*ys, centre[1] - bottom_radius, pivot_at[1] - hub_nominal / 2)
+    half_length = max(abs(x - centre[0]) for x, _ in points)
+    stock = StockRequirement(
+        "mm",
+        (
+            StockAxis("length", "stock_length", 2 * half_length),
+            StockAxis("width", "stock_width", high_y - low_y),
+            StockAxis("thickness", "stock_thickness", upper - lower),
+        ),
+    )
+    return CadData(values, stock, path.resolve())

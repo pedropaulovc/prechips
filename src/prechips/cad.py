@@ -14,22 +14,27 @@ class CadError(ValueError):
 
 
 @dataclass
-class RectangularStock:
-    length_mm: float
-    width_mm: float
-    thickness_mm: float
+class StockAxis:
+    """One declared stock parameter and the size it must cover along one axis."""
+
+    name: str
+    parameter: str
+    required_mm: float
 
 
 @dataclass
-class RoundStock:
-    diameter_mm: float
-    length_mm: float
+class StockRequirement:
+    """Declared stock axes, each read from `parameters` in `unit` ("in" or "mm")."""
+
+    unit: str
+    axes: tuple[StockAxis, ...]
+    label: str = "CAD requires"
 
 
 @dataclass
 class CadData:
     values: dict
-    stock_requirement: RectangularStock | RoundStock | None
+    stock_requirement: StockRequirement | None
     source: Path
 
 
@@ -121,6 +126,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values[f"{key}_in"] = _mid(bands[0]) / 25.4
         values[f"{key}_min_in"] = low / 25.4
         values[f"{key}_max_in"] = high / 25.4
+        values[f"{key}_band_mm"] = [low, high]
 
     envelope = []
     for key, name, field in (
@@ -130,9 +136,8 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     ):
         item = feature(name)
         limits(key, [_band(item, field, name)])
-        envelope.append(
-            _positive(item.get(f"{field}_nominal"), f"{name}.{field}_nominal")
-        )
+        nominal = _positive(item.get(f"{field}_nominal"), f"{name}.{field}_nominal")
+        envelope.append(StockAxis(key, f"blank_{key}_in", nominal))
     dimensions = ("length", "width", "thickness")
     halfbands = [
         (values[f"{key}_max_in"] - values[f"{key}_min_in"]) / 2 for key in dimensions
@@ -347,7 +352,14 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
-    return CadData(values, RectangularStock(*envelope), path.resolve())
+    # Analysis fields are millimetres; the plan chooses these sizes in inches.
+    if "slot_finish_diameter_in" in parameters:
+        values["slot_finish_diameter_mm"] = parameters["slot_finish_diameter_in"] * 25.4
+    for key in ("length", "width", "thickness"):
+        values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
+        if f"blank_{key}_in" in parameters:
+            values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
+    return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 
 _TOKEN = re.compile(
