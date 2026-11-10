@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from prechips.cad import CadError, RoundStock, load_cad
+from prechips.cad import CadError, StockAxis, StockRequirement, load_cad
 from prechips.cli import main
 from prechips.profiles import HOBBY, PRO, load_profile
 from prechips.stock import StockError, check_stock_fit
@@ -11,6 +11,17 @@ from prechips.traveler import PlanError, load_plan, render_traveler
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = ROOT / "examples/comparison/pivot-shaft.toml"
 SOURCE = ROOT / "examples/cad/pivot-shaft-v40.toml"
+
+
+def round_stock(diameter, length):
+    return StockRequirement(
+        "mm",
+        (
+            StockAxis("diameter", "stock_dia_mm", diameter),
+            StockAxis("length", "stock_length_mm", length),
+        ),
+        "required",
+    )
 
 
 def prepare(tmp_path, replacements=(), plan_replacements=()):
@@ -44,7 +55,7 @@ def test_attachment_radius_and_cap_frames_follow_source():
     assert values["south_apex_z"] == 1.75
     html = render_traveler(plan)
     assert "6.330–6.350" in html
-    assert plan.cad.stock_requirement == RoundStock(10.0, 180.5)
+    assert plan.cad.stock_requirement == round_stock(10.0, 180.5)
 
 
 @pytest.mark.parametrize(
@@ -93,7 +104,7 @@ def test_round_stock_diameter_tracks_nominal_not_source_limit(tmp_path):
         [('"dia_nominal" = 10.0', '"dia_nominal" = 10.1')],
     )
     plan = load_plan(path)
-    assert plan.cad.stock_requirement == RoundStock(10.1, 180.5)
+    assert plan.cad.stock_requirement == round_stock(10.1, 180.5)
     plan.parameters["stock_length_mm"] = 180.5
     with pytest.raises(StockError, match="diameter"):
         check_stock_fit(plan)
@@ -346,7 +357,7 @@ def test_blank_and_facing_follow_authored_inputs(
     path = prepare(tmp_path, plan_replacements=[(old, new)])
     plan = load_plan(path)
     assert plan.cad.values["blank_length"] == pytest.approx(blank)
-    assert plan.cad.stock_requirement.length_mm == pytest.approx(blank)
+    assert plan.cad.stock_requirement.axes[1].required_mm == pytest.approx(blank)
     assert plan.cad.values["north_grip"] == pytest.approx(grip)
     assert plan.cad.values["plain_end_face_passes"] == passes
     assert str(blank) in plan.data["stock"]

@@ -3,7 +3,16 @@
 import tomllib
 from pathlib import Path
 
-from .cad import CadData, CadError, _band, _number, _positive, _string
+from .cad import (
+    CadData,
+    CadError,
+    StockAxis,
+    StockRequirement,
+    _band,
+    _number,
+    _positive,
+    _string,
+)
 
 
 def load_bracket(path: Path, parameters: dict) -> CadData:
@@ -220,4 +229,21 @@ def load_bracket(path: Path, parameters: dict) -> CadData:
         strip_y_min=-inner - process("wall_leave_mm"),
         crown_finish_depth=-(inner - outer) - process("arch_breakthrough_mm"),
     )
-    return CadData(values, stock_requirement=None, source=path.resolve())
+    # Nominal finished envelope in the sawn flat-bar blank's axes, no rotation:
+    # raw_width_mm (bar section) spans model X across the foot and ear;
+    # raw_length_mm (other bar section) spans model Z from the outer face to the
+    # foot free end; sawn_height_mm (sawn length) spans model Y from the seat to
+    # the crown of the upper-semicircle arch about the bore.
+    stock = StockRequirement(
+        "mm",
+        (
+            StockAxis("width", "raw_width_mm", max(xmax, exmax) - min(xmin, exmin)),
+            StockAxis("length", "raw_length_mm", max(zmax, inner) - outer),
+            StockAxis(
+                "height",
+                "sawn_height_mm",
+                max(top, by + values["arch_radius"]) - seat,
+            ),
+        ),
+    )
+    return CadData(values, stock, path.resolve())

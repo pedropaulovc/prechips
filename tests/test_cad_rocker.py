@@ -27,7 +27,17 @@ def prepare(tmp_path, source_text, plan_text=None):
 
 def test_rocker_bound_geometry_preserves_authored_aims_and_plugs():
     cad = load_rocker(SOURCE, PARAMETERS)
-    assert cad.stock_requirement is None
+    stock = cad.stock_requirement
+    assert stock.unit == "mm"
+    assert [(axis.name, axis.parameter) for axis in stock.axes] == [
+        ("length", "stock_length"),
+        ("width", "stock_width"),
+        ("thickness", "stock_thickness"),
+    ]
+    # Tip-to-tip radial land ends, bottom-arc low point to top-edge end, hub faces.
+    assert [axis.required_mm for axis in stock.axes] == pytest.approx(
+        [292.50913546321272, 29.294640118904454, 7.0565]
+    )
     assert cad.values["rod_x"] == pytest.approx(133.06740213488345)
     assert cad.values["rod_upper_y"] == pytest.approx(8.456064115939025)
     assert cad.values["rod_lower_y"] == pytest.approx(-8.456064115939025)

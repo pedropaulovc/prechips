@@ -55,7 +55,17 @@ def test_bracket_holes_transform_and_inspection_reach_rendered_output(tmp_path):
     assert html.count("Ø6.510–6.540") == 2
     assert html.count("6.500 GO") == 2
     assert html.count("6.530 NO-GO") == 2
-    assert loaded.cad.stock_requirement is None
+    # The moved arch centre raises the crown: seat to 25.25 + R7.
+    stock = loaded.cad.stock_requirement
+    assert stock.unit == "mm"
+    assert [(axis.name, axis.parameter) for axis in stock.axes] == [
+        ("width", "raw_width_mm"),
+        ("length", "raw_length_mm"),
+        ("height", "sawn_height_mm"),
+    ]
+    assert [axis.required_mm for axis in stock.axes] == pytest.approx(
+        [16.0, 24.2, 32.25]
+    )
     assert "example-v39" in html
     assert "Ø4.572 HSS #15 drill" in html
     assert "square to 18 × 26.2 × 34.2 mm" in html

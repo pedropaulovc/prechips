@@ -1,9 +1,11 @@
-"""Compare declared stock with the adapter's rectangular or round demand."""
+"""Compare declared stock with the adapter's per-axis stock requirement."""
 
 from math import isclose, isfinite
 
-from prechips.cad import RectangularStock, RoundStock
 from prechips.traveler import LoadedPlan
+
+# Declared-stock unit: (millimetres per unit, name used in missing-value errors).
+_UNITS = {"in": (25.4, "inches"), "mm": (1.0, "mm")}
 
 
 class StockError(ValueError):
@@ -19,42 +21,28 @@ def check_stock_fit(plan: LoadedPlan) -> None:
         raise StockError(
             "stock_fit: this CAD adapter does not provide a stock requirement"
         )
-    if isinstance(requirement, RectangularStock):
-        dimensions = (
-            ("length", "blank_length_in", requirement.length_mm),
-            ("width", "blank_width_in", requirement.width_mm),
-            ("thickness", "blank_thickness_in", requirement.thickness_mm),
-        )
-        unit, scale = "in", 25.4
-        unit_name = "inches"
-        requirement_label = "CAD requires"
-    elif isinstance(requirement, RoundStock):
-        dimensions = (
-            ("diameter", "stock_dia_mm", requirement.diameter_mm),
-            ("length", "stock_length_mm", requirement.length_mm),
-        )
-        unit, scale = "mm", 1.0
-        unit_name = "mm"
-        requirement_label = "required"
-    else:
+    if requirement.unit not in _UNITS:
         raise StockError("stock_fit: unsupported CAD stock requirement")
-    for axis, key, required_mm in dimensions:
-        declared = plan.parameters.get(key)
+    scale, unit_name = _UNITS[requirement.unit]
+    label = requirement.label
+    for axis in requirement.axes:
+        declared = plan.parameters.get(axis.parameter)
         if (
             type(declared) not in (int, float)
             or not isfinite(declared)
             or declared <= 0
         ):
             raise StockError(
-                f"stock_fit: {axis}: parameters.{key} must declare a finite positive "
-                f"size in {unit_name}; {requirement_label} {required_mm:.15g} mm"
+                f"stock_fit: {axis.name}: parameters.{axis.parameter} must declare "
+                f"a finite positive size in {unit_name}; "
+                f"{label} {axis.required_mm:.15g} mm"
             )
         declared_mm = declared * scale
         # Ignore only floating-point conversion noise, not display rounding.
-        if declared_mm < required_mm and not isclose(
-            declared_mm, required_mm, rel_tol=1e-12, abs_tol=1e-12
+        if declared_mm < axis.required_mm and not isclose(
+            declared_mm, axis.required_mm, rel_tol=1e-12, abs_tol=1e-12
         ):
             raise StockError(
-                f"stock_fit: {axis}: declared {declared:.15g} {unit} "
-                f"({declared_mm:.15g} mm); {requirement_label} {required_mm:.15g} mm"
+                f"stock_fit: {axis.name}: declared {declared:.15g} {requirement.unit} "
+                f"({declared_mm:.15g} mm); {label} {axis.required_mm:.15g} mm"
             )
