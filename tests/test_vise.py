@@ -7,7 +7,11 @@ from prechips.cli import main
 from prechips.traveler import LoadedPlan
 from prechips.vise import check
 
-LIMITS = {"vise_grip_min_mm": 6.0, "vise_grip_fraction_min": 0.5}
+LIMITS = {
+    "vise_grip_min_mm": 6.0,
+    "vise_grip_fraction_min": 0.5,
+    "vise_centre_fraction_max": 0.25,
+}
 SHOP = {
     "workholding": {
         "vise": {
@@ -73,7 +77,8 @@ def _plan(setup, limits=LIMITS):
         _hold(along_jaws_mm=400.0, overhang_mm=[150.0, "rest"]),  # overhang unjudged
         _hold(along_jaws_mm=120.0, overhang_mm=["rest", 20.0]),
         _hold(along_jaws_mm=100.009, overhang_mm=[0.0, 0.0]),  # authored rounding
-        _hold(along_jaws_mm=50.0, overhang_mm=[0.0, "rest"]),  # reaches the centre
+        # Gripped 0-75: midpoint 12.5 off centre = 0.25 x half width 50.
+        _hold(along_jaws_mm=75.0, overhang_mm=[0.0, "rest"]),
         _hold(
             along_jaws_mm=40.0,
             overhang_mm=[0.0, "rest"],
@@ -108,6 +113,13 @@ def test_limits_must_be_declared():
         r"shop.limits.vise_grip_fraction_min: required but not declared",
     ):
         check(_plan({"vise_hold": _hold()}, {"vise_grip_min_mm": 6.0}))
+    # A percent typo is a shop error, not a per-setup refusal.
+    for key in ("vise_grip_fraction_min", "vise_centre_fraction_max"):
+        with pytest.raises(
+            CheckError, match=rf"^shop\.limits\.{key}: expected a fraction above 0"
+        ):
+            check(_plan({"vise_hold": _hold()}, {**LIMITS, key: 33.33}))
+    check(_plan({"vise_hold": _hold()}, {**LIMITS, "vise_centre_fraction_max": 1}))
 
 
 @pytest.mark.parametrize(
@@ -151,8 +163,12 @@ def test_limits_must_be_declared():
             r"overhangs 5 \+ 5 mm and shop.workholding.vise jaw width 100 mm contradict",
         ),
         (
-            {"vise_hold": _hold(along_jaws_mm=49.999, overhang_mm=[0.0, "rest"])},
-            "gripped 0–49.999 mm along the jaws misses the jaw centre 50 mm",
+            {"vise_hold": _hold(along_jaws_mm=74.999, overhang_mm=[0.0, "rest"])},
+            (
+                r"gripped 0–74.999 mm along the jaws is centred 12.5005 mm off the "
+                r"jaw centre, over vise_centre_fraction_max 0.25 × jaw width 100 / 2 "
+                r"= 12.5 mm"
+            ),
         ),
         (
             {"vise_hold": _twin(along_jaws_mm=60.001)},

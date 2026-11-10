@@ -11,6 +11,7 @@ SHOP = {
     "workholding": {
         "chuck": {"kind": "chuck", "grip_range_mm": [3.0, 140.0]},
         "collet": {"kind": "collet", "grip_sizes_mm": [6.35, 10.0]},
+        "vise": {"kind": "vise", "grip_range_mm": [3.0, 140.0]},
     },
     "limits": {"stickout_ld_max": 4.0},
 }
@@ -80,6 +81,10 @@ def test_support_lifts_stickout_limit(support):
         (
             {"lathe_hold": _hold(chuck="collet", grip_diameter_mm=8.0)},
             r"grip Ø8 mm is not a shop.workholding.collet size \(6.35, 10 mm\)",
+        ),
+        (
+            {"lathe_hold": _hold(chuck="vise")},
+            "lathe_hold.chuck: shop.workholding.vise is not a chuck or collet",
         ),
         (
             {

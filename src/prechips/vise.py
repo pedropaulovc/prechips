@@ -34,6 +34,9 @@ def _number(value: object, where: str) -> float:
 
 
 def _limit(shop_data: dict, key: str, at: str) -> float:
+    limits = shop_data.get("limits")
+    if isinstance(limits, dict) and key in limits:
+        return shop.limit(shop_data, key)  # a bad value is a shop error
     try:
         return shop.limit(shop_data, key)
     except CheckError as error:
@@ -157,11 +160,18 @@ def _check(shop_data: dict, held: dict, at: str) -> None:
     if end <= start:
         raise CheckError(f"{at}: the part does not reach between the jaws")
     centre = width / 2
-    if held["jaw_offset"] == "centred" and not start <= centre <= end:
-        raise CheckError(
-            f"{at}: gripped {start:g}–{end:g} mm along the jaws misses the jaw "
-            f"centre {centre:g} mm; centre the part or declare it balanced"
+    if held["jaw_offset"] == "centred":
+        off = abs((start + end) / 2 - centre)
+        fraction = _limit(
+            shop_data, "vise_centre_fraction_max", f"{at}: a centred hold"
         )
+        if off > fraction * centre:
+            raise CheckError(
+                f"{at}: gripped {start:g}–{end:g} mm along the jaws is centred "
+                f"{off:g} mm off the jaw centre, over vise_centre_fraction_max "
+                f"{fraction:g} × jaw width {width:g} / 2 = {fraction * centre:g} mm; "
+                "centre the part or declare it balanced"
+            )
     # A twin part sits mirrored at the other jaw end; both fit only when this
     # part lies wholly on one side of the jaw centre.
     if held.get("balance") == "twin_part" and -left < centre < width + right:

@@ -101,6 +101,11 @@ vise_grip_min_mm = 6.0
 # Training texts are stricter (Introduction to Machining §9.5: no more than
 # 1/8 in above the jaw plates beyond the cut); raise the fraction to follow them.
 vise_grip_fraction_min = 0.3333
+# House rule (Pedro, 2026-11-10), no published number: a "centred" hold keeps
+# the midpoint of the gripped span within the middle third of the jaw width
+# (this fraction of the half width either side of centre). TC 9-524 p. 8-16
+# says only that work held at the end of the vise needs a spacing block.
+vise_centre_fraction_max = 0.3333
 
 # Source: base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).
