@@ -106,6 +106,7 @@ sizing = "other"
 instruction = "Mill opposite long edge in −X, conventional; rough .050–.080 radial to {{cad.width_rough_in:.3f}} width, finish to {{cad.width_in:.3f}} from ZERO EDGE."
 settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
 
 [[setups]]
 machine_kind = "other"

@@ -131,6 +131,7 @@ turning_support = { kind = "follower", chuck_z_mm = "{{cad.supported_chuck_z}}",
 cut_kind = "other"
 instruction = "Check shoulder OD; retain bar surface."
 inspection = "Ø{{cad.shoulder_dia_min:.2f}}–{{cad.shoulder_dia_max:.2f}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.shoulder_dia_min}}", "{{cad.shoulder_dia_max}}"] }]
 
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
@@ -155,6 +156,7 @@ settings = "shaft-face-hss-1018"
 cut_diameter_mm = "{{cad.shoulder_dia}}"
 feed = "0.05 mm/rev"
 inspection = "Thrust face Ra ≤{{cad.thrust_finish:g}} µm."
+gauge_checks = "other"
 
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
@@ -169,6 +171,7 @@ settings = "shaft-finish-turn-hss-1018"
 cut_diameter_mm = "{{cad.bearing_dia}}"
 feed = "{{process.body_finish_feed_mm_rev:.2f}} mm/rev"
 inspection = "Ø{{cad.bearing_dia_min:.3f}}–{{cad.bearing_dia_max:.3f}} at both ends and middle; Ra ≤{{cad.bearing_finish:g}} µm."
+gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.bearing_dia_min}}", "{{cad.bearing_dia_max}}"] }]
 
 [[setups.operations]]
 cut_kind = "other"
@@ -179,6 +182,11 @@ instruction = "South relief Ø{{cad.south_relief_dia:.2f}}: plunge Z{{cad.south_
 settings = "shaft-relief-1018"
 cut_diameter_mm = "{{cad.south_relief_dia}}"
 inspection = "Relief Ø{{cad.south_relief_dia_min:.2f}}–{{cad.south_relief_dia_max:.2f}}; width {{cad.south_relief_width_min:g}}–{{cad.south_relief_width_max:g}}; corner R≤{{cad.south_corner_max:g}}."
+gauge_checks = [
+  { gauge = "calipers", band_mm = ["{{cad.south_relief_dia_min}}", "{{cad.south_relief_dia_max}}"] },
+  { gauge = "calipers", band_mm = ["{{cad.south_relief_width_min}}", "{{cad.south_relief_width_max}}"] },
+  { gauge = "measuring-loupe", band_mm = [0.0, "{{cad.south_corner_max}}"] },
+]
 
 [[setups]]
 machine_kind = "lathe"
@@ -205,6 +213,7 @@ settings = "shaft-rough-turn-hss-1018"
 cut_diameter_mm = "{{cad.journal_rough_dia}}"
 feed = "Rough {{process.journal_rough_feed_mm_rev:.2f}} mm/rev"
 inspection = "Journal Ø{{cad.journal_dia_min:.3f}}–{{cad.journal_dia_max:.3f}}; Ra ≤{{cad.journal_finish:g}} µm."
+gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.journal_dia_min}}", "{{cad.journal_dia_max}}"] }]
 
 [[setups.operations]]
 cut_kind = "other"
@@ -215,6 +224,11 @@ instruction = "Plunge north relief Ø{{cad.north_relief_dia:.2f}}: Z{{cad.north_
 settings = "shaft-relief-1018"
 cut_diameter_mm = "{{cad.north_relief_dia}}"
 inspection = "Ø{{cad.north_relief_dia_min:.2f}}–{{cad.north_relief_dia_max:.2f}}; width {{cad.north_relief_width_min:g}}–{{cad.north_relief_width_max:g}}; corner R≤{{cad.north_corner_max:g}}."
+gauge_checks = [
+  { gauge = "calipers", band_mm = ["{{cad.north_relief_dia_min}}", "{{cad.north_relief_dia_max}}"] },
+  { gauge = "calipers", band_mm = ["{{cad.north_relief_width_min}}", "{{cad.north_relief_width_max}}"] },
+  { gauge = "measuring-loupe", band_mm = [0.0, "{{cad.north_corner_max}}"] },
+]
 
 [[setups.operations]]
 cut_kind = "other"
@@ -237,6 +251,12 @@ instruction_detailed = """1. Set R{{cad.north_dome_radius:.2f}}: rotate inner fr
 4. Finish: stop infeed when one sweep cuts continuously from rim to centre and the apex flat is gone."""
 settings = "shaft-dome-1018"
 inspection = "Height {{cad.north_dome_height_min:g}}–{{cad.north_dome_height_max:g}}; journal length {{cad.journal_length_min:g}}–{{cad.journal_length_max:g}}; shoulder {{cad.shoulder_length_min:.2f}}–{{cad.shoulder_length_max:.2f}}. Break shoulder OD, journal-side relief edge Z{{cad.north_relief_end:g}} and dome rim ≤{{cad.edge_break_max:g}}."
+gauge_checks = [
+  { gauge = "calipers", band_mm = ["{{cad.north_dome_height_min}}", "{{cad.north_dome_height_max}}"] },
+  { gauge = "calipers", band_mm = ["{{cad.journal_length_min}}", "{{cad.journal_length_max}}"] },
+  { gauge = "calipers", band_mm = ["{{cad.shoulder_length_min}}", "{{cad.shoulder_length_max}}"] },
+  { gauge = "measuring-loupe", band_mm = [0.0, "{{cad.edge_break_max}}"] },
+]
 
 
 [[setups]]
@@ -272,6 +292,7 @@ settings = "shaft-face-hss-1018"
 cut_diameter_mm = "{{cad.bearing_dia}}"
 feed = "0.05 mm/rev"
 inspection = "Scribe zero 0.00 ±0.05; end {{process.fit_min_mm:.2f}}–{{process.fit_max_mm:.2f}} beyond scribe. Reface if long; reject if short."
+gauge_checks = [{ gauge = "lathe-z-dro", band_mm = ["{{process.fit_min_mm}}", "{{process.fit_max_mm}}"] }]
 
 [[setups.operations]]
 cut_kind = "other"
@@ -282,3 +303,4 @@ instruction = "Finish south cap R{{cad.south_dome_radius:.2f}}; frame-edge-to-ti
 instruction_detailed = "Use Op 110 steps 1–4: set R{{cad.south_dome_radius:.2f}}, frame-edge-to-tip {{cad.south_frame_edge_to_tip:.2f}} mm. Touch apex Z{{cad.south_apex_z:.2f}} in the scribe datum and lock carriage; pivot Z{{cad.south_sphere_center_z:.2f}}. Sweep only base rim Z{{cad.south_base_z:.2f}} to apex. Stop infeed at continuous rim-to-centre cut: further infeed shortens the fitted end. Break rim ≤{{cad.edge_break_max:g}}; trial fit; oil."
 settings = "shaft-dome-1018"
 inspection = "Dome height {{cad.south_dome_height_min:g}}–{{cad.south_dome_height_max:g}}; final length to actual ear fit."
+gauge_checks = [{ gauge = "calipers", band_mm = ["{{cad.south_dome_height_min}}", "{{cad.south_dome_height_max}}"] }]

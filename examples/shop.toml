@@ -59,6 +59,16 @@ resolution_mm = 0.0254
 range_mm = [0.0, 304.8]
 resolution_mm = 0.0254
 
+# 10x measuring loupe with a 0.1 mm reticle (edge breaks, relief corners).
+[gauges.measuring-loupe]
+range_mm = [0.0, 10.0]
+resolution_mm = 0.1
+
+# PM-1127VF-LB carriage Z DRO scale read as a length gauge (fit-scribe hold).
+[gauges.lathe-z-dro]
+range_mm = [0.0, 699.77]
+resolution_mm = 0.005
+
 [limits]
 stickout_ld_max = 4.0
 tool_change_clearance_mm = 25.0

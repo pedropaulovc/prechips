@@ -34,6 +34,11 @@ CHECKS: dict[str, Check] = {
         operation_fields=frozenset({"sizing"}),
     ),
     "indexing": Check(module="prechips.indexing", setup_fields=frozenset({"indexing"})),
+    "gauge_capability": Check(
+        module="prechips.gauges",
+        setup_fields=frozenset({"gauge_checks"}),
+        operation_fields=frozenset({"gauge_checks"}),
+    ),
 }
 
 
