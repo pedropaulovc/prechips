@@ -147,15 +147,12 @@ def _follower_factor(x: float, offset: float) -> float:
 
 
 def _bending_factor(
-    support: dict,
-    start: float,
-    end: float,
-    checked: tuple[float, float] | None = None,
+    support: dict, start: float, end: float, kept: tuple[float, float]
 ) -> tuple[float, float, str]:
     """Return maximum delta*EI/F, authored Z and support state at that tool Z.
 
     The whole traverse is validated against the supports; the maximum is taken
-    over ``checked`` (authored Z pair inside the traverse) when given.
+    over ``kept``, the authored Z pair of the retained feature inside it.
     """
     kind = support.get("kind")
     keys = {"kind", "chuck_z_mm"}
@@ -171,14 +168,14 @@ def _bending_factor(
     chuck = _number(support.get("chuck_z_mm"), "turning_support.chuck_z_mm")
     if start == end:
         raise TurningError("start_z_mm and end_z_mm must describe a nonzero traverse")
-    c_start, c_end = checked or (start, end)
+    c_start, c_end = kept
     if (
         not min(start, end)
         <= min(c_start, c_end)
         <= max(c_start, c_end)
         <= max(start, end)
     ):
-        raise TurningError("checked range must lie within the declared traverse")
+        raise TurningError("kept range must lie within the declared traverse")
     if kind == "chuck_only":
         a, b = start - chuck, end - chuck
         if min(a, b) < 0 < max(a, b):
@@ -246,8 +243,8 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
             "feed_mm_rev",
             "minimum_diameter_mm",
             "max_deflection_mm",
-            "checked_start_z_mm",
-            "checked_end_z_mm",
+            "kept_start_z_mm",
+            "kept_end_z_mm",
         },
         "turning cut",
     )
@@ -271,18 +268,14 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
         phase_limit,
         _positive(cut.get("max_deflection_mm", phase_limit), "max_deflection_mm"),
     )
-    checked = None
-    if "checked_start_z_mm" in cut or "checked_end_z_mm" in cut:
-        checked = (
-            _number(cut.get("checked_start_z_mm", start_z), "checked_start_z_mm"),
-            _number(cut.get("checked_end_z_mm", end_z), "checked_end_z_mm"),
-        )
-    traverse = _bending_factor(support, start_z, end_z)
-    factor, worst_z, support_state = (
-        traverse
-        if checked is None
-        else _bending_factor(support, start_z, end_z, checked)
+    # The author states which part of the traverse is retained; sacrificial
+    # stubs, run-in and parted-off ends are traversed but not held to the limit.
+    kept = (
+        _number(cut.get("kept_start_z_mm"), "kept_start_z_mm"),
+        _number(cut.get("kept_end_z_mm"), "kept_end_z_mm"),
     )
+    factor, worst_z, support_state = _bending_factor(support, start_z, end_z, kept)
+    traverse = _bending_factor(support, start_z, end_z, (start_z, end_z))
     feed = numbers["feed_mm_rev"] / 25.4
     force_config = config["force"]
     feed_factor = _feed_factor(feed, force_config["feed_factors"])
@@ -322,18 +315,14 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
         raise TurningError("numerical range exceeded in bending estimate")
     if deflection <= limit:
         return
-    extent = ""
-    if checked is not None:
-        extent = (
-            f" over checked Z {checked[0]:.6g}..{checked[1]:.6g} mm; whole traverse "
-            f"{traverse_deflection:.6g} mm at Z {traverse[1]:.6g} mm ({traverse[2]})"
-        )
     raise TurningError(
         f"estimated radial bending {deflection:.6g} mm (about {2 * deflection:.6g} mm "
         f"on diameter) exceeds limit {limit:.6g} mm at Z {worst_z:.6g} mm "
-        f"({support_state}){extent}; radial force {force:.6g} N, tangential "
-        f"{tangential:.6g} N, radial DOC {doc:.6g} mm, model diameter "
-        f"{diameter:.6g} mm; static estimate, not measured diameter error"
+        f"({support_state}) over kept Z {kept[0]:.6g}..{kept[1]:.6g} mm; whole "
+        f"traverse {traverse_deflection:.6g} mm at Z {traverse[1]:.6g} mm "
+        f"({traverse[2]}); radial force {force:.6g} N, tangential {tangential:.6g} N, "
+        f"radial DOC {doc:.6g} mm, model diameter {diameter:.6g} mm; static "
+        "estimate, not measured diameter error"
     )
 
 

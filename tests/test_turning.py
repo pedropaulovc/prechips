@@ -29,7 +29,13 @@ def _cut(**changes):
         "minimum_diameter_mm": 10.0,
     }
     cut.update(changes)
+    cut.setdefault("kept_start_z_mm", cut["start_z_mm"])
+    cut.setdefault("kept_end_z_mm", cut["end_z_mm"])
     return cut
+
+
+def _whole(support, start, end):
+    return _bending_factor(support, start, end, (start, end))
 
 
 def _plan(cut=None, support=None):
@@ -75,14 +81,14 @@ def _oracle_config(tmp_path):
 def test_known_load_cantilever_and_midspan(sign):
     # Independent closed forms: 100 N, E=200000 N/mm2, I=1000 mm4.
     force, ei = 100, 200000 * 1000
-    factor, z, _ = _bending_factor(
+    factor, z, _ = _whole(
         {"kind": "chuck_only", "chuck_z_mm": 7},
         7 + sign * 100,
         7 + sign * 20,
     )
     assert force * factor / ei == pytest.approx(1 / 6)
     assert z == 7 + sign * 100
-    factor, z, _ = _bending_factor(
+    factor, z, _ = _whole(
         {"kind": "tailstock", "chuck_z_mm": 7, "centre_z_mm": 7 + sign * 100},
         7 + sign * 80,
         7 + sign * 20,
@@ -93,11 +99,11 @@ def test_known_load_cantilever_and_midspan(sign):
 
 def test_tailstock_uses_actual_cut_position_not_midspan_always():
     support = {"kind": "tailstock", "chuck_z_mm": 0, "centre_z_mm": 100}
-    factor, z, _ = _bending_factor(support, 10, 20)
+    factor, z, _ = _whole(support, 10, 20)
     assert z == 20
     assert factor == pytest.approx(20**2 * 80**2 / 300)
     with pytest.raises(TurningError, match="within.*span"):
-        _bending_factor(support, 10, 101)
+        _whole(support, 10, 101)
 
 
 def _follower(**changes):
@@ -114,14 +120,14 @@ def _follower(**changes):
 
 
 def test_pre_engagement_interior_maximum_is_not_skipped():
-    factor, z, state = _bending_factor(_follower(), 90, 10)
+    factor, z, state = _whole(_follower(), 90, 10)
     assert z == 50
     assert factor == pytest.approx(100**3 / 48)
     assert state == "before follower engagement"
 
 
 def test_pre_engagement_boundary_is_checked_on_tailstock():
-    factor, z, state = _bending_factor(_follower(engage_z_mm=70), 90, 10)
+    factor, z, state = _whole(_follower(engage_z_mm=70), 90, 10)
     assert z == 70
     assert factor == pytest.approx(70**2 * 30**2 / 300)
     assert state == "before follower engagement"
@@ -145,7 +151,7 @@ def test_follower_span_is_chuck_to_pad_not_cantilever_gap():
 )
 def test_follower_rejects_unearned_support(support, start, end, message):
     with pytest.raises(TurningError, match=message):
-        _bending_factor(support, start, end)
+        _whole(support, start, end)
 
 
 def test_uneven_pass_order_cannot_escape_final_diameter_bound(tmp_path):
@@ -311,12 +317,12 @@ def test_numbering_counts_other_setups_and_other_operations():
 def test_current_shaft_finish_independent_hand_oracle():
     # Parent's independent handbook calculation: Ft=Fr=16.4721 N, D6.35,
     # chuck Z=-1.5, centre166, kept body to Z156.25, at Z152 BEFORE follower
-    # engagement. The checked range still reaches past engagement, so the
-    # refusal stands with identical checked and whole-traverse maxima.
+    # engagement. The kept range still reaches past engagement, so the
+    # refusal stands with identical kept and whole-traverse maxima.
     cut = _cut(
         start_z_mm=166,
         end_z_mm=0,
-        checked_start_z_mm=156.25,
+        kept_start_z_mm=156.25,
         start_diameter_mm=6.55,
         end_diameter_mm=6.35,
         max_radial_doc_mm=0.1,
@@ -335,13 +341,13 @@ def test_current_shaft_finish_independent_hand_oracle():
     for fragment in (
         "0.00916328 mm (about 0.0183266 mm on diameter)",
         "limit 0.005 mm at Z 152 mm (before follower engagement)",
-        "over checked Z 156.25..0 mm; whole traverse 0.00916328 mm at Z 152 mm",
+        "over kept Z 156.25..0 mm; whole traverse 0.00916328 mm at Z 152 mm",
         "radial force 16.4721 N, tangential 16.4721 N",
     ):
         assert fragment in str(caught.value)
 
 
-def test_checked_range_bounds_the_maximum_not_the_support_checks():
+def test_kept_range_bounds_the_maximum_not_the_support_checks():
     chuck = {"kind": "chuck_only", "chuck_z_mm": 0}
     # Sacrificial stub beyond Z5 is traversed but not held to the limit.
     factor, z, _ = _bending_factor(chuck, 10, 1, (5, 1))
@@ -349,19 +355,19 @@ def test_checked_range_bounds_the_maximum_not_the_support_checks():
     assert _bending_factor(chuck, 10, 1, (5, 1)) == _bending_factor(
         chuck, 10, 1, (1, 5)
     )
-    with pytest.raises(TurningError, match="checked range must lie within"):
+    with pytest.raises(TurningError, match="kept range must lie within"):
         _bending_factor(chuck, 10, 1, (11, 1))
     # A narrowed range never relaxes traverse validity: the cut still crosses.
     with pytest.raises(TurningError, match="crosses chuck"):
         _bending_factor(chuck, 10, -1, (5, 1))
-    # Tailstock: the maximum moves to the checked end nearest midspan.
+    # Tailstock: the maximum moves to the kept end nearest midspan.
     support = {"kind": "tailstock", "chuck_z_mm": 0, "centre_z_mm": 100}
     factor, z, _ = _bending_factor(support, 90, 10, (90, 70))
     assert z == 70
     assert factor == pytest.approx(70**2 * 30**2 / 300)
 
 
-def test_checked_range_entirely_after_follower_engagement_uses_pad_support():
+def test_kept_range_entirely_after_follower_engagement_uses_pad_support():
     support = _follower()
     factor, z, state = _bending_factor(support, 90, 10, (30, 10))
     assert (z, state) == (30, "follower engaged")
@@ -372,22 +378,20 @@ def test_checked_range_entirely_after_follower_engagement_uses_pad_support():
     assert factor == pytest.approx(100**3 / 48)
 
 
-def test_refusal_reports_checked_and_whole_traverse_maxima(tmp_path):
+def test_refusal_reports_kept_and_whole_traverse_maxima(tmp_path):
     config = _oracle_config(tmp_path)
-    cut = _cut(start_z_mm=10, end_z_mm=1, checked_start_z_mm=5, max_deflection_mm=1e-9)
+    cut = _cut(start_z_mm=10, end_z_mm=1, kept_start_z_mm=5, max_deflection_mm=1e-9)
     with pytest.raises(TurningError) as caught:
         check_turning_deflection(_plan(cut), config)
     message = str(caught.value)
-    assert "at Z 5 mm (chuck only) over checked Z 5..1 mm; whole traverse" in message
+    assert "at Z 5 mm (chuck only) over kept Z 5..1 mm; whole traverse" in message
     assert "at Z 10 mm (chuck only)" in message
     # Narrowing to the kept stub-free region passes under the same limit that
-    # the whole traverse exceeds; one omitted bound defaults to the traverse end.
+    # the whole traverse exceeds.
     limit = 176.149575964 * 5**3 / (3 * 200000 * math.pi * 10**4 / 64) * 1.000001
     check_turning_deflection(
         _plan(
-            _cut(
-                start_z_mm=10, end_z_mm=1, checked_start_z_mm=5, max_deflection_mm=limit
-            )
+            _cut(start_z_mm=10, end_z_mm=1, kept_start_z_mm=5, max_deflection_mm=limit)
         ),
         config,
     )
@@ -397,16 +401,26 @@ def test_refusal_reports_checked_and_whole_traverse_maxima(tmp_path):
         )
 
 
+@pytest.mark.parametrize("field", ["kept_start_z_mm", "kept_end_z_mm"])
+def test_kept_range_is_mandatory_not_defaulted(field):
+    # The author must state the retained extent; nothing is assumed from the
+    # traverse, even where the whole traverse would pass.
+    cut = _cut(max_deflection_mm=1.0)
+    del cut[field]
+    with pytest.raises(TurningError, match=f"{field}: expected a finite number"):
+        check_turning_deflection(_plan(cut))
+
+
 def test_pad_band_can_exactly_fit_and_axis_can_be_reversed():
     support = _follower(engage_z_mm=80, offset_mm=8, pad_width_mm=4)
-    expected, expected_z, state = _bending_factor(support, 90, 10)
+    expected, expected_z, state = _whole(support, 90, 10)
     reversed_support = _follower(
         centre_z_mm=-100,
         engage_z_mm=-80,
         offset_mm=8,
         pad_width_mm=4,
     )
-    factor, z, reverse_state = _bending_factor(reversed_support, -90, -10)
+    factor, z, reverse_state = _whole(reversed_support, -90, -10)
     assert factor == pytest.approx(expected)
     assert z == -expected_z
     assert reverse_state == state
