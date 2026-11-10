@@ -8,7 +8,7 @@ from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
-from prechips import speeds
+from prechips import indexing, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
@@ -542,11 +542,18 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             f"<h2>Setup {setup_number} — {_html(setup['title'])}"
             f'<span class="machine">{_html(setup["machine"])}</span></h2>'
         )
-        if "holding" in setup or "datum" in setup:
+        index = indexing.setting(
+            loaded, setup, f"setup {setup_number} ({setup['title']})"
+        )
+        if "holding" in setup or "datum" in setup or index is not None:
             lines.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+            if index is not None:
+                lines.append(
+                    f"<dt>Index:</dt><dd>{_html(indexing.describe(index))}</dd>"
+                )
             lines.append("</dl>")
         lines.append("</div>")
         diagram = _diagram_html(
