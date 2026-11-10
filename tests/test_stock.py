@@ -1,7 +1,7 @@
 import pytest
 from test_cad import PLAN, prepare
+from test_cli import OLDER_CHECKS_ONLY, stock_free_profile, with_diagram
 from test_cli import PLAN as LITERAL_PLAN
-from test_cli import stock_free_profile, with_diagram
 
 from prechips.cli import main
 from prechips.profiles import ProfileError, load_profile
@@ -10,7 +10,8 @@ from prechips.profiles import ProfileError, load_profile
 def test_exact_fit_default_pro_writes_without_stock_report(tmp_path, capsys):
     plan, _ = prepare(tmp_path)
     out = tmp_path / "traveler.html"
-    assert main(["traveler", str(plan), "--out", str(out)]) == 0
+    args = ["traveler", str(plan), "--out", str(out), *OLDER_CHECKS_ONLY]
+    assert main(args) == 0
     assert capsys.readouterr().err == ""
     html = out.read_text(encoding="utf-8")
     assert "Drawing" in html
@@ -104,6 +105,7 @@ def test_hobby_exact_fit_still_requires_diagrams(tmp_path, capsys):
     plan, _ = prepare(tmp_path)
     out = tmp_path / "traveler.html"
     args = ["traveler", str(plan), "--out", str(out), "--profile", "hobby"]
+    args += OLDER_CHECKS_ONLY
     assert main(args) == 2
     assert "diagram" in capsys.readouterr().err
     (tmp_path / "setup.svg").write_text(

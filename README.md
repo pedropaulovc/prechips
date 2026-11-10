@@ -1,8 +1,10 @@
-# Prechips v0.7
+# Prechips v0.8
 
 Turn an authored manual-machining process into a printable HTML traveler. Choose a compact professional sheet or a hobby sheet with setup diagrams.
 
 This prototype binds traveler dimensions to a selected CAD/drawing export. Process choices remain authored. The previous implementation is preserved on [`archive/pre-v0.10-2026-11-08`](https://github.com/pedropaulovc/prechips/tree/archive/pre-v0.10-2026-11-08); old code returns only when a useful milestone needs it.
+
+Plans, CAD manifests and shop files are expected to be written by an AI agent, so they are expected to be comprehensive. Built-in profiles require every applicable setup and operation to declare the structured data each check reads, or an explicit opt-out value; nothing is skipped because a field was left out. Values in the inputs are used as written.
 
 ## Run
 
@@ -132,6 +134,37 @@ Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop
 For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. When turning is disabled, its configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
 
 
+## Declared-input checks
+
+v0.8 adds checks that read explicit structured plan fields and shared shop records. Both built-in profiles enforce every one after stock fit and turning deflection. A refusal exits 2 before output is created or replaced and names the check; a pass prints no checker text. Each key works with `--disable-check` and in a custom profile's `enforce` list.
+
+Numeric fields are millimetres and accept exact whole-field bindings such as `"{{cad.bearing_dia}}"`. Setups name their machine with `machine_ref`, a key under `[machines]` in the shop file. Only shop records a plan references are validated; unknown fields in a referenced record are errors.
+
+```toml
+# In the shop file:
+[machines.pm-30mv]
+kind = "mill"                 # mill, lathe or dividing_head
+rpm_ranges = [[50, 3000]]
+travel_mm = { x = 584.2, y = 222.25, z = 355.6 }
+spindle_to_table_mm = [60.96, 431.8]
+
+[workholding.chuck-3jaw-6]
+kind = "chuck"                # chuck or collet
+grip_range_mm = [3.0, 140.0]  # or grip_sizes_mm = [...]
+body_diameter_mm = 158.0
+body_length_mm = 72.0
+
+[gauges.micrometers]
+range_mm = [0.0, 76.2]
+resolution_mm = 0.00254
+
+[limits]
+stickout_ld_max = 4.0
+tool_change_clearance_mm = 25.0
+```
+
+Lathes also take `swing_over_bed_mm`, `swing_over_cross_slide_mm` and `between_centres_mm`; dividing heads take `worm_ratio`, `plate_holes` and `direct_index_positions`.
+
 ## Profiles
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
@@ -241,6 +274,6 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes, certificates or machining-rule framework in this milestone.
+Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks.

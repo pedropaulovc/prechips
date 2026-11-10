@@ -4,6 +4,11 @@ from html.parser import HTMLParser
 
 import pytest
 
+from prechips.checks import CHECKS
+
+# Minimal fixtures for the older checks declare no data for the v0.8 checks.
+OLDER_CHECKS_ONLY = [arg for name in CHECKS for arg in ("--disable-check", name)]
+
 PLAN = """\
 title = "Bracket <trial>"
 part = "B&1"
@@ -441,6 +446,7 @@ def test_repeatable_disable_check_includes_existing_checks_without_sheet_warning
         "setup_diagrams",
         "--disable-check",
         "turning_deflection",
+        *OLDER_CHECKS_ONLY,
     )
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
@@ -604,6 +610,7 @@ def test_default_turning_pass_is_silent_on_sheet(tmp_path, profile, run_turning_
         "stock_fit",
         "--disable-check",
         "setup_diagrams",
+        *OLDER_CHECKS_ONLY,
     )
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""

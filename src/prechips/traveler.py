@@ -9,6 +9,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from prechips.cad import CadData, CadError, bind_data, load_cad
+from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
 
 
@@ -121,6 +122,7 @@ class LoadedPlan:
     cad: CadData | None
     parameters: dict
     shop: Path | None
+    shop_data: dict
 
 
 def load_plan(path: Path) -> LoadedPlan:
@@ -163,19 +165,24 @@ def load_plan(path: Path) -> LoadedPlan:
         context = cad or CadData({}, stock_requirement=None, source=path.resolve())
         # Analysis inputs retain full-precision numeric tokens. Printed fields
         # keep the existing text binding semantics.
-        for setup in _tables(plan, "setups", "plan"):
-            if "turning_support" in setup:
-                setup["turning_support"] = bind_data(
-                    setup["turning_support"], context, parameters, scalar_mode="native"
+        native = {
+            "tools": check_fields("tool"),
+            "setups": {"turning_support"} | check_fields("setup"),
+            "operations": {"turning_cuts"} | check_fields("operation"),
+        }
+
+        def keep_numbers(table: dict, kind: str) -> None:
+            for key in native[kind] & table.keys():
+                table[key] = bind_data(
+                    table[key], context, parameters, scalar_mode="native"
                 )
+
+        for tool in _tables(plan, "tools", "plan"):
+            keep_numbers(tool, "tools")
+        for setup in _tables(plan, "setups", "plan"):
+            keep_numbers(setup, "setups")
             for operation in _tables(setup, "operations", "setup"):
-                if "turning_cuts" in operation:
-                    operation["turning_cuts"] = bind_data(
-                        operation["turning_cuts"],
-                        context,
-                        parameters,
-                        scalar_mode="native",
-                    )
+                keep_numbers(operation, "operations")
         plan = bind_data(plan, context, parameters)
     except CadError as error:
         raise PlanError(str(error)) from error
@@ -215,7 +222,7 @@ def load_plan(path: Path) -> LoadedPlan:
     tool_refs = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
-        _keys(tool, {"id", "name", "description", "ref"}, where)
+        _keys(tool, {"id", "name", "description", "ref"} | check_fields("tool"), where)
         tool_id = _text(tool, "id", where)
         if "ref" in tool:
             ref = _text(tool, "ref", where)
@@ -243,6 +250,7 @@ def load_plan(path: Path) -> LoadedPlan:
             {
                 "title",
                 "machine",
+                "machine_ref",
                 "holding",
                 "datum",
                 "diagram",
@@ -250,11 +258,17 @@ def load_plan(path: Path) -> LoadedPlan:
                 "inspection",
                 "machine_kind",
                 "turning_support",
-            },
+            }
+            | check_fields("setup"),
             where,
         )
         for key in ("title", "machine"):
             _text(setup, key, where)
+        if "machine_ref" in setup:
+            ref = _text(setup, "machine_ref", where)
+            if shop_path is None:
+                raise PlanError(f"{where}.machine_ref: requires plan.shop")
+            _shop_record(shop, "machines", ref, f"{where}.machine_ref")
         _choice(setup, "machine_kind", {"lathe", "other"}, where)
         _turning_support(setup, where)
         for key in ("holding", "datum"):
@@ -289,7 +303,8 @@ def load_plan(path: Path) -> LoadedPlan:
                     "table",
                     "cut_kind",
                     "turning_cuts",
-                },
+                }
+                | check_fields("operation"),
                 op_where,
             )
             _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
@@ -358,7 +373,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path)
+    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path, shop)
 
 
 CSS = """

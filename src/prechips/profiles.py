@@ -4,6 +4,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from prechips.checks import CHECKS
+
 
 class ProfileError(ValueError):
     """A rendering profile is not supported or is inconsistent."""
@@ -17,11 +19,13 @@ class Profile:
     turning_config: Path | None = None
 
 
-PRO = Profile("pro", frozenset(), frozenset({"stock_fit", "turning_deflection"}))
+PRO = Profile(
+    "pro", frozenset(), frozenset({"stock_fit", "turning_deflection", *CHECKS})
+)
 HOBBY = Profile(
     "hobby",
     frozenset({"setup_diagrams", "detailed_instructions"}),
-    frozenset({"setup_diagrams", "stock_fit", "turning_deflection"}),
+    PRO.enforce | {"setup_diagrams"},
 )
 
 
@@ -51,7 +55,7 @@ def load_profile(value: str) -> Profile:
         ):
             raise ProfileError(f"profile.{key}: expected an array of names")
         supported = (
-            {"setup_diagrams", "stock_fit", "turning_deflection"}
+            {"setup_diagrams", "stock_fit", "turning_deflection", *CHECKS}
             if key == "enforce"
             else {"setup_diagrams", "detailed_instructions"}
         )

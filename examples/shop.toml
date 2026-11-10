@@ -1,7 +1,67 @@
-# Literal authored example tooling and cutting settings, not an inventory or
-# automatic recommendations. Part-specific keys do not assert tool equivalence.
-# Material identities preserve each source's stated stock condition; they are
-# not inferred from the printed material text or treated as interchangeable.
+# Authored shop data: tooling, cutting settings, machines, workholding, gauges
+# and limits. Checks use these values as written. Part-specific tool keys do
+# not assert tool equivalence. Material identities preserve each source's
+# stated stock condition; they are not inferred from the printed material text
+# or treated as interchangeable.
+
+# Source: archive/pre-v0.10-2026-11-08 examples/inventory/pedro-shop.toml and
+# examples/shop-policy.toml, converted to millimetres.
+[machines.pm-30mv]
+kind = "mill"
+rpm_ranges = [[50, 3000]]
+travel_mm = { x = 584.2, y = 222.25, z = 355.6 }
+spindle_to_table_mm = [60.96, 431.8]
+
+[machines.pm-1127vf-lb]
+kind = "lathe"
+rpm_ranges = [[70, 380], [380, 2000]]
+swing_over_bed_mm = 279.4
+swing_over_cross_slide_mm = 169.926
+between_centres_mm = 699.77
+
+[machines.bs-0]
+kind = "dividing_head"
+worm_ratio = 40
+direct_index_positions = 24
+plate_holes = { A = [15, 16, 17, 18, 19, 20], B = [21, 23, 27, 29, 31, 33], C = [37, 39, 41, 43, 47, 49] }
+
+[workholding.chuck-3jaw-6]
+kind = "chuck"
+grip_range_mm = [3.0, 140.0]
+body_diameter_mm = 158.0
+body_length_mm = 72.0
+
+[workholding.chuck-4jaw-6]
+kind = "chuck"
+grip_range_mm = [6.0, 150.0]
+body_diameter_mm = 158.0
+body_length_mm = 70.0
+
+[workholding.chuck-4jaw-5-bs0]
+kind = "chuck"
+grip_range_mm = [4.0, 110.0]
+body_diameter_mm = 127.0
+body_length_mm = 62.0
+
+[gauges.calipers]
+range_mm = [0.0, 152.4]
+resolution_mm = 0.0127
+
+[gauges.micrometers]
+range_mm = [0.0, 76.2]
+resolution_mm = 0.00254
+
+[gauges.pin-gauges]
+range_mm = [0.28, 12.7]
+resolution_mm = 0.0254
+
+[gauges.height-gauge]
+range_mm = [0.0, 304.8]
+resolution_mm = 0.0254
+
+[limits]
+stickout_ld_max = 4.0
+tool_change_clearance_mm = 25.0
 
 # Source: base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).

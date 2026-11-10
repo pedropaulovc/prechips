@@ -1,6 +1,10 @@
+import re
+
 import pytest
 
+from prechips.checks import CheckError
 from prechips.cli import main
+from prechips.shop import fact, record
 from prechips.traveler import load_plan, render_traveler
 
 PLAN = """\
@@ -286,3 +290,40 @@ def test_cli_protects_shared_input_aliases(tmp_path, capsys, alias):
     assert "output must not overwrite" in capsys.readouterr().err
     assert shop.read_bytes() == before
     assert out.read_bytes() == before
+
+
+def test_setup_machine_reference_must_name_a_shop_machine(tmp_path, capsys):
+    text = PLAN.replace(
+        'machine = "Manual lathe"', 'machine = "Manual lathe"\nmachine_ref = "lathe"'
+    )
+    plan, _, profile = prepare(tmp_path, text)
+    out = tmp_path / "traveler.html"
+    args = ["traveler", str(plan), "--out", str(out), "--profile", str(profile)]
+    assert main(args) == 2
+    assert "machine_ref: unknown shared machines reference 'lathe'" in (
+        capsys.readouterr().err
+    )
+    shop = SHOP + '\n[machines.lathe]\nkind = "lathe"\n'
+    plan, _, profile = prepare(tmp_path, text, shop)
+    assert main(args) == 0
+
+
+def test_referenced_shop_records_refuse_unusable_fields():
+    data = {
+        "machines": {
+            "good": {"kind": "lathe", "rpm_ranges": [[70, 380], [380, 2000]]},
+            "typo": {"kind": "lathe", "rpm_range": [[70, 2000]]},
+            "gap": {"rpm_ranges": [[380, 2000], [70, 380]]},
+        }
+    }
+    good = record(data, "machines", "good", "setup 1")
+    assert fact(good, "rpm_ranges") == [(70.0, 380.0), (380.0, 2000.0)]
+    for key, message in (
+        ("typo", "shop.machines.typo: unknown field(s): rpm_range"),
+        ("gap", "shop.machines.gap.rpm_ranges: expected ascending ranges"),
+        ("absent", "setup 1: unknown shop machines reference 'absent'"),
+    ):
+        with pytest.raises(CheckError, match=re.escape(message)):
+            record(data, "machines", key, "setup 1")
+    with pytest.raises(CheckError, match="shop.machines.good.travel_mm: required"):
+        fact(good, "travel_mm")
