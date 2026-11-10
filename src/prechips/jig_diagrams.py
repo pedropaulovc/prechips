@@ -839,7 +839,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
     hole = _cad(values, "hole_dia_in")
     stations = _stations(values)
     radius = _param(parameters, "corner_radius_in")
-    layout = _param(parameters, "corner_layout_in")
+    layout = radius  # The scribed lines sit one corner radius back.
     band = _cad(values, "linear_1pl_in")
     groups = _groups(root)
 
@@ -977,13 +977,13 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             end_y - 4,
             right - ld,
             end_y - 6,
-            ["scribed {{process.corner_layout_in:.2dot}} from each side"],
+            ["scribed {{process.corner_radius_in:.2dot}} from each side"],
         ),
         (
             end_y + 24,
             right + 8,
             end_y + ld,
-            ["and {{process.corner_layout_in:.2dot}} from the end"],
+            ["and {{process.corner_radius_in:.2dot}} from the end"],
         ),
         (
             end_y + 58,

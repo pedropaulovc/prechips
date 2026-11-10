@@ -477,6 +477,8 @@ def bind_text(
                     )
             elif spec and (dot := _DOT.fullmatch(spec)):
                 result = format(value, f".{dot[1]}f")
+                if float(result) == 0:
+                    result = result.lstrip("-")
                 if result.lstrip("-").startswith("0."):
                     result = result.replace("0.", ".", 1)
             elif spec:
