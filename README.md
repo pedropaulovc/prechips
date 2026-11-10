@@ -24,7 +24,9 @@ uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
 
-The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends and its measured hole centres are drilled. The adapter therefore refuses a manifest that tolerances the rail stations.
+The pro base-bar example stays within two Letter pages at 10.5pt. Hobby includes diagrams of all six setups. Dimensions come from the released v48 CAD/drawing export; the November 7 discussion supplies the table-clamped squaring sequence. Tool selection, allowances, feeds and speeds remain process choices. In v48 only bar 1 carries the four #12 counterbored bracket holes, and the rail-hole stations are REF: each bar's own HGR15 rail is trimmed flush with both ends, R1 is measured on it and the row is drilled from there at the REF pitch. The adapter therefore refuses a manifest that tolerances the rail stations.
+
+Drawing sheet 2 swaps bar 2's seats: its rail goes on the face that is up in Setup 5 (marked RAIL SIDE) and the opposite face seats on the mill table, while bar 1's rail goes opposite its C'BORE SIDE. The v48 manifest describes bar 1 only, so that per-bar face text is authored from the two sheets, not bound. The 1/2 in end mill alone cuts both hold-down slots: with e = (slot width − cutter Ø)/2, the cutter centre traces a rectangle e either side of the arc-centre line and e past each arc centre, which makes the drawn width and overall length; each end is two cutter-radius corners that bulge e(√2 − 1) (about .006 in) past the drawn arc. The adapter computes the corners from the manifest and `half_cutter_dia_mm` and refuses a cutter that is not under the slot width or whose bulge exceeds the width half-band. Position inspections are bound from the manifest bands: X on the mill DRO before unclamping, rows from ZERO EDGE with calipers.
 
 The end-bracket example (TL-28) prints two pro pages or five hobby pages, one per setup. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v48 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. v48 states those thread zones and tip marks only in note text, so the adapter reads them with exact patterns and refuses reworded notes or an inch/mm disagreement. This is the single deliberate prose-parsing exception, kept until harmonic-analyzer exports structured `thread_zone`/`tip_mark` fields. Unlike the hand sheet, both brackets share each vise clamping, one at each jaw end (each balances the other): every operation runs on both before the next tool, X0 sits on the left part's INNER END and XR on the right part's. Hobby pictures both blanks from the bar end the lever leaves, both two-up end-squaring holds, each tapping face as a vise top view of both parts with a section through H1 (thread zone and tip mark of the face being tapped), and the finished bracket; its tap operations add the hand sheet's tape-flag method.
 
@@ -58,7 +60,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 
 | Adapter | Source | Bound values |
 | --- | --- | --- |
-| `harmonic_base_bar` | Released v48 export | Dimensions, REF rail stations, holes, slots and setup-diagram geometry |
+| `harmonic_base_bar` | Released v48 export | Dimensions, REF rail stations, holes, slots, one-cutter slot path, position bands, thread and finish callouts and setup-diagram geometry |
 | `harmonic_pivot_shaft` | Archived v40 export | Diameters, reliefs, independent dome radii/heights, attachment projection, setup coordinates, limits and setup pictures |
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
@@ -78,10 +80,10 @@ quantity = 2
 width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 slot_step_in = 0.12
-slot_finish_diameter_in = 0.53125
+half_cutter_dia_mm = 12.7
 ```
 
-All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_in`, `blank_thickness_in` and `slot_finish_diameter_in`, when supplied, must be positive in every profile. `quantity`, when supplied, must be a positive integer (not a fractional value, float or boolean) in every profile. Literal-only plans can omit parameters, including `quantity`; the saw diagram requires `quantity`.
+All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_in` and `blank_thickness_in`, when supplied, must be positive in every profile. The base-bar adapter requires `half_cutter_dia_mm`, the end mill that cuts the slots. `quantity`, when supplied, must be a positive integer (not a fractional value, float or boolean) in every profile. Literal-only plans can omit parameters, including `quantity`; the saw diagram requires `quantity`.
 
 Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. `:.1dot` (any one-digit precision) prints fixed places in shop shorthand without the leading zero, as in `~{{process.overhang_in:.1dot}}` → `~.4`. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
 
@@ -212,7 +214,7 @@ sizing = { kind = "band", band_mm = "{{cad.bracket_dia_band_mm}}" }  # [low, hig
 sizing = { kind = "tap_drill", tap = "tap" }                         # a plan tool id
 ```
 
-A band passes when the operation tool's `diameter_mm` lies inside the inclusive band; a reversed band refuses. A tap drill passes when the operation tool's `diameter_mm` equals the named tap's `tap_drill_mm` within 1e-6 mm. Plan `[[tools]]` and shop `[tools.<ref>]` records take numeric `diameter_mm` and `tap_drill_mm` (never printed); shop values flow into the plan tool unless it sets its own. A missing diameter or tap drill, an unknown tap id or a missing `sizing` refuses. The base-bar adapter supplies each drawing limit as `<limit>_band_mm` (such as `bracket_dia_band_mm`, `counterbore_dia_band_mm`, `slot_width_band_mm`) and `slot_finish_diameter_mm` from the process parameter.
+A band passes when the operation tool's `diameter_mm` lies inside the inclusive band; a reversed band refuses. A tap drill passes when the operation tool's `diameter_mm` equals the named tap's `tap_drill_mm` within 1e-6 mm. Plan `[[tools]]` and shop `[tools.<ref>]` records take numeric `diameter_mm` and `tap_drill_mm` (never printed); shop values flow into the plan tool unless it sets its own. A missing diameter or tap drill, an unknown tap id or a missing `sizing` refuses. The base-bar adapter supplies each drawing limit as `<limit>_band_mm` (such as `bracket_dia_band_mm`, `counterbore_dia_band_mm`, `slot_width_band_mm`). Its slot operation declares `sizing = "other"`: the cut width is cutter Ø plus twice the adapter's path offset, which no tool band can express.
 
 Only the selected tool is compared; no nearer tool is suggested. Thread designation, tap class, operation order, reaming allowance and actual cut size (runout, drill wander) are not checked.
 
@@ -282,7 +284,7 @@ envelope = { x_span_mm = 469.9, y_span_mm = [152.4, 12.7], work_top_mm = [25.4, 
 
 Each value is a number or an array summed as a stack, so bindings can name the layers (block + stock, holder gauge + projection, support height + tip Z below the underside). Heights are measured from the table and tool lengths from spindle nose to tip. X/Y spans are the cutter-centre travel the table must make and must not exceed `travel_mm`. Tool change above the work needs `work_top_mm + longest_tool_mm + limits.tool_change_clearance_mm <= spindle_to_table_mm[1]`; reaching the deepest cut needs `deepest_cut_mm + shortest_tool_mm >= spindle_to_table_mm[0]`. Equalities pass. Pairing the deepest cut with the shortest tool is deliberately conservative. Not checked: Z travel, fixture or jaw obstruction, clamps, toolpaths, collisions or fixture footprint on the table.
 
-The base bar binds its stacks from CAD/blank sizes and process parameters: the stated ~18.5 in edge travel, 1-2-3 blocks lying flat (1 in), 1-3/8 in parallels, and archived inventory facts for the vise bed height and R8 collet/drill chuck gauge lengths. Its 1/2 and 5/16 in end mills and 3/8 in drill have no archived length, so the plan bounds them by the neighbouring archived sizes. All base-bar and shaft setups pass.
+The base bar binds its stacks from CAD/blank sizes and process parameters: the stated ~18.5 in edge travel, 1-2-3 blocks lying flat (1 in), 1-3/8 in parallels, and archived inventory facts for the vise bed height and R8 collet/drill chuck gauge lengths. Its 1/2 and 5/16 in end mills have no archived length, so the plan bounds them by the neighbouring archived sizes, and its drills by the archived 13/32 in jobber. All base-bar and shaft setups pass.
 
 ## Profiles
 

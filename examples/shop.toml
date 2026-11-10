@@ -128,18 +128,12 @@ diameter_mm = 3.4544
 [tools.basebar-bracket-drill]
 description = "#12 (.189 in) drill"
 diameter_mm = 4.8006
-[tools.basebar-slot-drill]
-description = "3/8 in drill"
-diameter_mm = 9.525
 [tools.basebar-tap]
 description = "8-32 plug tap"
 tap_drill_mm = 3.4544
 [tools.basebar-counterbore]
 description = "5/16 in centre-cutting 2-flute end mill"
 diameter_mm = 7.9375
-# Diameter remains a plan-owned parameter and local description override.
-[tools.basebar-slot-finish]
-description = "Centre-cutting 2-flute HSS end mill; flutes ≥5/8 in"
 
 [settings.basebar-edge-6061-t6511]
 tool = "basebar-em-half"
@@ -151,14 +145,6 @@ tool = "basebar-em-half"
 material = "6061-t6511"
 rpm = 1250
 feed = "5 in/min"
-# Source guide's 165 ft/min HSS milling speed and .002 in (0.0508 mm)/tooth.
-[settings.basebar-slot-finish-6061-t6511]
-tool = "basebar-slot-finish"
-material = "6061-t6511"
-sfm = 165
-chip_load_mm_per_tooth = 0.0508
-flutes = 2
-feed_unit = "in/min"
 
 # Source: comparison/pivot-shaft.toml; archived pivot-shaft plan rev 7,
 # inventory/pedro-shop.toml and cutting-data.toml pivot-shaft/DataShaft4 rows.

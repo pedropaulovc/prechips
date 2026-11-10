@@ -146,7 +146,6 @@ def load_plan(path: Path) -> LoadedPlan:
                 "blank_length_in",
                 "blank_width_in",
                 "blank_thickness_in",
-                "slot_finish_diameter_in",
             }
             and value <= 0
         ):

@@ -205,7 +205,6 @@ def test_literal_plan_accepts_positive_integer_quantity(tmp_path):
         "blank_length_in",
         "blank_width_in",
         "blank_thickness_in",
-        "slot_finish_diameter_in",
     ],
 )
 @pytest.mark.parametrize("value", ["0", "-1"])

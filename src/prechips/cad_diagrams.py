@@ -304,6 +304,22 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     }
 
 
+def _table_blocks(x0: float, x1: float, cy: float, scale: float) -> dict[str, float]:
+    """Setups 2–3: three 1-2-3 blocks lying flat, 3 in across the width, inboard."""
+    width, height, inset = 2 * scale, 3 * scale, 35.0
+    mid = (x0 + x1) / 2
+    return {
+        "block_w": width,
+        "block_h": height,
+        "block_y": cy - height / 2,
+        "block1_x": x0 + inset,
+        "block2_x": mid - width / 2,
+        "block3_x": x1 - inset - width,
+        "gap_left_x": (x0 + inset + width + mid - width / 2) / 2,
+        "gap_right_x": (mid + width / 2 + x1 - inset - width) / 2,
+    }
+
+
 def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Setup 2: authored blank on the table; CAD finished width from ZERO EDGE."""
     blank_length = _process(parameters, "blank_length_in")
@@ -354,6 +370,7 @@ def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         datum_leader_x2=x1 - 80,
         datum_leader_y2=front + 2,
         step1_y=bottom + 56,
+        **_table_blocks(x0, x1, (top + bottom) / 2, scale),
     )
     return view, {}
 
@@ -389,6 +406,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         minus_y_label=bottom + 10,
         label1_y=cy - 9,
         label2_y=cy + 16,
+        edge_label_y=bottom - 8,
         step_y=bottom + 24,
         step3_x=zero + 5,
         step4_x=far - 5,
@@ -402,6 +420,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         dim_y=bottom + 74,
         dim_label_x=zero + 105,
         dim_label_y=bottom + 92,
+        **_table_blocks(zero - trim, far + trim, cy, scale),
     )
     return view, {}
 
@@ -427,19 +446,15 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         fbottom=fbottom,
         parallel_h=171.5 - fbottom,
         jack_shaft_h=158 - fbottom,
-        half_left_x=(fx0 + centre) / 2,
-        half_right_x=(centre + fx1) / 2,
-        dim_left1=fx0 + 1,
-        dim_left2=centre - 1,
-        dim_right1=centre + 1,
-        dim_right2=fx1 - 1,
         tx0=tx0,
         tx1=tx1,
         tlen=tx1 - tx0,
         twidth=tbottom - 250,
         tbottom=tbottom,
         zero_end_x=tx0 + 1,
-        mark_y=(250 + tbottom) / 2 + 5.5,
+        mark1_y=(250 + tbottom) / 2 - 3.5,
+        mark2_y=(250 + tbottom) / 2 + 14.5,
+        zero_end_y=(250 + tbottom) / 2 + 5.5,
         zero_end_label_x=tx0 - 6,
     )
     return view, {}
@@ -458,8 +473,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     labels = []
     for first, column in _columns(_points(values, "bracket_points_in")):
         cx = x0 + column[0][0] * scale
-        rises = [rise for _, rise in column]
-        y = top + (min(rises) + max(rises)) / 2 * scale + 5
+        y = top + min(rise for _, rise in column) * scale + 5
         left = cx < centre
         labels.append(
             _text(
@@ -471,21 +485,23 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         )
     for index, slot in enumerate(_slots(values), start=1):
         cx = x0 + slot["x"] * scale
-        cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
         half = slot["width"] * scale / 2
-        left = cx < centre
-        labels.append(
-            _text(
-                cx + half + 5 if left else cx - half - 5,
-                cy,
-                f"S{index}",
-                text_anchor="start" if left else "end",
-            )
-        )
+        # Left-end slot: label below it, clear of the bracket column beside it.
+        if cx < centre:
+            below = top + slot["rise_high"] * scale + half + 15
+            labels.append(_text(cx, below, f"S{index}", text_anchor="middle"))
+        else:
+            cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
+            labels.append(_text(cx - half - 5, cy, f"S{index}", text_anchor="end"))
     groups["feature-labels"] = labels
     rail_y = top - _number(values, "rail_y_in", "cad") * scale
-    jack1 = (x0 + 0.234 * lpx, top + 0.8125 * hpx)
-    jack2 = (x1 - 0.088 * lpx, top + 0.33 * hpx)
+    jack1, jack2 = (
+        (
+            x0 + _process(parameters, f"jack_{side}_x_in") * scale,
+            top - _process(parameters, f"jack_{side}_y_in") * scale,
+        )
+        for side in ("left", "right")
+    )
     view = _view(
         x0=x0,
         x1=x1,
@@ -497,7 +513,8 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         datum_y=top + 1,
         rail_label_x=x0 + 180,
         rail_label_y=rail_y + 24,
-        cbore_label_y=top + 0.273 * hpx,
+        side_label_y=top + 0.273 * hpx,
+        side_label2_y=top + 0.273 * hpx + 18,
         lower_parallel_y=bottom - 8,
         jack1_x=jack1[0],
         jack1_y=jack1[1],
@@ -505,7 +522,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         jack2_y=jack2[1],
         jack1_label_x=jack1[0] + 15,
         jack1_label_y=jack1[1] + 10,
-        jack2_label_x=jack2[0] - 12,
+        jack2_label_x=jack2[0] - 15,
         jack2_label_y=jack2[1] + 5,
         origin_label_x=x0 - 56,
         origin_label_y=top - 10,
@@ -523,7 +540,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 6: finished plan from C'BORE SIDE plus section through last bracket column."""
+    """Setup 6: bar 1 plan and section through its last bracket column; bar 2 section."""
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _cad(values, "thickness_in")
@@ -546,7 +563,8 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     groups["rail-hidden"] = [_rect(x0, rail_y - rail_px / 2, x1 - x0, rail_px)]
     first, column = _columns(_points(values, "bracket_points_in"))[-1]
     section_x = x0 + column[0][0] * scale
-    slot = _slots(values)[-1]
+    slots = _slots(values)
+    slot = slots[-1]
     stud_x = x0 + slot["x"] * scale + slot["width"] * scale / 2
     stud_y = top + (slot["rise_high"] + slot["width"] / 2) * scale - 1
 
@@ -602,9 +620,25 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     ]
     ids = _id_range("B", first, len(column))
     labels = [
-        _text(section_x, top - 14, "A", text_anchor="middle"),
-        _text(430, 84, f"Section A–A (through {ids})"),
+        _text(section_x + 6, top - 5, "A"),
+        _text(section_x + 6, bottom + 15, "A"),
+        _text(430, 72, f"Bar 1: section A–A (through {ids})"),
     ]
+    for index, item in enumerate(slots, start=1):
+        cx, half = x0 + item["x"] * scale, item["width"] * scale / 2
+        name, size = f"S{index}", 13
+        if item is slot:
+            cy = top + (item["rise_low"] + item["rise_high"]) / 2 * scale + 4
+            labels.append(
+                _text(cx - half - 4, cy, name, text_anchor="end", font_size=size)
+            )
+        else:
+            below = top + item["rise_high"] * scale + half + 12
+            labels.append(_text(cx, below, name, text_anchor="middle", font_size=size))
+    # Bar 2, same view: the rail sits on the marked RAIL SIDE (up in Setup 5).
+    rail_w, rail_h = rail_width * sscale, rail_height * sscale
+    stop2 = 243 + rail_h
+    sbottom2 = stop2 + thickness * sscale
     view = _view(
         x0=x0,
         top=top,
@@ -612,12 +646,12 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         plan_h=bottom - top,
         cbore_label_y=top + 40,
         rail_label_y=rail_y + 25,
-        rail_note_y=bottom + 33,
-        rail_leader_x1=394.0,
-        rail_leader_y1=bottom + 27,
-        rail_leader_x2=x1 - 4,
-        rail_leader_y2=rail_y + 8,
+        rail_note_y=bottom + 59,
+        rail_leader_y1=bottom + 45,
+        rail_leader_x2=x0 + 35,
+        rail_leader_y2=rail_y + rail_px / 2,
         section_x=section_x,
+        section_arrow_x=section_x - 16,
         section_top=top - 10,
         section_bottom=bottom + 10,
         sxl=xl,
@@ -635,10 +669,20 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         edge_leader_y=sbottom + 26.4,
         edge_label_y=sbottom + 38.4,
         rail_sec_label_y=sbottom + 54.4,
-        stud_label_y=bottom + 59,
-        stud_leader_y=bottom + 53,
+        stud_label_y=bottom + 33,
+        stud_leader_y=bottom + 21,
         stud_x=stud_x,
         stud_y=stud_y,
+        stop2=stop2,
+        sbottom2=sbottom2,
+        rail2_x=rail_cx - rail_w / 2,
+        rail2_label_x=rail_cx + rail_w / 2 + 8,
+        rail2_label_y=stop2 - 8,
+        rail_w=rail_w,
+        rail_h=rail_h,
+        seat2_leader_y=sbottom2 + 9,
+        seat2_label_y=sbottom2 + 22,
+        edge2_leader_y=sbottom2 + 10,
     )
     groups.update(
         {

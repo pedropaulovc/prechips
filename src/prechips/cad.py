@@ -14,6 +14,10 @@ class CadError(ValueError):
     """A CAD source or a named binding cannot supply a required value."""
 
 
+# ASME B46.1 preferred roughness averages: micrometres to microinches.
+_RA_UIN = {0.4: 16, 0.8: 32, 1.6: 63, 3.2: 125, 6.3: 250}
+
+
 @dataclass
 class StockAxis:
     """One declared stock parameter and the size it must cover along one axis."""
@@ -210,7 +214,10 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             f"{values[f'{key}_in']:.2f} (±{band:.2f})"
             for key, band in zip(dimensions, halfbands)
         )
-    _edge_breaks(raw, values)
+    general = _edge_breaks(raw, values)
+    values["angular_tol_deg"] = _positive(
+        general.get("angular_deg"), "general_tolerances.angular_deg"
+    )
     finishes = []
     for name in ("top_seat", "underside_seat"):
         item = feature(name)
@@ -220,6 +227,10 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if finishes[0] != finishes[1]:
         raise CadError("cad.finish_ra_um: inconsistent seat requirements")
     values["finish_ra_um"] = finishes[0]
+    # The inch drawing prints the ASME B46.1 preferred microinch value.
+    if finishes[0] not in _RA_UIN:
+        raise CadError("cad.finish_ra_uin: no preferred microinch Ra for this value")
+    values["finish_ra_uin"] = _RA_UIN[finishes[0]]
 
     def group(prefix: str, kind: str) -> list[tuple[str, dict]]:
         result = [
@@ -242,6 +253,11 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     ]
     if not slots:
         raise CadError("cad.features: missing slots")
+    slots.sort(key=lambda slot: _mid(_band(slot[1], "station", slot[0])))
+    threads = {_string(item.get("thread"), f"{name}.thread") for name, item in rails}
+    if len(threads) != 1:
+        raise CadError("cad.rail_thread: inconsistent rail threads")
+    values["rail_thread"] = threads.pop()
 
     def points(
         items: list[tuple[str, dict]], station: Callable[[str, dict], float]
@@ -299,6 +315,14 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                 for low, high in [_band(item, "height", name)]
             )
         values[f"{key}_in"] = min(tolerances) / 25.4
+    # Position bands for inspection, in drawing order from ZERO END / ZERO EDGE.
+    limits("rail_row", [_band(item, "height", name) for name, item in rails])
+    for axis, field in (("x", "station"), ("y", "height")):
+        columns = sorted({_band(item, field, name) for name, item in brackets})
+        for index, band in enumerate(columns, 1):
+            _inch_limits(values, f"bracket_{axis}{index}", band)
+        for index, (name, item) in enumerate(slots, 1):
+            _inch_limits(values, f"slot{index}_{axis}", _band(item, field, name))
     limits("bracket_dia", [_band(item, "dia", name) for name, item in brackets])
     bracket_diameters = [
         _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -328,24 +352,44 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         )
     limits("slot_width", [_band(item, "width", name) for name, item in slots])
     limits("slot_spacing", [_band(item, "separation", name) for name, item in slots])
+    # One cutter makes the slot: its centre traces a rectangle offset e from the
+    # arc-centre line, so width = D + 2e and overall length = spacing + D + 2e.
+    cutter = (
+        _positive(parameters.get("half_cutter_dia_mm"), "process.half_cutter_dia_mm")
+        / 25.4
+    )
+    offset = (values["slot_width_in"] - cutter) / 2
+    if offset <= 0:
+        raise CadError("process.half_cutter_dia_mm: cutter must be under slot width")
+    # Each end is two cutter-radius corners; they bulge e(√2 − 1) past the drawn arc.
+    if (
+        offset * (math.sqrt(2) - 1)
+        > values["slot_width_max_in"] - values["slot_width_in"]
+    ):
+        raise CadError("process.half_cutter_dia_mm: slot ends leave the width band")
     shapes = []
     for name, item in slots:
         if item.get("height_from") != "bar_low_side" or item.get("thru") is not True:
             raise CadError(
                 f"{name}: requires a through slot measured from bar_low_side"
             )
+        x = _mid(_band(item, "station", name)) / 25.4
         near = -_mid(_band(item, "height", name)) / 25.4
         far = near - _mid(_band(item, "separation", name)) / 25.4
         shapes.append(
             {
-                "x_in": _mid(_band(item, "station", name)) / 25.4,
+                "x_in": x,
                 "near_y_in": near,
                 "far_y_in": far,
-                "mid_y_in": (near + far) / 2,
                 "width_in": _mid(_band(item, "width", name)) / 25.4,
+                "corners_in": [
+                    [x - offset, near + offset],
+                    [x + offset, near + offset],
+                    [x + offset, far - offset],
+                    [x - offset, far - offset],
+                ],
             }
         )
-    shapes.sort(key=lambda shape: shape["x_in"])
     values["slot_shapes_in"] = shapes
     for key, prefix, count in (
         ("rail", "R", len(rails)),
@@ -371,24 +415,23 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             [f"Bracket B{index}", f"{x:.4f}", f"{y:.4f}"]
             for index, (x, y) in enumerate(bracket_points, 1)
         ]
-    values["hole_rows"] = (
+    values["hole_rows"] = [
         [
-            [
-                f"Rail {values['rail_range']}",
-                ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
-                f"{values['rail_y_in']:.4f}",
-            ]
+            f"Rail {values['rail_range']}",
+            ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
+            f"{values['rail_y_in']:.4f}",
         ]
-        + bracket_rows
-        + [
-            [f"Slot S{index}", f"{shape['x_in']:.4f}", f"{shape['mid_y_in']:.4f}"]
-            for index, shape in enumerate(shapes, 1)
+    ] + bracket_rows
+    values["slot_rows"] = [
+        [
+            f"S{index}",
+            f"{shape['x_in']:.4f}",
+            f"{shape['near_y_in']:.4f}, {shape['far_y_in']:.4f}",
+            ", ".join(f"{x:.4f}" for x, _ in shape["corners_in"][:2]),
+            ", ".join(f"{y:.4f}" for _, y in shape["corners_in"][1:3]),
         ]
-    )
-    values["slot_paths"] = "; ".join(
-        f"X {shape['x_in']:.4f}, Y {shape['near_y_in']:.4f} to {shape['far_y_in']:.4f}"
-        for shape in shapes
-    )
+        for index, shape in enumerate(shapes, 1)
+    ]
     for key in ("width_rough_allowance_in", "slot_breakthrough_in"):
         if _number(parameters.get(key), f"process.{key}") < 0:
             raise CadError(f"process.{key}: expected a nonnegative allowance")
@@ -410,9 +453,14 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
-    # Analysis fields are millimetres; the plan chooses these sizes in inches.
-    if "slot_finish_diameter_in" in parameters:
-        values["slot_finish_diameter_mm"] = parameters["slot_finish_diameter_in"] * 25.4
+    # Bar top above the jaw tops, from the plan's copy of the shop vise record.
+    if {"parallel_height_mm", "vise_jaw_height_mm"} <= parameters.keys():
+        grip = parameters["vise_jaw_height_mm"] - parameters["parallel_height_mm"]
+        values["jaw_standout_in"] = values["thickness_in"] - grip / 25.4
+        if "blank_thickness_in" in parameters:
+            values["jaw_standout_blank_in"] = (
+                parameters["blank_thickness_in"] - grip / 25.4
+            )
     for key in ("length", "width", "thickness"):
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
     _blank_mm(values, parameters)

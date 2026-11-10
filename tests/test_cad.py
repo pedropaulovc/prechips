@@ -12,6 +12,11 @@ PARAMETERS = {
     "width_rough_allowance_in": 0.015,
     "slot_breakthrough_in": 0.02,
     "slot_step_in": 0.12,
+    "half_cutter_dia_mm": 12.7,
+    "jack_left_x_in": 1.3,
+    "jack_left_y_in": -4.4,
+    "jack_right_x_in": 15.8,
+    "jack_right_y_in": -1.8,
 }
 PLAN = """\
 title = "Drawing {{cad.drawing_number}}"
@@ -27,6 +32,7 @@ adapter = "harmonic_base_bar"
 width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 slot_step_in = 0.12
+half_cutter_dia_mm = 12.7
 blank_length_in = 17.32
 blank_width_in = 5.5
 blank_thickness_in = 0.47
@@ -38,10 +44,10 @@ title = "Drill"
 machine = "Manual mill"
 machine_kind = "other"
 [[setups.operations]]
-instruction = "X {{cad.slot_paths}}"
+instruction = "Slots"
 [setups.operations.table]
-columns = ["Holes", "X", "Y"]
-rows = "{{cad.hole_rows}}"
+columns = ["Slot", "X", "Arc Y", "Cutter X", "Cutter Y"]
+rows = "{{cad.slot_rows}}"
 """
 
 
@@ -99,6 +105,40 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     )
 
 
+def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length():
+    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    # e = (.53 − .500)/2 = .015 each side of the arc-centre line and past both
+    # arc centres: .53 wide and .16 + .53 = .69 overall with the .500 cutter.
+    corners = [
+        value
+        for shape in cad.values["slot_shapes_in"]
+        for corner in shape["corners_in"]
+        for value in corner
+    ]
+    assert corners == pytest.approx(
+        [0.855, -1.925, 0.885, -1.925, 0.885, -2.115, 0.855, -2.115]
+        + [15.335, -4.885, 15.365, -4.885, 15.365, -5.075, 15.335, -5.075]
+    )
+    assert corners[2] - corners[0] + 0.5 == pytest.approx(0.53)
+    assert corners[1] - corners[5] + 0.5 == pytest.approx(0.69)
+    assert cad.values["slot_rows"][0] == [
+        "S1",
+        "0.8700",
+        "-1.9400, -2.1000",
+        "0.8550, 0.8850",
+        "-1.9250, -2.1150",
+    ]
+    # A cutter as wide as the slot leaves no offset; a 3/8 in cutter's corner
+    # bulge (.0775 × (√2 − 1) = .032) leaves the ±.01 band.
+    for diameter in (13.462, 9.525):
+        with pytest.raises(CadError, match="half_cutter_dia_mm"):
+            load_cad(
+                SOURCE,
+                PARAMETERS | {"half_cutter_dia_mm": diameter},
+                "harmonic_base_bar",
+            )
+
+
 def test_source_changes_reach_text_tables_and_geometry(tmp_path):
     text = SOURCE.read_text(encoding="utf-8")
     text = text.replace(
@@ -109,8 +149,8 @@ def test_source_changes_reach_text_tables_and_geometry(tmp_path):
     loaded = load_plan(plan)
     html = render_traveler(loaded)
     assert "Length 18.32" in html
-    assert "X 1.8700" in html
-    assert loaded.data["setups"][0]["operations"][0]["table"]["rows"][2][1] == "1.8700"
+    assert "1.8700" in html
+    assert loaded.data["setups"][0]["operations"][0]["table"]["rows"][0][1] == "1.8700"
     assert loaded.cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(1.87)
     # Drawing targets change; the actual model envelope does not silently follow them.
     assert loaded.cad.stock_requirement.axes[0].required_mm == pytest.approx(439.928)
