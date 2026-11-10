@@ -351,6 +351,9 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
+    # Analysis fields are millimetres; the plan chooses this cutter in inches.
+    if "slot_finish_diameter_in" in parameters:
+        values["slot_finish_diameter_mm"] = parameters["slot_finish_diameter_in"] * 25.4
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 

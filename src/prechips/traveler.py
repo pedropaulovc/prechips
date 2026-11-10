@@ -8,7 +8,9 @@ from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
+from prechips import speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
+from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
 
@@ -309,6 +311,7 @@ def load_plan(path: Path) -> LoadedPlan:
             )
             _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
             _turning_cuts(operation, op_where)
+            _cutting_settings(operation, op_where)
             tool_id = _text(operation, "tool", op_where, optional=True)
             if tool_id and tool_id not in tool_ids:
                 raise PlanError(f"{op_where}.tool: unknown tool {tool_id!r}")
@@ -318,11 +321,24 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(f"{op_where}.settings: requires plan.shop")
                 shared = _shop_record(shop, "settings", ref, f"{op_where}.settings")
                 shared_where = f"shop.settings.{ref}"
-                _keys(shared, {"tool", "material", "rpm", "feed"}, shared_where)
+                _keys(
+                    shared,
+                    {"tool", "material", "rpm", "feed"} | speeds.SETTING_FIELDS,
+                    shared_where,
+                )
                 shared_tool = _text(shared, "tool", shared_where)
                 shared_material = _text(shared, "material", shared_where)
                 _cutting_settings(shared, shared_where)
-                if not {"rpm", "feed"} & shared.keys():
+                if (
+                    not {
+                        "rpm",
+                        "sfm",
+                        "feed",
+                        "feed_mm_rev",
+                        "chip_load_mm_per_tooth",
+                    }
+                    & shared.keys()
+                ):
                     raise PlanError(f"{shared_where}: expected rpm or feed")
                 if not tool_id or tool_refs.get(tool_id) != shared_tool:
                     raise PlanError(
@@ -333,14 +349,24 @@ def load_plan(path: Path) -> LoadedPlan:
                         f"{op_where}.settings: {ref!r} requires "
                         f"material_key {shared_material!r}"
                     )
-                for key in ("rpm", "feed"):
-                    if key not in operation and key in shared:
-                        operation[key] = shared[key]
+                try:
+                    values = speeds.setting_values(
+                        shared,
+                        shared_where,
+                        operation,
+                        op_where,
+                        setup.get("machine_ref"),
+                        shop,
+                    )
+                except CheckError as error:
+                    raise PlanError(str(error)) from error
+                for key, value in values.items():
+                    if key not in operation:
+                        operation[key] = value
                 operation.pop("settings")
             _text(operation, "instruction", op_where)
             _text(operation, "instruction_detailed", op_where, optional=True)
             _text(operation, "inspection", op_where, optional=True)
-            _cutting_settings(operation, op_where)
             if "table" in operation:
                 data = operation["table"]
                 table_where = f"{op_where}.table"

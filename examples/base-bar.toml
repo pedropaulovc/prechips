@@ -74,6 +74,7 @@ machine = "Saw / bench"
 diagram = { file = "diagrams/saw.svg", alt = "{{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks marked on the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; bar supported level on saw bed and stands at the cutline." }
 
 [[setups.operations]]
+speed_kind = "other"
 tool = "saw"
 instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks from {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar."
 feed = "hand"
@@ -88,11 +89,13 @@ datum = "Front machined edge becomes ZERO EDGE. X along length; +X cutter right,
 diagram = { file = "diagrams/width.svg", alt = "Blank on inboard 1-2-3 blocks with straps at mid-width of each end; both long edges exposed. Front edge cut in +X makes ZERO EDGE; opposite edge cut in −X finishes width without moving the bar." }
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
 instruction = "Cutter .04–.08 below underside. Mill front edge in +X, conventional; rough .050–.080 radial, finish .005–.010. Mark ZERO EDGE both faces. Keep this clamping for opposite edge."
 settings = "basebar-edge-6061-t6511"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
 instruction = "Mill opposite long edge in −X, conventional; rough .050–.080 radial to {{cad.width_rough_in:.3f}} width, finish to {{cad.width_in:.3f}} from ZERO EDGE."
 settings = "basebar-edge-6061-t6511"
@@ -111,6 +114,7 @@ diagram = { file = "diagrams/ends.svg", alt = "Bar stays fixed on table supports
 instruction = "Add two straps over finished long edges near mid-length and tighten before removing end straps. Do not move bar."
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
 instruction = "Cutter .04 below bar. Square left end in −Y, .020 passes; mark ZERO END both faces and set X0 there. Measure cutter D; cut right end in +Y, .010 passes, final X = {{cad.length_in:.4f}} + D/2."
 settings = "basebar-edge-6061-t6511"
@@ -125,6 +129,7 @@ datum = "Jaw indicated <.001 along X; Z0 underside from measured thickness. Pres
 diagram = { file = "diagrams/face.svg", alt = "Bar in vise on 1-3/8 in parallels, ZERO EDGE at fixed jaw, jacks under both overhangs; 3/4 in end mill faces left and right halves. After both faces, orient ZERO END left and ZERO EDGE back before marking upper face C'BORE SIDE." }
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-face"
 instruction = "Face left and right halves of each face. Rough .010 per pass, +X, +Y stepover .60; remove half allowance on side 1. Flip end-for-end, ZERO EDGE still at fixed jaw; finish side 2 to {{cad.thickness_in:.4f}}. Reorient ZERO END left, ZERO EDGE back; mark upper face C'BORE SIDE."
 rpm = 840
@@ -143,6 +148,7 @@ diagram = { file = "diagrams/holes.svg", alt = "Finished {{cad.length_in:.2f}} i
 instruction = "Before drilling: from the rail end that goes at ZERO END, check the {{cad.rail_count:d}} hole centres at {{cad.rail_stations_mm}} mm, each ±{{cad.rail_position_tol_mm:.2f}} mm. Stop if different."
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "spot"
 instruction = "Spot {{cad.spot_count:d}} holes to Ø.125. All drills: .125 pecks, drill tip .125 past underside. Inches; IDs follow coordinate order. Rail X ±{{cad.rail_position_tol_in:.3f}}; bracket X/Y ±{{cad.bracket_position_tol_in:.3f}}; rail row ±{{cad.rail_row_tol_in:.2f}}; slot positions ±{{cad.slot_position_tol_in:.2f}}."
 rpm = 3000
@@ -153,47 +159,51 @@ columns = ["Holes", "X", "Y"]
 rows = "{{cad.hole_rows}}"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "rail-drill"
 instruction = "{{cad.rail_range}} through."
 rpm = 3000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "bracket-drill"
 instruction = "{{cad.bracket_range}} through."
 rpm = 3000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "slot-drill"
 instruction = "{{cad.slot_range}} through."
 rpm = 2000
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "other"
 tool = "tap"
 instruction = "Tap {{cad.rail_range}} through."
 feed = "hand"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "counterbore"
 instruction = "Counterbore {{cad.bracket_range}}, {{cad.counterbore_depth_in:.3f}} deep from top."
 rpm = 2000
 feed = "slow hand plunge"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "em-half"
 instruction = "Rough slots with .500 cutter, depths {{cad.slot_depths_in}} below top. Traverse between arc centres: {{cad.slot_paths}}."
 settings = "basebar-slot-rough-6061-t6511"
 
 [[setups.operations]]
+speed_kind = "spindle"
 tool = "slot-finish"
 instruction = "Finish {{cad.slot_range}} at {{cad.slot_depth_in:.2f}} below top, same X and arc-centre Y ranges as roughing. Drawing target: {{cad.slot_width_in:.3f}} wide with {{cad.slot_spacing_in:.3f}} arc-centre spacing."
-# Authored starting settings from the source guide's 165 ft/min HSS milling
-# speed and .002 in/tooth: 12*165/(pi*17/32)=1186 rpm, rounded to 1200;
-# 1200 rpm * 2 flutes * .002 in/tooth = 4.8 in/min.
-rpm = 1200
-feed = "4.8 in/min"
+settings = "basebar-slot-finish-6061-t6511"
+cut_diameter_mm = "{{cad.slot_finish_diameter_mm}}"
 
 [[setups]]
 machine_kind = "other"

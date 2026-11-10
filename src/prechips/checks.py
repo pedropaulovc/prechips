@@ -23,7 +23,12 @@ class Check:
 
 
 # Enforced by both built-in profiles, in this order, after stock fit and turning.
-CHECKS: dict[str, Check] = {}
+CHECKS: dict[str, Check] = {
+    "cutting_speeds": Check(
+        module="prechips.speeds",
+        operation_fields=frozenset({"speed_kind", "cut_diameter_mm"}),
+    ),
+}
 
 
 def fields(kind: str) -> frozenset[str]:

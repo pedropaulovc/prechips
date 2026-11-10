@@ -97,6 +97,14 @@ tool = "basebar-em-half"
 material = "6061-t6511"
 rpm = 1250
 feed = "5 in/min"
+# Source guide's 165 ft/min HSS milling speed and .002 in (0.0508 mm)/tooth.
+[settings.basebar-slot-finish-6061-t6511]
+tool = "basebar-slot-finish"
+material = "6061-t6511"
+sfm = 165
+chip_load_mm_per_tooth = 0.0508
+flutes = 2
+feed_unit = "in/min"
 
 # Source: comparison/pivot-shaft.toml; archived pivot-shaft plan rev 7,
 # inventory/pedro-shop.toml and cutting-data.toml pivot-shaft/DataShaft4 rows.
@@ -117,15 +125,46 @@ description = "M2 square blade"
 [tools.lms-2569]
 description = "LMS 2569 ball-turning attachment, 3/8 in shank, HSS cutter"
 
+# Calculated settings: archived cutting-data.toml rows (Machinery's Handbook
+# 27th ed. starting values as cited there); operations supply the diameter.
+# AR carbide face row; at Ø10 the 300 ft/min speed clamps to the lathe top speed.
+[settings.shaft-face-carbide-1018]
+tool = "shaft-ar"
+material = "shaft-1018-cold-finished"
+sfm = 300
+feed_mm_rev = 0.08
+# ShaftPrep centre-drill row, taken at the pilot; the quill is fed by hand.
+[settings.shaft-centre-drill-1018]
+tool = "shaft-centre"
+material = "shaft-1018-cold-finished"
+sfm = 110
+feed = "Hand quill, 0.038 mm/rev"
+# DataShaft4 M42 HSS bit rows.
+[settings.shaft-face-hss-1018]
+tool = "shaft-hss"
+material = "shaft-1018-cold-finished"
+sfm = 90
+feed_mm_rev = 0.08
+[settings.shaft-rough-turn-hss-1018]
+tool = "shaft-hss"
+material = "shaft-1018-cold-finished"
+sfm = 90
+feed_mm_rev = 0.10
+[settings.shaft-finish-turn-hss-1018]
+tool = "shaft-hss"
+material = "shaft-1018-cold-finished"
+sfm = 110
+feed_mm_rev = 0.05
+# M2 blade form_relief and cut_to_fit rows; parting is hand-fed.
 [settings.shaft-relief-1018]
 tool = "shaft-blade"
 material = "shaft-1018-cold-finished"
-rpm = 1200
-feed = "0.02 mm/rev"
+sfm = 70
+feed_mm_rev = 0.02
 [settings.shaft-parting-1018]
 tool = "shaft-blade"
 material = "shaft-1018-cold-finished"
-rpm = 1050
+sfm = 70
 feed = "Hand plunge, 0.025 mm/rev"
 # Retained authored 1400 rpm HSS starting speed, not an LMS recommendation.
 # Manual pp. 6–7: light manual cross-slide increments and handle sweeps.
