@@ -16,6 +16,12 @@ def _positive(value: object, where: str) -> float:
     return float(value)
 
 
+def _fraction(value: object, where: str) -> float:
+    if type(value) not in (int, float) or not 0 < value <= 1:
+        raise CheckError(f"{where}: expected a fraction above 0, at most 1")
+    return float(value)
+
+
 def _count(value: object, where: str) -> int:
     if type(value) is not int or value < 1:
         raise CheckError(f"{where}: expected a positive integer")
@@ -91,11 +97,15 @@ _RECORDS = {
         "direct_index_positions": _count,
     },
     "workholding": {
-        "kind": _choice("chuck", "collet"),
+        "kind": _choice("chuck", "collet", "vise"),
         "grip_range_mm": _pair,
         "grip_sizes_mm": _sizes,
         "body_diameter_mm": _positive,
         "body_length_mm": _positive,
+        "jaw_width_mm": _positive,
+        "jaw_height_mm": _positive,
+        "opening_mm": _positive,
+        "bed_height_mm": _positive,
     },
     "gauges": {
         "range_mm": _pair,
@@ -105,6 +115,9 @@ _RECORDS = {
 _LIMITS = {
     "stickout_ld_max": _positive,
     "tool_change_clearance_mm": _positive,
+    "vise_grip_min_mm": _positive,
+    "vise_grip_fraction_min": _fraction,
+    "vise_centre_fraction_max": _fraction,
 }
 
 

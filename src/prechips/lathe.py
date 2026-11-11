@@ -82,6 +82,11 @@ def hold(shop_data: dict, setup: dict, where: str) -> dict | None:
     result["chuck"] = shop.record(
         shop_data, "workholding", value["chuck"], f"{where}.lathe_hold.chuck"
     )
+    if shop.fact(result["chuck"], "kind") not in {"chuck", "collet"}:
+        raise CheckError(
+            f"{where}.lathe_hold.chuck: {result['chuck']['where']} "
+            "is not a chuck or collet"
+        )
     return result
 
 

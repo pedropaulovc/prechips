@@ -43,6 +43,17 @@ grip_range_mm = [4.0, 110.0]
 body_diameter_mm = 127.0
 body_length_mm = 62.0
 
+# Archive fixtures.vise-pm-6 (Precision Matthews VISE-6in-HIGHPREC), measured
+# 2026-10-05: jaw width 6.247 in, opening 6.135 in, jaw height (bed slideway to
+# jaw top) 1.7695 in, bed height 2.886 in (fixtures.vise-pm-6-tall-soft-jaws
+# record: vise-pm-6 reading), × 25.4.
+[workholding.vise-pm-6]
+kind = "vise"
+jaw_width_mm = 158.6738
+opening_mm = 155.829
+jaw_height_mm = 44.9453
+bed_height_mm = 73.3044
+
 [gauges.calipers]
 range_mm = [0.0, 152.4]
 resolution_mm = 0.0127
@@ -79,6 +90,22 @@ resolution_mm = 0.005
 [limits]
 stickout_ld_max = 4.0
 tool_change_clearance_mm = 25.0
+# Pedro's house choice (2026-11-10): grip at least 6 mm (~1/4 in) of the part's
+# height in the jaws. No published minimum exists for smooth jaws; Mitee-Bite
+# says only that they need "much more than .060"" clamped.
+vise_grip_min_mm = 6.0
+# Common rule of thumb, not a standard: Engineer Underground, "Workholding and
+# Fixturing": "Hold at least one-third of the part's height in the jaws (more
+# for tall, thin parts), and cut only the part that sticks out."
+# https://engineerunderground.com/resources/makers-fabrication/cnc-machining/workholding-fixturing/
+# Training texts are stricter (Introduction to Machining §9.5: no more than
+# 1/8 in above the jaw plates beyond the cut); raise the fraction to follow them.
+vise_grip_fraction_min = 0.3333
+# House rule (Pedro, 2026-11-10), no published number: a "centred" hold keeps
+# the midpoint of the gripped span within the middle third of the jaw width
+# (this fraction of the half width either side of centre). TC 9-524 p. 8-16
+# says only that work held at the end of the vise needs a spacing block.
+vise_centre_fraction_max = 0.3333
 
 # Source: base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).
