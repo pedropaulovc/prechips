@@ -103,4 +103,9 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         _positive(general.get("linear_1pl"), "general_tolerances.linear_1pl") / 25.4
     )
     _blank_mm(values, parameters)
+    # The hand sheet gives the vise overhang in inches; vise_hold reads mm.
+    if "overhang_in" in parameters:
+        values["overhang_mm"] = (
+            _positive(parameters["overhang_in"], "process.overhang_in") * 25.4
+        )
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
