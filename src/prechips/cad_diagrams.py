@@ -561,68 +561,61 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     rail_y = top + rail_rise * scale
     rail_px = rail_width * scale
     groups["rail-hidden"] = [_rect(x0, rail_y - rail_px / 2, x1 - x0, rail_px)]
-    first, column = _columns(_points(values, "bracket_points_in"))[-1]
+    _, column = _columns(_points(values, "bracket_points_in"))[-1]
     section_x = x0 + column[0][0] * scale
     slots = _slots(values)
     slot = slots[-1]
     stud_x = x0 + slot["x"] * scale + slot["width"] * scale / 2
     stud_y = top + (slot["rise_high"] + slot["width"] / 2) * scale - 1
 
-    # Section A-A across the width at the last bracket column, ZERO EDGE right.
+    # Bar 1 as used on the mill table: A-A turned over, C'BORE SIDE down, rail on
+    # top, so ZERO EDGE falls on the left.
     sscale = min(46.0, 253 / width)
-    xr, stop = 683.0, 120.0
+    rail_w, rail_h = rail_width * sscale, rail_height * sscale
+    xr, stop = 683.0, 82 + rail_h
     xl, sbottom = xr - width * sscale, stop + thickness * sscale
     cb_r = _cad(values, "counterbore_dia_in") * sscale / 2
     cb_depth = _cad(values, "counterbore_depth_in") * sscale
     hole_r = _cad(values, "bracket_dia_in") * sscale / 2
     cuts, outlines = [], []
-    hole_xs = [xr - rise * sscale for _, rise in column]
+    hole_xs = [xl + rise * sscale for _, rise in column]
+    floor = sbottom - cb_depth
     for cx in hole_xs:
-        floor = stop + cb_depth
-        cuts.append(_rect(cx - cb_r, stop - 1, 2 * cb_r, cb_depth + 1))
-        cuts.append(_rect(cx - hole_r, floor - 0.7, 2 * hole_r, sbottom - floor + 1.7))
+        cuts.append(_rect(cx - cb_r, floor, 2 * cb_r, cb_depth + 1))
+        cuts.append(_rect(cx - hole_r, stop - 1, 2 * hole_r, floor - stop + 1.7))
         outlines.append(
             _el(
                 "path",
                 d=(
-                    f"M{_fmt(cx - cb_r)} {_fmt(stop)}V{_fmt(floor)}H{_fmt(cx - hole_r)}"
-                    f"V{_fmt(sbottom)}M{_fmt(cx + hole_r)} {_fmt(sbottom)}"
-                    f"V{_fmt(floor)}H{_fmt(cx + cb_r)}V{_fmt(stop)}"
+                    f"M{_fmt(cx - cb_r)} {_fmt(sbottom)}V{_fmt(floor)}"
+                    f"H{_fmt(cx - hole_r)}V{_fmt(stop)}M{_fmt(cx + hole_r)} {_fmt(stop)}"
+                    f"V{_fmt(floor)}H{_fmt(cx + cb_r)}V{_fmt(sbottom)}"
                 ),
             )
         )
     screw_x = hole_xs[min(2, len(hole_xs) - 1)]
-    floor = stop + cb_depth
     screw = [
         _rect(
             screw_x - shank_dia * sscale / 2,
-            floor,
+            floor - shank_length * sscale,
             shank_dia * sscale,
             shank_length * sscale,
             fill="#999",
         ),
         _rect(
             screw_x - head_dia * sscale / 2,
-            floor - head_height * sscale,
+            floor,
             head_dia * sscale,
             head_height * sscale,
             fill="#555",
         ),
     ]
-    rail_cx = xr - rail_rise * sscale
-    rail_section = [
-        _rect(
-            rail_cx - rail_width * sscale / 2,
-            sbottom,
-            rail_width * sscale,
-            rail_height * sscale,
-        )
-    ]
-    ids = _id_range("B", first, len(column))
+    rail_cx = xl + rail_rise * sscale
+    rail_section = [_rect(rail_cx - rail_w / 2, stop - rail_h, rail_w, rail_h)]
     labels = [
         _text(section_x + 6, top - 5, "A"),
         _text(section_x + 6, bottom + 15, "A"),
-        _text(430, 72, f"Bar 1: section A–A (through {ids})"),
+        _text(430, 72, "Bar 1 as used: A–A through {{cad.bracket_section_range}}"),
     ]
     for index, item in enumerate(slots, start=1):
         cx, half = x0 + item["x"] * scale, item["width"] * scale / 2
@@ -635,8 +628,9 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         else:
             below = top + item["rise_high"] * scale + half + 12
             labels.append(_text(cx, below, name, text_anchor="middle", font_size=size))
-    # Bar 2, same view: the rail sits on the marked RAIL SIDE (up in Setup 5).
-    rail_w, rail_h = rail_width * sscale, rail_height * sscale
+    # Bar 2 as used, viewed the same way: rail on the marked RAIL SIDE (up in
+    # Setup 5), so ZERO EDGE stays on the right.
+    rail2_cx = xr - rail_rise * sscale
     stop2 = 243 + rail_h
     sbottom2 = stop2 + thickness * sscale
     view = _view(
@@ -660,23 +654,21 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         sw=xr - xl,
         st=sbottom - stop,
         sbottom=sbottom,
-        cbore_leader_x=xl + 70,
-        head_leader_x=screw_x,
-        head_leader_y=floor - head_height * sscale,
-        rail_sec_leader_x=rail_cx - 12,
-        rail_sec_leader_y=sbottom + 25.5,
-        rail_sec_leader_y1=sbottom + 42.4,
-        edge_leader_y=sbottom + 26.4,
-        edge_label_y=sbottom + 38.4,
-        rail_sec_label_y=sbottom + 54.4,
+        head_leader_x=screw_x + head_dia * sscale / 2,
+        head_leader_y=floor + head_height * sscale,
+        rail1_label_x=rail_cx + rail_w / 2 + 8,
+        rail1_label_y=stop - 8,
+        row1_leader_y=sbottom + 6,
+        row1_label_y=sbottom + 19,
+        row2_label_y=sbottom + 38,
         stud_label_y=bottom + 33,
         stud_leader_y=bottom + 21,
         stud_x=stud_x,
         stud_y=stud_y,
         stop2=stop2,
         sbottom2=sbottom2,
-        rail2_x=rail_cx - rail_w / 2,
-        rail2_label_x=rail_cx + rail_w / 2 + 8,
+        rail2_x=rail2_cx - rail_w / 2,
+        rail2_label_x=rail2_cx + rail_w / 2 + 8,
         rail2_label_y=stop2 - 8,
         rail_w=rail_w,
         rail_h=rail_h,

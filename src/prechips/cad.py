@@ -358,15 +358,19 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         _positive(parameters.get("half_cutter_dia_mm"), "process.half_cutter_dia_mm")
         / 25.4
     )
+    values["slot_cutter_in"] = cutter
     offset = (values["slot_width_in"] - cutter) / 2
     if offset <= 0:
         raise CadError("process.half_cutter_dia_mm: cutter must be under slot width")
-    # Each end is two cutter-radius corners; they bulge e(√2 − 1) past the drawn arc.
-    if (
-        offset * (math.sqrt(2) - 1)
-        > values["slot_width_max_in"] - values["slot_width_in"]
-    ):
-        raise CadError("process.half_cutter_dia_mm: slot ends leave the width band")
+    # Each end is two cutter-radius corners, so the end radius departs outward
+    # from the drawn arc by e(√2 − 1). Hold that to the drawing's two-place
+    # linear tolerance applied to the end radius.
+    radius_tol = _positive(general.get("linear_2pl"), "general_tolerances.linear_2pl")
+    if offset * (math.sqrt(2) - 1) > radius_tol / 25.4:
+        raise CadError(
+            "process.half_cutter_dia_mm: slot end radius departs from the drawn "
+            "arc by more than the two-place tolerance"
+        )
     shapes = []
     for name, item in slots:
         if item.get("height_from") != "bar_low_side" or item.get("thru") is not True:
@@ -402,6 +406,12 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         )
     bracket_x = sorted({point[0] for point in bracket_points})
     bracket_y = sorted({point[1] for point in bracket_points}, reverse=True)
+    # The inspect picture sections the last bracket column.
+    last = [point for point in bracket_points if point[0] == bracket_x[-1]]
+    first_id = len(bracket_points) - len(last) + 1
+    values["bracket_section_range"] = (
+        f"B{first_id}–B{len(bracket_points)}" if len(last) > 1 else f"B{first_id}"
+    )
     if len(bracket_points) == len(bracket_x) * len(bracket_y):
         bracket_rows = [
             [

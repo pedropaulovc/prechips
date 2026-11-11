@@ -262,11 +262,11 @@ feed = "slow hand plunge"
 speed_kind = "spindle"
 tool = "em-half"
 sizing = "other"
-instruction = "{{cad.slot_range}}, .500 cutter only, positions ±{{cad.slot_position_tol_in:.2f}}: plunge at a corner of the cutter-centre rectangle and traverse it at each depth {{cad.slot_depths_in}} below top. Makes {{cad.slot_width_in:.3f}} wide, {{cad.slot_spacing_in:.3f}} between arc centres."
+instruction = "{{cad.slot_range}}, {{cad.slot_cutter_in:.3dot}} cutter only, positions ±{{cad.slot_position_tol_in:.2f}}: plunge at a corner of the cutter-centre rectangle and traverse it at each depth {{cad.slot_depths_in}} below top. Makes {{cad.slot_width_in:.3f}} wide, {{cad.slot_spacing_in:.3f}} between arc centres."
 settings = "basebar-slot-rough-6061-t6511"
 
 [setups.operations.table]
-columns = ["Slot", "X", "Arc-centre Y (drawing)", "Cutter-centre X", "Cutter-centre Y"]
+columns = ["Slot", "X", "Arc-centre Y", "Cutter-centre X", "Cutter-centre Y"]
 rows = "{{cad.slot_rows}}"
 
 [[setups]]
@@ -274,8 +274,8 @@ machine_kind = "other"
 title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
 indexing = "none"
-datum = "Marked end/edge. Rail: bar 1 on face opposite C'BORE SIDE; bar 2 on RAIL SIDE."
-diagram = { file = "diagrams/inspect.svg", alt = "Finished bar 1 from C'BORE SIDE with section through bracket holes {{cad.bracket_range}}: socket heads recessed in counterbores, HGR15 rail on the opposite face, trimmed flush with both ends, slot stud fit. Bar 2 section: rail on the marked RAIL SIDE, table seat on the opposite face." }
+datum = "Marked end/edge. Bar 1 turned over from Setup 5: C'BORE SIDE down, rail up. Bar 2: RAIL SIDE up."
+diagram = { file = "diagrams/inspect.svg", alt = "Finished bar 1 viewed from C'BORE SIDE, and as used on the table in a section through bracket holes {{cad.bracket_section_range}}: C'BORE SIDE down, socket heads recessed from below, HGR15 rail on top, trimmed flush with both ends; slot stud fit. Bar 2 section: rail on the marked RAIL SIDE, table seat on the opposite face." }
 envelope = "other"
 vise_hold = "other"
 inspection = ["From ZERO EDGE: rail row {{cad.rail_row_min_in:.2f}}–{{cad.rail_row_max_in:.2f}}; slot arc centres (near slot end + half width) S1 {{cad.slot1_y_min_in:.2f}}–{{cad.slot1_y_max_in:.2f}}, S2 {{cad.slot2_y_min_in:.2f}}–{{cad.slot2_y_max_in:.2f}}; bar 1 bracket rows {{cad.bracket_y1_min_in:.4f}}–{{cad.bracket_y1_max_in:.4f}}, {{cad.bracket_y2_min_in:.4f}}–{{cad.bracket_y2_max_in:.4f}}."]

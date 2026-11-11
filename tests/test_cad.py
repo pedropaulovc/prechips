@@ -128,15 +128,33 @@ def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length():
         "0.8550, 0.8850",
         "-1.9250, -2.1150",
     ]
-    # A cutter as wide as the slot leaves no offset; a 3/8 in cutter's corner
-    # bulge (.0775 × (√2 − 1) = .032) leaves the ±.01 band.
-    for diameter in (13.462, 9.525):
+    # Slots are numbered from ZERO END whatever the manifest order.
+    assert [row[1] for row in cad.values["slot_rows"]] == ["0.8700", "15.3500"]
+    # A cutter as wide as the slot leaves no offset. The end radius departs
+    # outward by e(√2 − 1), held to the two-place ±.01 (0.254 mm): the smallest
+    # cutter is 13.462 − 2 × 0.254/(√2 − 1) = 12.2356 mm.
+    load_cad(SOURCE, PARAMETERS | {"half_cutter_dia_mm": 12.24}, "harmonic_base_bar")
+    for diameter in (13.462, 12.23):
         with pytest.raises(CadError, match="half_cutter_dia_mm"):
             load_cad(
                 SOURCE,
                 PARAMETERS | {"half_cutter_dia_mm": diameter},
                 "harmonic_base_bar",
             )
+
+
+def test_stand_out_above_jaws_from_jaw_parallel_and_thickness():
+    vise = {
+        "vise_jaw_height_mm": 44.9453,
+        "parallel_height_mm": 34.925,
+        "blank_thickness_in": 0.5,
+    }
+    cad = load_cad(SOURCE, PARAMETERS | vise, "harmonic_base_bar")
+    # Grip 44.9453 − 34.925 = 10.0203 mm = .3945 in under .47 finished / .50 blank.
+    assert cad.values["jaw_standout_in"] == pytest.approx(0.0755, abs=1e-4)
+    assert cad.values["jaw_standout_blank_in"] == pytest.approx(0.1055, abs=1e-4)
+    text = "{{cad.jaw_standout_in:.2dot}}–{{cad.jaw_standout_blank_in:.2dot}}"
+    assert bind_text(text, cad, PARAMETERS) == ".08–.11"
 
 
 def test_source_changes_reach_text_tables_and_geometry(tmp_path):

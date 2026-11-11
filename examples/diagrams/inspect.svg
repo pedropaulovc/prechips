@@ -32,33 +32,31 @@
   <line x1="40" y1="50" x2="31" y2="60" stroke="#111" stroke-width="1"/>
   <text x="170" y="46">ZERO EDGE</text>
   <line x1="205" y1="50" x2="210" y2="60" stroke="#111" stroke-width="1"/>
-  <text x="130" y="{{view.cbore_label_y}}">bar 1: C'BORE SIDE up</text>
+  <text x="130" y="{{view.cbore_label_y}}">bar 1 viewed from C'BORE SIDE</text>
   <text x="120" y="{{view.rail_label_y}}">{{cad.rail_range}} 8-32 (rail screws)</text>
   <text x="365" y="{{view.stud_label_y}}" text-anchor="end">1/2-13 stud slides end-to-end in S1 and S2</text>
   <line x1="368" y1="{{view.stud_leader_y}}" x2="{{view.stud_x}}" y2="{{view.stud_y}}" stroke="#111" stroke-width="1"/>
   <text x="30" y="{{view.rail_note_y}}">Bar 1: HGR15 rail under (dashed), flush both ends</text>
   <line x1="62" y1="{{view.rail_leader_y1}}" x2="{{view.rail_leader_x2}}" y2="{{view.rail_leader_y2}}" stroke="#111" stroke-width="1"/>
 
-  <!-- Section A-A across CAD width and thickness, ZERO EDGE right -->
+  <!-- Bar 1 as used on the table: section A-A turned over, ZERO EDGE left -->
   <g id="labels" data-cad-group="labels"/>
   <rect x="{{view.sxl}}" y="{{view.stop}}" width="{{view.sw}}" height="{{view.st}}" fill="url(#sec)" stroke="#111" stroke-width="1.5"/>
   <g id="section-cuts" data-cad-group="section-cuts" fill="#fff"/>
   <g id="section-outlines" data-cad-group="section-outlines" fill="none" stroke="#111" stroke-width="1.2"/>
-  <!-- socket screw recessed in counterbore -->
+  <!-- socket screw recessed in the counterbore from below -->
   <g id="screw" data-cad-group="screw" stroke="#111"/>
-  <!-- rail on the opposite face -->
+  <!-- rail on top -->
   <g id="rail-section" data-cad-group="rail-section" fill="#b5b9bf" stroke="#111" stroke-width="1.2"/>
 
-  <text x="430" y="92">C'BORE SIDE = table seat</text>
-  <line x1="{{view.cbore_leader_x}}" y1="96" x2="{{view.cbore_leader_x}}" y2="{{view.stop}}" stroke="#111" stroke-width="1"/>
-  <text x="716" y="110" text-anchor="end">#8-32 head below top</text>
-  <line x1="598" y1="113" x2="{{view.head_leader_x}}" y2="{{view.head_leader_y}}" stroke="#111" stroke-width="1"/>
-  <text x="430" y="{{view.rail_sec_label_y}}">HGR15 rail, opposite face</text>
-  <line x1="480" y1="{{view.rail_sec_leader_y1}}" x2="{{view.rail_sec_leader_x}}" y2="{{view.rail_sec_leader_y}}" stroke="#111" stroke-width="1"/>
-  <text x="716" y="{{view.edge_label_y}}" text-anchor="end">ZERO EDGE</text>
-  <line x1="680" y1="{{view.edge_leader_y}}" x2="{{view.sxr}}" y2="{{view.sbottom}}" stroke="#111" stroke-width="1"/>
+  <text x="{{view.rail1_label_x}}" y="{{view.rail1_label_y}}">HGR15 rail</text>
+  <text x="430" y="{{view.row1_label_y}}">ZERO EDGE</text>
+  <line x1="442" y1="{{view.row1_leader_y}}" x2="{{view.sxl}}" y2="{{view.sbottom}}" stroke="#111" stroke-width="1"/>
+  <text x="716" y="{{view.row1_label_y}}" text-anchor="end">#8-32 head recessed</text>
+  <line x1="574" y1="{{view.row1_leader_y}}" x2="{{view.head_leader_x}}" y2="{{view.head_leader_y}}" stroke="#111" stroke-width="1"/>
+  <text x="430" y="{{view.row2_label_y}}">C'BORE SIDE down = table seat</text>
 
-  <!-- Bar 2, same view (drawing sheet 2): rail on the marked RAIL SIDE, table seat opposite -->
+  <!-- Bar 2 as used (drawing sheet 2): rail on the marked RAIL SIDE, table seat opposite -->
   <text x="430" y="228">Bar 2: rail on marked RAIL SIDE</text>
   <rect x="{{view.sxl}}" y="{{view.stop2}}" width="{{view.sw}}" height="{{view.st}}" fill="url(#sec)" stroke="#111" stroke-width="1.5"/>
   <rect x="{{view.rail2_x}}" y="243" width="{{view.rail_w}}" height="{{view.rail_h}}" fill="#b5b9bf" stroke="#111" stroke-width="1.2"/>
