@@ -14,6 +14,10 @@ class CadError(ValueError):
     """A CAD source or a named binding cannot supply a required value."""
 
 
+# ASME B46.1 preferred roughness averages: micrometres to microinches.
+_RA_UIN = {0.4: 16, 0.8: 32, 1.6: 63, 3.2: 125, 6.3: 250}
+
+
 @dataclass
 class StockAxis:
     """One declared stock parameter and the size it must cover along one axis."""
@@ -171,6 +175,25 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
+def point_columns(
+    points: list,
+) -> list[tuple[int, list]]:
+    """Group consecutive equal-X points; return (first ID number, points)."""
+    columns: list[tuple[int, list]] = []
+    for index, point in enumerate(points, start=1):
+        if columns and math.isclose(columns[-1][1][0][0], point[0], abs_tol=1e-6):
+            columns[-1][1].append(point)
+        else:
+            columns.append((index, [point]))
+    return columns
+
+
+def id_range(prefix: str, first: int, count: int) -> str:
+    if count == 1:
+        return f"{prefix}{first}"
+    return f"{prefix}{first}–{prefix}{first + count - 1}"
+
+
 def _load_base_bar(path: Path, parameters: dict) -> CadData:
     """Normalize only the supported harmonic base-bar manifest, in physical mm."""
     raw, values, features = _harmonic_manifest(
@@ -210,7 +233,10 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             f"{values[f'{key}_in']:.2f} (±{band:.2f})"
             for key, band in zip(dimensions, halfbands)
         )
-    _edge_breaks(raw, values)
+    general = _edge_breaks(raw, values)
+    values["angular_tol_deg"] = _positive(
+        general.get("angular_deg"), "general_tolerances.angular_deg"
+    )
     finishes = []
     for name in ("top_seat", "underside_seat"):
         item = feature(name)
@@ -220,6 +246,10 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if finishes[0] != finishes[1]:
         raise CadError("cad.finish_ra_um: inconsistent seat requirements")
     values["finish_ra_um"] = finishes[0]
+    # The inch drawing prints the ASME B46.1 preferred microinch value.
+    if finishes[0] not in _RA_UIN:
+        raise CadError("cad.finish_ra_uin: no preferred microinch Ra for this value")
+    values["finish_ra_uin"] = _RA_UIN[finishes[0]]
 
     def group(prefix: str, kind: str) -> list[tuple[str, dict]]:
         result = [
@@ -242,6 +272,11 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     ]
     if not slots:
         raise CadError("cad.features: missing slots")
+    slots.sort(key=lambda slot: _mid(_band(slot[1], "station", slot[0])))
+    threads = {_string(item.get("thread"), f"{name}.thread") for name, item in rails}
+    if len(threads) != 1:
+        raise CadError("cad.rail_thread: inconsistent rail threads")
+    values["rail_thread"] = threads.pop()
 
     def points(
         items: list[tuple[str, dict]], station: Callable[[str, dict], float]
@@ -299,6 +334,24 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
                 for low, high in [_band(item, "height", name)]
             )
         values[f"{key}_in"] = min(tolerances) / 25.4
+    # Position bands for inspection, in drawing order from ZERO END / ZERO EDGE.
+    limits("rail_row", [_band(item, "height", name) for name, item in rails])
+    band_counts = []
+    for axis, field in (("x", "station"), ("y", "height")):
+        columns = sorted({_band(item, field, name) for name, item in brackets})
+        band_counts.append(len(columns))
+        for index, band in enumerate(columns, 1):
+            _inch_limits(values, f"bracket_{axis}{index}", band)
+        for index, (name, item) in enumerate(slots, 1):
+            _inch_limits(values, f"slot{index}_{axis}", _band(item, field, name))
+    # The plan's inspection text and gauge checks name B1–B2, B3–B4, two
+    # bracket rows and S1, S2; a different layout must not bind mislabelled.
+    holes_per_column = [len(column) for _, column in point_columns(bracket_points)]
+    if band_counts != [2, 2] or holes_per_column != [2, 2] or len(slots) != 2:
+        raise CadError(
+            "cad.features: the base-bar plan expects two slots and two bracket "
+            "columns (B1–B2, B3–B4) on two rows, each with one position band"
+        )
     limits("bracket_dia", [_band(item, "dia", name) for name, item in brackets])
     bracket_diameters = [
         _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -328,24 +381,53 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         )
     limits("slot_width", [_band(item, "width", name) for name, item in slots])
     limits("slot_spacing", [_band(item, "separation", name) for name, item in slots])
+    # One cutter makes the slot: its centre traces a rectangle offset e from the
+    # arc-centre line, so width = D + 2e and overall length = spacing + D + 2e.
+    cutter = (
+        _positive(parameters.get("half_cutter_dia_mm"), "process.half_cutter_dia_mm")
+        / 25.4
+    )
+    values["slot_cutter_in"] = cutter
+    offset = (values["slot_width_in"] - cutter) / 2
+    if offset <= 0:
+        raise CadError("process.half_cutter_dia_mm: cutter must be under slot width")
+    # The cutter in the spindle cuts its own diameter + 2e on this path, so it
+    # must fall in the drawing's width band less 2e (tool_sizing checks it).
+    values["slot_cutter_band_mm"] = [
+        limit - 2 * offset * 25.4 for limit in values["slot_width_band_mm"]
+    ]
+    # Each end is two cutter-radius corners, so the end radius departs outward
+    # from the drawn arc by e(√2 − 1). Hold that to the drawing's two-place
+    # linear tolerance applied to the end radius.
+    radius_tol = _positive(general.get("linear_2pl"), "general_tolerances.linear_2pl")
+    if offset * (math.sqrt(2) - 1) > radius_tol / 25.4:
+        raise CadError(
+            "process.half_cutter_dia_mm: slot end radius departs from the drawn "
+            "arc by more than the two-place tolerance"
+        )
     shapes = []
     for name, item in slots:
         if item.get("height_from") != "bar_low_side" or item.get("thru") is not True:
             raise CadError(
                 f"{name}: requires a through slot measured from bar_low_side"
             )
+        x = _mid(_band(item, "station", name)) / 25.4
         near = -_mid(_band(item, "height", name)) / 25.4
         far = near - _mid(_band(item, "separation", name)) / 25.4
         shapes.append(
             {
-                "x_in": _mid(_band(item, "station", name)) / 25.4,
+                "x_in": x,
                 "near_y_in": near,
                 "far_y_in": far,
-                "mid_y_in": (near + far) / 2,
                 "width_in": _mid(_band(item, "width", name)) / 25.4,
+                "corners_in": [
+                    [x - offset, near + offset],
+                    [x + offset, near + offset],
+                    [x + offset, far - offset],
+                    [x - offset, far - offset],
+                ],
             }
         )
-    shapes.sort(key=lambda shape: shape["x_in"])
     values["slot_shapes_in"] = shapes
     for key, prefix, count in (
         ("rail", "R", len(rails)),
@@ -353,11 +435,13 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         ("slot", "S", len(slots)),
     ):
         values[f"{key}_count"] = count
-        values[f"{key}_range"] = (
-            f"{prefix}1–{prefix}{count}" if count > 1 else f"{prefix}1"
-        )
+        values[f"{key}_range"] = id_range(prefix, 1, count)
     bracket_x = sorted({point[0] for point in bracket_points})
     bracket_y = sorted({point[1] for point in bracket_points}, reverse=True)
+    # The inspect picture sections the last bracket column.
+    first_id, section = point_columns(bracket_points)[-1]
+    values["bracket_section_points_in"] = section
+    values["bracket_section_range"] = id_range("B", first_id, len(section))
     if len(bracket_points) == len(bracket_x) * len(bracket_y):
         bracket_rows = [
             [
@@ -371,24 +455,23 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             [f"Bracket B{index}", f"{x:.4f}", f"{y:.4f}"]
             for index, (x, y) in enumerate(bracket_points, 1)
         ]
-    values["hole_rows"] = (
+    values["hole_rows"] = [
         [
-            [
-                f"Rail {values['rail_range']}",
-                ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
-                f"{values['rail_y_in']:.4f}",
-            ]
+            f"Rail {values['rail_range']}",
+            ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
+            f"{values['rail_y_in']:.4f}",
         ]
-        + bracket_rows
-        + [
-            [f"Slot S{index}", f"{shape['x_in']:.4f}", f"{shape['mid_y_in']:.4f}"]
-            for index, shape in enumerate(shapes, 1)
+    ] + bracket_rows
+    values["slot_rows"] = [
+        [
+            f"S{index}",
+            f"{shape['x_in']:.4f}",
+            f"{shape['near_y_in']:.4f}, {shape['far_y_in']:.4f}",
+            ", ".join(f"{x:.4f}" for x, _ in shape["corners_in"][:2]),
+            ", ".join(f"{y:.4f}" for _, y in shape["corners_in"][1:3]),
         ]
-    )
-    values["slot_paths"] = "; ".join(
-        f"X {shape['x_in']:.4f}, Y {shape['near_y_in']:.4f} to {shape['far_y_in']:.4f}"
-        for shape in shapes
-    )
+        for index, shape in enumerate(shapes, 1)
+    ]
     for key in ("width_rough_allowance_in", "slot_breakthrough_in"):
         if _number(parameters.get(key), f"process.{key}") < 0:
             raise CadError(f"process.{key}: expected a nonnegative allowance")
@@ -410,9 +493,20 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
-    # Analysis fields are millimetres; the plan chooses these sizes in inches.
-    if "slot_finish_diameter_in" in parameters:
-        values["slot_finish_diameter_mm"] = parameters["slot_finish_diameter_in"] * 25.4
+    # Bar top above the jaw tops, from the plan's copy of the shop vise record.
+    grip = (
+        _positive(parameters.get("vise_jaw_height_mm"), "process.vise_jaw_height_mm")
+        - _positive(parameters.get("parallel_height_mm"), "process.parallel_height_mm")
+    ) / 25.4
+    values["jaw_standout_in"] = values["thickness_in"] - grip
+    # A missing blank thickness is named by stock_fit, which owns that parameter.
+    if "blank_thickness_in" in parameters:
+        values["jaw_standout_blank_in"] = parameters["blank_thickness_in"] - grip
+    if values["jaw_standout_in"] <= 0:
+        raise CadError(
+            "cad.jaw_standout_in: finished bar top is at or below the vise jaw "
+            "tops; facing would cut the jaws"
+        )
     for key in ("length", "width", "thickness"):
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
     _blank_mm(values, parameters)

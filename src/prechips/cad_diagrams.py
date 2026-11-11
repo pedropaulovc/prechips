@@ -18,7 +18,7 @@ import math
 from collections.abc import Callable
 from xml.etree import ElementTree
 
-from prechips.cad import CadData, CadError, bind_text
+from prechips.cad import CadData, CadError, bind_text, id_range, point_columns
 
 SVG_NS = "http://www.w3.org/2000/svg"
 ElementTree.register_namespace("", SVG_NS)
@@ -129,25 +129,6 @@ def _slots(values: dict) -> list[dict[str, float]]:
             }
         )
     return result
-
-
-def _columns(
-    points: list[tuple[float, float]],
-) -> list[tuple[int, list[tuple[float, float]]]]:
-    """Group consecutive equal-X points; return (first ID number, points)."""
-    columns: list[tuple[int, list[tuple[float, float]]]] = []
-    for index, point in enumerate(points, start=1):
-        if columns and math.isclose(columns[-1][1][0][0], point[0], abs_tol=1e-6):
-            columns[-1][1].append(point)
-        else:
-            columns.append((index, [point]))
-    return columns
-
-
-def _id_range(prefix: str, first: int, count: int) -> str:
-    if count == 1:
-        return f"{prefix}{first}"
-    return f"{prefix}{first}–{prefix}{first + count - 1}"
 
 
 def _root_mm(root: ElementTree.Element, name: str) -> float:
@@ -304,6 +285,22 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     }
 
 
+def _table_blocks(x0: float, x1: float, cy: float, scale: float) -> dict[str, float]:
+    """Setups 2–3: three 1-2-3 blocks lying flat, 3 in across the width, inboard."""
+    width, height, inset = 2 * scale, 3 * scale, 35.0
+    mid = (x0 + x1) / 2
+    return {
+        "block_w": width,
+        "block_h": height,
+        "block_y": cy - height / 2,
+        "block1_x": x0 + inset,
+        "block2_x": mid - width / 2,
+        "block3_x": x1 - inset - width,
+        "gap_left_x": (x0 + inset + width + mid - width / 2) / 2,
+        "gap_right_x": (mid + width / 2 + x1 - inset - width) / 2,
+    }
+
+
 def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Setup 2: authored blank on the table; CAD finished width from ZERO EDGE."""
     blank_length = _process(parameters, "blank_length_in")
@@ -354,6 +351,7 @@ def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         datum_leader_x2=x1 - 80,
         datum_leader_y2=front + 2,
         step1_y=bottom + 56,
+        **_table_blocks(x0, x1, (top + bottom) / 2, scale),
     )
     return view, {}
 
@@ -389,6 +387,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         minus_y_label=bottom + 10,
         label1_y=cy - 9,
         label2_y=cy + 16,
+        edge_label_y=bottom - 8,
         step_y=bottom + 24,
         step3_x=zero + 5,
         step4_x=far - 5,
@@ -402,6 +401,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         dim_y=bottom + 74,
         dim_label_x=zero + 105,
         dim_label_y=bottom + 92,
+        **_table_blocks(zero - trim, far + trim, cy, scale),
     )
     return view, {}
 
@@ -415,6 +415,8 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     centre = 333.0
     fx0, fx1 = centre - length * front_scale / 2, centre + length * front_scale / 2
     fbottom = 120 + thickness * front_scale
+    # Jaw top from the bound stand-out; the vise body top sits at y=172.
+    jaw_top = 120 + _cad(values, "jaw_standout_blank_in") * front_scale
     top_scale = min(14.0, 257 / length, 77 / width)
     tcentre = 201.5
     tx0, tx1 = tcentre - length * top_scale / 2, tcentre + length * top_scale / 2
@@ -426,20 +428,18 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         fthick=fbottom - 120,
         fbottom=fbottom,
         parallel_h=171.5 - fbottom,
+        jaw_top=jaw_top,
+        jaw_h=172 - jaw_top,
         jack_shaft_h=158 - fbottom,
-        half_left_x=(fx0 + centre) / 2,
-        half_right_x=(centre + fx1) / 2,
-        dim_left1=fx0 + 1,
-        dim_left2=centre - 1,
-        dim_right1=centre + 1,
-        dim_right2=fx1 - 1,
         tx0=tx0,
         tx1=tx1,
         tlen=tx1 - tx0,
         twidth=tbottom - 250,
         tbottom=tbottom,
         zero_end_x=tx0 + 1,
-        mark_y=(250 + tbottom) / 2 + 5.5,
+        mark1_y=(250 + tbottom) / 2 - 3.5,
+        mark2_y=(250 + tbottom) / 2 + 14.5,
+        zero_end_y=(250 + tbottom) / 2 + 5.5,
         zero_end_label_x=tx0 - 6,
     )
     return view, {}
@@ -456,36 +456,37 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bottom = top + hpx
     groups = _top_view_features(values, x0, top, scale)
     labels = []
-    for first, column in _columns(_points(values, "bracket_points_in")):
+    for first, column in point_columns(_points(values, "bracket_points_in")):
         cx = x0 + column[0][0] * scale
-        rises = [rise for _, rise in column]
-        y = top + (min(rises) + max(rises)) / 2 * scale + 5
+        y = top + min(rise for _, rise in column) * scale + 5
         left = cx < centre
         labels.append(
             _text(
                 cx + 12 if left else cx - 11,
                 y,
-                _id_range("B", first, len(column)),
+                id_range("B", first, len(column)),
                 text_anchor="start" if left else "end",
             )
         )
     for index, slot in enumerate(_slots(values), start=1):
         cx = x0 + slot["x"] * scale
-        cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
         half = slot["width"] * scale / 2
-        left = cx < centre
-        labels.append(
-            _text(
-                cx + half + 5 if left else cx - half - 5,
-                cy,
-                f"S{index}",
-                text_anchor="start" if left else "end",
-            )
-        )
+        # Left-end slot: label below it, clear of the bracket column beside it.
+        if cx < centre:
+            below = top + slot["rise_high"] * scale + half + 15
+            labels.append(_text(cx, below, f"S{index}", text_anchor="middle"))
+            continue
+        cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
+        labels.append(_text(cx - half - 5, cy, f"S{index}", text_anchor="end"))
     groups["feature-labels"] = labels
     rail_y = top - _number(values, "rail_y_in", "cad") * scale
-    jack1 = (x0 + 0.234 * lpx, top + 0.8125 * hpx)
-    jack2 = (x1 - 0.088 * lpx, top + 0.33 * hpx)
+    jack1, jack2 = (
+        (
+            x0 + _process(parameters, f"jack_{side}_x_in") * scale,
+            top - _process(parameters, f"jack_{side}_y_in") * scale,
+        )
+        for side in ("left", "right")
+    )
     view = _view(
         x0=x0,
         x1=x1,
@@ -497,7 +498,8 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         datum_y=top + 1,
         rail_label_x=x0 + 180,
         rail_label_y=rail_y + 24,
-        cbore_label_y=top + 0.273 * hpx,
+        side_label_y=top + 0.273 * hpx,
+        side_label2_y=top + 0.273 * hpx + 18,
         lower_parallel_y=bottom - 8,
         jack1_x=jack1[0],
         jack1_y=jack1[1],
@@ -505,7 +507,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         jack2_y=jack2[1],
         jack1_label_x=jack1[0] + 15,
         jack1_label_y=jack1[1] + 10,
-        jack2_label_x=jack2[0] - 12,
+        jack2_label_x=jack2[0] - 15,
         jack2_label_y=jack2[1] + 5,
         origin_label_x=x0 - 56,
         origin_label_y=top - 10,
@@ -523,7 +525,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 6: finished plan from C'BORE SIDE plus section through last bracket column."""
+    """Setup 6: bar 1 plan and section through its last bracket column; bar 2 section."""
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _cad(values, "thickness_in")
@@ -544,67 +546,77 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     rail_y = top + rail_rise * scale
     rail_px = rail_width * scale
     groups["rail-hidden"] = [_rect(x0, rail_y - rail_px / 2, x1 - x0, rail_px)]
-    first, column = _columns(_points(values, "bracket_points_in"))[-1]
+    column = _points(values, "bracket_section_points_in")
     section_x = x0 + column[0][0] * scale
-    slot = _slots(values)[-1]
+    slots = _slots(values)
+    slot = slots[-1]
     stud_x = x0 + slot["x"] * scale + slot["width"] * scale / 2
     stud_y = top + (slot["rise_high"] + slot["width"] / 2) * scale - 1
 
-    # Section A-A across the width at the last bracket column, ZERO EDGE right.
+    # Bar 1 as used on the mill table: A-A turned over, C'BORE SIDE down, rail on
+    # top, so ZERO EDGE falls on the left.
     sscale = min(46.0, 253 / width)
-    xr, stop = 683.0, 120.0
+    rail_w, rail_h = rail_width * sscale, rail_height * sscale
+    xr, stop = 683.0, 82 + rail_h
     xl, sbottom = xr - width * sscale, stop + thickness * sscale
     cb_r = _cad(values, "counterbore_dia_in") * sscale / 2
     cb_depth = _cad(values, "counterbore_depth_in") * sscale
     hole_r = _cad(values, "bracket_dia_in") * sscale / 2
     cuts, outlines = [], []
-    hole_xs = [xr - rise * sscale for _, rise in column]
+    hole_xs = [xl + rise * sscale for _, rise in column]
+    floor = sbottom - cb_depth
     for cx in hole_xs:
-        floor = stop + cb_depth
-        cuts.append(_rect(cx - cb_r, stop - 1, 2 * cb_r, cb_depth + 1))
-        cuts.append(_rect(cx - hole_r, floor - 0.7, 2 * hole_r, sbottom - floor + 1.7))
+        cuts.append(_rect(cx - cb_r, floor, 2 * cb_r, cb_depth + 1))
+        cuts.append(_rect(cx - hole_r, stop - 1, 2 * hole_r, floor - stop + 1.7))
         outlines.append(
             _el(
                 "path",
                 d=(
-                    f"M{_fmt(cx - cb_r)} {_fmt(stop)}V{_fmt(floor)}H{_fmt(cx - hole_r)}"
-                    f"V{_fmt(sbottom)}M{_fmt(cx + hole_r)} {_fmt(sbottom)}"
-                    f"V{_fmt(floor)}H{_fmt(cx + cb_r)}V{_fmt(stop)}"
+                    f"M{_fmt(cx - cb_r)} {_fmt(sbottom)}V{_fmt(floor)}"
+                    f"H{_fmt(cx - hole_r)}V{_fmt(stop)}M{_fmt(cx + hole_r)} {_fmt(stop)}"
+                    f"V{_fmt(floor)}H{_fmt(cx + cb_r)}V{_fmt(sbottom)}"
                 ),
             )
         )
     screw_x = hole_xs[min(2, len(hole_xs) - 1)]
-    floor = stop + cb_depth
     screw = [
         _rect(
             screw_x - shank_dia * sscale / 2,
-            floor,
+            floor - shank_length * sscale,
             shank_dia * sscale,
             shank_length * sscale,
             fill="#999",
         ),
         _rect(
             screw_x - head_dia * sscale / 2,
-            floor - head_height * sscale,
+            floor,
             head_dia * sscale,
             head_height * sscale,
             fill="#555",
         ),
     ]
-    rail_cx = xr - rail_rise * sscale
-    rail_section = [
-        _rect(
-            rail_cx - rail_width * sscale / 2,
-            sbottom,
-            rail_width * sscale,
-            rail_height * sscale,
-        )
-    ]
-    ids = _id_range("B", first, len(column))
+    rail_cx = xl + rail_rise * sscale
+    rail_section = [_rect(rail_cx - rail_w / 2, stop - rail_h, rail_w, rail_h)]
     labels = [
-        _text(section_x, top - 14, "A", text_anchor="middle"),
-        _text(430, 84, f"Section A–A (through {ids})"),
+        _text(section_x + 6, top - 5, "A"),
+        _text(section_x + 6, bottom + 15, "A"),
+        _text(430, 72, "Bar 1 as used: A–A through {{cad.bracket_section_range}}"),
     ]
+    for index, item in enumerate(slots, start=1):
+        cx, half = x0 + item["x"] * scale, item["width"] * scale / 2
+        name, size = f"S{index}", 13
+        if item is not slot:
+            below = top + item["rise_high"] * scale + half + 12
+            labels.append(_text(cx, below, name, text_anchor="middle", font_size=size))
+            continue
+        cy = top + (item["rise_low"] + item["rise_high"]) / 2 * scale + 4
+        labels.append(_text(cx - half - 4, cy, name, text_anchor="end", font_size=size))
+    # Bar 2 as used, viewed the same way: rail on the marked RAIL SIDE (up in
+    # Setup 5), so ZERO EDGE stays on the right.
+    rail2_cx = xr - rail_rise * sscale
+    rail2_y = 243.0
+    stop2 = rail2_y + rail_h
+    sbottom2 = stop2 + thickness * sscale
     view = _view(
         x0=x0,
         top=top,
@@ -612,12 +624,12 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         plan_h=bottom - top,
         cbore_label_y=top + 40,
         rail_label_y=rail_y + 25,
-        rail_note_y=bottom + 33,
-        rail_leader_x1=394.0,
-        rail_leader_y1=bottom + 27,
-        rail_leader_x2=x1 - 4,
-        rail_leader_y2=rail_y + 8,
+        rail_note_y=bottom + 59,
+        rail_leader_y1=bottom + 45,
+        rail_leader_x2=x0 + 35,
+        rail_leader_y2=rail_y + rail_px / 2,
         section_x=section_x,
+        section_arrow_x=section_x - 16,
         section_top=top - 10,
         section_bottom=bottom + 10,
         sxl=xl,
@@ -626,19 +638,29 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         sw=xr - xl,
         st=sbottom - stop,
         sbottom=sbottom,
-        cbore_leader_x=xl + 70,
-        head_leader_x=screw_x,
-        head_leader_y=floor - head_height * sscale,
-        rail_sec_leader_x=rail_cx - 12,
-        rail_sec_leader_y=sbottom + 25.5,
-        rail_sec_leader_y1=sbottom + 42.4,
-        edge_leader_y=sbottom + 26.4,
-        edge_label_y=sbottom + 38.4,
-        rail_sec_label_y=sbottom + 54.4,
-        stud_label_y=bottom + 59,
-        stud_leader_y=bottom + 53,
+        head_leader_x=screw_x + head_dia * sscale / 2,
+        head_leader_y=floor + head_height * sscale,
+        rail1_label_x=rail_cx + rail_w / 2 + 8,
+        rail1_label_y=stop - 8,
+        row1_leader_y=sbottom + 6,
+        row1_label_y=sbottom + 19,
+        row2_label_y=sbottom + 38,
+        stud_label_y=bottom + 33,
+        stud_leader_y=bottom + 21,
         stud_x=stud_x,
         stud_y=stud_y,
+        stop2=stop2,
+        sbottom2=sbottom2,
+        rail2_x=rail2_cx - rail_w / 2,
+        rail2_y=rail2_y,
+        bar2_title_y=rail2_y - 15,
+        rail2_label_x=rail2_cx + rail_w / 2 + 8,
+        rail2_label_y=stop2 - 8,
+        rail_w=rail_w,
+        rail_h=rail_h,
+        seat2_leader_y=sbottom2 + 9,
+        seat2_label_y=sbottom2 + 22,
+        edge2_leader_y=sbottom2 + 10,
     )
     groups.update(
         {

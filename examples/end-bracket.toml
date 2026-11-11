@@ -56,8 +56,8 @@ drill_tip_z_mm = -1.038
 
 [[tools]]
 id = "saw"
-name = "Saw"
-ref = "jig-saw"
+name = "Evolution miter saw"
+ref = "saw-evolution-14"
 [[tools]]
 id = "em-half"
 name = "1/2 in end mill"

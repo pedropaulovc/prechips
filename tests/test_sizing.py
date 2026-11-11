@@ -124,6 +124,17 @@ def test_cli_base_bar_passes(tmp_path):
                 "'tap' tap drill 3.4544 mm"
             ),
         ),
+        (
+            # The slot path offsets assume the 12.7 mm cutter; a 12.0 mm one
+            # would cut 12.0 + 2e = .502 in, under the .52 minimum.
+            "diameter_mm = 12.7",
+            "diameter_mm = 12.0",
+            (
+                "tool_sizing: setup 5 (Drill / tap / counterbore / slots), Op 130, "
+                "sizing: tool 'em-half' diameter 12 mm is outside band "
+                "12.446–12.954 mm"
+            ),
+        ),
     ],
 )
 def test_cli_base_bar_refuses_wrong_drill(tmp_path, capsys, old, new, message):
