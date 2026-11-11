@@ -67,8 +67,8 @@ drill_projection_max_mm = 112.8
 
 [[tools]]
 id = "saw"
-name = "Saw"
-ref = "basebar-saw"
+name = "Evolution miter saw"
+ref = "saw-evolution-14"
 [[tools]]
 id = "em-half"
 name = "1/2 in end mill"
@@ -184,8 +184,7 @@ speed_kind = "spindle"
 tool = "em-face"
 sizing = "other"
 instruction = "Face each face full length. Rough .010 per pass, +X, +Y stepover .60; remove half allowance on side 1. Flip end-for-end, ZERO EDGE still at fixed jaw; finish side 2 to {{cad.thickness_in:.4f}}. Reorient ZERO END left, ZERO EDGE back; mark upper face: bar 1 C'BORE SIDE, bar 2 RAIL SIDE."
-rpm = 840
-feed = "3.3 in/min rough; 2.4 finish"
+settings = "basebar-face-6061-t6511"
 
 [[setups]]
 machine_kind = "other"

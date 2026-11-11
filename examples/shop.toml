@@ -112,8 +112,11 @@ vise_centre_fraction_max = 0.3333
 # diameter_mm: standard nominal size stated in each description, × 25.4.
 # The 8-32 tap records the plan's authored #29 (.136 in) tap drill. The v48
 # drawing calls the #12 bracket drill (notes.process).
-[tools.basebar-saw]
-description = "Aluminium saw"
+# Logbook (C:/src/harmonic-analyzer/logbook/entries): 2026-11-04 end brackets
+# and 2026-11-05 base bar blanks "sawn ... on a 14 in Evolution metal-cutting
+# miter saw" (lines 17 and 19). No entry states the blade (HA #2084).
+[tools.saw-evolution-14]
+description = "14 in Evolution metal-cutting miter saw"
 [tools.basebar-em-half]
 description = "1/2 in centre-cutting 2-flute end mill; flutes ≥5/8 in"
 diameter_mm = 12.7
@@ -145,6 +148,14 @@ tool = "basebar-em-half"
 material = "6061-t6511"
 rpm = 1250
 feed = "5 in/min"
+# Owner ruling 2026-11-11: the source guide's 165 ft/min HSS milling speed and
+# .002 in/tooth: 12*165/(pi*3/4)=840 rpm, rounded to 850;
+# 850 rpm * 4 flutes * .002 in/tooth = 6.8 in/min, rough and finish.
+[settings.basebar-face-6061-t6511]
+tool = "basebar-em-face"
+material = "6061-t6511"
+rpm = 850
+feed = "6.8 in/min"
 
 # Source: comparison/pivot-shaft.toml; archived pivot-shaft plan rev 7,
 # inventory/pedro-shop.toml and cutting-data.toml pivot-shaft/DataShaft4 rows.
