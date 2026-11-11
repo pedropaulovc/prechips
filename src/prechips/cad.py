@@ -175,6 +175,25 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
+def point_columns(
+    points: list,
+) -> list[tuple[int, list]]:
+    """Group consecutive equal-X points; return (first ID number, points)."""
+    columns: list[tuple[int, list]] = []
+    for index, point in enumerate(points, start=1):
+        if columns and math.isclose(columns[-1][1][0][0], point[0], abs_tol=1e-6):
+            columns[-1][1].append(point)
+        else:
+            columns.append((index, [point]))
+    return columns
+
+
+def id_range(prefix: str, first: int, count: int) -> str:
+    if count == 1:
+        return f"{prefix}{first}"
+    return f"{prefix}{first}–{prefix}{first + count - 1}"
+
+
 def _load_base_bar(path: Path, parameters: dict) -> CadData:
     """Normalize only the supported harmonic base-bar manifest, in physical mm."""
     raw, values, features = _harmonic_manifest(
@@ -362,6 +381,11 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     offset = (values["slot_width_in"] - cutter) / 2
     if offset <= 0:
         raise CadError("process.half_cutter_dia_mm: cutter must be under slot width")
+    # The cutter in the spindle cuts its own diameter + 2e on this path, so it
+    # must fall in the drawing's width band less 2e (tool_sizing checks it).
+    values["slot_cutter_band_mm"] = [
+        limit - 2 * offset * 25.4 for limit in values["slot_width_band_mm"]
+    ]
     # Each end is two cutter-radius corners, so the end radius departs outward
     # from the drawn arc by e(√2 − 1). Hold that to the drawing's two-place
     # linear tolerance applied to the end radius.
@@ -401,17 +425,13 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         ("slot", "S", len(slots)),
     ):
         values[f"{key}_count"] = count
-        values[f"{key}_range"] = (
-            f"{prefix}1–{prefix}{count}" if count > 1 else f"{prefix}1"
-        )
+        values[f"{key}_range"] = id_range(prefix, 1, count)
     bracket_x = sorted({point[0] for point in bracket_points})
     bracket_y = sorted({point[1] for point in bracket_points}, reverse=True)
     # The inspect picture sections the last bracket column.
-    last = [point for point in bracket_points if point[0] == bracket_x[-1]]
-    first_id = len(bracket_points) - len(last) + 1
-    values["bracket_section_range"] = (
-        f"B{first_id}–B{len(bracket_points)}" if len(last) > 1 else f"B{first_id}"
-    )
+    first_id, section = point_columns(bracket_points)[-1]
+    values["bracket_section_points_in"] = section
+    values["bracket_section_range"] = id_range("B", first_id, len(section))
     if len(bracket_points) == len(bracket_x) * len(bracket_y):
         bracket_rows = [
             [
@@ -464,13 +484,19 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
     # Bar top above the jaw tops, from the plan's copy of the shop vise record.
-    if {"parallel_height_mm", "vise_jaw_height_mm"} <= parameters.keys():
-        grip = parameters["vise_jaw_height_mm"] - parameters["parallel_height_mm"]
-        values["jaw_standout_in"] = values["thickness_in"] - grip / 25.4
-        if "blank_thickness_in" in parameters:
-            values["jaw_standout_blank_in"] = (
-                parameters["blank_thickness_in"] - grip / 25.4
-            )
+    grip = (
+        _positive(parameters.get("vise_jaw_height_mm"), "process.vise_jaw_height_mm")
+        - _positive(parameters.get("parallel_height_mm"), "process.parallel_height_mm")
+    ) / 25.4
+    values["jaw_standout_in"] = values["thickness_in"] - grip
+    # A missing blank thickness is named by stock_fit, which owns that parameter.
+    if "blank_thickness_in" in parameters:
+        values["jaw_standout_blank_in"] = parameters["blank_thickness_in"] - grip
+    if values["jaw_standout_in"] <= 0:
+        raise CadError(
+            "cad.jaw_standout_in: finished bar top is at or below the vise jaw "
+            "tops; facing would cut the jaws"
+        )
     for key in ("length", "width", "thickness"):
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
     _blank_mm(values, parameters)

@@ -18,7 +18,7 @@ import math
 from collections.abc import Callable
 from xml.etree import ElementTree
 
-from prechips.cad import CadData, CadError, bind_text
+from prechips.cad import CadData, CadError, bind_text, id_range, point_columns
 
 SVG_NS = "http://www.w3.org/2000/svg"
 ElementTree.register_namespace("", SVG_NS)
@@ -129,25 +129,6 @@ def _slots(values: dict) -> list[dict[str, float]]:
             }
         )
     return result
-
-
-def _columns(
-    points: list[tuple[float, float]],
-) -> list[tuple[int, list[tuple[float, float]]]]:
-    """Group consecutive equal-X points; return (first ID number, points)."""
-    columns: list[tuple[int, list[tuple[float, float]]]] = []
-    for index, point in enumerate(points, start=1):
-        if columns and math.isclose(columns[-1][1][0][0], point[0], abs_tol=1e-6):
-            columns[-1][1].append(point)
-        else:
-            columns.append((index, [point]))
-    return columns
-
-
-def _id_range(prefix: str, first: int, count: int) -> str:
-    if count == 1:
-        return f"{prefix}{first}"
-    return f"{prefix}{first}–{prefix}{first + count - 1}"
 
 
 def _root_mm(root: ElementTree.Element, name: str) -> float:
@@ -434,6 +415,8 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     centre = 333.0
     fx0, fx1 = centre - length * front_scale / 2, centre + length * front_scale / 2
     fbottom = 120 + thickness * front_scale
+    # Jaw top from the bound stand-out; the vise body top sits at y=172.
+    jaw_top = 120 + _cad(values, "jaw_standout_blank_in") * front_scale
     top_scale = min(14.0, 257 / length, 77 / width)
     tcentre = 201.5
     tx0, tx1 = tcentre - length * top_scale / 2, tcentre + length * top_scale / 2
@@ -445,6 +428,8 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         fthick=fbottom - 120,
         fbottom=fbottom,
         parallel_h=171.5 - fbottom,
+        jaw_top=jaw_top,
+        jaw_h=172 - jaw_top,
         jack_shaft_h=158 - fbottom,
         tx0=tx0,
         tx1=tx1,
@@ -471,7 +456,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bottom = top + hpx
     groups = _top_view_features(values, x0, top, scale)
     labels = []
-    for first, column in _columns(_points(values, "bracket_points_in")):
+    for first, column in point_columns(_points(values, "bracket_points_in")):
         cx = x0 + column[0][0] * scale
         y = top + min(rise for _, rise in column) * scale + 5
         left = cx < centre
@@ -479,7 +464,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             _text(
                 cx + 12 if left else cx - 11,
                 y,
-                _id_range("B", first, len(column)),
+                id_range("B", first, len(column)),
                 text_anchor="start" if left else "end",
             )
         )
@@ -561,7 +546,7 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     rail_y = top + rail_rise * scale
     rail_px = rail_width * scale
     groups["rail-hidden"] = [_rect(x0, rail_y - rail_px / 2, x1 - x0, rail_px)]
-    _, column = _columns(_points(values, "bracket_points_in"))[-1]
+    column = _points(values, "bracket_section_points_in")
     section_x = x0 + column[0][0] * scale
     slots = _slots(values)
     slot = slots[-1]
@@ -631,7 +616,8 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     # Bar 2 as used, viewed the same way: rail on the marked RAIL SIDE (up in
     # Setup 5), so ZERO EDGE stays on the right.
     rail2_cx = xr - rail_rise * sscale
-    stop2 = 243 + rail_h
+    rail2_y = 243.0
+    stop2 = rail2_y + rail_h
     sbottom2 = stop2 + thickness * sscale
     view = _view(
         x0=x0,
@@ -668,6 +654,8 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         stop2=stop2,
         sbottom2=sbottom2,
         rail2_x=rail2_cx - rail_w / 2,
+        rail2_y=rail2_y,
+        bar2_title_y=rail2_y - 15,
         rail2_label_x=rail2_cx + rail_w / 2 + 8,
         rail2_label_y=stop2 - 8,
         rail_w=rail_w,

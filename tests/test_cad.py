@@ -13,6 +13,9 @@ PARAMETERS = {
     "slot_breakthrough_in": 0.02,
     "slot_step_in": 0.12,
     "half_cutter_dia_mm": 12.7,
+    "vise_jaw_height_mm": 44.9453,
+    "parallel_height_mm": 34.925,
+    "blank_thickness_in": 0.5,
     "jack_left_x_in": 1.3,
     "jack_left_y_in": -4.4,
     "jack_right_x_in": 15.8,
@@ -33,6 +36,8 @@ width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 slot_step_in = 0.12
 half_cutter_dia_mm = 12.7
+vise_jaw_height_mm = 44.9453
+parallel_height_mm = 34.925
 blank_length_in = 17.32
 blank_width_in = 5.5
 blank_thickness_in = 0.47
@@ -105,7 +110,7 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     )
 
 
-def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length():
+def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length(tmp_path):
     cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
     # e = (.53 − .500)/2 = .015 each side of the arc-centre line and past both
     # arc centres: .53 wide and .16 + .53 = .69 overall with the .500 cutter.
@@ -128,8 +133,17 @@ def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length():
         "0.8550, 0.8850",
         "-1.9250, -2.1150",
     ]
+    # The cutter in the spindle must cut .52–.54 on this path: Ø 12.446–12.954.
+    assert cad.values["slot_cutter_band_mm"] == pytest.approx([12.446, 12.954])
     # Slots are numbered from ZERO END whatever the manifest order.
-    assert [row[1] for row in cad.values["slot_rows"]] == ["0.8700", "15.3500"]
+    text = SOURCE.read_text(encoding="utf-8")
+    near = text.index('["features"."near_slot"]')
+    far = text.index('["features"."far_slot"]')
+    end = text.index('["features"."rail_hole_1"]')
+    swapped = text[:near] + text[far:end] + text[near:far] + text[end:]
+    _, source = prepare(tmp_path, swapped)
+    reordered = load_cad(source, PARAMETERS, "harmonic_base_bar")
+    assert [row[1] for row in reordered.values["slot_rows"]] == ["0.8700", "15.3500"]
     # A cutter as wide as the slot leaves no offset. The end radius departs
     # outward by e(√2 − 1), held to the two-place ±.01 (0.254 mm): the smallest
     # cutter is 13.462 − 2 × 0.254/(√2 − 1) = 12.2356 mm.
@@ -144,17 +158,20 @@ def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length():
 
 
 def test_stand_out_above_jaws_from_jaw_parallel_and_thickness():
-    vise = {
-        "vise_jaw_height_mm": 44.9453,
-        "parallel_height_mm": 34.925,
-        "blank_thickness_in": 0.5,
-    }
-    cad = load_cad(SOURCE, PARAMETERS | vise, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
     # Grip 44.9453 − 34.925 = 10.0203 mm = .3945 in under .47 finished / .50 blank.
     assert cad.values["jaw_standout_in"] == pytest.approx(0.0755, abs=1e-4)
     assert cad.values["jaw_standout_blank_in"] == pytest.approx(0.1055, abs=1e-4)
     text = "{{cad.jaw_standout_in:.2dot}}–{{cad.jaw_standout_blank_in:.2dot}}"
     assert bind_text(text, cad, PARAMETERS) == ".08–.11"
+    # Bar top at or below the jaws: facing would cut them.
+    with pytest.raises(CadError, match="jaw_standout_in"):
+        load_cad(
+            SOURCE, PARAMETERS | {"parallel_height_mm": 32.95}, "harmonic_base_bar"
+        )
+    missing = {k: v for k, v in PARAMETERS.items() if k != "vise_jaw_height_mm"}
+    with pytest.raises(CadError, match="process.vise_jaw_height_mm"):
+        load_cad(SOURCE, missing, "harmonic_base_bar")
 
 
 def test_source_changes_reach_text_tables_and_geometry(tmp_path):
