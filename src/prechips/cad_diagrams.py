@@ -475,9 +475,9 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         if cx < centre:
             below = top + slot["rise_high"] * scale + half + 15
             labels.append(_text(cx, below, f"S{index}", text_anchor="middle"))
-        else:
-            cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
-            labels.append(_text(cx - half - 5, cy, f"S{index}", text_anchor="end"))
+            continue
+        cy = top + (slot["rise_low"] + slot["rise_high"]) / 2 * scale + 5
+        labels.append(_text(cx - half - 5, cy, f"S{index}", text_anchor="end"))
     groups["feature-labels"] = labels
     rail_y = top - _number(values, "rail_y_in", "cad") * scale
     jack1, jack2 = (
@@ -605,14 +605,12 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     for index, item in enumerate(slots, start=1):
         cx, half = x0 + item["x"] * scale, item["width"] * scale / 2
         name, size = f"S{index}", 13
-        if item is slot:
-            cy = top + (item["rise_low"] + item["rise_high"]) / 2 * scale + 4
-            labels.append(
-                _text(cx - half - 4, cy, name, text_anchor="end", font_size=size)
-            )
-        else:
+        if item is not slot:
             below = top + item["rise_high"] * scale + half + 12
             labels.append(_text(cx, below, name, text_anchor="middle", font_size=size))
+            continue
+        cy = top + (item["rise_low"] + item["rise_high"]) / 2 * scale + 4
+        labels.append(_text(cx - half - 4, cy, name, text_anchor="end", font_size=size))
     # Bar 2 as used, viewed the same way: rail on the marked RAIL SIDE (up in
     # Setup 5), so ZERO EDGE stays on the right.
     rail2_cx = xr - rail_rise * sscale

@@ -279,7 +279,7 @@ datum = "Marked end/edge. Bar 1 turned over from Setup 5: C'BORE SIDE down, rail
 diagram = { file = "diagrams/inspect.svg", alt = "Finished bar 1 viewed from C'BORE SIDE, and as used on the table in a section through bracket holes {{cad.bracket_section_range}}: C'BORE SIDE down, socket heads recessed from below, HGR15 rail on top, trimmed flush with both ends; slot stud fit. Bar 2 section: rail on the marked RAIL SIDE, table seat on the opposite face." }
 envelope = "other"
 vise_hold = "other"
-inspection = ["From ZERO EDGE: rail row {{cad.rail_row_min_in:.2f}}–{{cad.rail_row_max_in:.2f}}; slot arc centres S1 {{cad.slot1_y_min_in:.2f}}–{{cad.slot1_y_max_in:.2f}}, S2 {{cad.slot2_y_min_in:.2f}}–{{cad.slot2_y_max_in:.2f}}; bar 1 bracket rows {{cad.bracket_y1_min_in:.4f}}–{{cad.bracket_y1_max_in:.4f}}, {{cad.bracket_y2_min_in:.4f}}–{{cad.bracket_y2_max_in:.4f}}."]
+inspection = ["From ZERO EDGE: rail row {{cad.rail_row_min_in:.2f}}–{{cad.rail_row_max_in:.2f}}; slot near arc centre S1 {{cad.slot1_y_min_in:.2f}}–{{cad.slot1_y_max_in:.2f}}, S2 {{cad.slot2_y_min_in:.2f}}–{{cad.slot2_y_max_in:.2f}}; bar 1 bracket rows {{cad.bracket_y1_min_in:.4f}}–{{cad.bracket_y1_max_in:.4f}}, {{cad.bracket_y2_min_in:.4f}}–{{cad.bracket_y2_max_in:.4f}}."]
 gauge_checks = [
   { gauge = "calipers", band_mm = "{{cad.rail_row_band_mm}}" },
   { gauge = "calipers", band_mm = "{{cad.slot1_y_band_mm}}" },
@@ -290,7 +290,7 @@ gauge_checks = [
 
 [[setups.operations]]
 instruction = "Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; clear threads; fit rail/screws and slot stud."
-instruction_detailed = "Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; clear threads; fit rail/screws and slot stud. Slot arc centre from ZERO EDGE = near slot end + half the slot width."
+instruction_detailed = "Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; clear threads; fit rail/screws and slot stud. Slot near arc centre from ZERO EDGE = near slot end + half the slot width."
 feed = "hand"
 
 [setups.operations.table]

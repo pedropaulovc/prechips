@@ -282,3 +282,12 @@ def test_toleranced_rail_station_is_refused(tmp_path):
     _, source = prepare(tmp_path, text)
     with pytest.raises(CadError, match="rail_hole_1.station: expected a REF"):
         load_cad(source, PARAMETERS, "harmonic_base_bar")
+
+
+def test_bracket_layout_other_than_the_plan_text_is_refused(tmp_path):
+    # B4 off B3's column: three X bands would mislabel B1–B2/B3–B4.
+    text = SOURCE.read_text(encoding="utf-8")
+    head, tail = text.rsplit('"station" = [427.87, 428.13]', 1)
+    _, source = prepare(tmp_path, head + '"station" = [427.88, 428.14]' + tail)
+    with pytest.raises(CadError, match="two bracket columns"):
+        load_cad(source, PARAMETERS, "harmonic_base_bar")

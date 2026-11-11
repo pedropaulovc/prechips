@@ -336,12 +336,22 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values[f"{key}_in"] = min(tolerances) / 25.4
     # Position bands for inspection, in drawing order from ZERO END / ZERO EDGE.
     limits("rail_row", [_band(item, "height", name) for name, item in rails])
+    band_counts = []
     for axis, field in (("x", "station"), ("y", "height")):
         columns = sorted({_band(item, field, name) for name, item in brackets})
+        band_counts.append(len(columns))
         for index, band in enumerate(columns, 1):
             _inch_limits(values, f"bracket_{axis}{index}", band)
         for index, (name, item) in enumerate(slots, 1):
             _inch_limits(values, f"slot{index}_{axis}", _band(item, field, name))
+    # The plan's inspection text and gauge checks name B1–B2, B3–B4, two
+    # bracket rows and S1, S2; a different layout must not bind mislabelled.
+    holes_per_column = [len(column) for _, column in point_columns(bracket_points)]
+    if band_counts != [2, 2] or holes_per_column != [2, 2] or len(slots) != 2:
+        raise CadError(
+            "cad.features: the base-bar plan expects two slots and two bracket "
+            "columns (B1–B2, B3–B4) on two rows, each with one position band"
+        )
     limits("bracket_dia", [_band(item, "dia", name) for name, item in brackets])
     bracket_diameters = [
         _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
