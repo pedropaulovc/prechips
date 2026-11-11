@@ -458,7 +458,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["hole_rows"] = [
         [
             f"Rail {values['rail_range']}",
-            ", ".join(f"{point[0]:.4f}" for point in rail_points) + " REF",
+            "REF " + ", ".join(f"{point[0]:.4f}" for point in rail_points),
             f"{values['rail_y_in']:.4f}",
         ]
     ] + bracket_rows
@@ -509,6 +509,38 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         )
     for key in ("length", "width", "thickness"):
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
+    # Vise holds centre the finished bar on the jaws (plan's copy of the shop
+    # vise jaw width); the right side is the rest.
+    values["vise_centred_overhang_mm"] = (
+        values["length_mm"]
+        - _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
+    ) / 2
+    # Setup 5 jack centres stay plan-authored; refuse one off the bar or under a
+    # through feature's drawn outline (rail hole, counterbore, slot).
+    outlines = [
+        (f"R{index}", x, y, x, y, values["rail_dia_in"] / 2)
+        for index, (x, y) in enumerate(rail_points, 1)
+    ]
+    outlines += [
+        (f"B{index} counterbore", x, y, x, y, values["counterbore_dia_max_in"] / 2)
+        for index, (x, y) in enumerate(bracket_points, 1)
+    ]
+    slot_radius = values["slot_width_max_in"] / 2
+    outlines += [
+        (f"S{index}", s["x_in"], s["far_y_in"], s["x_in"], s["near_y_in"], slot_radius)
+        for index, s in enumerate(shapes, 1)
+    ]
+    for side in ("left", "right"):
+        at = f"process.jack_{side}"
+        x = _number(parameters.get(f"jack_{side}_x_in"), f"{at}_x_in")
+        y = _number(parameters.get(f"jack_{side}_y_in"), f"{at}_y_in")
+        if not (0 < x < values["length_in"] and -values["width_in"] < y < 0):
+            raise CadError(f"{at}: X {x:g} Y {y:g} is off the bar")
+        for name, x1, y1, x2, y2, radius in outlines:
+            # Each outline is a point or an axis-aligned segment plus a radius.
+            near = (min(max(x, x1), x2), min(max(y, y1), y2))
+            if math.dist((x, y), near) <= radius:
+                raise CadError(f"{at}: X {x:g} Y {y:g} is under {name}")
     _blank_mm(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 

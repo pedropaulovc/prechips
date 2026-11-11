@@ -14,6 +14,7 @@ PARAMETERS = {
     "slot_step_in": 0.12,
     "half_cutter_dia_mm": 12.7,
     "vise_jaw_height_mm": 44.9453,
+    "vise_jaw_width_mm": 158.6738,
     "parallel_height_mm": 34.925,
     "blank_thickness_in": 0.5,
     "jack_left_x_in": 1.3,
@@ -37,7 +38,12 @@ slot_breakthrough_in = 0.02
 slot_step_in = 0.12
 half_cutter_dia_mm = 12.7
 vise_jaw_height_mm = 44.9453
+vise_jaw_width_mm = 158.6738
 parallel_height_mm = 34.925
+jack_left_x_in = 1.3
+jack_left_y_in = -4.4
+jack_right_x_in = 15.8
+jack_right_y_in = -1.8
 blank_length_in = 17.32
 blank_width_in = 5.5
 blank_thickness_in = 0.47
@@ -172,6 +178,20 @@ def test_stand_out_above_jaws_from_jaw_parallel_and_thickness():
     missing = {k: v for k, v in PARAMETERS.items() if k != "vise_jaw_height_mm"}
     with pytest.raises(CadError, match="process.vise_jaw_height_mm"):
         load_cad(SOURCE, missing, "harmonic_base_bar")
+
+
+def test_centred_overhang_and_jack_clear_of_through_features():
+    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    # (439.928 − 158.6738) / 2: the finished bar centred on the jaws.
+    assert cad.values["vise_centred_overhang_mm"] == pytest.approx(140.627, abs=1e-3)
+    # R1 centre (.3923, −3.5); S1 arc centres X .87, Y −1.94/−2.10, width ≤ .54.
+    for jack, match in (
+        ({"jack_left_x_in": 0.4, "jack_left_y_in": -3.52}, "under R1"),
+        ({"jack_left_x_in": 0.87, "jack_left_y_in": -2.3}, "under S1"),
+        ({"jack_right_x_in": 17.5}, "off the bar"),
+    ):
+        with pytest.raises(CadError, match=f"process.jack_.*{match}"):
+            load_cad(SOURCE, PARAMETERS | jack, "harmonic_base_bar")
 
 
 def test_source_changes_reach_text_tables_and_geometry(tmp_path):
