@@ -14,7 +14,8 @@ PLAN = ROOT / "examples/feed-lever.toml"
 def test_pro_plan_renders_with_every_check(tmp_path):
     out = tmp_path / "feed-lever.html"
     command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]
-    # v49 prints the 11/32 drill (Ø.3438 +.004/0), so the plan's drill fits.
+    # The post-v49 drawing prints the 11/32 drill (Ø.3438 +.004/0), so the
+    # plan's drill fits.
     assert main(command) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-26" in html
@@ -54,3 +55,15 @@ def test_a_manifest_without_the_grip_corners_is_refused(tmp_path):
     stripped.write_text(text[:start] + (text[end + 1 :] if end != -1 else ""), "utf-8")
     with pytest.raises(CadError, match="grip_corners"):
         load_feed_lever(stripped, {})
+
+
+def test_corner_radius_prints_the_nominal_not_the_band_midpoint(tmp_path):
+    text = SOURCE.read_text(encoding="utf-8")
+    start = text.index('["features"."grip_corners"]')
+    at = text.index('"radius" = [', start)
+    end = text.index("\n", at)
+    skewed = tmp_path / "feed-lever.toml"
+    skewed.write_text(text[:at] + '"radius" = [2.54, 10.16]' + text[end:], "utf-8")
+    cad = load_feed_lever(skewed, {})
+    assert cad.values["corner_radius_in"] == pytest.approx(0.2)
+    assert cad.values["corner_radius_max_in"] == pytest.approx(0.4)

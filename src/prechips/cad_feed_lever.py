@@ -108,10 +108,14 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         raise CadError("grip_corners: expected the two grip-end corner fillets")
     radius = _band(corners, "radius", "grip_corners")
     nominal = _positive(corners.get("radius_nominal"), "grip_corners.radius_nominal")
-    if not radius[0] <= nominal <= radius[1]:
-        raise CadError("grip_corners.radius_nominal: outside radius band")
-    _inch_limits(values, "corner_radius", radius)
+    low, high = radius
+    if not 0 < low <= nominal <= high:
+        raise CadError("grip_corners: expected 0 < radius min <= nominal <= max")
+    # The printed nominal, not the band midpoint, and the band's own limits.
     values["corner_radius_in"] = nominal / 25.4
+    values["corner_radius_min_in"] = low / 25.4
+    values["corner_radius_max_in"] = high / 25.4
+    values["corner_radius_band_mm"] = [low, high]
     _blank_mm(values, parameters)
     # The hand sheet gives the vise overhang in inches; vise_hold reads mm.
     if "overhang_in" in parameters:

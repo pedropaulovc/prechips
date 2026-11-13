@@ -924,8 +924,6 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
         ),
     ]
     for limit in (low, high):
-        if limit <= 0:
-            continue
         lr = limit * d
         groups["hidden"] += [
             _el(

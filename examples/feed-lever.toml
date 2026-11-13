@@ -48,8 +48,8 @@ drill_projection_max_mm = 112.8
 
 [[tools]]
 id = "saw"
-name = "Evolution miter saw"
-ref = "saw-evolution-14"
+name = "Saw"
+ref = "jig-saw"
 [[tools]]
 id = "em-half"
 name = "1/2 in end mill"
