@@ -1,13 +1,16 @@
-# Source: C:/src/ha-basebar-traveler/cad/process/hand-travelers/
-# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html.
+# Source: Pedro's 2026-11-05 hand traveler
+# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html (open PR #2218,
+# branch process/basebar-traveler-logbook-advice; drawing v47), including its
+# vise workholding: 1-3/8 in parallels and the HHIP 3901-0079 jack, recorded in
+# cad/config/shop-equipment.toml with that sheet's ownership status.
 # Table-clamped squaring sequence: 2026-11-07 session
 # 2026-11-07T00-02-29-727Z_01a1b350-58df-72b7-a9e3-7735a77b13fc.
-# v48 drawing: bar 1 alone carries the four #12 bracket holes; rail stations
-# are REF, transferred from each bar's own trimmed rail (flush both ends).
-# Bar 2 (drawing sheet 2) swaps the seats: its rail seats on the face that is
-# far in the front view (up in Setup 5) and its near face seats on the mill
-# table. The v48 manifest describes bar 1 only, so the per-bar face text below
-# is authored from the two drawing sheets, not bound.
+# v48/v49 drawing: bar 1 alone carries the four #12 bracket holes; rail
+# stations are REF, transferred from each bar's own trimmed rail (flush both
+# ends). Bar 2 (drawing sheet 2) swaps the seats: its rail seats on the face
+# that is far in the front view (up in Setup 5) and its near face seats on the
+# mill table. The manifest describes bar 1 only, so the per-bar face text
+# below is authored from the two drawing sheets, not bound.
 title = "Oblique trammel base bar — bar 1 and bar 2"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
@@ -18,7 +21,7 @@ shop = "shop.toml"
 material_key = "6061-t6511"
 
 [cad]
-file = "cad/base-bar-v48.toml"
+file = "cad/base-bar-v49.toml"
 adapter = "harmonic_base_bar"
 
 [parameters]

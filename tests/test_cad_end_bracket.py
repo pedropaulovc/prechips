@@ -7,7 +7,7 @@ from prechips.cad_end_bracket import load_end_bracket
 from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "examples/cad/end-bracket-v48.toml"
+SOURCE = ROOT / "examples/cad/end-bracket-v49.toml"
 PLAN = ROOT / "examples/end-bracket.toml"
 
 
