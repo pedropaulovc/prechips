@@ -184,6 +184,14 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
         from prechips.cad_carrier import load_carrier
 
         return load_carrier(path, parameters)
+    if adapter == "harmonic_pivot_block":
+        from prechips.cad_carriage_block import load_pivot_block
+
+        return load_pivot_block(path, parameters)
+    if adapter == "harmonic_feed_block":
+        from prechips.cad_carriage_block import load_feed_block
+
+        return load_feed_block(path, parameters)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

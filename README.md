@@ -82,6 +82,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_riser` | Released v49 export | Length/width/thickness limits, P1/P2 station and row bands, REF X/Y of the seven spotted holes with their Setup 5 holds, hole and countersink bands, centred and end overhangs and setup-picture geometry |
 | `harmonic_leadscrew_kit` | v50 export, HA PR #2740 (two members) | Cut length and supplied screw, five flat stations, across-flat/length/clock bands, flat cutter centres from either end, nut length/flange/body/hole limits, countersink mouth and cutter band, the saw rule step, vise jaw stations and cut-end flat edge (from `rule_mm`, `cut_overhang_mm`, `vise_jaw_width_mm`), and setup-picture geometry |
 | `harmonic_carrier` | v50 export (harmonic-analyzer#2744) | Plate envelope limits, the 12-hole table in the sheet's lower-left-corner frame, A1-relative station and row bands (note 2), pin ream band, tap threads and drill bands, HUB as assembly-only, 1-2-3 block stations clear of every hole, and the authored spacer seat around the broken underside edge |
+| `harmonic_pivot_block`, `harmonic_feed_block` | v49 farm export | Envelope (TL-32: lug and overall length), the flat-floored pivot seat and its 5/16-18 tap, the 2 × 2 counterbored hole table from each sheet's row side, TL-32's leadscrew bore row/height and its assembly-transferred nut taps (refused unless `at_assembly`), centred vise overhangs from `vise_jaw_width_mm` and setup-picture geometry |
 
 ```toml
 [cad]
@@ -124,6 +125,7 @@ Both built-in profiles enforce stock fit. Exact fits pass; an undersized or miss
 | Riser | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope: model X length, model Y width, model Z thickness |
 | Leadscrew kit | `screw_stock_length_mm` (must equal the manifest's supplied length) | Nominal cut length |
 | Carrier | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope: model X length, model Z width, model Y thickness |
+| Pivot / feed block | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope: model Y (1.58 or 3.47) along the bar, model X 1.64 across its width, model Z .96 through its thickness |
 
 For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
 
