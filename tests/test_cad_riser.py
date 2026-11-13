@@ -22,7 +22,7 @@ def test_pro_and_hobby_render_with_every_check_enforced(tmp_path):
     assert "MHA-CH-06-TL-24" in pro.read_text(encoding="utf-8")
     html = hobby.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 5
-    assert "centre-drill point down into the punch mark" in html
+    assert "centre-drill point down into the mark" in html
 
 
 def test_spotted_holes_are_ref_and_fall_in_one_hold_each():

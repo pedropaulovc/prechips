@@ -288,7 +288,7 @@ vise_hold = [
 ]
 
 [[setups.operations]]
-instruction = "Arrives with {{cad.spot_count:d}} spot marks on the carrier face; centre-punch each. Drill each hole at its mark, in the hold listed; the REF X/Y only find it."
+instruction = "Arrives with {{cad.spot_count:d}} spot marks on the carrier face (TL-00 step 11C). Drill each hole at its mark, in the hold listed; the REF X/Y only find it."
 
 [setups.operations.table]
 columns = ["Hole", "X REF", "Y REF", "Ø", "Hold"]
@@ -299,7 +299,7 @@ speed_kind = "spindle"
 tool = "spot"
 sizing = "other"
 instruction = "Pick up each mark on the centre-drill point and lock X/Y; spot ~.10 across (HUB ~.20), then drill that hole (below) before the next mark."
-instruction_detailed = "Pick up each mark: spindle stopped, bring the centre-drill point down into the punch mark and move X/Y until the point seats at the bottom without pushing the bar sideways; lock both axes. Spot ~.10 across (HUB ~.20), then drill that hole with the drills below at the same setting before moving to the next mark."
+instruction_detailed = "Pick up each mark: spindle stopped, bring the centre-drill point down into the mark and move X/Y until the point seats at the bottom without pushing the bar sideways; lock both axes. Spot ~.10 across (HUB ~.20), then drill that hole with the drills below at the same setting before moving to the next mark."
 rpm = 3000
 feed = "hand"
 
