@@ -180,6 +180,10 @@ def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
         from prechips.cad_leadscrew_kit import load_leadscrew_kit
 
         return load_leadscrew_kit(path, parameters)
+    if adapter == "harmonic_carrier":
+        from prechips.cad_carrier import load_carrier
+
+        return load_carrier(path, parameters)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
