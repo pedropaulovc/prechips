@@ -700,14 +700,20 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         )
     # The shaft and jig layouts build on this module's primitives, so import
     # them here.
+    from prechips.carrier_diagrams import CARRIER_LAYOUTS
     from prechips.jig_diagrams import JIG_LAYOUTS
     from prechips.kit_diagrams import KIT_LAYOUTS
     from prechips.riser_diagrams import RISER_LAYOUTS
     from prechips.shaft_diagrams import SHAFT_LAYOUTS
 
-    layout = (LAYOUTS | SHAFT_LAYOUTS | JIG_LAYOUTS | RISER_LAYOUTS | KIT_LAYOUTS).get(
-        name
-    )
+    layout = (
+        LAYOUTS
+        | SHAFT_LAYOUTS
+        | JIG_LAYOUTS
+        | RISER_LAYOUTS
+        | KIT_LAYOUTS
+        | CARRIER_LAYOUTS
+    ).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
     view, groups = layout(cad.values, parameters, root)

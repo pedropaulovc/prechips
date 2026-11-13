@@ -16,6 +16,7 @@ from .cad import (
     _model_frame,
     _number,
     _positive,
+    _shorthand,
     _string,
 )
 
@@ -46,12 +47,6 @@ _CORNER = ("pin_hole_a1", "lever_tap_1", "lever_tap_2")
 # The sheet prints three-place inches; a recomputed corner coordinate may
 # differ from its printed value by half the last place.
 _PRINTED_MM = 0.0005 * 25.4
-
-
-def _dot(value: float) -> str:
-    """Three places in the sheet's shorthand: ``.900``, ``19.111``."""
-    text = f"{value:.3f}"
-    return text[1:] if text.startswith("0.") else text
 
 
 def load_carrier(path: Path, parameters: dict) -> CadData:
@@ -187,7 +182,7 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
         values[f"{tag.lower()}_station_band_mm"] = list(station)
         points[tag] = (cx / 25.4, cy / 25.4)
 
-    pin_dia = pin_note = None
+    pin_dia = pin_note = None  # The four pins share one size and note.
     for name, tag in _PINS.items():
         item, x, z = hole(name)
         dia = _band(item, "dia", name)
@@ -198,7 +193,6 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}: pin holes disagree on size or note")
         located(name, tag, item, x, z)
     _inch_limits(values, "pin_dia", pin_dia)
-    values["pin_note"] = pin_note
 
     groups: dict[str, tuple[str, tuple[float, float], float]] = {}
     for name, (tag, group) in _TAPS.items():
@@ -233,26 +227,21 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     _inch_limits(values, "a2_offset", (-high, -low))
     for tag in ("b1", "b2"):
         _inch_limits(values, f"{tag}_station", tuple(values[f"{tag}_station_band_mm"]))
-    _inch_limits(values, "lever_station", tuple(values["l1_station_band_mm"]))
+    values["b1_station_in"] = sum(values["b1_station_band_mm"]) / 2 / 25.4
     if values["l1_station_band_mm"] != values["l2_station_band_mm"]:
         raise CadError("lever_tap_1/2: expected one lever station")
-    for tag in ("l1", "l2"):
+    # Corner-located: A1 and the L rows, measured from ZERO END / ZERO EDGE.
+    _inch_limits(values, "a1_station", tuple(values["a1_station_band_mm"]))
+    for tag in ("a1", "l1", "l2"):
         _inch_limits(values, f"{tag}_row", tuple(values[f"{tag}_height_band_mm"]))
+    values["relation_rows"] = _relation_rows(values)
 
     order = ("A1", "B1", "A2", "B2", "CL", "CR", "R1", "R2", "R3", "R4", "L1", "L2")
-    tools = {
-        "A1": "ream",
-        "B1": "ream",
-        "A2": "ream",
-        "B2": "ream",
-        "CL": "#8-32",
-        "CR": "#8-32",
-        "L1": "5/16-18",
-        "L2": "5/16-18",
-    }
+    bores = {tag: "ream" for tag in _PINS.values()}
+    bores |= {tag: values[f"{group}_thread"] for tag, group in _TAPS.values()}
     for tag in order:
         x, y = points[tag]
-        rows.append([tag, _dot(x), _dot(y), tools.get(tag, "#4-40")])
+        rows.append([tag, _shorthand(x, 3), _shorthand(y, 3), bores[tag]])
     values["hole_rows"] = rows
     values["hole_points_in"] = {tag: list(points[tag]) for tag in order}
     values["hole_count"] = len(order)
@@ -263,7 +252,6 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     hub_thread = _string(hub.get("thread"), f"{_HUB}.thread")
     if hub_thread != values["clamp_thread"]:
         raise CadError(f"{_HUB}: expected the CL/CR thread")
-    values["hub_note"] = _string(hub.get("note"), f"{_HUB}.note")
     values["hub_x_in"], values["hub_y_in"] = (v / 25.4 for v in corner(hub_x, hub_z))
 
     material = raw.get("material")
@@ -274,6 +262,7 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     _edge_breaks(raw, values)
     _blank_mm(values, parameters)
     _support_blocks(values, parameters)
+    _strap_toes(values, parameters)
     _chamfer(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
@@ -345,3 +334,43 @@ def _chamfer(values: dict, parameters: dict) -> None:
         raise CadError("process.spacer_seat_dia_in: chamfer mouth reaches the seat")
     values["chamfer_mouth_min_in"] = mouth
     values["chamfer_mouth_band_mm"] = [mouth * 25.4, seat * 25.4]
+
+
+_RELATED = ("B1", "A2", "B2", "CL", "CR", "R1", "R2", "R3", "R4")
+
+
+def _span(band: list[float]) -> str:
+    low, high = (value / 25.4 for value in band)
+    return f"{_shorthand(low, 3)}–{_shorthand(high, 3)}"
+
+
+def _relation_rows(values: dict) -> list[list[str]]:
+    """Sheet 2 note 2 as acceptance limits: X from A1, Y from the A1-B1 line.
+
+    A2 lies left of A1, so its X prints as a distance to the left. B1 sets
+    the line and has no row of its own.
+    """
+    rows = []
+    for tag in _RELATED:
+        key = tag.lower()
+        x = _span(values[f"{key}_station_band_mm"])
+        if tag == "A2":
+            x = f"{_span(values['a2_offset_band_mm'])} left"
+        y = _span(values[f"{key}_height_band_mm"]) if tag != "B1" else "sets the line"
+        rows.append([tag, x, y])
+    return rows
+
+
+def _strap_toes(values: dict, parameters: dict) -> None:
+    """Every strap toe lands on a block, so no clamp bends the overhang.
+
+    ``strap_toe_in`` is the toe's centre in from a long edge. Blocks are
+    centred on the width, so the toe must fall inside a block's span across.
+    """
+    if "strap_toe_in" not in parameters or "block_width_in" not in parameters:
+        return
+    toe = _positive(parameters["strap_toe_in"], "process.strap_toe_in")
+    across = _positive(parameters["block_width_in"], "process.block_width_in")
+    width = values["width_mm"] / 25.4
+    if not (width - across) / 2 < toe < (width + across) / 2:
+        raise CadError("process.strap_toe_in: strap toe outside the blocks")

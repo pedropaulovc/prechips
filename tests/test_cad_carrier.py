@@ -60,3 +60,18 @@ def test_an_unexpected_feature_set_refuses(tmp_path):
     )
     with pytest.raises(CadError, match="expected exactly"):
         load_carrier(source, PARAMETERS)
+
+
+def test_a_strap_toe_beyond_the_blocks_refuses():
+    with pytest.raises(CadError, match="strap toe outside the blocks"):
+        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 0.6})
+
+
+def test_note_two_relations_print_from_a1_and_the_line():
+    rows = {
+        tag: (x, y)
+        for tag, x, y in load_carrier(SOURCE, PARAMETERS).values["relation_rows"]
+    }
+    assert rows["B1"] == ("17.717–17.727", "sets the line")
+    assert rows["A2"] == (".279–.289 left", ".962–.966")
+    assert rows["CL"] == ("2.521–2.531", "1.151–1.161")

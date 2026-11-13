@@ -1036,8 +1036,3 @@ JIG_LAYOUTS = {
     "jig-lever-hold": _lever_hold,
     "jig-lever-grip": _lever_grip,
 }
-
-# Part modules draw on the helpers above, so they register after them.
-from prechips.carrier_diagrams import CARRIER_LAYOUTS
-
-JIG_LAYOUTS |= CARRIER_LAYOUTS

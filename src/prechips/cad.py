@@ -565,6 +565,16 @@ _FORMAT = re.compile(r"(?:[+ -])?(?:[1-9][0-9]?)?(?:\.[0-9])?[fge%]|d")
 _DOT = re.compile(r"\.([0-9])dot")
 
 
+def _shorthand(value: float, places: int) -> str:
+    """Fixed places without the leading zero: ``.900``, ``-.25``, ``19.111``."""
+    result = format(value, f".{places}f")
+    if float(result) == 0:
+        result = result.lstrip("-")
+    if result.lstrip("-").startswith("0."):
+        result = result.replace("0.", ".", 1)
+    return result
+
+
 def _lookup(
     match: re.Match, cad: CadData, parameters: dict, extra: dict | None
 ) -> object:
@@ -614,11 +624,7 @@ def bind_text(
                         + (f"{numerator}/{fraction.denominator}" if numerator else "")
                     )
             elif spec and (dot := _DOT.fullmatch(spec)):
-                result = format(value, f".{dot[1]}f")
-                if float(result) == 0:
-                    result = result.lstrip("-")
-                if result.lstrip("-").startswith("0."):
-                    result = result.replace("0.", ".", 1)
+                result = _shorthand(value, int(dot[1]))
             elif spec:
                 if not _FORMAT.fullmatch(spec) or (spec == "d" and value != int(value)):
                     raise CadError(f"{match[0]}: unsupported numeric format")
