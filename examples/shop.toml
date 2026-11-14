@@ -401,8 +401,6 @@ tap_drill_mm = 2.2606
 [tools.jig-tap-5-16-18-plug]
 description = "5/16-18 UNC plug tap; T-handle wrench"
 tap_drill_mm = 6.5278
-[tools.jig-csk-90]
-description = "1/2 in 90° (included) countersink in a T-handle"
 
 # PM-30MV Y DRO scale read as a length gauge (carrier A2/B2 rows from the
 # A1-B1 line, read over a pin with the DTI). Range: machines.pm-30mv Y travel;
@@ -410,11 +408,3 @@ description = "1/2 in 90° (included) countersink in a T-handle"
 [gauges.mill-y-dro]
 range_mm = [0.0, 222.25]
 resolution_mm = 0.005
-
-# Vermont Gage class X pins for the carrier's .3760-.3765 bores: GO .3760
-# plus (141137600), NO-GO .3765 minus (141237650). A fixed-limit pair reads
-# only its two limits, so range_mm is the band it gauges and resolution_mm is
-# the class X gaugemaker's tolerance, .00004 in.
-[gauges.pin-0376-go-nogo]
-range_mm = [9.5504, 9.5631]
-resolution_mm = 0.001016

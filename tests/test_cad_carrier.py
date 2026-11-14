@@ -8,7 +8,7 @@ from prechips.cad_carrier import load_carrier
 from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "examples/cad/carrier-v49.toml"
+SOURCE = ROOT / "examples/cad/carrier-v50.toml"
 PLAN = ROOT / "examples/carrier.toml"
 PARAMETERS = tomllib.loads(PLAN.read_text(encoding="utf-8"))["parameters"]
 
@@ -18,7 +18,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     assert main(["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-21" in html
-    assert "Ø.3760–.3765" in html
+    assert "Ø.3760–.3770" in html
 
 
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
@@ -45,9 +45,27 @@ def test_hole_table_prints_sheet_two_from_the_lower_left_corner():
     }
 
 
+def test_beam_stations_are_the_blocks_and_hole_groups_in_mm():
+    values = load_carrier(SOURCE, PARAMETERS).values
+    assert values["end_block_x_mm"] == pytest.approx([2.70 * 25.4, 17.80 * 25.4])
+    assert values["inner_block_x_mm"] == pytest.approx([7.10 * 25.4, 13.40 * 25.4])
+    assert values["block_span_mm"] == pytest.approx([1.70 * 25.4, 18.80 * 25.4])
+    assert values["end_block_blank_x_mm"] == pytest.approx([3.10 * 25.4, 18.20 * 25.4])
+    assert len(values["pin_x_mm"]) == 4 and len(values["riser_x_mm"]) == 4
+    assert values["lever_x_mm"] == pytest.approx([10.25 * 25.4] * 2)
+
+
 def test_a_block_under_a_hole_refuses():
     with pytest.raises(CadError, match="under hole R1"):
         load_carrier(SOURCE, PARAMETERS | {"block_inner_offset_in": 2.0})
+
+
+def test_a_spacer_seat_inside_the_broken_edge_refuses():
+    values = load_carrier(SOURCE, PARAMETERS).values
+    assert "chamfer_mouth_min_in" not in values
+    assert values["spacer_seat_margin_in"] > 0
+    with pytest.raises(CadError, match="edge break reaches the seat"):
+        load_carrier(SOURCE, PARAMETERS | {"spacer_seat_dia_in": 0.39})
 
 
 def test_an_unexpected_feature_set_refuses(tmp_path):

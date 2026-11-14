@@ -36,7 +36,7 @@ Items = list[tuple[float, float, list[str]]]
 
 _STEPS = {
     "edges": "Both long edges to width; end straps at mid-width",
-    "ends": "Straps moved onto the inner blocks; both ends to length",
+    "ends": "Straps moved onto the end blocks; both ends to length",
     "face": "TOP up. Edge straps first; then end straps (dashed) for the toe patches",
     "under": "UNDERSIDE up, ZERO EDGE at the back; straps as for TOP",
     "holes": "TOP up, ZERO END left, ZERO EDGE front: one strap over each block",
@@ -255,8 +255,8 @@ def _ends(groups: Groups, plan: _Plan, values: dict) -> Items:
     left, right = plan.ends
     _blank(groups, left, right, plan.px(0), plan.px(plan.length), plan.back, plan.front)
     _draw_blocks(groups, plan)
-    _edge_strap(groups, plan, plan.blocks[1], front=True)
-    _edge_strap(groups, plan, plan.blocks[2], front=False)
+    _edge_strap(groups, plan, plan.blocks[0], front=True)
+    _edge_strap(groups, plan, plan.blocks[3], front=False)
     radius = plan.cutter / 2 * plan.s
     left_cut, right_cut = plan.px(0) - radius, plan.px(plan.length) + radius
     below = plan.front + radius + 6
@@ -274,9 +274,9 @@ def _ends(groups: Groups, plan: _Plan, values: dict) -> Items:
     return [
         (left_cut, below + radius, ["ZERO END first, −Y"]),
         (
-            plan.px(plan.blocks[1]),
+            plan.px(plan.blocks[0]),
             plan.front + _HEEL * plan.s,
-            ["toes over inner blocks"],
+            ["toes over end blocks"],
         ),
         (right_cut, below + radius, ["right end, +Y, to length"]),
     ]
@@ -287,8 +287,8 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
         _rect(plan.px(0), plan.kept_back, plan.length * plan.s, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
-    _edge_strap(groups, plan, plan.blocks[1], front=True)
-    _edge_strap(groups, plan, plan.blocks[2], front=False)
+    _edge_strap(groups, plan, plan.blocks[0], front=True)
+    _edge_strap(groups, plan, plan.blocks[3], front=False)
     # Second clamping: end straps on faced metal over the outer blocks.
     half = _STRAP * plan.s / 2
     for x, heel in (
@@ -440,7 +440,8 @@ def _carrier_table(values: dict, parameters: dict, root: ElementTree.Element) ->
 def _carrier_inspect(
     values: dict, parameters: dict, root: ElementTree.Element
 ) -> Layout:
-    """Setup 7: underside chamfer section at A1; pin-hole relations from A1."""
+    """Setup 7: section at A1 with its broken underside edge on the spacer;
+    pin-hole relations from A1."""
     groups = _groups(root)
     end_y = _section(groups, values, parameters)
     line_y = _relations(groups, values)
@@ -450,16 +451,14 @@ def _carrier_inspect(
 def _section(groups: Groups, values: dict, parameters: dict) -> float:
     """Section through A1, UNDERSIDE down as the plate seats on its spacer."""
     pin = _cad(values, "pin_dia_max_in")
-    mouth = _cad(values, "chamfer_mouth_min_in")
     seat = _param(parameters, "spacer_seat_dia_in")
-    _title(groups, 20, 26, "Section at A1, UNDERSIDE down (chamfer enlarged)")
+    _title(groups, 20, 26, "Section at A1, UNDERSIDE down (break enlarged)")
     s = 160.0
     cx, top = 150.0, 70.0
     bottom = top + _cad(values, "thickness_in") * s
-    # The .012 leg is under 2 px at this scale: draw it at least 10 px.
+    # The edge break is under 2 px at this scale: draw it 4 px.
     half_bore = pin / 2 * s
-    leg = max((mouth - pin) / 2 * s, 10.0)
-    half_mouth = half_bore + leg
+    brk = 4.0
     for sign in (-1, 1):
         inner = cx + sign * half_bore
         outer = cx + sign * 110
@@ -468,23 +467,21 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
                 "path",
                 d=(
                     f"M{inner:.2f} {top:.2f}H{outer:.2f}V{bottom:.2f}"
-                    f"H{cx + sign * half_mouth:.2f}L{inner:.2f} {bottom - leg:.2f}Z"
+                    f"H{inner + sign * brk:.2f}L{inner:.2f} {bottom - brk:.2f}Z"
                 ),
             )
-        )
-        groups["active"].append(
-            _line(cx + sign * half_mouth, bottom, inner, bottom - leg)
         )
     spacer_half = seat / 2 * s
     groups["hidden"].append(_rect(cx - spacer_half, bottom + 2, 2 * spacer_half, 46))
     low = _shorthand(_cad(values, "pin_dia_min_in"), 4)
+    brk_max = _shorthand(_cad(values, "chamfer_max_in"), 3)
     return _callouts(
         groups,
         [
             (
-                cx - half_mouth + leg / 2,
-                bottom - leg / 2,
-                ["45° chamfer:", f"mouth ≥ Ø{_shorthand(mouth, 3)}"],
+                cx - half_bore - brk / 2,
+                bottom - brk / 2,
+                ["Edge break only:", f"{brk_max} max, no chamfer"],
             ),
             (cx, top + 10, [f"Ø{low}–{_shorthand(pin, 4)}", "GO / NO-GO pins"]),
             (
@@ -501,7 +498,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
 def _relations(groups: Groups, values: dict) -> float:
     """Pins in A1, B1, A2, B2 (plan, TOP up): B1 along X, A2/B2 off the line."""
     points = _points(values)
-    _title(groups, 380, 26, "For reference: Setup 6, op 130 pin check")
+    _title(groups, 380, 26, "For reference: Setup 6 pin check")
     _title(groups, 380, 44, "From A1 and the A1–B1 line; Y scale ×4")
     a1 = points["A1"]
     scale = 230 / (points["B2"][0] - points["A2"][0])

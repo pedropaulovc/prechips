@@ -260,7 +260,7 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     _blank_mm(values, parameters)
     _support_blocks(values, parameters)
     _strap_toes(values, parameters)
-    _chamfer(values, parameters)
+    _spacer_seat(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 
@@ -313,24 +313,53 @@ def _support_blocks(values: dict, parameters: dict) -> None:
                 )
     values["block_x_in"] = centres
     values["block_stations"] = ", ".join(f"{x:.2f}" for x in centres)
+    _beam_stations(values, centres, along)
 
 
-def _chamfer(values: dict, parameters: dict) -> None:
-    """The pin holes' underside chamfer, authored: v49 exports no record for it.
+def _beam_stations(values: dict, centres: list[float], along: float) -> None:
+    """Millimetre stations along X for the plan's milling_deflection beams.
 
-    Sheet 1 section A-A prints ``.012 min. X 45°, 4X UNDERSIDE / SEATS ON
-    TL-VN-78 SPACER``. The mouth is checked as a diameter: at least the
-    largest bore plus two legs, and inside the spacer's seat.
+    X runs from the finished ZERO END. A strap over a block clamps both ways
+    at the block's centre; a block's outer edge is the fulcrum a drill's
+    thrust bends the plate over beyond it. Before the ends are squared the
+    plate is the blank, trimmed equally, so its frame starts at the blank's
+    left end. Hole groups are the hole table's X, by thread or bore.
     """
-    if "pin_chamfer_min_in" not in parameters or "spacer_seat_dia_in" not in parameters:
+    mm = [x * 25.4 for x in centres]
+    values["end_block_x_mm"] = [mm[0], mm[3]]
+    values["inner_block_x_mm"] = [mm[1], mm[2]]
+    values["block_span_mm"] = [
+        (centres[0] - along / 2) * 25.4,
+        (centres[3] + along / 2) * 25.4,
+    ]
+    if "blank_length_mm" in values:
+        trim = (values["blank_length_mm"] - values["length_mm"]) / 2
+        values["end_block_blank_x_mm"] = [mm[0] + trim, mm[3] + trim]
+    points = values["hole_points_in"]
+    for key, prefix in (
+        ("pin_x_mm", "AB"),
+        ("clamp_x_mm", "C"),
+        ("riser_x_mm", "R"),
+        ("lever_x_mm", "L"),
+    ):
+        values[key] = [x * 25.4 for tag, (x, _) in points.items() if tag[0] in prefix]
+    values["hole_x_mm"] = [x * 25.4 for x, _ in points.values()]
+
+
+def _spacer_seat(values: dict, parameters: dict) -> None:
+    """The TL-VN-78 spacer seats on each pin hole's broken underside edge.
+
+    The drawing has no underside chamfer, only the title block's edge break
+    (owner ruling 2026-11-13). The spacer's OD is authored: the largest bore
+    plus the largest break either side must stay inside it.
+    """
+    if "spacer_seat_dia_in" not in parameters:
         return
-    leg = _positive(parameters["pin_chamfer_min_in"], "process.pin_chamfer_min_in")
     seat = _positive(parameters["spacer_seat_dia_in"], "process.spacer_seat_dia_in")
-    mouth = values["pin_dia_max_in"] + 2 * leg
+    mouth = values["pin_dia_max_in"] + 2 * values["chamfer_max_in"]
     if mouth >= seat:
-        raise CadError("process.spacer_seat_dia_in: chamfer mouth reaches the seat")
-    values["chamfer_mouth_min_in"] = mouth
-    values["chamfer_mouth_band_mm"] = [mouth * 25.4, seat * 25.4]
+        raise CadError("process.spacer_seat_dia_in: the edge break reaches the seat")
+    values["spacer_seat_margin_in"] = (seat - mouth) / 2
 
 
 _RELATED = ("B1", "A2", "B2", "CL", "CR", "R1", "R2", "R3", "R4")
