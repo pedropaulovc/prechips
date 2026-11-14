@@ -422,6 +422,8 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     behind, the block standing on its OUTER END on the parallels, the notch
     cut down from SPINDLE END to the lug face by the end mill's end, the step
     face by its side, so the inside corner is the cutter's square corner.
+    The spacer at the left jaw end is the plan's offcut, faced to the block's
+    height: `spacer_length_in` along the jaws, `spacer_height_in` upright.
     """
     if not _feed(values):
         raise CadError("diagram jig-block-notch: needs the feed block's lug values")
@@ -435,6 +437,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     over_min = _param(parameters, "notch_overhang_min_in")
     over_max = _param(parameters, "notch_overhang_max_in")
     spacer = _param(parameters, "spacer_length_in")
+    spacer_height = _param(parameters, "spacer_height_in")
     cutter = _param_in(parameters, "half_cutter_dia_mm")
     if not over_min <= over_max or over_max >= y_length or over_min <= lug_length:
         raise CadError("diagram jig-block-notch: overhang must clear the step")
@@ -442,7 +445,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     s = min(70.0, 600 / (jaw + over + cutter))
     jaw_left = 40.0
     jaw_right = jaw_left + jaw * s
-    bed = 110 + (parallel + length) * s
+    bed = 110 + (parallel + max(length, spacer_height)) * s
     floor = bed - parallel * s
     top = floor - length * s
     jaw_top = bed - jaw_h * s
@@ -461,7 +464,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups["fixture"] += [
         _rect(jaw_left + 6, floor, jaw_right - jaw_left - 6, parallel * s),
         _line(jaw_left - 20, bed, end + 40, bed),
-        _rect(jaw_left + 6, top, spacer * s, length * s),
+        _rect(jaw_left + 6, floor - spacer_height * s, spacer * s, spacer_height * s),
     ]
     groups["hidden"].append(_line(jaw_right, jaw_top - 14, jaw_right, bed + 8))
     groups["arriving"].append(_rect(start, top, end - start, length * s))
@@ -508,7 +511,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 jaw_left + 6 + spacer * s / 2,
                 floor,
-                ["{{cad.height_nominal_in:.2dot}} spacer across", "the jaws (TL-22)"],
+                ["spacer offcut, faced to", "the block's height"],
             ),
             (
                 (start + jaw_right) / 2,

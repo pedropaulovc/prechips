@@ -1,3 +1,5 @@
+import base64
+import re
 from pathlib import Path
 
 import pytest
@@ -25,6 +27,22 @@ def test_plans_render_with_every_check(tmp_path, plan, number, setups, profile):
     assert "Ø.375–.379" in html
     if profile == "hobby":
         assert html.count('class="setup-diagram"') == setups
+
+
+def test_feed_block_pictures_show_the_faced_spacer_offcut(tmp_path):
+    # The notch spacer is the offcut sawn with the blank and faced to the
+    # block's height, not the finished TL-22.
+    out = tmp_path / "feed-block-hobby.html"
+    command = ["traveler", str(ROOT / "examples/feed-block.toml"), "--profile", "hobby"]
+    assert main([*command, "--out", str(out)]) == 0
+    html = out.read_text(encoding="utf-8")
+    svgs = "".join(
+        base64.b64decode(data).decode("utf-8")
+        for data in re.findall(r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", html)
+    )
+    assert "spacer offcut, faced to" in svgs
+    assert "(TL-22)" not in svgs
+    assert ">spacer<" in svgs
 
 
 def test_rows_run_from_each_block_s_own_side():
