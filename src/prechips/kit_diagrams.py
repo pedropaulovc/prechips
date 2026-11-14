@@ -278,11 +278,19 @@ def _kit_flats(
         centre = flat(start - _cad(values, "flat_length_mm"), start)
         hw = flat(0.0, length - _cad(values, "handwheel_station_mm"))
         items += [
-            (centre, axis - r, ["KP08 flats", "L − {{cad.far_kp08_centre_mm:.1f}}"]),
+            (
+                centre,
+                axis - r,
+                ["KP08 flats", "X −(L − {{cad.far_kp08_centre_mm:.1f}})"],
+            ),
             (
                 hw,
                 axis - r,
-                ["handwheel flat", "L − {{cad.handwheel_centre_mm:.1f}}, then 0"],
+                [
+                    "handwheel flat",
+                    "X −(L − {{cad.handwheel_centre_mm:.1f}}),",
+                    "then X 0",
+                ],
             ),
         ]
         cutter_x = centre
@@ -293,7 +301,7 @@ def _kit_flats(
             (
                 centre,
                 axis - r,
-                ["KP08 flats", "{{cad.near_kp08_centre_mm:.2f}} from X0"],
+                ["KP08 flats", "X −{{cad.near_kp08_centre_mm:.2f}}"],
             )
         )
         cutter_x = centre
