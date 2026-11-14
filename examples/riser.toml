@@ -45,6 +45,9 @@ edge_cleanup_in = 0.03           # Setup 3 hold 1: clean-up off the first edge.
 # Setup 4: each arriving end ~.6 past its jaw side, so P1/P2 drill in the
 # overhang clear of the jaws and parallels (the adapter refuses otherwise).
 overhang_in = 0.6
+# Bounded: the beams model the longest overhang and Y0's X 8 touch must stay
+# in the long right overhang (hold 1 right jaw side at .8 + 6.25 = 7.05 in).
+overhang_max_in = 0.8
 y_touch_x_in = 8.0               # Y0 touched in the long right overhang.
 # milling_deflection stations, mm from the blank's left end (Setup 2) or
 # from ZERO END (Setup 4; the adapter binds the jaw sides). Stage A end
@@ -291,15 +294,15 @@ title = "Ends to length; P1 and P2"
 machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end ~{{process.overhang_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end ~{{process.overhang_in:.1dot}} out past the right jaw side."
+holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the right jaw side."
 datum = "X0 ZERO END (hold 1 mills it, hold 2 re-finds it); Y0 ZERO EDGE, touched at ~X {{process.y_touch_x_in:g}}; +Y toward you."
 diagram = { file = "diagrams/riser/ends.svg", alt = "Hold 1: left end out of the vise, ZERO END milled and P1 drilled; hold 2: slid left, right end milled to length and P2 drilled" }
 # Cutter centre past both ends (final X = length + D/2) and across the width.
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.stop_drill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 # Both long edges are milled; the end overhangs past each jaw side.
 vise_hold = [
-  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
-  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{cad.overhang_mm}}"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.overhang_max_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{cad.overhang_max_mm}}"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
 ]
 # X from ZERO END; hold 1 jaws (hold 2 is an operation beam). Drills
 # in the overhang bend it as a cantilever off the jaw side.
@@ -309,7 +312,7 @@ beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], 
 speed_kind = "spindle"
 tool = "em-half"
 sizing = "other"
-instruction = "Hold 1: cutter .04 below the bar; clean up the left end, .02 X steps, conventional: table toward you. Mark ZERO END."
+instruction = "Hold 1: cutter .04 below the bar; clean up the left end, .02 X steps, conventional: table away from you. Mark ZERO END."
 settings = "riser-em-half-6061-t6511"
 milling_cuts = [
   { name = "ZERO END steps", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 203.2, stations_mm = 0 },
@@ -345,8 +348,8 @@ milling_cuts = [
 speed_kind = "spindle"
 tool = "em-half"
 sizing = "other"
-instruction = "Hold 2: slide left; re-find X0 on ZERO END. Cut the right end, .02 steps, conventional: table away from you; final X = {{cad.length_in:.3f}} + D/2."
-instruction_detailed = "Hold 2: slide left; re-find X0 on ZERO END, keep Y. Measure the cutter diameter D. Cut the right end in .02 X steps, conventional: table moving away from you; final X = {{cad.length_in:.3f}} + D/2."
+instruction = "Hold 2: slide left; re-find X0 on ZERO END. Cut the right end, .02 steps, conventional: table toward you; final X = {{cad.length_in:.3f}} + D/2."
+instruction_detailed = "Hold 2: slide left; re-find X0 on ZERO END, keep Y. Measure the cutter diameter D. Cut the right end in .02 X steps, conventional: table moving toward you; final X = {{cad.length_in:.3f}} + D/2."
 settings = "riser-em-half-6061-t6511"
 inspection = "Edge-find the cut end: DRO {{cad.length_min_in:.2f}}–{{cad.length_max_in:.2f}} from ZERO END."
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = "{{cad.ends_hold2_jaw_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
@@ -480,7 +483,7 @@ speed_kind = "spindle"
 tool = "csk"
 sizing = "other"
 instruction = "Turn over, marked face down, ZERO EDGE now at the moving jaw; same holds. Low belt. Countersink R1–R4 Ø{{cad.csk_dia_in:.2dot}} × {{cad.csk_angle_deg:g}}°."
-instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Move the belt to the low range: a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until a #4-40 flat head sits flush or just below the face."
+instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Move the belt to the low range: a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until the mouth calipers Ø{{cad.csk_dia_min_in:.2dot}}–{{cad.csk_dia_max_in:.2dot}}; a #4-40 flat head then sits just below the face."
 rpm = 600
 feed = "hand"
 milling_cuts = [

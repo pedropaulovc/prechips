@@ -316,7 +316,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         groups,
         20,
         16,
-        "1  Left end ~{{process.overhang_in:.1dot}} out left: ZERO END, then P1",
+        "1  Left end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out left: ZERO END, then P1",
     )
     back = 58.0
     front = back + h
@@ -354,7 +354,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 x0 - radius,
                 front + 2 * radius + 4,
-                ["end mill, conventional:", "table toward you"],
+                ["end mill, conventional:", "table away from you"],
             ),
             (
                 x0 + p1[1] * s,
@@ -371,7 +371,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         groups,
         20,
         end_y + 18,
-        "2  Slid left, right end ~{{process.overhang_in:.1dot}} out right: length, then P2",
+        "2  Slid left, right end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out right: length, then P2",
     )
     back = end_y + 42
     front = back + h
@@ -402,7 +402,10 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 finish + radius,
                 front + 2 * radius + 4,
-                ["conventional: table away,", "last X = {{cad.length_in:.3f}} + D/2"],
+                [
+                    "conventional: table toward you,",
+                    "last X = {{cad.length_in:.3f}} + D/2",
+                ],
             ),
         ],
         dim_y + 6,

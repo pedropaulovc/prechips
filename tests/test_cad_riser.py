@@ -76,10 +76,10 @@ def test_refuses_holds_that_cannot_reach_a_hole():
 def test_adapter_binds_the_deflection_stations():
     values = load_riser(SOURCE, PARAMETERS).values
     jaw = PARAMETERS["vise_jaw_width_mm"]
-    over = PARAMETERS["overhang_in"] * 25.4
     assert values["edges_jaw_mm"][1] - values["edges_jaw_mm"][0] == pytest.approx(jaw)
-    assert values["ends_hold1_jaw_mm"] == pytest.approx([over, over + jaw])
-    assert values["ends_hold2_jaw_mm"][1] == pytest.approx(350.52 - over)
+    over_max = PARAMETERS["overhang_max_in"] * 25.4
+    assert values["ends_hold1_jaw_mm"] == pytest.approx([over_max, over_max + jaw])
+    assert values["ends_hold2_jaw_mm"][1] == pytest.approx(350.52 - over_max)
     assert values["parallel_gap_mm"] == pytest.approx([3.175, 42.926 - 3.175])
     assert values["hub_y_mm"] == pytest.approx(1.27 * 25.4, abs=0.13)  # .XX REF
     assert len(values["screw_y_mm"]) == 4 and len(values["clamp_y_mm"]) == 2
