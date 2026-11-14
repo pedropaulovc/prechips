@@ -423,13 +423,13 @@ resolution_mm = 0.005
 [tools.block-drill-15]
 description = "#15 (.180 in) drill, 115-piece index"
 diameter_mm = 4.572
-[tools.block-drill-f]
+[tools.jig-drill-f]
 description = "F (.257 in) drill, 115-piece index"
 diameter_mm = 6.5278
 [tools.block-drill-5-16]
 description = "5/16 in drill, 115-piece index"
 diameter_mm = 7.9375
-[tools.block-tap-5-16-18]
+[tools.jig-tap-5-16-18-plug]
 description = "5/16-18 UNC plug tap; T-handle wrench"
 tap_drill_mm = 6.5278
 [tools.block-boring-head]
