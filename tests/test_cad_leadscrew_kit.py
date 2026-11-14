@@ -16,6 +16,10 @@ PARAMETERS = {
     "rule_mm": 304.8,
     "cut_overhang_mm": 10.0,
     "vise_jaw_width_mm": 158.6738,
+    "near_stickout_mm": 20.0,
+    "wheel_stickout_mm": 16.0,
+    "far_stickout_mm": 42.0,
+    "mandrel_stickout_mm": 8.0,
 }
 
 
@@ -76,3 +80,18 @@ def test_index_tolerance_is_the_nearer_clock_limit():
     assert (values["clock_min_deg"], values["clock_max_deg"]) == (119.0, 121.0)
     assert values["clock_tolerance_deg"] == 1.0
     assert "open_flat" not in values
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("cut_overhang_mm", 3.0, "would reach the vise jaw"),
+        ("near_stickout_mm", 12.0, "would reach the chuck jaws"),
+        ("wheel_stickout_mm", 9.9, "would reach the chuck jaws"),
+        ("far_stickout_mm", 30.0, "would reach the chuck jaws"),
+        ("mandrel_stickout_mm", 13.2, "seat face"),
+    ],
+)
+def test_process_clearances_refused(key, value, message):
+    with pytest.raises(CadError, match=message):
+        load_leadscrew_kit(SOURCE, {**PARAMETERS, key: value})

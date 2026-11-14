@@ -269,6 +269,11 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
     if values["vise_jaw_left_mm"] <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
+    if overhang <= allowance:
+        raise CadError(
+            "process.cut_overhang_mm: the finish pass (the allowance in from the "
+            "sawn end) would reach the vise jaw"
+        )
     # Far-end crossings measured back from the cut end at the nominal length;
     # the traveler prints X −(L − centre) against the measured L.
     for name in ("far_kp08", "handwheel"):
@@ -278,6 +283,25 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["far_kp08_outer_from_cut_mm"] = (
         length - values["far_kp08_station_mm"] - values["flat_length_mm"]
     )
+    # Dividing-head stick-outs: the cutter's inboard edge stays out of the
+    # jaws at every crossing; the lathe mandrel stays inside the nut, short of
+    # the seat face the tool faces.
+    inboard = {
+        "near_stickout_mm": values["near_kp08_centre_mm"],
+        "wheel_stickout_mm": values["handwheel_from_cut_mm"],
+        "far_stickout_mm": values["far_kp08_from_cut_mm"],
+    }
+    for key, centre in inboard.items():
+        stickout = _positive(parameters.get(key), f"process.{key}")
+        if stickout <= centre + cutter / 2:
+            raise CadError(f"process.{key}: the flat cutter would reach the chuck jaws")
+    mandrel = _positive(
+        parameters.get("mandrel_stickout_mm"), "process.mandrel_stickout_mm"
+    )
+    if mandrel >= values["nut_length_min_mm"]:
+        raise CadError(
+            "process.mandrel_stickout_mm: the offcut would reach the nut's seat face"
+        )
     return CadData(
         values,
         StockRequirement("mm", (StockAxis("length", "screw_stock_length_mm", length),)),

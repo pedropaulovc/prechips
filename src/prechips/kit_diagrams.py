@@ -55,9 +55,9 @@ def _chuck(
 ) -> None:
     """Schematic 3-jaw: jaws on ``radius`` ending at ``face``, body behind.
 
-    ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (jaws
-    at 2, 6 and 10 o'clock: only the 6 o'clock jaw shows in a side view, none
-    on top where the cutter works).
+    ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (the
+    BS-0 4-jaw at 1, 4, 7 and 10 o'clock, 2, 5, 8 and 11 after a 120° index:
+    none on top where the cutter works, so only a lower jaw is drawn).
     """
     if jaws not in ("top_bottom", "clocked"):
         raise CadError(f"chuck jaws: unknown clocking {jaws!r}")
@@ -201,7 +201,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     cut = near + length * s
     right = cut_arrived - over * s
     left = right - jaw * s
-    back = 84.0
+    back = 70.0
     front = back + 18
     groups = _groups(root)
     _title(
@@ -224,10 +224,12 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     _blank(groups, near, cut_arrived, near, cut, back, front)
     _datum(groups, near, back - 6, front + 6)
     _datum_label(groups, near + 4, back - 12, "X0 NEAR END", "start")
-    # Conventional: with the spindle turning clockwise (seen from above) the
-    # teeth on the cutter's -X flank move toward the fixed jaw, so the cutter
-    # travels from the fixed-jaw side toward you (the table moves away).
-    _cutter(groups, cut + radius, radius, back - radius - 26, front + 4, at_end=False)
+    # Conventional: with M03 (clockwise seen from above) the teeth on the
+    # cutter's -X flank, the one cutting the end, move toward the fixed jaw
+    # (+Y). Climb rolls the cutter along the face, travelling against its
+    # teeth (toward you: work on the cutter's right, G41); conventional travels
+    # with them, from the front toward the fixed jaw: the table moves toward you.
+    _cutter(groups, cut + radius, radius, front + radius + 26, back - 4, at_end=False)
     _dimension(
         groups,
         near,
@@ -241,9 +243,9 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
         [
             (
                 cut + radius,
-                front + 4,
+                front + 2 * radius + 26,
                 [
-                    "conventional: table away from you;",
+                    "conventional: table toward you;",
                     "last pass X = {{cad.length_mm:.1f}} + D/2",
                 ],
             )
@@ -282,17 +284,15 @@ def _kit_flats(
         else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
     _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
-    _chuck(groups, jaw_face, axis, r, 40, "jaws 2, 6, 10 o'clock", jaws="clocked")
+    _chuck(groups, jaw_face, axis, r, 40, "4-jaw, clocked", jaws="clocked")
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
 
     spans: list[tuple[float, float]] = []
 
-    def flat(from_end_start: float, from_end_stop: float, done: bool = False) -> float:
+    def flat(from_end_start: float, from_end_stop: float) -> float:
         x0, x1 = free - from_end_stop * s, free - from_end_start * s
         spans.append((x0, x1))
-        if done:  # Cut in an earlier setup: the thread simply stops at its floor.
-            return (x0 + x1) / 2
         groups["removed"].append(_rect(x0, axis - r, x1 - x0, depth * s))
         groups["active"].append(
             _line(x0, axis - r + depth * s, x1, axis - r + depth * s)
@@ -304,7 +304,6 @@ def _kit_flats(
     if mode == "far":
         start = length - _cad(values, "far_kp08_station_mm")
         centre = flat(start - _cad(values, "flat_length_mm"), start)
-        flat(0.0, length - _cad(values, "handwheel_station_mm"), done=True)
         items.append(
             (
                 centre,
@@ -558,7 +557,7 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
         cy - 20,
         "{{cad.csk_cutter}} in {{cad.csk_angle_deg:g}}° countersink, T-handle",
     )
-    _label(groups, rx, cy, "design note: {{cad.csk_wall_note}}")
+    _label(groups, rx, cy, "sheet 3: {{cad.csk_wall_note}}")
     hx, hy = anchors[0]
     groups["leaders"].append(
         _el(
