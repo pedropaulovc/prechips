@@ -333,7 +333,7 @@ diameter_mm = 4.9784
 description = "1/4 in drill, 115-piece index"
 diameter_mm = 6.35
 [tools.riser-drill-12mm]
-description = "12 mm HSS jobber drill"
+description = "12 mm jobber drill"
 diameter_mm = 12.0
 [tools.riser-countersink]
 description = "3/8 in 82° countersink"

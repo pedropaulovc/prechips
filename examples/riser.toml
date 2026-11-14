@@ -45,6 +45,9 @@ edge_cleanup_in = 0.03           # Setup 3 hold 1: clean-up off the first edge.
 # Setup 4: each arriving end ~.6 past its jaw side, so P1/P2 drill in the
 # overhang clear of the jaws and parallels (the adapter refuses otherwise).
 overhang_in = 0.6
+# Bounded: the beams model the longest overhang and Y0's X 8 touch must stay
+# in the long right overhang (hold 1 right jaw side at .8 + 6.25 = 7.05 in).
+overhang_max_in = 0.8
 y_touch_x_in = 8.0               # Y0 touched in the long right overhang.
 # milling_deflection stations, mm from the blank's left end (Setup 2) or
 # from ZERO END (Setup 4; the adapter binds the jaw sides). Stage A end
@@ -291,15 +294,15 @@ title = "Ends to length; P1 and P2"
 machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end ≥{{process.overhang_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end ≥{{process.overhang_in:.1dot}} out past the right jaw side."
+holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the right jaw side."
 datum = "X0 ZERO END (hold 1 mills it, hold 2 re-finds it); Y0 ZERO EDGE, touched at ~X {{process.y_touch_x_in:g}}; +Y toward you."
 diagram = { file = "diagrams/riser/ends.svg", alt = "Hold 1: left end out of the vise, ZERO END milled and P1 drilled; hold 2: slid left, right end milled to length and P2 drilled" }
 # Cutter centre past both ends (final X = length + D/2) and across the width.
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.stop_drill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 # Both long edges are milled; the end overhangs past each jaw side.
 vise_hold = [
-  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
-  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{cad.overhang_mm}}"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.overhang_max_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{cad.overhang_max_mm}}"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
 ]
 # X from ZERO END; hold 1 jaws (hold 2 is an operation beam). Drills
 # in the overhang bend it as a cantilever off the jaw side.

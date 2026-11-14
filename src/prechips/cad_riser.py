@@ -191,13 +191,19 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     parallel = _positive(
         parameters.get("parallel_thickness_mm"), "process.parallel_thickness_mm"
     )
-    # Each arriving end sits overhang_in past its jaw side. The plan does not
-    # split the blank allowance between the two ends (hold 1 only cleans up
-    # the left end; hold 2 cuts the right end to length), so either end may
-    # lose all of it: each stop hole must clear the jaw side with the whole
-    # allowance off its end.
+    # Each arriving end sits overhang_in to overhang_max_in past its jaw side.
+    # The plan does not split the blank allowance between the two ends (hold 1
+    # only cleans up the left end; hold 2 cuts the right end to length), so
+    # either end may lose all of it: each stop hole must clear the jaw side at
+    # the shortest overhang with the whole allowance off its end.
     over = _positive(parameters.get("overhang_in"), "process.overhang_in") * 25.4
+    over_max = (
+        _positive(parameters.get("overhang_max_in"), "process.overhang_max_in") * 25.4
+    )
+    if over_max < over:
+        raise CadError("process.overhang_max_in: below overhang_in")
     values["overhang_mm"] = over
+    values["overhang_max_mm"] = over_max
     blank = _positive(parameters.get("blank_length_in"), "process.blank_length_in")
     allowance = 2 * _trim(blank * 25.4, length, "blank_length_in")
     values["blank_centred_overhang_mm"] = (blank * 25.4 - jaw) / 2
@@ -241,16 +247,16 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         [tag, values[f"{tag.lower()}_x_in"], values["stop_row_in"]] for tag, _ in _STOPS
     ]
     # milling_deflection stations (mm). Setup 3 holds the blank centred on
-    # edge; Setup 4 frames X from ZERO END, each hold's jaw side the whole
-    # overhang from its end (the longest overhang any end cleanup leaves);
-    # Setup 5 holes are drilled across the gap between the two parallels.
+    # edge; Setup 4 frames X from ZERO END, each hold's jaw side the longest
+    # allowed overhang from its end (the longest cantilever); Setup 5 holes
+    # are drilled across the gap between the two parallels.
     blank_mm = blank * 25.4
     values["edges_jaw_mm"] = [
         values["blank_centred_overhang_mm"],
         blank_mm - values["blank_centred_overhang_mm"],
     ]
-    values["ends_hold1_jaw_mm"] = [over, over + jaw]
-    values["ends_hold2_jaw_mm"] = [length - over - jaw, length - over]
+    values["ends_hold1_jaw_mm"] = [over_max, over_max + jaw]
+    values["ends_hold2_jaw_mm"] = [length - over_max - jaw, length - over_max]
     for tag, (low, high) in zip(("P1", "P2"), stations):
         values[f"{tag.lower()}_x_mm"] = (low + high) / 2
     values["parallel_gap_mm"] = [parallel, width - parallel]
