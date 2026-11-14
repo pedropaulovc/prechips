@@ -271,13 +271,24 @@ def _finish(groups: dict[str, list[Element]], bottom: float) -> Layout:
 
 
 def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Saw setup: this sheet's blanks from the bar end, the rest of the bar beyond."""
+    """Saw setup: this sheet's blanks from the bar end, the rest of the bar beyond.
+
+    A plan with `spacer_height_in` (a fixture spacer sawn from the same bar,
+    as the feed block's notch spacer) shows that offcut after the blanks.
+    """
     length = _param(parameters, "blank_length_in")
     count = _count(parameters, "quantity")
     kerf = _param(parameters, "kerf_in")
     width = _param(parameters, "blank_width_in")
+    spacer = (
+        _param(parameters, "spacer_height_in")
+        if "spacer_height_in" in parameters
+        else 0.0
+    )
     rest = 1.5  # schematic stub of the remaining bar, inches
-    scale = min(60.0, 640 / (count * (length + kerf) + rest))
+    scale = min(
+        60.0, 640 / (count * (length + kerf) + (spacer + kerf if spacer else 0) + rest)
+    )
     x, top = 40.0, 74.0
     bottom = top + width * scale
     groups = _groups(root)
@@ -294,6 +305,13 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
             "middle",
         )
         _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
+        groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
+        x = x1 + kerf * scale
+    if spacer:
+        x1 = x + spacer * scale
+        groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
+        _label(groups, (x + x1) / 2, (top + bottom) / 2 + 5, "spacer", "middle")
+        _dimension(groups, x, x1, top - 16, top, "{{process.spacer_height_in:.2f}}")
         groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         x = x1 + kerf * scale
     end = x + rest * scale
