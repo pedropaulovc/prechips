@@ -1,5 +1,7 @@
 # Mirror of harmonic-analyzer cad/process/ch_rocker_arm_tl_oblique_feed_block/plan.toml against the
-# v49 manifest exported by its farm run (cad/feed-block-v49.toml).
+# v49-geometry manifest (cad/feed-block-v49.toml) exported by HA farm run
+# 20261113T221312495Z-b3355dbccfcf4788b2313e114c96d13d at dc801de656; it
+# carries the build's next drawing revision, v50.
 # Source: the v49 MHA-CH-06-TL-32 sheets through the feature manifest (sizes,
 # lug, stations, rows, limits, the flat-floored BORE and its 5/16-18 tap, the
 # Ø.351 leadscrew BORE and its row and height). No hand traveler exists for
