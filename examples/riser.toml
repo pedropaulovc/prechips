@@ -291,7 +291,7 @@ title = "Ends to length; P1 and P2"
 machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end ~{{process.overhang_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end ~{{process.overhang_in:.1dot}} out past the right jaw side."
+holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end ≥{{process.overhang_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end ≥{{process.overhang_in:.1dot}} out past the right jaw side."
 datum = "X0 ZERO END (hold 1 mills it, hold 2 re-finds it); Y0 ZERO EDGE, touched at ~X {{process.y_touch_x_in:g}}; +Y toward you."
 diagram = { file = "diagrams/riser/ends.svg", alt = "Hold 1: left end out of the vise, ZERO END milled and P1 drilled; hold 2: slid left, right end milled to length and P2 drilled" }
 # Cutter centre past both ends (final X = length + D/2) and across the width.
@@ -480,7 +480,7 @@ speed_kind = "spindle"
 tool = "csk"
 sizing = "other"
 instruction = "Turn over, marked face down, ZERO EDGE now at the moving jaw; same holds. Low belt. Countersink R1–R4 Ø{{cad.csk_dia_in:.2dot}} × {{cad.csk_angle_deg:g}}°."
-instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Move the belt to the low range: a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until a #4-40 flat head sits flush or just below the face."
+instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Move the belt to the low range: a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until the mouth calipers Ø{{cad.csk_dia_min_in:.2dot}}–{{cad.csk_dia_max_in:.2dot}}; a #4-40 flat head then sits just below the face."
 rpm = 600
 feed = "hand"
 milling_cuts = [
