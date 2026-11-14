@@ -92,16 +92,16 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
             raise CadError(f"{name}.requirements: expected {', '.join(requirements)}")
         return item
 
-    def nominal(item: dict, field: str, where: str, inside: bool = True) -> float:
+    def nominal(item: dict, field: str, where: str) -> float:
         band = _band(item, field, where)
         value = _number(item.get(f"{field}_nominal"), f"{where}.{field}_nominal")
-        if inside and not band[0] - _TOL_MM <= value <= band[1] + _TOL_MM:
+        if not band[0] - _TOL_MM <= value <= band[1] + _TOL_MM:
             raise CadError(f"{where}.{field}_nominal: outside the {field} band")
         return value
 
-    def bind(item: dict, field: str, where: str, key: str, inside=True) -> float:
+    def bind(item: dict, field: str, where: str, key: str) -> float:
         _inch_limits(values, key, _band(item, field, where))
-        value = nominal(item, field, where, inside)
+        value = nominal(item, field, where)
         values[f"{key}_mm"] = value
         values[f"{key}_nominal_in"] = value / 25.4
         return value
@@ -154,13 +154,12 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
             raise CadError(f"{name}.at: station disagrees with the -X end")
         return station, at[1] - row if row_from == "minus_y_side" else at[1] + row
 
-    # Pivot seat: flat-floored bore down from the top, tap through below it.
+    # Pivot seat: flat-floored .375 down from the top, tap through below it.
     bore, bore_at = hole("pivot_bore", ["dia", "depth", "station", "row"], [0, 0, -1])
     if bore.get("floor") != "flat" or "thru" in bore:
         raise CadError("pivot_bore: expected a flat-floored blind bore")
     bore_station, y_edge = plan_position(bore, bore_at, "pivot_bore")
-    # .3750 +.0015/+.0005: the printed nominal sits below its own band.
-    bind(bore, "dia", "pivot_bore", "bore_dia", inside=False)
+    bind(bore, "dia", "pivot_bore", "bore_dia")
     bind(bore, "depth", "pivot_bore", "bore_depth")
     bind(bore, "station", "pivot_bore", "bore_x")
     bind(bore, "row", "pivot_bore", "bore_y")
@@ -260,18 +259,19 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
 
 
 def _feed(features, values, seat, length, height, y_edge, hole, nominal, bind) -> None:
-    """Bind the feed block's lug, leadscrew bore and assembly-transferred taps."""
+    """Bind the feed block's lug, leadscrew clearance and assembly-transferred taps."""
     bind(seat, "lug_x", "carriage_seat", "lug_x")
     bind(seat, "lug_length", "carriage_seat", "lug_length")
     lug_end = y_edge - values["overall_y_mm"]
+    # A plain through hole under the title block (no process word on the sheet).
     bore, at = hole("leadscrew_bore", ["dia", "thru", "row", "height"], [-1, 0, 0])
     if (
         bore.get("thru") is not True
-        or bore.get("process") != "bore"
+        or "process" in bore
         or bore.get("row_from") != "lug_end"
         or bore.get("height_from") != "carriage_seat"
     ):
-        raise CadError("leadscrew_bore: expected a through bore from the lug end")
+        raise CadError("leadscrew_bore: expected a plain through hole from the lug end")
     row = bind(bore, "row", "leadscrew_bore", "screw_y")
     z = bind(bore, "height", "leadscrew_bore", "screw_z")
     if (

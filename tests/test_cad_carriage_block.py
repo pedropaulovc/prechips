@@ -22,7 +22,7 @@ def test_plans_render_with_every_check(tmp_path, plan, number, setups, profile):
     assert main([*command, "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
     assert number in html
-    assert "Ø.3755–.3765" in html
+    assert "Ø.375–.379" in html
     if profile == "hobby":
         assert html.count('class="setup-diagram"') == setups
 
@@ -38,8 +38,8 @@ def test_rows_run_from_each_block_s_own_side():
         41.656,
         24.384,
     ]
-    assert feed.values["screw_y_band_mm"] == [13.0302, 13.1318]
-    assert feed.values["screw_z_band_mm"] == [12.35, 12.45]
+    assert feed.values["screw_y_band_mm"] == [12.954, 13.208]
+    assert feed.values["screw_z_band_mm"] == [12.27, 12.53]
 
 
 def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
@@ -52,3 +52,15 @@ def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
     moved.write_text(text.replace(old, '"at" = [-13.0, -12.9, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="row origin disagrees"):
         load_pivot_block(moved, {})
+
+
+def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
+    # The sheet prints a plain THRU under DRILLED HOLES; a process word
+    # (the old BORE) would be an operation the plan does not author.
+    bored = tmp_path / "bored.toml"
+    text = FEED.read_text(encoding="utf-8")
+    old = '"row_from" = "lug_end"\n'
+    assert text.count(old) == 1
+    bored.write_text(text.replace(old, old + '"process" = "bore"\n'), "utf-8")
+    with pytest.raises(CadError, match="plain through hole"):
+        load_feed_block(bored, {})

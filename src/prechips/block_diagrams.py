@@ -360,7 +360,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             bxs + bore_w / 2,
             (top + bore_floor) / 2,
             [
-                "Ø{{cad.bore_dia_min_in:.4dot}}–{{cad.bore_dia_max_in:.4dot}}, flat floor,",
+                "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}, flat floor,",
                 "{{cad.bore_depth_min_in:.3dot}}–{{cad.bore_depth_max_in:.3dot}} deep",
             ],
         ),

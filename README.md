@@ -23,10 +23,14 @@ uv run prechips traveler examples/riser.toml --profile hobby --out out/riser-hob
 uv run prechips traveler examples/leadscrew-kit.toml --profile hobby --out out/leadscrew-kit-hobby.html
 uv run prechips traveler examples/carrier.toml --profile pro --out out/carrier-pro.html
 uv run prechips traveler examples/carrier.toml --profile hobby --out out/carrier-hobby.html
+uv run prechips traveler examples/pivot-block.toml --profile pro --out out/pivot-block-pro.html
+uv run prechips traveler examples/pivot-block.toml --profile hobby --out out/pivot-block-hobby.html
+uv run prechips traveler examples/feed-block.toml --profile pro --out out/feed-block-pro.html
+uv run prechips traveler examples/feed-block.toml --profile hobby --out out/feed-block-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
-The base-bar, end-bracket, feed-lever, riser, carrier and leadscrew-kit examples declare their milling beams and cuts and pass `milling_deflection` enforced (see [Milling deflection](#milling-deflection)).
+The base-bar, end-bracket, feed-lever, riser, carrier, pivot-block, feed-block and leadscrew-kit examples declare their milling beams and cuts and pass `milling_deflection` enforced (see [Milling deflection](#milling-deflection)).
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
@@ -82,7 +86,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_riser` | Released v49 export | Length/width/thickness limits, P1/P2 station and row bands, REF X/Y of the seven spotted holes with their Setup 5 holds, hole and countersink bands, centred and end overhangs and setup-picture geometry |
 | `harmonic_leadscrew_kit` | v50 export, HA PR #2740 (two members) | Cut length and supplied screw, five flat stations, across-flat/length/clock bands, flat cutter centres from either end, nut length/flange/body/hole limits, countersink mouth and cutter band, the saw rule step, vise jaw stations and cut-end flat edge (from `rule_mm`, `cut_overhang_mm`, `vise_jaw_width_mm`), and setup-picture geometry |
 | `harmonic_carrier` | v50 export (harmonic-analyzer#2744) | Plate envelope limits, the 12-hole table in the sheet's lower-left-corner frame, A1-relative station and row bands (note 2), pin ream band, tap threads and drill bands, HUB as assembly-only, 1-2-3 block stations clear of every hole, and the authored spacer seat around the broken underside edge |
-| `harmonic_pivot_block`, `harmonic_feed_block` | v49 farm export | Envelope (TL-32: lug and overall length), the flat-floored pivot seat and its 5/16-18 tap, the 2 × 2 counterbored hole table from each sheet's row side, TL-32's leadscrew bore row/height and its assembly-transferred nut taps (refused unless `at_assembly`), centred vise overhangs from `vise_jaw_width_mm` and setup-picture geometry |
+| `harmonic_pivot_block`, `harmonic_feed_block` | v49 farm export | Envelope (TL-32: lug and overall length), the flat-floored pivot seat and its 5/16-18 tap, the 2 × 2 counterbored hole table from each sheet's row side, TL-32's leadscrew clearance (a plain through hole: refused if it names a process) with its row and height, and its assembly-transferred nut taps (refused unless `at_assembly`), centred vise overhangs from `vise_jaw_width_mm` and setup-picture geometry |
 
 ```toml
 [cad]
