@@ -649,8 +649,8 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         )
     # The shaft and jig layouts build on this module's primitives, so import
     # them here.
-    from prechips.carrier_diagrams import CARRIER_LAYOUTS
     from prechips.block_diagrams import BLOCK_LAYOUTS
+    from prechips.carrier_diagrams import CARRIER_LAYOUTS
     from prechips.jig_diagrams import JIG_LAYOUTS
     from prechips.kit_diagrams import KIT_LAYOUTS
     from prechips.riser_diagrams import RISER_LAYOUTS

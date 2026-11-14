@@ -418,22 +418,16 @@ resolution_mm = 0.005
 # Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
 # as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
 # saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter),
-# jig-spot and basebar-counterbore (the 5/16 in end mill). The seat is the
-# LMS 6784 set's 3/8 in end mill, plunged; TL-32's notch takes the owner's
-# 1/2 in end mill with 1 in of flute, the part on edge so its end cuts the
-# lug face.
+# jig-spot, basebar-counterbore (the 5/16 in end mill) and the carrier's
+# jig-drill-f and jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
+# end mill, plunged; TL-32's notch takes the owner's 1/2 in end mill with 1 in
+# of flute, the part on edge so its end cuts the lug face.
 [tools.block-drill-15]
 description = "#15 (.180 in) drill, 115-piece index"
 diameter_mm = 4.572
-[tools.jig-drill-f]
-description = "F (.257 in) drill, 115-piece index"
-diameter_mm = 6.5278
 [tools.block-drill-5-16]
 description = "5/16 in drill, 115-piece index"
 diameter_mm = 7.9375
-[tools.jig-tap-5-16-18-plug]
-description = "5/16-18 UNC plug tap; T-handle wrench"
-tap_drill_mm = 6.5278
 [tools.block-em-3-8]
 description = "3/8 in centre-cutting 2-flute end mill (LMS 6784 set)"
 diameter_mm = 9.525
