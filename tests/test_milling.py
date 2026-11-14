@@ -1,14 +1,16 @@
 """Smoke control plus handbook oracles for the milling/drilling bending screen."""
 
+import copy
 import math
 import re
+from types import SimpleNamespace
 
 import pytest
 
-from prechips.checks import CHECKS
+from prechips import milling
+from prechips.checks import CHECKS, CheckError
 from prechips.cli import main
 from prechips.milling import (
-    LBF_N,
     cantilever_mm,
     drill_thrust_n,
     milling_force_n,
@@ -16,7 +18,7 @@ from prechips.milling import (
     pinned_mm,
     section_inertia_mm4,
 )
-from prechips.turning import load_config, table_factor
+from prechips.turning import LBF_N, load_config, table_factor
 
 # Base-bar Setup 3 as written in examples/base-bar.toml (HA plan.toml): the bar
 # stays on its Setup 2 blocks, two straps at blank mid-length are the only
@@ -144,3 +146,113 @@ def test_drill_thrust_matches_the_handbook_example_with_packaged_tables():
         0.875 * 25.4,
     )
     assert thrust / LBF_N == pytest.approx(2313, abs=1)
+
+
+# The vise-fix squaring cut on its own, for declaration edge cases.
+SETUP = {
+    "title": "Square both ends",
+    "machine_kind": "other",
+    "beam": {
+        "axis": "x",
+        "hold": "cantilever",
+        "extent_mm": [0, 442.9125],
+        "clamp_mm": [142.11935, 300.79315],
+        "section_mm": {"y": 139.7, "z": 11.938},
+    },
+    "operations": [
+        {
+            "tool": "em",
+            "speed_kind": "spindle",
+            "rpm": 1250,
+            "milling_cuts": [
+                {
+                    "name": "left end",
+                    "kind": "side",
+                    "phase": "finish",
+                    "material": "aluminum_6061",
+                    "cutter_dia_mm": 12.7,
+                    "flutes": 2,
+                    "axial_doc_mm": 11.938,
+                    "radial_woc_mm": 0.508,
+                    "rpm": 1250,
+                    "feed_mm_min": 152.4,
+                    "stations_mm": 0,
+                    "bending": ["y", "z"],
+                }
+            ],
+        }
+    ],
+}
+
+
+def _check(setup: dict) -> None:
+    milling.check(SimpleNamespace(data={"setups": [setup]}))
+
+
+def test_thrust_along_an_upright_beam_compresses_it():
+    setup = copy.deepcopy(SETUP)
+    _check(setup)
+    # A part on end in the vise, drilled #29 into its top end.
+    setup["beam"] = {
+        "axis": "z",
+        "hold": "cantilever",
+        "extent_mm": [0, 60],
+        "clamp_mm": [0, 20],
+        "section_mm": {"x": 25.4, "y": 12.7},
+    }
+    setup["operations"][0]["milling_cuts"] = [
+        {
+            "name": "end hole",
+            "kind": "drill",
+            "phase": "finish",
+            "material": "aluminum_6061",
+            "cutter_dia_mm": 3.454,
+            "flutes": 2,
+            "feed_per_tooth_mm": 0.05,
+            "stations_mm": 60,
+            "bending": "z",
+        }
+    ]
+    del setup["operations"][0]["rpm"]
+    _check(setup)
+
+
+def _rpm(setup):
+    setup["operations"][0]["rpm"] = 2500
+
+
+def _hold(setup):
+    setup["beam"]["hold"] = ["cantilever"]
+
+
+def _overflow(setup):
+    setup["beam"]["extent_mm"] = [-1e200, 442.9125]
+    setup["operations"][0]["milling_cuts"][0]["stations_mm"] = -1e200
+
+
+def _lathe(setup):
+    setup["machine_kind"] = "lathe"
+    del setup["beam"]
+    setup["operations"][0] = {"tool": "em", "beam": "other"}
+
+
+def _other(setup):
+    setup["operations"][0]["beam"] = setup["beam"]
+    setup["beam"] = "other"
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (_rpm, "rpm: 1250 disagrees with the operation's 2500 rpm"),
+        (_hold, "beam.hold: expected cantilever, between or solid"),
+        (_overflow, "numerical range exceeded"),
+        (_lathe, "lathe setups take no beam or milling_cuts"),
+        (_other, 'beam "other" is only for setups that cut nothing'),
+    ],
+)
+def test_contradictory_or_out_of_range_declarations_refuse(change, message):
+    setup = copy.deepcopy(SETUP)
+    change(setup)
+    with pytest.raises(CheckError, match=re.escape(message)):
+        _check(setup)

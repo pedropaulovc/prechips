@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from prechips.traveler import LoadedPlan
 
 DEFAULT_CONFIG = Path(__file__).with_name("turning.toml")
+INCH_MM = 25.4
+LBF_N = 4.4482216152605
 _DISABLE = "Explicit opt-out: --disable-check turning_deflection."
 _MATERIAL_KEYS = {"unit_power_hp_min_per_in3", "elastic_modulus_gpa"}
 # Only drilling and plunging read a material's handbook thrust factor.
@@ -164,6 +166,17 @@ def table_factor(
     raise TurningError(f"{table} interpolation has no matching interval")
 
 
+def cutting_force_n(
+    unit_power: float, feed_factor: float, wear: float, chip_area_in2: float
+) -> float:
+    """Handbook mean cutting force in newtons: unit power × removal rate ÷ speed.
+
+    Pc = Kp*C*Q*W hp and Fc = 33000*Pc/V lbf; with Q = 12*V*A in^3/min for the
+    mean uncut chip area A (in^2) this is Fc = 396000*Kp*C*W*A lbf.
+    """
+    return 396000 * unit_power * feed_factor * wear * chip_area_in2 * LBF_N
+
+
 def _pinned_factor(start: float, end: float, span: float) -> tuple[float, float]:
     """Max delta*EI/F and tool distance for a pinned span, not free-end sag."""
     low, high = sorted((start, end))
@@ -306,20 +319,17 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     )
     factor, worst_z, support_state = _bending_factor(support, start_z, end_z, kept)
     traverse = _bending_factor(support, start_z, end_z, (start_z, end_z))
-    feed = numbers["feed_mm_rev"] / 25.4
+    feed = numbers["feed_mm_rev"] / INCH_MM
     force_config = config["force"]
     feed_factor = table_factor(
         feed, force_config["feed_factors"], "feed", "in/rev", "feed-factor"
     )
     # Handbook cutting (tangential) force per mm of radial DOC, in newtons.
-    tangential_per_doc = (
-        396000
-        * material["unit_power_hp_min_per_in3"]
-        * feed_factor
-        * force_config[f"{phase}_wear"]
-        * feed
-        / 25.4
-        * 4.4482216152605
+    tangential_per_doc = cutting_force_n(
+        material["unit_power_hp_min_per_in3"],
+        feed_factor,
+        force_config[f"{phase}_wear"],
+        feed / INCH_MM,
     )
     modulus = material["elastic_modulus_gpa"] * 1000
     total_removal = (numbers["start_diameter_mm"] - numbers["end_diameter_mm"]) / 2

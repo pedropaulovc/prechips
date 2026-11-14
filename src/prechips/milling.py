@@ -18,13 +18,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from prechips.checks import CheckError
-from prechips.turning import TurningError, load_config, table_factor
+from prechips.turning import (
+    INCH_MM,
+    LBF_N,
+    TurningError,
+    cutting_force_n,
+    load_config,
+    table_factor,
+)
 
 if TYPE_CHECKING:
     from prechips.traveler import LoadedPlan
 
-INCH = 25.4
-LBF_N = 4.4482216152605
 _AXES = ("x", "y", "z")
 _SPINDLE = "z"
 _MILLING = ("side", "end", "face", "slot")
@@ -90,21 +95,18 @@ def milling_force_n(
 ) -> float:
     """Mean tangential force: unit power × removal rate ÷ cutting speed.
 
-    Pc = Kp*C*Q*W hp with Q = ft*nt*N*w*d in^3/min, V = pi*D*N/12 ft/min, and
-    Ft = 33000*Pc/V = 396000*Kp*C*W*w*d*ft*nt/(pi*D) lbf; rpm cancels.
+    Q = ft*nt*N*w*d in^3/min at V = pi*D*N/12 ft/min, so the mean chip area
+    Q/(12*V) = w*d*ft*nt/(pi*D) in^2 and Ft = 396000*Kp*C*W*w*d*ft*nt/(pi*D)
+    lbf; rpm cancels.
     """
-    removal_per_rev = (
-        (woc_mm / INCH) * (doc_mm / INCH) * (feed_per_tooth_mm / INCH) * flutes
+    chip_area = (
+        (woc_mm / INCH_MM)
+        * (doc_mm / INCH_MM)
+        * (feed_per_tooth_mm / INCH_MM)
+        * flutes
+        / (math.pi * cutter_dia_mm / INCH_MM)
     )
-    lbf = (
-        396000
-        * unit_power
-        * feed_factor
-        * wear
-        * removal_per_rev
-        / (math.pi * cutter_dia_mm / INCH)
-    )
-    return lbf * LBF_N
+    return cutting_force_n(unit_power, feed_factor, wear, chip_area)
 
 
 def drill_thrust_n(
@@ -117,7 +119,7 @@ def drill_thrust_n(
     dia_mm: float,
 ) -> float:
     """Handbook drill thrust T = 2*Kd*Ff*FT*B*W + Kd*D^2*J*W (lb, D in)."""
-    diameter = dia_mm / INCH
+    diameter = dia_mm / INCH_MM
     lips = 2 * kd * feed_factor * diameter_factor * chisel_b * wear
     chisel = kd * diameter**2 * chisel_j * wear
     return (lips + chisel) * LBF_N
@@ -175,7 +177,7 @@ def _beam(value: object, where: str) -> dict:
     if not isinstance(value, dict):
         raise CheckError(f'{where}: expected a table or "other"')
     hold = value.get("hold")
-    if hold not in _HOLDS:
+    if not isinstance(hold, str) or hold not in _HOLDS:
         raise CheckError(f"{where}.hold: expected cantilever, between or solid")
     keys = {"axis", "hold", "extent_mm"} | _HOLDS[hold]
     _fields(value, keys, keys, where)
@@ -212,16 +214,22 @@ def _bending(value: object, beam: dict, kind: str, where: str) -> list[str]:
         or len(set(axes)) != len(axes)
     ):
         raise CheckError(f"{where}: expected x, y or z, or an array of them")
+    if kind in _THRUST:
+        if axes != [_SPINDLE]:
+            raise CheckError(
+                f"{where}: {kind} cuts load the beam along the spindle (z)"
+            )
+        # On a beam along z (a part upright, drilled on its end) the thrust
+        # compresses the part instead of bending it; _check_cut allows that.
+        return axes
     if beam["axis"] in axes:
         raise CheckError(
             f"{where}: {beam['axis']} is along the beam; bending is across it"
         )
-    if kind in _THRUST and axes != [_SPINDLE]:
-        raise CheckError(f"{where}: {kind} cuts load the beam along the spindle (z)")
     return axes
 
 
-def _feed_per_tooth(cut: dict, flutes: int, where: str) -> float:
+def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float:
     if "feed_per_tooth_mm" in cut:
         if {"rpm", "feed_mm_min"} & cut.keys():
             raise CheckError(
@@ -231,16 +239,23 @@ def _feed_per_tooth(cut: dict, flutes: int, where: str) -> float:
     if not {"rpm", "feed_mm_min"} <= cut.keys():
         raise CheckError(f"{where}: missing feed_per_tooth_mm or rpm with feed_mm_min")
     rpm = _positive(cut["rpm"], f"{where}.rpm")
+    # The printed spindle speed and the analysed one must not drift apart.
+    if op_rpm is not None and rpm != op_rpm:
+        raise CheckError(
+            f"{where}.rpm: {rpm:g} disagrees with the operation's {op_rpm} rpm"
+        )
     return _positive(cut["feed_mm_min"], f"{where}.feed_mm_min") / (rpm * flutes)
 
 
-def _forces(cut: dict, kind: str, material: dict, config: dict, where: str) -> dict:
+def _forces(
+    cut: dict, kind: str, material: dict, config: dict, op_rpm: object, where: str
+) -> dict:
     """Force (N) and its description for each bending direction class."""
     diameter = _positive(cut["cutter_dia_mm"], f"{where}.cutter_dia_mm")
     flutes = cut["flutes"]
     if type(flutes) is not int or flutes < 1:
         raise CheckError(f"{where}.flutes: expected a positive integer")
-    feed = _feed_per_tooth(cut, flutes, where)
+    feed = _feed_per_tooth(cut, flutes, op_rpm, where)
     if kind in _THRUST:
         if {"axial_doc_mm", "radial_woc_mm"} & cut.keys():
             raise CheckError(
@@ -252,14 +267,14 @@ def _forces(cut: dict, kind: str, material: dict, config: dict, where: str) -> d
         thrust = drill_thrust_n(
             material["drill_kd"],
             table_factor(
-                feed * flutes / INCH,
+                feed * flutes / INCH_MM,
                 drilling["feed_factors"],
                 "feed",
                 "in/rev",
                 "drilling feed-factor",
             ),
             table_factor(
-                diameter / INCH,
+                diameter / INCH_MM,
                 drilling["diameter_factors"],
                 "diameter",
                 "in",
@@ -284,7 +299,7 @@ def _forces(cut: dict, kind: str, material: dict, config: dict, where: str) -> d
     tangential = milling_force_n(
         material["unit_power_hp_min_per_in3"],
         table_factor(
-            feed / INCH,
+            feed / INCH_MM,
             config["force"]["feed_factors"],
             "feed",
             "in/tooth",
@@ -345,7 +360,7 @@ def _deflection(beam: dict, station: float, force: float, rigidity: float):
     return pinned_mm(force, a, b, rigidity), text
 
 
-def _check_cut(cut: dict, beam: dict, config: dict, where: str) -> None:
+def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) -> None:
     required = {
         "name",
         "kind",
@@ -387,7 +402,10 @@ def _check_cut(cut: dict, beam: dict, config: dict, where: str) -> None:
         limit = min(
             limit, _positive(cut["max_deflection_mm"], f"{where}.max_deflection_mm")
         )
-    forces = _forces(cut, kind, material, config, where)
+    forces = _forces(cut, kind, material, config, op_rpm, where)
+    if axes == [beam["axis"]]:
+        # Only thrust reaches here: along the beam it compresses, not bends.
+        return
     modulus = material["elastic_modulus_gpa"] * 1000
     worst = None
     for axis in axes:
@@ -432,7 +450,9 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
             operation_number += 10
             numbered.append((f"{where}, Op {operation_number}", operation))
         if machine == "lathe":
-            if "beam" in setup or any("milling_cuts" in op for _, op in numbered):
+            if "beam" in setup or any(
+                "milling_cuts" in op or "beam" in op for _, op in numbered
+            ):
                 raise CheckError(
                     f"{where}: lathe setups take no beam or milling_cuts "
                     "(turning_deflection covers them)"
@@ -469,15 +489,14 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
                 raise CheckError(
                     f'{op_where}.milling_cuts: expected cut tables or "other"'
                 )
-            if "beam" in operation:
-                beam = _beam(operation["beam"], f"{op_where}.beam")
-            elif setup_beam == "other":
+            if setup_beam == "other":
                 raise CheckError(
                     f'{where}: beam "other" is only for setups that cut nothing '
                     f"with the spindle; {op_where} declares milling_cuts"
                 )
-            else:
-                beam = setup_beam
+            beam = setup_beam
+            if "beam" in operation:
+                beam = _beam(operation["beam"], f"{op_where}.beam")
             for cut_index, cut in enumerate(cuts, 1):
                 if not isinstance(cut, dict):
                     raise CheckError(f"{op_where}, cut {cut_index}: expected a table")
@@ -485,6 +504,16 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
                 if not isinstance(name, str) or not name.strip():
                     raise CheckError(f"{op_where}, cut {cut_index}: missing name")
                 try:
-                    _check_cut(cut, beam, config, f"{op_where}, cut {name!r}")
+                    _check_cut(
+                        cut,
+                        beam,
+                        config,
+                        operation.get("rpm"),
+                        f"{op_where}, cut {name!r}",
+                    )
                 except TurningError as error:
                     raise CheckError(f"{op_where}, cut {name!r}: {error}") from error
+                except ArithmeticError as error:
+                    raise CheckError(
+                        f"{op_where}, cut {name!r}: numerical range exceeded ({error})"
+                    ) from error
