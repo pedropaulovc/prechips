@@ -12,17 +12,19 @@ Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uv sync --locked
-uv run prechips traveler examples/base-bar.toml --profile pro --out out/base-bar-pro.html
-uv run prechips traveler examples/base-bar.toml --profile hobby --out out/base-bar-hobby.html
-uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-bracket-pro.html
-uv run prechips traveler examples/end-bracket.toml --profile hobby --out out/end-bracket-hobby.html
-uv run prechips traveler examples/feed-lever.toml --profile pro --out out/feed-lever-pro.html
-uv run prechips traveler examples/feed-lever.toml --profile hobby --out out/feed-lever-hobby.html
-uv run prechips traveler examples/riser.toml --profile pro --out out/riser-pro.html
-uv run prechips traveler examples/riser.toml --profile hobby --out out/riser-hobby.html
-uv run prechips traveler examples/leadscrew-kit.toml --profile hobby --out out/leadscrew-kit-hobby.html
+uv run prechips traveler examples/base-bar.toml --profile pro --disable-check milling_deflection --out out/base-bar-pro.html
+uv run prechips traveler examples/base-bar.toml --profile hobby --disable-check milling_deflection --out out/base-bar-hobby.html
+uv run prechips traveler examples/end-bracket.toml --profile pro --disable-check milling_deflection --out out/end-bracket-pro.html
+uv run prechips traveler examples/end-bracket.toml --profile hobby --disable-check milling_deflection --out out/end-bracket-hobby.html
+uv run prechips traveler examples/feed-lever.toml --profile pro --disable-check milling_deflection --out out/feed-lever-pro.html
+uv run prechips traveler examples/feed-lever.toml --profile hobby --disable-check milling_deflection --out out/feed-lever-hobby.html
+uv run prechips traveler examples/riser.toml --profile pro --disable-check milling_deflection --out out/riser-pro.html
+uv run prechips traveler examples/riser.toml --profile hobby --disable-check milling_deflection --out out/riser-hobby.html
+uv run prechips traveler examples/leadscrew-kit.toml --profile hobby --disable-check milling_deflection --out out/leadscrew-kit-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
+
+The harmonic-analyzer jig examples do not declare milling beams and cuts yet, so they render only with `--disable-check milling_deflection` (see [Milling deflection](#milling-deflection)).
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
@@ -141,15 +143,17 @@ The supplied shaft binds its journal cuts to the kept journal (`north_apex_z` to
 
 Packaged [`turning.toml`](src/prechips/turning.toml) holds editable coefficients and source notes. Unit power comes from *Machinery's Handbook*, printed pp. 1085–1086 (corpus PDF pages 1406–1407); feed and wear factors are on printed p. 1087 (PDF 1408). Default material keys deliberately encode proxies, not measured stock properties:
 
-| Key | Unit-power condition | Elastic-modulus proxy |
-| --- | --- | --- |
-| `aluminum` | Rolled (hard) aluminum | Wrought 2014-T6, 73 GPa |
-| `brass` | Medium brass | Naval brass, 103 GPa |
-| `bronze` | Medium bronze | Phosphor bronze ASTM B159, 103 GPa |
-| `steel_1018` | Authored plain-carbon steel 160–180 HB proxy | SAE 1025, 207 GPa |
-| `steel_o1` | Authored **annealed** tool-steel 200–250 HB proxy; not hardened O1 | Steel-family proxy, 207 GPa |
+| Key | Unit-power condition | Elastic-modulus proxy | Drill `Kd` |
+| --- | --- | --- | --- |
+| `aluminum` | Rolled (hard) aluminum | Wrought 2014-T6, 73 GPa | 7,000, most aluminum alloys |
+| `aluminum_6061` | Rolled (hard) aluminum, the closest row for 6061-T6/T6511 | 6061-T6, 70.3 GPa | 7,000, most aluminum alloys |
+| `brass` | Medium brass | Naval brass, 103 GPa | 14,000, most brasses |
+| `bronze` | Medium bronze | Phosphor bronze ASTM B159, 103 GPa | none (no handbook row) |
+| `steel_1018` | Authored plain-carbon steel 160–180 HB proxy | SAE 1025, 207 GPa | 24,000, steel 200 Bhn |
+| `steel_o1` | Authored **annealed** tool-steel 200–250 HB proxy; not hardened O1 | Steel-family proxy, 207 GPa | 31,000, steel 300 Bhn |
+| `stainless_304` | Authored annealed type 304 proxy, stainless 175–200 HB | Stainless 18-8, 190.3 GPa | 35,000, austenitic (type 316) thrust |
 
-Nonferrous modulus references are handbook printed p. 204 (PDF 525); steel references are printed p. 474 (PDF 795). Choose data appropriate to actual material condition. The default radial/tangential force ratio of 1.0 is an explicit authored assumption (small DOC on a nose radius pushes the radial component toward the tangential one), not a universal measured ratio. Only the radial component is compared with the limits; the tangential force is reported but moves the work along the cutting direction, a second-order diameter effect. The screen uses a circular minimum section and omits machine compliance, chatter, thermal effects, hollow stock and discontinuous/profiled cuts. It is a practical prototype, not a certificate or general machining-safety check.
+Nonferrous modulus references are handbook printed p. 204 (PDF 525) and, for 6061-T6 and 18-8 stainless, p. 420 (PDF 741); steel references are printed p. 474 (PDF 795). Drill `Kd` values are Table 8, printed p. 1090 (PDF 1411); the table has no bronze row, so drilling bronze needs a configured `drill_kd`. Choose data appropriate to actual material condition. The default radial/tangential force ratio of 1.0 is an explicit authored assumption (small DOC on a nose radius pushes the radial component toward the tangential one), not a universal measured ratio. Only the radial component is compared with the limits; the tangential force is reported but moves the work along the cutting direction, a second-order diameter effect. The screen uses a circular minimum section and omits machine compliance, chatter, thermal effects, hollow stock and discontinuous/profiled cuts. It is a practical prototype, not a certificate or general machining-safety check.
 
 Override only the values you need; a custom TOML merges partial tables over packaged defaults:
 
@@ -162,10 +166,53 @@ finish_mm = 0.005
 elastic_modulus_gpa = 207.0
 ```
 
-Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence. New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
+Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence, and the same file also overrides the `[milling]` and `[drilling]` sections (see [Milling deflection](#milling-deflection)). New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; `drill_kd` is optional and only drilling and plunging read it. Unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
 
-For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. When turning is disabled, its configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
+For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. When turning and milling deflection are both disabled, the configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
 
+## Milling deflection
+
+Both built-in profiles enforce `milling_deflection` (`src/prechips/milling.py`), a static bending screen for every mill and drill-press cut, vise and table holds alike. Each setup declares how the part is held as a beam; each spindle operation declares its cuts. At every declared cut station the handbook cutting force bends that beam, and the worst station and bending axis of each cut is compared with its phase limit. A predicted exceedance or missing data exits 2 before creating or replacing output and names the setup, operation and cut, the estimated bending, the limit and the governing span. A pass prints nothing on the traveler. It runs with the declared-input checks (after `vise_holding`) and is disabled with `--disable-check milling_deflection`.
+
+Default limits are **0.10 mm rough** and **0.025 mm finish**, authored, not handbook tolerances. The finish limit is one-tenth of the drawings' tightest general band (title-block .XXX ±.005 in, 0.254 mm wide), about .001 in. The rough limit matches turning and stays below the smallest authored finish allowance (.005 in, 0.127 mm), so the finish pass still cleans up. Per-cut `max_deflection_mm` may only tighten the phase limit.
+
+Coverage, with no inference from prose:
+
+- Every setup declares `machine_kind`. Lathe setups and their operations take neither `beam` nor `milling_cuts`; `turning_deflection` covers them.
+- Every other setup declares `beam`: a table, or `"other"` only when none of its operations cuts with the spindle (saw, bench, hand tap, filing, inspection).
+- Every operation with a `tool` declares `speed_kind`. A `speed_kind = "spindle"` operation declares `milling_cuts`: cut tables, or `"other"` only when the spindle removes no material (edge finder, indicator). Other operations take neither `milling_cuts` nor `beam`.
+- A cutting operation may declare its own `beam`, which replaces the setup's table for its cuts: a re-grip, or a jack under a drill that a lifting end mill would not load.
+
+```toml
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.blank_length_mm}}"], clamp_mm = "{{process.strap_x_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+milling_cuts = [
+  { name = "left end to ZERO END", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1250, feed_mm_min = 152.4, stations_mm = 0 },
+]
+```
+
+`axis` is the machine axis along the part; stations are millimetres along it in any frame the setup chooses, and `extent_mm` is the part's `[start, end]` in that frame. Holds:
+
+- `cantilever`, with `clamp_mm` (a station or `[start, end]`: vise jaws, a strap pair, a chuck): a station inside the clamp does not bend; outside it is a cantilever from the nearer clamp edge, F·L³/(3EI).
+- `between`, with `supports_mm = [a, b]`: two points that hold the part in the bending direction (straps, centres, a jack under a drill). Between them a pinned span, F·a²·b²/(3EI·l); beyond one, an overhang c, F·c²·(c + l)/(3EI). A block or jack only pushes; it is no support against a lifting end mill.
+- `solid`, with `seat` (the rigid seat, stated) and `seat_mm`: a drill or plunge pushes straight down onto that seat (parallels under the hole, the table), no bending; a station off the seat refuses. A seat only takes a downward push, and every milling cut also loads the part across the spindle (side and slot cuts lift it too), so milling kinds refuse on a seat and need a cantilever or between beam. A hole between two parallels is not over a seat: it is a beam across them.
+
+`section_mm` is the smallest section of the free span: the two sizes across the beam (`{ y, z }` for a beam along x; I = b·d³/12 with d along the bending axis), or `{ diameter }` for round work in a chuck or dividing head (I = π·D⁴/64). Solid holds take no section.
+
+Each cut declares `name`; `kind` = `side` (periphery, `radial_woc_mm` below Ø), `slot` (full width, `radial_woc_mm` = Ø), `end` (end teeth produce a floor or face; width = stepover), `face` (face mill or fly cutter), `plunge` (centre-cutting end mill fed axially) or `drill`; `phase` = `finish` when the cut makes a surface or size the drawing holds (including drilled holes and tap drills), `rough` when a later cut removes it; `material`, a configured key (per cut, since one plan may cut several members of different materials); `cutter_dia_mm`; integer `flutes`; `feed_per_tooth_mm`, or `rpm` with `feed_mm_min` (feed per tooth = feed ÷ (rpm × flutes); hand-fed cuts declare the feed the operator applies; a cut `rpm` must equal the operation's numeric `rpm` when it has one, so a changed spindle setting refuses until the cut is updated); and where it cuts, either `stations_mm` (one or more points: holes, a cut across the beam) or `traverse_mm = [start, end]` (a pass that travels along the beam, judged at its ends and at mid-span of a pinned span inside it, which bound every point between). Milling kinds also declare `axial_doc_mm` and `radial_woc_mm`; drills and plunges take neither. The loaded axes are not declared: a milling cut bends the beam in both axes across it, a drill or plunge only along the spindle (z), and on a beam along z (a part upright, drilled or plunged on its end) that thrust compresses the part and does not bend it, so no thrust data is read. Numeric fields accept exact whole-field bindings.
+
+The spindle is vertical (machine Z). Milling uses the handbook mean tangential force, unit power × removal rate ÷ cutting speed: Ft = 396000·Kp·C·W·w·d·ft·nt/(π·D) lbf in inches, where rpm cancels (printed pp. 1085–1088, PDF 1406–1409). C is the same feed-factor table as turning, read per tooth for milling; W is 1.10 for end and slab milling and 1.25 for `face` (the top of light and medium face milling). Along the spindle the force is Ft × `axial_ratio`, the helix lift of side and slot cuts or the end-tooth push of end and face cuts; across it the rotating resultant Ft·√(1 + `radial_ratio`²) is applied in each horizontal axis across the beam. Both ratios are authored at 1.0: tan 45° covers the 30–45° helices of general-purpose and aluminium end mills, and the radial ratio matches turning. Drills and plunges use the handbook thrust T = 2·Kd·Ff·FT·B·W + Kd·D²·J·W (printed pp. 1090–1092, PDF 1411–1413) with standard-drill chisel factors (c/d 0.18) and W 1.30; a plunging end mill reuses it as an authored proxy. Beam cases are printed pp. 261, 264 and 265; sections pp. 239 and 255.
+
+This is a stiffness screen at the cut, not predicted dimensional error. It uses the mean force over a revolution (intermittent tooth peaks are higher), ideal clamps and pins, and a uniform minimum section, and omits chatter, clamp slip, one-sided supports, cutter and machine compliance, torsion and thermal effects.
+
+Base-bar Setup 3 as written refuses (`tests/test_milling.py` declares it). With the bar strapped only at blank mid-length, squaring the left end (finish .020 in passes, 1/2 in two-flute end mill at 1250 rpm and 6 in/min, the full .5 in engaged) is a 221.5 mm cantilever: 26.6 N axial force bends it an estimated **0.057 mm** along Z against the 0.025 mm finish limit, and the right end's .010 in passes 0.029 mm. Squaring in the Setup 4 vise clamping instead, with the blank centred in the 158.67 mm jaws and faced to .47 in, leaves 142.1 mm cantilevers: 0.017 mm and 0.009 mm, a pass. With `axial_ratio` = tan 30° (0.577) the strap value would still be 0.033 mm. Keep that refusal; do not tune ratios, limits or declarations to pass.
+
+The `[milling]` section of packaged `turning.toml` holds the limits, ratios and wear factors; `[drilling]` the thrust tables (feed factors, diameter factors, chisel factors, wear). Override them like the turning values:
+
+```toml
+# shop-turning.toml
+[milling]
+finish_mm = 0.02
+```
 
 ## Declared-input checks
 
@@ -303,10 +350,10 @@ The base bar binds its stacks from CAD/blank sizes and process parameters: the s
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
 | --- | --- | --- | --- |
-| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; turning meets bending limits; every declared-input check passes |
+| `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` | Stock fits; turning and milling meet bending limits; every declared-input check passes |
 | `hobby` | Included for every setup | `instruction_detailed` when present, otherwise `instruction` | As `pro`; every setup has a readable SVG diagram |
 
-Enforcement is limited to the declared stock, setup-diagram, static longitudinal-turning and declared-input contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
+Enforcement is limited to the declared stock, setup-diagram, static longitudinal-turning, static milling/drilling-bending and declared-input contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
 Use `--profile path/to/profile.toml` for a custom profile:
 
@@ -316,7 +363,7 @@ features = ["setup_diagrams", "detailed_instructions"]
 enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
@@ -410,4 +457,4 @@ uv run ruff format --check .
 
 Keep tests to CLI smoke coverage and fragile behavior. Run both profiles and inspect their actual print layouts for sheet changes. No FreeCAD, integrity hashes or certificates in this milestone.
 
-Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby; v0.10 adds the `vise_holding` check.
+Pedro reviews each milestone. Work must not run more than three milestones ahead of his last review. v0.6 adds shared authored data; v0.7 adds shaft hobby pictures and the round-stock requirement; v0.8 adds declared-input checks; v0.9 moves the base bar to the v48 release and adds the harmonic-analyzer trammel-jig end bracket and feed lever, pro and hobby; v0.10 adds the `vise_holding` check; v0.11 adds the `milling_deflection` check.

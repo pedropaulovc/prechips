@@ -1,4 +1,5 @@
-# Prototype static longitudinal-turning screen, not machining approval.
+# Prototype static longitudinal-turning, milling and drilling screens, not
+# machining approval.
 # References: Machinery's Handbook corpus/pages/NNNN.md (PDF page NNNN).
 # Coefficients below are condition/family proxies, not measured stock properties.
 # Override any leaf in a custom TOML; new materials require both numeric fields.
@@ -58,18 +59,33 @@ feed_factors = [
 unit_power_hp_min_per_in3 = 0.33
 # PDF0525/p204: wrought 2014-T6, 10.6 million psi, rounded GPa family proxy.
 elastic_modulus_gpa = 73.0
+# Table 8 PDF1411/p1090: most aluminum alloys.
+drill_kd = 7000.0
+
+[materials.aluminum_6061]
+# Table 3a PDF1406/p1085: rolled (hard) aluminum, the closest row for
+# 6061-T6/T6511; the table has no alloy-specific aluminum row.
+unit_power_hp_min_per_in3 = 0.33
+# PDF0741/p420 Typical Elastic Properties: 6061-T6, 10.2 million psi.
+elastic_modulus_gpa = 70.3
+# Table 8 PDF1411/p1090: most aluminum alloys.
+drill_kd = 7000.0
 
 [materials.brass]
 # Table 3a PDF1406/p1085: medium brass (not leaded/soft/hard universal value).
 unit_power_hp_min_per_in3 = 0.50
 # PDF0525/p204: naval brass, 15 million psi, rounded family proxy.
 elastic_modulus_gpa = 103.0
+# Table 8 PDF1411/p1090: most brasses (leaded brass is 7,000).
+drill_kd = 14000.0
 
 [materials.bronze]
 # Table 3a PDF1406/p1085: medium bronze; hard bronze has a different row.
 unit_power_hp_min_per_in3 = 0.50
 # PDF0525/p204: phosphor bronze ASTM B159, 15 million psi family proxy.
 elastic_modulus_gpa = 103.0
+# No drill_kd: Table 8 has no bronze row, so drilling bronze refuses until a
+# shop config supplies one.
 
 [materials.steel_1018]
 # AUTHORED condition proxy: plain carbon steel 160-180 HB, Table 3b PDF1407/p1086.
@@ -77,6 +93,8 @@ elastic_modulus_gpa = 103.0
 unit_power_hp_min_per_in3 = 0.78
 # PDF0795/p474 Table 13: SAE1025 low-carbon steel, 30 million psi proxy.
 elastic_modulus_gpa = 207.0
+# Table 8 PDF1411/p1090: steel 200 Bhn, the first row at or above 180 HB.
+drill_kd = 24000.0
 
 [materials.steel_o1]
 # AUTHORED annealed tool-steel 200-250 HB proxy, Table 3a PDF1406/p1085.
@@ -84,6 +102,18 @@ elastic_modulus_gpa = 207.0
 unit_power_hp_min_per_in3 = 0.88
 # PDF0795/p474: 30 million psi steel-family proxy, not O1-specific measurement.
 elastic_modulus_gpa = 207.0
+# Table 8 PDF1411/p1090: steel 300 Bhn, the first row at or above 250 HB.
+drill_kd = 31000.0
+
+[materials.stainless_304]
+# AUTHORED annealed type 304 proxy, at most 200 HB: Table 3a PDF1406/p1085
+# stainless steel 175-200 HB. Not cold-worked or work-hardened stock.
+unit_power_hp_min_per_in3 = 0.72
+# PDF0741/p420 Typical Elastic Properties: stainless steel 18-8, 27.6 million psi.
+elastic_modulus_gpa = 190.3
+# Table 8 PDF1411/p1090: austenitic stainless (type 316) thrust row, which the
+# handbook bases on a limited number of tests.
+drill_kd = 35000.0
 
 # Beam formulas: PDF0586/p265 cases11-12 (chuck cantilever), PDF0582/p261
 # cases2-3 (pinned supports at actual load position). Round I=pi*D^4/64:
@@ -91,3 +121,106 @@ elastic_modulus_gpa = 207.0
 # Uniform minimum section is conservative for stepped solid round sections;
 # no hollow stock, gaps, profiles, machine compliance, chatter, thermal effects,
 # plasticity, axial-force buckling, or motion/physical setup certification.
+
+[milling]
+# Milling and drilling bending at the cut station, compared per declared
+# bending axis. AUTHORED screening criteria, NOT handbook tolerances.
+# Finish: one-tenth of the drawings' tightest general band (.XXX +/-.005 in,
+# 0.254 mm wide), about .001 in. Rough: as turning, under the smallest authored
+# finish allowance (.005 in = 0.127 mm) so the finish pass still cleans up.
+rough_mm = 0.10
+finish_mm = 0.025
+# AUTHORED ratios to the handbook mean tangential force Ft, not measurements.
+# Across the spindle the force rotates with the cutter; its resultant
+# Ft*sqrt(1 + radial_ratio^2) is applied in each declared horizontal axis.
+# 1.0 as turning: thin chips push the radial component toward Ft.
+radial_ratio = 1.0
+# Along the spindle: helix lift on side and slot cuts, end-tooth push on end
+# and face cuts. Ft*tan(helix) is the first-order estimate; 1.0 = tan 45 deg
+# covers the 30-45 deg helices of general-purpose and aluminium end mills.
+axial_ratio = 1.0
+# Table 5 PDF1408/p1087: end and slab milling 1.10; face cuts take 1.25, the
+# top of light and medium face milling (1.10-1.25). Milling feed factors are
+# force.feed_factors: Table 4 reads in/tooth for milling.
+wear = 1.10
+face_wear = 1.25
+# Ft = 396000*Kp*C*W*w*d*ft*nt/(pi*D) lbf (in): Pc = Kp*C*Q*W with Q = fm*w*d,
+# fm = ft*nt*N (Table 7, PDF1409/p1088), and Ft = 33000*Pc/V, V = pi*D*N/12.
+# This is the mean force over a revolution; intermittent tooth peaks are higher.
+# Beams: cantilever F*L^3/(3EI) (case 11, PDF0586/p265); pinned span
+# F*a^2*b^2/(3EI*l) at the load (case 3, PDF0582/p261), and F*c^2*(c+l)/(3EI)
+# on an overhang c beyond one support (case 8, PDF0585/p264); rectangle
+# I=b*d^3/12 (PDF0560/p239), round I=pi*D^4/64 (PDF0576/p255).
+
+[drilling]
+# Thrust T = 2*Kd*Ff*FT*B*W + Kd*D^2*J*W lb, D in (PDF1412/p1091 eq. 1),
+# along the spindle only. Plunging end mills reuse it as an authored proxy.
+# Table 5 PDF1408/p1087 and PDF1411/p1090: 1.30 for ordinary drilling.
+wear = 1.30
+# Table 9 PDF1412/p1091: standard drill, c/d = 0.18 (split points are lower).
+chisel_thrust_b = 1.355
+chisel_thrust_j = 0.030
+# Table 10 PDF1413/p1092, inch: [feed in/rev, Ff].
+feed_factors = [
+    [0.0005, 0.0023],
+    [0.001, 0.004],
+    [0.002, 0.007],
+    [0.003, 0.010],
+    [0.004, 0.012],
+    [0.005, 0.014],
+    [0.006, 0.017],
+    [0.007, 0.019],
+    [0.008, 0.021],
+    [0.009, 0.023],
+    [0.010, 0.025],
+    [0.012, 0.029],
+    [0.013, 0.031],
+    [0.015, 0.035],
+    [0.018, 0.040],
+    [0.020, 0.044],
+    [0.022, 0.047],
+    [0.025, 0.052],
+    [0.030, 0.060],
+    [0.035, 0.068],
+    [0.040, 0.076],
+    [0.050, 0.091],
+]
+# Table 11 PDF1413/p1092, inch: [drill diameter in, FT].
+diameter_factors = [
+    [0.063, 0.110],
+    [0.094, 0.151],
+    [0.125, 0.189],
+    [0.156, 0.226],
+    [0.188, 0.263],
+    [0.219, 0.297],
+    [0.250, 0.330],
+    [0.281, 0.362],
+    [0.313, 0.395],
+    [0.344, 0.426],
+    [0.375, 0.456],
+    [0.438, 0.517],
+    [0.500, 0.574],
+    [0.563, 0.632],
+    [0.625, 0.687],
+    [0.688, 0.741],
+    [0.750, 0.794],
+    [0.813, 0.847],
+    [0.875, 0.899],
+    [0.938, 0.950],
+    [1.000, 1.000],
+    [1.063, 1.050],
+    [1.125, 1.099],
+    [1.250, 1.195],
+    [1.375, 1.290],
+    [1.500, 1.383],
+    [1.625, 1.475],
+    [1.750, 1.565],
+    [1.875, 1.653],
+    [2.000, 1.741],
+    [2.250, 1.913],
+    [2.500, 2.081],
+    [2.750, 2.246],
+    [3.000, 2.408],
+    [3.500, 2.724],
+    [4.000, 3.031],
+]

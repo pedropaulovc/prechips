@@ -10,6 +10,8 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/riser-v49.toml"
 PLAN = ROOT / "examples/riser.toml"
+# The example declares no milling beams or cuts yet.
+NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 with PLAN.open("rb") as _plan:
     PARAMETERS = tomllib.load(_plan)["parameters"]
 
@@ -17,8 +19,10 @@ with PLAN.open("rb") as _plan:
 def test_pro_and_hobby_render_with_every_check_enforced(tmp_path):
     pro = tmp_path / "riser.html"
     hobby = tmp_path / "riser-hobby.html"
-    assert main(["traveler", str(PLAN), "--profile", "pro", "--out", str(pro)]) == 0
-    assert main(["traveler", str(PLAN), "--profile", "hobby", "--out", str(hobby)]) == 0
+    pro_command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(pro)]
+    hobby_command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(hobby)]
+    assert main([*pro_command, *NO_MILLING_DATA]) == 0
+    assert main([*hobby_command, *NO_MILLING_DATA]) == 0
     assert "MHA-CH-06-TL-24" in pro.read_text(encoding="utf-8")
     html = hobby.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 5

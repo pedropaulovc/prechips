@@ -38,7 +38,10 @@ def main(argv: list[str] | None = None) -> int:
         "--turning-config",
         type=Path,
         metavar="FILE.toml",
-        help="override turning coefficients and limits (partial TOML config)",
+        help=(
+            "override turning, milling and drilling coefficients and limits "
+            "(partial TOML config)"
+        ),
     )
     args = parser.parse_args(argv)
     try:
@@ -60,7 +63,11 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
-        if "turning_deflection" in profile.enforce:
+        # Turning and milling read the same packaged/override coefficient file.
+        if "turning_deflection" in profile.enforce or any(
+            checks.CHECKS[name].config == "turning"
+            for name in profile.enforce & checks.CHECKS.keys()
+        ):
             inputs.append(DEFAULT_CONFIG)
             if profile.turning_config is not None:
                 inputs.append(profile.turning_config)
@@ -79,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             check_turning_deflection(plan, config_path=profile.turning_config)
         for name in checks.CHECKS:
             if name in profile.enforce:
-                checks.run(name, plan)
+                checks.run(name, plan, profile.turning_config)
         html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")

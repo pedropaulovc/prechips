@@ -9,6 +9,8 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/feed-lever-v50.toml"
 PLAN = ROOT / "examples/feed-lever.toml"
+# The example declares no milling beams or cuts yet.
+NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 
 
 def test_pro_plan_renders_with_every_check(tmp_path):
@@ -16,7 +18,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]
     # The post-v49 drawing prints the 11/32 drill (Ø.3438 +.004/0), so the
     # plan's drill fits.
-    assert main(command) == 0
+    assert main([*command, *NO_MILLING_DATA]) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-26" in html
     assert "final X = 11.800 + D/2" in html
@@ -25,7 +27,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "feed-lever-hobby.html"
     command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
-    assert main(command) == 0
+    assert main([*command, *NO_MILLING_DATA]) == 0
     html = out.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 4
     assert "file each vertical grip-end corner flat at 45°" in html
