@@ -85,8 +85,18 @@ def _kit_receipt(values: dict, parameters: dict, root: ElementTree.Element) -> L
         _rect(x_spigot, axis - r_spigot * s, spigot * s, 2 * r_spigot * s)
     )
     groups["hidden"] += [
-        _line(x_spigot, axis - 4 * s, x_end, axis - 4 * s),
-        _line(x_spigot, axis + 4 * s, x_end, axis + 4 * s),
+        _line(
+            x_spigot,
+            axis - _cad(values, "major_radius_mm") * s,
+            x_end,
+            axis - _cad(values, "major_radius_mm") * s,
+        ),
+        _line(
+            x_spigot,
+            axis + _cad(values, "major_radius_mm") * s,
+            x_end,
+            axis + _cad(values, "major_radius_mm") * s,
+        ),
     ]
     top = axis - r_flange * s
     _callouts(
@@ -97,7 +107,7 @@ def _kit_receipt(values: dict, parameters: dict, root: ElementTree.Element) -> L
                 top,
                 [
                     "flange Ø{{cad.nut_flange_dia_mm:g}}",
-                    "× {{cad.nut_flange_thickness_mm:g}}, 4 holes",
+                    "× {{cad.nut_flange_thickness_mm:g}}, {{cad.csk_count:d}} holes",
                 ],
             )
         ],
@@ -214,7 +224,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
             (
                 cut + radius,
                 front + 2 * radius + 26,
-                ["1/2 in end mill, feed away;", "last pass X = L + D/2"],
+                ["end mill, feed away;", "last pass X = L + D/2"],
             )
         ],
         front + 60,
@@ -243,17 +253,18 @@ def _kit_flats(
         groups,
         20,
         24,
-        f"Side view: {title} out of the BS-0 chuck; flats on top, 0° then 120°",
+        f"Side view: {title} out of the BS-0 chuck; flats on top, 0° then "
+        "{{cad.clock_deg:g}}°",
     )
     _chuck(groups, jaw_face, axis, r, 40, "BS-0 3-jaw")
-    groups["threads"].append(
-        _rect(jaw_face - 40, axis - r, free - jaw_face + 40, 2 * r)
-    )
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
 
+    spans: list[tuple[float, float]] = []
+
     def flat(from_end_start: float, from_end_stop: float) -> float:
         x0, x1 = free - from_end_stop * s, free - from_end_start * s
+        spans.append((x0, x1))
         groups["removed"].append(_rect(x0, axis - r, x1 - x0, depth * s))
         groups["active"].append(
             _line(x0, axis - r + depth * s, x1, axis - r + depth * s)
@@ -286,6 +297,18 @@ def _kit_flats(
             )
         )
         cutter_x = centre
+    # The thread fill stops at each flat's floor, so the removed hatch shows.
+    floor = axis - r + depth * s
+    groups["threads"].append(
+        _rect(jaw_face - 40, floor, free - jaw_face + 40, 2 * r - depth * s)
+    )
+    edge = jaw_face - 40
+    for x0, x1 in sorted(spans):
+        if x0 > edge:
+            groups["threads"].append(_rect(edge, axis - r, x0 - edge, depth * s))
+        edge = max(edge, x1)
+    if free > edge:
+        groups["threads"].append(_rect(edge, axis - r, free - edge, depth * s))
     # Cutter drawn lifted clear of the work so the flat it cuts stays visible.
     left = cutter_x - cutter / 2 * s
     groups["tool"].append(_rect(left, axis - r - 70, cutter * s, 58))
@@ -295,7 +318,7 @@ def _kit_flats(
     label_y = _callouts(groups, items, axis - r - 80, above=True)
     if label_y < 40:
         raise CadError("flat labels overrun the picture top")
-    _label(groups, left - 6, axis - r - 50, "5/16 end mill crosses", "end")
+    _label(groups, left - 6, axis - r - 50, "the end mill crosses", "end")
     _label(groups, left - 6, axis - r - 34, "the screw (table Y)", "end")
     key = "far_stickout_mm" if far else "near_stickout_mm"
     _dimension(
@@ -376,8 +399,18 @@ def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> 
     groups["arriving"].append(_rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot))
     groups["active"].append(_line(seat, axis - r_spigot, seat, axis + r_spigot))
     groups["hidden"] += [
-        _line(head - body_len * s, axis - 4 * s, tip, axis - 4 * s),
-        _line(head - body_len * s, axis + 4 * s, tip, axis + 4 * s),
+        _line(
+            head - body_len * s,
+            axis - _cad(values, "major_radius_mm") * s,
+            tip,
+            axis - _cad(values, "major_radius_mm") * s,
+        ),
+        _line(
+            head - body_len * s,
+            axis + _cad(values, "major_radius_mm") * s,
+            tip,
+            axis + _cad(values, "major_radius_mm") * s,
+        ),
     ]
     groups["tool"].append(
         _el(
@@ -432,7 +465,9 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
         _el("circle", cx=cx, cy=cy, r=r_flange),
         _el("circle", cx=cx, cy=cy, r=r_body),
     ]
-    groups["holes"].append(_el("circle", cx=cx, cy=cy, r=4 * s))
+    groups["holes"].append(
+        _el("circle", cx=cx, cy=cy, r=_cad(values, "major_radius_mm") * s)
+    )
     anchors = []
     for index in range(count):
         a = 2 * math.pi * index / count

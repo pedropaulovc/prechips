@@ -95,34 +95,35 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
         parameters.get("flat_cutter_dia_mm"), "process.flat_cutter_dia_mm"
     )
     afs, depths, lengths = set(), set(), set()
+    af_nominals, length_nominals, open_flats = set(), set(), []
     for name in _FLATS:
         item = feature(f"{name}_flat", "flat")
         if item.get("normal") != [1, 0, 0] or item.get("clock_deg") != 0:
             raise CadError(f"cad.{name}_flat: expected the clock-0 flat facing +X")
         start = nominal(item, "station", f"{name}_station")
-        screw = _positive(
-            item.get("set_screw_station"), f"cad.{name}_flat.set_screw_station"
-        )
-        values[f"{name}_screw_mm"] = screw
+        _positive(item.get("set_screw_station"), f"cad.{name}_flat.set_screw_station")
         # The cutter crosses the screw with its edge on the flat's start: its
         # centre stands half a cutter on, from the NEAR END.
         values[f"{name}_centre_mm"] = start + cutter / 2
         afs.add(_band(item, "af", f"{name}_flat"))
+        af_nominals.add(
+            _positive(item.get("af_nominal"), f"cad.{name}_flat.af_nominal")
+        )
         depths.add(
             _positive(item.get("depth_nominal"), f"cad.{name}_flat.depth_nominal")
         )
         if item.get("runout") is True:
             if "length" in item.get("requirements", []):
                 raise CadError(f"cad.{name}_flat: an open flat has no length")
-            values["open_flat"] = name
+            open_flats.append(name)
         else:
             lengths.add(_band(item, "length", f"{name}_flat"))
-            values["flat_length_nominal_mm"] = _positive(
-                item.get("length_nominal"), f"cad.{name}_flat.length_nominal"
+            length_nominals.add(
+                _positive(item.get("length_nominal"), f"cad.{name}_flat.length_nominal")
             )
-    if values.get("open_flat") != "handwheel":
+    if open_flats != ["handwheel"]:
         raise CadError(
-            "cad: expected the handwheel flat to run out through the cut end"
+            "cad: expected only the handwheel flat to run out through the cut end"
         )
     clocks = set()
     for name in _CLOCKED:
@@ -149,26 +150,46 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
             )
         clocks.add((_band(item, "clock_deg", f"{name}_clock_flat"), clock))
         afs.add(_band(item, "af", f"{name}_clock_flat"))
+        af_nominals.add(
+            _positive(item.get("af_nominal"), f"cad.{name}_clock_flat.af_nominal")
+        )
         depths.add(
             _positive(item.get("depth_nominal"), f"cad.{name}_clock_flat.depth_nominal")
         )
         lengths.add(_band(item, "length", f"{name}_clock_flat"))
-    if len(afs) != 1 or len(depths) != 1 or len(lengths) != 1 or len(clocks) != 1:
+        length_nominals.add(
+            _positive(
+                item.get("length_nominal"), f"cad.{name}_clock_flat.length_nominal"
+            )
+        )
+    if (
+        len(afs) != 1
+        or len(af_nominals) != 1
+        or len(depths) != 1
+        or len(lengths) != 1
+        or len(length_nominals) != 1
+        or len(clocks) != 1
+    ):
         raise CadError("cad: the flats disagree on across-flat, depth, length or clock")
     af = afs.pop()
-    af_nominal = values["major_dia_mm"] - depths.pop()
+    af_nominal = af_nominals.pop()
+    if not math.isclose(
+        af_nominal, values["major_dia_mm"] - depths.pop(), abs_tol=1e-6
+    ):
+        raise CadError("cad: the flats' across-flat is not the major less their depth")
     _limits(values, "af", af, af_nominal)
     values["flat_depth_mm"] = values["major_dia_mm"] - af_nominal
     # Flat floor above the screw axis: the dividing-head work height less this.
     values["major_radius_mm"] = values["major_dia_mm"] / 2
     values["flat_floor_mm"] = af_nominal - values["major_radius_mm"]
-    _limits(values, "flat_length", lengths.pop(), values.pop("flat_length_nominal_mm"))
+    _limits(values, "flat_length", lengths.pop(), length_nominals.pop())
     clock_band, clock = clocks.pop()
     if not clock_band[0] <= clock <= clock_band[1]:
         raise CadError("cad: clock nominal lies outside source limits")
     values["clock_deg"] = clock
     values["clock_min_deg"], values["clock_max_deg"] = clock_band
-    values["clock_tolerance_deg"] = (clock_band[1] - clock_band[0]) / 2
+    # The index check is symmetric about the nominal: the nearer limit.
+    values["clock_tolerance_deg"] = min(clock - clock_band[0], clock_band[1] - clock)
     # The open flat runs out through the cut end: a second crossing centred on
     # the end must meet the first, at the longest cut and earliest start.
     reach = values["length_max_mm"] - values["handwheel_station_min_mm"]

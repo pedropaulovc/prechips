@@ -51,3 +51,22 @@ def test_refuses_a_nut_feature_outside_its_member(tmp_path):
     source.write_text(text.replace(marker, "", 1), encoding="utf-8")
     with pytest.raises(CadError, match="of member FeedNut"):
         load_leadscrew_kit(source, PARAMETERS)
+
+
+def test_refuses_flats_whose_nominals_disagree(tmp_path):
+    text = SOURCE.read_text(encoding="utf-8")
+    marker = '"length_nominal" = 8.0\n'
+    assert text.count(marker) == 4
+    source = tmp_path / "features.toml"
+    source.write_text(
+        text.replace(marker, '"length_nominal" = 8.5\n', 1), encoding="utf-8"
+    )
+    with pytest.raises(CadError, match="flats disagree"):
+        load_leadscrew_kit(source, PARAMETERS)
+
+
+def test_index_tolerance_is_the_nearer_clock_limit():
+    values = load_leadscrew_kit(SOURCE, PARAMETERS).values
+    assert (values["clock_min_deg"], values["clock_max_deg"]) == (119.0, 121.0)
+    assert values["clock_tolerance_deg"] == 1.0
+    assert "open_flat" not in values
