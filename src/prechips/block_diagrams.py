@@ -240,8 +240,10 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Top-face holes: the part in the vise (``vise``) or finished (``inspect``).
 
     Top view, SPINDLE END at the back (fixed jaw): the model's right-handed
-    frame puts ROW SIDE (+Y) on the right, LUG END on the left. Beside it a
-    stepped section through H1 and B, looking toward ROW SIDE.
+    frame puts ROW SIDE (+Y) on the right, LUG END on the left. The holes
+    come before the feed block's notch, so the vise view is the full
+    rectangle; the finished view shows the notch. Beside it a stepped
+    section through H1 and B, looking toward ROW SIDE.
     """
     mode = root.get("data-mode")
     if mode not in {"vise", "inspect"}:
@@ -271,7 +273,11 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         _vise(
             groups, left - 20, left + across + 20, back, front, _PARALLEL_IN * s, "", ""
         )
-    groups["kept"].append(_outline(values, left, back, s, mirror=True))
+    groups["kept"].append(
+        _outline(values, left, back, s, mirror=True)
+        if mode == "inspect"
+        else _rect(left, back, across, length * s)
+    )
     # Rows run left from ROW SIDE, the right edge.
     edge = left + across
     # Everything on TOP is cut in the vise setup; the finished view marks none.
@@ -522,8 +528,10 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
 
     Front view (from the operator: the model's hand puts LUG END on the right)
     and end view (from LUG END: SEAT and the fixed jaw on the right) at one
-    scale; the bore runs down through the lug from OUTER END into the gap
-    above the parallels.
+    scale. The bore comes before the notch: the block stands on all of
+    SPINDLE END and the bore runs blind from OUTER END to
+    ``lug_bore_depth_in``, past the lug face to come (drawn hidden), which
+    the notch opens.
     """
     if not _feed(values):
         raise CadError("diagram jig-block-lug-bore: needs the feed block's lug values")
@@ -537,6 +545,11 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     dia = _cad(values, "screw_dia_in")
     parallel = _param_in(parameters, "edge_parallel_height_mm")
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
+    depth = _param(parameters, "lug_bore_depth_in")
+    if not length - lug_x < depth < length:
+        raise CadError(
+            "diagram jig-block-lug-bore: the bore must end past the lug face"
+        )
     t = min(110.0, 400 / y_length)
     left = 90.0
     right = left + y_length * t
@@ -554,26 +567,18 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     ]
     groups["hidden"].append(_line(left - 20, jaw_top, right + 20, jaw_top))
     _label(groups, left - 22, jaw_top + 4, "jaw top", "end")
-    groups["kept"].append(
-        _el(
-            "polygon",
-            points=" ".join(
-                f"{_fmt(x)},{_fmt(y)}"
-                for x, y in (
-                    (left, top),
-                    (right, top),
-                    (right, lug_bottom),
-                    (step, lug_bottom),
-                    (step, floor),
-                    (left, floor),
-                )
-            ),
-        )
-    )
-    bx = right - row * t
+    # The whole block: the notch (hidden outline) comes off later.
+    groups["kept"].append(_rect(left, top, right - left, floor - top))
     groups["hidden"] += [
-        _line(bx - dia / 2 * t, top, bx - dia / 2 * t, lug_bottom),
-        _line(bx + dia / 2 * t, top, bx + dia / 2 * t, lug_bottom),
+        _line(step, lug_bottom, right, lug_bottom),
+        _line(step, lug_bottom, step, floor),
+    ]
+    bx = right - row * t
+    bore_floor = top + depth * t
+    groups["hidden"] += [
+        _line(bx - dia / 2 * t, top, bx - dia / 2 * t, bore_floor),
+        _line(bx + dia / 2 * t, top, bx + dia / 2 * t, bore_floor),
+        _line(bx - dia / 2 * t, bore_floor, bx + dia / 2 * t, bore_floor),
     ]
     groups["active"].append(_line(bx - dia / 2 * t, top, bx + dia / 2 * t, top))
     groups["tool"].append(_rect(bx - dia / 2 * t, top - 40, dia * t, 32))
@@ -589,9 +594,15 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         top,
         "{{cad.screw_y_min_in:.3dot}}–{{cad.screw_y_max_in:.3dot}}",
     )
-    _vdim(groups, step + 24, lug_bottom, floor, "{{cad.lug_x_in:.2dot}}")
+    _vdim(
+        groups,
+        bx - dia / 2 * t - 14,
+        top,
+        bore_floor,
+        "{{process.lug_bore_depth_in:.2dot}}",
+    )
 
-    # End view from LUG END: the lug's end face, the head behind it hidden.
+    # End view from LUG END: the whole end face; the lug face to come hidden.
     e_left = right + 110
     e_right = e_left + height * t
     _title(groups, e_left - 50, 24, "From LUG END")
@@ -600,12 +611,13 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         _rect(e_right, jaw_top, 22, bed - jaw_top),
     ]
     groups["fixture"].append(_line(e_left - 40, bed, e_right + 40, bed))
-    groups["hidden"].append(_rect(e_left, top, e_right - e_left, floor - top))
-    groups["kept"].append(_rect(e_left, top, e_right - e_left, lug_bottom - top))
+    groups["kept"].append(_rect(e_left, top, e_right - e_left, floor - top))
     ex = e_right - z * t
     groups["hidden"] += [
-        _line(ex - dia / 2 * t, top, ex - dia / 2 * t, lug_bottom),
-        _line(ex + dia / 2 * t, top, ex + dia / 2 * t, lug_bottom),
+        _line(e_left, lug_bottom, e_right, lug_bottom),
+        _line(ex - dia / 2 * t, top, ex - dia / 2 * t, bore_floor),
+        _line(ex + dia / 2 * t, top, ex + dia / 2 * t, bore_floor),
+        _line(ex - dia / 2 * t, bore_floor, ex + dia / 2 * t, bore_floor),
     ]
     groups["active"].append(_line(ex - dia / 2 * t, top, ex + dia / 2 * t, top))
     _label(groups, e_left - 11, jaw_top - 6, "moving", "middle")
@@ -616,9 +628,13 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     end_y = _callouts(
         groups,
         [
-            ((left + step) / 2, floor, ["head on SPINDLE END,", "on 1/2 in parallels"]),
-            (bx, lug_bottom, ["bore exits", "into the gap"]),
-            (e_left + height * t / 2, (lug_bottom + floor) / 2, ["head behind"]),
+            ((left + step) / 2, floor, ["all of SPINDLE END", "on 1/2 in parallels"]),
+            (
+                bx,
+                bore_floor,
+                ["blind past the lug face", "to come; the notch opens it"],
+            ),
+            (e_left + height * t / 2, lug_bottom, ["lug face to come"]),
         ],
         bed + 4,
         above=False,

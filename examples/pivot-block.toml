@@ -1,6 +1,6 @@
 # Mirror of harmonic-analyzer cad/process/ch_rocker_arm_tl_oblique_pivot_block/plan.toml against the
 # v49-geometry manifest (cad/pivot-block-v49.toml) exported by HA farm run
-# 20261114T082526642Z-a70438f8050d43c0b2fe05ff691dfc38 at 682754a98e; it
+# 20261114T082526642Z-a70438f8050d43c0b2fe05ff691dfc38 at 682754a98e (plan at 8eede4c36a); it
 # carries the build's next drawing revision of MHA-CH-06-TL-22, v50.
 # Source: the v50 MHA-CH-06-TL-22 sheet through its feature manifest (sizes,
 # stations, rows, limits, the counterbored .375 seat and its 5/16-18 tap). No
