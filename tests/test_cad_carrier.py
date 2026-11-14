@@ -95,4 +95,5 @@ def test_note_two_relations_print_from_a1_and_the_line():
     }
     assert rows["B1"] == ("17.717–17.727", "sets the line")
     assert rows["A2"] == (".279–.289 left", ".962–.966")
-    assert rows["CL"] == ("2.521–2.531", "1.151–1.161")
+    # Sheet 2 prints CL 3.916 and A1 1.389 from the corner: 2.527 from A1.
+    assert rows["CL"] == ("2.522–2.532", "1.151–1.161")
