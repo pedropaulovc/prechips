@@ -240,6 +240,25 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["stop_points_in"] = [
         [tag, values[f"{tag.lower()}_x_in"], values["stop_row_in"]] for tag, _ in _STOPS
     ]
+    # milling_deflection stations (mm). Setup 3 holds the blank centred on
+    # edge; Setup 4 frames X from ZERO END, each hold's jaw side the whole
+    # overhang from its end (the longest overhang any end cleanup leaves);
+    # Setup 5 holes are drilled across the gap between the two parallels.
+    blank_mm = blank * 25.4
+    values["edges_jaw_mm"] = [
+        values["blank_centred_overhang_mm"],
+        blank_mm - values["blank_centred_overhang_mm"],
+    ]
+    values["ends_hold1_jaw_mm"] = [over, over + jaw]
+    values["ends_hold2_jaw_mm"] = [length - over - jaw, length - over]
+    for tag, (low, high) in zip(("P1", "P2"), stations):
+        values[f"{tag.lower()}_x_mm"] = (low + high) / 2
+    values["parallel_gap_mm"] = [parallel, width - parallel]
+    by_tag = {tag: y for tag, _, y, _ in spotted}
+    values["spot_y_mm"] = [by_tag[tag] for tag, _ in _SPOTTED]
+    values["screw_y_mm"] = [by_tag[tag] for tag, _ in _SCREWS]
+    values["clamp_y_mm"] = [by_tag[tag] for tag, _ in _CLAMPS]
+    values["hub_y_mm"] = by_tag["HUB"]
 
     _edge_breaks(raw, values)
     _blank_mm(values, parameters)
