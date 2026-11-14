@@ -354,7 +354,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 x0 - radius,
                 front + 2 * radius + 4,
-                ["end mill, conventional:", "table toward you"],
+                ["end mill, conventional:", "table away from you"],
             ),
             (
                 x0 + p1[1] * s,
@@ -402,7 +402,10 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 finish + radius,
                 front + 2 * radius + 4,
-                ["conventional: table away,", "last X = {{cad.length_in:.3f}} + D/2"],
+                [
+                    "conventional: table toward you,",
+                    "last X = {{cad.length_in:.3f}} + D/2",
+                ],
             ),
         ],
         dim_y + 6,
