@@ -74,7 +74,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_end_bracket` | Released v49 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones, bottoming-tap tip marks by face and setup-picture geometry |
 | `harmonic_feed_lever` | v50 export (2026-11-13 hole ruling; harmonic-analyzer#2739 farm run) | Length/section limits, both clearance-hole stations, row and diameter band, grip-corner radius and band, `overhang_mm` from the authored `overhang_in` and setup-picture geometry |
 | `harmonic_riser` | Released v49 export | Length/width/thickness limits, P1/P2 station and row bands, REF X/Y of the seven spotted holes with their Setup 5 holds, hole and countersink bands, centred and end overhangs and setup-picture geometry |
-| `harmonic_leadscrew_kit` | Released v49 export (two members) | Cut length and supplied screw, five flat stations, across-flat/length/clock bands, flat cutter centres from either end, nut length/flange/body/hole limits, countersink mouth and cutter band, and setup-picture geometry |
+| `harmonic_leadscrew_kit` | v50 export, HA PR #2740 (two members) | Cut length and supplied screw, five flat stations, across-flat/length/clock bands, flat cutter centres from either end, nut length/flange/body/hole limits, countersink mouth and cutter band, and setup-picture geometry |
 
 ```toml
 [cad]

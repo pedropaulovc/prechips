@@ -7,7 +7,7 @@ from prechips.cad_leadscrew_kit import load_leadscrew_kit
 from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "examples/cad/leadscrew-kit-v49.toml"
+SOURCE = ROOT / "examples/cad/leadscrew-kit-v50.toml"
 PLAN = ROOT / "examples/leadscrew-kit.toml"
 PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
