@@ -24,7 +24,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "carrier-hobby.html"
     assert main(["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]) == 0
-    assert out.read_text(encoding="utf-8").count('class="setup-diagram"') == 7
+    assert out.read_text(encoding="utf-8").count('class="setup-diagram"') == 6
 
 
 def test_hole_table_prints_sheet_two_from_the_lower_left_corner():
@@ -51,8 +51,17 @@ def test_beam_stations_are_the_blocks_and_hole_groups_in_mm():
     assert values["inner_block_x_mm"] == pytest.approx([7.10 * 25.4, 13.40 * 25.4])
     assert values["block_span_mm"] == pytest.approx([1.70 * 25.4, 18.80 * 25.4])
     assert values["end_block_blank_x_mm"] == pytest.approx([3.10 * 25.4, 18.20 * 25.4])
+    assert values["block_stations"] == "2.70, 7.10, 13.40, 17.80"
+    assert values["block_tolerance_in"] == 0.06
     assert len(values["pin_x_mm"]) == 4 and len(values["riser_x_mm"]) == 4
     assert values["lever_x_mm"] == pytest.approx([10.25 * 25.4] * 2)
+
+
+def test_a_block_within_its_placing_tolerance_of_a_hole_refuses():
+    # Block 1 spans 1.70-3.70 in; A1's bore edge is at 1.389 + .189 = 1.578,
+    # .122 clear. Placed anywhere within ±.15 it could reach the bore.
+    with pytest.raises(CadError, match="block 1 .* under hole A1"):
+        load_carrier(SOURCE, PARAMETERS | {"block_tolerance_in": 0.15})
 
 
 def test_a_block_under_a_hole_refuses():
@@ -92,4 +101,5 @@ def test_note_two_relations_print_from_a1_and_the_line():
     }
     assert rows["B1"] == ("17.717–17.727", "sets the line")
     assert rows["A2"] == (".279–.289 left", ".962–.966")
-    assert rows["CL"] == ("2.521–2.531", "1.151–1.161")
+    # Sheet 2 prints CL 3.916 and A1 1.389 from the corner: 2.527 from A1.
+    assert rows["CL"] == ("2.522–2.532", "1.151–1.161")

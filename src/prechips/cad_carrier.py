@@ -268,19 +268,23 @@ def _support_blocks(values: dict, parameters: dict) -> None:
     """Four 1-2-3 blocks, mirrored about mid-length, each clear of every hole.
 
     The holes are drilled and reamed through with the plate still on the
-    blocks, so a block under a hole would take the drill. Refuse any block
-    whose footprint (``block_length_in`` along X, ``block_width_in`` across,
-    centred on the width) reaches a hole edge, the HUB included.
+    blocks, so a block under a hole would take the drill. The blocks go
+    down by hand, each centre within ``block_tolerance_in`` of its station
+    from the finished ZERO END. Refuse any block whose footprint
+    (``block_length_in`` along X, ``block_width_in`` across, centred on the
+    width), grown by that tolerance on every side, reaches a hole edge, the
+    HUB included.
     """
     keys = (
         "block_inner_offset_in",
         "block_outer_offset_in",
         "block_length_in",
         "block_width_in",
+        "block_tolerance_in",
     )
     if not all(key in parameters for key in keys):
         return
-    inner, outer, along, across = (
+    inner, outer, along, across, slack = (
         _positive(parameters[key], f"process.{key}") for key in keys
     )
     length = values["length_mm"] / 25.4
@@ -291,7 +295,7 @@ def _support_blocks(values: dict, parameters: dict) -> None:
         raise CadError("process.block_outer_offset_in: block past a plate end")
     if inner - along / 2 <= 0 or outer - inner < along:
         raise CadError("process.block_inner_offset_in: blocks overlap")
-    y0, y1 = (width - across) / 2, (width + across) / 2
+    y0, y1 = (width - across) / 2 - slack, (width + across) / 2 + slack
     holes = [
         (tag, x, y, values["pin_dia_max_in"] / 2 if tag[0] in "AB" else None)
         for tag, (x, y) in values["hole_points_in"].items()
@@ -304,15 +308,17 @@ def _support_blocks(values: dict, parameters: dict) -> None:
     holes = [(tag, x, y, r or radius[tag[0]]) for tag, x, y, r in holes]
     holes.append(("HUB", values["hub_x_in"], values["hub_y_in"], radius["C"]))
     for index, centre in enumerate(centres, 1):
-        x0, x1 = centre - along / 2, centre + along / 2
+        x0, x1 = centre - along / 2 - slack, centre + along / 2 + slack
         for tag, x, y, r in holes:
             if x0 - r < x < x1 + r and y0 - r < y < y1 + r:
                 raise CadError(
                     f"process.block_*_offset_in: block {index} "
-                    f"(X {x0:.2f}–{x1:.2f}) is under hole {tag}"
+                    f"(X {x0:.2f}–{x1:.2f} with its ±{slack:.2f} placing "
+                    f"tolerance) is under hole {tag}"
                 )
     values["block_x_in"] = centres
     values["block_stations"] = ", ".join(f"{x:.2f}" for x in centres)
+    values["block_tolerance_in"] = slack
     _beam_stations(values, centres, along)
 
 
