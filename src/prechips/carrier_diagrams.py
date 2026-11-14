@@ -38,7 +38,6 @@ _STEPS = {
     "edges": "Both long edges to width; end straps at mid-width",
     "ends": "Straps moved onto the end blocks; both ends to length",
     "face": "TOP up. Edge straps first; then end straps (dashed) for the toe patches",
-    "under": "UNDERSIDE up, ZERO EDGE at the back; straps as for TOP",
     "holes": "TOP up, ZERO END left, ZERO EDGE front: one strap over each block",
 }
 _STRAP = 0.55  # schematic strap bar width, inches
@@ -72,9 +71,7 @@ class _Plan:
         return self.x0 + x * self.s
 
     def py(self, y: float) -> float:
-        """Sheet Y up from ZERO EDGE; rolled over, ZERO EDGE is at the back."""
-        if self.step == "under":
-            return self.kept_back + y * self.s
+        """Sheet Y up from ZERO EDGE, at the front."""
         return self.kept_front - y * self.s
 
     @property
@@ -109,7 +106,7 @@ def _plan(values: dict, parameters: dict, step: str) -> _Plan:
     blank = _param(parameters, "blank_length_in")
     raw_length = blank if step in ("edges", "ends") else length
     raw_width = _param(parameters, "blank_width_in") if step == "edges" else width
-    cutter_key = "face_cutter_dia_mm" if step in ("face", "under") else "cutter_dia_mm"
+    cutter_key = "face_cutter_dia_mm" if step == "face" else "cutter_dia_mm"
     # The arriving outline plus the step blocks and straps past each end fit
     # between x 30 and 690.
     s = min(30.0, 600 / (raw_length + 3.2))
@@ -179,24 +176,17 @@ def _draw_blocks(groups: Groups, plan: _Plan) -> None:
 
 
 def _draw_datums(groups: Groups, plan: _Plan) -> None:
-    """ZERO END left; ZERO EDGE at the front, or the back once rolled over."""
-    under = plan.step == "under"
-    edge_y = plan.kept_back if under else plan.kept_front
+    """ZERO END left; ZERO EDGE at the front."""
+    edge_y = plan.kept_front
     groups["datum"] += [
         _line(plan.px(0), plan.kept_back, plan.px(0), plan.kept_front),
         _line(plan.px(0), edge_y, plan.px(plan.length), edge_y),
     ]
     _datum_label(groups, plan.px(0), plan.kept_back - 8, "ZERO END", "start")
-    label_y = edge_y + 18 if under else edge_y - 8
-    _datum_label(groups, plan.px(plan.length * 0.75), label_y, "ZERO EDGE", "middle")
-    up = (
-        ("UNDERSIDE up", plan.kept_front - 8)
-        if under
-        else ("TOP up", plan.kept_back + 18)
-    )
+    _datum_label(groups, plan.px(plan.length * 0.75), edge_y - 8, "ZERO EDGE", "middle")
     # Clear of the edge straps (faces) and the R-row labels (holes).
-    at = {"holes": 0.62, "under": 0.55}.get(plan.step, 0.4)
-    _label(groups, plan.px(plan.length * at), up[1], up[0], "middle")
+    at = 0.62 if plan.step == "holes" else 0.4
+    _label(groups, plan.px(plan.length * at), plan.kept_back + 18, "TOP up", "middle")
 
 
 def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
@@ -397,11 +387,8 @@ def _elevation(groups: Groups, plan: _Plan, values: dict, top_y: float) -> float
         _rect(plan.px(0), top - layer, plan.length * plan.s, layer)
     )
     groups["active"].append(_line(plan.px(0), top, plan.px(plan.length), top))
-    if plan.step == "under":
-        low, high = (_cad(values, f"thickness_{end}_in") for end in ("min", "max"))
-        target = f"UNDERSIDE: to {_shorthand(low, 3)}–{_shorthand(high, 3)} thick"
-    else:
-        target = f"TOP: half of (T − {_shorthand(_cad(values, 'thickness_in'), 3)})"
+    low, high = (_cad(values, f"thickness_{end}_in") for end in ("min", "max"))
+    target = f"TOP only, to {_shorthand(low, 3)}–{_shorthand(high, 3)} thick"
     return _callouts(
         groups,
         [
@@ -413,11 +400,11 @@ def _elevation(groups: Groups, plan: _Plan, values: dict, top_y: float) -> float
     )
 
 
-_DRAW = {"edges": _edges, "ends": _ends, "face": _face, "under": _face, "holes": _holes}
+_DRAW = {"edges": _edges, "ends": _ends, "face": _face, "holes": _holes}
 
 
 def _carrier_table(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setups 2-6: the plate on four blocks under straps, one step per picture."""
+    """Setups 2-5: the plate on four blocks under straps, one step per picture."""
     step = root.get("data-step")
     if step not in _STEPS:
         raise CadError(f"diagram data-step: expected one of {', '.join(_STEPS)}")
@@ -431,7 +418,7 @@ def _carrier_table(values: dict, parameters: dict, root: ElementTree.Element) ->
         plan.front + 1.6 * plan.s + 30 if step == "ends" else max(plan.front, straps)
     )
     bottom = _callouts(groups, items, limit, above=False) if items else limit
-    if step in ("face", "under"):
+    if step == "face":
         bottom = _elevation(groups, plan, values, bottom)
     _axes_up(groups, 640, 72)
     return _finish(groups, bottom + 6)
@@ -440,7 +427,7 @@ def _carrier_table(values: dict, parameters: dict, root: ElementTree.Element) ->
 def _carrier_inspect(
     values: dict, parameters: dict, root: ElementTree.Element
 ) -> Layout:
-    """Setup 7: section at A1 with its broken underside edge on the spacer;
+    """Setup 6: section at A1 with its broken underside edge on the spacer;
     pin-hole relations from A1."""
     groups = _groups(root)
     end_y = _section(groups, values, parameters)
@@ -481,7 +468,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
             (
                 cx - half_bore - brk / 2,
                 bottom - brk / 2,
-                ["Edge break only:", f"{brk_max} max, no chamfer"],
+                [f"{brk_max} max round or", "chamfer; no countersink"],
             ),
             (cx, top + 10, [f"Ø{low}–{_shorthand(pin, 4)}", "GO / NO-GO pins"]),
             (
@@ -498,7 +485,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
 def _relations(groups: Groups, values: dict) -> float:
     """Pins in A1, B1, A2, B2 (plan, TOP up): B1 along X, A2/B2 off the line."""
     points = _points(values)
-    _title(groups, 380, 26, "For reference: Setup 6 pin check")
+    _title(groups, 380, 26, "For reference: the pin check before tapping")
     _title(groups, 380, 44, "From A1 and the A1–B1 line; Y scale ×4")
     a1 = points["A1"]
     scale = 230 / (points["B2"][0] - points["A2"][0])

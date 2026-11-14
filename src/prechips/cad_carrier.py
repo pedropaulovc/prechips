@@ -335,6 +335,11 @@ def _beam_stations(values: dict, centres: list[float], along: float) -> None:
     if "blank_length_mm" in values:
         trim = (values["blank_length_mm"] - values["length_mm"]) / 2
         values["end_block_blank_x_mm"] = [mm[0] + trim, mm[3] + trim]
+        # Before the ends are squared there is no ZERO END: the blocks go
+        # down from the sawn left end.
+        values["block_blank_stations"] = ", ".join(
+            f"{x + trim / 25.4:.2f}" for x in centres
+        )
     points = values["hole_points_in"]
     for key, prefix in (
         ("pin_x_mm", "AB"),

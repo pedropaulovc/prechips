@@ -24,7 +24,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "carrier-hobby.html"
     assert main(["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]) == 0
-    assert out.read_text(encoding="utf-8").count('class="setup-diagram"') == 7
+    assert out.read_text(encoding="utf-8").count('class="setup-diagram"') == 6
 
 
 def test_hole_table_prints_sheet_two_from_the_lower_left_corner():
@@ -51,6 +51,9 @@ def test_beam_stations_are_the_blocks_and_hole_groups_in_mm():
     assert values["inner_block_x_mm"] == pytest.approx([7.10 * 25.4, 13.40 * 25.4])
     assert values["block_span_mm"] == pytest.approx([1.70 * 25.4, 18.80 * 25.4])
     assert values["end_block_blank_x_mm"] == pytest.approx([3.10 * 25.4, 18.20 * 25.4])
+    # Setup 2 places the blocks before the ends are squared: from the sawn end.
+    assert values["block_blank_stations"] == "3.10, 7.50, 13.80, 18.20"
+    assert values["block_stations"] == "2.70, 7.10, 13.40, 17.80"
     assert len(values["pin_x_mm"]) == 4 and len(values["riser_x_mm"]) == 4
     assert values["lever_x_mm"] == pytest.approx([10.25 * 25.4] * 2)
 
