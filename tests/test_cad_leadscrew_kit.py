@@ -9,8 +9,6 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/leadscrew-kit-v50.toml"
 PLAN = ROOT / "examples/leadscrew-kit.toml"
-# The example declares no milling beams or cuts yet.
-NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
     "screw_stock_length_mm": 600.0,
@@ -19,10 +17,10 @@ PARAMETERS = {
 
 
 def test_both_profiles_render(tmp_path):
-    for profile, diagrams in (("pro", 0), ("hobby", 7)):
+    for profile, diagrams in (("pro", 0), ("hobby", 8)):
         out = tmp_path / f"{profile}.html"
         command = ["traveler", str(PLAN), "--profile", profile, "--out", str(out)]
-        assert main([*command, *NO_MILLING_DATA]) == 0
+        assert main(command) == 0
         html = out.read_text(encoding="utf-8")
         assert "MHA-CH-06-TL-VN-84" in html
         assert html.count('class="setup-diagram"') == diagrams

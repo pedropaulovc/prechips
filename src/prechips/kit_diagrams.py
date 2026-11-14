@@ -45,13 +45,22 @@ def _datum(groups: Groups, x: float, top: float, bottom: float) -> None:
 
 
 def _chuck(
-    groups: Groups, face: float, axis: float, radius: float, depth: float, label: str
+    groups: Groups,
+    face: float,
+    axis: float,
+    radius: float,
+    depth: float,
+    label: str,
+    top_jaw: bool = True,
 ) -> None:
-    """Schematic 3-jaw: two jaws on ``radius`` ending at ``face``, body behind."""
-    groups["jaws"] += [
-        _rect(face - depth, axis - radius - 22, depth, 22),
-        _rect(face - depth, axis + radius, depth, 22),
-    ]
+    """Schematic 3-jaw: jaws on ``radius`` ending at ``face``, body behind.
+
+    ``top_jaw=False`` draws the jaws clocked to 2, 6 and 10 o'clock: only the
+    6 o'clock jaw shows in a side view, none on top where the cutter works.
+    """
+    if top_jaw:
+        groups["jaws"].append(_rect(face - depth, axis - radius - 22, depth, 22))
+    groups["jaws"].append(_rect(face - depth, axis + radius, depth, 22))
     groups["fixture"].append(
         _rect(face - depth - 26, axis - radius - 40, 26, 2 * radius + 80)
     )
@@ -155,15 +164,15 @@ def _kit_saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
             d=f"M{_fmt(cut + max(kerf * s, 3))} {_fmt(top)}H{_fmt(end)}V{_fmt(bottom)}H{_fmt(cut + max(kerf * s, 3))}Z",
         )
     )
-    _dimension(groups, x0, cut, top - 20, top, "≈{{cad.saw_piece_mm:.1f}} piece")
     _dimension(
         groups,
+        x0,
         cut,
-        end,
-        bottom + 24,
-        bottom,
-        "mark {{cad.saw_mark_from_far_mm:.1f}} from the far end",
+        top - 20,
+        top,
+        "mark {{cad.saw_piece_mm:.1f}} from the NEAR END",
     )
+    _dimension(groups, cut, end, bottom + 24, bottom, "offcut: keep (nut mandrel)")
     _datum_label(groups, x0, top - 40, "NEAR END", "start")
     _label(groups, end, top - 8, "far end (offcut)", "end")
     end_y = _callouts(
@@ -193,7 +202,10 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     front = back + 18
     groups = _groups(root)
     _title(
-        groups, 20, 24, "Top view: NEAR END left, cut end just past the right jaw side"
+        groups,
+        20,
+        24,
+        "Top view: vise right of table centre, cut end just past the right jaw",
     )
     _vise(
         groups,
@@ -224,7 +236,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
             (
                 cut + radius,
                 front + 2 * radius + 26,
-                ["end mill, feed away;", "last pass X = L + D/2"],
+                ["end mill, feed away;", "last pass X = {{cad.length_mm:.1f}} + D/2"],
             )
         ],
         front + 60,
@@ -235,10 +247,16 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
 
 
 def _kit_flats(
-    values: dict, parameters: dict, root: ElementTree.Element, far: bool
+    values: dict, parameters: dict, root: ElementTree.Element, mode: str
 ) -> Layout:
-    """Dividing-head flats: side view out of the chuck, end view of the clocking."""
-    stickout = _param(parameters, "far_stickout_mm" if far else "near_stickout_mm")
+    """Dividing-head flats: side view out of the chuck, end view of the clocking.
+
+    ``mode``: ``near`` (NEAR END KP08 flats), ``wheel`` (the open handwheel flat
+    at the cut end, no index) or ``far`` (the cut-end KP08 flats).
+    """
+    far = mode != "near"
+    key = f"{mode}_stickout_mm"
+    stickout = _param(parameters, key)
     cutter = _param(parameters, "flat_cutter_dia_mm")
     major = _cad(values, "major_dia_mm")
     depth = _cad(values, "flat_depth_mm")
@@ -249,14 +267,13 @@ def _kit_flats(
     free = jaw_face + stickout * s
     groups = _groups(root)
     title = "cut end" if far else "NEAR END"
-    _title(
-        groups,
-        20,
-        24,
-        f"Side view: {title} out of the BS-0 chuck; flats on top, 0° then "
-        "{{cad.clock_deg:g}}°",
+    what = (
+        "flat on top, no index"
+        if mode == "wheel"
+        else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
-    _chuck(groups, jaw_face, axis, r, 40, "BS-0 3-jaw")
+    _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
+    _chuck(groups, jaw_face, axis, r, 40, "jaws 2, 6, 10 o'clock", top_jaw=False)
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
 
@@ -272,28 +289,24 @@ def _kit_flats(
         return (x0 + x1) / 2
 
     items = []
-    if far:
-        length = _cad(values, "length_mm")
+    length = _cad(values, "length_mm")
+    if mode == "far":
         start = length - _cad(values, "far_kp08_station_mm")
         centre = flat(start - _cad(values, "flat_length_mm"), start)
+        items.append(
+            (centre, axis - r, ["KP08 flats", "X −{{cad.far_kp08_from_cut_mm:.2f}}"])
+        )
+        cutter_x = centre
+    elif mode == "wheel":
         hw = flat(0.0, length - _cad(values, "handwheel_station_mm"))
-        items += [
-            (
-                centre,
-                axis - r,
-                ["KP08 flats", "X −(L − {{cad.far_kp08_centre_mm:.1f}})"],
-            ),
+        items.append(
             (
                 hw,
                 axis - r,
-                [
-                    "handwheel flat",
-                    "X −(L − {{cad.handwheel_centre_mm:.1f}}),",
-                    "then X 0",
-                ],
-            ),
-        ]
-        cutter_x = centre
+                ["handwheel flat", "X −{{cad.handwheel_from_cut_mm:.2f}},", "then X 0"],
+            )
+        )
+        cutter_x = hw
     else:
         start = _cad(values, "near_kp08_station_mm")
         centre = flat(start, start + _cad(values, "flat_length_mm"))
@@ -328,7 +341,6 @@ def _kit_flats(
         raise CadError("flat labels overrun the picture top")
     _label(groups, left - 6, axis - r - 50, "the end mill crosses", "end")
     _label(groups, left - 6, axis - r - 34, "the screw (table Y)", "end")
-    key = "far_stickout_mm" if far else "near_stickout_mm"
     _dimension(
         groups,
         jaw_face,
@@ -343,7 +355,10 @@ def _kit_flats(
     groups["kept"].append(_el("circle", cx=cx, cy=cy, r=er))
     floor = _cad(values, "flat_floor_mm") / (major / 2) * er
     clock = _cad(values, "clock_deg")
-    for angle, name in ((0.0, "0°"), (clock, "{{cad.clock_deg:g}}°")):
+    angles = [(0.0, "0°")]
+    if mode != "wheel":
+        angles.append((clock, "{{cad.clock_deg:g}}°"))
+    for angle, name in angles:
         a = math.radians(90 + angle)
         nx, ny = math.cos(a), -math.sin(a)
         half = math.sqrt(er * er - floor * floor)
@@ -367,24 +382,34 @@ def _kit_flats(
         cy,
         "Flat {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long",
     )
-    _label(
-        groups, 40, cy + 20, "Clock {{cad.clock_min_deg:g}}–{{cad.clock_max_deg:g}}°"
-    )
+    if mode != "wheel":
+        _label(
+            groups,
+            40,
+            cy + 20,
+            "Clock {{cad.clock_min_deg:g}}–{{cad.clock_max_deg:g}}°",
+        )
     return _finish(groups, cy + er + 44)
 
 
 def _kit_near_flats(
     values: dict, parameters: dict, root: ElementTree.Element
 ) -> Layout:
-    return _kit_flats(values, parameters, root, far=False)
+    return _kit_flats(values, parameters, root, "near")
+
+
+def _kit_wheel_flat(
+    values: dict, parameters: dict, root: ElementTree.Element
+) -> Layout:
+    return _kit_flats(values, parameters, root, "wheel")
 
 
 def _kit_far_flats(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    return _kit_flats(values, parameters, root, far=True)
+    return _kit_flats(values, parameters, root, "far")
 
 
 def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Lathe: body in the jaws, flange against the jaw fronts, spigot faced off."""
+    """Lathe: nut spun onto the threaded offcut, body end on the jaw fronts."""
     s = 14.0
     flange = _cad(values, "nut_flange_thickness_mm")
     body_len = _cad(values, "nut_length_mm") - flange
@@ -397,8 +422,21 @@ def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> 
     seat = head + flange * s
     tip = seat + spigot * s
     groups = _groups(root)
-    _title(groups, 20, 24, "Side view: body in the 3-jaw, spigot toward the tailstock")
-    _chuck(groups, head, axis, r_body, body_len * s * 0.9, "3-jaw")
+    _title(
+        groups,
+        20,
+        24,
+        "Side view: nut on the threaded offcut, spigot toward the tailstock",
+    )
+    body_end = head - body_len * s
+    r_rod = _cad(values, "major_radius_mm") * s
+    mandrel = _param(parameters, "mandrel_stickout_mm") * s
+    _chuck(groups, body_end, axis, r_rod, 60, "3-jaw")
+    # The offcut: gripped in the jaws, its end inside the nut short of the seat.
+    groups["threads"].append(_rect(body_end - 100, axis - r_rod, 100, 2 * r_rod))
+    groups["hidden"].append(
+        _line(body_end + mandrel, axis - r_rod, body_end + mandrel, axis + r_rod)
+    )
     groups["kept"] += [
         _rect(head - body_len * s, axis - r_body, body_len * s, 2 * r_body),
         _rect(head, axis - r_flange, flange * s, 2 * r_flange),
@@ -441,9 +479,9 @@ def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> 
         groups,
         [
             (
-                head - body_len * s / 2,
-                axis + r_body + 22,
-                ["body Ø{{cad.nut_body_dia_mm:g}}, light grip"],
+                body_end - 40,
+                axis + r_rod + 22,
+                ["offcut in the jaws;", "body end on the jaw fronts"],
             ),
             (
                 (seat + tip) / 2,
@@ -497,7 +535,7 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
         cy - 20,
         "{{cad.csk_cutter}} in {{cad.csk_angle_deg:g}}° countersink, T-handle",
     )
-    _label(groups, rx, cy, "{{cad.csk_wall_note}}")
+    _label(groups, rx, cy, "design note: {{cad.csk_wall_note}}")
     hx, hy = anchors[0]
     groups["leaders"].append(
         _el(
@@ -520,6 +558,7 @@ KIT_LAYOUTS = {
     "kit-saw": _kit_saw,
     "kit-length": _kit_length,
     "kit-near-flats": _kit_near_flats,
+    "kit-wheel-flat": _kit_wheel_flat,
     "kit-far-flats": _kit_far_flats,
     "kit-nut-face": _kit_nut_face,
     "kit-nut-csk": _kit_nut_csk,
