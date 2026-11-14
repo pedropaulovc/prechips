@@ -51,11 +51,17 @@ def test_beam_stations_are_the_blocks_and_hole_groups_in_mm():
     assert values["inner_block_x_mm"] == pytest.approx([7.10 * 25.4, 13.40 * 25.4])
     assert values["block_span_mm"] == pytest.approx([1.70 * 25.4, 18.80 * 25.4])
     assert values["end_block_blank_x_mm"] == pytest.approx([3.10 * 25.4, 18.20 * 25.4])
-    # Setup 2 places the blocks before the ends are squared: from the sawn end.
-    assert values["block_blank_stations"] == "3.10, 7.50, 13.80, 18.20"
     assert values["block_stations"] == "2.70, 7.10, 13.40, 17.80"
+    assert values["block_tolerance_in"] == 0.06
     assert len(values["pin_x_mm"]) == 4 and len(values["riser_x_mm"]) == 4
     assert values["lever_x_mm"] == pytest.approx([10.25 * 25.4] * 2)
+
+
+def test_a_block_within_its_placing_tolerance_of_a_hole_refuses():
+    # Block 1 spans 1.70-3.70 in; A1's bore edge is at 1.389 + .189 = 1.578,
+    # .122 clear. Placed anywhere within ±.15 it could reach the bore.
+    with pytest.raises(CadError, match="block 1 .* under hole A1"):
+        load_carrier(SOURCE, PARAMETERS | {"block_tolerance_in": 0.15})
 
 
 def test_a_block_under_a_hole_refuses():

@@ -37,7 +37,7 @@ Items = list[tuple[float, float, list[str]]]
 _STEPS = {
     "edges": "Both long edges to width; end straps at mid-width",
     "ends": "Straps moved onto the end blocks; both ends to length",
-    "face": "TOP up. Edge straps first; then end straps (dashed) for the toe patches",
+    "face": "TOP up. Edge straps first; end straps (dashed) after the last full pass",
     "holes": "TOP up, ZERO END left, ZERO EDGE front: one strap over each block",
 }
 _STRAP = 0.55  # schematic strap bar width, inches
