@@ -14,7 +14,7 @@ shop = "shop.toml"
 material_key = "6061-t6511"
 
 [cad]
-file = "cad/feed-lever-v49.toml"
+file = "cad/feed-lever-v50.toml"
 adapter = "harmonic_feed_lever"
 
 [parameters]

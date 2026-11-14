@@ -65,7 +65,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_pivot_bracket` | Hand-authored example-v39 manifest | Foot/ear geometry, hole locations, arch and inspection limits |
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 | `harmonic_end_bracket` | Released v49 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones, bottoming-tap tip marks by face and setup-picture geometry |
-| `harmonic_feed_lever` | Post-v49 export (2026-11-13 hole ruling) | Length/section limits, both clearance-hole stations, row and diameter band, grip-corner radius and band, `overhang_mm` from the authored `overhang_in` and setup-picture geometry |
+| `harmonic_feed_lever` | v50 export (2026-11-13 hole ruling; harmonic-analyzer#2739 farm run) | Length/section limits, both clearance-hole stations, row and diameter band, grip-corner radius and band, `overhang_mm` from the authored `overhang_in` and setup-picture geometry |
 
 ```toml
 [cad]

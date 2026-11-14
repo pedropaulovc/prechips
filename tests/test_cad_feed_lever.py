@@ -7,7 +7,7 @@ from prechips.cad_feed_lever import load_feed_lever
 from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "examples/cad/feed-lever-v49.toml"
+SOURCE = ROOT / "examples/cad/feed-lever-v50.toml"
 PLAN = ROOT / "examples/feed-lever.toml"
 
 
