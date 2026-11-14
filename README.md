@@ -18,6 +18,8 @@ uv run prechips traveler examples/end-bracket.toml --profile pro --out out/end-b
 uv run prechips traveler examples/end-bracket.toml --profile hobby --out out/end-bracket-hobby.html
 uv run prechips traveler examples/feed-lever.toml --profile pro --out out/feed-lever-pro.html
 uv run prechips traveler examples/feed-lever.toml --profile hobby --out out/feed-lever-hobby.html
+uv run prechips traveler examples/riser.toml --profile pro --out out/riser-pro.html
+uv run prechips traveler examples/riser.toml --profile hobby --out out/riser-hobby.html
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
@@ -31,6 +33,8 @@ Drawing sheet 2 swaps bar 2's seats: its rail goes on the face that is up in Set
 The end-bracket example (TL-28) prints two pro pages or five hobby pages, one per setup. It follows the 2026-11-02 hand traveler's route, tools and speeds, but the v49 drawing wins: two shared-axis #8-32 holes at the KP08 stations, drilled #29 through and tapped plug-then-bottoming from both faces to the drawing's tip marks. The export states those thread zones and tip marks only in note text, so the adapter reads them with exact patterns and refuses reworded notes or an inch/mm disagreement. This is the single deliberate prose-parsing exception, kept until harmonic-analyzer exports structured `thread_zone`/`tip_mark` fields. The sheet names the KP08 face FRONT FACE and the base-bar face BACK FACE; the plan marks them KP08 SIDE and BAR SIDE and says so, and its final screw check stops each screw at its own face's full thread, short of the opposite face's out-of-phase thread. Unlike the hand sheet, both brackets share each vise clamping, one at each jaw end (each balances the other): every operation runs on both before the next tool, X0 sits on the left part's INNER END and XR on the right part's. Hobby pictures both blanks from the bar end the lever leaves, both two-up end-squaring holds, each tapping face as a vise top view of both parts with a section through H1 (thread zone and tip mark of the face being tapped), and the finished bracket; its tap operations add the hand sheet's tape-flag method.
 
 The feed-lever example (TL-26) prints two pro pages or four hobby pages from the 2026-11-02 hand traveler's route and the manifest exported after harmonic-analyzer's 2026-11-13 ruling: the 2X bolt holes are the 11/32 drill, Ø.3438 +.004/0 (the hand sheet's drill; v48/v49 printed the 5/16 normal-fit clearance Ø.344, whose minimum the drill was under), inspected with pin gauges. The manifest's `grip_corners` fillet gives the 2X R.2 grip-end corners and their one-place band; the adapter refuses a manifest without it. Hobby pictures the lever blank from the measured bar end, both vise holds and the grip end upright in soft jaws with its scribed lines and dashed inspection band; the corner operation adds the hand sheet's filing method.
+
+The riser example (TL-24) prints two pro pages or six hobby pages and passes every check in both profiles. Its route follows the v49 manifest's process note: a 14.00 in blank of 1/4 × 1-3/4 in 6061 bar, the top faced to .240 on the bare table in two strap stages (Z0 the table), both long edges milled on edge on one 1 in parallel, the ends and the two #30 stop-pin holes P1/P2 cut flat in the vise with each end overhanging the jaws. The other seven holes (R1–R4, HUB, CL, CR) print X/Y LOC REF and are spotted from the carrier at harmonic-analyzer TL-00 step 11C, so Setup 5 drills each at its own mark in one of three vise holds and countersinks R1–R4 from the other face; its table prints the REF X/Y only to find the marks. The adapter refuses a toleranced station on a spotted hole, a spotted hole that no hold puts between the jaws clear of the parallels, and a stop hole that the Setup 4 overhang leaves over a jaw. P2 sits 13.51 from ZERO END, past the 6 in calipers, so its station is read on the DRO before unclamping.
 
 Both jig parts draw from their adapter values (length, section, hole stations and row, hole or tap-drill size, thread zones) and authored holding parameters (jaw width and height, parallel thickness, overhang, edge-finder touch station, kerf). Each saw picture shows only that sheet's blanks; the bar beyond them is an unlabelled stub, so neither plan carries the other part's lengths. Jaws, parallels, cutters, taps and soft jaws are schematic symbols.
 
@@ -66,6 +70,7 @@ The examples read feature manifests under `examples/cad/`. Point `cad.file` at t
 | `harmonic_rocker_arm` | Patched v40 export | Pivot-relative coordinates, outline geometry and inspection limits |
 | `harmonic_end_bracket` | Released v49 export | Length/section limits, both #8-32 hole stations and row, tap-drill band, full-thread zones, bottoming-tap tip marks by face and setup-picture geometry |
 | `harmonic_feed_lever` | v50 export (2026-11-13 hole ruling; harmonic-analyzer#2739 farm run) | Length/section limits, both clearance-hole stations, row and diameter band, grip-corner radius and band, `overhang_mm` from the authored `overhang_in` and setup-picture geometry |
+| `harmonic_riser` | Released v49 export | Length/width/thickness limits, P1/P2 station and row bands, REF X/Y of the seven spotted holes with their Setup 5 holds, hole and countersink bands, centred and end overhangs and setup-picture geometry |
 
 ```toml
 [cad]
@@ -105,6 +110,7 @@ Both built-in profiles enforce stock fit. Exact fits pass; an undersized or miss
 | Rocker arm | `stock_length`, `stock_width`, `stock_thickness` (mm) | CAD nominal envelope: model X between radial tip lands, model Y bottom-arc low point to top-edge ends, model Z between hub faces |
 | End bracket | `blank_length_in`, `blank_thickness_in`, `blank_width_in` | CAD nominal envelope: model X length, model Y across the 1/2 in bar, model Z up the 1 in bar |
 | Feed lever | `blank_length_in`, `blank_thickness_in`, `blank_width_in` | CAD nominal envelope: model X length, model Y through the 1/2 in thickness, model Z across the 1 in width |
+| Riser | `blank_length_in`, `blank_width_in`, `blank_thickness_in` | CAD nominal envelope: model X length, model Y width, model Z thickness |
 
 For the shaft, `stock_length_mm` is the available bar length. The header specifies the blank to saw from it, including the route's authored stub and facing allowances. The final length still follows fit-up and the scribe; the stock check does not convert the REF span into a finished-length acceptance limit.
 
