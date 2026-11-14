@@ -55,8 +55,8 @@ parallel_thickness_mm = 3.175    # Archive parallels-lms-6745 thickness_in 0.125
 # archive/pre-v0.10-2026-11-08 examples/inventory/pedro-shop.toml.
 face_cutter_dia_mm = 19.05       # 3/4 in end mill.
 cutter_dia_mm = 12.7             # 1/2 in end mill.
-end_cut_tip_z_mm = -1.016        # End cutter .04 below the bar.
 drill_tip_z_mm = -2.54           # Drill tips ~.1 past breakthrough.
+hub_drill_tip_z_mm = -4.318      # 12 mm HUB: 118° point ~3.6 long, full diameter ~.03 past.
 r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
 face_mill_projection_mm = 57.0   # Archive LMS 6784 3/4 in member.
 half_mill_projection_min_mm = 41.0  # Archive LMS 6784 neighbours bound 1/2 in.
@@ -277,7 +277,7 @@ datum = "No DRO coordinates: each hole is drilled at its own spot mark."
 diagram = { file = "diagrams/riser/spots.svg", alt = "Marked face up: seven spot marks drilled in three vise holds, then turned over and R1–R4 countersunk" }
 # Every hole lies inside the finished part; the 12 mm drill in the drill
 # chuck is the longest tool, the #2 centre drill the shortest.
-envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.hub_drill_projection_mm}}"], shortest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.centre_drill_projection_mm}}"] }
+envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.hub_drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.hub_drill_projection_mm}}"], shortest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.centre_drill_projection_mm}}"] }
 # Hold L: left end at the left jaw side; C: centred; R: right end at the
 # right jaw side. The adapter refuses a REF hole outside every hold's jaws or
 # over a parallel.
@@ -331,7 +331,7 @@ feed = "hand"
 speed_kind = "spindle"
 tool = "drill-12mm"
 sizing = { kind = "band", band_mm = "{{cad.hub_dia_band_mm}}" }
-instruction = "HUB through; ease the feed at breakthrough."
+instruction = "HUB through."
 instruction_detailed = "HUB through. A large drill grabs in thin plate and can leave a lobed hole: steady light feed, ease off as the point breaks through."
 rpm = 1350
 feed = "hand"

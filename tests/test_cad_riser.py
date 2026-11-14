@@ -68,4 +68,4 @@ def test_refuses_holds_that_cannot_reach_a_hole():
     with pytest.raises(CadError, match="not between the jaws in any Setup 5 hold"):
         load_riser(SOURCE, {**PARAMETERS, "vise_jaw_width_mm": 60.0})
     with pytest.raises(CadError, match="P1 is not clear of the jaw side"):
-        load_riser(SOURCE, {**PARAMETERS, "overhang_in": 0.4})
+        load_riser(SOURCE, {**PARAMETERS, "overhang_in": 0.5})

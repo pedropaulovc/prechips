@@ -27,6 +27,7 @@ from prechips.jig_diagrams import (
     _param,
     _param_in,
     _title,
+    _trim,
     _vise,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
@@ -196,7 +197,7 @@ def _edges(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         groups,
         20,
         26,
-        "End views from ZERO END; bar centred, about {{cad.blank_centred_overhang_in:.1f}} out each side",
+        "End views; bar centred, about {{cad.blank_centred_overhang_in:.1f}} out each side",
     )
 
     def hold(
@@ -275,21 +276,22 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     parallel = _param_in(parameters, "parallel_thickness_mm")
     cutter = _param_in(parameters, "cutter_dia_mm")
     touch = _param(parameters, "y_touch_x_in")
-    trim = (blank - length) / 2
-    if trim < 0:
-        raise CadError("process.blank_length_in: shorter than the finished length")
+    trim = _trim(blank, length, "blank_length_in")
     x0 = 90.0
     s = min(44.0, (712 - x0) / (length + trim + cutter))
     radius = cutter / 2 * s
     h = width * s
     groups = _groups(root)
 
-    def holes(back: float, active: str) -> None:
+    def holes(back: float, drilled: tuple[str, ...]) -> None:
+        """Draw the stop holes drilled so far; ring the last one."""
         r = max(dia / 2 * s, 2.5)
         for tag, x, y in stops:
+            if tag not in drilled:
+                continue
             cx, cy = x0 + x * s, back + y * s
             groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
-            if tag == active:
+            if tag == drilled[-1]:
                 groups["active"].append(
                     _el("circle", cx=cx, cy=cy, r=r + 3, fill="none")
                 )
@@ -316,7 +318,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         labels_right=True,
     )
     _blank(groups, left, left + blank * s, x0, left + blank * s, back, front)
-    holes(back, "P1")
+    holes(back, ("P1",))
     groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
     _datum_label(groups, x0 - 8, back - 4, "X0 Y0", "end")
     _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
@@ -358,7 +360,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     jaw_right = right - over * s
     _vise(groups, jaw_right - jaw * s, jaw_right, back, front, parallel * s, "", "")
     _blank(groups, x0, right, x0, finish, back, front)
-    holes(back, "P2")
+    holes(back, ("P1", "P2"))
     groups["datum"] += [
         _line(x0, back, x0, front),
         _el("circle", cx=x0, cy=back, r=3.5),

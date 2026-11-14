@@ -16,13 +16,16 @@ from .cad import (
     _number,
     _positive,
 )
+from .jig_diagrams import _inch, _trim
 
 # Drawing tags by manifest feature. The stop-pin holes P1/P2 are drilled at
 # their printed .XX stations; the other seven are spotted from the carrier
 # (TL-21) at assembly, so the drawing prints their X/Y LOC REF only.
 _STOPS = (("P1", "stop_hole_1"), ("P2", "stop_hole_2"))
 _SCREWS = tuple((f"R{index}", f"screw_hole_{index}") for index in range(1, 5))
-_SPOTTED = (*_SCREWS, ("HUB", "hub_hole"), ("CL", "cl_hole"), ("CR", "cr_hole"))
+_HUB = (("HUB", "hub_hole"),)
+_CLAMPS = (("CL", "cl_hole"), ("CR", "cr_hole"))
+_SPOTTED = (*_SCREWS, *_HUB, *_CLAMPS)
 _COUNTERSINKS = tuple((tag, f"{name}_countersink") for tag, name in _SCREWS)
 _FEATURES = {
     "top_face",
@@ -36,8 +39,7 @@ _HOLDS = ("C", "L", "R")
 
 def _in(value_mm: float, places: int = 3) -> str:
     """Shop shorthand inches without the leading zero, as the sheet prints."""
-    text = f"{value_mm / 25.4:.{places}f}"
-    return text[1:] if text.startswith("0.") else text
+    return _inch(value_mm / 25.4, places)
 
 
 def load_riser(path: Path, parameters: dict) -> CadData:
@@ -50,7 +52,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         extra = sorted(set(features) - _FEATURES)
         missing = sorted(_FEATURES - set(features))
         raise CadError(
-            f"cad.features: expected the riser's 17 features; extra {extra}, "
+            f"cad.features: expected the riser's {len(_FEATURES)} features; extra {extra}, "
             f"missing {missing}"
         )
 
@@ -120,7 +122,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         return band
 
     # P1/P2: toleranced .XX stations and row from the lower-left corner.
-    rows, stations = [], []
+    row_bands, stations = [], []
     for tag, name in _STOPS:
         item, x, y = hole(name)
         station, row = _band(item, "station", name), _band(item, "height", name)
@@ -128,10 +130,10 @@ def load_riser(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}.at: outside its station/row band")
         _inch_limits(values, f"{tag.lower()}_x", station)
         stations.append(station)
-        rows.append(row)
-    if rows[0] != rows[1]:
+        row_bands.append(row)
+    if row_bands[0] != row_bands[1]:
         raise CadError("cad.stop_row: P1 and P2 disagree on the row band")
-    _inch_limits(values, "stop_row", rows[0])
+    _inch_limits(values, "stop_row", row_bands[0])
     values["stop_station_tol_in"] = (
         min((high - low) / 2 for low, high in stations) / 25.4
     )
@@ -139,8 +141,8 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["stop_rows"] = [
         [
             tag,
-            _in(values[f"{tag.lower()}_x_in"] * 25.4, 2),
-            _in(rows[0][0] / 2 + rows[0][1] / 2, 2),
+            _inch(values[f"{tag.lower()}_x_in"], 2),
+            _inch(values["stop_row_in"], 2),
         ]
         for tag, _ in _STOPS
     ]
@@ -159,9 +161,10 @@ def load_riser(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}: REF X/Y disagree with its centre")
         spotted.append((tag, x, y, _band(item, "dia", name)))
     shared(_SCREWS, "screw_dia")
-    shared(_SPOTTED[4:5], "hub_dia")
-    shared(_SPOTTED[5:], "clamp_dia")
+    shared(_HUB, "hub_dia")
+    shared(_CLAMPS, "clamp_dia")
     shared(_COUNTERSINKS, "csk_dia")
+    angles = set()
     for tag, name in _COUNTERSINKS:
         item = feature(name)
         if item.get("kind") != "countersink" or item.get("parent") != name.removesuffix(
@@ -170,13 +173,15 @@ def load_riser(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}: expected the countersink of {tag}")
         if "angle_deg" not in item.get("requirements", []):
             raise CadError(f"{name}.angle_deg: missing drawing requirement")
-        angle = (
-            _positive(item.get("angle_deg"), f"{name}.angle_deg"),
-            _positive(item.get("angle_tol_deg"), f"{name}.angle_tol_deg"),
+        angles.add(
+            (
+                _positive(item.get("angle_deg"), f"{name}.angle_deg"),
+                _positive(item.get("angle_tol_deg"), f"{name}.angle_tol_deg"),
+            )
         )
-        if values.setdefault("csk_angle", angle) != angle:
-            raise CadError(f"{name}.angle_deg: countersinks disagree")
-    values["csk_angle_deg"], values["csk_angle_tol_deg"] = values.pop("csk_angle")
+    if len(angles) != 1:
+        raise CadError("cad.csk_angle_deg: countersinks disagree")
+    values["csk_angle_deg"], values["csk_angle_tol_deg"] = angles.pop()
 
     # Vise holds (plan copies of the shop vise jaw width and parallel
     # thickness). Setup 4 drills P1/P2 in the end overhang, clear of the jaw
@@ -186,20 +191,21 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     parallel = _positive(
         parameters.get("parallel_thickness_mm"), "process.parallel_thickness_mm"
     )
-    # The arriving end sits overhang_in past the jaw side; the end cut takes
-    # half the blank allowance off it, so the finished end is that much nearer.
+    # Each arriving end sits overhang_in past its jaw side. The plan does not
+    # split the blank allowance between the two ends (hold 1 only cleans up
+    # the left end; hold 2 cuts the right end to length), so either end may
+    # lose all of it: each stop hole must clear the jaw side with the whole
+    # allowance off its end.
     over = _positive(parameters.get("overhang_in"), "process.overhang_in") * 25.4
     values["overhang_mm"] = over
     blank = _positive(parameters.get("blank_length_in"), "process.blank_length_in")
-    trim = (blank * 25.4 - length) / 2
-    if trim < 0:
-        raise CadError("process.blank_length_in: shorter than the finished length")
+    allowance = 2 * _trim(blank * 25.4, length, "blank_length_in")
     values["blank_centred_overhang_mm"] = (blank * 25.4 - jaw) / 2
     values["blank_centred_overhang_in"] = values["blank_centred_overhang_mm"] / 25.4
     values["centred_overhang_mm"] = (length - jaw) / 2
     for tag, (low, high) in zip(("P1", "P2"), stations):
         inner = high if tag == "P1" else length - low
-        if inner + stop_dia[1] / 2 >= over - trim:
+        if inner + stop_dia[1] / 2 >= over - allowance:
             raise CadError(
                 f"process.overhang_in: {tag} is not clear of the jaw side in Setup 4"
             )
@@ -208,7 +214,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         "L": (0.0, jaw),
         "R": (length - jaw, length),
     }
-    rows = []
+    spot_rows = []
     for tag, x, y, dia in sorted(spotted, key=lambda item: item[1]):
         radius = dia[1] / 2
         if not parallel + radius < y < width - parallel - radius:
@@ -225,9 +231,11 @@ def load_riser(path: Path, parameters: dict) -> CadData:
             raise CadError(
                 f"{tag}: REF hole is not between the jaws in any Setup 5 hold"
             )
-        rows.append([tag, _in(x, 2), _in(y, 2), f"{_in(dia[0])}–{_in(dia[1])}", hold])
-    values["spot_rows"] = rows
-    values["spot_count"] = len(rows)
+        spot_rows.append(
+            [tag, _in(x, 2), _in(y, 2), f"{_in(dia[0])}–{_in(dia[1])}", hold]
+        )
+    values["spot_rows"] = spot_rows
+    values["spot_count"] = len(spot_rows)
     values["spot_points_in"] = [[tag, x / 25.4, y / 25.4] for tag, x, y, _ in spotted]
     values["stop_points_in"] = [
         [tag, values[f"{tag.lower()}_x_in"], values["stop_row_in"]] for tag, _ in _STOPS
