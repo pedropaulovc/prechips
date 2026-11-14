@@ -141,32 +141,29 @@ def _axes_up(groups: Groups, x: float, y: float) -> None:
     _label(groups, x + 6, y - 32, "+Y")
 
 
-def _strap(
-    groups: Groups, x0: float, y0: float, x1: float, y1: float, s: float
-) -> None:
-    """A strap from its step block at (x0, y0) to its toe at (x1, y1)."""
+def _strap_y(groups: Groups, x: float, heel: float, toe: float, s: float) -> None:
+    """A strap across a long edge at ``x``: step block at ``heel``, toe at ``toe``."""
     half = _STRAP * s / 2
-    left, top = min(x0, x1) - (half if x0 == x1 else 0), min(y0, y1)
-    if x0 == x1:
-        groups["tool"].append(_rect(left, top, 2 * half, abs(y1 - y0), **_STRAP_STYLE))
-        groups["fixture"].append(_rect(x0 - half - 4, y0 - 8, 2 * half + 8, 16))
-        return
     groups["tool"].append(
-        _rect(left, y0 - half, abs(x1 - x0), 2 * half, **_STRAP_STYLE)
+        _rect(x - half, min(heel, toe), 2 * half, abs(toe - heel), **_STRAP_STYLE)
     )
-    groups["fixture"].append(_rect(x0 - 8, y0 - half - 4, 16, 2 * half + 8))
+    groups["fixture"].append(_rect(x - half - 4, heel - 8, 2 * half + 8, 16))
+
+
+def _strap_x(groups: Groups, heel: float, toe: float, y: float, s: float) -> None:
+    """A strap along the plate at ``y``: step block at ``heel``, toe at ``toe``."""
+    half = _STRAP * s / 2
+    groups["tool"].append(
+        _rect(min(heel, toe), y - half, abs(toe - heel), 2 * half, **_STRAP_STYLE)
+    )
+    groups["fixture"].append(_rect(heel - 8, y - half - 4, 16, 2 * half + 8))
 
 
 def _edge_strap(groups: Groups, plan: _Plan, x: float, front: bool) -> None:
     """A strap across a long edge, its toe over the block at station ``x``."""
-    if front:
-        heel, toe = (
-            plan.kept_front + _HEEL * plan.s,
-            plan.kept_front - plan.toe * plan.s,
-        )
-    else:
-        heel, toe = plan.kept_back - _HEEL * plan.s, plan.kept_back + plan.toe * plan.s
-    _strap(groups, plan.px(x), heel, plan.px(x), toe, plan.s)
+    edge, inward = (plan.kept_front, -1) if front else (plan.kept_back, 1)
+    heel = edge - inward * _HEEL * plan.s
+    _strap_y(groups, plan.px(x), heel, edge + inward * plan.toe * plan.s, plan.s)
 
 
 def _draw_blocks(groups: Groups, plan: _Plan) -> None:
@@ -197,8 +194,8 @@ def _draw_datums(groups: Groups, plan: _Plan) -> None:
         if under
         else ("TOP up", plan.kept_back + 18)
     )
-    # Clear of the edge straps (faces) or the R-row labels (holes).
-    at = 0.62 if plan.step == "holes" else 0.4
+    # Clear of the edge straps (faces) and the R-row labels (holes).
+    at = {"holes": 0.62, "under": 0.55}.get(plan.step, 0.4)
     _label(groups, plan.px(plan.length * at), up[1], up[0], "middle")
 
 
@@ -219,22 +216,8 @@ def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
         _rect(left, plan.kept_back, right - left, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
-    _strap(
-        groups,
-        left - 1.2 * plan.s,
-        plan.middle,
-        plan.px(plan.blocks[0]),
-        plan.middle,
-        plan.s,
-    )
-    _strap(
-        groups,
-        right + 1.2 * plan.s,
-        plan.middle,
-        plan.px(plan.blocks[3]),
-        plan.middle,
-        plan.s,
-    )
+    _strap_x(groups, left - 1.2 * plan.s, plan.px(plan.blocks[0]), plan.middle, plan.s)
+    _strap_x(groups, right + 1.2 * plan.s, plan.px(plan.blocks[3]), plan.middle, plan.s)
     radius = plan.cutter / 2 * plan.s
     y_front, y_back = plan.kept_front + radius, plan.kept_back - radius
     groups["tool"] += [
@@ -518,8 +501,8 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
 def _relations(groups: Groups, values: dict) -> float:
     """Pins in A1, B1, A2, B2 (plan, TOP up): B1 along X, A2/B2 off the line."""
     points = _points(values)
-    _title(groups, 380, 26, "Pins in A1, B1, A2, B2: read from A1")
-    _title(groups, 380, 44, "Y scale ×4: A2 from A1, B2 from B1")
+    _title(groups, 380, 26, "For reference: Setup 6, op 130 pin check")
+    _title(groups, 380, 44, "From A1 and the A1–B1 line; Y scale ×4")
     a1 = points["A1"]
     scale = 230 / (points["B2"][0] - points["A2"][0])
     x0, y0 = 440.0, 200.0

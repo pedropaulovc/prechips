@@ -155,32 +155,28 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
         if not (0 < cx < values["length_mm"] and 0 < cy < values["width_mm"]):
             raise CadError(f"{name}: hole centre off the plate")
         station = _band(item, "station", name)
-        if name in _CORNER:
-            relative_x, relative_y = cx, cy
-            parented = False
-        else:
-            if item.get("parent") != "pin_hole_a1":
-                raise CadError(f"{name}: expected a hole located from A1")
-            relative_x, relative_y = x - a1_x, a1_z - z
-            parented = True
+        parented = name not in _CORNER
+        if parented and item.get("parent") != "pin_hole_a1":
+            raise CadError(f"{name}: expected a hole located from A1")
+        relative_x, relative_y = (x - a1_x, a1_z - z) if parented else (cx, cy)
         if not station[0] <= relative_x <= station[1]:
             raise CadError(f"{name}.at: station outside its station band")
         tolerances.append((station[1] - station[0]) / 2)
+        values[f"{tag.lower()}_station_band_mm"] = list(station)
+        points[tag] = (cx / 25.4, cy / 25.4)
         if name == "pin_hole_b1":
             # B1 defines the A1-B1 axis line: no height of its own.
             if "height" in item.get("requirements", []) or z != a1_z:
                 raise CadError("pin_hole_b1: expected B1 on the A1-B1 line")
-        else:
-            height = _band(item, "height", name)
-            if parented and item.get("height_from") != "pin_hole_a1":
-                raise CadError(f"{name}: expected its height from the A1-B1 line")
-            if not height[0] <= relative_y <= height[1]:
-                raise CadError(f"{name}.at: height outside its height band")
-            values[f"{tag.lower()}_height_band_mm"] = list(height)
-            if tag not in ("A2", "B2"):
-                tolerances.append((height[1] - height[0]) / 2)
-        values[f"{tag.lower()}_station_band_mm"] = list(station)
-        points[tag] = (cx / 25.4, cy / 25.4)
+            return
+        height = _band(item, "height", name)
+        if parented and item.get("height_from") != "pin_hole_a1":
+            raise CadError(f"{name}: expected its height from the A1-B1 line")
+        if not height[0] <= relative_y <= height[1]:
+            raise CadError(f"{name}.at: height outside its height band")
+        values[f"{tag.lower()}_height_band_mm"] = list(height)
+        if tag not in ("A2", "B2"):
+            tolerances.append((height[1] - height[0]) / 2)
 
     pin_dia = pin_note = None  # The four pins share one size and note.
     for name, tag in _PINS.items():
@@ -230,6 +226,7 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     values["b1_station_in"] = sum(values["b1_station_band_mm"]) / 2 / 25.4
     if values["l1_station_band_mm"] != values["l2_station_band_mm"]:
         raise CadError("lever_tap_1/2: expected one lever station")
+    _inch_limits(values, "l1_station", tuple(values["l1_station_band_mm"]))
     # Corner-located: A1 and the L rows, measured from ZERO END / ZERO EDGE.
     _inch_limits(values, "a1_station", tuple(values["a1_station_band_mm"]))
     for tag in ("a1", "l1", "l2"):
