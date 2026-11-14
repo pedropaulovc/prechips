@@ -13,6 +13,9 @@ PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
     "screw_stock_length_mm": 600.0,
     "saw_allowance_mm": 3.0,
+    "rule_mm": 304.8,
+    "cut_overhang_mm": 10.0,
+    "vise_jaw_width_mm": 158.6738,
 }
 
 
@@ -34,7 +37,11 @@ def test_flat_crossings_and_nut_bands():
     )
     assert values["clock_deg"] == 120
     assert values["csk_cutter_band_mm"] == [4.76, 4.7625]
-    assert values["saw_mark_from_far_mm"] == pytest.approx(600 - 419.5 - 3.0)
+    assert values["saw_piece_mm"] == pytest.approx(419.5 + 3.0)
+    assert values["saw_rule_step_mm"] == pytest.approx(419.5 + 3.0 - 304.8)
+    assert values["vise_jaw_right_mm"] == pytest.approx(422.5 - 10.0)
+    assert values["vise_jaw_left_mm"] == pytest.approx(412.5 - 158.6738)
+    assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(419.5 - 385.016 - 8.0)
 
 
 def test_refuses_a_cutter_too_small_to_open_the_handwheel_flat():

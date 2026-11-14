@@ -51,14 +51,17 @@ def _chuck(
     radius: float,
     depth: float,
     label: str,
-    top_jaw: bool = True,
+    jaws: str = "top_bottom",
 ) -> None:
     """Schematic 3-jaw: jaws on ``radius`` ending at ``face``, body behind.
 
-    ``top_jaw=False`` draws the jaws clocked to 2, 6 and 10 o'clock: only the
-    6 o'clock jaw shows in a side view, none on top where the cutter works.
+    ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (jaws
+    at 2, 6 and 10 o'clock: only the 6 o'clock jaw shows in a side view, none
+    on top where the cutter works).
     """
-    if top_jaw:
+    if jaws not in ("top_bottom", "clocked"):
+        raise CadError(f"chuck jaws: unknown clocking {jaws!r}")
+    if jaws == "top_bottom":
         groups["jaws"].append(_rect(face - depth, axis - radius - 22, depth, 22))
     groups["jaws"].append(_rect(face - depth, axis + radius, depth, 22))
     groups["fixture"].append(
@@ -236,7 +239,10 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
             (
                 cut + radius,
                 front + 2 * radius + 26,
-                ["end mill, feed away;", "last pass X = {{cad.length_mm:.1f}} + D/2"],
+                [
+                    "conventional: table away from you;",
+                    "last pass X = {{cad.length_mm:.1f}} + D/2",
+                ],
             )
         ],
         front + 60,
@@ -273,15 +279,17 @@ def _kit_flats(
         else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
     _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
-    _chuck(groups, jaw_face, axis, r, 40, "jaws 2, 6, 10 o'clock", top_jaw=False)
+    _chuck(groups, jaw_face, axis, r, 40, "jaws 2, 6, 10 o'clock", jaws="clocked")
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
 
     spans: list[tuple[float, float]] = []
 
-    def flat(from_end_start: float, from_end_stop: float) -> float:
+    def flat(from_end_start: float, from_end_stop: float, done: bool = False) -> float:
         x0, x1 = free - from_end_stop * s, free - from_end_start * s
         spans.append((x0, x1))
+        if done:  # Cut in an earlier setup: the thread simply stops at its floor.
+            return (x0 + x1) / 2
         groups["removed"].append(_rect(x0, axis - r, x1 - x0, depth * s))
         groups["active"].append(
             _line(x0, axis - r + depth * s, x1, axis - r + depth * s)
@@ -293,8 +301,13 @@ def _kit_flats(
     if mode == "far":
         start = length - _cad(values, "far_kp08_station_mm")
         centre = flat(start - _cad(values, "flat_length_mm"), start)
+        flat(0.0, length - _cad(values, "handwheel_station_mm"), done=True)
         items.append(
-            (centre, axis - r, ["KP08 flats", "X −{{cad.far_kp08_from_cut_mm:.2f}}"])
+            (
+                centre,
+                axis - r,
+                ["KP08 flats", "X −(L − {{cad.far_kp08_centre_mm:.2f}})"],
+            )
         )
         cutter_x = centre
     elif mode == "wheel":
@@ -303,10 +316,15 @@ def _kit_flats(
             (
                 hw,
                 axis - r,
-                ["handwheel flat", "X −{{cad.handwheel_from_cut_mm:.2f}},", "then X 0"],
+                [
+                    "handwheel flat",
+                    "X −(L − {{cad.handwheel_centre_mm:.2f}}),",
+                    "then X 0",
+                ],
             )
         )
-        cutter_x = hw
+        # The cutter at the first crossing; the second is centred on the end.
+        cutter_x = free - _cad(values, "handwheel_from_cut_mm") * s
     else:
         start = _cad(values, "near_kp08_station_mm")
         centre = flat(start, start + _cad(values, "flat_length_mm"))
@@ -380,7 +398,9 @@ def _kit_flats(
         groups,
         40,
         cy,
-        "Flat {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long",
+        "Flat open through the end"
+        if mode == "wheel"
+        else "Flat {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long",
     )
     if mode != "wheel":
         _label(
