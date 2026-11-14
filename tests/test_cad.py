@@ -7,7 +7,7 @@ from prechips.cad import CadError, bind_text, load_cad
 from prechips.cli import main
 from prechips.traveler import load_plan, render_traveler
 
-SOURCE = Path(__file__).resolve().parents[1] / "examples/cad/base-bar-v49.toml"
+SOURCE = Path(__file__).resolve().parents[1] / "examples/cad/base-bar-v50.toml"
 PARAMETERS = {
     "width_rough_allowance_in": 0.015,
     "slot_breakthrough_in": 0.02,
@@ -88,10 +88,11 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(0.87)
     assert cad.values["slot_shapes_in"][0]["near_y_in"] == pytest.approx(-1.94)
     assert cad.values["slot_shapes_in"][0]["far_y_in"] == pytest.approx(-2.10)
-    # v49 rail stations are REF nominals: the actual trimmed rail transfers them.
+    # Rail stations are REF nominals: the actual trimmed rail transfers them.
     assert cad.values["rail_points_in"][0] == pytest.approx([9.964 / 25.4, -3.5])
+    # v50 bands B1-B2 about the printed 47.48 mm (47.35-47.61).
     assert cad.values["bracket_points_in"][0] == pytest.approx(
-        [47.484 / 25.4, -12.909 / 25.4]
+        [47.48 / 25.4, -12.909 / 25.4]
     )
     assert cad.values["rail_count"] == 8
     assert cad.values["bracket_count"] == 4

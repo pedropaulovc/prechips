@@ -287,7 +287,7 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _table_blocks(x0: float, x1: float, cy: float, scale: float) -> dict[str, float]:
-    """Setups 2–3: three 1-2-3 blocks lying flat, 3 in across the width, inboard."""
+    """Setup 2: three 1-2-3 blocks lying flat, 3 in across the width, inboard."""
     width, height, inset = 2 * scale, 3 * scale, 35.0
     mid = (x0 + x1) / 2
     return {
@@ -357,58 +357,8 @@ def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     return view, {}
 
 
-def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 3: CAD finished length squared from the authored blank length."""
-    blank_length = _process(parameters, "blank_length_in")
-    length = _cad(values, "length_in")
-    width = _cad(values, "width_in")
-    scale = min(27.0, 470 / max(blank_length, length), 148 / width)
-    lpx, hpx = length * scale, width * scale
-    trim = max((blank_length - length) / 2 * scale, 5.0)  # end stock, min visible
-    mid, top = 325.0, 100.0
-    zero, far = mid - lpx / 2, mid + lpx / 2
-    bottom = top + hpx
-    cy = (top + bottom) / 2
-    view = _view(
-        x0=zero - trim,
-        x1=far + trim,
-        zero=zero,
-        far=far,
-        trim=trim,
-        mid=mid,
-        top=top,
-        bottom=bottom,
-        bar_w=lpx + 2 * trim,
-        hpx=hpx,
-        cy=cy,
-        cutter1_x=zero - 7,
-        cutter1_y=top + 12,
-        cutter2_x=far + 7,
-        cutter2_y=bottom - 12,
-        minus_y_label=bottom + 10,
-        label1_y=cy - 9,
-        label2_y=cy + 16,
-        edge_label_y=bottom - 8,
-        step_y=bottom + 24,
-        step3_x=zero + 5,
-        step4_x=far - 5,
-        ext_top=bottom + 28,
-        ext_bottom=bottom + 80,
-        far_ext1_top=bottom + 2,
-        far_ext1_bottom=bottom + 12,
-        far_ext2_top=bottom + 30,
-        dim_x1=zero + 1,
-        dim_x2=far - 1,
-        dim_y=bottom + 74,
-        dim_label_x=zero + 105,
-        dim_label_y=bottom + 92,
-        **_table_blocks(zero - trim, far + trim, cy, scale),
-    )
-    return view, {}
-
-
 def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 4: finished-length bar in the vise, faced from blank thickness."""
+    """Setup 3: finished-length bar in the vise, faced from blank thickness."""
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _process(parameters, "blank_thickness_in")
@@ -447,7 +397,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 5: every hole and slot at its CAD position in the vise."""
+    """Setup 4: every hole and slot at its CAD position in the vise."""
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     scale = min(32.0, 555 / length, 176 / width)
@@ -526,7 +476,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 6: bar 1 plan and section through its last bracket column; bar 2 section."""
+    """Setup 5: bar 1 plan and section through its last bracket column; bar 2 section."""
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _cad(values, "thickness_in")
@@ -678,7 +628,6 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
 LAYOUTS: dict[str, Callable[[dict, dict, ElementTree.Element], Layout]] = {
     "saw": _saw,
     "width": _width,
-    "ends": _ends,
     "face": _face,
     "holes": _holes,
     "inspect": _inspect,

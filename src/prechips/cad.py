@@ -505,6 +505,8 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["slot_depths_in"] = "/".join(
         f"{depth:.2f}" for depth in [*depths, final_depth]
     )
+    # The deepest single step, for the slot cut's axial depth of cut.
+    values["slot_step_mm"] = min(step, final_depth) * 25.4
     # Bar top above the jaw tops, from the plan's copy of the shop vise record.
     grip = (
         _positive(parameters.get("vise_jaw_height_mm"), "process.vise_jaw_height_mm")

@@ -9,27 +9,28 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/end-bracket-v49.toml"
 PLAN = ROOT / "examples/end-bracket.toml"
-# The example declares no milling beams or cuts yet.
-NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 
 
 def test_pro_plan_renders_with_every_check(tmp_path):
     out = tmp_path / "end-bracket.html"
     command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]
-    assert main([*command, *NO_MILLING_DATA]) == 0
+    assert main(command) == 0
     html = out.read_text(encoding="utf-8")
     assert "MHA-CH-06-TL-28" in html
     assert "0.5482 (13.925 mm)" in html
-    assert "0.433–0.527" in html  # Bar-face bottoming-tap tip mark.
+    # One flag per face, inside its tip window, so the bottoming taps never meet.
+    assert "bottoming tap flagged .45 from its tip" in html
+    assert "bottoming tap flagged .51 from its tip" in html
 
 
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     out = tmp_path / "end-bracket-hobby.html"
     command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
-    assert main([*command, *NO_MILLING_DATA]) == 0
+    assert main(command) == 0
     html = out.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 5
-    assert "Tape a flag on the bottoming tap 0.433–0.527" in html
+    assert "tip window (0.433–0.527)" in html
+    assert "Tape a flag on the bottoming tap .45 from its tip" in html
 
 
 def test_thread_zones_bind_by_face_from_the_drawing_notes():
