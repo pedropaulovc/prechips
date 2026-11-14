@@ -24,7 +24,7 @@ uv run prechips traveler examples/leadscrew-kit.toml --profile hobby --disable-c
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
-The four jig examples do not declare milling beams and cuts yet, so they render only with `--disable-check milling_deflection` (see [Milling deflection](#milling-deflection)).
+The harmonic-analyzer jig examples do not declare milling beams and cuts yet, so they render only with `--disable-check milling_deflection` (see [Milling deflection](#milling-deflection)).
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
