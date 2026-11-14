@@ -1,13 +1,16 @@
-# Source: C:/src/ha-basebar-traveler/cad/process/hand-travelers/
-# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html.
+# Source: Pedro's 2026-11-05 hand traveler
+# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html (open PR #2218,
+# branch process/basebar-traveler-logbook-advice; drawing v47), including its
+# vise workholding: 1-3/8 in parallels and the HHIP 3901-0079 jack, recorded in
+# cad/config/shop-equipment.toml with that sheet's ownership status.
 # Table-clamped squaring sequence: 2026-11-07 session
 # 2026-11-07T00-02-29-727Z_01a1b350-58df-72b7-a9e3-7735a77b13fc.
-# v48 drawing: bar 1 alone carries the four #12 bracket holes; rail stations
-# are REF, transferred from each bar's own trimmed rail (flush both ends).
-# Bar 2 (drawing sheet 2) swaps the seats: its rail seats on the face that is
-# far in the front view (up in Setup 5) and its near face seats on the mill
-# table. The v48 manifest describes bar 1 only, so the per-bar face text below
-# is authored from the two drawing sheets, not bound.
+# v48/v49 drawing: bar 1 alone carries the four #12 bracket holes; rail
+# stations are REF, transferred from each bar's own trimmed rail (flush both
+# ends). Bar 2 (drawing sheet 2) swaps the seats: its rail seats on the face
+# that is far in the front view (up in Setup 5) and its near face seats on the
+# mill table. The manifest describes bar 1 only, so the per-bar face text
+# below is authored from the two drawing sheets, not bound.
 title = "Oblique trammel base bar — bar 1 and bar 2"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
@@ -18,7 +21,7 @@ shop = "shop.toml"
 material_key = "6061-t6511"
 
 [cad]
-file = "cad/base-bar-v48.toml"
+file = "cad/base-bar-v49.toml"
 adapter = "harmonic_base_bar"
 
 [parameters]
@@ -200,7 +203,12 @@ diagram = { file = "diagrams/holes.svg", alt = "Finished {{cad.length_in:.2f}} i
 # Hole and slot centres lie inside the finished bar. Longest: a drill in the
 # drill chuck; shortest: the 5/16 in counterbore cutter in an R8 collet.
 envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
-vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.vise_centred_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
+# Re-grip: bar 1 is clamped C'BORE SIDE down to measure its rail holes, then
+# rolled back C'BORE SIDE up to drill; both holds seat machined edges, centred.
+vise_hold = [
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.vise_centred_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+  { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.vise_centred_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
+]
 inspection = ["Before unclamping, DRO X from ZERO END: right end {{cad.length_min_in:.2f}}–{{cad.length_max_in:.2f}} at both edges; slot centres S1 {{cad.slot1_x_min_in:.2f}}–{{cad.slot1_x_max_in:.2f}}, S2 {{cad.slot2_x_min_in:.2f}}–{{cad.slot2_x_max_in:.2f}}; bar 1 B1–B2 {{cad.bracket_x1_min_in:.4f}}–{{cad.bracket_x1_max_in:.4f}}, B3–B4 {{cad.bracket_x2_min_in:.4f}}–{{cad.bracket_x2_max_in:.4f}}."]
 gauge_checks = [
   { gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" },
@@ -211,8 +219,8 @@ gauge_checks = [
 ]
 
 [[setups.operations]]
-instruction = "On this bar's own trimmed rail, flush at ZERO END, measure the {{cad.rail_count:d}} hole centres (REF {{cad.rail_first_mm:.3f}} mm, {{cad.rail_pitch_mm:.3f}} mm pitch); remove rail. Drill {{cad.rail_range}} at measured X."
-instruction_detailed = "Before drilling: trim this bar's own HGR15 rail to the bar, flush both ends. Clamp the pair, rail end flush at ZERO END, and measure each of the {{cad.rail_count:d}} hole centres in X from ZERO END; the REF {{cad.rail_first_mm:.3f}} mm start and {{cad.rail_pitch_mm:.3f}} mm pitch only help find them. Remove the rail before drilling and tapping; keep it paired and oriented to its own bar. Drill {{cad.rail_range}} at the measured X."
+instruction = "Rail face up, own rail flush at ZERO END (bar 1 rolled over after). Edge finder X0 ZERO END; record {{cad.rail_range}} X, counterbore two-side midpoints. Remove rail, re-find X0, drill at recorded X."
+instruction_detailed = "Before drilling: trim this bar's own HGR15 rail to the bar, flush both ends. Put the bar in the vise rail face up: bar 1 C'BORE SIDE down, rolled about its length so ZERO END stays left and ZERO EDGE comes to the front jaw (roll it back C'BORE SIDE up afterwards, as held above); bar 2 is already RAIL SIDE up. Lay the rail on its seat along the rail row, end flush with ZERO END, and clamp the pair. Edge finder in the spindle, on its small tip (it must drop into the counterbore; a Ø.200 end fits, a Ø.500 end does not): touch ZERO END and set X0 (DRO X = −tip radius). For each of the {{cad.rail_count:d}} rail holes, drop the tip into the counterbore, touch its left side and read X, touch its right side and read X; the centre is the midpoint. Write all {{cad.rail_count:d}} on the sheet. The REF {{cad.rail_first_mm:.3f}} mm start and {{cad.rail_pitch_mm:.3f}} mm pitch only help find them; never drill at REF. Remove the rail; keep it paired and oriented to its own bar. Re-find X0 on ZERO END in the drilling clamping and drill {{cad.rail_range}} at the recorded X."
 
 [[setups.operations]]
 speed_kind = "spindle"

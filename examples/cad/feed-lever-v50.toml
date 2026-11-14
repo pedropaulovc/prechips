@@ -1,0 +1,115 @@
+# Generated from CAD drawing contracts and adjacent raw STEP bytes; do not hand edit.
+"part" = "ch-rocker-arm-tl-oblique-feed-lever"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "ch-rocker-arm-tl-oblique-feed-lever.STEP"
+"step_sha256" = "58f8634f73e80ead29b1a3568d6d5c12f96a449fb285f2887a296f858af7f6d6"
+"construction" = "one_piece"
+"cite_root" = "harmonic-analyzer"
+"cite" = { "construction" = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:169-169"], "units" = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "precision" = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "frames" = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "step_sha256" = ["harmonic-analyzer/cad/out/features/ch_rocker_arm_tl_oblique_feed_lever/ch-rocker-arm-tl-oblique-feed-lever.STEP"] }
+
+["drawing"]
+"number" = "MHA-CH-06-TL-26"
+"revision" = "v50"
+"cite" = ["harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.number", "harmonic-analyzer/cad/config/release.yaml:next_revision", "harmonic-analyzer/cad/scripts/_part_properties.py:57-103"]
+
+["material"]
+"spec" = "6061-T6 aluminum flat bar, 1/2 x 1 in; width and thickness as supplied"
+"name" = "6061-T6 ALUMINUM FLAT"
+"finish" = "as machined"
+"thickness" = "unknown"
+"cite" = ["harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.material_specification", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.material", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.finish"]
+
+["notes"]
+"manufacturing" = []
+"process" = "saw and face to length; drill the two 11/32 screw-clearance holes through; file the grip-end corner radii; break edges"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+"cite" = ["harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.process", "harmonic-analyzer/cad/config/title_block.yaml:in.edge_break.radius_in", "harmonic-analyzer/cad/config/title_block.yaml:in.edge_break.chamfer_max_in", "harmonic-analyzer/cad/config/title_block.yaml:in.edge_break.digits", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:169-169"]
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+"cite" = { "linear_1pl" = ["harmonic-analyzer/cad/config/title_block.yaml:in.linear_1pl.band_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "linear_2pl" = ["harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "linear_3pl" = ["harmonic-analyzer/cad/config/title_block.yaml:in.linear_3pl.band_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "angular_deg" = ["harmonic-analyzer/cad/config/title_block.yaml:angular.value_deg", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "drilled_hole_plus" = ["harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "drilled_hole_minus" = ["harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "edge_break_r" = ["harmonic-analyzer/cad/config/title_block.yaml:in.edge_break.radius_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"], "chamfer_max" = ["harmonic-analyzer/cad/config/title_block.yaml:in.edge_break.chamfer_max_in", "harmonic-analyzer/cad/config/parts/ch-rocker-arm-tl-oblique-feed-lever.yaml:ch-rocker-arm-tl-oblique-feed-lever.drawing_unit"] }
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+"cite" = ["harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"]
+
+["datums"]
+
+["features"]
+
+["features"."carrier_seat"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness", "length", "width"]
+"normal" = [0.0, -1.0, 0.0]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"thickness" = [12.4714, 12.9286]
+"thickness_nominal" = 12.7
+"length" = [297.18, 302.26]
+"length_nominal" = 299.72
+"width" = [25.0952, 25.7048]
+"width_nominal" = 25.4
+"precision" = { "thickness" = 2, "length" = 1, "width" = 2 }
+"cite" = { "normal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "plane" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "thickness" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:71-71", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:76-76", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "thickness_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:71-71"], "length" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:69-69", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:78-78", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_1pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "length_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:69-69"], "width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:70-70", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:75-75", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "width_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:70-70"], "precision" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.thickness" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.length" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:167-196", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "faces" = ["harmonic-analyzer/cad/out/features/ch_rocker_arm_tl_oblique_feed_lever/ch-rocker-arm-tl-oblique-feed-lever.STEP"] }
+"faces" = ["#72/ADVANCED_FACE[3]/HAF_CARRIER_SEAT__P01"]
+
+["features"."bolt_hole_1"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "station", "width", "thru"]
+"at" = [7.112, 12.7, -12.7]
+"axis" = [0.0, -1.0, 0.0]
+"drill" = "11/32"
+"dia" = [8.73125, 8.83285]
+"dia_nominal" = 8.73125
+"thru" = true
+"station" = [6.858, 7.366]
+"station_nominal" = 7.112
+"width" = [12.446, 12.954]
+"width_nominal" = 12.7
+"precision" = { "dia" = 4, "station" = 2, "width" = 2 }
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:71-71", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "axis" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "drill" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:97-97"], "dia" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:98-98", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:66-66", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:91-91", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:98-98"], "thru" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:97-97"], "station" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:89-89", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_carrier_spec.py:85-85", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_carrier_spec.py:86-86", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "station_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87"], "width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:90-90", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "width_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88"], "precision" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.dia" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.station" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "faces" = ["harmonic-analyzer/cad/out/features/ch_rocker_arm_tl_oblique_feed_lever/ch-rocker-arm-tl-oblique-feed-lever.STEP"] }
+"faces" = ["#64/ADVANCED_FACE[2]/HAF_BOLT_HOLE_1__P01", "#243/ADVANCED_FACE[9]/HAF_BOLT_HOLE_1__P01"]
+
+["features"."bolt_hole_2"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "station", "width", "thru"]
+"at" = [23.114, 12.7, -12.7]
+"axis" = [0.0, -1.0, 0.0]
+"drill" = "11/32"
+"dia" = [8.73125, 8.83285]
+"dia_nominal" = 8.73125
+"thru" = true
+"station" = [22.86, 23.368]
+"station_nominal" = 23.114
+"width" = [12.446, 12.954]
+"width_nominal" = 12.7
+"precision" = { "dia" = 4, "station" = 2, "width" = 2 }
+"cite" = { "at" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:71-71", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "axis" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:1-46", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:403-490"], "drill" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:97-97"], "dia" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:98-98", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:66-66", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:91-91", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "dia_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:98-98"], "thru" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:97-97"], "station" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:89-89", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_carrier_spec.py:85-85", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_carrier_spec.py:86-86", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "station_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:85-87"], "width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:90-90", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_2pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "width_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:88-88"], "precision" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.dia" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.station" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.width" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:199-244", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "faces" = ["harmonic-analyzer/cad/out/features/ch_rocker_arm_tl_oblique_feed_lever/ch-rocker-arm-tl-oblique-feed-lever.STEP"] }
+"faces" = ["#122/ADVANCED_FACE[5]/HAF_BOLT_HOLE_2__P01", "#340/ADVANCED_FACE[12]/HAF_BOLT_HOLE_2__P01"]
+
+["features"."grip_corners"]
+"kind" = "fillet"
+"frame" = "model"
+"requirements" = ["radius"]
+"radius" = [2.54, 7.62]
+"radius_nominal" = 5.08
+"count" = 2
+"precision" = { "radius" = 1 }
+"cite" = { "radius" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:249-269", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:105-105", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:106-106", "harmonic-analyzer/cad/config/title_block.yaml:in.linear_1pl.band_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.plus_in", "harmonic-analyzer/cad/config/title_block.yaml:in.drilled_hole.minus_in"], "radius_nominal" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:249-269", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:105-105"], "count" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:249-269", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:165-165"], "precision" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:249-269", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "precision.radius" = ["harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:249-269", "harmonic-analyzer/cad/scripts/draw_ch_rocker_arm_tl_oblique_feed_lever.py:145-150", "harmonic-analyzer/cad/scripts/ch_rocker_arm_tl_oblique_feed_lever_spec.py:140-144", "harmonic-analyzer/cad/scripts/_drawing_hole_callout.py:225-349"], "faces" = ["harmonic-analyzer/cad/out/features/ch_rocker_arm_tl_oblique_feed_lever/ch-rocker-arm-tl-oblique-feed-lever.STEP"] }
+"faces" = ["#95/ADVANCED_FACE[4]/HAF_GRIP_CORNERS__P01", "#8/ADVANCED_FACE[1]/HAF_GRIP_CORNERS__P02"]

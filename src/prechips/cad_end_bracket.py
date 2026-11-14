@@ -22,7 +22,7 @@ from .cad import (
 )
 
 # The single deliberate exception to "no values from prose" (AGENTS.md): the
-# v48 export states the opposed thread zones only as words, in the tap callout
+# v48/v49 exports state the opposed thread zones only as words, in the tap callout
 # note (mm, by face) and in the process note (inch, with the bottoming-tap tip
 # marks). Both must match these exact phrasings and agree; anything else is
 # refused. Replace with structured thread_zone/tip_mark fields once

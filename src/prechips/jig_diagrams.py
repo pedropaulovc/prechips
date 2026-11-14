@@ -856,9 +856,10 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
     row = _cad(values, "row_in")
     hole = _cad(values, "hole_dia_in")
     stations = _stations(values)
-    radius = _param(parameters, "corner_radius_in")
+    radius = _cad(values, "corner_radius_in")
     layout = radius  # The scribed lines sit one corner radius back.
-    band = _cad(values, "linear_1pl_in")
+    low = _cad(values, "corner_radius_min_in")
+    high = _cad(values, "corner_radius_max_in")
     groups = _groups(root)
 
     # Whole lever, top face; "grip end" (~70 px) fits after it by x 720.
@@ -922,9 +923,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             ),
         ),
     ]
-    for limit in (radius - band, radius + band):
-        if limit <= 0:
-            continue
+    for limit in (low, high):
         lr = limit * d
         groups["hidden"] += [
             _el(
@@ -989,26 +988,26 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             fill="none",
         ),
     ]
-    check = (radius + band) * d
+    check = high * d
     rows = [
         (
             end_y - 4,
             right - ld,
             end_y - 6,
-            ["scribed {{process.corner_radius_in:.2dot}} from each side"],
+            ["scribed {{cad.corner_radius_in:.2dot}} from each side"],
         ),
         (
             end_y + 24,
             right + 8,
             end_y + ld,
-            ["and {{process.corner_radius_in:.2dot}} from the end"],
+            ["and {{cad.corner_radius_in:.2dot}} from the end"],
         ),
         (
             end_y + 58,
             right - rd * 0.29,
             end_y + rd * 0.29,
             [
-                "file both vertical corners to R{{process.corner_radius_in:.1dot}},",
+                "file both vertical corners to R{{cad.corner_radius_in:.1dot}},",
                 "arcs touching both lines",
             ],
         ),
@@ -1016,7 +1015,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             end_y + 106,
             right - check * 0.29,
             end_y + check * 0.29,
-            [f"check R{_inch(radius - band, 1)}–R{_inch(radius + band, 1)} (dashed)"],
+            [f"check R{_inch(low, 1)}–R{_inch(high, 1)} (dashed)"],
         ),
     ]
     for y, ax, ay, lines in rows:

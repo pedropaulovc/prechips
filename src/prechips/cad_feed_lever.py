@@ -20,7 +20,7 @@ from .cad import (
 
 
 def load_feed_lever(path: Path, parameters: dict) -> CadData:
-    """Bind the lever envelope and its two clearance holes near the zero end."""
+    """Bind the lever envelope, its two clearance holes and its grip corners."""
     raw, values, features = _harmonic_manifest(
         path, "ch-rocker-arm-tl-oblique-feed-lever", "harmonic_feed_lever"
     )
@@ -96,12 +96,26 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         for index, x in enumerate(stations, 1)
     ]
 
-    general = _edge_breaks(raw, values)
-    # The grip-end corner radius has no feature record; its one-place
-    # title-block band is the only drawing limit available for it.
-    values["linear_1pl_in"] = (
-        _positive(general.get("linear_1pl"), "general_tolerances.linear_1pl") / 25.4
-    )
+    _edge_breaks(raw, values)
+    # The two grip-end plan corners (drawing 2X R.2): one fillet record.
+    corners = features.get("grip_corners")
+    if (
+        not isinstance(corners, dict)
+        or corners.get("kind") != "fillet"
+        or corners.get("frame") != "model"
+        or corners.get("count") != 2
+    ):
+        raise CadError("grip_corners: expected the two grip-end corner fillets")
+    radius = _band(corners, "radius", "grip_corners")
+    nominal = _positive(corners.get("radius_nominal"), "grip_corners.radius_nominal")
+    low, high = radius
+    if not 0 < low <= nominal <= high:
+        raise CadError("grip_corners: expected 0 < radius min <= nominal <= max")
+    # The printed nominal, not the band midpoint, and the band's own limits.
+    values["corner_radius_in"] = nominal / 25.4
+    values["corner_radius_min_in"] = low / 25.4
+    values["corner_radius_max_in"] = high / 25.4
+    values["corner_radius_band_mm"] = [low, high]
     _blank_mm(values, parameters)
     # The hand sheet gives the vise overhang in inches; vise_hold reads mm.
     if "overhang_in" in parameters:
