@@ -9,10 +9,10 @@ from prechips.traveler import LoadedPlan
 from prechips.turning import (
     TurningError,
     _bending_factor,
-    _feed_factor,
     _follower_factor,
-    _load_config,
     check_turning_deflection,
+    load_config,
+    table_factor,
 )
 
 
@@ -199,14 +199,18 @@ def test_force_units_radial_ratio_and_existing_minimum_section(tmp_path):
 
 
 def test_full_feed_table_interpolates_and_refuses_extrapolation():
-    pairs = _load_config(None)["force"]["feed_factors"]
+    pairs = load_config(None)["force"]["feed_factors"]
+
+    def factor(feed):
+        return table_factor(feed, pairs, "feed", "in/rev", "feed-factor")
+
     # Values missing from the initial sparse source summary matter to results.
-    assert _feed_factor(0.003, pairs) == pytest.approx(1.30)
-    assert _feed_factor(0.017, pairs) == pytest.approx(0.93)
-    assert _feed_factor(0.060, pairs) == pytest.approx(0.72)
+    assert factor(0.003) == pytest.approx(1.30)
+    assert factor(0.017) == pytest.approx(0.93)
+    assert factor(0.060) == pytest.approx(0.72)
     for feed in (0.0009, 0.0601):
         with pytest.raises(TurningError, match="no extrapolation"):
-            _feed_factor(feed, pairs)
+            factor(feed)
 
 
 def test_partial_config_and_new_material(tmp_path):
@@ -217,12 +221,13 @@ def test_partial_config_and_new_material(tmp_path):
         "elastic_modulus_gpa=100\nunit_power_hp_min_per_in3=0.4\n",
         encoding="utf-8",
     )
-    config = _load_config(path)
+    config = load_config(path)
     assert config["limits"]["finish_mm"] == 0.02
     assert config["limits"]["rough_mm"] == 0.1
     assert config["materials"]["steel_1018"] == {
         "elastic_modulus_gpa": 210,
         "unit_power_hp_min_per_in3": 0.78,
+        "drill_kd": 24000.0,
     }
     plan = _plan()
     plan.data["turning_material"] = "custom"

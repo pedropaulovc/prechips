@@ -22,6 +22,28 @@ if TYPE_CHECKING:
 DEFAULT_CONFIG = Path(__file__).with_name("turning.toml")
 _DISABLE = "Explicit opt-out: --disable-check turning_deflection."
 _MATERIAL_KEYS = {"unit_power_hp_min_per_in3", "elastic_modulus_gpa"}
+# Only drilling and plunging read a material's handbook thrust factor.
+_OPTIONAL_MATERIAL_KEYS = {"drill_kd"}
+_SECTIONS = {
+    "limits": {"rough_mm", "finish_mm"},
+    "force": {"radial_ratio", "rough_wear", "finish_wear", "feed_factors"},
+    "milling": {
+        "rough_mm",
+        "finish_mm",
+        "radial_ratio",
+        "axial_ratio",
+        "wear",
+        "face_wear",
+    },
+    "drilling": {
+        "wear",
+        "chisel_thrust_b",
+        "chisel_thrust_j",
+        "feed_factors",
+        "diameter_factors",
+    },
+}
+_FACTOR_TABLES = {"feed_factors", "diameter_factors"}
 
 
 class TurningError(ValueError):
@@ -69,11 +91,29 @@ def _read_config(path: Path) -> dict:
         raise TurningError(f"turning config {path}: {error}") from error
 
 
-def _load_config(path: Path | None) -> dict:
+def _factor_pairs(pairs: object, where: str) -> list[list[float]]:
+    if not isinstance(pairs, list) or len(pairs) < 2:
+        raise TurningError(f"{where}: expected at least two [value, factor] pairs")
+    previous = 0.0
+    result = []
+    for index, pair in enumerate(pairs):
+        pair_where = f"{where}[{index + 1}]"
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise TurningError(f"{pair_where}: expected [value, factor]")
+        value, factor = (_positive(item, pair_where) for item in pair)
+        if value <= previous:
+            raise TurningError(f"{pair_where}: values must be strictly ascending")
+        previous = value
+        result.append([value, factor])
+    return result
+
+
+def load_config(path: Path | None) -> dict:
+    """Packaged turning, milling and drilling data with a partial TOML override."""
     config = _read_config(DEFAULT_CONFIG)
     if path is not None:
         overrides = _read_config(path)
-        _keys(overrides, {"limits", "force", "materials"}, "turning config")
+        _keys(overrides, {*_SECTIONS, "materials"}, "turning config")
         for section, values in overrides.items():
             values = _table(values, f"turning config.{section}")
             if section == "materials":
@@ -82,31 +122,14 @@ def _load_config(path: Path | None) -> dict:
                     config[section].setdefault(name, {}).update(material)
             else:
                 config[section].update(values)
-    _keys(config, {"limits", "force", "materials"}, "turning config")
-    for section, keys in (
-        ("limits", {"rough_mm", "finish_mm"}),
-        ("force", {"radial_ratio", "rough_wear", "finish_wear", "feed_factors"}),
-    ):
+    _keys(config, {*_SECTIONS, "materials"}, "turning config")
+    for section, keys in _SECTIONS.items():
         table = _table(config.get(section), section)
         _keys(table, keys, section)
-        for key in keys - {"feed_factors"}:
+        for key in keys - _FACTOR_TABLES:
             table[key] = _positive(table.get(key), f"{section}.{key}")
-    force = config["force"]
-    pairs = force.get("feed_factors")
-    if not isinstance(pairs, list) or len(pairs) < 2:
-        raise TurningError(
-            "force.feed_factors: expected at least two [feed, factor] pairs"
-        )
-    previous = 0.0
-    for index, pair in enumerate(pairs):
-        where = f"force.feed_factors[{index + 1}]"
-        if not isinstance(pair, list) or len(pair) != 2:
-            raise TurningError(f"{where}: expected [feed in/rev, factor]")
-        feed, factor = (_positive(value, where) for value in pair)
-        if feed <= previous:
-            raise TurningError(f"{where}: feeds must be strictly ascending")
-        previous = feed
-        pairs[index] = [feed, factor]
+        for key in keys & _FACTOR_TABLES:
+            table[key] = _factor_pairs(table.get(key), f"{section}.{key}")
     materials = _table(config.get("materials"), "materials")
     if not materials:
         raise TurningError("materials: expected at least one material")
@@ -114,24 +137,31 @@ def _load_config(path: Path | None) -> dict:
         if not name.strip():
             raise TurningError("materials: material names must be nonempty")
         material = _table(material, f"materials.{name}")
-        _keys(material, _MATERIAL_KEYS, f"materials.{name}")
-        for key in _MATERIAL_KEYS:
+        _keys(
+            material,
+            _MATERIAL_KEYS | _OPTIONAL_MATERIAL_KEYS,
+            f"materials.{name}",
+        )
+        for key in _MATERIAL_KEYS | (_OPTIONAL_MATERIAL_KEYS & material.keys()):
             material[key] = _positive(material.get(key), f"materials.{name}.{key}")
     return config
 
 
-def _feed_factor(feed_in_rev: float, pairs: list[list[float]]) -> float:
-    if not pairs[0][0] <= feed_in_rev <= pairs[-1][0]:
+def table_factor(
+    value: float, pairs: list[list[float]], quantity: str, unit: str, table: str
+) -> float:
+    """Linear interpolation in an ascending [value, factor] table; no extrapolation."""
+    if not pairs[0][0] <= value <= pairs[-1][0]:
         raise TurningError(
-            f"feed {feed_in_rev:g} in/rev outside configured feed-factor table "
+            f"{quantity} {value:g} {unit} outside configured {table} table "
             f"[{pairs[0][0]:g}, {pairs[-1][0]:g}]; no extrapolation"
         )
     for (low, low_factor), (high, high_factor) in pairwise(pairs):
-        if feed_in_rev <= high:
+        if value <= high:
             return low_factor + (high_factor - low_factor) * (
-                (feed_in_rev - low) / (high - low)
+                (value - low) / (high - low)
             )
-    raise TurningError("feed-factor interpolation has no matching interval")
+    raise TurningError(f"{table} interpolation has no matching interval")
 
 
 def _pinned_factor(start: float, end: float, span: float) -> tuple[float, float]:
@@ -278,7 +308,9 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     traverse = _bending_factor(support, start_z, end_z, (start_z, end_z))
     feed = numbers["feed_mm_rev"] / 25.4
     force_config = config["force"]
-    feed_factor = _feed_factor(feed, force_config["feed_factors"])
+    feed_factor = table_factor(
+        feed, force_config["feed_factors"], "feed", "in/rev", "feed-factor"
+    )
     # Handbook cutting (tangential) force per mm of radial DOC, in newtons.
     tangential_per_doc = (
         396000
@@ -329,7 +361,7 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
 def check_turning_deflection(plan: LoadedPlan, config_path: Path | None = None) -> None:
     """Refuse missing declared coverage or excessive bending; emit nothing on pass."""
     try:
-        config = _load_config(config_path)
+        config = load_config(config_path)
         operation_number = 0
         for setup_index, setup in enumerate(plan.data["setups"], 1):
             where = f"setup {setup_index} ({setup.get('title', 'untitled')})"
