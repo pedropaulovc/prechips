@@ -417,10 +417,11 @@ resolution_mm = 0.005
 
 # Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
 # as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
-# saw-evolution-14, basebar-em-face and its setting, jig-em-half and its
-# setting, jig-spot and basebar-counterbore (the 5/16 in end mill). The seat
-# is the LMS 6784 set's 3/8 in end mill, plunged; TL-32's notch takes the
-# owner's 1/2 in end mill with 1 in of flute.
+# saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter),
+# jig-spot and basebar-counterbore (the 5/16 in end mill). The seat is the
+# LMS 6784 set's 3/8 in end mill, plunged; TL-32's notch takes the owner's
+# 1/2 in end mill with 1 in of flute, the part on edge so its end cuts the
+# lug face.
 [tools.block-drill-15]
 description = "#15 (.180 in) drill, 115-piece index"
 diameter_mm = 4.572
@@ -440,8 +441,16 @@ diameter_mm = 9.525
 description = "1/2 in centre-cutting end mill, flutes ≥1.00 in"
 diameter_mm = 12.7
 
+# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min in
+# the PM-30MV high belt range with the drills, so no belt change; 8 in/min /
+# (1800 × 2) = .0022 in/tooth, a chip that cuts rather than rubs in 6061.
 [settings.block-em-half-long-6061-t6511]
 tool = "block-em-half-long"
 material = "6061-t6511"
-rpm = 1250
-feed = "3 in/min"
+rpm = 1800
+feed = "8 in/min"
+[settings.block-em-half-6061-t6511]
+tool = "jig-em-half"
+material = "6061-t6511"
+rpm = 1800
+feed = "8 in/min"
