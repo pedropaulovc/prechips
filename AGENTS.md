@@ -1,6 +1,6 @@
 # Prechips prototype
 
-Prechips restarted at **v0.10**. The current milestone is **v0.11 oblique-jig parts and milling deflection** (package 0.11.0): the `milling_deflection` check and the remaining harmonic-analyzer trammel-jig parts. It remains a prototype until Pedro finds it useful, not a machining certification system.
+Prechips restarted at **v0.10**. The current milestone is **v0.11 oblique-jig parts and milling deflection** (package 0.11.1): the `milling_deflection` check and the remaining harmonic-analyzer trammel-jig parts. It remains a prototype until Pedro finds it useful, not a machining certification system.
 
 ## Scope and milestones
 
