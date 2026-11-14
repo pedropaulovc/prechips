@@ -201,7 +201,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     cut = near + length * s
     right = cut_arrived - over * s
     left = right - jaw * s
-    back = 70.0
+    back = 84.0
     front = back + 18
     groups = _groups(root)
     _title(
@@ -224,7 +224,10 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     _blank(groups, near, cut_arrived, near, cut, back, front)
     _datum(groups, near, back - 6, front + 6)
     _datum_label(groups, near + 4, back - 12, "X0 NEAR END", "start")
-    _cutter(groups, cut + radius, radius, front + radius + 26, back - 4, at_end=False)
+    # Conventional: with the spindle turning clockwise (seen from above) the
+    # teeth on the cutter's -X flank move toward the fixed jaw, so the cutter
+    # travels from the fixed-jaw side toward you (the table moves away).
+    _cutter(groups, cut + radius, radius, back - radius - 26, front + 4, at_end=False)
     _dimension(
         groups,
         near,
@@ -238,7 +241,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
         [
             (
                 cut + radius,
-                front + 2 * radius + 26,
+                front + 4,
                 [
                     "conventional: table away from you;",
                     "last pass X = {{cad.length_mm:.1f}} + D/2",
