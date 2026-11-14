@@ -26,7 +26,7 @@ uv run prechips traveler examples/carrier.toml --profile hobby --out out/carrier
 uv run prechips traveler examples/comparison/pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
-The base-bar, end-bracket and feed-lever examples declare their milling beams and cuts and pass `milling_deflection` enforced. The riser and leadscrew-kit examples do not declare them yet, so they render only with `--disable-check milling_deflection` (see [Milling deflection](#milling-deflection)).
+The base-bar, end-bracket, feed-lever, riser and carrier examples declare their milling beams and cuts and pass `milling_deflection` enforced. The leadscrew-kit example does not declare them yet, so it renders only with `--disable-check milling_deflection` (see [Milling deflection](#milling-deflection)).
 
 Open the HTML in a browser. Print on Letter paper at 100% scale with browser headers and footers off. Files are standalone; hobby embeds its diagrams, so they need no server, internet connection or adjacent image files.
 The output must be a different file from the input plan and every active input, including filesystem aliases and active turning configuration files.
