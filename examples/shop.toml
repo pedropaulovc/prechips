@@ -337,3 +337,34 @@ description = "12 mm jobber drill"
 diameter_mm = 12.0
 [tools.riser-countersink]
 description = "3/8 in 82° countersink"
+
+# Source: harmonic-analyzer cad/process/shop.toml (leadscrew-kit.toml,
+# MHA-CH-06-TL-VN-84 v49), as written there; ownership notes refer to that
+# repository's shop-equipment.toml. The AR holder is the A R Warner LMS 4132
+# set's (TCMT insert, R0.4 nose); it faces the kit nut.
+[tools.lathe-ar]
+description = "A R Warner AR carbide turning holder, TCMT insert, R0.4 nose (LMS 4132)"
+
+# Kit tools: a hand hacksaw (not owned, cad/config/shop-equipment.toml
+# tools.kit-hacksaw), the 1/2 in end mill (jig-em-half) for the cut end, the 5/16 in
+# end mill (basebar-counterbore) for the flats, and an 82° countersink no
+# larger than the 3/16 in cutter the sheet allows (not owned,
+# tools.kit-countersink-82).
+[tools.kit-hacksaw]
+description = "Hacksaw, 12 in 32 TPI bi-metal blade"
+[tools.kit-countersink-82]
+description = "82° countersink, 3/16 in body, in a T-handle"
+diameter_mm = 4.7625
+
+# SUS304 screw, LittleMachineShop "Cutting Speeds" table (read live
+# 2026-11-13), row Stainless steel 304: milling 70 ft/min (low end). Hand feed.
+[settings.kit-em-half-sus304]
+tool = "jig-em-half"
+material = "sus304"
+sfm = 70
+feed = "Hand, light: .2 mm a pass (authored; no sourced feed)"
+[settings.kit-flat-sus304]
+tool = "basebar-counterbore"
+material = "sus304"
+sfm = 70
+feed = "Hand, light (authored; no sourced feed)"
