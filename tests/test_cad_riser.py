@@ -10,8 +10,6 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/riser-v49.toml"
 PLAN = ROOT / "examples/riser.toml"
-# The example declares no milling beams or cuts yet.
-NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 with PLAN.open("rb") as _plan:
     PARAMETERS = tomllib.load(_plan)["parameters"]
 
@@ -21,8 +19,8 @@ def test_pro_and_hobby_render_with_every_check_enforced(tmp_path):
     hobby = tmp_path / "riser-hobby.html"
     pro_command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(pro)]
     hobby_command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(hobby)]
-    assert main([*pro_command, *NO_MILLING_DATA]) == 0
-    assert main([*hobby_command, *NO_MILLING_DATA]) == 0
+    assert main(pro_command) == 0
+    assert main(hobby_command) == 0
     assert "MHA-CH-06-TL-24" in pro.read_text(encoding="utf-8")
     html = hobby.read_text(encoding="utf-8")
     assert html.count('class="setup-diagram"') == 5
@@ -73,3 +71,15 @@ def test_refuses_holds_that_cannot_reach_a_hole():
         load_riser(SOURCE, {**PARAMETERS, "vise_jaw_width_mm": 60.0})
     with pytest.raises(CadError, match="P1 is not clear of the jaw side"):
         load_riser(SOURCE, {**PARAMETERS, "overhang_in": 0.5})
+
+
+def test_adapter_binds_the_deflection_stations():
+    values = load_riser(SOURCE, PARAMETERS).values
+    jaw = PARAMETERS["vise_jaw_width_mm"]
+    over = PARAMETERS["overhang_in"] * 25.4
+    assert values["edges_jaw_mm"][1] - values["edges_jaw_mm"][0] == pytest.approx(jaw)
+    assert values["ends_hold1_jaw_mm"] == pytest.approx([over, over + jaw])
+    assert values["ends_hold2_jaw_mm"][1] == pytest.approx(350.52 - over)
+    assert values["parallel_gap_mm"] == pytest.approx([3.175, 42.926 - 3.175])
+    assert values["hub_y_mm"] == pytest.approx(1.27 * 25.4, abs=0.13)  # .XX REF
+    assert len(values["screw_y_mm"]) == 4 and len(values["clamp_y_mm"]) == 2

@@ -82,18 +82,27 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     toe = _param(parameters, "strap_toe_in")
     clear = _param(parameters, "strap_clear_in")
     overlap = _param(parameters, "face_overlap_in")
-    inboard = (
-        _param(parameters, "strap_b_left_x_in"),
-        _param(parameters, "strap_b_right_x_in"),
-    )
+    mid = _param(parameters, "strap_a_mid_x_in")
+    outer = _param(parameters, "strap_b_outer_in")
+    inner = _param(parameters, "strap_b_inner_in")
     strap = _param(parameters, "strap_width_in")
     cutter = _param_in(parameters, "face_cutter_dia_mm")
+    # Stage A faces two spans between the end toes and the middle strap; Stage
+    # B faces both ends and the strip under the middle strap, each overlapping
+    # Stage A, from four straps on Stage A's faced metal.
     a0, a1 = toe + clear, blank - toe - clear
-    b0, b1 = a0 + overlap, a1 - overlap
-    if not (
-        b0 + clear < inboard[0] - strap / 2 and inboard[1] + strap / 2 < b1 - clear
-    ):
-        raise CadError("process.strap_b_*_x_in: an inboard strap sits in an end cut")
+    m0, m1 = mid - strap / 2 - clear, mid + strap / 2 + clear
+    if not a0 < m0 < m1 < a1:
+        raise CadError("process.strap_a_mid_x_in: the middle strap leaves no span")
+    b_cuts = ((0.0, a0 + overlap), (m0 - overlap, m1 + overlap), (a1 - overlap, blank))
+    b_straps = (outer, inner, blank - inner, blank - outer)
+    for x in b_straps:
+        lo, hi = x - strap / 2 - clear, x + strap / 2 + clear
+        on_a = a0 <= lo and hi <= m0 or m1 <= lo and hi <= a1
+        if not on_a or any(c0 < hi and lo < c1 for c0, c1 in b_cuts):
+            raise CadError(
+                "process.strap_b_*_in: a Stage B strap is off faced metal or in a cut"
+            )
     x0 = 60.0
     s = min(44.0, 600 / blank)
     h = width * s
@@ -108,11 +117,16 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         groups["removed"].append(_rect(x, top, w, h))
         groups["active"].append(_rect(x, top, w, h, fill="none"))
 
-    _title(groups, 20, 22, "A  Straps on both ends: face the middle")
+    _title(groups, 20, 22, "A  Straps on both ends and mid-length: face both spans")
     top = 44.0
     bottom = bar(top)
-    faced(top, a0, a1)
-    for start, end in ((0.0, toe), (blank - toe, blank)):
+    faced(top, a0, m0)
+    faced(top, m1, a1)
+    for start, end in (
+        (0.0, toe),
+        (mid - strap / 2, mid + strap / 2),
+        (blank - toe, blank),
+    ):
         _strap(groups, x0 + start * s, x0 + end * s, top, bottom)
     r = cutter / 2 * s
     cx = x0 + (a0 + cutter / 2) * s
@@ -123,6 +137,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         [
             (x0 + toe / 2 * s, bottom + 8, ["strap"]),
             (cx, top + 2 * r, ["3/4 end mill, +X"]),
+            (x0 + mid * s, bottom + 8, ["strap"]),
             (x0 + a1 * s, bottom, [f"cutter edge ≥{_inch(clear, 1)} off each toe"]),
         ],
         bottom + 10,
@@ -135,20 +150,21 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         groups,
         20,
         top - 14,
-        "B  Straps inboard on faced metal, end straps off: face both ends",
+        "B  Four straps on faced metal, A straps off: face the ends and the middle",
     )
     bottom = bar(top)
-    groups["kept"].append(_rect(x0 + b0 * s, top, (b1 - b0) * s, h))
-    faced(top, 0.0, b0)
-    faced(top, b1, blank)
-    for x in inboard:
+    groups["kept"].append(_rect(x0, top, blank * s, h))
+    for c0, c1 in b_cuts:
+        faced(top, c0, c1)
+    for x in b_straps:
         _strap(groups, x0 + (x - strap / 2) * s, x0 + (x + strap / 2) * s, top, bottom)
     end_y = _callouts(
         groups,
         [
-            (x0 + b0 / 2 * s, bottom, [f"overlaps A ≥{_inch(overlap, 2)}"]),
-            (x0 + inboard[0] * s, bottom + 8, ["strap"]),
-            (x0 + inboard[1] * s, bottom + 8, ["strap"]),
+            (x0 + b_cuts[0][1] / 2 * s, bottom, [f"overlaps A ≥{_inch(overlap, 2)}"]),
+            (x0 + b_straps[0] * s, bottom + 8, ["strap"]),
+            (x0 + mid * s, bottom, ["under the old middle strap"]),
+            (x0 + b_straps[3] * s, bottom + 8, ["strap"]),
         ],
         bottom + 10,
         above=False,
@@ -239,7 +255,7 @@ def _edges(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (fixed - jaw_w, jaw_top + 30, ["fixed jaw:", "as-bought face"]),
             (fixed + parallel_t * s / 2, seat + 24, ["1 in parallel"]),
             (moving + 4, top_k + 6, ["→ ZERO EDGE"]),
-            (moving + jaw_w, jaw_top + 30, ["moving jaw:", "faced top"]),
+            (moving + jaw_w, jaw_top + 30, ["moving jaw:", "top face"]),
         ],
         seat + 70,
         above=False,
@@ -335,7 +351,11 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     end_y = _callouts(
         groups,
         [
-            (x0 - radius, front + 2 * radius + 4, ["end mill,", "feed toward you"]),
+            (
+                x0 - radius,
+                front + 2 * radius + 4,
+                ["end mill, conventional:", "table toward you"],
+            ),
             (
                 x0 + p1[1] * s,
                 back + p1[2] * s,
@@ -379,7 +399,11 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
                 back + p2[2] * s,
                 [f"P2 through: X {_inch(p2[1], 2)}, Y {_inch(p2[2], 2)}"],
             ),
-            (finish + radius, front + 2 * radius + 4, ["feed away, last X = L + D/2"]),
+            (
+                finish + radius,
+                front + 2 * radius + 4,
+                ["conventional: table away,", "last X = {{cad.length_in:.3f}} + D/2"],
+            ),
         ],
         dim_y + 6,
         above=False,
