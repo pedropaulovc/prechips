@@ -43,6 +43,8 @@ def test_flat_crossings_and_nut_bands():
     assert values["csk_cutter_band_mm"] == [4.76, 4.7625]
     assert values["saw_piece_mm"] == pytest.approx(419.5 + 3.0)
     assert values["saw_rule_step_mm"] == pytest.approx(419.5 + 3.0 - 304.8)
+    assert values["saw_rule_step_in"] == "4 5/8"
+    assert values["saw_rule_step_rounded_mm"] == pytest.approx(117.475)
     assert values["vise_jaw_right_mm"] == pytest.approx(422.5 - 10.0)
     assert values["vise_jaw_left_mm"] == pytest.approx(412.5 - 158.6738)
     assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(419.5 - 385.016 - 8.0)
@@ -95,3 +97,13 @@ def test_index_tolerance_is_the_nearer_clock_limit():
 def test_process_clearances_refused(key, value, message):
     with pytest.raises(CadError, match=message):
         load_leadscrew_kit(SOURCE, {**PARAMETERS, key: value})
+
+
+@pytest.mark.parametrize(
+    ("allowance", "lay"), [(3.0 - 0.8 * 25.4 / 16, "4 9/16"), (3.0 + 9.3, "5")]
+)
+def test_saw_lay_fractions(allowance, lay):
+    values = load_leadscrew_kit(
+        SOURCE, {**PARAMETERS, "saw_allowance_mm": allowance, "cut_overhang_mm": 20.0}
+    ).values
+    assert values["saw_rule_step_in"] == lay

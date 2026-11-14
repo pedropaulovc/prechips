@@ -261,6 +261,16 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["saw_rule_step_mm"] = values["saw_piece_mm"] - rule
     if not 0 < values["saw_rule_step_mm"] <= rule:
         raise CadError("process.rule_mm: two steps of the rule must reach the mark")
+    # The owned rule is inch-graduated: print the second lay to the nearest
+    # 1/16 in (always within 0.8 mm of the mark) and its metric equivalent.
+    sixteenths = round(values["saw_rule_step_mm"] / 25.4 * 16)
+    whole, rest = divmod(sixteenths, 16)
+    step = math.gcd(rest, 16) if rest else 16
+    fraction = f"{rest // step}/{16 // step}" if rest else ""
+    values["saw_rule_step_in"] = " ".join(
+        part for part in (str(whole) if whole else "", fraction) if part
+    )
+    values["saw_rule_step_rounded_mm"] = sixteenths / 16 * 25.4
     # Cut end to length: vise jaw span along the screw from the NEAR END, the
     # sawn end the overhang past the right jaw side (milling_deflection beam).
     overhang = _positive(parameters.get("cut_overhang_mm"), "process.cut_overhang_mm")

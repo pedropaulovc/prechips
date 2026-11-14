@@ -56,8 +56,8 @@ def _chuck(
     """Schematic 3-jaw: jaws on ``radius`` ending at ``face``, body behind.
 
     ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (the
-    BS-0 4-jaw at 1, 4, 7 and 10 o'clock, 2, 5, 8 and 11 after a 120° index:
-    none on top where the cutter works, so only a lower jaw is drawn).
+    BS-0's 5 in 3-jaw at 2, 6 and 10 o'clock, where a 120° index returns
+    them: none on top where the cutter works, so only the lower jaw shows).
     """
     if jaws not in ("top_bottom", "clocked"):
         raise CadError(f"chuck jaws: unknown clocking {jaws!r}")
@@ -284,7 +284,7 @@ def _kit_flats(
         else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
     _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
-    _chuck(groups, jaw_face, axis, r, 40, "4-jaw, clocked", jaws="clocked")
+    _chuck(groups, jaw_face, axis, r, 40, "3-jaw, clocked", jaws="clocked")
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
 
