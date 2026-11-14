@@ -47,8 +47,8 @@ speed_kind = "spindle"
 tool = "em"
 instruction = "Square both ends."
 milling_cuts = [
-  {{ name = "left end", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = {thickness}, radial_woc_mm = 0.508, rpm = 1250, feed_mm_min = 152.4, stations_mm = 0, bending = ["y", "z"] }},
-  {{ name = "right end", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = {thickness}, radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, stations_mm = 442.9125, bending = ["y", "z"] }},
+  {{ name = "left end", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = {thickness}, radial_woc_mm = 0.508, rpm = 1250, feed_mm_min = 152.4, stations_mm = 0 }},
+  {{ name = "right end", kind = "side", phase = "finish", material = "aluminum_6061", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = {thickness}, radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, stations_mm = 442.9125 }},
 ]
 """
 STRAPS = (
@@ -177,7 +177,6 @@ SETUP = {
                     "rpm": 1250,
                     "feed_mm_min": 152.4,
                     "stations_mm": 0,
-                    "bending": ["y", "z"],
                 }
             ],
         }
@@ -203,7 +202,6 @@ def test_thrust_on_a_seat_or_along_an_upright_beam_passes():
             "flutes": 2,
             "feed_per_tooth_mm": 0.05,
             "stations_mm": 60,
-            "bending": "z",
         }
     ]
     # Drilled on a parallel under the hole.
@@ -223,6 +221,11 @@ def test_thrust_on_a_seat_or_along_an_upright_beam_passes():
         "clamp_mm": [0, 20],
         "section_mm": {"x": 25.4, "y": 12.7},
     }
+    _check(setup)
+    # Upright, the thrust is never computed: no drill_kd or table range needed.
+    setup["operations"][0]["milling_cuts"][0].update(
+        material="bronze", cutter_dia_mm=1.0
+    )
     _check(setup)
 
 
@@ -286,6 +289,11 @@ def _both(setup):
     setup["operations"][0]["milling_cuts"][0]["traverse_mm"] = [0, 10]
 
 
+def _bending(setup):
+    # Loaded axes are derived; a declaration could drop the governing one.
+    setup["operations"][0]["milling_cuts"][0]["bending"] = "y"
+
+
 @pytest.mark.parametrize(
     ("change", "message"),
     [
@@ -294,9 +302,10 @@ def _both(setup):
         (_overflow, "numerical range exceeded"),
         (_lathe, "lathe setups take no beam or milling_cuts"),
         (_other, 'beam "other" is only for setups that cut nothing'),
-        (_solid_side, "a solid seat resists only a downward push along z"),
+        (_solid_side, "a solid seat resists only the downward push of a drill"),
         (_huge, "beam.extent_mm: expected a finite number"),
         (_both, "declare stations_mm (points) or traverse_mm"),
+        (_bending, "unknown field(s): bending"),
     ],
 )
 def test_contradictory_or_out_of_range_declarations_refuse(change, message):

@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(Path(args.profile))
         # Turning and milling read the same packaged/override coefficient file.
         if "turning_deflection" in profile.enforce or any(
-            checks.CHECKS[name].reads_turning_config
+            checks.CHECKS[name].config == "turning"
             for name in profile.enforce & checks.CHECKS.keys()
         ):
             inputs.append(DEFAULT_CONFIG)

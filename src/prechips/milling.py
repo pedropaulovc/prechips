@@ -53,7 +53,6 @@ _CUT_KEYS = {
     "feed_mm_min",
     "stations_mm",
     "traverse_mm",
-    "bending",
     "max_deflection_mm",
 }
 
@@ -212,28 +211,15 @@ def _beam(value: object, where: str) -> dict:
     return beam
 
 
-def _bending(value: object, beam: dict, kind: str, where: str) -> list[str]:
-    axes = [value] if isinstance(value, str) else value
-    if (
-        not isinstance(axes, list)
-        or not axes
-        or any(axis not in _AXES for axis in axes)
-        or len(set(axes)) != len(axes)
-    ):
-        raise CheckError(f"{where}: expected x, y or z, or an array of them")
-    if kind in _THRUST:
-        if axes != [_SPINDLE]:
-            raise CheckError(
-                f"{where}: {kind} cuts load the beam along the spindle (z)"
-            )
-        # On a beam along z (a part upright, drilled on its end) the thrust
-        # compresses the part instead of bending it; _check_cut allows that.
-        return axes
-    if beam["axis"] in axes:
-        raise CheckError(
-            f"{where}: {beam['axis']} is along the beam; bending is across it"
-        )
-    return axes
+def _axes(beam: dict, kind: str) -> list[str]:
+    """Every axis across the beam that the cut loads; none for thrust along it.
+
+    A milling cut always loads both: the cross-spindle resultant in each
+    horizontal axis and helix lift or end-tooth push along z. Drill and plunge
+    thrust is along z, which compresses a beam along z instead of bending it.
+    """
+    loaded = [_SPINDLE] if kind in _THRUST else list(_AXES)
+    return [axis for axis in loaded if axis != beam["axis"]]
 
 
 def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float:
@@ -254,20 +240,33 @@ def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float
     return _positive(cut["feed_mm_min"], f"{where}.feed_mm_min") / (rpm * flutes)
 
 
-def _forces(
-    cut: dict, kind: str, material: dict, config: dict, op_rpm: object, where: str
-) -> dict:
-    """Force (N) and its description for each bending direction class."""
+def _cutter(
+    cut: dict, kind: str, op_rpm: object, where: str
+) -> tuple[float, int, float]:
+    """Cutter diameter, flutes and feed per tooth, validated for every cut."""
     diameter = _positive(cut["cutter_dia_mm"], f"{where}.cutter_dia_mm")
     flutes = cut["flutes"]
     if type(flutes) is not int or flutes < 1:
         raise CheckError(f"{where}.flutes: expected a positive integer")
     feed = _feed_per_tooth(cut, flutes, op_rpm, where)
+    if kind in _THRUST and {"axial_doc_mm", "radial_woc_mm"} & cut.keys():
+        raise CheckError(
+            f"{where}: {kind} thrust takes no axial_doc_mm or radial_woc_mm"
+        )
+    return diameter, flutes, feed
+
+
+def _forces(
+    cut: dict,
+    kind: str,
+    material: dict,
+    config: dict,
+    cutter: tuple[float, int, float],
+    where: str,
+) -> dict:
+    """Force (N) and its description for each bending direction class."""
+    diameter, flutes, feed = cutter
     if kind in _THRUST:
-        if {"axial_doc_mm", "radial_woc_mm"} & cut.keys():
-            raise CheckError(
-                f"{where}: {kind} thrust takes no axial_doc_mm or radial_woc_mm"
-            )
         if "drill_kd" not in material:
             raise CheckError(f"{where}: material {cut['material']!r} has no drill_kd")
         drilling = config["drilling"]
@@ -412,7 +411,6 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
         "material",
         "cutter_dia_mm",
         "flutes",
-        "bending",
     }
     _fields(cut, required, _CUT_KEYS, where)
     kind = cut["kind"]
@@ -427,25 +425,26 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
         raise CheckError(
             f"{where}.material: {name!r} must select a configured material"
         )
-    axes = _bending(cut["bending"], beam, kind, f"{where}.bending")
+    axes = _axes(beam, kind)
+    # A seat only takes a downward push; every milling cut also loads it
+    # across the spindle, and side and slot cuts lift.
+    if beam["hold"] == "solid" and kind not in _THRUST:
+        raise CheckError(
+            f"{where}: a solid seat resists only the downward push of a drill or "
+            f"plunge, not a {kind} cut's cross-spindle force or lift; declare a "
+            "cantilever or between beam for this cut"
+        )
     stations = _stations(cut, beam, where)
     limit = config["milling"][f"{phase}_mm"]
     if "max_deflection_mm" in cut:
         limit = min(
             limit, _positive(cut["max_deflection_mm"], f"{where}.max_deflection_mm")
         )
-    forces = _forces(cut, kind, material, config, op_rpm, where)
-    if axes == [beam["axis"]]:
-        # Only thrust reaches here: along the beam it compresses, not bends.
+    cutter = _cutter(cut, kind, op_rpm, where)
+    if not axes:
+        # Thrust along an upright beam compresses it; no force is needed.
         return
-    # A seat only takes a downward push: drill or plunge thrust, or the
-    # end-tooth push of end and face cuts.
-    if beam["hold"] == "solid" and (axes != [_SPINDLE] or kind in ("side", "slot")):
-        raise CheckError(
-            f"{where}: a solid seat resists only a downward push along z, not "
-            "cross-spindle force or helix lift; declare a cantilever or "
-            "between beam for this cut"
-        )
+    forces = _forces(cut, kind, material, config, cutter, where)
     modulus = material["elastic_modulus_gpa"] * 1000
     worst = None
     for axis in axes:
