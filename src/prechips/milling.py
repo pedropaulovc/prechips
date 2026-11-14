@@ -52,6 +52,7 @@ _CUT_KEYS = {
     "rpm",
     "feed_mm_min",
     "stations_mm",
+    "traverse_mm",
     "bending",
     "max_deflection_mm",
 }
@@ -126,9 +127,15 @@ def drill_thrust_n(
 
 
 def _number(value: object, where: str) -> float:
-    if type(value) not in (int, float) or not math.isfinite(value):
+    if type(value) not in (int, float):
         raise CheckError(f"{where}: expected a finite number")
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError:  # TOML integers are unbounded
+        number = math.inf
+    if not math.isfinite(number):
+        raise CheckError(f"{where}: expected a finite number")
+    return number
 
 
 def _positive(value: object, where: str) -> float:
@@ -360,6 +367,43 @@ def _deflection(beam: dict, station: float, force: float, rigidity: float):
     return pinned_mm(force, a, b, rigidity), text
 
 
+def _stations(cut: dict, beam: dict, where: str) -> list[float]:
+    """Evaluation points: declared stations, or a traverse's worst candidates.
+
+    Along a traverse, cantilever and overhang bending grow toward its ends and
+    pinned-span bending peaks at mid-span, so its ends and any mid-span point
+    inside it bound the whole pass.
+    """
+    declared = {"stations_mm", "traverse_mm"} & cut.keys()
+    if len(declared) != 1:
+        raise CheckError(
+            f"{where}: declare stations_mm (points) or traverse_mm ([start, end] "
+            "travel along the beam), exactly one"
+        )
+    if "traverse_mm" in cut:
+        start, end = _span(cut["traverse_mm"], f"{where}.traverse_mm")
+        stations = [start, end]
+        middle = sum(beam["stations"]) / 2
+        if beam["hold"] == "between" and start < middle < end:
+            stations.append(middle)
+        key = "traverse_mm"
+    else:
+        stations = cut["stations_mm"]
+        stations = stations if isinstance(stations, list) else [stations]
+        if not stations:
+            raise CheckError(f"{where}.stations_mm: expected at least one station")
+        key = "stations_mm"
+        stations = [_number(station, f"{where}.{key}") for station in stations]
+    extent = beam["extent"]
+    for station in stations:
+        if not extent[0] <= station <= extent[1]:
+            raise CheckError(
+                f"{where}.{key}: {station:g} mm lies off the part "
+                f"{extent[0]:g}..{extent[1]:g} mm"
+            )
+    return stations
+
+
 def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) -> None:
     required = {
         "name",
@@ -368,7 +412,6 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
         "material",
         "cutter_dia_mm",
         "flutes",
-        "stations_mm",
         "bending",
     }
     _fields(cut, required, _CUT_KEYS, where)
@@ -385,18 +428,7 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
             f"{where}.material: {name!r} must select a configured material"
         )
     axes = _bending(cut["bending"], beam, kind, f"{where}.bending")
-    stations = cut["stations_mm"]
-    stations = stations if isinstance(stations, list) else [stations]
-    if not stations:
-        raise CheckError(f"{where}.stations_mm: expected at least one station")
-    stations = [_number(station, f"{where}.stations_mm") for station in stations]
-    extent = beam["extent"]
-    for station in stations:
-        if not extent[0] <= station <= extent[1]:
-            raise CheckError(
-                f"{where}.stations_mm: {station:g} mm lies off the part "
-                f"{extent[0]:g}..{extent[1]:g} mm"
-            )
+    stations = _stations(cut, beam, where)
     limit = config["milling"][f"{phase}_mm"]
     if "max_deflection_mm" in cut:
         limit = min(
@@ -406,6 +438,14 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
     if axes == [beam["axis"]]:
         # Only thrust reaches here: along the beam it compresses, not bends.
         return
+    # A seat only takes a downward push: drill or plunge thrust, or the
+    # end-tooth push of end and face cuts.
+    if beam["hold"] == "solid" and (axes != [_SPINDLE] or kind in ("side", "slot")):
+        raise CheckError(
+            f"{where}: a solid seat resists only a downward push along z, not "
+            "cross-spindle force or helix lift; declare a cantilever or "
+            "between beam for this cut"
+        )
     modulus = material["elastic_modulus_gpa"] * 1000
     worst = None
     for axis in axes:

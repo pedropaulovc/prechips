@@ -189,17 +189,10 @@ def _check(setup: dict) -> None:
     milling.check(SimpleNamespace(data={"setups": [setup]}))
 
 
-def test_thrust_along_an_upright_beam_compresses_it():
+def test_thrust_on_a_seat_or_along_an_upright_beam_passes():
     setup = copy.deepcopy(SETUP)
     _check(setup)
-    # A part on end in the vise, drilled #29 into its top end.
-    setup["beam"] = {
-        "axis": "z",
-        "hold": "cantilever",
-        "extent_mm": [0, 60],
-        "clamp_mm": [0, 20],
-        "section_mm": {"x": 25.4, "y": 12.7},
-    }
+    del setup["operations"][0]["rpm"]
     setup["operations"][0]["milling_cuts"] = [
         {
             "name": "end hole",
@@ -213,8 +206,42 @@ def test_thrust_along_an_upright_beam_compresses_it():
             "bending": "z",
         }
     ]
-    del setup["operations"][0]["rpm"]
+    # Drilled on a parallel under the hole.
+    setup["beam"] = {
+        "axis": "x",
+        "hold": "solid",
+        "extent_mm": [0, 442.9125],
+        "seat": "parallel under the hole",
+        "seat_mm": [50, 70],
+    }
     _check(setup)
+    # A part on end in the vise, drilled #29 into its top end.
+    setup["beam"] = {
+        "axis": "z",
+        "hold": "cantilever",
+        "extent_mm": [0, 60],
+        "clamp_mm": [0, 20],
+        "section_mm": {"x": 25.4, "y": 12.7},
+    }
+    _check(setup)
+
+
+def test_a_traverse_is_judged_at_its_worst_point():
+    setup = copy.deepcopy(SETUP)
+    setup["beam"].update(clamp_mm=221.45625, section_mm={"y": 139.7, "z": 12.7})
+    cut = setup["operations"][0]["milling_cuts"][0]
+    cut.update(name="long edge", axial_doc_mm=12.7, stations_mm=221.45625)
+    # One station under the mid-length straps reads 0 mm.
+    _check(setup)
+    del cut["stations_mm"]
+    cut["traverse_mm"] = [0, 442.9125]
+    with pytest.raises(CheckError, match=r"cantilever 221\.456 mm"):
+        _check(setup)
+    del setup["beam"]["clamp_mm"]
+    setup["beam"].update(hold="between", supports_mm=[0, 400])
+    cut.update(traverse_mm=[50, 350], max_deflection_mm=0.01)
+    with pytest.raises(CheckError, match="at station 200 mm, pinned span 400 mm"):
+        _check(setup)
 
 
 def _rpm(setup):
@@ -241,6 +268,24 @@ def _other(setup):
     setup["beam"] = "other"
 
 
+def _solid_side(setup):
+    setup["beam"] = {
+        "axis": "x",
+        "hold": "solid",
+        "extent_mm": [0, 442.9125],
+        "seat": "table",
+        "seat_mm": [0, 442.9125],
+    }
+
+
+def _huge(setup):
+    setup["beam"]["extent_mm"] = [0, 10**400]
+
+
+def _both(setup):
+    setup["operations"][0]["milling_cuts"][0]["traverse_mm"] = [0, 10]
+
+
 @pytest.mark.parametrize(
     ("change", "message"),
     [
@@ -249,6 +294,9 @@ def _other(setup):
         (_overflow, "numerical range exceeded"),
         (_lathe, "lathe setups take no beam or milling_cuts"),
         (_other, 'beam "other" is only for setups that cut nothing'),
+        (_solid_side, "a solid seat resists only a downward push along z"),
+        (_huge, "beam.extent_mm: expected a finite number"),
+        (_both, "declare stations_mm (points) or traverse_mm"),
     ],
 )
 def test_contradictory_or_out_of_range_declarations_refuse(change, message):
