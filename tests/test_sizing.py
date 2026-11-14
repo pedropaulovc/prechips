@@ -110,7 +110,7 @@ def test_cli_base_bar_passes(tmp_path):
             "diameter_mm = 4.8006",
             "diameter_mm = 4.9784",
             (
-                "tool_sizing: setup 5 (Drill / tap / counterbore / slots), Op 100, "
+                "tool_sizing: setup 4 (Drill / tap / counterbore), Op 110, "
                 "sizing: tool 'bracket-drill' diameter 4.9784 mm is outside band "
                 "4.8006–4.9022 mm"
             ),
@@ -119,7 +119,7 @@ def test_cli_base_bar_passes(tmp_path):
             "diameter_mm = 3.4544",
             "diameter_mm = 3.5814",
             (
-                "tool_sizing: setup 5 (Drill / tap / counterbore / slots), Op 90, "
+                "tool_sizing: setup 4 (Drill / tap / counterbore), Op 90, "
                 "sizing: tool 'rail-drill' diameter 3.5814 mm does not match tap "
                 "'tap' tap drill 3.4544 mm"
             ),
@@ -130,7 +130,7 @@ def test_cli_base_bar_passes(tmp_path):
             "diameter_mm = 12.7",
             "diameter_mm = 12.0",
             (
-                "tool_sizing: setup 5 (Drill / tap / counterbore / slots), Op 130, "
+                "tool_sizing: setup 3 (Face, square ends, mill slots in vise), Op 60, "
                 "sizing: tool 'em-half' diameter 12 mm is outside band "
                 "12.446–12.954 mm"
             ),
