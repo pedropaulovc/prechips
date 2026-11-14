@@ -9,20 +9,25 @@ from prechips.cli import main
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/leadscrew-kit-v50.toml"
 PLAN = ROOT / "examples/leadscrew-kit.toml"
-# The example declares no milling beams or cuts yet.
-NO_MILLING_DATA = ["--disable-check", "milling_deflection"]
 PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
     "screw_stock_length_mm": 600.0,
     "saw_allowance_mm": 3.0,
+    "rule_mm": 304.8,
+    "cut_overhang_mm": 10.0,
+    "vise_jaw_width_mm": 158.6738,
+    "near_stickout_mm": 20.0,
+    "wheel_stickout_mm": 16.0,
+    "far_stickout_mm": 42.0,
+    "mandrel_stickout_mm": 8.0,
 }
 
 
 def test_both_profiles_render(tmp_path):
-    for profile, diagrams in (("pro", 0), ("hobby", 7)):
+    for profile, diagrams in (("pro", 0), ("hobby", 8)):
         out = tmp_path / f"{profile}.html"
         command = ["traveler", str(PLAN), "--profile", profile, "--out", str(out)]
-        assert main([*command, *NO_MILLING_DATA]) == 0
+        assert main(command) == 0
         html = out.read_text(encoding="utf-8")
         assert "MHA-CH-06-TL-VN-84" in html
         assert html.count('class="setup-diagram"') == diagrams
@@ -36,7 +41,11 @@ def test_flat_crossings_and_nut_bands():
     )
     assert values["clock_deg"] == 120
     assert values["csk_cutter_band_mm"] == [4.76, 4.7625]
-    assert values["saw_mark_from_far_mm"] == pytest.approx(600 - 419.5 - 3.0)
+    assert values["saw_piece_mm"] == pytest.approx(419.5 + 3.0)
+    assert values["saw_rule_step_mm"] == pytest.approx(419.5 + 3.0 - 304.8)
+    assert values["vise_jaw_right_mm"] == pytest.approx(422.5 - 10.0)
+    assert values["vise_jaw_left_mm"] == pytest.approx(412.5 - 158.6738)
+    assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(419.5 - 385.016 - 8.0)
 
 
 def test_refuses_a_cutter_too_small_to_open_the_handwheel_flat():
@@ -71,3 +80,18 @@ def test_index_tolerance_is_the_nearer_clock_limit():
     assert (values["clock_min_deg"], values["clock_max_deg"]) == (119.0, 121.0)
     assert values["clock_tolerance_deg"] == 1.0
     assert "open_flat" not in values
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("cut_overhang_mm", 3.0, "would reach the vise jaw"),
+        ("near_stickout_mm", 12.0, "would reach the chuck jaws"),
+        ("wheel_stickout_mm", 9.9, "would reach the chuck jaws"),
+        ("far_stickout_mm", 30.0, "would reach the chuck jaws"),
+        ("mandrel_stickout_mm", 13.2, "seat face"),
+    ],
+)
+def test_process_clearances_refused(key, value, message):
+    with pytest.raises(CadError, match=message):
+        load_leadscrew_kit(SOURCE, {**PARAMETERS, key: value})
