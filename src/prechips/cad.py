@@ -315,23 +315,18 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             )
         return sorted(result, key=lambda point: (point[0], -point[1]))
 
-    def reference_station(name: str, item: dict) -> float:
-        # Rail stations print REF; the actual trimmed rail transfers them.
-        return _positive(item.get("station_nominal"), f"{name}.station_nominal")
-
     def toleranced_station(name: str, item: dict) -> float:
         return _mid(_band(item, "station", name))
 
-    for name, item in rails:
-        if "station" in item.get("requirements", []):
-            raise CadError(f"{name}.station: expected a REF rail station")
-    rail_points = points(rails, reference_station)
+    # Rail holes are drilled at their printed stations (harmonic-analyzer
+    # owner ruling 2026-11-16); the untrimmed rail is fitted to them.
+    rail_points = points(rails, toleranced_station)
     bracket_points = points(brackets, toleranced_station)
     values["rail_points_in"] = rail_points
     values["bracket_points_in"] = bracket_points
     values["rail_x_in"] = [point[0] for point in rail_points]
     values["rail_x_mm"] = [point[0] * 25.4 for point in rail_points]
-    # The drawing prints hole 1's REF station and one REF pitch for the pattern.
+    # The drawing prints holes 1 and 8's stations and the pattern equally spaced.
     pitches = [b - a for a, b in zip(values["rail_x_mm"], values["rail_x_mm"][1:])]
     if not pitches or any(not math.isclose(p, pitches[0]) for p in pitches):
         raise CadError("cad.rail_pitch_mm: rail holes are not one regular pattern")
@@ -340,6 +335,17 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if len({point[1] for point in rail_points}) != 1:
         raise CadError("cad.rail_y_in: rail holes must share a drawing row")
     values["rail_y_in"] = rail_points[0][1]
+    # One station band for the whole pattern, in mm (the vendor line's unit);
+    # the first and last stations' limits feed the DRO's gauge checks.
+    rail_bands = sorted(_band(item, "station", name) for name, item in rails)
+    halfbands = [(high - low) / 2 for low, high in rail_bands]
+    if any(not math.isclose(band, halfbands[0]) for band in halfbands):
+        raise CadError("cad.rail_station_tol_mm: inconsistent rail station bands")
+    values["rail_station_tol_mm"] = halfbands[0]
+    # The inch DRO's tolerance, rounded down to 0.0001 in so it never loosens.
+    values["rail_station_tol_in"] = math.floor(halfbands[0] / 25.4 * 1e4 + 1e-9) / 1e4
+    values["rail_first_band_mm"] = list(rail_bands[0])
+    values["rail_last_band_mm"] = list(rail_bands[-1])
     for key, items, field in (
         ("rail_row_tol", rails, "height"),
         ("bracket_position_tol", brackets, "station"),
@@ -478,7 +484,7 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     values["hole_rows"] = [
         [
             f"Rail {values['rail_range']}",
-            "REF " + ", ".join(f"{point[0]:.4f}" for point in rail_points),
+            ", ".join(f"{point[0]:.4f}" for point in rail_points),
             f"{values['rail_y_in']:.4f}",
         ]
     ] + bracket_rows
