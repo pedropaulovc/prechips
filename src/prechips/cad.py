@@ -342,6 +342,8 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     if any(not math.isclose(band, halfbands[0]) for band in halfbands):
         raise CadError("cad.rail_station_tol_mm: inconsistent rail station bands")
     values["rail_station_tol_mm"] = halfbands[0]
+    # The inch DRO's tolerance, rounded down to 0.0001 in so it never loosens.
+    values["rail_station_tol_in"] = math.floor(halfbands[0] / 25.4 * 1e4 + 1e-9) / 1e4
     values["rail_first_band_mm"] = list(rail_bands[0])
     values["rail_last_band_mm"] = list(rail_bands[-1])
     for key, items, field in (

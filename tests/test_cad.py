@@ -91,6 +91,8 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     # Rail stations are drilled at the printed ±0.05 mm bands' centres.
     assert cad.values["rail_points_in"][0] == pytest.approx([9.964 / 25.4, -3.5])
     assert cad.values["rail_station_tol_mm"] == pytest.approx(0.05)
+    # 0.05 mm = 0.00197 in, rounded down so the DRO band never loosens.
+    assert cad.values["rail_station_tol_in"] == 0.0019
     assert cad.values["rail_first_band_mm"] == pytest.approx([9.914, 10.014])
     assert cad.values["rail_last_band_mm"] == pytest.approx([429.914, 430.014])
     # v50 bands B1-B2 about the printed 47.48 mm (47.35-47.61).
