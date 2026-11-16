@@ -88,8 +88,11 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert cad.values["slot_shapes_in"][0]["x_in"] == pytest.approx(0.87)
     assert cad.values["slot_shapes_in"][0]["near_y_in"] == pytest.approx(-1.94)
     assert cad.values["slot_shapes_in"][0]["far_y_in"] == pytest.approx(-2.10)
-    # Rail stations are REF nominals: the actual trimmed rail transfers them.
+    # Rail stations are drilled at the printed ±0.05 mm bands' centres.
     assert cad.values["rail_points_in"][0] == pytest.approx([9.964 / 25.4, -3.5])
+    assert cad.values["rail_station_tol_mm"] == pytest.approx(0.05)
+    assert cad.values["rail_first_band_mm"] == pytest.approx([9.914, 10.014])
+    assert cad.values["rail_last_band_mm"] == pytest.approx([429.914, 430.014])
     # v50 bands B1-B2 about the printed 47.48 mm (47.35-47.61).
     assert cad.values["bracket_points_in"][0] == pytest.approx(
         [47.48 / 25.4, -12.909 / 25.4]
@@ -293,15 +296,13 @@ def test_source_changes_reach_embedded_svg_geometry(tmp_path):
     assert b"{{" not in after
 
 
-def test_toleranced_rail_station_is_refused(tmp_path):
-    # A drawing station band would contradict the plan's transfer-from-rail step.
+def test_rail_stations_with_unequal_bands_are_refused(tmp_path):
+    # The plan states one ±band for all eight rail stations.
     text = SOURCE.read_text(encoding="utf-8").replace(
-        '"requirements" = ["thread", "dia", "height", "thru", "note"]',
-        '"requirements" = ["thread", "dia", "station", "height", "thru", "note"]',
-        1,
+        '"station" = [9.914, 10.014]', '"station" = [9.884, 10.044]', 1
     )
     _, source = prepare(tmp_path, text)
-    with pytest.raises(CadError, match="rail_hole_1.station: expected a REF"):
+    with pytest.raises(CadError, match="inconsistent rail station bands"):
         load_cad(source, PARAMETERS, "harmonic_base_bar")
 
 
