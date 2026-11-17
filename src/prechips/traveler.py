@@ -8,7 +8,7 @@ from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
-from prechips import indexing, speeds
+from prechips import indexing, palette, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
@@ -504,6 +504,8 @@ def _diagram_html(
         root = ElementTree.fromstring(content)
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
+        if palette.paint(root):
+            content = ElementTree.tostring(root, encoding="utf-8")
     except (OSError, ElementTree.ParseError, ValueError) as error:
         raise PlanError(
             f"{where}: cannot use SVG {diagram['file']!r}: {error}"
@@ -547,6 +549,18 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             lines.append("<td></td>")
         lines.append("</tr>")
     lines.append("</tbody></table>")
+    if "setup_diagrams" in profile.features and any(
+        "diagram" in setup for setup in plan["setups"]
+    ):
+        # The palette's key, once for every picture in the traveler.
+        key = base64.b64encode(palette.legend_svg()).decode("ascii")
+        alt = _html("Picture key: " + "; ".join(text for _, text in palette.LEGEND))
+        lines.append(
+            '<figure class="picture-key" style="margin: 0.08in 0">'
+            f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
+            ' style="display: block; width: 100%">'
+            "</figure>"
+        )
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(

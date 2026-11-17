@@ -1,11 +1,11 @@
 """Setup pictures for the leadscrew kit rework (TL-VN-84).
 
 ``kit-*`` templates share the jig shell (:mod:`prechips.jig_diagrams`): bare
-``<svg>`` roots, the same groups, legend and conventions. Lathe and
+``<svg>`` roots, the same palette role groups and conventions. Lathe and
 dividing-head views are side elevations with the work's free end to the
 right; the vise view is a top view. Part sizes, stations and stick-outs follow
 the adapter values and authored holding parameters; chucks, jaws and cutters
-are schematic.
+are schematic, and feed arrows show the cutter's path over the work.
 """
 
 from __future__ import annotations
@@ -70,8 +70,8 @@ def _chuck(
         ends = (axis - radius * up, axis - outer * up)
         spans.add((round(min(ends), 6), round(max(ends), 6)))
     for top, bottom in sorted(spans):
-        groups["jaws"].append(_rect(face - depth, top, depth, bottom - top))
-    groups["fixture"].append(
+        groups["clamp"].append(_rect(face - depth, top, depth, bottom - top))
+    groups["fixture-vise"].append(
         _rect(face - depth - 26, axis - outer - 18, 26, 2 * outer + 36)
     )
     _label(groups, face - depth - 13, axis + outer + 36, label, "middle")
@@ -98,11 +98,11 @@ def _kit_receipt(values: dict, parameters: dict, root: ElementTree.Element) -> L
     r_thread = _cad(values, "major_radius_mm") * s
     groups = _groups(root)
     _title(groups, 20, 24, "Feed nut as supplied: spigot left, flange, body right")
-    groups["kept"] += [
+    groups["part-kept"] += [
         _rect(x_seat, axis - r_flange * s, flange * s, 2 * r_flange * s),
         _rect(x_head, axis - r_body * s, body_len * s, 2 * r_body * s),
     ]
-    groups["arriving"].append(
+    groups["part-arriving"].append(
         _rect(x_spigot, axis - r_spigot * s, spigot * s, 2 * r_spigot * s)
     )
     groups["hidden"] += [
@@ -158,9 +158,9 @@ def _kit_saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         24,
         "Screw on the bench, NEAR END (factory) at the left; not to scale across",
     )
-    groups["kept"].append(_rect(x0, top, cut - x0, bottom - top))
-    groups["removed"].append(_rect(cut, top, max(kerf * s, 3), bottom - top))
-    groups["other"].append(
+    groups["part-kept"].append(_rect(x0, top, cut - x0, bottom - top))
+    groups["part-removed"].append(_rect(cut, top, max(kerf * s, 3), bottom - top))
+    groups["part-rest"].append(
         _el(
             "path",
             d=f"M{_fmt(cut + max(kerf * s, 3))} {_fmt(top)}H{_fmt(end)}V{_fmt(bottom)}H{_fmt(cut + max(kerf * s, 3))}Z",
@@ -228,7 +228,8 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     # (the column: up the picture, -Y on its axes). Climb rolls the cutter
     # along the face, travelling against its teeth (toward you: work on the
     # cutter's right, G41); conventional travels with them, from the front
-    # toward the fixed jaw: the table moves toward you.
+    # toward the fixed jaw: the cutter path runs away from you (the table
+    # moves toward you).
     _cutter(groups, cut + radius, radius, front + radius + 26, back - 4, at_end=False)
     _dimension(
         groups,
@@ -245,7 +246,7 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
                 cut + radius,
                 front + 2 * radius + 26,
                 [
-                    "conventional: table toward you;",
+                    "conventional: cutter path away;",
                     "last pass X = {{cad.length_mm:.1f}} + D/2",
                 ],
             )
@@ -300,7 +301,7 @@ def _kit_flats(
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
     # The signed touch-off (X = +D/2 on the end face) needs +X out past it.
-    groups["arrows"].append(_line(free + 10, axis, free + 46, axis))
+    groups["arrow"].append(_line(free + 10, axis, free + 46, axis))
     _label(groups, free + 50, axis + 5, "+X cutter right")
 
     spans: list[tuple[float, float]] = []
@@ -308,8 +309,8 @@ def _kit_flats(
     def flat(from_end_start: float, from_end_stop: float) -> float:
         x0, x1 = free - from_end_stop * s, free - from_end_start * s
         spans.append((x0, x1))
-        groups["removed"].append(_rect(x0, axis - r, x1 - x0, depth * s))
-        groups["active"].append(
+        groups["part-removed"].append(_rect(x0, axis - r, x1 - x0, depth * s))
+        groups["active-face"].append(
             _line(x0, axis - r + depth * s, x1, axis - r + depth * s)
         )
         return (x0 + x1) / 2
@@ -362,18 +363,18 @@ def _kit_flats(
         if x1 < free:
             outline += f"V{_fmt(top)}"
     outline += f"H{_fmt(free)}V{_fmt(bottom)}Z"
-    groups["threads"].append(_el("path", d=outline))
+    groups["part-threads"].append(_el("path", d=outline))
     # Cutter drawn lifted clear of the work so the flat it cuts stays visible.
     left = cutter_x - cutter / 2 * s
-    groups["tool"].append(_rect(left, axis - r - 70, cutter * s, 58))
-    groups["arrows"].append(
+    groups["cutter"].append(_rect(left, axis - r - 70, cutter * s, 58))
+    groups["arrow"].append(
         _line(cutter_x, axis - r - 12, cutter_x, axis - r + depth * s - 2)
     )
     label_y = _callouts(groups, items, axis - r - 80, above=True)
     if label_y < 40:
         raise CadError("flat labels overrun the picture top")
     _label(groups, left - 6, axis - r - 50, "the end mill crosses", "end")
-    _label(groups, left - 6, axis - r - 34, "the screw (table Y)", "end")
+    _label(groups, left - 6, axis - r - 34, "the screw along Y", "end")
     _dimension(
         groups,
         jaw_face,
@@ -385,7 +386,7 @@ def _kit_flats(
 
     # End view of the free end: the 0° flat up, the 120° flat after indexing.
     cx, cy, er = 600.0, max(axis + r + 130, chuck_bottom + 44), 56.0
-    groups["kept"].append(_el("circle", cx=cx, cy=cy, r=er))
+    groups["part-kept"].append(_el("circle", cx=cx, cy=cy, r=er))
     floor = _cad(values, "flat_floor_mm") / (major / 2) * er
     clock = _cad(values, "clock_deg")
     angles = [(0.0, "0°")]
@@ -397,13 +398,13 @@ def _kit_flats(
         half = math.sqrt(er * er - floor * floor)
         p0 = (cx + nx * floor - ny * half, cy + ny * floor + nx * half)
         p1 = (cx + nx * floor + ny * half, cy + ny * floor - nx * half)
-        groups["removed"].append(
+        groups["part-removed"].append(
             _el(
                 "path",
                 d=f"M{_fmt(p0[0])} {_fmt(p0[1])}A{_fmt(er)} {_fmt(er)} 0 0 0 {_fmt(p1[0])} {_fmt(p1[1])}Z",
             )
         )
-        groups["active"].append(_line(*p0, *p1))
+        groups["active-face"].append(_line(*p0, *p1))
         _label(groups, cx + nx * (er + 18), cy + ny * (er + 18) + 5, name, "middle")
     _label(groups, cx, cy + er + 34, f"end view from the {title}", "middle")
     _label(
@@ -468,28 +469,32 @@ def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> 
     mandrel = _param(parameters, "mandrel_stickout_mm") * s
     _chuck(groups, body_end, axis, r_rod, 60, "3-jaw")
     # The offcut: gripped in the jaws, its end inside the nut short of the seat.
-    groups["threads"].append(_rect(body_end - 100, axis - r_rod, 100, 2 * r_rod))
+    groups["part-threads"].append(_rect(body_end - 100, axis - r_rod, 100, 2 * r_rod))
     groups["hidden"].append(
         _line(body_end + mandrel, axis - r_rod, body_end + mandrel, axis + r_rod)
     )
-    groups["kept"] += [
+    groups["part-kept"] += [
         _rect(head - body_len * s, axis - r_body, body_len * s, 2 * r_body),
         _rect(head, axis - r_flange, flange * s, 2 * r_flange),
     ]
-    groups["removed"].append(_rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot))
-    groups["arriving"].append(_rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot))
-    groups["active"].append(_line(seat, axis - r_spigot, seat, axis + r_spigot))
+    groups["part-removed"].append(
+        _rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot)
+    )
+    groups["part-arriving"].append(
+        _rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot)
+    )
+    groups["active-face"].append(_line(seat, axis - r_spigot, seat, axis + r_spigot))
     groups["hidden"] += [
         _line(body_end, axis - r_rod, tip, axis - r_rod),
         _line(body_end, axis + r_rod, tip, axis + r_rod),
     ]
-    groups["tool"].append(
+    groups["cutter"].append(
         _el(
             "path",
             d=f"M{_fmt(tip + 8)} {_fmt(axis - r_spigot - 30)}l14 -6l0 34l-14 -6z",
         )
     )
-    groups["arrows"].append(_line(tip + 12, axis - r_spigot - 20, tip + 12, axis - 8))
+    groups["arrow"].append(_line(tip + 12, axis - r_spigot - 20, tip + 12, axis - 8))
     _datum(groups, seat, axis - r_flange - 24, axis + r_flange + 4)
     _datum_label(groups, seat + 6, axis - r_flange - 28, "Z0 seat face", "start")
     _dimension(
@@ -532,7 +537,7 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
     cx, cy = 230.0, 60 + r_flange + 10
     groups = _groups(root)
     _title(groups, 20, 24, "Looking down on the flange's body side")
-    groups["kept"] += [
+    groups["part-kept"] += [
         _el("circle", cx=cx, cy=cy, r=r_flange),
         _el("circle", cx=cx, cy=cy, r=r_body),
     ]
@@ -543,9 +548,9 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
     for index in range(count):
         a = 2 * math.pi * index / count
         hx, hy = cx + pcd * math.cos(a), cy + pcd * math.sin(a)
-        groups["removed"].append(_el("circle", cx=hx, cy=hy, r=r_csk))
+        groups["part-removed"].append(_el("circle", cx=hx, cy=hy, r=r_csk))
         groups["holes"].append(_el("circle", cx=hx, cy=hy, r=r_hole))
-        groups["active"].append(_el("circle", cx=hx, cy=hy, r=r_csk, fill="none"))
+        groups["active-face"].append(_el("circle", cx=hx, cy=hy, r=r_csk, fill="none"))
         anchors.append((hx, hy))
     rx = cx + r_flange + 50
     _label(
@@ -562,7 +567,7 @@ def _kit_nut_csk(values: dict, parameters: dict, root: ElementTree.Element) -> L
     )
     _label(groups, rx, cy, "sheet 3: {{cad.csk_wall_note}}")
     hx, hy = anchors[0]
-    groups["leaders"].append(
+    groups["leader"].append(
         _el(
             "polyline",
             points=f"{_fmt(rx - 4)} {_fmt(cy - 44)} {_fmt(hx + r_csk)} {_fmt(hy)}",

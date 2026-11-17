@@ -36,6 +36,7 @@ from prechips.jig_diagrams import (
     _title,
     _vise,
 )
+from prechips.palette import colour
 from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 _PARALLEL_IN = 0.125  # schematic parallel thickness
@@ -78,7 +79,7 @@ def _vdim(
         _line(x, y0, x, y1, marker_start="url(#arr)", marker_end="url(#arr)")
     )
     middle = (y0 + y1) / 2
-    groups["labels"].append(
+    groups["label"].append(
         _text(
             x - 5,
             middle,
@@ -104,9 +105,9 @@ def _label_rows(
     for index, (ax, ay, lines) in enumerate(sorted(items, key=lambda r: -r[1])):
         bus = x - 10 - 8 * index
         points = [(x - 4, y - 4), (bus, y - 4), (bus, ay), (ax, ay)]
-        groups["leaders"] += [
+        groups["leader"] += [
             _el("polyline", points=" ".join(f"{_fmt(a)} {_fmt(b)}" for a, b in points)),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill="#333"),
+            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
         ]
         for line_index, line in enumerate(lines):
             _label(groups, x, y + line_index * 15, line)
@@ -215,21 +216,21 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         floor = bed - parallel * s
         jaw_top = bed - jaw_h * s
         _title(groups, centre - 150, bed - tall - 80, title)
-        groups["jaws"] += [
+        groups["clamp"] += [
             _rect(left - 26, jaw_top, 26, bed - jaw_top),
             _rect(right, jaw_top, 26, bed - jaw_top),
         ]
-        groups["fixture"] += [
+        groups["fixture-support"] += [
             _rect(left, floor, _PARALLEL_IN * s, parallel * s),
             _rect(right - _PARALLEL_IN * s, floor, _PARALLEL_IN * s, parallel * s),
-            _line(left - 46, bed, right + 46, bed),
         ]
+        groups["fixture-vise"].append(_line(left - 46, bed, right + 46, bed))
         top_y, keep_y = floor - arrive * s, floor - keep * s
-        groups["arriving"].append(_rect(left, top_y, right - left, arrive * s))
-        groups["removed"].append(_rect(left, top_y, right - left, keep_y - top_y))
-        groups["kept"].append(_rect(left, keep_y, right - left, floor - keep_y))
-        groups["active"].append(_line(left, keep_y, right, keep_y))
-        groups["tool"].append(
+        groups["part-arriving"].append(_rect(left, top_y, right - left, arrive * s))
+        groups["part-removed"].append(_rect(left, top_y, right - left, keep_y - top_y))
+        groups["part-kept"].append(_rect(left, keep_y, right - left, floor - keep_y))
+        groups["active-face"].append(_line(left, keep_y, right, keep_y))
+        groups["cutter"].append(
             _rect(centre - cutter / 2 * s, top_y - 40, cutter * s, 32)
         )
         if across * s >= 8 * max(len(low), len(top)) + 8:
@@ -340,7 +341,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     )
     if mode == "vise":
         _vise(groups, left - 20, right + 20, back, front, _PARALLEL_IN * s, "", "")
-    groups["kept"].append(
+    groups["part-kept"].append(
         _outline(values, left, back, s)
         if mode == "inspect"
         else _rect(left, back, across, length * s)
@@ -348,7 +349,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     # Rows run from ROW SIDE into the part.
     edge, inward = (right, -1.0) if row_right else (left, 1.0)
     # Everything on TOP is cut in the vise setup; the finished view marks none.
-    cut = groups["active"] if mode == "vise" else []
+    cut = groups["active-face"] if mode == "vise" else []
     cbore_r = _cad(values, "cbore_dia_in") / 2 * s
     names = iter(("H1", "H2", "H3", "H4"))
     for station in stations:
@@ -361,7 +362,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bx, by = edge + inward * bore[0] * s, back + bore[1] * s
     bore_r = _cad(values, "bore_dia_in") / 2 * s
     groups["holes"].append(_el("circle", cx=bx, cy=by, r=bore_r))
-    groups["threads"].append(
+    groups["part-threads"].append(
         _el("circle", cx=bx, cy=by, r=_cad(values, "tap_drill_in") / 2 * s)
     )
     cut.append(_el("circle", cx=bx, cy=by, r=bore_r))
@@ -476,7 +477,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     seat = top + height * t
     _title(groups, s_left - 30, top - 30, "Section through H1 and B")
     _title(groups, s_left - 30, top - 14, "(toward ROW SIDE)")
-    groups["kept"].append(_rect(s_left, top, length * t, height * t))
+    groups["part-kept"].append(_rect(s_left, top, length * t, height * t))
     hx = sx(stations[0])
     cb_w = _cad(values, "cbore_dia_in") * t
     hole_w = _cad(values, "hole_dia_in") * t
@@ -485,7 +486,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bore_w = _cad(values, "bore_dia_in") * t
     tap_w = _cad(values, "tap_drill_in") * t
     bore_floor = top + _cad(values, "bore_depth_nominal_in") * t
-    groups["threads"].append(
+    groups["part-threads"].append(
         _rect(bxs - tap_w / 2 - 3, bore_floor, tap_w + 6, seat - bore_floor)
     )
     sections = [
@@ -578,23 +579,30 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     spacer_right = jaw_left + 6 + spacer * s
     groups = _groups(root)
     _title(groups, 20, 24, "Front view, moving jaw not shown: on edge, SPINDLE END up")
-    # The fixed jaw stands behind the part: drawn hidden, so the spacer and
-    # parallels in front of it show. Its name sits in the gap between the
-    # spacer and the block.
-    groups["hidden"].append(
-        _rect(jaw_left, jaw_top, jaw_right - jaw_left, bed - jaw_top)
+    # The fixed jaw stands behind the part: a clamp drawn dashed and unfilled,
+    # so the spacer and parallels in front of it show. Its name sits in the
+    # gap between the spacer and the block.
+    groups["clamp"].append(
+        _rect(
+            jaw_left,
+            jaw_top,
+            jaw_right - jaw_left,
+            bed - jaw_top,
+            fill="none",
+            stroke_dasharray="4 3",
+        )
     )
     gap = (spacer_right + start) / 2
     _label(groups, gap, jaw_top + 16, "fixed jaw", "middle")
     _label(groups, gap, jaw_top + 31, "(behind)", "middle")
-    groups["fixture"] += [
+    groups["fixture-support"] += [
         _rect(jaw_left + 6, floor, jaw_right - jaw_left - 6, parallel * s),
-        _line(jaw_left - 20, bed, end + 40, bed),
         _rect(jaw_left + 6, floor - spacer_height * s, spacer * s, spacer_height * s),
     ]
+    groups["fixture-vise"].append(_line(jaw_left - 20, bed, end + 40, bed))
     groups["hidden"].append(_line(jaw_right, jaw_top - 14, jaw_right, bed + 8))
-    groups["arriving"].append(_rect(start, top, end - start, length * s))
-    groups["kept"].append(
+    groups["part-arriving"].append(_rect(start, top, end - start, length * s))
+    groups["part-kept"].append(
         _el(
             "polygon",
             points=" ".join(
@@ -610,7 +618,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             ),
         )
     )
-    groups["removed"].append(_rect(step, top, end - step, lug_face - top))
+    groups["part-removed"].append(_rect(step, top, end - step, lug_face - top))
     # The leadscrew clearance through the lug: its last plunge, Z zeroed on
     # the lug face just cut and lug_bore_mill_in down from it, is cut here.
     bx = end - screw * s
@@ -620,14 +628,14 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         _line(bx - half, lug_face, bx - half, floor),
         _line(bx + half, lug_face, bx + half, floor),
     ]
-    groups["active"] += [
+    groups["active-face"] += [
         _line(step, top, step, lug_face),
         _line(step, lug_face, end, lug_face),
         _line(bx - half, lug_face, bx - half, back_floor),
         _line(bx + half, lug_face, bx + half, back_floor),
     ]
     mid = (step + end) / 2
-    groups["tool"].append(_rect(mid - cutter / 2 * s, top - 44, cutter * s, 36))
+    groups["cutter"].append(_rect(mid - cutter / 2 * s, top - 44, cutter * s, 36))
     groups["datum"].append(_el("circle", cx=end, cy=top, r=3.5))
     _datum_label(groups, end + 6, top - 4, "X0 Z0", "start")
     _dimension(groups, step, end, top - 58, top, "{{cad.lug_length_nominal_in:.2f}}")
@@ -715,24 +723,24 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
                 _line(x + half, top, x + half, low),
                 _line(x - half, low, x + half, low),
             ]
-        groups["active"].append(_line(x - dia / 2 * t, top, x + dia / 2 * t, top))
+        groups["active-face"].append(_line(x - dia / 2 * t, top, x + dia / 2 * t, top))
 
     _title(groups, 20, 24, "Front view, standing on SPINDLE END")
-    groups["fixture"] += [
-        _rect(left - 10, floor, right - left + 20, parallel * t),
-        _line(left - 30, bed, right + 30, bed),
-    ]
+    groups["fixture-support"].append(
+        _rect(left - 10, floor, right - left + 20, parallel * t)
+    )
+    groups["fixture-vise"].append(_line(left - 30, bed, right + 30, bed))
     groups["hidden"].append(_line(left - 20, jaw_top, right + 20, jaw_top))
     _label(groups, left - 22, jaw_top + 4, "jaw top", "end")
     # The whole block: the notch (hidden outline) comes off later.
-    groups["kept"].append(_rect(left, top, right - left, floor - top))
+    groups["part-kept"].append(_rect(left, top, right - left, floor - top))
     groups["hidden"] += [
         _line(step, lug_bottom, right, lug_bottom),
         _line(step, lug_bottom, step, floor),
     ]
     bx = right - row * t
     bore(bx)
-    groups["tool"].append(_rect(bx - dia / 2 * t, top - 40, dia * t, 32))
+    groups["cutter"].append(_rect(bx - dia / 2 * t, top - 40, dia * t, 32))
     groups["datum"].append(_el("circle", cx=right, cy=top, r=3.5))
     _datum_label(groups, right + 6, top + 4, "X0", "start")
     _label(groups, right + 6, (top + lug_bottom) / 2 + 5, "LUG END", "start")
@@ -767,12 +775,12 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     e_left = right + 110
     e_right = e_left + height * t
     _title(groups, e_left - 50, 24, "From LUG END")
-    groups["jaws"] += [
+    groups["clamp"] += [
         _rect(e_left - 22, jaw_top, 22, bed - jaw_top),
         _rect(e_right, jaw_top, 22, bed - jaw_top),
     ]
-    groups["fixture"].append(_line(e_left - 40, bed, e_right + 40, bed))
-    groups["kept"].append(_rect(e_left, top, e_right - e_left, floor - top))
+    groups["fixture-vise"].append(_line(e_left - 40, bed, e_right + 40, bed))
+    groups["part-kept"].append(_rect(e_left, top, e_right - e_left, floor - top))
     ex = e_right - z * t
     groups["hidden"].append(_line(e_left, lug_bottom, e_right, lug_bottom))
     bore(ex)
@@ -822,14 +830,16 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     cut = top + width * s
     groups = _groups(root)
     _title(groups, 40, 24, "Top view, bar end at the left")
-    groups["kept"].append(_rect(x, top, x1 - x, cut - top))
-    groups["removed"] += [
+    groups["part-kept"].append(_rect(x, top, x1 - x, cut - top))
+    groups["part-removed"] += [
         _rect(x1, top, kerf * s, bottom - top),
         _rect(x, cut, x1 - x, kerf * s),
     ]
-    groups["other"].append(_rect(x, cut + kerf * s, x1 - x, bottom - cut - kerf * s))
+    groups["part-rest"].append(
+        _rect(x, cut + kerf * s, x1 - x, bottom - cut - kerf * s)
+    )
     end = x1 + kerf * s + rest * s
-    groups["other"].append(
+    groups["part-rest"].append(
         _el(
             "path",
             d=f"M{_fmt(x1 + kerf * s)} {_fmt(top)}H{_fmt(end)}"

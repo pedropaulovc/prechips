@@ -3,13 +3,15 @@
 The end bracket (TL-28) and feed lever (TL-26) are drawn from their adapter
 values and authored holding parameters. Vise top views look down from the
 operator's side: +X right from the part's X0 end, +Y toward the operator, down
-the page. Arriving material is dashed, material kept after the setup solid,
-material removed in the setup hatched and threads cross-hatched. Jaws,
-parallels, cutters, taps, kerfs and soft jaws are schematic symbols; only their
-positions follow the holding parameters. A jig template is a bare ``<svg>``
-root naming its layout: the shared shell (patterns, group styles) is installed
-here and the legend lists only what the picture draws. Labels outside the part
-sit on rows spread so they cannot overlap, with leaders back to their features.
+the page. Every element is drawn in a :mod:`prechips.palette` role group:
+arriving material dashed, material kept after the setup solid, material
+removed in the setup hatched, threads cross-hatched, feed arrows along the
+cutter's path over the part. Jaws, parallels, cutters, taps, straps and soft
+jaws are schematic symbols; only their positions follow the holding
+parameters. A jig template is a bare ``<svg>`` root naming its layout: the
+shared shell (one group per palette role) is installed here; the traveler
+prints the palette's legend once. Labels outside the part sit on rows spread
+so they cannot overlap, with leaders back to their features.
 """
 
 from __future__ import annotations
@@ -31,71 +33,12 @@ from prechips.cad_diagrams import (
     _text,
     _view,
 )
+from prechips.palette import ROLES, colour
 from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 JAW = 14.0  # schematic jaw-plate depth in top views
-_DEFS = f"""<defs xmlns="{SVG_NS}">
-  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
-      markerHeight="7" orient="auto-start-reverse">
-    <path d="M0 0L10 5L0 10z" fill="#111"/>
-  </marker>
-  <pattern id="cut" width="6" height="6" patternUnits="userSpaceOnUse"
-      patternTransform="rotate(45)">
-    <rect width="6" height="6" fill="#fbe1dd"/>
-    <line x1="0" y1="0" x2="0" y2="6" stroke="#b33" stroke-width="1.6"/>
-  </pattern>
-  <pattern id="thread" width="4" height="4" patternUnits="userSpaceOnUse">
-    <rect width="4" height="4" fill="#fff"/>
-    <path d="M0 0L4 4M4 0L0 4" stroke="#333" stroke-width="0.8"/>
-  </pattern>
-</defs>"""
-# Group styles in drawing order.
-_STYLES: dict[str, dict[str, str]] = {
-    "fixture": {"fill": "#e6e7e9", "stroke": "#888", "stroke-width": "1.2"},
-    "jaws": {"fill": "#8a9099", "stroke": "#111", "stroke-width": "1.2"},
-    "other": {"fill": "#eceef0", "stroke": "#888", "stroke-width": "1.2"},
-    "arriving": {
-        "fill": "none",
-        "stroke": "#444",
-        "stroke-width": "1.3",
-        "stroke-dasharray": "6 4",
-    },
-    "kept": {"fill": "#d7e1ec", "stroke": "#111", "stroke-width": "1.6"},
-    "removed": {"fill": "url(#cut)", "stroke": "none"},
-    "threads": {"fill": "url(#thread)", "stroke": "#555", "stroke-width": "0.6"},
-    "holes": {"fill": "#fff", "stroke": "#111", "stroke-width": "1.2"},
-    "hidden": {
-        "fill": "none",
-        "stroke": "#555",
-        "stroke-width": "1.1",
-        "stroke-dasharray": "5 3",
-    },
-    "tool": {"fill": "#c9a227", "stroke": "#111", "stroke-width": "1.2"},
-    "active": {
-        "fill": "none",
-        "stroke": "#e07000",
-        "stroke-width": "3",
-        "stroke-linecap": "round",
-    },
-    "datum": {"fill": "#b22", "stroke": "#b22", "stroke-width": "2.4"},
-    "arrows": {"stroke": "#111", "stroke-width": "1.5", "marker-end": "url(#arr)"},
-    "dims": {"stroke": "#111", "stroke-width": "1"},
-    "leaders": {"fill": "none", "stroke": "#333", "stroke-width": "0.9"},
-    "labels": {"fill": "#111"},
-    "titles": {"fill": "#555", "font-style": "italic"},
-    "legend": {"font-size": "13"},
-}
-GROUPS = tuple(_STYLES)
-# Legend entries: the groups that show one, the swatch style, the text.
-_LEGEND = (
-    (("arriving",), "arriving", "arriving material"),
-    (("removed",), "removed", "removed in this setup"),
-    (("kept",), "kept", "kept after this setup"),
-    (("active",), "active", "cut or tapped here"),
-    (("threads",), "threads", "thread"),
-    (("other",), "other", "rest of the bar"),
-    (("fixture", "jaws", "tool"), "jaws", "fixtures, tools: schematic"),
-)
+# One group per palette role, in drawing order; the paper is the background.
+GROUPS = tuple(role for role in ROLES if role != "paper")
 
 
 def _groups(root: ElementTree.Element) -> dict[str, list[Element]]:
@@ -109,15 +52,18 @@ def _groups(root: ElementTree.Element) -> dict[str, list[Element]]:
             "font-size": "14",
         }
     )
-    root.append(ElementTree.fromstring(_DEFS))
     ElementTree.SubElement(
-        root, f"{{{SVG_NS}}}rect", width="720", height="{{view.height}}", fill="#fff"
+        root,
+        f"{{{SVG_NS}}}rect",
+        {"class": "paper"},
+        width="720",
+        height="{{view.height}}",
     )
-    for name, style in _STYLES.items():
+    for role in GROUPS:
         ElementTree.SubElement(
-            root, f"{{{SVG_NS}}}g", {"data-cad-group": name, **style}
+            root, f"{{{SVG_NS}}}g", {"data-cad-group": role, "class": role}
         )
-    return {name: [] for name in GROUPS}
+    return {role: [] for role in GROUPS}
 
 
 def _param(parameters: dict, key: str) -> float:
@@ -145,7 +91,7 @@ def _stations(values: dict) -> list[float]:
 
 
 def _title(groups: dict[str, list[Element]], x: float, y: float, text: str) -> None:
-    groups["titles"].append(_text(x, y, text))
+    groups["title"].append(_text(x, y, text))
 
 
 def _label(
@@ -156,13 +102,13 @@ def _label(
     anchor: str = "start",
     **attrs: float | str,
 ) -> None:
-    groups["labels"].append(_text(x, y, text, text_anchor=anchor, **attrs))
+    groups["label"].append(_text(x, y, text, text_anchor=anchor, **attrs))
 
 
 def _datum_label(
     groups: dict[str, list[Element]], x: float, y: float, text: str, anchor: str
 ) -> None:
-    _label(groups, x, y, text, anchor, fill="#b22", font_weight="bold")
+    _label(groups, x, y, text, anchor, fill=colour("datum"), font_weight="bold")
 
 
 def _vise(
@@ -176,12 +122,12 @@ def _vise(
     moving: str,
     labels_right: bool = False,
 ) -> None:
-    """Jaws behind and in front of the work; parallels under it, hidden."""
-    groups["jaws"] += [
+    """Jaws behind and in front of the work; parallels under it."""
+    groups["clamp"] += [
         _rect(left, back - JAW, right - left, JAW),
         _rect(left, front, right - left, JAW),
     ]
-    groups["hidden"] += [
+    groups["fixture-support"] += [
         _rect(left, back, right - left, parallel),
         _rect(left, front - parallel, right - left, parallel),
     ]
@@ -203,14 +149,14 @@ def _blank(
 ) -> None:
     """Arriving outline x0..x1; kept keep0..keep1; the rest removed."""
     height = bottom - top
-    groups["arriving"].append(_rect(x0, top, x1 - x0, height))
+    groups["part-arriving"].append(_rect(x0, top, x1 - x0, height))
     if keep0 > x0:
-        groups["removed"].append(_rect(x0, top, keep0 - x0, height))
-        groups["active"].append(_line(keep0, top, keep0, bottom))
+        groups["part-removed"].append(_rect(x0, top, keep0 - x0, height))
+        groups["active-face"].append(_line(keep0, top, keep0, bottom))
     if keep1 < x1:
-        groups["removed"].append(_rect(keep1, top, x1 - keep1, height))
-        groups["active"].append(_line(keep1, top, keep1, bottom))
-    groups["kept"].append(_rect(keep0, top, keep1 - keep0, height))
+        groups["part-removed"].append(_rect(keep1, top, x1 - keep1, height))
+        groups["active-face"].append(_line(keep1, top, keep1, bottom))
+    groups["part-kept"].append(_rect(keep0, top, keep1 - keep0, height))
 
 
 def _cutter(
@@ -221,42 +167,30 @@ def _cutter(
     end: float,
     at_end: bool,
 ) -> None:
-    """End mill symbol and its feed arrow along ``x`` from ``start`` to ``end``.
+    """End mill symbol and the arrow of its path over the part, along ``x``
+    from ``start`` to ``end`` (the table moves the other way).
 
     The symbol sits at the end (``at_end``) or start of the stroke, clear of
     the arrow.
     """
     step = (radius + 2) * (1 if end > start else -1)
     if at_end:
-        groups["arrows"].append(_line(x, start, x, end - step))
+        groups["arrow"].append(_line(x, start, x, end - step))
     else:
-        groups["arrows"].append(_line(x, start + step, x, end))
+        groups["arrow"].append(_line(x, start + step, x, end))
     y = end if at_end else start
-    groups["tool"].append(_el("circle", cx=x, cy=y, r=radius))
+    groups["cutter"].append(_el("circle", cx=x, cy=y, r=radius))
 
 
 def _axes(groups: dict[str, list[Element]], x: float, y: float) -> None:
-    groups["arrows"] += [_line(x, y, x + 36, y), _line(x, y, x, y + 28)]
+    groups["arrow"] += [_line(x, y, x + 36, y), _line(x, y, x, y + 28)]
     _label(groups, x + 40, y + 5, "+X")
     _label(groups, x + 6, y + 32, "+Y")
 
 
 def _finish(groups: dict[str, list[Element]], bottom: float) -> Layout:
-    """Legend of the groups this picture draws under ``bottom``; the height."""
-    entries = [
-        (style, text)
-        for names, style, text in _LEGEND
-        if any(groups[name] for name in names)
-    ]
-    top = bottom + 12
-    for index, (style, text) in enumerate(entries):
-        x, y = 12 + 232 * (index % 3), top + 20 * (index // 3)
-        groups["legend"] += [
-            _rect(x, y, 26, 12, **_STYLES[style]),
-            _text(x + 34, y + 11, text),
-        ]
-    rows = (len(entries) + 2) // 3
-    return _view(height=top + 20 * rows + 4), groups
+    """The picture's height, ``bottom`` plus a margin; the traveler prints the key."""
+    return _view(height=bottom + 10), groups
 
 
 def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
@@ -304,20 +238,20 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     _title(groups, 40, 24, "Top view, bar end at the left")
     for piece, name, dimension in pieces:
         x1 = x + piece * scale
-        groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
+        groups["part-kept"].append(_rect(x, top, x1 - x, bottom - top))
         _label(groups, (x + x1) / 2, (top + bottom) / 2 + 5, name, "middle")
         _dimension(groups, x, x1, top - 16, top, dimension)
-        groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
+        groups["part-removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         x = x1 + kerf * scale
     items = []
     if strip:
         x1 = x + strip * scale
         cut = bottom - _param(parameters, "coupon_length_in") * scale
-        groups["kept"].append(_rect(x, cut, x1 - x, bottom - cut))
-        groups["other"].append(_rect(x, top, x1 - x, cut - top))
-        groups["active"].append(_line(x, cut, x1, cut))
+        groups["part-kept"].append(_rect(x, cut, x1 - x, bottom - cut))
+        groups["part-rest"].append(_rect(x, top, x1 - x, cut - top))
+        groups["active-face"].append(_line(x, cut, x1, cut))
         _dimension(groups, x, x1, top - 16, top, "{{process.coupon_width_in:g}}")
-        groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
+        groups["part-removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         items.append(
             (
                 (x + x1) / 2,
@@ -327,7 +261,7 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         )
         x = x1 + kerf * scale
     end = x + rest * scale
-    groups["other"].append(
+    groups["part-rest"].append(
         _el(
             "path",
             d=f"M{_fmt(x)} {_fmt(top)}H{_fmt(end)}{_break(end, top, bottom)}"
@@ -416,9 +350,9 @@ def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> 
             (
                 left_cut,
                 front + 2 * radius + 4,
-                ["end mill, conventional:", "table moves away"],
+                ["end mill, conventional:", "cutter path toward you"],
             ),
-            (right_cut, front + 2 * radius + 4, ["table moves", "toward you"]),
+            (right_cut, front + 2 * radius + 4, ["conventional:", "cutter path away"]),
         ],
         front + JAW + 8,
         above=False,
@@ -457,12 +391,12 @@ def _bracket_ends(values: dict, parameters: dict, root: ElementTree.Element) -> 
             (
                 left_cut,
                 front + 2 * radius + 4,
-                ["table away, last", "X −({{cad.length_in:.3f}} + D/2)"],
+                ["cutter path toward you;", "last X −({{cad.length_in:.3f}} + D/2)"],
             ),
             (
                 right_cut,
                 front + 2 * radius + 4,
-                ["table toward you, last", "X XR + {{cad.length_in:.3f}} + D/2"],
+                ["cutter path away; last", "X XR + {{cad.length_in:.3f}} + D/2"],
             ),
         ],
         dim_y + 6,
@@ -518,11 +452,11 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     )
     hole_r = drill / 2 * scale
     for start in (zero, right_zero):
-        groups["kept"].append(_rect(start, back, length * scale, front - back))
+        groups["part-kept"].append(_rect(start, back, length * scale, front - back))
         for station in stations:
             x = start + station * scale
             groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole_r))
-            groups["active"].append(
+            groups["active-face"].append(
                 _el("circle", cx=x, cy=row_y, r=hole_r + 3, fill="none")
             )
         if face == "bar":
@@ -549,7 +483,9 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         finder_r = 0.1 * scale
         if not length + 0.1 <= touch <= span - length - 0.1:
             raise CadError("process.y_touch_x_in: not in the gap between the parts")
-        groups["tool"].append(_el("circle", cx=finder, cy=back + finder_r, r=finder_r))
+        groups["cutter"].append(
+            _el("circle", cx=finder, cy=back + finder_r, r=finder_r)
+        )
         callouts.append((finder, back + 2 * finder_r, [f"Y0 touch ~X {touch:g}"]))
     end_y = _callouts(groups, callouts, front + JAW + 22, above=False)
     _axes(groups, 24, end_y + 6)
@@ -565,16 +501,18 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     jaw_top = bed - jaw_height * s
     _title(groups, 470, 30, "Section at H1, looking +X")
     _title(groups, 470, 46, "(fixed jaw left)")
-    groups["jaws"] += [
+    groups["clamp"] += [
         _rect(part_left - 28, jaw_top, 28, bed - jaw_top),
         _rect(part_right, jaw_top, 28, bed - jaw_top),
     ]
-    groups["fixture"] += [
+    groups["fixture-support"] += [
         _rect(part_left, para_top, parallel * s, bed - para_top),
         _rect(part_right - parallel * s, para_top, parallel * s, bed - para_top),
-        _line(part_left - 40, bed, part_right + 40, bed),
     ]
-    groups["kept"].append(_rect(part_left, part_top, part_right - part_left, width * s))
+    groups["fixture-vise"].append(_line(part_left - 40, bed, part_right + 40, bed))
+    groups["part-kept"].append(
+        _rect(part_left, part_top, part_right - part_left, width * s)
+    )
     hole_x = part_left + (row if face == "bar" else thickness - row) * s
     hole_w = drill * s
     thread_w = hole_w + 8
@@ -585,12 +523,12 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         sign = 1 if from_top else -1
         for depth, opacity in ((low, 1.0), (high, 0.45)):
             y0, y1 = sorted((face_y, face_y + sign * depth * s))
-            groups["threads"].append(
+            groups["part-threads"].append(
                 _rect(hole_x - thread_w / 2, y0, thread_w, y1 - y0, opacity=opacity)
             )
         y0, y1 = sorted((face_y, face_y + sign * high * s))
         if active:
-            groups["active"].append(
+            groups["active-face"].append(
                 _rect(hole_x - thread_w / 2 - 2, y0, thread_w + 4, y1 - y0, fill="none")
             )
         return (y0 + y1) / 2
@@ -622,10 +560,10 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         )
     )
     tool_h = 40.0
-    groups["tool"].append(
+    groups["cutter"].append(
         _rect(hole_x - hole_w / 2, part_top - 8 - tool_h, hole_w, tool_h)
     )
-    groups["arrows"].append(
+    groups["arrow"].append(
         _line(
             hole_x + hole_w / 2 + 8,
             part_top - 44,
@@ -668,9 +606,9 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
         )
     rows.append((bed - 30, centre, (para_top + bed) / 2, ["open gap", "below hole"]))
     for y, ax, ay, lines in rows:
-        groups["leaders"] += [
+        groups["leader"] += [
             _el("polyline", points=f"{_fmt(618)} {_fmt(y - 4)} {_fmt(ax)} {_fmt(ay)}"),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill="#333"),
+            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
         ]
         for index, line in enumerate(lines):
             _label(groups, 622, y + index * 15, line)
@@ -701,12 +639,12 @@ def _bracket_inspect(
             for end, opacity in (("min", 1.0), ("max", 0.45)):
                 depth = _cad(values, f"{key}_thread_{end}_in") * s
                 y0, y1 = sorted((face_y, face_y + sign * depth))
-                groups["threads"].append(
+                groups["part-threads"].append(
                     _rect(centre - thread_w / 2, y0, thread_w, y1 - y0, opacity=opacity)
                 )
 
     _title(groups, 20, 30, "Side view, KP08 SIDE up")
-    groups["kept"].append(_rect(x0, top, x1 - x0, bottom - top))
+    groups["part-kept"].append(_rect(x0, top, x1 - x0, bottom - top))
     for index, station in enumerate(stations):
         x = x0 + station * s
         zones(x)
@@ -732,7 +670,7 @@ def _bracket_inspect(
         high = _cad(values, f"{key}_thread_max_in")
         text = f"full thread {_shorthand(low, 3)}–{_shorthand(high, 3)}"
         _label(groups, middle, y, text, "middle")
-        groups["leaders"].append(_line(middle + 90, y - 4, reach, y - 4))
+        groups["leader"].append(_line(middle + 90, y - 4, reach, y - 4))
     _label(
         groups, middle, (top + bottom) / 2 + 5, "{{cad.thread}}, both faces", "middle"
     )
@@ -745,7 +683,7 @@ def _bracket_inspect(
     e1 = e0 + thickness * s
     hole_x = e0 + row * s
     _title(groups, 560, 30, "End view")
-    groups["kept"].append(_rect(e0, top, e1 - e0, bottom - top))
+    groups["part-kept"].append(_rect(e0, top, e1 - e0, bottom - top))
     zones(hole_x)
     groups["hidden"] += [
         _line(hole_x - hole_w / 2, top, hole_x - hole_w / 2, bottom),
@@ -753,7 +691,7 @@ def _bracket_inspect(
     ]
     _dimension(groups, e0, hole_x, bottom + 22, bottom, _shorthand(row, 3))
     _label(groups, e0, bottom + 62, "ROW EDGE", "middle")
-    groups["leaders"].append(_line(e0, bottom + 49, e0, bottom + 28))
+    groups["leader"].append(_line(e0, bottom + 49, e0, bottom + 28))
     return _finish(groups, bottom + 70)
 
 
@@ -789,7 +727,7 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
         x = x0 + station * scale
         groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole / 2 * scale))
         if hold == "zero":
-            groups["active"].append(
+            groups["active-face"].append(
                 _el("circle", cx=x, cy=row_y, r=hole / 2 * scale + 3, fill="none")
             )
 
@@ -829,7 +767,9 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
         _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
         finder = x0 + touch * scale
         finder_r = 0.1 * scale
-        groups["tool"].append(_el("circle", cx=finder, cy=back - finder_r, r=finder_r))
+        groups["cutter"].append(
+            _el("circle", cx=finder, cy=back - finder_r, r=finder_r)
+        )
         _datum_label(
             groups,
             finder,
@@ -845,7 +785,7 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
             (
                 x0 - radius,
                 front + 2 * radius + 4,
-                ["end mill, conventional:", "table moves away"],
+                ["end mill, conventional:", "cutter path toward you"],
             ),
             (x0, front, ["ZERO END"]),
             ((x0 + (stations[0] + stations[1]) / 2 * scale), front, ["H1, H2 through"]),
@@ -889,7 +829,7 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
             (
                 finish + radius,
                 front + 2 * radius + 4,
-                ["conventional: table", "toward you; L + D/2"],
+                ["conventional: cutter path", "away; last X = L + D/2"],
             ),
         ]
     end_y = _callouts(groups, items, front + JAW + 44, above=False)
@@ -916,7 +856,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
     x1, bottom = x0 + length * s, top + width * s
     r = radius * s
     _title(groups, 20, 30, "Finished lever, top face")
-    groups["kept"].append(
+    groups["part-kept"].append(
         _el(
             "path",
             d=(
@@ -947,8 +887,8 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
         146,
         "Grip end up at the end of the bench-vise jaws, top face toward you",
     )
-    groups["arriving"].append(_rect(left, end_y, right - left, jaw_y - end_y))
-    groups["kept"].append(
+    groups["part-arriving"].append(_rect(left, end_y, right - left, jaw_y - end_y))
+    groups["part-kept"].append(
         _el(
             "path",
             d=(
@@ -960,7 +900,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             ),
         )
     )
-    groups["removed"] += [
+    groups["part-removed"] += [
         _el(
             "path",
             d=(
@@ -1021,9 +961,9 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             stroke_dasharray="5 3",
         ),
     ]
-    groups["fixture"].append(_rect(left - 50, jaw_y, right - left + 100, 46))
+    groups["clamp"].append(_rect(left - 50, jaw_y, right - left + 100, 46))
     _label(groups, (left + right) / 2, jaw_y + 28, "soft jaws", "middle")
-    groups["active"] += [
+    groups["active-face"] += [
         _el(
             "path",
             d=(
@@ -1072,9 +1012,9 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
         ),
     ]
     for y, ax, ay, lines in rows:
-        groups["leaders"] += [
+        groups["leader"] += [
             _el("polyline", points=f"{_fmt(386)} {_fmt(y - 4)} {_fmt(ax)} {_fmt(ay)}"),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill="#333"),
+            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
         ]
         for index, line in enumerate(lines):
             _label(groups, 390, y + index * 16, line)

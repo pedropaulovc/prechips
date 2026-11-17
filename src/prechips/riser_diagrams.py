@@ -5,7 +5,8 @@ holding parameters, in the conventions of :mod:`prechips.jig_diagrams`: top
 views look down from the operator's side, +X right from ZERO END, +Y toward
 the operator from ZERO EDGE at the back (fixed) jaw. A skim too thin to see at
 scale is drawn a few pixels deep; straps, jaws, parallels and cutters are
-schematic symbols placed by the holding parameters.
+schematic symbols placed by the holding parameters; feed arrows show the
+cutter's path over the part.
 """
 
 from __future__ import annotations
@@ -68,7 +69,7 @@ def _strap(
     groups: dict[str, list[Element]], x0: float, x1: float, top: float, bottom: float
 ) -> None:
     """A strap across the bar, drawn over it."""
-    groups["tool"].append(_rect(x0, top - 8, x1 - x0, bottom - top + 16))
+    groups["clamp"].append(_rect(x0, top - 8, x1 - x0, bottom - top + 16))
 
 
 def _stations(values: dict, key: str, count: int) -> list[tuple[float, float]]:
@@ -104,13 +105,13 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups = _groups(root)
 
     def bar(top: float) -> float:
-        groups["arriving"].append(_rect(x0, top, blank * s, h))
+        groups["part-arriving"].append(_rect(x0, top, blank * s, h))
         return top + h
 
     def faced(top: float, start: float, end: float) -> None:
         x, w = x0 + start * s, (end - start) * s
-        groups["removed"].append(_rect(x, top, w, h))
-        groups["active"].append(_rect(x, top, w, h, fill="none"))
+        groups["part-removed"].append(_rect(x, top, w, h))
+        groups["active-face"].append(_rect(x, top, w, h, fill="none"))
 
     _title(groups, 20, 22, "A  Straps on both ends and mid-length: face both spans")
     top = 44.0
@@ -122,13 +123,13 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         _strap(groups, x0 + (x - span / 2) * s, x0 + (x + span / 2) * s, top, bottom)
     r = cutter / 2 * s
     cx = x0 + (a0 + cutter / 2) * s
-    groups["tool"].append(_el("circle", cx=cx, cy=top + r, r=r))
-    groups["arrows"].append(_line(cx + r + 4, top + r, cx + r + 56, top + r))
+    groups["cutter"].append(_el("circle", cx=cx, cy=top + r, r=r))
+    groups["arrow"].append(_line(cx + r + 4, top + r, cx + r + 56, top + r))
     end_y = _callouts(
         groups,
         [
             (x0 + a_left * s, bottom + 8, ["strap"]),
-            (cx, top + 2 * r, ["3/4 end mill, +X"]),
+            (cx, top + 2 * r, ["3/4 end mill, cutter path +X"]),
             (x0 + mid * s, bottom + 8, ["strap"]),
             (
                 x0 + a1 * s,
@@ -149,7 +150,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         "B  Four straps on faced metal, A straps off: face the ends and the middle",
     )
     bottom = bar(top)
-    groups["kept"].append(_rect(x0, top, blank * s, h))
+    groups["part-kept"].append(_rect(x0, top, blank * s, h))
     for c0, c1 in b_cuts:
         faced(top, c0, c1)
     for x in b_straps:
@@ -175,17 +176,17 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     k = 120.0
     _title(groups, 20, end_y + 20, "Section across the bar, both stages")
     left, table = 200.0, end_y + 44 + stock * k
-    groups["fixture"].append(_rect(left - 50, table, width * k + 100, 14))
+    groups["fixture-table"].append(_rect(left - 50, table, width * k + 100, 14))
     kept_top = table - thickness * k
     arriving_top = min(table - stock * k, kept_top - _THIN)
-    groups["arriving"].append(
+    groups["part-arriving"].append(
         _rect(left, arriving_top, width * k, table - arriving_top)
     )
-    groups["removed"].append(
+    groups["part-removed"].append(
         _rect(left, arriving_top, width * k, kept_top - arriving_top)
     )
-    groups["kept"].append(_rect(left, kept_top, width * k, table - kept_top))
-    groups["active"].append(_line(left, kept_top, left + width * k, kept_top))
+    groups["part-kept"].append(_rect(left, kept_top, width * k, table - kept_top))
+    groups["active-face"].append(_line(left, kept_top, left + width * k, kept_top))
     _datum_label(groups, left - 54, table + 5, "Z0 table", "end")
     right = left + width * k
     _vdim(groups, right + 20, kept_top, table, right, "Z {{cad.thickness_in:.3dot}}")
@@ -222,23 +223,25 @@ def _edges(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         bed = 74 + (parallel_h + width) * s + 30
         jaw_top = bed - jaw_h * s
         fixed, moving = cx - t / 2, cx + t / 2
-        groups["jaws"] += [
+        groups["clamp"] += [
             _rect(fixed - jaw_w, jaw_top, jaw_w, bed - jaw_top),
             _rect(moving, jaw_top, jaw_w, bed - jaw_top),
         ]
-        groups["fixture"] += [
-            _rect(fixed - jaw_w - 12, bed, 2 * jaw_w + t + 24, 10),
-            _rect(fixed, bed - parallel_h * s, parallel_t * s, parallel_h * s),
-        ]
+        groups["fixture-vise"].append(
+            _rect(fixed - jaw_w - 12, bed, 2 * jaw_w + t + 24, 10)
+        )
+        groups["fixture-support"].append(
+            _rect(fixed, bed - parallel_h * s, parallel_t * s, parallel_h * s)
+        )
         seat = bed - parallel_h * s
         top_a = seat - arriving * s
         top_k = max(seat - kept * s, top_a + _THIN)
-        groups["arriving"].append(_rect(fixed, top_a, t, seat - top_a))
-        groups["removed"].append(_rect(fixed, top_a, t, top_k - top_a))
-        groups["kept"].append(_rect(fixed, top_k, t, seat - top_k))
-        groups["active"].append(_line(fixed - 4, top_k, moving + 4, top_k))
+        groups["part-arriving"].append(_rect(fixed, top_a, t, seat - top_a))
+        groups["part-removed"].append(_rect(fixed, top_a, t, top_k - top_a))
+        groups["part-kept"].append(_rect(fixed, top_k, t, seat - top_k))
+        groups["active-face"].append(_line(fixed - 4, top_k, moving + 4, top_k))
         cut = cutter * s
-        groups["tool"].append(_rect(cx - cut / 2, top_a - 6 - cut, cut, cut))
+        groups["cutter"].append(_rect(cx - cut / 2, top_a - 6 - cut, cut, cut))
         _title(groups, cx - 150, 52, title)
         if zero_down:
             groups["datum"].append(
@@ -308,7 +311,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             cx, cy = x0 + x * s, back + y * s
             groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
             if tag == drilled[-1]:
-                groups["active"].append(
+                groups["active-face"].append(
                     _el("circle", cx=cx, cy=cy, r=r + 3, fill="none")
                 )
 
@@ -339,7 +342,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     _datum_label(groups, x0 - 8, back - 4, "X0 Y0", "end")
     _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
     finder = x0 + touch * s
-    groups["tool"].append(_el("circle", cx=finder, cy=back - 4, r=4))
+    groups["cutter"].append(_el("circle", cx=finder, cy=back - 4, r=4))
     _datum_label(
         groups,
         finder - 8,
@@ -354,7 +357,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 x0 - radius,
                 front + 2 * radius + 4,
-                ["end mill, conventional:", "table away from you"],
+                ["end mill, conventional:", "cutter path toward you"],
             ),
             (
                 x0 + p1[1] * s,
@@ -403,7 +406,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
                 finish + radius,
                 front + 2 * radius + 4,
                 [
-                    "conventional: table toward you,",
+                    "conventional: cutter path away,",
                     "last X = {{cad.length_in:.3f}} + D/2",
                 ],
             ),
@@ -448,14 +451,14 @@ def _spots(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     top = 42.0
     for index, (name, a, b) in enumerate(spans):
         y = top + 14 * index
-        groups["jaws"].append(_rect(x0 + a * s, y, (b - a) * s, 7))
+        groups["clamp"].append(_rect(x0 + a * s, y, (b - a) * s, 7))
         if index == 2:
             _label(groups, x0 + a * s - 4, y + 8, name, "end", font_size=12)
         else:
             _label(groups, x0 + b * s + 4, y + 8, name, font_size=12)
     back = top + 14 * len(spans) + 18
     front = back + width * s
-    groups["kept"].append(_rect(x0, back, length * s, width * s))
+    groups["part-kept"].append(_rect(x0, back, length * s, width * s))
     groups["hidden"] += [
         _rect(x0, back, length * s, parallel * s),
         _rect(x0, front - parallel * s, length * s, parallel * s),
@@ -469,9 +472,9 @@ def _spots(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         size = sizes["screw"] if tag.startswith("R") else sizes.get(tag, sizes["clamp"])
         cx, cy, r = x0 + x * s, back + y * s, max(size / 2 * s, 2.5)
         groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
-        groups["active"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
+        groups["active-face"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
         items.append((cx, front, [tag]))
-        groups["leaders"].append(_line(cx, cy + r + 3, cx, front))
+        groups["leader"].append(_line(cx, cy + r + 3, cx, front))
     end_y = _callouts(groups, items, front + 6, above=False)
     groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
     _datum_label(groups, x0 - 4, back - 6, "X0 Y0", "start")
@@ -497,7 +500,7 @@ def _spots(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             cx + side * hole / 2 * k,
             cx + side * half,
         )
-        groups["kept"].append(
+        groups["part-kept"].append(
             _el(
                 "path",
                 d=(
@@ -507,7 +510,7 @@ def _spots(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
                 ),
             )
         )
-        groups["active"].append(_line(rim, top_y, bore, top_y + depth))
+        groups["active-face"].append(_line(rim, top_y, bore, top_y + depth))
     _dimension(
         groups,
         cx - csk / 2 * k,

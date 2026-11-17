@@ -7,10 +7,11 @@ layout from :mod:`prechips.jig_diagrams` or a ``kit-*`` layout from
 turns finished CAD geometry and authored blank parameters into
 ``view`` scalars for ``{{view.KEY}}`` tokens and fills elements marked
 ``data-cad-group`` with repeated features (blanks, holes, slots, sections).
-The SVG owns styles, fixtures, tools and authored hardware; only their anchor
-points follow the part. Generated text may hold ``{{cad.*}}``/``{{process.*}}``
-tokens, so every label is formatted once by :func:`prechips.cad.bind_text`.
-SVGs without a template are only token-bound.
+The SVG owns fixtures, tools and authored hardware, styled by
+:mod:`prechips.palette` role classes; only their anchor points follow the
+part. Generated text may hold ``{{cad.*}}``/``{{process.*}}`` tokens, so every
+label is formatted once by :func:`prechips.cad.bind_text`. SVGs without a
+template are only token-bound.
 """
 
 from __future__ import annotations
@@ -599,14 +600,12 @@ def _inspect(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
             floor - shank_length * sscale,
             shank_dia * sscale,
             shank_length * sscale,
-            fill="#999",
         ),
         _rect(
             screw_x - head_dia * sscale / 2,
             floor,
             head_dia * sscale,
             head_height * sscale,
-            fill="#555",
         ),
     ]
     rail_cx = xl + rail_rise * sscale

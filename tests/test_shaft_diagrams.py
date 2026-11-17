@@ -135,13 +135,13 @@ def test_parted_waste_starts_beyond_the_blade_kerf():
 
 def callouts(items, parameters):
     """Run ``_callouts`` as a layout would, with ``parameters`` bound."""
-    groups = {"leaders": [], "labels": []}
+    groups = {"leader": [], "label": []}
     token = _binding.set((CadData({}, None, SOURCE), parameters))
     try:
         _callouts(groups, items, 100.0, above=False)
     finally:
         _binding.reset(token)
-    return [text for _, _, text in groups["labels"]]
+    return [text for _, _, text in groups["label"]]
 
 
 def test_callouts_measure_labels_as_printed():
