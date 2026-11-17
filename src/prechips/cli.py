@@ -10,7 +10,12 @@ from prechips import checks
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
-from prechips.turning import DEFAULT_CONFIG, TurningError, check_turning_deflection
+from prechips.turning import (
+    DEFAULT_CONFIG,
+    TurningError,
+    check_turning_deflection,
+    load_config,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,10 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning and milling read the same packaged/override coefficient file.
-        if "turning_deflection" in profile.enforce or any(
-            checks.CHECKS[name].config == "turning"
-            for name in profile.enforce & checks.CHECKS.keys()
-        ):
+        readers = [
+            name
+            for name in ("turning_deflection", *checks.CHECKS)
+            if name in profile.enforce
+            and (
+                name == "turning_deflection" or checks.CHECKS[name].config == "turning"
+            )
+        ]
+        if readers:
             inputs.append(DEFAULT_CONFIG)
             if profile.turning_config is not None:
                 inputs.append(profile.turning_config)
@@ -82,11 +92,21 @@ def main(argv: list[str] | None = None) -> int:
                 "output must not overwrite an input CAD source, profile, diagram, "
                 "shop or turning config"
             )
+        config = None
+        if readers:
+            try:
+                config = load_config(profile.turning_config)
+            except TurningError as error:
+                opt_out = " ".join(f"--disable-check {name}" for name in readers)
+                raise TurningError(
+                    f"{', '.join(readers)}: {error}. Use {opt_out} or a custom "
+                    "profile to opt out."
+                ) from error
         if "turning_deflection" in profile.enforce:
-            check_turning_deflection(plan, config_path=profile.turning_config)
+            check_turning_deflection(plan, config)
         for name in checks.CHECKS:
             if name in profile.enforce:
-                checks.run(name, plan, profile.turning_config)
+                checks.run(name, plan, config)
         html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")

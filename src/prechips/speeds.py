@@ -37,6 +37,20 @@ def _ranges_text(ranges: list[tuple[float, float]]) -> str:
     return ", ".join(f"{low:g}–{high:g}" for low, high in ranges) + " rpm"
 
 
+def chip_load_feed(shared: dict, rpm: float) -> tuple[str, float]:
+    """The feed a chip-load setting prints, and that printed feed in mm/min.
+
+    The deflection analysis reads the printed figure the operator sets, not
+    the unrounded product.
+    """
+    feed = rpm * shared["flutes"] * shared["chip_load_mm_per_tooth"]
+    if shared.get("feed_unit") == "in/min":
+        inches = round(feed / 25.4, 1)
+        return f"{inches:g} in/min", inches * 25.4
+    millimetres = round(feed)
+    return f"{millimetres} mm/min", float(millimetres)
+
+
 def setting_values(
     shared: dict,
     where: str,
@@ -98,10 +112,7 @@ def setting_values(
             raise CheckError(
                 f"{op_where}: {where}.chip_load_mm_per_tooth requires an rpm or sfm"
             )
-        feed = rpm * shared["flutes"] * shared["chip_load_mm_per_tooth"]
-        values["feed"] = f"{round(feed)} mm/min"
-        if shared.get("feed_unit") == "in/min":
-            values["feed"] = f"{round(feed / 25.4, 1):g} in/min"
+        values["feed"] = chip_load_feed(shared, rpm)[0]
     return values
 
 

@@ -15,8 +15,8 @@ class Check:
     The named fields are accepted by the plan reader and keep exact numbers from
     whole-field bindings. Their contents are validated by the owning check.
     ``config`` names the coefficient file the check reads: ``"none"``, or
-    ``"turning"`` to also receive the active turning config path (``None`` for
-    the packaged defaults).
+    ``"turning"`` to also receive the turning config the CLI parsed once
+    (packaged defaults with any override).
     """
 
     module: str
@@ -51,6 +51,7 @@ CHECKS: dict[str, Check] = {
     ),
     "milling_deflection": Check(
         module="prechips.milling",
+        tool_fields=frozenset({"helix_deg", "axial_ratio"}),
         setup_fields=frozenset({"beam"}),
         operation_fields=frozenset({"beam", "milling_cuts"}),
         config="turning",
@@ -68,7 +69,7 @@ def fields(kind: str) -> frozenset[str]:
     )
 
 
-def run(name: str, plan, turning_config=None) -> None:
+def run(name: str, plan, turning_config: dict | None = None) -> None:
     """Run one check; a refusal names the check and its explicit opt-out."""
     check = CHECKS[name]
     module = import_module(check.module)
