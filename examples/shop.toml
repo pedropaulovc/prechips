@@ -9,6 +9,8 @@
 [machines.pm-30mv]
 kind = "mill"
 # Owner (Pedro, 2026-11-16): spindle 100 rpm minimum, 2800 rpm maximum.
+# Owner (Pedro, 2026-11-16), "2800 max with low belty": the low belt alone
+# covers 100–2800 rpm, so no job on this mill needs a belt change.
 rpm_ranges = [[100, 2800]]
 travel_mm = { x = 584.2, y = 222.25, z = 355.6 }
 spindle_to_table_mm = [60.96, 431.8]
@@ -315,7 +317,8 @@ diameter_mm = 8.73125
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
 
-# TL-26/TL-28 end mill (owner ruling 2026-11-16, prechips #436): the speed and
+# TL-24/TL-26/TL-28 end mill (owner ruling 2026-11-16, prechips #436; the
+# riser's Setups 3-4 since #435): the speed and
 # feed the owner ran a 1/2 in 2-flute HSS end mill at on the PM-30MV, facing
 # the base bar's long edge (harmonic-analyzer
 # logbook/entries/2026-11-05-base-bar-on-the-table.md, op 3: 1800 rpm,
@@ -344,17 +347,6 @@ description = "12 mm jobber drill"
 diameter_mm = 12.0
 [tools.riser-countersink]
 description = "3/8 in 82° countersink"
-
-# Riser Setups 3-4, the 1/2 in 2-flute HSS end mill in 6061: the speed and
-# feed the owner ran a 1/2 in 2-flute HSS end mill at on the PM-30MV, facing
-# the base bar's long edge (harmonic-analyzer
-# logbook/entries/2026-11-05-base-bar-on-the-table.md, op 3: 1800 rpm,
-# 7 in/min). 1800 rpm = 236 ft/min; 7 / (1800 x 2) = .0019 in/tooth.
-[settings.riser-em-half-6061-t6511]
-tool = "jig-em-half"
-material = "6061-t6511"
-rpm = 1800
-feed = "7 in/min"
 
 # Source: harmonic-analyzer cad/process/shop.toml (leadscrew-kit.toml,
 # MHA-CH-06-TL-VN-84 v49), as written there; ownership notes refer to that
@@ -427,7 +419,7 @@ resolution_mm = 0.005
 # Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
 # as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
 # saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter)
-# at the riser's riser-em-half-6061-t6511 setting, jig-spot,
+# at block-em-half-6061-t6511 (below), jig-spot,
 # basebar-counterbore (the 5/16 in end mill) and the carrier's jig-drill-f and
 # jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
 # end mill, plunged; TL-32's notch takes the owner's 1/2 in end mill with 1 in

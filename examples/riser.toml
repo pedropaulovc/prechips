@@ -158,13 +158,17 @@ machine_ref = "pm-30mv"
 holding = "Vise off; bar flat on the clean table. Stage A: a strap across each end (toe ~{{process.strap_toe_in:.1dot}} on the bar) and one at mid-length. Stage B: four straps on faced metal ~{{process.strap_b_outer_in:g}} and {{process.strap_b_inner_in:g}} in from each end, then A's off."
 datum = "Z0 = mill table. Bar does not move between stages."
 diagram = { file = "diagrams/riser/face.svg", alt = "Bar strapped on the bare table: Stage A faces the two spans between end and middle straps, Stage B faces both ends and the middle strip from four straps on faced metal; section shows the top skimmed to the finished thickness from the table" }
-# The cutter centre runs the blank length and across its width plus one
+# The cutter centre runs the longest blank and across its width plus one
 # diameter; the bar lies on the table.
-envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = "{{cad.blank_thickness_mm}}", deepest_cut_mm = "{{cad.thickness_mm}}", longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"] }
+envelope = { x_span_mm = ["{{cad.blank_max_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = "{{cad.blank_thickness_mm}}", deepest_cut_mm = "{{cad.thickness_mm}}", longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"] }
 vise_hold = "other"
-# Straps hold the bar both ways; the table only pushes up. Each cut
-# bends between the two straps either side of it (operation beams).
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.face_a_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+# Straps hold the bar both ways; the table only pushes up. Each cut bends
+# between the nearest strap on each side of it, or overhangs the outer strap
+# at the Stage B ends (operation beams). The beams take the longest blank,
+# whose right-hand spans are the longest; Stage A's section is the thinnest
+# bar Setup 1 sends here (the band's top), Stage B's the metal Stage A faced,
+# at the band's bottom.
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_max_mm}}" } }
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -186,7 +190,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Stage A: face the right span the same way."
 settings = "basebar-face-6061-t6511"
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.face_a_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_max_mm}}" } }
 milling_cuts = [
   { name = "rough passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_a_right_mm}}" },
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_a_right_mm}}" },
@@ -199,7 +203,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Stage B straps on, A's off (bar unmoved): face the left end to the same Z, ≥{{process.face_overlap_in:.2dot}} over A; last pass .005."
 settings = "basebar-face-6061-t6511"
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.face_b_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_b_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_min_mm}}" } }
 milling_cuts = [
   { name = "rough passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_left_mm}}" },
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_left_mm}}" },
@@ -212,7 +216,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Face the strip under the old middle strap the same way."
 settings = "basebar-face-6061-t6511"
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.face_b_mid_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_b_mid_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_min_mm}}" } }
 milling_cuts = [
   { name = "rough passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_mid_mm}}" },
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_mid_mm}}" },
@@ -225,7 +229,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Face the right end the same way."
 settings = "basebar-face-6061-t6511"
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.face_b_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_b_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_min_mm}}" } }
 milling_cuts = [
   { name = "rough passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_right_mm}}" },
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_right_mm}}" },
@@ -264,7 +268,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Hold 1: cutter centred on the edge; clean up the top edge, ~{{process.edge_cleanup_in:.2dot}} in .010 passes, last .005. Mark it ZERO EDGE."
 instruction_detailed = "Hold 1: one parallel only: the .24 bar is too thin to straddle a pair. Tap the bar down until the parallel will not slide. Cutter centred on the edge, clean up the top edge along X in .010 passes, last .005, ~{{process.edge_cleanup_in:.2dot}} in all, until it is milled full length: the thin bar overhangs the jaws ~{{cad.blank_centred_overhang_in:.1f}} each side, so heavier passes push it sideways. Mark it ZERO EDGE on both faces."
-settings = "riser-em-half-6061-t6511"
+settings = "jig-em-half-6061-t6511"
 milling_cuts = [
   { name = "cleanup passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.254, radial_woc_mm = "{{cad.thickness_min_mm}}", rpm = 1800, feed_mm_min = 177.8, traverse_mm = [0, "{{cad.blank_max_length_mm}}"] },
   { name = "ZERO EDGE last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.127, radial_woc_mm = "{{cad.thickness_min_mm}}", rpm = 1800, feed_mm_min = 177.8, traverse_mm = [0, "{{cad.blank_max_length_mm}}"] },
@@ -277,7 +281,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Hold 2: turn end-for-end, ZERO EDGE down on the parallel. Measure width w; .010 passes to .005 over, then .005 to {{cad.width_in:.3f}}."
 instruction_detailed = "Hold 2: turn end-for-end, ZERO EDGE down on the parallel. Measure the width w, touch the cutter on the top edge and set Z = w. Cutter centred on the edge, take .010 passes to Z .005 over {{cad.width_in:.3f}}, then a .005 pass to Z {{cad.width_in:.3f}}."
-settings = "riser-em-half-6061-t6511"
+settings = "jig-em-half-6061-t6511"
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.blank_max_length_mm}}"], clamp_mm = "{{cad.edges_jaw_mm}}", section_mm = { y = "{{cad.thickness_min_mm}}", z = "{{cad.width_mm}}" }, vise_left = "start", vise_hold = 2 }
 milling_cuts = [
   { name = "width rough", kind = "end", phase = "rough", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.254, radial_woc_mm = "{{cad.thickness_min_mm}}", rpm = 1800, feed_mm_min = 177.8, traverse_mm = [0, "{{cad.blank_max_length_mm}}"] },
@@ -295,8 +299,9 @@ machine_ref = "pm-30mv"
 holding = "Flat on 1 in parallels, ZERO EDGE at the fixed jaw. Hold 1: left end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the left jaw side. Hold 2: slid left, right end {{process.overhang_in:.1dot}}–{{process.overhang_max_in:.1dot}} out past the right jaw side."
 datum = "X0 ZERO END (hold 1 mills it, hold 2 re-finds it); Y0 ZERO EDGE, touched at ~X {{process.y_touch_x_in:g}}; +Y toward you."
 diagram = { file = "diagrams/riser/ends.svg", alt = "Hold 1: left end out of the vise, ZERO END milled and P1 drilled; hold 2: slid left, right end milled to length and P2 drilled" }
-# Cutter centre past both ends (final X = length + D/2) and across the width.
-envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.stop_drill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
+# Cutter centre past both ends of the longest blank (final X = length + D/2)
+# and across the width; the work top is the thickest bar that skips Setup 2.
+envelope = { x_span_mm = ["{{cad.blank_max_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_max_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.stop_drill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 # Both long edges are milled; the end overhangs past each jaw side.
 vise_hold = [
   { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.thickness_min_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{cad.overhang_max_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" },
@@ -315,7 +320,7 @@ tool = "em-half"
 drilling = "none"
 sizing = "other"
 instruction = "Hold 1: cutter .04 below the bar; clean up the left end, .02 X steps, conventional: table away from you. Mark ZERO END."
-settings = "riser-em-half-6061-t6511"
+settings = "jig-em-half-6061-t6511"
 milling_cuts = [
   { name = "ZERO END steps", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.thickness_min_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = 0 },
 ]
@@ -360,7 +365,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Hold 2: slide left; re-find X0 on ZERO END. Measure cutter D. Cut the right end, .02 steps, conventional: table toward you; final X = {{cad.length_in:.3f}} + D/2."
 instruction_detailed = "Hold 2: slide left; re-find X0 on ZERO END, keep Y. Measure the cutter diameter D. Cut the right end in .02 X steps, conventional: table moving toward you; final X = {{cad.length_in:.3f}} + D/2."
-settings = "riser-em-half-6061-t6511"
+settings = "jig-em-half-6061-t6511"
 inspection = "Edge-find the cut end: DRO {{cad.length_min_in:.2f}}–{{cad.length_max_in:.2f}} from ZERO END."
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = "{{cad.ends_hold2_jaw_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_min_mm}}" }, vise_left = "start", vise_hold = 2 }
 milling_cuts = [

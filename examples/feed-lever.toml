@@ -9,13 +9,14 @@
 # minimum). 2026-11-14 blind traveler review: drill tip .2 past the bottom
 # face. The end mill runs at the shop's
 # jig-em-half-6061-t6511 (owner ruling 2026-11-16: the 2026-11-05 logbook's
-# 1800 rpm, 7 in/min), so all spindle work is in the high belt range.
+# 1800 rpm, 7 in/min). Every speed is on the PM-30MV low belt, 100–2800 rpm
+# (owner ruling 2026-11-16, harmonic-analyzer #2867): no belt change.
 title = "Oblique trammel feed lever"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
 stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 24 in bar (OnlineMetals 1165, shared with TL-28); {{process.quantity:d}} × {{process.blank_length_in:.2f}} in blank."
-note = "Inches. Only the ends, two holes and two grip-end corners are machined; 1/2 and 1 in faces as bought. All spindle work in the high belt range."
+note = "Inches. Only the ends, two holes and two grip-end corners are machined; 1/2 and 1 in faces as bought. All spindle work on the low belt, 100–2800 rpm; no belt change."
 shop = "shop.toml"
 material_key = "6061-t6511"
 milling_material = "aluminum_6061"
@@ -41,7 +42,11 @@ overhang_in = 0.4
 y_touch_x_in = 8.0               # Hand sheet: Y0 touched past the right jaw side.
 # Grip-end squareness: the two edge-finder X readings are taken at these Y
 # stations from ZERO EDGE; the adapter binds the allowed spread from their
-# span × tan(general angular) and refuses stations off the narrowest end.
+# span × tan(general angular), refuses stations off the narrowest end and
+# binds the printed stations (cad.square_probe_*_y) from the same numbers.
+# The hand-sheet method read at both edges; these inner stations are authored
+# (prechips #441, answering the #436 review), with no owner ruling: awaiting
+# Pedro.
 square_probe_near_y_in = 0.2
 square_probe_far_y_in = 0.8
 # Machine-capacity inputs (mm). Heights are above the mill table; tool lengths
@@ -125,7 +130,7 @@ tool = "em-half"
 drilling = "none"
 sizing = "other"
 instruction = "Cutter .04 below bar. Left end, conventional (table moves away from you): skim .02–.04 in .02 X steps until clean. Mark ZERO END and ZERO EDGE."
-instruction_detailed = "Touch the cutter on the top, then down .54 (cutter .04 below the bar). Left end, conventional: the table moves away from you (cutter toward you). Skim .02–.04 in .02 X steps until clean all over. Mark ZERO END and ZERO EDGE."
+instruction_detailed = "Cutter down {{cad.end_cut_depth_in:.2dot}} from the top face (.04 below the bar). Left end, conventional: the table moves away from you (cutter toward you). Skim .02–.04 in .02 X steps until clean all over. Mark ZERO END and ZERO EDGE."
 settings = "jig-em-half-6061-t6511"
 milling_cuts = [
   { name = "ZERO END clean-up", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = 0 },
@@ -186,9 +191,9 @@ tool = "em-half"
 drilling = "none"
 sizing = "other"
 instruction = "Cutter .04 below bar. Measure cutter D; grip end, conventional (table moves toward you), .02 passes, last X = {{cad.length_in:.3f}} + D/2."
-instruction_detailed = "End mill back in the collet: touch it on the top again, then down .54 (cutter .04 below the bar). Measure cutter D. Grip end, conventional: the table moves toward you (cutter away from you); .02 passes, last pass X = {{cad.length_in:.3f}} + D/2."
+instruction_detailed = "End mill back in the collet after the drill: cutter down {{cad.end_cut_depth_in:.2dot}} from the top face again (.04 below the bar). Grip end, conventional: the table moves toward you (cutter away from you); .02 passes, last pass X = {{cad.length_in:.3f}} + D/2, D the measured cutter."
 settings = "jig-em-half-6061-t6511"
-inspection = "Length {{cad.length_min_in:.1f}}–{{cad.length_max_in:.1f}} on the DRO from ZERO END: edge finder on the grip end at Y {{process.square_probe_near_y_in:.1dot}} and {{process.square_probe_far_y_in:.1dot}}, the two X readings within {{cad.end_square_in:.3dot}} (square ±{{cad.angular_tol_deg:g}}°)."
+inspection = "Length {{cad.length_min_in:.1f}}–{{cad.length_max_in:.1f}} on the DRO from ZERO END: edge finder on the grip end at Y {{cad.square_probe_near_y}} and {{cad.square_probe_far_y}}, the two X readings within {{cad.end_square_in:.3dot}} (square ±{{cad.angular_tol_deg:g}}°)."
 gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
 milling_cuts = [
   { name = "grip end to length", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = "{{cad.blank_length_mm}}" },

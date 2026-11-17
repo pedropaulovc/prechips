@@ -74,3 +74,11 @@ def test_squareness_spread_follows_the_probe_span():
     assert cad.values["end_square_in"] == pytest.approx(0.6 * math.tan(math.radians(1)))
     with pytest.raises(CadError, match="narrowest end"):
         load_feed_lever(SOURCE, probes | {"square_probe_far_y_in": 0.99})
+    # Either key alone is refused, naming the missing one.
+    with pytest.raises(CadError, match="square_probe_near_y_in"):
+        load_feed_lever(SOURCE, {"square_probe_far_y_in": 0.8})
+    # The printed station is the one the spread uses: no hidden rounding.
+    cad = load_feed_lever(SOURCE, probes | {"square_probe_near_y_in": 0.25})
+    assert cad.values["square_probe_near_y"] == ".25"
+    with pytest.raises(CadError, match="square_probe_near_y_in"):
+        load_feed_lever(SOURCE, probes | {"square_probe_near_y_in": 0.2505})

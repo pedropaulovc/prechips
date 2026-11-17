@@ -86,10 +86,21 @@ def test_refuses_a_stage_b_strap_in_a_cut():
         load_riser(SOURCE, {**PARAMETERS, **swapped})
 
 
-def test_countersink_disagreement_names_each_feature(tmp_path):
+def test_stage_b_cuts_bend_on_the_straps_beside_them():
+    # An off-centre middle strap puts both inner straps right of the middle
+    # cut: it bends between the outer-left and inner-left straps instead.
+    cad = load_riser(
+        SOURCE, {**PARAMETERS, "strap_a_mid_x_in": 4.0, "strap_b_inner_in": 5.5}
+    )
+    assert cad.values["face_b_mid_supports_mm"] == pytest.approx(
+        [1.5 * 25.4, 5.5 * 25.4]
+    )
+
+
+def test_countersink_disagreement_is_refused(tmp_path):
     source = _manifest(
         tmp_path,
         lambda text: text.replace('"angle_deg" = 82.0', '"angle_deg" = 90.0', 1),
     )
-    with pytest.raises(CadError, match="screw_hole_1_countersink 90°.*screw_hole_2"):
+    with pytest.raises(CadError, match="csk_angle_deg"):
         load_riser(source, PARAMETERS)
