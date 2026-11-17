@@ -291,10 +291,12 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     )
     floor = bed - parallel * s
     right = 190 + across * s / 2
-    _vdim(groups, right + 70, floor - final * s, floor, "the block's height")
+    # The offcut's height, H, is the block's: witness lines from its top and
+    # from the parallels.
+    _vdim(groups, right + 70, floor - final * s, floor, "H", (right, right))
     end_y = _callouts(
         groups,
-        [(190, bed, ["same parallels, Z unmoved"])],
+        [(190, bed, ["same parallels, Z unmoved:", "H = the block's height"])],
         bed + 4,
         above=False,
     )
@@ -423,25 +425,39 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             above=False,
         )
     if mode == "inspect":
-        _vdim(groups, left - 30, back, front, _shorthand(length, 2))
+        # On the feed block SPINDLE END is cut away over the lug: witnesses to
+        # it start at the step.
+        step_x = left
+        if feed:
+            step_x = lug_side - inward * _cad(values, "lug_length_nominal_in") * s
+        _vdim(
+            groups,
+            left - 30,
+            back,
+            front,
+            _shorthand(length, 2),
+            (step_x, left) if feed else None,
+        )
         _dimension(groups, left, right, end_y + 22, front, _shorthand(y_length, 2))
         end_y += 30
         if feed:
             _dimension(
                 groups,
                 lug_side,
-                lug_side - inward * _cad(values, "lug_length_nominal_in") * s,
+                step_x,
                 dim_top - 54,
                 back,
                 "{{cad.lug_length_nominal_in:.2f}}",
             )
+            # SPINDLE END is cut away over the lug: its witness starts at the
+            # step, the lug face's at the lug side.
             _vdim(
                 groups,
                 left - 56,
                 back,
                 lug,
                 "{{cad.lug_x_nominal_in:.2dot}}",
-                (left, left),
+                (step_x, lug_side),
             )
     _axes(groups, 24, front - 34)
 
@@ -531,7 +547,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     lug_x = _cad(values, "lug_x_nominal_in")
     screw = _cad(values, "screw_y_nominal_in")
     screw_dia = _cad(values, "screw_dia_in")
-    back_z = _cad(values, "lug_bore_back_z_in")
+    mill = _param(parameters, "lug_bore_mill_in")
     jaw = _param_in(parameters, "vise_jaw_width_mm")
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
     parallel = _param_in(parameters, "edge_parallel_height_mm")
@@ -540,12 +556,6 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     spacer = _param(parameters, "blank_width_in")
     spacer_height = _param(parameters, "offcut_length_in")
     cutter = _param_in(parameters, "half_cutter_dia_mm")
-    if not over_min <= over_max or over_max >= y_length or over_min <= lug_length:
-        raise CadError("diagram jig-block-notch: overhang must clear the step")
-    if spacer + y_length - over_min >= jaw:
-        raise CadError(
-            "diagram jig-block-notch: the spacer does not fit beside the block"
-        )
     over = (over_min + over_max) / 2
     s = min(70.0, 600 / (jaw + over + cutter))
     jaw_left = 40.0
@@ -594,11 +604,11 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         )
     )
     groups["removed"].append(_rect(step, top, end - step, lug_face - top))
-    # The leadscrew clearance through the lug: its last plunge, from the lug
-    # face to Z −lug_bore_back_z, is cut here.
+    # The leadscrew clearance through the lug: its last plunge, Z zeroed on
+    # the lug face just cut and lug_bore_mill_in down from it, is cut here.
     bx = end - screw * s
     half = screw_dia / 2 * s
-    back_floor = top + back_z * s
+    back_floor = lug_face + mill * s
     groups["hidden"] += [
         _line(bx - half, lug_face, bx - half, floor),
         _line(bx + half, lug_face, bx + half, floor),
@@ -614,7 +624,10 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups["datum"].append(_el("circle", cx=end, cy=top, r=3.5))
     _datum_label(groups, end + 6, top - 4, "X0 Z0", "start")
     _dimension(groups, step, end, top - 58, top, "{{cad.lug_length_nominal_in:.2f}}")
-    _vdim(groups, end + 20, top, lug_face, "{{cad.lug_x_nominal_in:.2dot}}", (end, end))
+    # SPINDLE END is cut away over the lug: its witness starts at the step.
+    _vdim(
+        groups, end + 20, top, lug_face, "{{cad.lug_x_nominal_in:.2dot}}", (step, end)
+    )
     _label(groups, (start + step) / 2, top - 6, "SPINDLE END", "middle")
     _label(groups, end + 6, floor - 4, "LUG END")
     _dimension(
@@ -639,7 +652,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
                 ["OUTER END down,", f"on {_shorthand(parallel, 2)} in parallels"],
             ),
             (jaw_right, bed, ["jaw side"]),
-            (bx, back_floor, ["3/8 down from", "the lug face"]),
+            (bx, back_floor, ["3/8 plunge, Z0", "on the lug face"]),
         ],
         bed + 40,
         above=False,

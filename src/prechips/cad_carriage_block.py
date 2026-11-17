@@ -131,7 +131,8 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     adapter, y_field, row_from = _PARTS[part]
     raw, values, features = _harmonic_manifest(path, part, adapter)
     _model_frame(raw)
-    expected = _COMMON | (_FEED if part.endswith("feed-block") else set())
+    feed = adapter == "harmonic_feed_block"
+    expected = _COMMON | (_FEED if feed else set())
     if set(features) != expected:
         raise CadError(f"cad.features: expected exactly {', '.join(sorted(expected))}")
 
@@ -208,6 +209,8 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     # Carriage holes: two stations by two rows, each counterbored from the top.
     shared: dict = {}
     points = []
+    # Each hole's worst case toward the notch: least station, greatest row.
+    extremes = []
     for n in range(1, 5):
         name = f"carriage_hole_{n}"
         cbore_name = f"carriage_counterbore_{n}"
@@ -236,6 +239,7 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         if not _close(depth_ref, height - shared["cbore_floor"][1]):
             raise CadError(f"{cbore_name}.depth_ref: not height − floor")
         points.append((station, _nominal(item, "row", name)))
+        extremes.append((_band(item, "station", name)[0], _band(item, "row", name)[1]))
     for key in ("hole_dia", "cbore_dia", "cbore_floor"):
         band, value = shared[key]
         _inch_limits(values, key, band)
@@ -274,7 +278,7 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         ),
     ]
 
-    if adapter == "harmonic_feed_block":
+    if feed:
         _feed(
             features,
             values,
@@ -283,8 +287,12 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
             y_edge=y_edge,
             edge_tol=edge_tol,
             holes=[
-                (bore_station, values["bore_y_mm"], values["bore_dia_mm"] / 2),
-                *((x, y, values["cbore_dia_mm"] / 2) for x, y in points),
+                (
+                    values["bore_x_band_mm"][0],
+                    values["bore_y_band_mm"][1],
+                    values["bore_dia_band_mm"][1] / 2,
+                ),
+                *((x, y, values["cbore_dia_band_mm"][1] / 2) for x, y in extremes),
             ],
         )
     _edge_breaks(raw, values)
@@ -317,8 +325,9 @@ def _feed(
     """Bind the feed block's lug, leadscrew clearance and assembly-transferred
     taps, and the plan's lug-relative process values.
 
-    ``holes`` are the top holes as (station, row, radius) in mm, the
-    counterbores' radius for H1–H4; each must stay clear of the notch.
+    ``holes`` are the top holes as (least station, greatest row, greatest
+    radius) in mm, the counterbores' for H1–H4; each must stay clear of the
+    notch at its band extremes.
     """
     lug_x = _bind(values, seat, "lug_x", "carriage_seat", "lug_x")
     lug_length = _bind(values, seat, "lug_length", "carriage_seat", "lug_length")
@@ -333,10 +342,12 @@ def _feed(
     ):
         raise CadError("carriage_seat: expected the lug inside the block's length")
     # The notch takes SPINDLE END to lug_x, from LUG END to lug_length; the
-    # head beyond it, overall_y − lug_length from ROW SIDE, keeps every hole.
-    head = overall_y - lug_length
+    # head beyond it, overall_y − lug_length from ROW SIDE, keeps every hole,
+    # taken at the smallest head and the deepest notch the bands allow.
+    head = values["overall_y_band_mm"][0] - values["lug_length_band_mm"][1]
+    notch_x = values["lug_x_band_mm"][1]
     for station, row, radius in holes:
-        if row + radius > head and station - radius < lug_x:
+        if row + radius > head and station - radius < notch_x:
             raise CadError("carriage_seat: a top hole breaks into the lug notch")
     values["lug_width_mm"] = length - lug_x
     lug_end = y_edge - overall_y
@@ -393,31 +404,47 @@ def _feed_process(values: dict, parameters: dict) -> None:
     """Bind the feed plan's millimetre and lug-relative values from its inch
     parameters, refusing bad relations here so both profiles do.
 
-    Notch hold: the worst-case overhang and the spacer offcut sawn from the
-    bar (and how far over the block's height it may stand). Leadscrew
-    clearance (before the notch): the pilot runs blind from OUTER END to
-    ``lug_bore_depth_in``, past the lug face at every drawing size; the 3/8
-    end mill plunges ``lug_bore_mill_in`` from OUTER END and, after the notch,
-    down from the lug face to Z −(lug_x + mill) from SPINDLE END, so neither
-    plunge puts its shank in the hole and the two meet at every drawing size.
+    Notch hold: the worst-case overhang, clear of the step, and the spacer
+    offcut sawn from the bar, fitting beside the block within the jaws.
+    Leadscrew clearance (before the notch): the pilot runs blind from OUTER
+    END to ``lug_bore_depth_in``, past the lug face at every drawing size; the
+    3/8 end mill plunges ``lug_bore_mill_in`` from OUTER END and, after the
+    notch, the same from the lug face, Z zeroed on the face each enters, so
+    each cuts exactly ``lug_bore_mill_in`` (tool_sizing checks it against the
+    flutes) and the two meet through the thickest lug the drawing allows.
     Notch passes: the middle of the height, and each side with the cutter
     ``notch_side_overrun_in`` past its face.
     """
     length_in = values["length_nominal_in"]
-    lug_x_in = values["lug_x_nominal_in"]
     if "notch_overhang_max_in" in parameters:
         over = _positive(
             parameters["notch_overhang_max_in"], "process.notch_overhang_max_in"
         )
         values["notch_overhang_mm"] = over * 25.4
+        over_min = _positive(
+            parameters.get("notch_overhang_min_in"), "process.notch_overhang_min_in"
+        )
+        # LUG END hangs past the jaw side far enough for the cutter to reach
+        # the step at the longest lug, and the head stays gripped.
+        if not (
+            values["lug_length_max_in"] < over_min <= over < values["overall_y_min_in"]
+        ):
+            raise CadError("process.notch_overhang_*_in: overhang must clear the step")
+        if "vise_jaw_width_mm" in parameters and "blank_width_in" in parameters:
+            jaw = _positive(
+                parameters["vise_jaw_width_mm"], "process.vise_jaw_width_mm"
+            )
+            spacer = _positive(parameters["blank_width_in"], "process.blank_width_in")
+            gripped = values["overall_y_max_in"] - over_min
+            if not spacer + gripped < jaw / 25.4:
+                raise CadError(
+                    "process.blank_width_in: the spacer does not fit beside the block"
+                )
     if "offcut_length_in" in parameters:
         offcut = _positive(parameters["offcut_length_in"], "process.offcut_length_in")
         values["offcut_length_mm"] = offcut * 25.4
-    # The spacer offcut is faced to the block's height and may stand over it
-    # by no more than this: the comparison its inspection gauges.
     if "spacer_over_max_in" in parameters:
-        over = _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
-        values["spacer_over_band_mm"] = [0.0, over * 25.4]
+        _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
     if "lug_bore_depth_in" in parameters:
         depth = _positive(parameters["lug_bore_depth_in"], "process.lug_bore_depth_in")
         if not values["length_max_in"] - values["lug_x_min_in"] < depth:
@@ -428,16 +455,19 @@ def _feed_process(values: dict, parameters: dict) -> None:
         values["lug_bore_floor_mm"] = (length_in - depth) * 25.4
     if "lug_bore_mill_in" in parameters:
         mill = _positive(parameters["lug_bore_mill_in"], "process.lug_bore_mill_in")
-        back_z = lug_x_in + mill
-        if not values["length_max_in"] < lug_x_in + 2 * mill:
+        # Each plunge zeroes Z on the face it enters (OUTER END; the lug face
+        # the notch just cut), so the thickest lug sets whether they meet and
+        # the thinnest whether each stops inside it.
+        if not values["length_max_in"] - values["lug_x_min_in"] < 2 * mill:
             raise CadError("process.lug_bore_mill_in: the two plunges must meet")
-        if not back_z < values["length_min_in"]:
+        if not mill < values["length_min_in"] - values["lug_x_max_in"]:
             raise CadError("process.lug_bore_mill_in: must stop inside the lug")
         if mill >= parameters.get("lug_bore_depth_in", math.inf):
             raise CadError("process.lug_bore_mill_in: must stop short of the pilot")
-        values["lug_bore_back_z_in"] = back_z
-        values["lug_bore_back_floor_mm"] = (length_in - back_z) * 25.4
-        # Each plunge's depth, for tool_sizing against the cutter's flutes.
+        # The lug-face plunge's floor over the parallels at the thinnest lug.
+        floor = values["length_min_in"] - values["lug_x_max_in"] - mill
+        values["lug_bore_back_floor_mm"] = floor * 25.4
+        # Each plunge's depth below its own face, for tool_sizing.
         values["lug_bore_mill_mm"] = mill * 25.4
     if "notch_side_overrun_in" in parameters and "half_cutter_dia_mm" in parameters:
         overrun = _positive(

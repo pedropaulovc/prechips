@@ -102,14 +102,15 @@ tap_tip_z_mm = -8.0
 # OUTER END to Z −.90 (22.86 mm), past the lug face to come (1.650 − .860 =
 # .790 from OUTER END at worst), so the notch opens it; its floor stands
 # 1.64 − .90 = .74 above SPINDLE END. The 3/8 end mill plunges .45 down it
-# from OUTER END and, after the notch, .45 down from the lug face: its flutes
-# (the shop's .50 LOC, checked by tool_sizing), not its 3/8 shank, are in the
-# hole each time (Codjiflo, #397), and the two plunges meet with .11 to spare
-# at the worst lug (2 × .45 − .79). The drill and end-mill tips run ~.1 below
-# the pilot's floor.
+# from OUTER END and, after the notch, .45 down from the lug face, Z zeroed
+# on each face it enters (SPINDLE END over the lug is gone by then): its
+# flutes (the shop's .50 LOC, checked by tool_sizing), not its 3/8 shank, are
+# in the hole each time (Codjiflo, #397), and the two plunges meet with .11
+# to spare at the thickest lug (2 × .45 − .79). The drill and end-mill tips
+# run ~.1 below the pilot's floor.
 lug_bore_depth_mm = 22.86
 lug_bore_mill_in = 0.45
-pilot_dia_mm = 7.9375            # The 5/16 drill (tools block-drill-5-16).
+pilot_dia_mm = 7.9375            # The 5/16 drill; tool_sizing bands the drill to it.
 drill_tip_z_mm = -2.54
 # Milling deflection (prechips milling_deflection). A part standing in the
 # vise on the 1/2 in parallels is gripped only up to the jaw tops:
@@ -235,9 +236,11 @@ milling_cuts = [
 settings = "riser-em-half-6061-t6511"
 # The spacer stands in the vise alone: its own section and grip.
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.offcut_length_mm}}"], clamp_mm = [0, "{{cad.offcut_length_mm}}"], section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.height_mm}}" }, vise_left = "start", vise_hold = 2 }
-# The block alone keeps its drawing band; the spacer is gauged against it.
-inspection = "Spacer 0–{{process.spacer_over_max_in:.3dot}} over the block's height; thin: shimmed to it in the notch setup."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.spacer_over_band_mm}}" }]
+# The block alone keeps its drawing band. The spacer is a comparison, not a
+# gauged dimension: two caliper readings, spacer minus block at the same
+# spot, and a thin spacer is shimmed, not refused.
+inspection = "Spacer 0–{{process.spacer_over_max_in:.3dot}} over the block's height (caliper both, same spot); thin: shimmed to it in the notch setup."
+gauge_checks = "other"
 
 [[setups]]
 machine_kind = "other"
@@ -443,7 +446,9 @@ feed = "hand"
 speed_kind = "spindle"
 tool = "drill-5-16"
 drilling = "twist_drill"
-sizing = "other"
+# Bands the drill to the pictured and checked pilot size, so a changed
+# drill record refuses rather than drifting from pilot_dia_mm.
+sizing = { kind = "band", band_mm = ["{{process.pilot_dia_mm}}", "{{process.pilot_dia_mm}}"] }
 instruction = "Pilot to Z −{{process.lug_bore_depth_mm:in.2dot}}."
 instruction_detailed = "Touch OUTER END and zero Z. Drill the pilot to Z −{{process.lug_bore_depth_mm:in.2dot}}, past where the lug face will be; no pecks (under 3 diameters deep). The notch opens the hole later."
 hole_depth_mm = "{{process.lug_bore_depth_mm}}"
@@ -472,7 +477,7 @@ machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
 holding = "On edge, OUTER END down on 1/2 in parallels, TOP at the fixed jaw; LUG END {{process.notch_overhang_min_in:.2f}}–{{process.notch_overhang_max_in:.2f}} past the right jaw side, measured; the spacer offcut (faced with the block, at most {{process.spacer_over_max_in:.3dot}} over its height, thin shimmed up) at the left jaw end, {{process.blank_width_in:fraction}} in along the jaws, its faced and as-bought faces against the jaws; not TL-22."
-datum = "X0 LUG END (touched): the notch's X runs left from it, −X on the DRO; Y0 TOP = fixed jaw face, +Y toward you; Z0 SPINDLE END (touched with each end mill)."
+datum = "X0 LUG END (touched): the notch's X runs left from it, −X on the DRO; Y0 TOP = fixed jaw face, +Y toward you; Z0 SPINDLE END for the notch, the lug face for the 3/8 plunge (touched with each end mill)."
 diagram = { file = "diagrams/feed-block/notch.svg", alt = "Front view, moving jaw not shown: the block on edge, LUG END past the right jaw side, the notch cut down from SPINDLE END to the lug face, then the leadscrew clearance down from the lug face" }
 # The cutters work only past the jaw side: along the lug plus a cutter
 # diameter either side, across the .96 plus one diameter, down to the 3/8
@@ -508,8 +513,8 @@ gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.lug_x_band_mm}}" }, { gau
 speed_kind = "spindle"
 tool = "em-3-8"
 sizing = { kind = "band", band_mm = "{{cad.screw_dia_band_mm}}", depth_mm = "{{cad.lug_bore_mill_mm}}" }
-instruction = "Leadscrew clearance from the lug face: centre on the pilot, 3/8 end mill plunged to Z −{{cad.lug_bore_back_z_in:.2dot}}, through to the first plunge."
-instruction_detailed = "Centre on the pilot where it opens in the lug face: the 5/16 drill in the chuck, spindle off, lowered into the pilot; lock both table axes. Change to the 3/8 end mill, touch SPINDLE END with it and zero Z. Plunge it down the pilot to Z −{{cad.lug_bore_back_z_in:.2dot}}, {{process.lug_bore_mill_in:.2dot}} below the lug face, where it meets the plunge from OUTER END; retract and brush the chips off. The .375 pin passes through the lug; the .379 enters neither end."
+instruction = "Leadscrew clearance from the lug face: centre on the pilot; 3/8 end mill, Z0 on the lug face, plunged to Z −{{process.lug_bore_mill_in:.2dot}}, through to the first plunge."
+instruction_detailed = "Centre on the pilot where it opens in the lug face: the 5/16 drill in the chuck, spindle off, lowered into the pilot; lock both table axes. Change to the 3/8 end mill and touch it on the lug face, which shows round the pilot; zero Z there. Plunge it down the pilot to Z −{{process.lug_bore_mill_in:.2dot}}, where it meets the plunge from OUTER END; retract and brush the chips off. The .375 pin passes through the lug; the .379 enters neither end."
 # Station from LUG END: the plunge's thrust bends the overhanging lug.
 milling_cuts = [{ name = "leadscrew clearance from the lug face", kind = "plunge", phase = "finish", flutes = 2, feed_per_tooth_mm = 0.0254, cutter_dia_mm = 9.525, stations_mm = "{{cad.screw_y_mm}}" }]
 rpm = 1650

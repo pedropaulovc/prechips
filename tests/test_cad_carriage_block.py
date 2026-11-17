@@ -108,18 +108,26 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
         load_feed_block(bored, {})
 
 
-def test_refuses_a_lug_plunge_deeper_than_the_flutes(tmp_path, capsys):
-    # Each 3/8 plunge must stay within the cutter's recorded length of cut,
-    # so its shank never follows the flutes into the hole.
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        # Each 3/8 plunge stays within the cutter's recorded length of cut,
+        # so its shank never follows the flutes into the hole.
+        ("lug_bore_mill_in = 0.45", "lug_bore_mill_in = 0.55", "shorter than"),
+        # The pro sheet (no pictures) refuses a notch hold that cannot work.
+        ("notch_overhang_min_in = 2.05", "notch_overhang_min_in = 1.80", "clear the"),
+        ("blank_width_in = 3.0 ", "blank_width_in = 5.0 ", "spacer does not fit"),
+    ],
+)
+def test_pro_refuses_a_bad_feed_block_process(tmp_path, capsys, old, new, message):
     examples = (ROOT / "examples").as_posix()
     text = (ROOT / "examples/feed-block.toml").read_text(encoding="utf-8")
-    old = "lug_bore_mill_in = 0.45"
     assert text.count(old) == 1
-    text = text.replace(old, "lug_bore_mill_in = 0.55")
+    text = text.replace(old, new)
     for name in ('"shop.toml"', '"cad/', '"diagrams/'):
         text = text.replace(name, f'"{examples}/{name[1:]}')
     plan = tmp_path / "feed-block.toml"
     plan.write_text(text, encoding="utf-8")
     out = tmp_path / "out.html"
     assert main(["traveler", str(plan), "--profile", "pro", "--out", str(out)]) != 0
-    assert "shorter than" in capsys.readouterr().err
+    assert message in capsys.readouterr().err
