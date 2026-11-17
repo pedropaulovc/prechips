@@ -378,10 +378,13 @@ def _plate_hold(values: dict, parameters: dict) -> None:
         )
     values["fence_margin_mm"] = fence
 
+    # The slot's outer wall is the bottom arc offset outward along its normal.
+    wall = outline["bottom_radius"] + reach
+
     def clamp_margin(x: float) -> float:
         """Strip between the slot and the clamped edge, ``x`` from the hub."""
-        y = outline["centre_y"] - math.sqrt(outline["bottom_radius"] ** 2 - x**2)
-        return width - hub_y + (y - outline["hub_y"]) - reach
+        y = outline["centre_y"] - math.sqrt(wall**2 - x**2)
+        return width - hub_y + (y - outline["hub_y"])
 
     # Clamp side: the bottom arc comes nearest the clamped edge on the hub's
     # centre line, where the strip is narrowest.
@@ -427,8 +430,22 @@ def _plate_hold(values: dict, parameters: dict) -> None:
     values["hub_x_in"] = hub_x / 25.4
     values["hub_y_in"] = hub_y / 25.4
     values["clamp_stations_in"] = ", ".join(f"{x / 25.4:.2f}" for x in clamps)
-    if "hub_relief_dia_mm" in parameters:
+    # The relief hole is fixed in the plate, hub_x_mm from its end stop; the
+    # hub hole is drilled that far from the blank's own end.
+    if _all_or_none(
+        parameters,
+        ("hub_relief_dia_mm", "x_stop_tolerance_mm"),
+        "the hub relief hole",
+    ):
         relief = _positive(parameters["hub_relief_dia_mm"], "process.hub_relief_dia_mm")
-        if relief <= values["hub_dia_band_mm"][1]:
-            raise CadError("process.hub_relief_dia_mm: no larger than the hub hole")
+        slack = _positive(
+            parameters["x_stop_tolerance_mm"], "process.x_stop_tolerance_mm"
+        )
+        clear = (relief - values["hub_dia_band_mm"][1]) / 2
+        if clear < slack:
+            raise CadError(
+                f"process.hub_relief_dia_mm: the relief hole leaves {clear:.3f} mm "
+                f"round the hub hole, under x_stop_tolerance_mm {slack:g} mm: a "
+                "blank that far off the stop puts the reamer into the plate"
+            )
         values["hub_relief_x_mm"] = [hub_x - relief / 2, hub_x + relief / 2]

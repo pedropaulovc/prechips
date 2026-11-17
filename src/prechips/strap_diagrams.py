@@ -132,8 +132,8 @@ class _Plan:
         return self.py(self.width)
 
 
-def _fixture(groups: Groups, plan: _Plan) -> float:
-    """Plate, fence and edge clamps; returns the picture's lowest fixture y."""
+def _fixture(groups: Groups, plan: _Plan, x0: str) -> float:
+    """Plate, fence, end stop and edge clamps; returns the lowest fixture y."""
     left, right = plan.px(plan.plate[0]), plan.px(plan.plate[1])
     back = plan.y0 - plan.fence * plan.scale
     bottom = back + plan.plate_width * plan.scale
@@ -144,7 +144,8 @@ def _fixture(groups: Groups, plan: _Plan) -> float:
     groups["datum"].append(_line(left, plan.y0, right, plan.y0))
     _datum_label(groups, right, back - 8, "Y0: fence face", "end")
     groups["datum"].append(_line(plan.px(0), plan.y0, plan.px(0), plan.front))
-    _datum_label(groups, plan.px(0) + 4, back - 8, "X0: blank end (probed)", "start")
+    _datum_label(groups, plan.px(0) + 4, back - 8, f"X0: {x0}", "start")
+    groups["clamp"].append(_rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP))
     for station in plan.clamps:
         groups["clamp"].append(
             _rect(plan.px(station) - _CLAMP / 2, plan.front, _CLAMP, _CLAMP)
@@ -165,7 +166,7 @@ def _blank_plan(groups: Groups, plan: _Plan, roles: tuple[str, ...]) -> None:
 
 
 def _faces(groups: Groups, plan: _Plan, parameters: dict) -> Layout:
-    bottom = _fixture(groups, plan)
+    bottom = _fixture(groups, plan, "end stop")
     _blank_plan(groups, plan, ("part-arriving", "part-kept"))
     radius = _param(parameters, "face_cutter_dia_mm") / 2 * plan.scale
     middle = (plan.y0 + plan.front) / 2
@@ -197,7 +198,7 @@ def _outline_plan(
     groups: Groups, plan: _Plan, values: dict, parameters: dict
 ) -> Layout:
     outline = _outline(values)
-    bottom = _fixture(groups, plan)
+    bottom = _fixture(groups, plan, "blank end (probed)")
     _blank_plan(groups, plan, ("part-arriving",))
     tabs = [x - plan.hub_x for x in plan.clamps]
     half = _param(parameters, "tab_width_mm") / 2

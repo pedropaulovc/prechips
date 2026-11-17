@@ -51,6 +51,7 @@ fence_width_mm = 12.7
 fence_height_mm = 2.0
 clamp_height_mm = 1.905
 hub_relief_dia_mm = 12.7
+x_stop_tolerance_mm = 0.5
 outline_cutter_dia_mm = 3.175
 outline_finish_stock_mm = 0.2
 outline_rough_step_mm = 0.58
@@ -137,15 +138,15 @@ title = "Rough both faces on the sub-plate"
 machine = "PM-30MV CNC (FluidNC, CNCjs with the electronic tool setter) / vise, swivel off"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Sub-plate (made beforehand, its top and fence face milled in the vise) in the vise on 1 in parallels, centred, the fence indicated <.001 along X; it stays there for every blank. Blank flat on the plate, one long edge against the fence, pushed by the four edge clamps at X {{cad.clamp_stations_in}} from the blank's left end. Clamp noses {{process.clamp_height_mm:in.3dot}} and the fence top {{process.fence_height_mm:in.3dot}} above the plate stay below the cut."
-datum = "Program RS01_rough_faces. One G54 while the plate stays put: Z0 = the faced plate top, Y0 = the fence face (blank at −Y), X0 = the blank's left end, set within .1 in for the faces. Tool lengths from the tool setter at each M6."
-diagram = { file = "diagrams/demo-arc-strap/rough.svg", alt = "Plan of the sub-plate: fence along the back, blank against it, four edge clamps at the front at X {{cad.clamp_stations_in}}; the 1/2 in end mill faces the full blank, one face, then the other after the flip." }
+holding = "Sub-plate (made beforehand, its top and fence face milled in the vise) in the vise on 1 in parallels, centred, the fence indicated <.001 along X; it stays there for every blank. Blank flat on the plate, one long edge against the fence, its left end against the plate's end stop, pushed by the edge clamps at X {{cad.clamp_stations_in}} from the blank's left end. Clamp noses {{process.clamp_height_mm:in.3dot}} and the fence top {{process.fence_height_mm:in.3dot}} above the plate stay below the cut."
+datum = "Program RS01_rough_faces. One G54 while the plate stays put: Z0 = the faced plate top, Y0 = the fence face (blank at −Y), X0 = the end stop's face (the blank's left end). Tool lengths from the tool setter at each M6."
+diagram = { file = "diagrams/demo-arc-strap/rough.svg", alt = "Plan of the sub-plate: fence along the back, blank against it and against the end stop at its left end, edge clamps at the front at X {{cad.clamp_stations_in}}; the 1/2 in end mill faces the full blank, one face, then the other after the flip." }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", grips = "plate", across_jaws_mm = "{{process.plate_width_mm}}", along_jaws_mm = "{{process.plate_length_mm}}", part_height_mm = "{{process.plate_thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.plate_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 beam = { axis = "x", hold = "plate", extent_mm = [0, "{{cad.blank_length_mm}}"], seat = "faced sub-plate", seat_mm = "{{cad.plate_x_mm}}", clamps_mm = "{{cad.clamp_x_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_mm}}" } }
 
 [[setups.operations]]
-instruction = "Once per vise setup, no blank in: set Z0 on the plate top and Y0 on the fence face; X roughly, the blank's left end against a pencil mark."
+instruction = "Once per vise setup, no blank in: set Z0 on the plate top, Y0 on the fence face and X0 on the end stop's face."
 feed = "hand"
 
 [[setups.operations]]
@@ -165,9 +166,9 @@ title = "Reseat; finish the first face"
 machine = "PM-30MV CNC / vise, swivel off"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Release the blank, turn it over end for end (face 1, the first one roughed, up), seat it against the fence and clamp again at the same stations: the rough passes' stress is let go before the finish cuts."
+holding = "Release the blank, turn it over end for end (face 1, the first one roughed, up), seat it against the fence and the end stop and clamp again at the same stations: the rough passes' stress is let go before the finish cuts."
 datum = "Program RS02_finish_face_1. G54 unchanged: Z0 plate top, Y0 fence, X0 blank's left end."
-diagram = { file = "diagrams/demo-arc-strap/finish.svg", alt = "Plan of the sub-plate: the reseated blank against the fence under the four edge clamps; the 1/2 in end mill takes the finish pass over the full face." }
+diagram = { file = "diagrams/demo-arc-strap/finish.svg", alt = "Plan of the sub-plate: the reseated blank against the fence and the end stop under the edge clamps; the 1/2 in end mill takes the finish pass over the full face." }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", grips = "plate", across_jaws_mm = "{{process.plate_width_mm}}", along_jaws_mm = "{{process.plate_length_mm}}", part_height_mm = "{{process.plate_thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.plate_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 beam = { axis = "x", hold = "plate", extent_mm = [0, "{{cad.blank_length_mm}}"], seat = "faced sub-plate", seat_mm = "{{cad.plate_x_mm}}", clamps_mm = "{{cad.clamp_x_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_mm}}" } }
@@ -189,8 +190,8 @@ title = "Finish the second face; hub hole; outline on tabs"
 machine = "PM-30MV CNC (FluidNC, CNCjs with the electronic tool setter and the 3D touch probe) / vise, swivel off"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Flip the blank end for end, finished face down, seat against the fence and clamp at X {{cad.clamp_stations_in}}. Do not unclamp until the outline is done: the tabs are left at the clamps, on the clamp side."
-datum = "Program RS03_finish_face_2_hub_outline. Z0 plate top, Y0 fence. X0: the file's touch probe finds the blank's left end and sets X0 on it; the hub hole is then at X {{cad.hub_x_in:.3f}}, Y −{{cad.hub_y_in:.3f}}, over the plate's relief hole."
+holding = "Flip the blank end for end, finished face down, seat against the fence and the end stop (within {{process.x_stop_tolerance_mm:in.3dot}}: the hub hole must come over the plate's relief hole) and clamp at X {{cad.clamp_stations_in}}. Do not unclamp until the outline is done: the tabs are left at the clamps, on the clamp side."
+datum = "Program RS03_finish_face_2_hub_outline. Z0 plate top, Y0 fence. X0: the file's touch probe finds the blank's left end, clear of the end stop, and sets X0 on it; the hub hole is then at X {{cad.hub_x_in:.3f}}, Y −{{cad.hub_y_in:.3f}}, over the plate's relief hole."
 diagram = { file = "diagrams/demo-arc-strap/outline.svg", alt = "Plan of the sub-plate: blank against the fence, edge clamps at the front; the strap outline lies top arc toward the fence, the hub hole at X {{cad.hub_x_in:.3f}} Y −{{cad.hub_y_in:.3f}}; the 1/8 in end mill's slot runs round the outline, broken by one tab at each clamp on the clamp side." }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{process.ream_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.reamer_oal_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.eighth_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", grips = "plate", across_jaws_mm = "{{process.plate_width_mm}}", along_jaws_mm = "{{process.plate_length_mm}}", part_height_mm = "{{process.plate_thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.plate_overhang_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
@@ -332,5 +333,5 @@ speed_kind = "other"
 tool = "files"
 drilling = "none"
 sizing = "other"
-instruction = "Snip or saw the four tabs at the margin, file each flush with the bottom arc. Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max, except the hub hole: both edges sharp, no burr. A strap out of its thickness band is set straight by hand on the surface plate and rechecked, or exchanged."
+instruction = "Snip or saw the tabs at the margin, file each flush with the bottom arc. Edges R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max, except the hub hole: both edges sharp, no burr. A strap bowed after it is freed is set straight by hand on the surface plate."
 feed = "hand"

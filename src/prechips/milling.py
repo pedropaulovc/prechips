@@ -267,10 +267,9 @@ def _plate(value: dict, beam: dict, where: str) -> None:
     axis = beam["axis"]
     if axis == _SPINDLE:
         raise CheckError(f"{where}.axis: a plate seats a part lying along x or y")
+    span, within = beam["extent"], "extent_mm"
     if "tabs" in value:
         span, within = beam["stations"], "seat_mm"
-    else:
-        span, within = beam["extent"], "extent_mm"
     clamps = _row(value["clamps_mm"], span, within, f"{where}.clamps_mm")
     beam["supports"] = clamps
     if "tabs" not in value:
@@ -622,6 +621,32 @@ def _tab_give(tabs: dict, axis: str, modulus: float) -> float:
     return length**3 / (3 * modulus * inertia) + 3.6 * length / (modulus * area)
 
 
+def _plate_span(
+    supports: list[float], station: float, force: float, rigidity: float, name: str
+) -> tuple[float, tuple[float, float], str]:
+    """Bending (mm), the two supports' load shares and the span's description."""
+    if supports[0] <= station <= supports[-1]:
+        first, second = next(
+            pair for pair in pairwise(supports) if pair[0] <= station <= pair[1]
+        )
+        span = second - first
+        a, b = station - first, second - station
+        text = (
+            f"pinned span {span:.6g} mm between {name}s at {first:.6g} and "
+            f"{second:.6g} mm, load {a:.6g} mm from the first"
+        )
+        return pinned_mm(force, a, b, rigidity), (b / span, a / span), text
+    below = station < supports[0]
+    near, far = (supports[0], supports[1]) if below else supports[:-3:-1]
+    span, reach = abs(far - near), abs(station - near)
+    text = (
+        f"overhang {reach:.6g} mm beyond the {name} at {near:.6g} mm of a "
+        f"pinned span {span:.6g} mm"
+    )
+    shares = ((reach + span) / span, reach / span)
+    return overhang_mm(force, reach, span, rigidity), shares, text
+
+
 def _plate_deflection(
     beam: dict, axis: str, station: float, force: float, modulus: float, kind: str
 ):
@@ -652,28 +677,7 @@ def _plate_deflection(
         return give, text
     name = "tab" if tabs else "clamp"
     rigidity = modulus * section_inertia_mm4(beam["section"], axis)
-    if supports[0] <= station <= supports[-1]:
-        first, second = next(
-            pair for pair in pairwise(supports) if pair[0] <= station <= pair[1]
-        )
-        span = second - first
-        a, b = station - first, second - station
-        bending = pinned_mm(force, a, b, rigidity)
-        shares = (b / span, a / span)
-        text = (
-            f"pinned span {span:.6g} mm between {name}s at {first:.6g} and "
-            f"{second:.6g} mm, load {a:.6g} mm from the first"
-        )
-    else:
-        below = station < supports[0]
-        near, far = (supports[0], supports[1]) if below else supports[:-3:-1]
-        span, reach = abs(far - near), abs(station - near)
-        bending = overhang_mm(force, reach, span, rigidity)
-        shares = ((reach + span) / span, reach / span)
-        text = (
-            f"overhang {reach:.6g} mm beyond the {name} at {near:.6g} mm of a "
-            f"pinned span {span:.6g} mm"
-        )
+    bending, shares, text = _plate_span(supports, station, force, rigidity, name)
     if tabs:
         give = force * _tab_give(tabs, axis, modulus) * math.hypot(*shares) ** 2
         bending += give

@@ -55,14 +55,14 @@ def test_the_strap_is_placed_in_its_blank_for_the_plate_hold():
     assert values["part_x_mm"] == pytest.approx([6.4217, 298.3783], abs=1e-4)
     assert values["plate_x_mm"] == [-12.7, 317.5]
     assert values["clamp_x_mm"] == [25.4, 107.95, 196.85, 279.4]
-    # Slot reach 3.375 mm: 0.53 mm left at the fence under the tips and
-    # 1.58 mm at the clamped edge under the hub; under each tab's hub-side
-    # edge 2.71 mm at the inner clamps and 11.3 mm at the end ones, where the
-    # bottom arc has risen.
+    # The slot's outer wall is the arc 3.375 mm outside the strap's: 0.53 mm
+    # left at the fence under the tips and 1.58 mm at the clamped edge under
+    # the hub; under each tab's hub-side edge 2.71 mm at the inner clamps and
+    # 11.25 mm at the end ones, where the bottom arc has risen.
     assert values["fence_margin_mm"] == pytest.approx(0.5267, abs=1e-4)
     assert values["front_margin_mm"] == pytest.approx(1.579, abs=1e-4)
     assert values["clamp_margin_mm"] == pytest.approx(
-        [11.2907, 2.7105, 2.7105, 11.2907], abs=1e-4
+        [11.2502, 2.7058, 2.7058, 11.2502], abs=1e-4
     )
     assert values["slotted_width_mm"] == pytest.approx(31.75)
 
@@ -79,6 +79,8 @@ def test_the_strap_is_placed_in_its_blank_for_the_plate_hold():
         ({"clamp_5_x_mm": 100.0}, "expected ascending stations"),
         ({"clamp_6_x_mm": 300.0}, "number the clamps from 1 without gaps"),
         ({"plate_length_mm": 300.0}, "the plate does not back the blank"),
+        # The Ø12.7 relief hole leaves 1.26 mm round the Ø.4005 hub hole.
+        ({"x_stop_tolerance_mm": 1.5}, "leaves 1.264 mm round the hub hole"),
     ],
 )
 def test_a_station_or_placement_the_blank_cannot_carry_refuses(change, message):
