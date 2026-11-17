@@ -7,7 +7,9 @@ each declared cut station: a cantilever from the nearer clamp edge, two pinned
 supports (inside the span or on an overhang beyond one), a stated rigid seat
 (no bending), or a plate seat with clamp stations (a downward push bends
 nothing; lift and side load bend the part between the clamps, or between the
-tabs a cut-out part hangs on). Coefficients, authored force ratios and limits
+tabs a cut-out part hangs on). A part bonded to the plate over its whole face
+bends nothing; the cut's forces are compared with the bond's derated shear and
+tensile strengths instead. Coefficients, authored force ratios and limits
 live in turning.toml beside the turning data. The spindle is vertical (machine
 Z). This is a stiffness screen at the cut, not predicted dimensional error,
 chatter, clamp slip or machine compliance.
@@ -41,15 +43,24 @@ _HOLDS = {
     "cantilever": {"clamp_mm", "section_mm"},
     "between": {"supports_mm", "section_mm"},
     "solid": {"seat", "seat_mm"},
-    "plate": {"seat", "seat_mm", "clamps_mm", "section_mm"},
+    "plate": {"seat", "seat_mm"},
 }
 # A cantilever in a milling vise names which extent end the vise's left
 # overhang is measured from, and which hold when the setup re-grips. A plate
-# names the hold that grips it when the setup has several, and the tabs a
-# cut-out part hangs on.
+# names the hold that grips it when the setup has several, and either the
+# clamps that hold the part down (with the tabs a cut-out part hangs on) or
+# the bond under it.
 _VISE_LINK = {"vise_left", "vise_hold"}
-_OPTIONAL = {"cantilever": _VISE_LINK, "plate": {"tabs", "vise_hold"}}
+_OPTIONAL = {
+    "cantilever": _VISE_LINK,
+    "plate": {"clamps_mm", "section_mm", "tabs", "bond", "vise_hold"},
+}
 _TAB_KEYS = {"stations_mm", "section_mm", "length_mm"}
+_BOND_KEYS = {"shear_mpa", "tensile_mpa", "derating", "pieces"}
+_PIECE_KEYS = {
+    "part": {"name", "kind", "area_mm2", "width_mm"},
+    "waste": {"name", "kind", "area_mm2"},
+}
 _CUT_KEYS = {
     "name",
     "kind",
@@ -223,10 +234,10 @@ def _beam(value: object, where: str) -> dict:
         if not isinstance(seat, str) or not seat.strip():
             raise CheckError(f"{where}.seat: expected the rigid seat, stated")
         beam["seat"] = seat
-    if hold != "solid":
-        beam["section"] = _section(value["section_mm"], axis, f"{where}.section_mm")
     if hold == "plate":
         _plate(value, beam, where)
+    elif hold != "solid":
+        beam["section"] = _section(value["section_mm"], axis, f"{where}.section_mm")
     if "vise_left" in value:
         if value["vise_left"] not in ("start", "end", "other"):
             raise CheckError(f"{where}.vise_left: expected start, end or other")
@@ -255,6 +266,46 @@ def _row(
     return stations
 
 
+def _bond(value: object, where: str) -> dict:
+    """A bonded part's tape strengths, the plan's derating and its pieces.
+
+    Each piece the cut leaves on the plate is declared: a ``part`` with the
+    bonded width at the cut, or ``waste``. Nothing is inferred: a piece the
+    plan omits is not held by this declaration.
+    """
+    if not isinstance(value, dict):
+        raise CheckError(f"{where}: expected a table")
+    _fields(value, _BOND_KEYS, _BOND_KEYS, where)
+    derating = _positive(value["derating"], f"{where}.derating")
+    if derating > 1:
+        raise CheckError(f"{where}.derating: expected a fraction up to 1")
+    pieces = value["pieces"]
+    if not isinstance(pieces, list) or not pieces:
+        raise CheckError(f"{where}.pieces: expected one or more bonded pieces")
+    parsed = []
+    for index, piece in enumerate(pieces, 1):
+        at = f"{where}.pieces[{index}]"
+        if not isinstance(piece, dict) or piece.get("kind") not in _PIECE_KEYS:
+            raise CheckError(f"{at}.kind: expected part or waste")
+        keys = _PIECE_KEYS[piece["kind"]]
+        _fields(piece, keys, keys, at)
+        name = piece["name"]
+        if not isinstance(name, str) or not name.strip():
+            raise CheckError(f"{at}.name: expected the piece, named")
+        area = _positive(piece["area_mm2"], f"{at}.area_mm2")
+        # A lift at a part's edge is taken by a patch as long as the part is
+        # wide there; waste need only stay on the plate, so all of it counts.
+        lift = area
+        if "width_mm" in piece:
+            lift = min(area, _positive(piece["width_mm"], f"{at}.width_mm") ** 2)
+        parsed.append({"name": name, "area": area, "lift_area": lift})
+    return {
+        "shear": _positive(value["shear_mpa"], f"{where}.shear_mpa") * derating,
+        "tensile": _positive(value["tensile_mpa"], f"{where}.tensile_mpa") * derating,
+        "pieces": parsed,
+    }
+
+
 def _plate(value: dict, beam: dict, where: str) -> None:
     """A plate hold's clamp stations and, for a cut-out part, its tabs.
 
@@ -262,11 +313,30 @@ def _plate(value: dict, beam: dict, where: str) -> None:
     margin, which may run past the part, so they need only be on the plate.
     Tabs are judged only at clamp stations: between clamps a tab hangs the
     part on a margin strip that nothing holds down there, and the strip's own
-    bending is not modelled.
+    bending is not modelled. A bonded part declares its bond instead of
+    clamps: it is backed over its whole face, so it has no section to bend.
     """
     axis = beam["axis"]
     if axis == _SPINDLE:
         raise CheckError(f"{where}.axis: a plate seats a part lying along x or y")
+    if ("bond" in value) == ("clamps_mm" in value):
+        raise CheckError(
+            f"{where}: declare clamps_mm (a clamped part) or bond (a part bonded "
+            "to the plate), exactly one"
+        )
+    if "bond" in value:
+        extra = sorted({"section_mm", "tabs"} & value.keys())
+        if extra:
+            raise CheckError(
+                f"{where}.{extra[0]}: a bonded part is backed over its whole "
+                "face; it has no section to bend and hangs on no tabs"
+            )
+        beam["bond"] = _bond(value["bond"], f"{where}.bond")
+        beam["supports"] = []
+        return
+    if "section_mm" not in value:
+        raise CheckError(f"{where}: missing field(s): section_mm")
+    beam["section"] = _section(value["section_mm"], axis, f"{where}.section_mm")
     span, within = beam["extent"], "extent_mm"
     if "tabs" in value:
         span, within = beam["stations"], "seat_mm"
@@ -816,6 +886,55 @@ def _limits(
     return limits
 
 
+def _bonded_cut(
+    cut: dict, kind: str, beam: dict, forces: dict, stations: list[float], where: str
+) -> None:
+    """Refuse a cut whose forces exceed the bond under any declared piece.
+
+    The cross-spindle force shears each piece's whole bonded area. The lift
+    of a side or slot cut acts at the piece's edge, where a rigid footing
+    carries four times the mean stress (F/A plus the moment of a load at the
+    edge of a rectangle), on the piece's lift area. A downward push is taken
+    by the plate.
+    """
+    unused = sorted({"max_deflection_mm", "finish_cut", "finish_stock_mm"} & cut.keys())
+    if unused:
+        raise CheckError(
+            f"{where}.{unused[0]}: a bonded part bends nothing; its cut is "
+            "compared with the bond's strength, not a deflection limit"
+        )
+    low, high = beam["stations"]
+    for station in stations:
+        if not low <= station <= high:
+            raise CheckError(
+                f"{where}: station {station:g} mm is off the stated seat "
+                f"{low:g}..{high:g} mm"
+            )
+    if kind in _THRUST:
+        return
+    bond = beam["bond"]
+    across, across_text = forces["across"]
+    lift, lift_text = forces[_SPINDLE]
+    for piece in bond["pieces"]:
+        capacity = bond["shear"] * piece["area"]
+        if across > capacity:
+            raise CheckError(
+                f"{where}: {across_text} exceeds the bond under {piece['name']!r}, "
+                f"{capacity:.3g} N in shear ({piece['area']:.6g} mm² at the derated "
+                f"{bond['shear']:.3g} MPa); catalogue strength, not a measured hold"
+            )
+        if kind not in _HELICAL:
+            continue
+        stress = 4 * lift / piece["lift_area"]
+        if stress > bond["tensile"]:
+            raise CheckError(
+                f"{where}: {lift_text} lifts {piece['name']!r} at its edge with "
+                f"{stress:.3g} MPa (4 × force over {piece['lift_area']:.6g} mm²), "
+                f"over the bond's derated {bond['tensile']:.3g} MPa in tension; "
+                "catalogue strength, not a measured hold"
+            )
+
+
 def _check_cut(
     cut: dict, beam: dict, operation: dict, context: dict, position: tuple, where: str
 ) -> None:
@@ -835,6 +954,15 @@ def _check_cut(
         raise CheckError(
             f"{where}.material: {name!r} must select a configured material"
         )
+    if "bond" in beam:
+        stations = _stations(cut, beam, where)
+        cutter = _cutter(cut, kind, operation, where)
+        forces = {}
+        if kind not in _THRUST:
+            tool = context["tools"].get(operation.get("tool"))
+            forces = _forces(cut, kind, (name, material), config, cutter, tool, where)
+        _bonded_cut(cut, kind, beam, forces, stations, where)
+        return
     axes = _axes(beam, kind)
     # A seat only takes a downward push; every milling cut also loads it
     # across the spindle, and side and slot cuts lift.

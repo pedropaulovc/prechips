@@ -17,7 +17,7 @@ def _values(**changes) -> dict:
     return load_arc_strap(SOURCE, PARAMETERS | changes, "arc-strap").values
 
 
-@pytest.mark.parametrize(("profile", "pictures"), [("pro", 0), ("hobby", 5)])
+@pytest.mark.parametrize(("profile", "pictures"), [("pro", 0), ("hobby", 6)])
 def test_the_demo_renders_with_every_check(tmp_path, profile, pictures):
     out = tmp_path / "strap.html"
     assert main(["traveler", str(PLAN), "--profile", profile, "--out", str(out)]) == 0
@@ -56,49 +56,56 @@ def test_the_strap_is_placed_in_its_blank_for_the_plate_hold():
     assert values["plate_x_mm"] == [-12.7, 317.5]
     assert values["clamp_x_mm"] == [25.4, 107.95, 196.85, 279.4]
     # The slot's outer wall is the arc 3.375 mm outside the strap's: 0.53 mm
-    # left at the fence under the tips and 1.58 mm at the clamped edge under
-    # the hub; under each tab's hub-side edge 2.71 mm at the inner clamps and
-    # 11.25 mm at the end ones, where the bottom arc has risen.
+    # left at the fence under the tips and 1.58 mm at the front edge under
+    # the hub.
     assert values["fence_margin_mm"] == pytest.approx(0.5267, abs=1e-4)
     assert values["front_margin_mm"] == pytest.approx(1.579, abs=1e-4)
-    assert values["clamp_margin_mm"] == pytest.approx(
-        [11.2502, 2.7058, 2.7058, 11.2502], abs=1e-4
-    )
-    assert values["slotted_width_mm"] == pytest.approx(31.75)
+    # The Ø13.9 flange stays 0.54 mm inside the nearer edge at its least.
+    assert values["bushing_clear_mm"] == pytest.approx(0.542)
+
+
+def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
+    values = _values()
+    # 2.4892 thick less the 0.25 skin; the skin plus 0.08 into the tape.
+    assert values["outline_wall_depth_mm"] == pytest.approx(2.2392)
+    assert values["outline_through_depth_mm"] == pytest.approx(0.33)
+    assert values["fence_notch_left_x_mm"] == pytest.approx([2.4, 21.4])
+    assert values["fence_notch_right_x_mm"] == pytest.approx([283.4, 302.4])
+    assert values["fence_notch_x_mm"] == pytest.approx([2.4, 21.4, 283.4, 302.4])
+    # Blank 304.8 × 38.1 less the Ø12.7 hole in the plate; the strap is
+    # 16 mm wide along a 291 mm mean arc, less the same hole.
+    assert values["blank_bond_area_mm2"] == pytest.approx(11486.2, abs=0.1)
+    assert values["strap_bond_area_mm2"] == pytest.approx(4424.3, abs=0.1)
+    assert values["fence_waste_area_mm2"] == pytest.approx(2663.2, abs=0.1)
+    assert values["front_waste_area_mm2"] == pytest.approx(1372.2, abs=0.1)
 
 
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        # Mid-length the slot leaves 1.58 mm, under the 2.5 mm minimum.
-        ({"clamp_2_x_mm": 152.4}, "clamp_2_x_mm: at 152.4 mm .* 1.579 mm margin"),
         ({"hub_y_mm": 24.8}, "reaches 0.073 mm into the fence"),
+        ({"hub_y_mm": 27.4}, "runs 0.421 mm off the blank's clamped edge"),
         ({"hub_x_mm": 148.0}, "runs off the blank's end"),
-        # Past the bottom arc's end there is no edge to leave a tab on.
-        ({"clamp_4_x_mm": 286.0}, "the tab at 286 mm is not on the bottom arc"),
         ({"clamp_5_x_mm": 100.0}, "expected ascending stations"),
         ({"clamp_6_x_mm": 300.0}, "number the clamps from 1 without gaps"),
         ({"plate_length_mm": 300.0}, "the plate does not back the blank"),
         # The Ø12.7 relief hole leaves 1.26 mm round the Ø.4005 hub hole.
         ({"x_stop_tolerance_mm": 1.5}, "leaves 1.264 mm round the hub hole"),
+        # The hole in the plate is 4.7 mm deep.
+        ({"ream_tip_z_mm": -4.5}, "ream_tip_z_mm: the tip, 4.5 mm below"),
+        ({"bushing_flange_dia_mm": 14.0}, "the flange comes 0.492 mm from"),
+        ({"outline_breakthrough_mm": 0.15}, "cuts through the 0.15 mm tape"),
+        # The strip is under 2.5 mm from 133.5 to 148.0 mm from the hub.
+        (
+            {"fence_notch_outer_mm": 148.0},
+            r"notches must span 131\.92\.\.149\.60 mm, not 131\.\.148 mm",
+        ),
+        ({"fence_notch_outer_mm": 153.0}, "the notches must lie on the blank"),
     ],
 )
-def test_a_station_or_placement_the_blank_cannot_carry_refuses(change, message):
+def test_a_placement_or_hold_the_route_cannot_carry_refuses(change, message):
     with pytest.raises(CadError, match=message):
         _values(**change)
-
-
-def test_a_slot_through_the_clamped_edge_between_clamps_refuses():
-    # Two end clamps keep their margins, but under the hub the bottom arc
-    # comes 0.42 mm nearer the edge than the slot is wide.
-    parameters = {
-        key: value
-        for key, value in PARAMETERS.items()
-        if key not in ("clamp_3_x_mm", "clamp_4_x_mm")
-    }
-    parameters |= {"clamp_2_x_mm": 279.4, "hub_y_mm": 27.4}
-    with pytest.raises(CadError, match="runs 0.421 mm off the blank's clamped edge"):
-        load_arc_strap(SOURCE, parameters, "arc-strap")
 
 
 @pytest.mark.parametrize(
@@ -127,8 +134,8 @@ def test_a_manifest_whose_two_ends_differ_refuses(tmp_path, old, new, message):
 
 
 def test_a_partial_hold_or_an_unexpected_feature_set_refuses(tmp_path):
-    parameters = {k: v for k, v in PARAMETERS.items() if k != "margin_min_mm"}
-    with pytest.raises(CadError, match="the plate hold also need margin_min_mm"):
+    parameters = {k: v for k, v in PARAMETERS.items() if k != "plate_length_mm"}
+    with pytest.raises(CadError, match="the plate hold also need plate_length_mm"):
         load_arc_strap(SOURCE, parameters, "arc-strap")
     text = SOURCE.read_text(encoding="utf-8")
     assert text.count('["features"."top_arc"]') == 1

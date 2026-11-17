@@ -672,6 +672,72 @@ def test_a_cut_out_part_is_judged_on_its_tabs_or_refused():
         _strap(wide, middle)
 
 
+# The same flat bonded to the plate with double-sided tape, 0.69 MPa in shear
+# and tension derated to a quarter: 0.1725 MPa.
+BONDED = {
+    key: value for key, value in PLATE.items() if key not in ("clamps_mm", "section_mm")
+}
+BONDED["bond"] = {
+    "shear_mpa": 0.69,
+    "tensile_mpa": 0.69,
+    "derating": 0.25,
+    "pieces": [
+        {"name": "strap", "kind": "part", "area_mm2": 4424.0, "width_mm": 16.0},
+        {"name": "waste", "kind": "waste", "area_mm2": 1372.0},
+    ],
+}
+
+
+def test_a_bonded_flat_is_judged_on_the_bond_under_every_piece():
+    through = SLOT | {"traverse_mm": [6.35, 298.45]}
+    # A .17 mm slot level lifts 8.92 N: at the strap's edge 4 × 8.92 N over a
+    # 16 × 16 mm patch, 0.139 MPa; a .5 mm level lifts 26.2 N, 0.41 MPa.
+    _strap(BONDED, through | {"axial_doc_mm": 0.17})
+    with pytest.raises(CheckError) as caught:
+        _strap(BONDED, through)
+    text = str(caught.value)
+    assert "axial force 26.2 N" in text and "lifts 'strap' at its edge" in text
+    assert "0.41 MPa (4 × force over 256 mm²)" in text
+    assert "derated 0.172 MPa in tension" in text
+    # Waste only has to stay on the plate: its whole area resists the lift.
+    wide = copy.deepcopy(BONDED)
+    wide["bond"]["pieces"][0]["width_mm"] = 38.1
+    _strap(wide, through)
+    # Every piece takes the cross-spindle force in shear: 64.4 N on 200 mm².
+    small = copy.deepcopy(wide)
+    small["bond"]["pieces"][1]["area_mm2"] = 200.0
+    with pytest.raises(CheckError, match="exceeds the bond under 'waste', 34.5 N"):
+        _strap(small, through)
+    # A downward push goes into the plate, whatever the bond.
+    drill = {"kind": "drill", "phase": "finish", "cutter_dia_mm": 9.921875}
+    drill |= {"name": "hub", "material": "steel_1018", "flutes": 2}
+    _strap(small, drill | {"feed_per_tooth_mm": 0.05, "stations_mm": 152.4})
+    # Nothing bends, so no deflection limit applies.
+    with pytest.raises(CheckError, match="max_deflection_mm: a bonded part bends"):
+        _strap(BONDED, through | {"max_deflection_mm": 0.01})
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"clamps_mm": CLAMPS}, "declare clamps_mm .* or bond"),
+        ({"section_mm": {"y": 16.0, "z": 2.49}}, "section_mm: a bonded part"),
+        ({"tabs": TABBED["tabs"]}, "tabs: a bonded part"),
+    ],
+)
+def test_a_plate_hold_is_clamped_or_bonded_not_both(change, message):
+    cut = SLOT | {"stations_mm": 152.4, "axial_doc_mm": 0.17}
+    with pytest.raises(CheckError, match=message):
+        _strap(BONDED | change, cut)
+    unheld = {key: value for key, value in BONDED.items() if key != "bond"}
+    with pytest.raises(CheckError, match="declare clamps_mm .* or bond"):
+        _strap(unheld, cut)
+    loose = copy.deepcopy(BONDED)
+    loose["bond"]["derating"] = 1.5
+    with pytest.raises(CheckError, match="derating"):
+        _strap(loose, cut)
+
+
 def test_a_plate_in_a_vise_is_gripped_by_its_plate_not_the_part():
     cut = SLOT | {"stations_mm": 152.4}
     # Clamped to the table: no vise hold to link.

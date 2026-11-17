@@ -1,11 +1,13 @@
 """Arc-strap setup pictures for the ``plate-strap`` template.
 
 Plan views look down on the fixture plate with the operator at the bottom of
-the page: +X right from the blank's left end (X0), the fence at the back (Y0)
-and the blank in front of it, pushed against it by edge clamps at the front.
-The strap outline, hub hole and margin stations come from the adapter; plate,
-fence, clamp and cutter sizes from authored parameters. The plate, fence, vise
-jaws and clamps are schematic symbols.
+the page: +X right from the plate's end stop (X0), the fence at the back (Y0)
+and the blank in front of it. For the faces and the hub hole edge clamps at
+the front push it against the fence; for the outline it is bonded to the
+plate and screwed down through the hub hole, the fence notched under the
+strap's tips. The strap outline, hub hole and notch extents come from the
+adapter; plate, fence and cutter sizes from authored parameters. The plate,
+fence, stop, screw and clamps are schematic symbols.
 """
 
 from __future__ import annotations
@@ -32,7 +34,8 @@ _TITLES = {
     "saw": "Top view, bar end at the left",
     "rough": "Plan: blank on the plate; rough one face, flip, rough the other",
     "finish": "Plan: blank reseated; finish the first face",
-    "outline": "Plan: last face finished, hub hole, outline left on tabs",
+    "hub": "Plan: last face finished; hub hole spotted, drilled and reamed",
+    "outline": "Plan: blank bonded to the plate, screwed down at the hub; outline",
     "inspect": "Finished strap, either face up",
 }
 _CLAMP = 16.0  # schematic edge-clamp body, px
@@ -46,24 +49,20 @@ def _outline(values: dict) -> dict:
     return outline
 
 
-def _loop(outline: dict, extra: list[float]) -> tuple[list[Point], list[bool]]:
-    """The strap outline, model mm, from the top arc's middle clockwise as
-    drawn, and whether each point lies on the bottom arc. ``extra`` adds
-    bottom-arc stations (tab edges) to the sampling."""
+def _loop(outline: dict) -> list[Point]:
+    """The strap outline, model mm, from the top arc's left end clockwise as
+    drawn."""
     centre = outline["centre_y"]
 
-    def arc(radius: float, reach: float, more: list[float]) -> list[Point]:
+    def arc(radius: float, reach: float) -> list[Point]:
         count = max(2, math.ceil(2 * reach / _SAMPLE))
-        xs = {-reach + 2 * reach * index / count for index in range(count + 1)}
-        xs |= {x for x in more if abs(x) < reach}
-        return [(x, centre - math.sqrt(radius**2 - x**2)) for x in sorted(xs)]
+        xs = [-reach + 2 * reach * index / count for index in range(count + 1)]
+        return [(x, centre - math.sqrt(radius**2 - x**2)) for x in xs]
 
-    top = arc(outline["top_radius"], outline["top_end"][0], [])
-    bottom = arc(outline["bottom_radius"], outline["foot"][0], extra)
+    top = arc(outline["top_radius"], outline["top_end"][0])
+    bottom = arc(outline["bottom_radius"], outline["foot"][0])
     cx, cy = outline["corner"]
-    points = [*top, (cx, cy), *reversed(bottom), (-cx, cy)]
-    on_bottom = [False] * (len(top) + 1) + [True] * len(bottom) + [False]
-    return points, on_bottom
+    return [*top, (cx, cy), *reversed(bottom), (-cx, cy)]
 
 
 def _offset(points: list[Point], distance: float) -> list[Point]:
@@ -94,7 +93,7 @@ def _path(points: list[Point], close: bool = True) -> str:
 
 
 class _Plan:
-    """Setup frame to page: X from the blank's left end, Y into the blank."""
+    """Setup frame to page: X from the plate's end stop, Y into the blank."""
 
     def __init__(self, values: dict, parameters: dict) -> None:
         plate = values.get("plate_x_mm")
@@ -132,8 +131,11 @@ class _Plan:
         return self.py(self.width)
 
 
-def _fixture(groups: Groups, plan: _Plan, x0: str) -> float:
-    """Plate, fence, end stop and edge clamps; returns the lowest fixture y."""
+def _fixture(
+    groups: Groups, plan: _Plan, clamps: list[float], notches: list[list[float]]
+) -> float:
+    """Plate, fence with its notches, end stop and edge clamps; returns the
+    lowest fixture y."""
     left, right = plan.px(plan.plate[0]), plan.px(plan.plate[1])
     back = plan.y0 - plan.fence * plan.scale
     bottom = back + plan.plate_width * plan.scale
@@ -141,12 +143,16 @@ def _fixture(groups: Groups, plan: _Plan, x0: str) -> float:
         _rect(left, back, right - left, bottom - back),
         _rect(left, back, right - left, plan.y0 - back),
     ]
+    for start, end in notches:
+        groups["holes"].append(
+            _rect(plan.px(start), back, (end - start) * plan.scale, plan.y0 - back)
+        )
     groups["datum"].append(_line(left, plan.y0, right, plan.y0))
     _datum_label(groups, right, back - 8, "Y0: fence face", "end")
     groups["datum"].append(_line(plan.px(0), plan.y0, plan.px(0), plan.front))
-    _datum_label(groups, plan.px(0) + 4, back - 8, f"X0: {x0}", "start")
+    _datum_label(groups, plan.px(0) + 4, back - 8, "X0: end stop", "start")
     groups["clamp"].append(_rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP))
-    for station in plan.clamps:
+    for station in clamps:
         groups["clamp"].append(
             _rect(plan.px(station) - _CLAMP / 2, plan.front, _CLAMP, _CLAMP)
         )
@@ -165,8 +171,17 @@ def _blank_plan(groups: Groups, plan: _Plan, roles: tuple[str, ...]) -> None:
         groups[role].append(_rect(*box))
 
 
-def _faces(groups: Groups, plan: _Plan, parameters: dict) -> Layout:
-    bottom = _fixture(groups, plan, "end stop")
+def _hub(plan: _Plan, values: dict) -> tuple[Point, float]:
+    """The hub hole's page centre and radius."""
+    outline = _outline(values)
+    centre = plan.model(outline, (0.0, outline["hub_y"]))
+    return centre, values["hub_dia_band_mm"][0] * plan.scale / 2
+
+
+def _faces(
+    groups: Groups, plan: _Plan, values: dict, parameters: dict, step: str
+) -> Layout:
+    bottom = _fixture(groups, plan, plan.clamps, [])
     _blank_plan(groups, plan, ("part-arriving", "part-kept"))
     radius = _param(parameters, "face_cutter_dia_mm") / 2 * plan.scale
     middle = (plan.y0 + plan.front) / 2
@@ -191,6 +206,12 @@ def _faces(groups: Groups, plan: _Plan, parameters: dict) -> Layout:
             ],
         ),
     ]
+    if step == "hub":
+        (x, y), radius = _hub(plan, values)
+        groups["holes"].append(_el("circle", cx=x, cy=y, r=radius))
+        items.append(
+            (x, y, ["hub hole X {{cad.hub_x_in:.3f}}", "Y −{{cad.hub_y_in:.3f}}"])
+        )
     return _finish(groups, _callouts(groups, items, bottom + 40, above=False))
 
 
@@ -198,66 +219,39 @@ def _outline_plan(
     groups: Groups, plan: _Plan, values: dict, parameters: dict
 ) -> Layout:
     outline = _outline(values)
-    bottom = _fixture(groups, plan, "blank end (probed)")
+    if "fence_notch_x_mm" not in values:
+        raise CadError(
+            "plate-strap: the outline step needs the bonded-outline parameters"
+        )
+    notches = [values["fence_notch_left_x_mm"], values["fence_notch_right_x_mm"]]
+    bottom = _fixture(groups, plan, [], notches)
     _blank_plan(groups, plan, ("part-arriving",))
-    tabs = [x - plan.hub_x for x in plan.clamps]
-    half = _param(parameters, "tab_width_mm") / 2
-    edges = [x + side * half for x in tabs for side in (-1, 1)]
-    points, on_bottom = _loop(outline, edges)
+    points = _loop(outline)
     inner = [plan.model(outline, point) for point in points]
     outer = [
         plan.model(outline, point)
         for point in _offset(points, _cad(values, "slot_reach_mm"))
     ]
+    # The slot: the outer wall's loop with the strap's own, wound the other
+    # way, cut out of it.
+    ring = f"{_path(outer)} {_path(inner[::-1])}"
+    groups["part-removed"].append(_el("path", d=ring))
     groups["part-kept"].append(_el("path", d=_path(inner)))
-    # The slot, in runs broken where a tab is left on the bottom arc.
-    count = len(points)
-    runs: list[list[int]] = [[]]
-    for index in range(count):
-        after = (index + 1) % count
-        middle = (points[index][0] + points[after][0]) / 2
-        tab = (
-            on_bottom[index]
-            and on_bottom[after]
-            and any(abs(middle - x) < half for x in tabs)
-        )
-        if tab:
-            runs.append([])
-        else:
-            runs[-1] += [index, after]
-    for run in runs:
-        if not run:
-            continue
-        order = list(dict.fromkeys(run))
-        ring = [outer[i] for i in order] + [inner[i] for i in reversed(order)]
-        groups["part-removed"].append(_el("path", d=_path(ring)))
-    hub = plan.model(outline, (0.0, outline["hub_y"]))
-    groups["holes"].append(
-        _el(
-            "circle",
-            cx=hub[0],
-            cy=hub[1],
-            r=values["hub_dia_band_mm"][0] * plan.scale / 2,
-        )
-    )
+    (x, y), _ = _hub(plan, values)
+    flange = _param(parameters, "bushing_flange_dia_mm") * plan.scale / 2
+    groups["clamp"].append(_el("circle", cx=x, cy=y, r=flange))
+    tip = plan.px(sum(notches[1]) / 2)
     items = [
         (
-            hub[0],
-            hub[1],
-            ["hub hole X {{cad.hub_x_in:.3f}}", "Y −{{cad.hub_y_in:.3f}}"],
-        ),
-        (
-            plan.px(plan.clamps[-1]),
+            plan.px(plan.length * 0.2),
             plan.front,
-            [
-                "tab at each clamp:",
-                "{{process.tab_width_mm:in.2dot}} wide, {{process.tab_height_mm:in.3dot}} thick",
-            ],
+            ["tape under the whole blank,", "no edge clamps"],
         ),
+        (x, y, ["screw, washer and plug", "in the hub hole"]),
         (
-            plan.px(plan.clamps[0]),
-            plan.front + _CLAMP,
-            ["edge clamps at X", "{{cad.clamp_stations_in}}"],
+            tip,
+            plan.y0,
+            ["fence notched under", "both tips"],
         ),
     ]
     return _finish(groups, _callouts(groups, items, bottom + 40, above=False))
@@ -289,7 +283,7 @@ def _saw(groups: Groups, parameters: dict) -> Layout:
 
 def _inspect(groups: Groups, values: dict) -> Layout:
     outline = _outline(values)
-    points, _ = _loop(outline, [])
+    points = _loop(outline)
     half = outline["corner"][0]
     scale = 620 / (2 * half)
     top = 96.0
@@ -357,7 +351,7 @@ def _plate_strap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     plan = _Plan(values, parameters)
     if step == "outline":
         return _outline_plan(groups, plan, values, parameters)
-    return _faces(groups, plan, parameters)
+    return _faces(groups, plan, values, parameters, step)
 
 
 STRAP_LAYOUTS = {"plate-strap": _plate_strap}
