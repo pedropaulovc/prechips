@@ -46,8 +46,34 @@ def _feed(values: dict) -> bool:
     return "lug_x_in" in values
 
 
-def _vdim(groups: _Groups, x: float, y0: float, y1: float, text: str) -> None:
-    """Vertical dimension at ``x`` from ``y0`` to ``y1``, text to its left."""
+def _row_right(values: dict) -> bool:
+    """Whether ROW SIDE is on the right in a top view, SPINDLE END at the back.
+
+    With TOP up and SPINDLE END (-X) at the back, the model's right-handed
+    frame puts +Y on the right: ROW SIDE is there when rows run from +Y.
+    """
+    row_from = values.get("row_from")
+    if row_from not in {"plus_y_side", "minus_y_side"}:
+        raise CadError("cad.row_from: expected 'plus_y_side' or 'minus_y_side'")
+    return row_from == "plus_y_side"
+
+
+def _vdim(
+    groups: _Groups,
+    x: float,
+    y0: float,
+    y1: float,
+    text: str,
+    extend: tuple[float, float] | None = None,
+) -> None:
+    """Vertical dimension at ``x`` from ``y0`` to ``y1``, text to its left.
+
+    ``extend`` gives the x each witness line starts from, at ``y0`` and
+    ``y1``; each runs a little past the dimension line.
+    """
+    if extend is not None:
+        for start, y in zip(extend, (y0, y1)):
+            groups["dims"].append(_line(start, y, x + (4 if x > start else -4), y))
     groups["dims"].append(
         _line(x, y0, x, y1, marker_start="url(#arr)", marker_end="url(#arr)")
     )
@@ -64,15 +90,18 @@ def _vdim(groups: _Groups, x: float, y0: float, y1: float, text: str) -> None:
 
 
 def _label_rows(
-    groups: _Groups, x: float, rows: list[tuple[float, float, float, list[str]]]
-) -> None:
-    """Labels at ``x`` on their own rows below their anchors.
+    groups: _Groups, x: float, y: float, items: list[tuple[float, float, list[str]]]
+) -> float:
+    """Labels at ``x`` on their own rows from ``y`` down, below their anchors.
 
-    Each leader runs left from its label to its own vertical bus left of ``x``
-    (lower rows further left), up to its anchor's height, then across to the
-    anchor, so no leader crosses a label or another leader's bus.
+    ``items`` are ``(anchor_x, anchor_y, lines)``. Rows run from the lowest
+    anchor to the highest. Each leader runs left from its label to its own
+    vertical bus left of ``x`` (lower rows further left), up to its anchor's
+    height, then across to the anchor. A lower row's leader thus turns across
+    above every inner bus's top and passes under every inner bus's foot, so no
+    leader crosses a label or another leader's bus. Returns the next free row.
     """
-    for index, (y, ax, ay, lines) in enumerate(rows):
+    for index, (ax, ay, lines) in enumerate(sorted(items, key=lambda r: -r[1])):
         bus = x - 10 - 8 * index
         points = [(x - 4, y - 4), (bus, y - 4), (bus, ay), (ax, ay)]
         groups["leaders"] += [
@@ -81,24 +110,24 @@ def _label_rows(
         ]
         for line_index, line in enumerate(lines):
             _label(groups, x, y + line_index * 15, line)
+        y += 15 * len(lines) + 8
+    return y
 
 
-def _outline(
-    values: dict, left: float, back: float, s: float, mirror: bool = False
-) -> str:
-    """Top-view outline: Y (rows) across the page, X (stations) down it.
+def _outline(values: dict, left: float, back: float, s: float) -> str:
+    """Finished top-view outline: Y (rows) across the page, X (stations) down it.
 
-    The pivot block is a rectangle. The feed block's head sits at the row
-    side, its lug runs on to LUG END on the far side of the stations from
-    SPINDLE END. ``mirror`` puts the row side on the right.
+    The pivot block is a rectangle. The feed block's head sits at ROW SIDE,
+    on the hand :func:`_row_right` gives it; its lug runs on to LUG END on the
+    far side, the notch cut from SPINDLE END (the back).
     """
     across = _cad(values, "y_length_in") * s
     deep = _cad(values, "length_in") * s
     if not _feed(values):
         return _rect(left, back, across, deep)
-    head = across - _cad(values, "lug_length_in") * s
-    lug = _cad(values, "lug_x_in") * s
-    if mirror:
+    head = across - _cad(values, "lug_length_nominal_in") * s
+    lug = _cad(values, "lug_x_nominal_in") * s
+    if _row_right(values):
         points = [
             (left, back + lug),
             (left + across - head, back + lug),
@@ -126,9 +155,12 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     ``width`` (on edge or on end, to the 1.64 length) or ``ends`` (on end,
     the sawn ends to the Y length). ``data-arriving`` names the arriving face
     where it differs from the hold's default; ``data-passes`` replaces the
-    layer caption under the second panel.
+    layer caption under the second panel. With ``faces``, ``data-offcut``
+    names a piece of the same bar faced in the block's place last: a third
+    panel shows it on the same parallels, its top cut at the block's finish Z.
     """
     hold = root.get("data-hold")
+    offcut = root.get("data-offcut")
     feed = _feed(values)
     height = _cad(values, "height_in")
     if hold == "faces":
@@ -154,6 +186,8 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         size = "{{cad.y_length_min_in:.3f}}–{{cad.y_length_max_in:.3f}}"
     else:
         raise CadError("diagram data-hold: expected 'faces', 'width' or 'ends'")
+    if offcut is not None and hold != "faces":
+        raise CadError("diagram data-offcut: only the 'faces' hold faces an offcut")
     names = (root.get("data-arriving") or names[0], *names[1:])
     passes = root.get("data-passes") or (
         "layers ≤ {{process.layer_in:.2dot}}; last .005–.010"
@@ -164,17 +198,23 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
     cutter = _param_in(parameters, "face_cutter_dia_mm")
     s = min(110.0, 250 / (parallel + arriving), 200 / across)
-    bed = 70 + (parallel + arriving) * s + 40
+    tall = (parallel + arriving) * s
     groups = _groups(root)
 
     def panel(
-        centre: float, title: str, arrive: float, keep: float, low: str, top: str
+        centre: float,
+        bed: float,
+        title: str,
+        arrive: float,
+        keep: float,
+        low: str,
+        top: str,
     ) -> None:
         half = across * s / 2
         left, right = centre - half, centre + half
         floor = bed - parallel * s
         jaw_top = bed - jaw_h * s
-        _title(groups, centre - 150, 30, title)
+        _title(groups, centre - 150, bed - tall - 80, title)
         groups["jaws"] += [
             _rect(left - 26, jaw_top, 26, bed - jaw_top),
             _rect(right, jaw_top, 26, bed - jaw_top),
@@ -204,8 +244,10 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         _label(groups, left - 13, jaw_top - 6, "fixed", "middle")
         _label(groups, right + 13, jaw_top - 6, "moving", "middle")
 
+    bed = 110 + tall
     panel(
         190,
+        bed,
         f"1  {names[0]} face up: clean it, mark {names[1]}",
         arriving,
         arriving - clean,
@@ -214,6 +256,7 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     )
     panel(
         530,
+        bed,
         f"2  {names[1]} down: cut {names[2]} to size",
         arriving - clean,
         final,
@@ -232,22 +275,48 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         bed + 4,
         above=False,
     )
+    if offcut is None:
+        return _finish(groups, end_y)
+    # The offcut takes the block's place, as bought both sides: only its top
+    # is cut, at the Z the block's finish pass ran.
+    bed = end_y + 110 + tall
+    panel(
+        190,
+        bed,
+        f"3  {offcut} offcut in its place: cut at the block's finish Z",
+        arriving,
+        final,
+        names[0],
+        offcut,
+    )
+    floor = bed - parallel * s
+    right = 190 + across * s / 2
+    # The offcut's height, H, is the block's: witness lines from its top and
+    # from the parallels.
+    _vdim(groups, right + 70, floor - final * s, floor, "H", (right, right))
+    end_y = _callouts(
+        groups,
+        [(190, bed, ["same parallels, Z unmoved:", "H = the block's height"])],
+        bed + 4,
+        above=False,
+    )
     return _finish(groups, end_y)
 
 
 def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Top-face holes: the part in the vise (``vise``) or finished (``inspect``).
 
-    Top view, SPINDLE END at the back (fixed jaw): the model's right-handed
-    frame puts ROW SIDE (+Y) on the right, LUG END on the left. The holes
-    come before the feed block's notch, so the vise view is the full
-    rectangle; the finished view shows the notch. Beside it a stepped
-    section through H1 and B, looking toward ROW SIDE.
+    Top view, SPINDLE END at the back (fixed jaw), ROW SIDE on the hand the
+    model frame gives it (:func:`_row_right`): right on TL-32, LUG END on the
+    left; left on TL-22. The holes come before the feed block's notch, so the
+    vise view is the full rectangle; the finished view shows the notch.
+    Beside it a stepped section through H1 and B, looking toward ROW SIDE.
     """
     mode = root.get("data-mode")
     if mode not in {"vise", "inspect"}:
         raise CadError("diagram data-mode: expected 'vise' or 'inspect'")
     feed = _feed(values)
+    row_right = _row_right(values)
     length = _cad(values, "length_in")
     y_length = _cad(values, "y_length_in")
     height = _cad(values, "height_in")
@@ -260,6 +329,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     back = 110.0 if mode == "vise" else 128.0
     front = back + length * s
     across = y_length * s
+    right = left + across
     _title(
         groups,
         20,
@@ -269,28 +339,26 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         else "Top view, finished",
     )
     if mode == "vise":
-        _vise(
-            groups, left - 20, left + across + 20, back, front, _PARALLEL_IN * s, "", ""
-        )
+        _vise(groups, left - 20, right + 20, back, front, _PARALLEL_IN * s, "", "")
     groups["kept"].append(
-        _outline(values, left, back, s, mirror=True)
+        _outline(values, left, back, s)
         if mode == "inspect"
         else _rect(left, back, across, length * s)
     )
-    # Rows run left from ROW SIDE, the right edge.
-    edge = left + across
+    # Rows run from ROW SIDE into the part.
+    edge, inward = (right, -1.0) if row_right else (left, 1.0)
     # Everything on TOP is cut in the vise setup; the finished view marks none.
     cut = groups["active"] if mode == "vise" else []
     cbore_r = _cad(values, "cbore_dia_in") / 2 * s
     names = iter(("H1", "H2", "H3", "H4"))
     for station in stations:
         for row in rows:
-            x, y = edge - row * s, back + station * s
+            x, y = edge + inward * row * s, back + station * s
             for radius in (cbore_r, _cad(values, "hole_dia_in") / 2 * s):
                 groups["holes"].append(_el("circle", cx=x, cy=y, r=radius))
                 cut.append(_el("circle", cx=x, cy=y, r=radius))
             _label(groups, x, y - cbore_r - 4, next(names), "middle")
-    bx, by = edge - bore[0] * s, back + bore[1] * s
+    bx, by = edge + inward * bore[0] * s, back + bore[1] * s
     bore_r = _cad(values, "bore_dia_in") / 2 * s
     groups["holes"].append(_el("circle", cx=bx, cy=by, r=bore_r))
     groups["threads"].append(
@@ -300,125 +368,169 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     _label(groups, bx, by - bore_r - 4, "B", "middle")
     groups["datum"].append(_el("circle", cx=edge, cy=back, r=3.5))
     dim_top = back - (JAW if mode == "vise" else 0) - 14
-    _datum_label(groups, edge + 6, dim_top + 10, "X0 Y0", "start")
-    # ROW SIDE is the right face (X0): named along it.
+    _datum_label(
+        groups,
+        edge + 6 * -inward,
+        dim_top + 10,
+        "X0 Y0",
+        "start" if row_right else "end",
+    )
+    # ROW SIDE is named along its face (X0), haloed over the station
+    # dimensions' witness lines that cross it.
     middle = (back + front) / 2
+    name_x = edge - 14 * inward
     _label(
         groups,
-        edge + 14,
+        name_x,
         middle,
         "ROW SIDE",
         "middle",
-        transform=f"rotate(-90 {_fmt(edge + 14)} {_fmt(middle)})",
+        transform=f"rotate(-90 {_fmt(name_x)} {_fmt(middle)})",
+        stroke="#fff",
+        stroke_width=4,
+        paint_order="stroke",
     )
     for index, row in enumerate(sorted([*rows, bore[0]])):
         _dimension(
-            groups, edge - row * s, edge, dim_top - 18 * index, back, _shorthand(row, 3)
+            groups,
+            edge + inward * row * s,
+            edge,
+            dim_top - 18 * index,
+            back,
+            _shorthand(row, 3),
         )
-    for index, station in enumerate(sorted([*stations, bore[1]])):
+    # Stations from SPINDLE END, right of the part, each with witness lines
+    # from the back edge and from its rightmost feature.
+    station_x = {
+        station: max(edge + inward * row * s for row in rows) for station in stations
+    }
+    station_x[bore[1]] = max(station_x.get(bore[1], bx), bx)
+    for index, station in enumerate(sorted(station_x)):
         _vdim(
             groups,
-            edge + 32 + 22 * index,
+            right + 32 + 22 * index,
             back,
             back + station * s,
             _shorthand(station, 3),
+            (right, station_x[station]),
         )
     end_y = front + (JAW + 6 if mode == "vise" else 6)
+    lug_side = left if row_right else right
     if feed:
-        lug = back + _cad(values, "lug_x_in") * s
+        lug = back + _cad(values, "lug_x_nominal_in") * s
         end_y = _callouts(
             groups,
-            [(left, (lug + front) / 2, ["LUG END"])],
+            [(lug_side, (lug + front) / 2, ["LUG END"])],
             end_y,
             above=False,
         )
     if mode == "inspect":
-        _vdim(groups, left - 16, back, front, _shorthand(length, 2))
-        _dimension(groups, left, edge, end_y + 22, front, _shorthand(y_length, 2))
+        # On the feed block SPINDLE END is cut away over the lug: witnesses to
+        # it start at the step.
+        step_x = left
+        if feed:
+            step_x = lug_side - inward * _cad(values, "lug_length_nominal_in") * s
+        _vdim(
+            groups,
+            left - 30,
+            back,
+            front,
+            _shorthand(length, 2),
+            (step_x, left) if feed else None,
+        )
+        _dimension(groups, left, right, end_y + 22, front, _shorthand(y_length, 2))
         end_y += 30
         if feed:
             _dimension(
                 groups,
-                left,
-                left + _cad(values, "lug_length_in") * s,
+                lug_side,
+                step_x,
                 dim_top - 54,
                 back,
-                "{{cad.lug_length_in:.2f}}",
+                "{{cad.lug_length_nominal_in:.2f}}",
             )
-            _vdim(groups, left - 46, back, lug, "{{cad.lug_x_in:.2dot}}")
+            # SPINDLE END is cut away over the lug: its witness starts at the
+            # step, the lug face's at the lug side.
+            _vdim(
+                groups,
+                left - 56,
+                back,
+                lug,
+                "{{cad.lug_x_nominal_in:.2dot}}",
+                (step_x, lug_side),
+            )
     _axes(groups, 24, front - 34)
 
-    # Stepped section through H1 and B, looking toward ROW SIDE: SPINDLE END
-    # left, TOP up, beside the top view; labels in a column under it.
-    s_left = edge + 32 + 22 * 2 + 50
+    # Stepped section through H1 and B, looking toward ROW SIDE, TOP up,
+    # beside the top view; labels in a column under it. Looking toward ROW
+    # SIDE puts SPINDLE END (the top view's back) on the viewer's left when
+    # ROW SIDE is on the right (TL-32), on the right when it is on the left
+    # (TL-22): stations run from the matching edge.
+    s_left = right + 32 + 22 * len(station_x) + 28
     t = min(110.0, (650 - s_left) / length)
+
+    def sx(station: float) -> float:
+        return s_left + (station if row_right else length - station) * t
+
     top = 70.0
     seat = top + height * t
     _title(groups, s_left - 30, top - 30, "Section through H1 and B")
     _title(groups, s_left - 30, top - 14, "(toward ROW SIDE)")
     groups["kept"].append(_rect(s_left, top, length * t, height * t))
-    hx = s_left + stations[0] * t
+    hx = sx(stations[0])
     cb_w = _cad(values, "cbore_dia_in") * t
     hole_w = _cad(values, "hole_dia_in") * t
     floor = seat - _cad(values, "cbore_floor_nominal_in") * t
-    sections = [
-        _rect(hx - cb_w / 2, top, cb_w, floor - top),
-        _rect(hx - hole_w / 2, floor, hole_w, seat - floor),
-    ]
-    bxs = s_left + bore[1] * t
+    bxs = sx(bore[1])
     bore_w = _cad(values, "bore_dia_in") * t
     tap_w = _cad(values, "tap_drill_in") * t
     bore_floor = top + _cad(values, "bore_depth_nominal_in") * t
     groups["threads"].append(
         _rect(bxs - tap_w / 2 - 3, bore_floor, tap_w + 6, seat - bore_floor)
     )
-    sections += [
-        _rect(bxs - bore_w / 2, top, bore_w, bore_floor - top),
-        _rect(bxs - tap_w / 2, bore_floor, tap_w, seat - bore_floor),
-    ]
-    groups["holes"] += sections
-    cut += [
+    sections = [
         _rect(hx - cb_w / 2, top, cb_w, floor - top),
         _rect(hx - hole_w / 2, floor, hole_w, seat - floor),
         _rect(bxs - bore_w / 2, top, bore_w, bore_floor - top),
         _rect(bxs - tap_w / 2, bore_floor, tap_w, seat - bore_floor),
     ]
+    groups["holes"] += sections
+    cut += sections
     step_x = (hx + bxs) / 2
     groups["hidden"].append(_line(step_x, top, step_x, seat))
-    right = s_left + length * t
-    _vdim(groups, right + 18, top, seat, _shorthand(height, 2))
-    _label(groups, right + 26, seat - 4, "SEAT")
-    _label(groups, right + 26, top + 12, "TOP")
-    texts = [
-        (
-            bxs + bore_w / 2,
-            (top + bore_floor) / 2,
-            [
-                "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}, flat floor,",
-                "{{cad.bore_depth_min_in:.3dot}}–{{cad.bore_depth_max_in:.3dot}} deep",
-            ],
-        ),
-        (
-            hx + cb_w / 2,
-            floor,
-            [
-                "Ø{{cad.cbore_dia_nominal_in:.2dot}} counterbore, floor",
-                "{{cad.cbore_floor_min_in:.3dot}}–{{cad.cbore_floor_max_in:.3dot}} above SEAT",
-            ],
-        ),
-        (bxs + tap_w / 2, (bore_floor + seat) / 2, ["{{cad.pivot_thread}} thru"]),
-        (
-            hx + hole_w / 2,
-            (floor + seat) / 2,
-            ["Ø{{cad.hole_dia_nominal_in:.3dot}} thru"],
-        ),
-    ]
-    y = seat + 30
-    rows = []
-    for ax, ay, lines in texts:
-        rows.append((y, ax, ay, lines))
-        y += 15 * len(lines) + 8
-    _label_rows(groups, s_left, rows)
+    s_right = s_left + length * t
+    _vdim(groups, s_right + 18, top, seat, _shorthand(height, 2))
+    _label(groups, s_right + 26, seat - 4, "SEAT")
+    _label(groups, s_right + 26, top + 12, "TOP")
+    y = _label_rows(
+        groups,
+        s_left,
+        seat + 30,
+        [
+            (
+                bxs + bore_w / 2,
+                (top + bore_floor) / 2,
+                [
+                    "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}, flat floor,",
+                    "{{cad.bore_depth_min_in:.3dot}}–{{cad.bore_depth_max_in:.3dot}} deep",
+                ],
+            ),
+            (
+                hx + cb_w / 2,
+                floor,
+                [
+                    "Ø{{cad.cbore_dia_nominal_in:.2dot}} counterbore, floor",
+                    "{{cad.cbore_floor_min_in:.3dot}}–{{cad.cbore_floor_max_in:.3dot}} above SEAT",
+                ],
+            ),
+            (bxs + tap_w / 2, (bore_floor + seat) / 2, ["{{cad.pivot_thread}} thru"]),
+            (
+                hx + hole_w / 2,
+                (floor + seat) / 2,
+                ["Ø{{cad.hole_dia_nominal_in:.3dot}} thru"],
+            ),
+        ],
+    )
     return _finish(groups, max(end_y + 10, y))
 
 
@@ -428,26 +540,29 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     Front view from the operator with the moving jaw left off: the fixed jaw
     behind, the block standing on its OUTER END on the parallels, the notch
     cut down from SPINDLE END to the lug face by the end mill's end, the step
-    face by its side, so the inside corner is the cutter's square corner.
-    The spacer at the left jaw end is the plan's offcut, faced to the block's
-    height: `spacer_length_in` along the jaws, `spacer_height_in` upright.
+    face by its side, so the inside corner is the cutter's square corner;
+    then the leadscrew clearance's last plunge, down from the lug face. The
+    spacer at the left jaw end is the plan's offcut, faced to the block's
+    height: the bar width (`blank_width_in`) along the jaws, its sawn length
+    (`offcut_length_in`) upright.
     """
     if not _feed(values):
         raise CadError("diagram jig-block-notch: needs the feed block's lug values")
     length = _cad(values, "length_in")
     y_length = _cad(values, "y_length_in")
-    lug_length = _cad(values, "lug_length_in")
-    lug_x = _cad(values, "lug_x_in")
+    lug_length = _cad(values, "lug_length_nominal_in")
+    lug_x = _cad(values, "lug_x_nominal_in")
+    screw = _cad(values, "screw_y_nominal_in")
+    screw_dia = _cad(values, "screw_dia_in")
+    mill = _param(parameters, "lug_bore_mill_in")
     jaw = _param_in(parameters, "vise_jaw_width_mm")
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
     parallel = _param_in(parameters, "edge_parallel_height_mm")
     over_min = _param(parameters, "notch_overhang_min_in")
     over_max = _param(parameters, "notch_overhang_max_in")
-    spacer = _param(parameters, "spacer_length_in")
-    spacer_height = _param(parameters, "spacer_height_in")
+    spacer = _param(parameters, "blank_width_in")
+    spacer_height = _param(parameters, "offcut_length_in")
     cutter = _param_in(parameters, "half_cutter_dia_mm")
-    if not over_min <= over_max or over_max >= y_length or over_min <= lug_length:
-        raise CadError("diagram jig-block-notch: overhang must clear the step")
     over = (over_min + over_max) / 2
     s = min(70.0, 600 / (jaw + over + cutter))
     jaw_left = 40.0
@@ -460,14 +575,18 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     start = end - y_length * s
     step = end - lug_length * s
     lug_face = top + lug_x * s
+    spacer_right = jaw_left + 6 + spacer * s
     groups = _groups(root)
     _title(groups, 20, 24, "Front view, moving jaw not shown: on edge, SPINDLE END up")
     # The fixed jaw stands behind the part: drawn hidden, so the spacer and
-    # parallels in front of it show.
+    # parallels in front of it show. Its name sits in the gap between the
+    # spacer and the block.
     groups["hidden"].append(
         _rect(jaw_left, jaw_top, jaw_right - jaw_left, bed - jaw_top)
     )
-    _label(groups, jaw_left + 14 + spacer * s, jaw_top + 16, "fixed jaw (behind)")
+    gap = (spacer_right + start) / 2
+    _label(groups, gap, jaw_top + 16, "fixed jaw", "middle")
+    _label(groups, gap, jaw_top + 31, "(behind)", "middle")
     groups["fixture"] += [
         _rect(jaw_left + 6, floor, jaw_right - jaw_left - 6, parallel * s),
         _line(jaw_left - 20, bed, end + 40, bed),
@@ -492,16 +611,30 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         )
     )
     groups["removed"].append(_rect(step, top, end - step, lug_face - top))
+    # The leadscrew clearance through the lug: its last plunge, Z zeroed on
+    # the lug face just cut and lug_bore_mill_in down from it, is cut here.
+    bx = end - screw * s
+    half = screw_dia / 2 * s
+    back_floor = lug_face + mill * s
+    groups["hidden"] += [
+        _line(bx - half, lug_face, bx - half, floor),
+        _line(bx + half, lug_face, bx + half, floor),
+    ]
     groups["active"] += [
         _line(step, top, step, lug_face),
         _line(step, lug_face, end, lug_face),
+        _line(bx - half, lug_face, bx - half, back_floor),
+        _line(bx + half, lug_face, bx + half, back_floor),
     ]
     mid = (step + end) / 2
     groups["tool"].append(_rect(mid - cutter / 2 * s, top - 44, cutter * s, 36))
     groups["datum"].append(_el("circle", cx=end, cy=top, r=3.5))
     _datum_label(groups, end + 6, top - 4, "X0 Z0", "start")
-    _dimension(groups, step, end, top - 58, top, "{{cad.lug_length_in:.2f}}")
-    _vdim(groups, end + 20, top, lug_face, "{{cad.lug_x_in:.2dot}}")
+    _dimension(groups, step, end, top - 58, top, "{{cad.lug_length_nominal_in:.2f}}")
+    # SPINDLE END is cut away over the lug: its witness starts at the step.
+    _vdim(
+        groups, end + 20, top, lug_face, "{{cad.lug_x_nominal_in:.2dot}}", (step, end)
+    )
     _label(groups, (start + step) / 2, top - 6, "SPINDLE END", "middle")
     _label(groups, end + 6, floor - 4, "LUG END")
     _dimension(
@@ -523,9 +656,10 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 (start + jaw_right) / 2,
                 floor,
-                ["OUTER END down,", "on 1/2 in parallels"],
+                ["OUTER END down,", f"on {_shorthand(parallel, 2)} in parallels"],
             ),
             (jaw_right, bed, ["jaw side"]),
+            (bx, back_floor, ["3/8 plunge, Z0", "on the lug face"]),
         ],
         bed + 40,
         above=False,
@@ -534,32 +668,32 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Feed-block leadscrew bore: on SPINDLE END, OUTER END up, SEAT at fixed jaw.
+    """Feed-block leadscrew clearance: on SPINDLE END, OUTER END up, SEAT at
+    the fixed jaw.
 
     Front view (from the operator: the model's hand puts LUG END on the right)
     and end view (from LUG END: SEAT and the fixed jaw on the right) at one
-    scale. The bore comes before the notch: the block stands on all of
-    SPINDLE END and the bore runs blind from OUTER END to
-    ``lug_bore_depth_mm``, past the lug face to come (drawn hidden), which
-    the notch opens.
+    scale. The clearance comes before the notch: the block stands on all of
+    SPINDLE END. The pilot (``pilot_dia_mm``) runs blind from OUTER END to
+    ``lug_bore_depth_mm``, past the lug face to come (drawn hidden), which the
+    notch opens; the 3/8 end mill follows it ``lug_bore_mill_in`` deep, and
+    the notch setup plunges the rest from the lug face.
     """
     if not _feed(values):
         raise CadError("diagram jig-block-lug-bore: needs the feed block's lug values")
     length = _cad(values, "length_in")
     y_length = _cad(values, "y_length_in")
     height = _cad(values, "height_in")
-    lug_length = _cad(values, "lug_length_in")
-    lug_x = _cad(values, "lug_x_in")
+    lug_length = _cad(values, "lug_length_nominal_in")
+    lug_x = _cad(values, "lug_x_nominal_in")
     row = _cad(values, "screw_y_nominal_in")
     z = _cad(values, "screw_z_nominal_in")
     dia = _cad(values, "screw_dia_in")
     parallel = _param_in(parameters, "edge_parallel_height_mm")
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
+    pilot = _param_in(parameters, "pilot_dia_mm")
     depth = _param_in(parameters, "lug_bore_depth_mm")
-    if not length - lug_x < depth < length:
-        raise CadError(
-            "diagram jig-block-lug-bore: the bore must end past the lug face"
-        )
+    mill = _param(parameters, "lug_bore_mill_in")
     t = min(110.0, 400 / y_length)
     left = 90.0
     right = left + y_length * t
@@ -569,7 +703,20 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     step = right - lug_length * t
     lug_bottom = floor - lug_x * t
     jaw_top = bed - jaw_h * t
+    pilot_floor = top + depth * t
+    mill_floor = top + mill * t
     groups = _groups(root)
+
+    def bore(x: float) -> None:
+        """The 3/8 plunge over the deeper pilot, both hidden in the part."""
+        for half, low in ((dia / 2 * t, mill_floor), (pilot / 2 * t, pilot_floor)):
+            groups["hidden"] += [
+                _line(x - half, top, x - half, low),
+                _line(x + half, top, x + half, low),
+                _line(x - half, low, x + half, low),
+            ]
+        groups["active"].append(_line(x - dia / 2 * t, top, x + dia / 2 * t, top))
+
     _title(groups, 20, 24, "Front view, standing on SPINDLE END")
     groups["fixture"] += [
         _rect(left - 10, floor, right - left + 20, parallel * t),
@@ -584,13 +731,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         _line(step, lug_bottom, step, floor),
     ]
     bx = right - row * t
-    bore_floor = top + depth * t
-    groups["hidden"] += [
-        _line(bx - dia / 2 * t, top, bx - dia / 2 * t, bore_floor),
-        _line(bx + dia / 2 * t, top, bx + dia / 2 * t, bore_floor),
-        _line(bx - dia / 2 * t, bore_floor, bx + dia / 2 * t, bore_floor),
-    ]
-    groups["active"].append(_line(bx - dia / 2 * t, top, bx + dia / 2 * t, top))
+    bore(bx)
     groups["tool"].append(_rect(bx - dia / 2 * t, top - 40, dia * t, 32))
     groups["datum"].append(_el("circle", cx=right, cy=top, r=3.5))
     _datum_label(groups, right + 6, top + 4, "X0", "start")
@@ -604,12 +745,22 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         top,
         "{{cad.screw_y_min_in:.3dot}}–{{cad.screw_y_max_in:.3dot}}",
     )
+    # Witness lines from each floor (drawn across its own hole) to its depth.
     _vdim(
         groups,
         bx - dia / 2 * t - 14,
         top,
-        bore_floor,
+        mill_floor,
+        "{{process.lug_bore_mill_in:.2dot}}",
+        (bx - dia / 2 * t, bx - dia / 2 * t),
+    )
+    _vdim(
+        groups,
+        bx - dia / 2 * t - 40,
+        top,
+        pilot_floor,
         "{{process.lug_bore_depth_mm:in.2dot}}",
+        (bx - pilot / 2 * t, bx - pilot / 2 * t),
     )
 
     # End view from LUG END: the whole end face; the lug face to come hidden.
@@ -623,13 +774,8 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     groups["fixture"].append(_line(e_left - 40, bed, e_right + 40, bed))
     groups["kept"].append(_rect(e_left, top, e_right - e_left, floor - top))
     ex = e_right - z * t
-    groups["hidden"] += [
-        _line(e_left, lug_bottom, e_right, lug_bottom),
-        _line(ex - dia / 2 * t, top, ex - dia / 2 * t, bore_floor),
-        _line(ex + dia / 2 * t, top, ex + dia / 2 * t, bore_floor),
-        _line(ex - dia / 2 * t, bore_floor, ex + dia / 2 * t, bore_floor),
-    ]
-    groups["active"].append(_line(ex - dia / 2 * t, top, ex + dia / 2 * t, top))
+    groups["hidden"].append(_line(e_left, lug_bottom, e_right, lug_bottom))
+    bore(ex)
     _label(groups, e_left - 11, jaw_top - 6, "moving", "middle")
     _label(groups, e_right + 11, jaw_top - 6, "fixed", "middle")
     _label(groups, e_right + 11, jaw_top - 20, "SEAT", "middle")
@@ -638,11 +784,15 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     end_y = _callouts(
         groups,
         [
-            ((left + step) / 2, floor, ["all of SPINDLE END", "on 1/2 in parallels"]),
+            (
+                (left + step) / 2,
+                floor,
+                ["all of SPINDLE END", f"on {_shorthand(parallel, 2)} in parallels"],
+            ),
             (
                 bx,
-                bore_floor,
-                ["blind past the lug face", "to come; the notch opens it"],
+                pilot_floor,
+                ["pilot past the lug face", "to come; the notch opens it"],
             ),
             (e_left + height * t / 2, lug_bottom, ["lug face to come"]),
         ],

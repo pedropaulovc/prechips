@@ -426,9 +426,10 @@ resolution_mm = 0.005
 
 # Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
 # as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
-# saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter),
-# jig-spot, basebar-counterbore (the 5/16 in end mill) and the carrier's
-# jig-drill-f and jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
+# saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter)
+# at the riser's riser-em-half-6061-t6511 setting, jig-spot,
+# basebar-counterbore (the 5/16 in end mill) and the carrier's jig-drill-f and
+# jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
 # end mill, plunged; TL-32's notch takes the owner's 1/2 in end mill with 1 in
 # of flute, the part on edge so its end cuts the lug face.
 [tools.block-drill-15]
@@ -440,13 +441,17 @@ diameter_mm = 7.9375
 [tools.block-em-3-8]
 description = "3/8 in centre-cutting 2-flute end mill (LMS 6784 set)"
 diameter_mm = 9.525
+# LOC .50 in: stub-length floor (typical catalogue: stub 1/2, regular 3/4);
+# LMS 6784 page states no LOC; owner ruling 2026-11-16.
+flute_length_mm = 12.7
 [tools.block-em-half-long]
 description = "1/2 in centre-cutting end mill, flutes ≥1.00 in"
 diameter_mm = 12.7
 
-# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min in
-# the PM-30MV high belt range with the drills, so no belt change; 8 in/min /
-# (1800 × 2) = .0022 in/tooth, a chip that cuts rather than rubs in 6061.
+# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min on
+# the PM-30MV's low belt (100–2800 rpm, owner 2026-11-16, harmonic-analyzer
+# #2867), no belt change; 8 in/min / (1800 × 2) = .0022 in/tooth, a chip
+# that cuts rather than rubs in 6061.
 [settings.block-em-half-long-6061-t6511]
 tool = "block-em-half-long"
 material = "6061-t6511"

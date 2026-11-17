@@ -2,6 +2,8 @@
 
 Every operation with a tool declares ``sizing``: ``"other"`` or a table. The
 check compares the selected tool only; it never searches for a nearer tool.
+A band may also declare the cut's ``depth_mm``: the tool's ``flute_length_mm``
+must reach it, so the shank never enters the hole it cuts.
 """
 
 from prechips.checks import CheckError, positive_mm
@@ -26,7 +28,7 @@ def _tool_size(tool: dict, field: str, where: str) -> float:
 def check(plan: LoadedPlan) -> None:
     tools = {tool["id"]: tool for tool in plan.data["tools"]}
     for tool in tools.values():
-        for field in ("diameter_mm", "tap_drill_mm"):
+        for field in ("diameter_mm", "tap_drill_mm", "flute_length_mm"):
             if field in tool:
                 positive_mm(tool[field], f"tool {tool['id']!r} {field}")
     number = 0
@@ -56,7 +58,7 @@ def check(plan: LoadedPlan) -> None:
 def _check_sizing(sizing: dict, tool: dict, tools: dict, where: str) -> None:
     kind = sizing.get("kind")
     if kind == "band":
-        _keys(sizing, {"kind", "band_mm"}, where)
+        _keys(sizing, {"kind", "band_mm", "depth_mm"}, where)
         band = sizing.get("band_mm")
         if not isinstance(band, list) or len(band) != 2:
             raise CheckError(f"{where}.band_mm: expected [low, high] in mm")
@@ -65,11 +67,20 @@ def _check_sizing(sizing: dict, tool: dict, tools: dict, where: str) -> None:
         if low > high:
             raise CheckError(f"{where}.band_mm: reversed band {low:.6g}–{high:.6g} mm")
         diameter = _tool_size(tool, "diameter_mm", where)
-        if low <= diameter <= high:
+        if not low <= diameter <= high:
+            raise CheckError(
+                f"{where}: tool {tool['id']!r} diameter {diameter:.6g} mm is outside "
+                f"band {low:.6g}–{high:.6g} mm"
+            )
+        if "depth_mm" not in sizing:
+            return
+        depth = positive_mm(sizing["depth_mm"], f"{where}.depth_mm")
+        flutes = _tool_size(tool, "flute_length_mm", where)
+        if depth <= flutes:
             return
         raise CheckError(
-            f"{where}: tool {tool['id']!r} diameter {diameter:.6g} mm is outside "
-            f"band {low:.6g}–{high:.6g} mm"
+            f"{where}: tool {tool['id']!r} flutes {flutes:.6g} mm are shorter than "
+            f"the {depth:.6g} mm cut"
         )
     if kind == "tap_drill":
         _keys(sizing, {"kind", "tap"}, where)

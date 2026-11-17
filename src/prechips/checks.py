@@ -47,7 +47,7 @@ CHECKS: dict[str, Check] = {
     ),
     "tool_sizing": Check(
         module="prechips.sizing",
-        tool_fields=frozenset({"diameter_mm", "tap_drill_mm"}),
+        tool_fields=frozenset({"diameter_mm", "tap_drill_mm", "flute_length_mm"}),
         operation_fields=frozenset({"sizing"}),
     ),
     "indexing": Check(module="prechips.indexing", setup_fields=frozenset({"indexing"})),

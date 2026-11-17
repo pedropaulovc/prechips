@@ -1,6 +1,8 @@
 import base64
 import re
+import tomllib
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -29,20 +31,42 @@ def test_plans_render_with_every_check(tmp_path, plan, number, setups, profile):
         assert html.count('class="setup-diagram"') == setups
 
 
-def test_feed_block_pictures_show_the_faced_spacer_offcut(tmp_path):
-    # The notch spacer is the offcut sawn with the blank and faced to the
-    # block's height, not the finished TL-22.
+def test_notch_picture_draws_the_spacer_offcut_at_its_size(tmp_path):
+    # The notch spacer is the offcut sawn from the bar and faced to the
+    # block's height: the bar width along the jaws, the sawn length upright.
     out = tmp_path / "feed-block-hobby.html"
-    command = ["traveler", str(ROOT / "examples/feed-block.toml"), "--profile", "hobby"]
-    assert main([*command, "--out", str(out)]) == 0
-    html = out.read_text(encoding="utf-8")
-    svgs = "".join(
-        base64.b64decode(data).decode("utf-8")
-        for data in re.findall(r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", html)
+    plan = ROOT / "examples/feed-block.toml"
+    assert main(["traveler", str(plan), "--profile", "hobby", "--out", str(out)]) == 0
+    parameters = tomllib.loads(plan.read_text(encoding="utf-8"))["parameters"]
+    ratio = parameters["blank_width_in"] / parameters["offcut_length_in"]
+    svg = "{http://www.w3.org/2000/svg}"
+    rects = [
+        rect
+        for data in re.findall(
+            r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", out.read_text("utf-8")
+        )
+        for group in ElementTree.fromstring(base64.b64decode(data)).iter(f"{svg}g")
+        if group.get("fill") == "#e6e7e9"  # fixtures
+        for rect in group.iter(f"{svg}rect")
+    ]
+    assert any(
+        abs(float(r.get("width")) / float(r.get("height")) - ratio) < 0.01
+        for r in rects
     )
-    assert "spacer offcut, faced to" in svgs
-    assert "(TL-22)" not in svgs
-    assert ">spacer<" in svgs
+
+
+def test_station_tolerance_follows_the_printed_places(tmp_path):
+    # The pivot seat's station prints to two places (.82): its model point
+    # may sit up to .005 in (0.127 mm) off, but no further.
+    text = PIVOT.read_text(encoding="utf-8")
+    old = '"at" = [0.0, 0.0, 24.384]'
+    assert text.count(old) == 2  # the seat and its tap, one axis
+    moved = tmp_path / "moved.toml"
+    moved.write_text(text.replace(old, '"at" = [0.1, 0.0, 24.384]'), "utf-8")
+    load_pivot_block(moved, {})
+    moved.write_text(text.replace(old, '"at" = [0.2, 0.0, 24.384]'), "utf-8")
+    with pytest.raises(CadError, match="station disagrees"):
+        load_pivot_block(moved, {})
 
 
 def test_rows_run_from_each_block_s_own_side():
@@ -67,9 +91,25 @@ def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
     text = PIVOT.read_text(encoding="utf-8")
     old = '"at" = [-13.0, -13.0, 24.384]'
     assert text.count(old) == 1
-    moved.write_text(text.replace(old, '"at" = [-13.0, -12.9, 24.384]'), "utf-8")
+    moved.write_text(text.replace(old, '"at" = [-13.0, -12.7, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="row origin disagrees"):
         load_pivot_block(moved, {})
+
+
+def test_refuses_carriage_holes_spread_past_their_printed_row(tmp_path):
+    # Every hole moved outward .13 mm (±13.0 → ±13.13): each stays within the
+    # bore's coarse 2-place row, but the 1.024 ±.005 spacing becomes 1.034.
+    text = PIVOT.read_text(encoding="utf-8")
+    for x in ("-13.0", "13.0"):
+        for y in ("-13.0", "13.0"):
+            old = f'"at" = [{x}, {y}, 24.384]'
+            assert text.count(old) == 1
+            new = f'"at" = [{x}, {y.replace("13.0", "13.13")}, 24.384]'
+            text = text.replace(old, new)
+    spread = tmp_path / "spread.toml"
+    spread.write_text(text, "utf-8")
+    with pytest.raises(CadError, match="row origin disagrees with carriage_hole_1"):
+        load_pivot_block(spread, {})
 
 
 def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
@@ -82,3 +122,44 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
     bored.write_text(text.replace(old, old + '"process" = "bore"\n'), "utf-8")
     with pytest.raises(CadError, match="plain through hole"):
         load_feed_block(bored, {})
+
+
+def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
+    # +.24 mm puts the model row at .5244, outside the printed .510–.520;
+    # LUG END from the 2-place pivot bore row would still have passed it.
+    moved = tmp_path / "moved.toml"
+    text = FEED.read_text(encoding="utf-8")
+    old = '"at" = [20.828, -54.991, 12.4]'
+    assert text.count(old) == 1
+    moved.write_text(text.replace(old, '"at" = [20.828, -54.751, 12.4]'), "utf-8")
+    with pytest.raises(CadError, match="expected on the lug"):
+        load_feed_block(moved, {})
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        # Each 3/8 plunge stays within the cutter's recorded length of cut,
+        # so its shank never follows the flutes into the hole.
+        ("lug_bore_mill_in = 0.45", "lug_bore_mill_in = 0.55", "shorter than"),
+        # The pro sheet (no pictures) refuses a notch hold that cannot work.
+        ("notch_overhang_min_in = 2.05", "notch_overhang_min_in = 1.80", "clear the"),
+        ("blank_width_in = 3.0 ", "blank_width_in = 5.0 ", "spacer does not fit"),
+        # Side passes that miss the middle slot leave a strip on every layer.
+        ("notch_side_overrun_in = 0.05", "notch_side_overrun_in = 0.30", "strip"),
+        # A 25/64 pilot is over the clearance band: the hole comes out oversize.
+        ("pilot_dia_mm = 7.9375 ", "pilot_dia_mm = 9.9219 ", "under the clearance"),
+    ],
+)
+def test_pro_refuses_a_bad_feed_block_process(tmp_path, capsys, old, new, message):
+    examples = (ROOT / "examples").as_posix()
+    text = (ROOT / "examples/feed-block.toml").read_text(encoding="utf-8")
+    assert text.count(old) == 1
+    text = text.replace(old, new)
+    for name in ('"shop.toml"', '"cad/', '"diagrams/'):
+        text = text.replace(name, f'"{examples}/{name[1:]}')
+    plan = tmp_path / "feed-block.toml"
+    plan.write_text(text, encoding="utf-8")
+    out = tmp_path / "out.html"
+    assert main(["traveler", str(plan), "--profile", "pro", "--out", str(out)]) != 0
+    assert message in capsys.readouterr().err
