@@ -461,20 +461,27 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             )
     _axes(groups, 24, front - 34)
 
-    # Stepped section through H1 and B, looking toward ROW SIDE: SPINDLE END
-    # left, TOP up, beside the top view; labels in a column under it.
+    # Stepped section through H1 and B, looking toward ROW SIDE, TOP up,
+    # beside the top view; labels in a column under it. Looking toward ROW
+    # SIDE puts SPINDLE END (the top view's back) on the viewer's left when
+    # ROW SIDE is on the right (TL-32), on the right when it is on the left
+    # (TL-22): stations run from the matching edge.
     s_left = right + 32 + 22 * len(station_x) + 28
     t = min(110.0, (650 - s_left) / length)
+
+    def sx(station: float) -> float:
+        return s_left + (station if row_right else length - station) * t
+
     top = 70.0
     seat = top + height * t
     _title(groups, s_left - 30, top - 30, "Section through H1 and B")
     _title(groups, s_left - 30, top - 14, "(toward ROW SIDE)")
     groups["kept"].append(_rect(s_left, top, length * t, height * t))
-    hx = s_left + stations[0] * t
+    hx = sx(stations[0])
     cb_w = _cad(values, "cbore_dia_in") * t
     hole_w = _cad(values, "hole_dia_in") * t
     floor = seat - _cad(values, "cbore_floor_nominal_in") * t
-    bxs = s_left + bore[1] * t
+    bxs = sx(bore[1])
     bore_w = _cad(values, "bore_dia_in") * t
     tap_w = _cad(values, "tap_drill_in") * t
     bore_floor = top + _cad(values, "bore_depth_nominal_in") * t

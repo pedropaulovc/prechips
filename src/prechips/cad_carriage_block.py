@@ -292,8 +292,10 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
             values,
             parameters,
             seat=seat,
-            y_edge=y_edge,
-            edge_tol=edge_tol,
+            # ROW SIDE from the carriage holes (3 places), not the coarser
+            # 2-place pivot bore row.
+            y_edge=hole_edge[0],
+            edge_tol=hole_edge[1],
             holes=[
                 (
                     values["bore_x_band_mm"][0],
@@ -372,8 +374,9 @@ def _feed(
         raise CadError("leadscrew_bore: expected a plain through hole from the lug end")
     row = _bind(values, bore, "row", "leadscrew_bore", "screw_y")
     z = _bind(values, bore, "height", "leadscrew_bore", "screw_z")
-    # LUG END comes from the pivot row and the overall length, both printed
-    # nominals: allow each one's rounding as well as the bore row's own.
+    # LUG END comes from the carriage holes' row origin and the overall
+    # length, both printed nominals: allow each one's rounding as well as the
+    # bore row's own.
     row_tol = (
         edge_tol
         + _printed_mm(seat, "overall_y", "carriage_seat")
@@ -491,6 +494,9 @@ def _feed_process(values: dict, parameters: dict) -> None:
             / 2
         )
         height_in = values["height_nominal_in"]
+        # Each side pass must overlap the middle slot, or a strip stays uncut.
+        if not overrun <= 3 * radius - height_in / 2:
+            raise CadError("process.notch_side_overrun_in: the passes leave a strip")
         values["notch_pass_near_in"] = radius - overrun
         values["notch_pass_mid_in"] = height_in / 2
         values["notch_pass_far_in"] = height_in - radius + overrun

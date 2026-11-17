@@ -124,6 +124,18 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
         load_feed_block(bored, {})
 
 
+def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
+    # +.24 mm puts the model row at .5244, outside the printed .510–.520;
+    # LUG END from the 2-place pivot bore row would still have passed it.
+    moved = tmp_path / "moved.toml"
+    text = FEED.read_text(encoding="utf-8")
+    old = '"at" = [20.828, -54.991, 12.4]'
+    assert text.count(old) == 1
+    moved.write_text(text.replace(old, '"at" = [20.828, -54.751, 12.4]'), "utf-8")
+    with pytest.raises(CadError, match="expected on the lug"):
+        load_feed_block(moved, {})
+
+
 @pytest.mark.parametrize(
     ("old", "new", "message"),
     [
@@ -133,6 +145,8 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
         # The pro sheet (no pictures) refuses a notch hold that cannot work.
         ("notch_overhang_min_in = 2.05", "notch_overhang_min_in = 1.80", "clear the"),
         ("blank_width_in = 3.0 ", "blank_width_in = 5.0 ", "spacer does not fit"),
+        # Side passes that miss the middle slot leave a strip on every layer.
+        ("notch_side_overrun_in = 0.05", "notch_side_overrun_in = 0.30", "strip"),
     ],
 )
 def test_pro_refuses_a_bad_feed_block_process(tmp_path, capsys, old, new, message):
