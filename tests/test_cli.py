@@ -6,6 +6,7 @@ from xml.etree import ElementTree
 
 import pytest
 
+from prechips import traveler
 from prechips.checks import CHECKS
 
 # Minimal fixtures for the older checks declare no data for the v0.8 checks.
@@ -193,7 +194,10 @@ def test_operation_steps_render_by_kind_and_profile(tmp_path, detailed):
             "not both",
         ),
         ('tool = "internal-mill-id"', "expected instruction or steps"),
-        ('steps = [{ kind = "note", text = "A" }]', "expected action, check or stop"),
+        ('steps = [{ kind = "note", text = "A" }]', "expected action or check or stop"),
+        ('steps = [{ kind = ["stop"], text = "A" }]', "kind: expected action or"),
+        ('steps = [{ kind = { a = 1 }, text = "A" }]', "kind: expected action or"),
+        ('steps = [{ text = "A" }]', "kind: required"),
         ("steps = []", "expected a nonempty array of tables"),
     ],
 )
@@ -227,6 +231,26 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
     html = out.read_text(encoding="utf-8")
     assert "Face to thickness.\nKeep &lt; 0.2 mm" in html
     assert ".steps {" not in html
+
+
+@pytest.mark.parametrize(
+    "value,html",
+    [
+        # Footnote marks and a minus-sign tolerance line stay literal.
+        ("Ream (*) then gauge (*)", "Ream (*) then gauge (*)"),
+        ("Ø.376 +.001\n- .000\n- 1 pass", "Ø.376 +.001\n- .000\n- 1 pass"),
+        # Blank lines beside a list print as gaps, except at either end.
+        (
+            "\nIntro\n\n1. A\n\n2. B\nTail\n",
+            (
+                'Intro<div class="gap"></div><ol><li>A</li></ol>'
+                '<div class="gap"></div><ol start="2"><li>B</li></ol>Tail'
+            ),
+        ),
+    ],
+)
+def test_markup_leaves_ordinary_text_and_keeps_blank_lines(value, html):
+    assert traveler._rich(value) == html
 
 
 @pytest.mark.parametrize(
