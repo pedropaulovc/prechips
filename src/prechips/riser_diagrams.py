@@ -138,7 +138,11 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (x0 + toe / 2 * s, bottom + 8, ["strap"]),
             (cx, top + 2 * r, ["3/4 end mill, +X"]),
             (x0 + mid * s, bottom + 8, ["strap"]),
-            (x0 + a1 * s, bottom, [f"cutter edge ≥{_inch(clear, 1)} off each toe"]),
+            (
+                x0 + a1 * s,
+                bottom,
+                ["cutter edge ≥{{process.strap_clear_in:.1dot}} off each toe"],
+            ),
         ],
         bottom + 10,
         above=False,
@@ -161,7 +165,11 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     end_y = _callouts(
         groups,
         [
-            (x0 + b_cuts[0][1] / 2 * s, bottom, [f"overlaps A ≥{_inch(overlap, 2)}"]),
+            (
+                x0 + b_cuts[0][1] / 2 * s,
+                bottom,
+                ["overlaps A ≥{{process.face_overlap_in:.2dot}}"],
+            ),
             (x0 + b_straps[0] * s, bottom + 8, ["strap"]),
             (x0 + mid * s, bottom, ["under the old middle strap"]),
             (x0 + b_straps[3] * s, bottom + 8, ["strap"]),

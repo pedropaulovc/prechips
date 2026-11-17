@@ -20,6 +20,7 @@ from prechips.cad import CadError
 from prechips.cad_diagrams import (
     Element,
     Layout,
+    _bound,
     _cad,
     _el,
     _fmt,
@@ -185,12 +186,15 @@ def _callouts(
 
     Labels keep anchor order, so leaders never cross, and spread apart so text
     never overlaps; leaders steepen as labels move away from their anchors.
+    Labels are measured as printed, with their tokens bound.
     Above: leader knees stay above ``limit`` and every anchor; returns the
     text top. Below: knees stay below ``limit`` and every anchor; returns the
     text bottom.
     """
     items = sorted(items, key=lambda item: item[0])
-    widths = [max(len(line) for line in lines) * CHAR + 12 for *_, lines in items]
+    widths = [
+        max(len(_bound(line)) for line in lines) * CHAR + 12 for *_, lines in items
+    ]
     centres: list[float] = []
     edge = 10.0
     for (x, _, _), width in zip(items, widths):
@@ -200,7 +204,8 @@ def _callouts(
     for index in reversed(range(len(items))):
         centres[index] = min(centres[index], edge - widths[index] / 2)
         edge = centres[index] - widths[index] / 2
-    if edge < 10:
+    # A tolerance so labels that exactly fill the width are not refused.
+    if edge < 10 - 1e-9:
         raise CadError("diagram labels do not fit across the printed width")
     offset = max(abs(centre - x) for (x, _, _), centre in zip(items, centres))
     gap = max(gap, min(80.0, offset / 3))
