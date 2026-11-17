@@ -27,6 +27,7 @@ from prechips.jig_diagrams import (
     _param,
     _param_in,
     _title,
+    _vdim,
     _vise,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
@@ -45,24 +46,6 @@ def _points(values: dict, key: str, count: int) -> list[tuple[str, float, float]
         tag, x, y = point
         result.append((str(tag), float(x), float(y)))
     return result
-
-
-def _vdim(
-    groups: dict[str, list[Element]],
-    x: float,
-    y0: float,
-    y1: float,
-    edge: float,
-    text: str,
-) -> None:
-    """Vertical dimension at ``x`` with extension lines from ``edge``; text right."""
-    beyond = x + 4 if x > edge else x - 4
-    groups["dims"] += [
-        _line(edge, y0, beyond, y0),
-        _line(edge, y1, beyond, y1),
-        _line(x, y0, x, y1, marker_start="url(#arr)", marker_end="url(#arr)"),
-    ]
-    _label(groups, x + 6, (y0 + y1) / 2 + 5, text)
 
 
 def _strap(
@@ -189,7 +172,14 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups["active-face"].append(_line(left, kept_top, left + width * k, kept_top))
     _datum_label(groups, left - 54, table + 5, "Z0 table", "end")
     right = left + width * k
-    _vdim(groups, right + 20, kept_top, table, right, "Z {{cad.thickness_in:.3dot}}")
+    _vdim(
+        groups,
+        right + 20,
+        kept_top,
+        table,
+        "Z {{cad.thickness_in:.3dot}}",
+        witness=(right, right),
+    )
     _label(groups, right + 96, arriving_top + 4, "skim, not to scale")
     return _finish(groups, table + 16)
 
@@ -267,7 +257,14 @@ def _edges(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     seat, top_k, jaw_top, fixed, moving = hold(
         540, "2  Turned end-for-end, ZERO EDGE down", width - cleanup, finished, True
     )
-    _vdim(groups, moving + 60, top_k, seat, moving, "{{cad.width_in:.3f}}")
+    _vdim(
+        groups,
+        moving + 60,
+        top_k,
+        seat,
+        "{{cad.width_in:.3f}}",
+        witness=(moving, moving),
+    )
     end_y = max(
         end_y,
         _callouts(

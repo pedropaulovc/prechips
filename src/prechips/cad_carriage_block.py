@@ -155,6 +155,9 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     # The pictures put ROW SIDE on the hand the model frame gives it.
     values["row_from"] = row_from
     x_end = -length / 2
+    # The -X end comes from the printed length nominal: a station may sit off
+    # it by half that rounding as well as by its own.
+    end_tol = _printed_mm(seat, "length", "carriage_seat") / 2
     envelope = (
         StockAxis("length", "blank_length_in", y_length),
         StockAxis("width", "blank_width_in", length),
@@ -173,7 +176,9 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         row = _nominal(item, "row", name)
         if not _close(at[2], height):
             raise CadError(f"{name}.at: expected entry at TOP (height)")
-        if not _close(at[0] - x_end, station, _printed_mm(item, "station", name)):
+        if not _close(
+            at[0] - x_end, station, _printed_mm(item, "station", name) + end_tol
+        ):
             raise CadError(f"{name}.at: station disagrees with the -X end")
         edge = at[1] - row if row_from == "minus_y_side" else at[1] + row
         return station, edge, _printed_mm(item, "row", name)
@@ -259,16 +264,18 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     for key, axis in (("station", "x"), ("row", "y")):
         if len(shared[key]) != 2:
             raise CadError(f"carriage holes: expected two {key} bands")
-        halves = set()
+        half = None
         for index, (band, value) in enumerate(sorted(shared[key], key=lambda b: b[1])):
             label = f"hole_{axis}{index + 1}"
             _inch_limits(values, label, band)
             values[f"{label}_mm"] = value
             values[f"{label}_nominal_in"] = value / 25.4
-            halves.add(round(_half_band(band, value, f"carriage holes.{key}"), 6))
-        if len(halves) != 1:
-            raise CadError(f"carriage holes: the two {key} bands differ in width")
-        values[f"hole_{axis}_tol_in"] = halves.pop() / 25.4
+            this = _half_band(band, value, f"carriage holes.{key}")
+            if half is None:
+                half = this
+            elif not _close(this, half):
+                raise CadError(f"carriage holes: the two {key} bands differ in width")
+        values[f"hole_{axis}_tol_in"] = half / 25.4
     if sorted(points) != sorted(
         (x, y)
         for x in (values["hole_x1_mm"], values["hole_x2_mm"])
@@ -307,6 +314,12 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         )
     _edge_breaks(raw, values)
     _blank_mm(values, parameters)
+    # Layer depths the plans print, in mm for their milling cuts.
+    for key in ("layer_in", "end_layer_in"):
+        if key in parameters:
+            values[f"{key[:-3]}_mm"] = (
+                _positive(parameters[key], f"process.{key}") * 25.4
+            )
     # A centred vise hold leaves equal insets (negative overhangs) at both jaw
     # sides: (span along the jaws − jaw width) / 2, for each span a hold uses.
     if "vise_jaw_width_mm" in parameters:
@@ -409,6 +422,8 @@ def _feed(
         _nominal(item, "clock_deg", name)
     values["nut_tap_count"] = 4
     values["nut_thread"] = _string(shared["thread"], "nut_tap_1.thread")
+    # The assembly-transfer note is why the taps have no operation.
+    _string(shared["note"], "nut_tap_1.note")
     _feed_process(values, parameters)
 
 
@@ -427,7 +442,6 @@ def _feed_process(values: dict, parameters: dict) -> None:
     Notch passes: the middle of the height, and each side with the cutter
     ``notch_side_overrun_in`` past its face.
     """
-    length_in = values["length_nominal_in"]
     if "notch_overhang_max_in" in parameters:
         over = _positive(
             parameters["notch_overhang_max_in"], "process.notch_overhang_max_in"
@@ -442,6 +456,8 @@ def _feed_process(values: dict, parameters: dict) -> None:
             values["lug_length_max_in"] < over_min <= over < values["overall_y_min_in"]
         ):
             raise CadError("process.notch_overhang_*_in: overhang must clear the step")
+        # The least clearance from the cutter's edge at the step to the jaw side.
+        values["notch_jaw_clear_in"] = over_min - values["lug_length_max_in"]
         if "vise_jaw_width_mm" in parameters and "blank_width_in" in parameters:
             jaw = _positive(
                 parameters["vise_jaw_width_mm"], "process.vise_jaw_width_mm"
@@ -478,8 +494,10 @@ def _feed_process(values: dict, parameters: dict) -> None:
             raise CadError("process.lug_bore_depth_mm: must pass the lug face")
         if not depth < values["length_min_in"]:
             raise CadError("process.lug_bore_depth_mm: must stop inside the block")
-        values["lug_bore_floor_in"] = length_in - depth
-        values["lug_bore_floor_mm"] = (length_in - depth) * 25.4
+        # The pilot floor over SPINDLE END at the shortest block, as the back
+        # floor below: Z zeroes on OUTER END.
+        values["lug_bore_floor_in"] = values["length_min_in"] - depth
+        values["lug_bore_floor_mm"] = values["lug_bore_floor_in"] * 25.4
     if "lug_bore_mill_in" in parameters:
         mill = _positive(parameters["lug_bore_mill_in"], "process.lug_bore_mill_in")
         # Each plunge zeroes Z on the face it enters (OUTER END; the lug face
@@ -512,3 +530,11 @@ def _feed_process(values: dict, parameters: dict) -> None:
         values["notch_pass_near_in"] = radius - overrun
         values["notch_pass_mid_in"] = height_in / 2
         values["notch_pass_far_in"] = height_in - radius + overrun
+        # Each side pass cuts the strip between its face and the middle slot;
+        # the far one is widest, at the tallest block.
+        strip = values["height_max_in"] - height_in / 2 - radius
+        if not strip > 0:
+            raise CadError(
+                "process.half_cutter_dia_mm: the slot alone spans the height"
+            )
+        values["notch_side_woc_mm"] = strip * 25.4

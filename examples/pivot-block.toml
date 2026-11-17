@@ -207,7 +207,7 @@ sizing = "other"
 instruction = "SPINDLE END down; face OUTER END in ≤{{process.layer_in:.2dot}} layers, the last .005–.010, to {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}."
 instruction_detailed = "Turn the blank over, SPINDLE END down on the 1/2 in parallels, and tap it down. Face OUTER END in layers no deeper than {{process.layer_in:.2dot}}, two passes per layer across the .96 end. Measure from SPINDLE END before the last layer; take it .005–.010 deep to {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}."
 milling_cuts = [
-  { name = "OUTER END layers", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "rough", axial_doc_mm = 1.27, radial_woc_mm = 12.7, stations_mm = "{{cad.blank_width_mm}}" },
+  { name = "OUTER END layers", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "rough", axial_doc_mm = "{{cad.layer_mm}}", radial_woc_mm = 12.7, stations_mm = "{{cad.blank_width_mm}}" },
   { name = "OUTER END last layer", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "finish", axial_doc_mm = 0.254, radial_woc_mm = 12.7, stations_mm = "{{cad.length_mm}}" },
 ]
 settings = "jig-em-half-6061-t6511"
@@ -244,7 +244,7 @@ drilling = "none"
 sizing = "other"
 instruction = "ROW SIDE down, SPINDLE END square; face FAR SIDE in ≤{{process.layer_in:.2dot}} layers, the last .005–.010, to {{cad.width_min_in:.3dot}}–{{cad.width_max_in:.3dot}}."
 milling_cuts = [
-  { name = "FAR SIDE layers", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "rough", axial_doc_mm = 1.27, radial_woc_mm = 12.7, stations_mm = "{{cad.blank_length_mm}}" },
+  { name = "FAR SIDE layers", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "rough", axial_doc_mm = "{{cad.layer_mm}}", radial_woc_mm = 12.7, stations_mm = "{{cad.blank_length_mm}}" },
   { name = "FAR SIDE last layer", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "finish", axial_doc_mm = 0.254, radial_woc_mm = 12.7, stations_mm = "{{cad.y_length_mm}}" },
 ]
 settings = "jig-em-half-6061-t6511"

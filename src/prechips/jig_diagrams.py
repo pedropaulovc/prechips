@@ -111,6 +111,43 @@ def _datum_label(
     _label(groups, x, y, text, anchor, **{"class": "datum-label"})
 
 
+def _vdim(
+    groups: dict[str, list[Element]],
+    x: float,
+    y0: float,
+    y1: float,
+    text: str,
+    *,
+    witness: tuple[float, float] | None = None,
+    rotate: bool = False,
+) -> None:
+    """Vertical dimension at ``x`` from ``y0`` to ``y1``.
+
+    ``witness`` gives the x each witness line starts from, at ``y0`` and
+    ``y1``; each runs 4 px past the dimension line. The text stands upright
+    on the right, or with ``rotate`` runs along the line on its left.
+    """
+    if witness is not None:
+        for start, y in zip(witness, (y0, y1)):
+            groups["dims"].append(_line(start, y, x + 4 if x > start else x - 4, y))
+    groups["dims"].append(
+        _line(x, y0, x, y1, marker_start="url(#arr)", marker_end="url(#arr)")
+    )
+    middle = (y0 + y1) / 2
+    if rotate:
+        groups["label"].append(
+            _text(
+                x - 5,
+                middle,
+                text,
+                text_anchor="middle",
+                transform=f"rotate(-90 {_fmt(x - 5)} {_fmt(middle)})",
+            )
+        )
+    else:
+        _label(groups, x + 6, middle + 5, text)
+
+
 def _vise(
     groups: dict[str, list[Element]],
     left: float,
