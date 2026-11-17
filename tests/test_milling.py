@@ -404,6 +404,11 @@ def test_a_rough_cut_is_judged_per_axis_against_its_declared_finish_stock():
     with pytest.raises(CheckError, match="along z exceeds the max_deflection_mm 0.01"):
         _check(setup)
     del rough["max_deflection_mm"]
+    # Every axis "through" with no max_deflection_mm would compare nothing.
+    rough["finish_stock_mm"] = {"y": "through", "z": "through"}
+    with pytest.raises(CheckError, match="compares nothing"):
+        _check(setup)
+    rough["finish_stock_mm"] = {"y": 0.254, "z": "through"}
     setup["operations"][0]["milling_cuts"] = [finish, rough]
     with pytest.raises(CheckError, match="'edge finish' is not the next finish cut"):
         _check(setup)
@@ -450,6 +455,26 @@ def test_a_vise_cantilever_clamp_is_the_grip_its_hold_declares():
     setup["vise_hold"]["vise"] = "no-such-vise"
     setup["beam"]["vise_left"] = "other"
     _check(setup)
+
+
+def test_an_operation_cantilever_links_only_its_own_hold():
+    setup = copy.deepcopy(SETUP)
+    setup["vise_hold"] = [dict(HOLD), dict(HOLD, vise="no-such-vise")]
+    setup["beam"].update(vise_left="start", vise_hold=1)
+    operation = setup["operations"][0]
+    # Replaces the setup's beam for its cuts, so it must link too.
+    operation["beam"] = copy.deepcopy(SETUP["beam"])
+    with pytest.raises(CheckError, match=r"Op 10\.beam: missing vise_left"):
+        _check(setup)
+    # Hold 2 is broken, but nothing links it.
+    operation["beam"].update(vise_left="start", vise_hold=1)
+    _check(setup)
+    # The linked hold's own fault is reported at its path in the setup.
+    operation["beam"]["vise_hold"] = 2
+    with pytest.raises(
+        CheckError, match=re.escape("(Square both ends).vise_hold[2].vise:")
+    ):
+        _check(setup)
 
 
 def test_cuts_take_or_must_match_the_settings_chip_load_and_flutes():

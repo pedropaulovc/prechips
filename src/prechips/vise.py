@@ -43,7 +43,8 @@ def _limit(shop_data: dict, key: str, at: str) -> float:
         raise CheckError(f"{at} needs {error}") from None
 
 
-def _hold(shop_data: dict, value: object, where: str) -> dict:
+def hold(shop_data: dict, value: object, where: str) -> dict:
+    """One validated vise hold table; ``where`` names the table itself."""
     if not isinstance(value, dict):
         raise CheckError(f"{where}: expected a table")
     fields = _FIELDS | ({"balance"} if value.get("jaw_offset") == "balanced" else set())
@@ -99,15 +100,23 @@ def holds(shop_data: dict, setup: dict, where: str) -> list[dict]:
         return []
     if "vise_hold" not in setup:
         raise CheckError(f"{where}: missing vise_hold coverage")
-    value = setup["vise_hold"]
-    if value == "other":
+    if setup["vise_hold"] == "other":
         return []
+    return [hold(shop_data, value, at) for value, at in entries(setup, where)]
+
+
+def entries(setup: dict, where: str) -> list[tuple[object, str]]:
+    """A milling-vise setup's hold tables, unvalidated, each with its path.
+
+    ``where`` names the setup; a single table is ``vise_hold``, an array's
+    items ``vise_hold[N]`` from 1.
+    """
+    value = setup["vise_hold"]
     if isinstance(value, dict):
-        return [_hold(shop_data, value, f"{where}.vise_hold")]
+        return [(value, f"{where}.vise_hold")]
     if isinstance(value, list) and value:
         return [
-            _hold(shop_data, item, f"{where}.vise_hold[{index}]")
-            for index, item in enumerate(value, 1)
+            (item, f"{where}.vise_hold[{index}]") for index, item in enumerate(value, 1)
         ]
     raise CheckError(f'{where}.vise_hold: expected "other", a table or an array')
 
