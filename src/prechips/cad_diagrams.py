@@ -31,13 +31,21 @@ Layout = tuple[dict[str, float], dict[str, list[Element]]]
 MM_PER_IN = 25.4
 
 # The CAD data and parameters of the layout being drawn, so a label can be
-# measured as printed, after its tokens are bound.
+# measured as printed, after its tokens are bound. ``render_cad_svg`` sets it
+# around the layout call.
 _binding: ContextVar[tuple[CadData, dict]] = ContextVar("_binding")
 
 
 def _bound(text: str) -> str:
-    """``text`` as printed: its ``cad``/``process`` tokens bound."""
-    cad, parameters = _binding.get()
+    """``text`` as printed: its ``cad``/``process`` tokens bound.
+
+    ``view`` tokens are not available here: the view scalars exist only once
+    the layout returns, so a callout label may not use them.
+    """
+    binding = _binding.get(None)
+    if binding is None:
+        raise CadError("diagram labels are measured only inside render_cad_svg")
+    cad, parameters = binding
     return bind_text(text, cad, parameters)
 
 
