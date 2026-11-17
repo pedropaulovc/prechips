@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from xml.etree import ElementTree
 
-from prechips.cad import CadError, _shorthand
+from prechips.cad import CadError, _shorthand, _trim
 from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
 from prechips.jig_diagrams import (
     _blank,
@@ -27,7 +27,6 @@ from prechips.jig_diagrams import (
     _param,
     _param_in,
     _title,
-    _trim,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
 

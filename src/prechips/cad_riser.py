@@ -15,8 +15,9 @@ from .cad import (
     _model_frame,
     _number,
     _positive,
+    _shorthand,
+    _trim,
 )
-from .jig_diagrams import _inch, _trim
 
 # Drawing tags by manifest feature. The stop-pin holes P1/P2 are drilled at
 # their printed .XX stations; the other seven are spotted from the carrier
@@ -39,7 +40,66 @@ _HOLDS = ("C", "L", "R")
 
 def _in(value_mm: float, places: int = 3) -> str:
     """Shop shorthand inches without the leading zero, as the sheet prints."""
-    return _inch(value_mm / 25.4, places)
+    return _shorthand(value_mm / 25.4, places)
+
+
+def _face_stations(parameters: dict, values: dict) -> None:
+    """Bind Setup 2's strap layout and faced spans, inches from the blank's left end.
+
+    Stage A faces two spans between the end straps and the middle strap, the
+    cutter edge ``strap_clear_in`` off each strap; Stage B faces both ends and
+    the strip under the middle strap, each ``face_overlap_in`` over Stage A,
+    from four straps on Stage A's faced metal. The milling_deflection supports
+    and traverses are these same stations in mm, so the beams cannot drift
+    from the printed layout.
+    """
+
+    def get(key: str) -> float:
+        return _positive(parameters.get(key), f"process.{key}")
+
+    blank, toe, clear = (
+        get("blank_length_in"),
+        get("strap_toe_in"),
+        get("strap_clear_in"),
+    )
+    overlap, mid, strap = (
+        get("face_overlap_in"),
+        get("strap_a_mid_x_in"),
+        get("strap_width_in"),
+    )
+    outer, inner = get("strap_b_outer_in"), get("strap_b_inner_in")
+    if not outer < inner < blank - inner:
+        raise CadError(
+            "process.strap_b_*_in: expected outer < inner < blank_length_in - inner"
+        )
+    a0, a1 = toe + clear, blank - toe - clear
+    m0, m1 = mid - strap / 2 - clear, mid + strap / 2 + clear
+    if not a0 < m0 < m1 < a1:
+        raise CadError("process.strap_a_mid_x_in: the middle strap leaves no span")
+    stage_a = ((a0, m0), (m1, a1))
+    stage_b = ((0.0, a0 + overlap), (m0 - overlap, m1 + overlap), (a1 - overlap, blank))
+    straps_b = (outer, inner, blank - inner, blank - outer)
+    for x in straps_b:
+        low, high = x - strap / 2 - clear, x + strap / 2 + clear
+        on_a = any(start <= low and high <= end for start, end in stage_a)
+        if not on_a or any(start < high and low < end for start, end in stage_b):
+            raise CadError(
+                "process.strap_b_*_in: a Stage B strap is off faced metal or in a cut"
+            )
+    # Stage A's end straps bear half their toe in from each end.
+    straps_a = (toe / 2, mid, blank - toe / 2)
+    values["face_stage_a_in"] = [list(span) for span in stage_a]
+    values["face_stage_b_in"] = [list(span) for span in stage_b]
+    values["face_straps_b_in"] = list(straps_b)
+    for key, span, supports in (
+        ("a_left", stage_a[0], straps_a[:2]),
+        ("a_right", stage_a[1], straps_a[1:]),
+        ("b_left", stage_b[0], straps_b[:2]),
+        ("b_mid", stage_b[1], straps_b[1:3]),
+        ("b_right", stage_b[2], straps_b[2:]),
+    ):
+        values[f"face_{key}_mm"] = [span[0] * 25.4, span[1] * 25.4]
+        values[f"face_{key}_supports_mm"] = [supports[0] * 25.4, supports[1] * 25.4]
 
 
 def load_riser(path: Path, parameters: dict) -> CadData:
@@ -95,6 +155,9 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     if _band(seat, "height", "carrier_seat") != tuple(values["thickness_band_mm"]):
         raise CadError("carrier_seat.height: disagrees with the top face")
     length, width = values["length_mm"], values["width_mm"]
+    # Setup 1 sends any bar within the thickness band past Setup 2, so beams
+    # through the finished thickness take its thinnest (the most flexible).
+    values["thickness_min_mm"] = values["thickness_band_mm"][0]
 
     def hole(name: str) -> tuple[dict, float, float]:
         item = feature(name)
@@ -141,8 +204,8 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["stop_rows"] = [
         [
             tag,
-            _inch(values[f"{tag.lower()}_x_in"], 2),
-            _inch(values["stop_row_in"], 2),
+            _shorthand(values[f"{tag.lower()}_x_in"], 2),
+            _shorthand(values["stop_row_in"], 2),
         ]
         for tag, _ in _STOPS
     ]
@@ -164,7 +227,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     shared(_HUB, "hub_dia")
     shared(_CLAMPS, "clamp_dia")
     shared(_COUNTERSINKS, "csk_dia")
-    angles = set()
+    angles = {}
     for tag, name in _COUNTERSINKS:
         item = feature(name)
         if item.get("kind") != "countersink" or item.get("parent") != name.removesuffix(
@@ -173,15 +236,16 @@ def load_riser(path: Path, parameters: dict) -> CadData:
             raise CadError(f"{name}: expected the countersink of {tag}")
         if "angle_deg" not in item.get("requirements", []):
             raise CadError(f"{name}.angle_deg: missing drawing requirement")
-        angles.add(
-            (
-                _positive(item.get("angle_deg"), f"{name}.angle_deg"),
-                _positive(item.get("angle_tol_deg"), f"{name}.angle_tol_deg"),
-            )
+        angles[name] = (
+            _positive(item.get("angle_deg"), f"{name}.angle_deg"),
+            _positive(item.get("angle_tol_deg"), f"{name}.angle_tol_deg"),
         )
-    if len(angles) != 1:
-        raise CadError("cad.csk_angle_deg: countersinks disagree")
-    values["csk_angle_deg"], values["csk_angle_tol_deg"] = angles.pop()
+    if len(set(angles.values())) != 1:
+        found = "; ".join(
+            f"{name} {angle:g}° ±{tol:g}°" for name, (angle, tol) in angles.items()
+        )
+        raise CadError(f"cad.csk_angle_deg: countersinks disagree: {found}")
+    values["csk_angle_deg"], values["csk_angle_tol_deg"] = next(iter(angles.values()))
 
     # Vise holds (plan copies of the shop vise jaw width and parallel
     # thickness). Setup 4 drills P1/P2 in the end overhang, clear of the jaw
@@ -195,7 +259,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     # The plan does not split the blank allowance between the two ends (hold 1
     # only cleans up the left end; hold 2 cuts the right end to length), so
     # either end may lose all of it: each stop hole must clear the jaw side at
-    # the shortest overhang with the whole allowance off its end.
+    # the shortest overhang with the longest blank's whole allowance off its end.
     over = _positive(parameters.get("overhang_in"), "process.overhang_in") * 25.4
     over_max = (
         _positive(parameters.get("overhang_max_in"), "process.overhang_max_in") * 25.4
@@ -205,7 +269,22 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["overhang_mm"] = over
     values["overhang_max_mm"] = over_max
     blank = _positive(parameters.get("blank_length_in"), "process.blank_length_in")
-    allowance = 2 * _trim(blank * 25.4, length, "blank_length_in")
+    blank_min = _positive(
+        parameters.get("blank_min_length_in"), "process.blank_min_length_in"
+    )
+    blank_max = _positive(
+        parameters.get("blank_max_length_in"), "process.blank_max_length_in"
+    )
+    if not blank_min <= blank <= blank_max:
+        raise CadError(
+            "process.blank_length_in: outside blank_min_length_in..blank_max_length_in"
+        )
+    _trim(blank_min * 25.4, length, "blank_min_length_in")
+    # Hold 2 may cut to the shortest finished length, so ZERO END's clean-up
+    # can take up to the longest blank less that.
+    allowance = 2 * _trim(
+        blank_max * 25.4, values["length_band_mm"][0], "blank_max_length_in"
+    )
     values["blank_centred_overhang_mm"] = (blank * 25.4 - jaw) / 2
     values["blank_centred_overhang_in"] = values["blank_centred_overhang_mm"] / 25.4
     values["centred_overhang_mm"] = (length - jaw) / 2
@@ -213,8 +292,21 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         inner = high if tag == "P1" else length - low
         if inner + stop_dia[1] / 2 >= over - allowance:
             raise CadError(
-                f"process.overhang_in: {tag} is not clear of the jaw side in Setup 4"
+                f"process.overhang_in: {tag} is not clear of the jaw side in Setup 4 "
+                "with a blank_max_length_in blank"
             )
+    # Y0 is touched on ZERO EDGE in hold 1's right overhang: the finder must
+    # clear that jaw side, at most overhang_max_in + jaw width from ZERO END,
+    # and stay on the part.
+    touch = _positive(parameters.get("y_touch_x_in"), "process.y_touch_x_in") * 25.4
+    finder = (
+        _positive(parameters.get("edge_finder_dia_in"), "process.edge_finder_dia_in")
+        * 25.4
+    )
+    if not over_max + jaw < touch - finder / 2 < touch + finder / 2 < length:
+        raise CadError(
+            "process.y_touch_x_in: the Y0 touch is not in hold 1's right overhang"
+        )
     spans = {
         "C": ((length - jaw) / 2, (length + jaw) / 2),
         "L": (0.0, jaw),
@@ -246,14 +338,17 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["stop_points_in"] = [
         [tag, values[f"{tag.lower()}_x_in"], values["stop_row_in"]] for tag, _ in _STOPS
     ]
-    # milling_deflection stations (mm). Setup 3 holds the blank centred on
-    # edge; Setup 4 frames X from ZERO END, each hold's jaw side the longest
-    # allowed overhang from its end (the longest cantilever); Setup 5 holes
-    # are drilled across the gap between the two parallels.
-    blank_mm = blank * 25.4
+    # milling_deflection stations (mm). Setup 3 holds the longest blank
+    # centred on edge (the longest overhang); Setup 4 frames X from ZERO END,
+    # each hold's jaw side the longest allowed overhang from its end (the
+    # longest cantilever); Setup 5 holes are drilled across the gap between
+    # the two parallels.
+    blank_max_mm = blank_max * 25.4
+    values["blank_max_length_mm"] = blank_max_mm
+    values["blank_max_centred_overhang_mm"] = (blank_max_mm - jaw) / 2
     values["edges_jaw_mm"] = [
-        values["blank_centred_overhang_mm"],
-        blank_mm - values["blank_centred_overhang_mm"],
+        values["blank_max_centred_overhang_mm"],
+        values["blank_max_centred_overhang_mm"] + jaw,
     ]
     values["ends_hold1_jaw_mm"] = [over_max, over_max + jaw]
     values["ends_hold2_jaw_mm"] = [length - over_max - jaw, length - over_max]
@@ -267,5 +362,6 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     values["hub_y_mm"] = by_tag["HUB"]
 
     _edge_breaks(raw, values)
+    _face_stations(parameters, values)
     _blank_mm(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())

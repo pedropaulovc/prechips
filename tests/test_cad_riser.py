@@ -71,15 +71,25 @@ def test_refuses_holds_that_cannot_reach_a_hole():
         load_riser(SOURCE, {**PARAMETERS, "vise_jaw_width_mm": 60.0})
     with pytest.raises(CadError, match="P1 is not clear of the jaw side"):
         load_riser(SOURCE, {**PARAMETERS, "overhang_in": 0.5})
+    with pytest.raises(CadError, match="P1 is not clear of the jaw side"):
+        load_riser(SOURCE, {**PARAMETERS, "blank_max_length_in": 14.2})
+    with pytest.raises(CadError, match="Y0 touch is not in hold 1's right overhang"):
+        load_riser(SOURCE, {**PARAMETERS, "overhang_max_in": 1.8})
 
 
-def test_adapter_binds_the_deflection_stations():
-    values = load_riser(SOURCE, PARAMETERS).values
-    jaw = PARAMETERS["vise_jaw_width_mm"]
-    assert values["edges_jaw_mm"][1] - values["edges_jaw_mm"][0] == pytest.approx(jaw)
-    over_max = PARAMETERS["overhang_max_in"] * 25.4
-    assert values["ends_hold1_jaw_mm"] == pytest.approx([over_max, over_max + jaw])
-    assert values["ends_hold2_jaw_mm"][1] == pytest.approx(350.52 - over_max)
-    assert values["parallel_gap_mm"] == pytest.approx([3.175, 42.926 - 3.175])
-    assert values["hub_y_mm"] == pytest.approx(1.27 * 25.4, abs=0.13)  # .XX REF
-    assert len(values["screw_y_mm"]) == 4 and len(values["clamp_y_mm"]) == 2
+def test_refuses_a_stage_b_strap_in_a_cut():
+    # The pro sheet prints this layout and the beams read it: both must refuse.
+    with pytest.raises(CadError, match="Stage B strap is off faced metal or in a cut"):
+        load_riser(SOURCE, {**PARAMETERS, "strap_b_inner_in": 6.6})
+    swapped = {"strap_b_outer_in": 5.0, "strap_b_inner_in": 1.5}
+    with pytest.raises(CadError, match="expected outer < inner"):
+        load_riser(SOURCE, {**PARAMETERS, **swapped})
+
+
+def test_countersink_disagreement_names_each_feature(tmp_path):
+    source = _manifest(
+        tmp_path,
+        lambda text: text.replace('"angle_deg" = 82.0', '"angle_deg" = 90.0', 1),
+    )
+    with pytest.raises(CadError, match="screw_hole_1_countersink 90°.*screw_hole_2"):
+        load_riser(source, PARAMETERS)

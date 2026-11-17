@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree
 
-from prechips.cad import CadError
+from prechips.cad import CadError, _shorthand, _trim
 from prechips.cad_diagrams import (
     MM_PER_IN,
     SVG_NS,
@@ -142,17 +142,6 @@ def _stations(values: dict) -> list[float]:
         raise CadError("cad.hole_x_in: expected two hole stations for the diagram")
     mapping = dict(enumerate(stations))
     return [_positive(mapping, index, "cad.hole_x_in") for index in mapping]
-
-
-def _trim(blank: float, length: float, key: str) -> float:
-    if blank < length:
-        raise CadError(f"process.{key}: shorter than the finished length")
-    return (blank - length) / 2
-
-
-def _inch(value: float, places: int = 3) -> str:
-    text = f"{value:.{places}f}"
-    return text[1:] if text.startswith("0.") else text
 
 
 def _title(groups: dict[str, list[Element]], x: float, y: float, text: str) -> None:
@@ -307,7 +296,12 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
             groups,
             (x + x1) / 2,
             (top + bottom) / 2 + 5,
-            name + ", ≥{{process.blank_min_length_in:.2f}}",
+            name
+            + (
+                ", {{process.blank_min_length_in:.2f}}–{{process.blank_max_length_in:.2f}}"
+                if "blank_max_length_in" in parameters
+                else ", ≥{{process.blank_min_length_in:.2f}}"
+            ),
             "middle",
         )
         _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
@@ -540,7 +534,9 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
             groups["datum"].append(_el("circle", cx=start, cy=back, r=3.5))
     for index, station in enumerate(stations):
         x = zero + station * scale
-        _dimension(groups, zero, x, back - JAW - 10 - 18 * index, back, _inch(station))
+        _dimension(
+            groups, zero, x, back - JAW - 10 - 18 * index, back, _shorthand(station, 3)
+        )
     if face == "bar":
         _datum_label(groups, zero - 4, back - 6, "X0 Y0", "end")
     _label(groups, zero - 4, (back + front) / 2 + 5, "INNER END", "end")
@@ -655,13 +651,13 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
             part_top + 14,
             hole_x + thread_w / 2,
             up_zone,
-            ["full thread", f"{_inch(low)}–{_inch(high)}"],
+            ["full thread", f"{_shorthand(low, 3)}–{_shorthand(high, 3)}"],
         ),
         (
             part_top + 58,
             hole_x + thread_w / 2 + 6,
             y,
-            ["tap tip at flag", _inch(flag)],
+            ["tap tip at flag", _shorthand(flag, 3)],
         ),
     ]
     if face == "kp08":
@@ -672,7 +668,7 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
                 part_top + 108,
                 hole_x + thread_w / 2,
                 down_zone,
-                ["BAR thread", f"{_inch(low_b)}–{_inch(high_b)}"],
+                ["BAR thread", f"{_shorthand(low_b, 3)}–{_shorthand(high_b, 3)}"],
             )
         )
     rows.append((bed - 30, centre, (para_top + bed) / 2, ["open gap", "below hole"]))
@@ -739,7 +735,7 @@ def _bracket_inspect(
     for y, key in ((top + 24, "kp08"), (bottom - 14, "bar")):
         low = _cad(values, f"{key}_thread_min_in")
         high = _cad(values, f"{key}_thread_max_in")
-        text = f"full thread {_inch(low)}–{_inch(high)}"
+        text = f"full thread {_shorthand(low, 3)}–{_shorthand(high, 3)}"
         _label(groups, middle, y, text, "middle")
         groups["leaders"].append(_line(middle + 90, y - 4, reach, y - 4))
     _label(
@@ -760,7 +756,7 @@ def _bracket_inspect(
         _line(hole_x - hole_w / 2, top, hole_x - hole_w / 2, bottom),
         _line(hole_x + hole_w / 2, top, hole_x + hole_w / 2, bottom),
     ]
-    _dimension(groups, e0, hole_x, bottom + 22, bottom, _inch(row))
+    _dimension(groups, e0, hole_x, bottom + 22, bottom, _shorthand(row, 3))
     _label(groups, e0, bottom + 62, "ROW EDGE", "middle")
     groups["leaders"].append(_line(e0, bottom + 49, e0, bottom + 28))
     return _finish(groups, bottom + 70)
@@ -831,7 +827,7 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
                 x0 + station * scale,
                 back - JAW - 10 - 18 * index,
                 back,
-                _inch(station),
+                _shorthand(station, 3),
             )
         groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
         _datum_label(groups, x0 - 6, back - 8, "X0 Y0", "end")
@@ -1077,7 +1073,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
             end_y + 106,
             right - check * 0.29,
             end_y + check * 0.29,
-            [f"check R{_inch(low, 1)}–R{_inch(high, 1)} (dashed)"],
+            [f"check R{_shorthand(low, 1)}–R{_shorthand(high, 1)} (dashed)"],
         ),
     ]
     for y, ax, ay, lines in rows:

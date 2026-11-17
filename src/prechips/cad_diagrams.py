@@ -20,7 +20,14 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from xml.etree import ElementTree
 
-from prechips.cad import CadData, CadError, bind_text, id_range, point_columns
+from prechips.cad import (
+    CadData,
+    CadError,
+    _trim,
+    bind_text,
+    id_range,
+    point_columns,
+)
 
 SVG_NS = "http://www.w3.org/2000/svg"
 ElementTree.register_namespace("", SVG_NS)
@@ -384,10 +391,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     width = _cad(values, "width_in")
     thickness = _process(parameters, "blank_thickness_in")
     # The blank arrives centred on the jaws; each end's stock is drawn at
-    # least a few pixels wide so the squaring cut stays visible. Imported
-    # here: jig_diagrams imports this module.
-    from prechips.jig_diagrams import _trim
-
+    # least a few pixels wide so the squaring cut stays visible.
     trim = _trim(blank, length, "blank_length_in")
     jacks = [
         (

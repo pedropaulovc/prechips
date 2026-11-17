@@ -90,6 +90,13 @@ def _inch_limits(values: dict, key: str, band: tuple[float, float]) -> None:
     values[f"{key}_band_mm"] = [low, high]
 
 
+def _trim(blank: float, length: float, key: str) -> float:
+    """Stock left on each end when a `blank` is cut to `length` (same units)."""
+    if blank < length:
+        raise CadError(f"process.{key}: shorter than the finished length")
+    return (blank - length) / 2
+
+
 def _model_frame(raw: dict) -> None:
     """Require the identity model frame the harmonic jig adapters read."""
     frames = raw.get("frames")
