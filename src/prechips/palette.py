@@ -101,6 +101,12 @@ ROLES: dict[str, dict[str, str]] = {
     "leader-dot": {"fill": "#333", "stroke": "none"},
     "label": {"fill": "#111"},
     "label-on-clamp": {"fill": "#fff"},
+    "label-halo": {
+        "fill": "#111",
+        "stroke": "#fff",
+        "stroke-width": "4",
+        "paint-order": "stroke",
+    },
     "datum-label": {"fill": "#b22", "font-weight": "bold"},
     "title": {"fill": "#555", "font-style": "italic"},
 }

@@ -386,9 +386,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         "ROW SIDE",
         "middle",
         transform=f"rotate(-90 {_fmt(name_x)} {_fmt(middle)})",
-        stroke="#fff",
-        stroke_width=4,
-        paint_order="stroke",
+        **{"class": "label-halo"},
     )
     for index, row in enumerate(sorted([*rows, bore[0]])):
         _dimension(
