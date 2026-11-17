@@ -462,18 +462,18 @@ feed = "7 in/min"
 description = "Shrum Solutions Tri Fly face mill, 2 in, 3 flutes, 3/4 in shank, TCMT 32.52 inserts"
 
 # Demo arc strap (examples/demo-arc-strap.toml): 3-flute uncoated carbide end
-# mills on cold-finished 1018 within the mill's 2800 rpm. No helix is stated
-# for either, so their cuts keep the configured axial_ratio 1.0. Chip loads:
+# mills on cold-finished 1018 within the mill's 2800 rpm. The 1/8 in cutter
+# states a 30° helix, so its lift is tan 30° of the tangential force; the
+# 1/2 in states none and keeps the configured axial_ratio 1.0. Chip loads:
 # .0028 in/tooth on the 1/2 in cutter and .001 in/tooth on the 1/8 in, the
 # floor of the milling feed-factor table.
 [tools.arc-strap-em-half]
 description = "1/2 in 3-flute uncoated carbide square end mill, 3 in OAL"
 diameter_mm = 12.7
 [tools.arc-strap-em-eighth]
-description = "1/8 in 3-flute uncoated carbide square end mill, 1-1/2 in OAL"
+description = "1/8 in 3-flute uncoated carbide square end mill, 30° helix, 1-1/2 in OAL"
 diameter_mm = 3.175
-[tools.arc-strap-probe]
-description = "3D touch probe, 6 mm shank"
+helix_deg = 30
 [tools.arc-strap-drill-25-64]
 description = "25/64 (.3906 in) drill"
 diameter_mm = 9.921875
