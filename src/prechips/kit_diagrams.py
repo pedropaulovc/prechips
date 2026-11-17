@@ -44,11 +44,6 @@ def _datum(groups: Groups, x: float, top: float, bottom: float) -> None:
     groups["datum"] += [_line(x, top, x, bottom), _el("circle", cx=x, cy=top, r=3.5)]
 
 
-# Jaw clocks in degrees from the top of the side view: two jaws seen through
-# the axis, or the BS-0 3-jaw at 2, 6 and 10 o'clock.
-_JAW_CLOCKS = {"top_bottom": (0.0, 180.0), "clocked": (60.0, 180.0, 300.0)}
-
-
 def _chuck(
     groups: Groups,
     face: float,
@@ -56,21 +51,19 @@ def _chuck(
     radius: float,
     depth: float,
     label: str,
-    jaws: str = "top_bottom",
+    clocks: tuple[float, ...] = (0.0, 180.0),
+    reach: float = 22.0,
 ) -> float:
     """Schematic chuck: jaws gripping at ``radius``, ending at ``face``, body behind.
 
-    ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (the
-    BS-0's 5 in 3-jaw at 2, 6 and 10 o'clock, where a 120° index returns
-    them). Each jaw is drawn as its side-view projection; clocked jaws reach
-    past the crest, so the 2 and 10 o'clock pair shows standing above the
-    axis at the jaw face, where the collet and spindle nose must clear.
+    ``clocks``: jaw angles in degrees from the top (default: two jaws seen
+    through the axis); ``reach``: each jaw's radial size past ``radius``.
+    Each jaw is drawn as its side-view projection, so jaws clocked off the
+    vertical (the BS-0's at 2 and 10 o'clock) show standing above the axis at
+    the jaw face, where the collet and spindle nose must clear.
     Returns the label's baseline, the chuck's lowest drawn point.
     """
-    clocks = _JAW_CLOCKS.get(jaws)
-    if clocks is None:
-        raise CadError(f"chuck jaws: unknown clocking {jaws!r}")
-    outer = radius + (22.0 if jaws == "top_bottom" else radius + 30.0)
+    outer = radius + reach
     spans = set()
     for clock in clocks:
         up = math.cos(math.radians(clock))
@@ -291,8 +284,18 @@ def _kit_flats(
         else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
     _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
+    clocks = values.get("bs0_jaw_clocks_deg")
+    if not isinstance(clocks, list) or len(clocks) < 3:
+        raise CadError("cad.bs0_jaw_clocks_deg: expected the BS-0 jaw clocks")
     chuck_bottom = _chuck(
-        groups, jaw_face, axis, r, 40, "3-jaw, clocked", jaws="clocked"
+        groups,
+        jaw_face,
+        axis,
+        r,
+        40,
+        f"{len(clocks)}-jaw, clocked",
+        clocks=tuple(clocks),
+        reach=r + 30.0,
     )
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")

@@ -28,9 +28,6 @@ _PART = "ch-rocker-arm-tl-vn-oblique-leadscrew-kit"
 _NUT = "FeedNut"
 _FLATS = ("near_kp08", "far_kp08", "handwheel")
 _CLOCKED = ("near_kp08", "far_kp08")
-# The BS-0 holds the screw in the head's 5 in 3-jaw (HA 45952b66bc inventory,
-# machines.BS-0.included); the plans clock its jaws at 2, 6 and 10 o'clock.
-_BS0_JAW_PITCH_DEG = 120.0
 # 1/16 in, the inch rule's graduation.
 _SIXTEENTH_MM = 25.4 / 16
 
@@ -195,13 +192,27 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
             f"cad: clock nominal {clock:g}° must lie strictly inside its band "
             f"{clock_band[0]:g}–{clock_band[1]:g}°"
         )
-    # Indexing by a multiple of the jaw pitch, either way, returns the 3-jaw
-    # to the clock the plan sets (no jaw on top, under the cutter).
-    if not math.isclose(math.remainder(clock, _BS0_JAW_PITCH_DEG), 0, abs_tol=1e-9):
+    # The flats are held in the dividing head's chuck with one jaw at
+    # 6 o'clock and the rest evenly round (process.bs0_chuck_jaws): an even
+    # count puts a jaw on top, under the cutter, and an index that is not a
+    # multiple of the jaw pitch does not return the jaws to that clock.
+    jaws = parameters.get("bs0_chuck_jaws")
+    if type(jaws) is not int or jaws < 3 or jaws % 2 == 0:
         raise CadError(
-            f"cad: a {clock:g}° index would not return the BS-0 3-jaw "
-            f"(jaws {_BS0_JAW_PITCH_DEG:g}° apart) to its clock"
+            "process.bs0_chuck_jaws: expected an odd jaw count of at least 3 "
+            "(one jaw at 6 o'clock, none on top)"
         )
+    pitch = 360 / jaws
+    if not math.isclose(math.remainder(clock, pitch), 0, abs_tol=1e-9):
+        raise CadError(
+            f"cad: a {clock:g}° index would not return the BS-0 {jaws}-jaw "
+            f"(jaws {pitch:g}° apart) to its clock"
+        )
+    # Jaw clocks in degrees clockwise from the top, seen from the free end,
+    # and as o'clock hours for the holding text.
+    values["bs0_jaw_clocks_deg"] = sorted((180 + k * pitch) % 360 for k in range(jaws))
+    hours = [f"{angle / 30:g}" for angle in values["bs0_jaw_clocks_deg"]]
+    values["bs0_jaw_clocks"] = f"{', '.join(hours[:-1])} and {hours[-1]}"
     values["clock_deg"] = clock
     values["clock_min_deg"], values["clock_max_deg"] = clock_band
     # The index check is symmetric about the nominal: the nearer limit.
@@ -267,21 +278,25 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
         raise CadError("process.screw_stock_length_mm: not the supplied length")
     # Saw: the piece kept from the NEAR END, marked by stepping the inch rule
     # twice: its full length, then a second lay rounded up to the next 1/16 in,
-    # so the piece keeps at least the milling allowance.
+    # so a mark short by its tolerance still keeps the milling allowance.
     allowance = _positive(
         parameters.get("saw_allowance_mm"), "process.saw_allowance_mm"
+    )
+    mark_tol = _positive(
+        parameters.get("saw_mark_tolerance_mm"), "process.saw_mark_tolerance_mm"
     )
     rule = _positive(parameters.get("rule_mm"), "process.rule_mm")
     rule_sixteenths = rule / _SIXTEENTH_MM
     if not math.isclose(rule_sixteenths, round(rule_sixteenths), abs_tol=1e-6):
         raise CadError("process.rule_mm: expected the inch rule, in whole 1/16 in")
-    sixteenths = math.ceil((length + allowance - rule) / _SIXTEENTH_MM - 1e-9)
+    demand = length + allowance + mark_tol
+    sixteenths = math.ceil((demand - rule) / _SIXTEENTH_MM - 1e-9)
     if not 0 < sixteenths <= round(rule_sixteenths):
         raise CadError("process.rule_mm: two steps of the rule must reach the mark")
     values["saw_rule_step_in"] = sixteenths / 16
     values["saw_rule_step_mm"] = sixteenths * _SIXTEENTH_MM
     values["saw_piece_mm"] = rule + values["saw_rule_step_mm"]
-    if values["saw_piece_mm"] >= stock:
+    if values["saw_piece_mm"] + mark_tol >= stock:
         raise CadError("process.saw_allowance_mm: the screw is too short for the cut")
     # Cut end to length: vise jaw span along the screw from the NEAR END, the
     # sawn end the overhang past the right jaw side (milling_deflection beam).
@@ -291,10 +306,12 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
     if values["vise_jaw_left_mm"] <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
-    if overhang <= values["saw_piece_mm"] - length:
+    # The vise is set from the sawn end: a piece sawn long by the mark
+    # tolerance must still finish clear of the right jaw.
+    if overhang <= values["saw_piece_mm"] + mark_tol - length:
         raise CadError(
-            "process.cut_overhang_mm: the finish pass (the allowance in from the "
-            "sawn end) would reach the vise jaw"
+            "process.cut_overhang_mm: the finish pass (the allowance in from a "
+            "long-sawn end) would reach the vise jaw"
         )
     # Far-end crossings measured back from the cut end at the nominal length;
     # the traveler prints X −(L − centre) against the measured L.
