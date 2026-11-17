@@ -134,6 +134,7 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert bind_text("{{process.x_mm:ind}}", cad, {"x_mm": 76.2}) == "3"
     with pytest.raises(CadError, match="unsupported numeric format"):
         bind_text("{{process.v:d}}", cad, {"v": 2.999999999})
+    assert bind_text("{{process.v:g}}", cad, {"v": 0.1 + 0.2 - 0.3}) == "0"
     assert bind_text("{{process.v:.2e}}", cad, {"v": 4e-10}) == "4.00e-10"
     with pytest.raises(CadError):
         bind_text("{{process.x_in:in.2dot}}", cad, {"x_in": 0.9})
