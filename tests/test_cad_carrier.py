@@ -101,25 +101,19 @@ def test_a_toe_pad_on_the_nominal_but_not_the_placed_blocks_refuses():
 
 
 def test_a_partial_block_toe_or_coupon_key_set_refuses():
-    for key, message in (
-        ("block_tolerance_in", "also need block_tolerance_in"),
-        ("strap_toe_in", "also needs strap_toe_in"),
-        ("strap_toe_width_in", "also needs strap_toe_width_in"),
-        ("coupon_hole_y_in", "also needs coupon_hole_y_in"),
-    ):
+    for key in ("block_tolerance_in", "strap_toe_width_in", "coupon_hole_y_in"):
         parameters = {k: v for k, v in PARAMETERS.items() if k != key}
-        with pytest.raises(CadError, match=message):
+        with pytest.raises(CadError, match=f"also need {key}"):
             load_carrier(SOURCE, parameters)
 
 
 def test_a_misplaced_test_coupon_refuses():
-    # Behind the plate means its front edge past the 5.1 in width; the back
-    # straps sit over blocks 2 (7.10) and 4 (17.80), 2 in long, ±.06 placed.
+    # The plate is 5.1 in wide; the back straps sit over blocks 2 (7.10) and
+    # 4 (17.80), 2 in long; the coupon and the blocks are placed within ±.06.
     for change, message in (
-        ({"coupon_hole_y_in": 4.72, "coupon_hole_y_mm": 119.888}, "not behind"),
-        ({"coupon_hole_x_in": 9.0}, "reaches a back strap block"),
-        ({"coupon_hole_y_mm": 120.0}, "disagrees with coupon_hole_y_in"),
-        ({"coupon_parallel_height_in": 0.75}, "not level with the blocks"),
+        ({"coupon_hole_y_in": 5.65}, "not behind"),
+        ({"coupon_hole_x_in": 9.7}, "reaches a back strap block"),
+        ({"coupon_length_in": 1.0}, "no room for a parallel"),
     ):
         with pytest.raises(CadError, match=message):
             load_carrier(SOURCE, PARAMETERS | change)
