@@ -534,7 +534,9 @@ _BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
 # footnote marks such as "(*)" stay literal; it may close after other
 # punctuation ("*Note:*").
 _EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=[^\s*(])\*(?![*\w])")
-_ITEM = re.compile(r"(\d+)\. (.*)|- (.*)")
+# Bullets use "* " (asterisk, space), which emphasis cannot open. "- " never
+# makes a list, so a minus-sign tolerance line always prints as typed.
+_ITEM = re.compile(r"(\d+)\. (.*)|\* (.*)")
 # A blank line beside a list: the list's block edges would swallow it.
 _GAP = '<div class="gap"></div>'
 
@@ -550,22 +552,10 @@ def _inline(value: str) -> str:
     return "".join(parts)
 
 
-def _list_items(lines: list[str]) -> list[re.Match | None]:
-    """Each line's list match. A "- " line is a bullet only beside another
-    "- " line; a lone one prints as typed (a "- 0.02 mm" tolerance)."""
-    found = [_ITEM.fullmatch(line) for line in lines]
-    dashes = [match is not None and match[1] is None for match in found]
-    beside = [False, *dashes, False]
-    return [
-        None if dashes[index] and not (beside[index] or beside[index + 2]) else match
-        for index, match in enumerate(found)
-    ]
-
-
 def _rich(value: str) -> str:
-    """Inline markup plus `1.`/`-` line lists; plain text renders as `_html`."""
+    """Inline markup plus `1.`/`*` line lists; plain text renders as `_html`."""
     lines = value.split("\n")
-    found = _list_items(lines)
+    found = [_ITEM.fullmatch(line) for line in lines]
     if not any(found):
         return _inline(value)
     blocks: list[str] = []

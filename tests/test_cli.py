@@ -210,7 +210,9 @@ def test_operation_declares_instruction_or_steps(tmp_path, work, message):
 
 
 def test_instruction_markdown_is_applied_after_escaping(tmp_path):
-    instruction = "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n- Dash\\n- Dot\\nTail"
+    instruction = (
+        "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n* Dash\\nTail"
+    )
     text = PLAN.replace(
         'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
         f'instruction = "{instruction}"',
@@ -221,7 +223,7 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
     assert (
         '<div class="text">&lt;b&gt;Raw&lt;/b&gt; <strong>bold</strong> <em>em</em> '
         "<code>&lt;code&gt;</code> 2 * 3<ol><li>One</li><li>Two</li></ol>"
-        "<ul><li>Dash</li><li>Dot</li></ul>Tail</div>"
+        "<ul><li>Dash</li></ul>Tail</div>"
     ) in html
     assert "<b>" not in html
     # Plain text keeps its exact bytes, with no added style rules.
@@ -240,18 +242,20 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
         ("*Note: see (*)", "*Note: see (*)"),
         ("Drill *2 holes then gauge (*)", "Drill *2 holes then gauge (*)"),
         ("*Note:* gauge", "<em>Note:</em> gauge"),
-        # A lone "- " line prints as typed, whatever follows: tolerances.
+        # "- " never makes a list: every tolerance line prints as typed,
+        # stacked negative limits included.
         ("Ø.376 +.001\n- .000", "Ø.376 +.001\n- .000"),
         ("Ø8 +0.05\n- 0.02 mm", "Ø8 +0.05\n- 0.02 mm"),
-        ("+0.05\n- 0.02 mm", "+0.05\n- 0.02 mm"),
-        ("Ø.376 +.001\n- .000 ", "Ø.376 +.001\n- .000 "),
-        ('… +.001\n- .000"', "… +.001\n- .000&quot;"),
-        ("Bore +.002\n- .000\r", "Bore +.002\n- .000\r"),
-        # Two or more "- " lines in a row are a list, quantities included.
-        ("- Spot\n- 4 holes M6", "<ul><li>Spot</li><li>4 holes M6</li></ul>"),
+        ("Ø8 f7\n- 0.013\n- 0.028", "Ø8 f7\n- 0.013\n- 0.028"),
+        ("- Spot\n- Bore Ø8 +0.05\n- 0.02 mm", "- Spot\n- Bore Ø8 +0.05\n- 0.02 mm"),
+        # Bullets are "* " lines; a blank line between them splits the list.
+        ("* A\n* B", "<ul><li>A</li><li>B</li></ul>"),
         (
-            "Tap:\n- Spot\n- 4 holes M6\n- Chamfer",
-            "Tap:<ul><li>Spot</li><li>4 holes M6</li><li>Chamfer</li></ul>",
+            "Steps:\n* Face\n\n* Drill",
+            (
+                'Steps:<ul><li>Face</li></ul><div class="gap"></div>'
+                "<ul><li>Drill</li></ul>"
+            ),
         ),
         # Numbers that jump ahead print as written; repeated ones count on.
         (
