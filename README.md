@@ -404,7 +404,7 @@ Every jig-part example passes. Their drilled holes: riser #30 through .24 (L/D 1
 | Preset | Setup diagrams | Operation instructions | Enforcement |
 | --- | --- | --- | --- |
 | `pro` (default) | Omitted; diagram files are not opened | Compact `instruction` or `steps`, one line per step | Stock fits; turning and milling meet bending limits; every declared-input check passes |
-| `hobby` | Included for every setup | `instruction_detailed` or `steps_detailed` when present, otherwise the compact slot; steps spaced apart | As `pro`; every setup has a readable SVG diagram |
+| `hobby` | Included for every setup, plus any operation diagrams | `instruction_detailed` or `steps_detailed` when present, otherwise the compact slot; steps spaced apart | As `pro`; every setup has a readable SVG diagram |
 
 Enforcement is limited to the declared stock, setup-diagram, static longitudinal-turning, static milling/drilling-bending and declared-input contracts. It does not establish machining safety. The diagrams illustrate setups using CAD-derived part dimensions and authored fixture layouts; no FreeCAD is needed.
 
@@ -491,6 +491,7 @@ instruction = "The cut, dimensions and coordinates"
 # rpm = 1000              # Supply the actual authored spindle setting.
 feed = "Authored feed with units, or a manual-feed instruction"
 inspection = "Operation-specific inspection and acceptance limits"
+# diagram = { file = "diagrams/stage.svg", alt = "A stage of this setup" }  # Optional.
 
 [setups.operations.table]
 columns = ["Feature", "X", "Y"]
@@ -505,7 +506,9 @@ An operation's work has two slots, each holding text or steps, never both: the c
 
 Instruction and step text may use basic markdown: `**bold**`, `*emphasis*` and `` `code` `` (code spans are literal). Emphasis needs a letter or digit just after the opening `*`, and never closes right after `(`, so footnote marks such as `(*)` print as typed; it may close after other punctuation, as in `*Note:*`. In `instruction` and `instruction_detailed`, whole lines starting `1. ` (any number) become a numbered list, and whole lines starting `* ` (asterisk, space) a bulleted list. A numbered list starts at its first number; a later number that jumps ahead prints as written (`10.`, `20.`), and a repeated or lower one counts on, so `1.`, `1.`, `1.` prints 1, 2, 3. A line starting `- ` never makes a list: it always prints as typed, so tolerances such as `+0.05` over `- 0.02 mm`, or stacked limits `- 0.013` over `- 0.028`, keep their minus signs. A blank line between text and a list, or between two lists (numbered or bulleted), prints as a blank line and starts a new list. Text is HTML-escaped first, then marked up, so authored HTML prints as text. Strings without markup render exactly as before, and the steps and markup styles are added to a sheet only when it uses them.
 
-`diagram` is optional in the process schema. Its `file` and `alt` strings are required when it is supplied. SVG paths are relative to the process TOML, regardless of the working directory. An enabled diagram must parse as SVG; it is embedded as an image, not executable page markup. In `pro`, unused diagram files are not opened.
+`diagram` is optional in the process schema, on a setup and on an operation, in the same `{ file, alt }` shape. Its `file` and `alt` strings are required when it is supplied. SVG paths are relative to the process TOML, regardless of the working directory. An enabled diagram must parse as SVG; it is embedded as an image, not executable page markup. In `pro`, unused diagram files are not opened.
+
+A setup has at most one `diagram`, printed under its heading. An operation's `diagram` prints just before that operation's row, for a later stage of the same clamping (a hole layout after facing, say). Operation pictures print wherever setup pictures do (`setup_diagrams` in `features`) and add their roles to the picture key; a profile's required-diagram rule (`setup_diagrams` in `enforce`) asks for the setup's picture only, which an operation picture cannot replace.
 
 ## Development
 

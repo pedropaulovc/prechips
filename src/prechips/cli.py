@@ -83,11 +83,15 @@ def main(argv: list[str] | None = None) -> int:
                 inputs.append(profile.turning_config)
         if "setup_diagrams" in profile.features:
             inputs.extend(
-                args.plan.parent / setup["diagram"]["file"]
+                args.plan.parent / table["diagram"]["file"]
                 for setup in plan.data["setups"]
-                if "diagram" in setup
+                for table in (setup, *setup["operations"])
+                if "diagram" in table
             )
-        if args.out.exists() and any(args.out.samefile(path) for path in inputs):
+        # A missing input cannot be the output; the render names it instead.
+        if args.out.exists() and any(
+            path.exists() and args.out.samefile(path) for path in inputs
+        ):
             raise PlanError(
                 "output must not overwrite an input CAD source, profile, diagram, "
                 "shop or turning config"
