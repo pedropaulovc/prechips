@@ -8,7 +8,7 @@ from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/leadscrew-kit-v50.toml"
-PLAN = ROOT / "examples/leadscrew-kit.toml"
+PLAN = ROOT / "examples/demo-leadscrew-kit.toml"
 PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
     "screw_stock_length_mm": 600.0,
@@ -32,12 +32,12 @@ def test_both_profiles_render(tmp_path):
         command = ["traveler", str(PLAN), "--profile", profile, "--out", str(out)]
         assert main(command) == 0
         html = out.read_text(encoding="utf-8")
-        assert "MHA-CH-06-TL-VN-84" in html
+        assert "DEMO-LEADSCREW-KIT" in html
         assert html.count('class="setup-diagram"') == diagrams
 
 
 def test_flat_crossings_and_nut_bands():
-    values = load_leadscrew_kit(SOURCE, PARAMETERS).values
+    values = load_leadscrew_kit(SOURCE, PARAMETERS, "leadscrew-kit").values
     assert values["near_kp08_centre_mm"] == pytest.approx(4.5 + 7.9375 / 2)
     assert values["handwheel_from_cut_mm"] == pytest.approx(
         419.5 - 409.516 - 7.9375 / 2
@@ -58,7 +58,9 @@ def test_flat_crossings_and_nut_bands():
 
 def test_refuses_a_cutter_too_small_to_open_the_handwheel_flat():
     with pytest.raises(CadError, match="two crossings"):
-        load_leadscrew_kit(SOURCE, {**PARAMETERS, "flat_cutter_dia_mm": 6.35})
+        load_leadscrew_kit(
+            SOURCE, {**PARAMETERS, "flat_cutter_dia_mm": 6.35}, "leadscrew-kit"
+        )
 
 
 def test_refuses_a_nut_feature_outside_its_member(tmp_path):
@@ -68,7 +70,7 @@ def test_refuses_a_nut_feature_outside_its_member(tmp_path):
     source = tmp_path / "features.toml"
     source.write_text(text.replace(marker, "", 1), encoding="utf-8")
     with pytest.raises(CadError, match="of member FeedNut"):
-        load_leadscrew_kit(source, PARAMETERS)
+        load_leadscrew_kit(source, PARAMETERS, "leadscrew-kit")
 
 
 def test_refuses_flats_whose_nominals_disagree(tmp_path):
@@ -80,7 +82,7 @@ def test_refuses_flats_whose_nominals_disagree(tmp_path):
         text.replace(marker, '"length_nominal" = 8.5\n', 1), encoding="utf-8"
     )
     with pytest.raises(CadError, match="flats disagree"):
-        load_leadscrew_kit(source, PARAMETERS)
+        load_leadscrew_kit(source, PARAMETERS, "leadscrew-kit")
 
 
 def _clock_band(tmp_path, band: str) -> Path:
@@ -94,14 +96,14 @@ def _clock_band(tmp_path, band: str) -> Path:
 
 def test_index_tolerance_is_the_nearer_clock_limit(tmp_path):
     source = _clock_band(tmp_path, "[119.0, 122.0]")
-    values = load_leadscrew_kit(source, PARAMETERS).values
+    values = load_leadscrew_kit(source, PARAMETERS, "leadscrew-kit").values
     assert values["clock_tolerance_deg"] == 1.0
 
 
 def test_refuses_a_clock_nominal_on_its_limit(tmp_path):
     source = _clock_band(tmp_path, "[120.0, 122.0]")
     with pytest.raises(CadError, match="strictly inside"):
-        load_leadscrew_kit(source, PARAMETERS)
+        load_leadscrew_kit(source, PARAMETERS, "leadscrew-kit")
 
 
 @pytest.mark.parametrize(
@@ -121,7 +123,7 @@ def test_refuses_a_clock_nominal_on_its_limit(tmp_path):
 )
 def test_process_clearances_refused(key, value, message):
     with pytest.raises(CadError, match=message):
-        load_leadscrew_kit(SOURCE, {**PARAMETERS, key: value})
+        load_leadscrew_kit(SOURCE, {**PARAMETERS, key: value}, "leadscrew-kit")
 
 
 @pytest.mark.parametrize(
@@ -131,6 +133,7 @@ def test_saw_mark_keeps_the_allowance_on_the_rule(rule, allowance):
     values = load_leadscrew_kit(
         SOURCE,
         {**PARAMETERS, "rule_mm": rule, "saw_allowance_mm": allowance},
+        "leadscrew-kit",
     ).values
     sixteenths = values["saw_rule_step_in"] * 16
     assert sixteenths == round(sixteenths) >= 1

@@ -20,7 +20,7 @@ from prechips.milling import (
 )
 from prechips.turning import LBF_N, load_config, table_factor
 
-# The former base-bar Setup 3 (examples/base-bar.toml before the 2026-11-14
+# The former base-bar Setup 3 (examples/demo-base-bar.toml before the 2026-11-14
 # traveler review, which moved the squaring into the vise): the bar stays on
 # its Setup 2 blocks, two straps at blank mid-length are the only clamp, and
 # the 1/2 in 2-flute end mill (1250 rpm, 6 in/min) runs .04 below the bar:
@@ -29,7 +29,7 @@ from prechips.turning import LBF_N, load_config, table_factor
 # positive control.
 PLAN = """\
 title = "Base bar"
-part = "MHA-CH-06-TL"
+part = "DEMO"
 revision = "v48"
 material = "6061-T6511"
 stock = "Blank"

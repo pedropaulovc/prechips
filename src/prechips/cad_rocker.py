@@ -1,4 +1,4 @@
-"""Bindings for the patched MHA-071 rocker-arm example, not a process generator."""
+"""Bindings for the patched rocker-arm example, not a process generator."""
 
 import math
 import tomllib
@@ -16,12 +16,12 @@ from .cad import (
 )
 
 
-def load_rocker(path: Path, parameters: dict) -> CadData:
+def load_rocker(path: Path, parameters: dict, part: str) -> CadData:
     """Bind model geometry to pivot-relative upper and X-turned lower setups."""
     with path.open("rb") as source:
         raw = tomllib.load(source)
-    if raw.get("units") != "mm" or raw.get("part") != "rocker-arm":
-        raise CadError("cad: harmonic_rocker_arm requires rocker-arm in mm")
+    if raw.get("units") != "mm" or raw.get("part") != part:
+        raise CadError(f"cad: rocker_arm requires {part} in mm")
     values = {"part": raw["part"]}
     drawing = raw.get("drawing", {})
     if not isinstance(drawing, dict):

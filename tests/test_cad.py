@@ -31,7 +31,8 @@ stock = "Authored blank"
 note = "Length {{cad.length_in:.2f}}; slot {{cad.slot_depth_in:.2f}}"
 [cad]
 file = "cad.toml"
-adapter = "harmonic_base_bar"
+adapter = "base_bar"
+part = "base-bar"
 [parameters]
 width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
@@ -73,7 +74,7 @@ def prepare(tmp_path, source_text=None, plan_text=PLAN):
 
 
 def test_drawing_targets_conversion_sign_and_nominal_envelope():
-    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     stock = cad.stock_requirement
     assert stock.unit == "in"
     assert [(axis.name, axis.parameter) for axis in stock.axes] == [
@@ -141,7 +142,7 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
 
 
 def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length(tmp_path):
-    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     # e = (.53 − .500)/2 = .015 each side of the arc-centre line and past both
     # arc centres: .53 wide and .16 + .53 = .69 overall with the .500 cutter.
     corners = [
@@ -172,23 +173,24 @@ def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length(tmp_path):
     end = text.index('["features"."rail_hole_1"]')
     swapped = text[:near] + text[far:end] + text[near:far] + text[end:]
     _, source = prepare(tmp_path, swapped)
-    reordered = load_cad(source, PARAMETERS, "harmonic_base_bar")
+    reordered = load_cad(source, PARAMETERS, "base_bar", "base-bar")
     assert [row[1] for row in reordered.values["slot_rows"]] == ["0.8700", "15.3500"]
     # A cutter as wide as the slot leaves no offset. The end radius departs
     # outward by e(√2 − 1), held to the two-place ±.01 (0.254 mm): the smallest
     # cutter is 13.462 − 2 × 0.254/(√2 − 1) = 12.2356 mm.
-    load_cad(SOURCE, PARAMETERS | {"half_cutter_dia_mm": 12.24}, "harmonic_base_bar")
+    load_cad(SOURCE, PARAMETERS | {"half_cutter_dia_mm": 12.24}, "base_bar", "base-bar")
     for diameter in (13.462, 12.23):
         with pytest.raises(CadError, match="half_cutter_dia_mm"):
             load_cad(
                 SOURCE,
                 PARAMETERS | {"half_cutter_dia_mm": diameter},
-                "harmonic_base_bar",
+                "base_bar",
+                "base-bar",
             )
 
 
 def test_stand_out_above_jaws_from_jaw_parallel_and_thickness():
-    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     # Grip 44.9453 − 34.925 = 10.0203 mm = .3945 in under .47 finished / .50 blank.
     assert cad.values["jaw_standout_in"] == pytest.approx(0.0755, abs=1e-4)
     assert cad.values["jaw_standout_blank_in"] == pytest.approx(0.1055, abs=1e-4)
@@ -197,15 +199,15 @@ def test_stand_out_above_jaws_from_jaw_parallel_and_thickness():
     # Bar top at or below the jaws: facing would cut them.
     with pytest.raises(CadError, match="jaw_standout_in"):
         load_cad(
-            SOURCE, PARAMETERS | {"parallel_height_mm": 32.95}, "harmonic_base_bar"
+            SOURCE, PARAMETERS | {"parallel_height_mm": 32.95}, "base_bar", "base-bar"
         )
     missing = {k: v for k, v in PARAMETERS.items() if k != "vise_jaw_height_mm"}
     with pytest.raises(CadError, match="process.vise_jaw_height_mm"):
-        load_cad(SOURCE, missing, "harmonic_base_bar")
+        load_cad(SOURCE, missing, "base_bar", "base-bar")
 
 
 def test_centred_overhang_and_jack_clear_of_through_features():
-    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     # (439.928 − 158.6738) / 2: the finished bar centred on the jaws.
     assert cad.values["vise_centred_overhang_mm"] == pytest.approx(140.627, abs=1e-3)
     # R1 centre (.3923, −3.5); S1 arc centres X .87, Y −1.94/−2.10, width ≤ .54.
@@ -215,7 +217,7 @@ def test_centred_overhang_and_jack_clear_of_through_features():
         ({"jack_right_x_in": 17.5}, "off the bar"),
     ):
         with pytest.raises(CadError, match=f"process.jack_.*{match}"):
-            load_cad(SOURCE, PARAMETERS | jack, "harmonic_base_bar")
+            load_cad(SOURCE, PARAMETERS | jack, "base_bar", "base-bar")
 
 
 def test_source_changes_reach_text_tables_and_geometry(tmp_path):
@@ -293,7 +295,7 @@ def test_missing_source_and_source_output_alias_are_errors(
 
 
 def test_binding_nonfinite_process_number_is_rejected():
-    cad = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    cad = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     with pytest.raises(CadError, match="finite"):
         bind_text("{{process.depth:.2f}}", cad, {"depth": float("nan")})
 
@@ -301,13 +303,13 @@ def test_binding_nonfinite_process_number_is_rejected():
 def test_source_changes_reach_embedded_svg_geometry(tmp_path):
     from prechips.cad_diagrams import render_cad_svg
 
-    content = (SOURCE.parents[1] / "diagrams/holes.svg").read_bytes()
-    baseline = load_cad(SOURCE, PARAMETERS, "harmonic_base_bar")
+    content = (SOURCE.parents[1] / "diagrams/demo-base-bar/holes.svg").read_bytes()
+    baseline = load_cad(SOURCE, PARAMETERS, "base_bar", "base-bar")
     text = SOURCE.read_text(encoding="utf-8").replace(
         '"station" = [21.844, 22.352]', '"station" = [47.244, 47.752]'
     )
     _, source = prepare(tmp_path, text)
-    changed = load_cad(source, PARAMETERS, "harmonic_base_bar")
+    changed = load_cad(source, PARAMETERS, "base_bar", "base-bar")
     before = render_cad_svg(content, baseline, PARAMETERS)
     after = render_cad_svg(content, changed, PARAMETERS)
     before_slot = ElementTree.fromstring(before).find(".//*[@id='slots']")[0]
@@ -323,7 +325,7 @@ def test_rail_stations_with_unequal_bands_are_refused(tmp_path):
     )
     _, source = prepare(tmp_path, text)
     with pytest.raises(CadError, match="inconsistent rail station bands"):
-        load_cad(source, PARAMETERS, "harmonic_base_bar")
+        load_cad(source, PARAMETERS, "base_bar", "base-bar")
 
 
 def test_bracket_layout_other_than_the_plan_text_is_refused(tmp_path):
@@ -332,4 +334,4 @@ def test_bracket_layout_other_than_the_plan_text_is_refused(tmp_path):
     head, tail = text.rsplit('"station" = [427.87, 428.13]', 1)
     _, source = prepare(tmp_path, head + '"station" = [427.88, 428.14]' + tail)
     with pytest.raises(CadError, match="two bracket columns"):
-        load_cad(source, PARAMETERS, "harmonic_base_bar")
+        load_cad(source, PARAMETERS, "base_bar", "base-bar")

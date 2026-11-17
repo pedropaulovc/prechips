@@ -1,4 +1,4 @@
-"""Oblique-trammel carrier (TL-21) setup pictures for the ``jig-carrier-*`` templates.
+"""Carrier setup pictures for the ``jig-carrier-*`` templates.
 
 The plate is held flat on the mill table, vise off, on four 1-2-3 blocks under
 strap clamps; it is too long for the vise. Plan views look down on the table
@@ -559,7 +559,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
             (
                 cx + spacer_half - 10,
                 bottom + 30,
-                ["TL-VN-78 spacer", f"seat Ø{_shorthand(seat, 3)}"],
+                ["spacer", f"seat Ø{_shorthand(seat, 3)}"],
             ),
         ],
         bottom + 80,

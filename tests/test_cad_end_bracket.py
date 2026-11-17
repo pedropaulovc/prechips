@@ -9,7 +9,7 @@ from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/end-bracket-v49.toml"
-PLAN = ROOT / "examples/end-bracket.toml"
+PLAN = ROOT / "examples/demo-end-bracket.toml"
 PARAMETERS = tomllib.loads(PLAN.read_text(encoding="utf-8"))["parameters"]
 
 
@@ -18,7 +18,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     command = ["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]
     assert main(command) == 0
     html = out.read_text(encoding="utf-8")
-    assert "MHA-CH-06-TL-28" in html
+    assert "DEMO-END-BRACKET" in html
     assert "0.5482 (13.925 mm)" in html
 
 
@@ -33,7 +33,7 @@ def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
 
 
 def test_thread_zones_bind_by_face_from_the_drawing_notes():
-    cad = load_end_bracket(SOURCE, PARAMETERS)
+    cad = load_end_bracket(SOURCE, PARAMETERS, "end-bracket")
     # The tap note's TOP face is the KP08 side; the bar seat is the bottom.
     assert cad.values["bar_thread_band_mm"] == [9.398, 12.598]
     assert cad.values["kp08_thread_band_mm"] == [10.897, 14.097]
@@ -57,7 +57,7 @@ def _load(tmp_path, old, new):
     assert old in text
     source = tmp_path / "cad.toml"
     source.write_text(text.replace(old, new), encoding="utf-8")
-    return load_end_bracket(source, PARAMETERS)
+    return load_end_bracket(source, PARAMETERS, "end-bracket")
 
 
 @pytest.mark.parametrize(
@@ -88,4 +88,4 @@ def test_note_wording_and_disagreement_refuse(tmp_path, old, new, message):
 )
 def test_tap_flags_outside_the_window_or_overlapping_refuse(change, message):
     with pytest.raises(CadError, match=message):
-        load_end_bracket(SOURCE, PARAMETERS | change)
+        load_end_bracket(SOURCE, PARAMETERS | change, "end-bracket")

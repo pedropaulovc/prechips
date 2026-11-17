@@ -1,12 +1,8 @@
-# pivot-bracket (MHA-123) requirement manifest — HAND-AUTHORED example, not a consumer
-# export (example divergence: the other bundles are generated; this one is written by hand).
-# Geometry: pivot-bracket.STEP (harmonic-analyzer v39 STEP, mm, no HAF_ face labels, so
-# every face ref carries label NONE). Sizes: harmonic-analyzer v39 bundle. The v39 bundle
-# holds only png/pivot-bracket/pivot-bracket_isometric.png for this part — no
-# pivot-bracket_drawing.png sheet was found — so every band below is an
-# example (plausible) choice, not a printed tolerance: machined sizes ±0.10 from the
-# consumer's machined_block class (tolerances.yaml:14, parts/pivot-bracket.yaml:5),
-# drilled holes +0.10/0 (title_block.yaml:66), reamed bore 6.50/6.53 (example, plausible).
+# pivot-bracket requirement manifest — HAND-AUTHORED demo, not a CAD export.
+# Geometry: a v39 pivot-bracket STEP (mm, no face labels, so every face ref
+# carries label NONE). No dimensioned drawing sheet exists for this part, so
+# every band below is an example (plausible) choice, not a printed tolerance:
+# machined sizes ±0.10, drilled holes +0.10/0, reamed bore 6.50/6.53.
 # Face map verified against a FreeCAD dump of the STEP (16 faces). Model frame: seat
 # y = 0, foot top y = 6, ear inner face z = +3, outer face z = -3 (one plane, #103,
 # shared by the ear outer face and the foot's near end), foot free end z = 21.2.
@@ -19,19 +15,16 @@ step_sha256 = "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc"
 construction = "one_piece"       # no note permits built-up construction
 
 [cite]
-part = "harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:1-2"
-step_sha256 = "harmonic-analyzer-v39 pivot-bracket.STEP (copied into this bundle)"
 precision = "example (plausible): no v39 drawing sheet for this part"
 
 [drawing]
-number = "MHA-123"
+number = "DEMO-PIVOT-BRACKET"
 revision = "example-v39"          # local illustrative requirement contract, not a certified drawing
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:2", "harmonic-analyzer-v39/png/pivot-bracket/pivot-bracket_isometric.png", "example (plausible, no dimensioned drawing): hand-authored contract on v39 STEP"]
+cite = ["example (plausible, no dimensioned drawing): hand-authored contract on v39 STEP"]
 
 [material]
 spec = "Plain Carbon Steel"
 finish = "black oxide"
-cite = ["harmonic-analyzer/cad/config/parts/pivot-bracket.yaml:3-4"]
 
 [general_tolerances]             # example (plausible): consumer title-block classes adopted, no sheet prints them
 linear_1pl = 0.8
@@ -42,7 +35,7 @@ drilled_hole_plus = 0.1
 drilled_hole_minus = 0.0
 edge_break_r = 0.25
 chamfer_max = 0.25
-cite = ["harmonic-analyzer/cad/config/title_block.yaml:25-28,43-45,66"]
+cite = ["example (plausible): the title-block classes adopted, no sheet prints them"]
 
 [frames.model]
 origin = [0.0, 0.0, 0.0]
@@ -50,7 +43,6 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 note = "Part frame: seat y = 0, origin under the bore on the seat plane; X across foot/ear width, Y rise, Z along the foot run and the bore axis."
-cite = ["harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12"]
 
 [datums.A]
 feature = "seat_face"

@@ -1,6 +1,6 @@
-"""Riser (TL-24) setup pictures for the ``jig-riser-*`` diagram templates.
+"""Riser setup pictures for the ``jig-riser-*`` diagram templates.
 
-Drawn from the ``harmonic_riser`` adapter values and the plan's authored
+Drawn from the ``riser`` adapter values and the plan's authored
 holding parameters, in the conventions of :mod:`prechips.jig_diagrams`: top
 views look down from the operator's side, +X right from ZERO END, +Y toward
 the operator from ZERO EDGE at the back (fixed) jaw. A skim too thin to see at

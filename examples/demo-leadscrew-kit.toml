@@ -1,18 +1,16 @@
-# Copy of harmonic-analyzer cad/process/ch_rocker_arm_tl_vn_oblique_leadscrew_kit/
-# plan.toml with the shop and manifest paths local; re-sync after HA plan edits.
-# Synced from HA #2740 at 650c0aced1 plus the prechips#401 fixes (the HA plan
-# carries the same text); the saw step's second lay binds the adapter's
-# saw_rule_step_in (rounded up to the next 1/16 in).
-# Source: MHA-CH-06-TL-VN-84 v50 (draw_ch_rocker_arm_tl_vn_oblique_leadscrew_kit.py
-# and its feature manifest: the LeadScrew features and the FeedNut member's).
+# Demo plan: reworking a purchased leadscrew kit for a jig. The saw step's
+# second lay binds the adapter's saw_rule_step_in (rounded up to the next
+# 1/16 in).
+# Source: the kit's v50 drawing and its feature manifest (the LeadScrew
+# features and the FeedNut member's).
 # No hand traveler exists: the route, holding, allowances and speeds are
 # authored here. The kit is bought (ReliaBot Tr8x2 600 mm SUS304 screw and
 # brass flange nut); the rework cuts the screw to length from the NEAR END,
 # mills its five set-screw flats on the BS-0 dividing head, faces the nut's
 # spigot flush and countersinks its four holes. Sheet note 1: the angle
 # between flat stations is free; the two flats at each KP08 station are
-# clocked 120° apart. Sheet 3 prints the nut's FULL THREAD 10.2 MIN (RV-03,
-# #2207) on the faced length; the facing step repeats it.
+# clocked 120° apart. Sheet 3 prints the nut's FULL THREAD 10.2 MIN (RV-03)
+# on the faced length; the facing step repeats it.
 # milling_deflection: the handwheel flat at the cut end is milled in its own
 # short re-grip (16 mm out); at the KP08 flats' 42 mm stick-out
 # the end-of-screw cut would bend the Ø5.5 root past the finish limit.
@@ -27,7 +25,8 @@ material_key = "sus304"
 
 [cad]
 file = "cad/leadscrew-kit-v50.toml"
-adapter = "harmonic_leadscrew_kit"
+adapter = "leadscrew_kit"
+part = "leadscrew-kit"
 
 [parameters]
 screw_stock_length_mm = 600.0
@@ -54,7 +53,7 @@ vise_jaw_width_mm = 158.6738     # Shop workholding.vise-pm-6.jaw_width_mm.
 parallel_height_mm = 25.4        # 1 in parallels (archive parallels-lms-6745 1in).
 end_cut_tip_z_mm = -1.0          # Cutter 1 mm below the screw.
 bs0_centre_height_mm = 100.0125  # Archive machines.BS-0 height_mm (table to centre).
-r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
+r8_collet_gauge_mm = 6.3         # Owned LMS 4860 R8 collets, gauge length.
 # Archive LMS 6784 R8-collet projections: 1/4 in 25, 3/8 in 38, 7/16 in 41,
 # 11/16 in 50; the 1/2 and 5/16 in mills lie between their neighbours.
 half_mill_projection_min_mm = 41.0
@@ -95,7 +94,7 @@ indexing = "none"
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-diagram = { file = "diagrams/leadscrew-kit/receipt.svg", alt = "The feed nut as supplied: spigot, flange and body" }
+diagram = { file = "diagrams/demo-leadscrew-kit/receipt.svg", alt = "The feed nut as supplied: spigot, flange and body" }
 
 [[setups.operations]]
 instruction = "Screw and nut right-hand; each KP08 inner ring two set screws 120° apart (else stop). Check the nut; mark one end NEAR END."
@@ -111,7 +110,7 @@ indexing = "none"
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-diagram = { file = "diagrams/leadscrew-kit/saw.svg", alt = "The screw from the NEAR END with the saw mark near the far end" }
+diagram = { file = "diagrams/demo-leadscrew-kit/saw.svg", alt = "The screw from the NEAR END with the saw mark near the far end" }
 
 [[setups.operations]]
 speed_kind = "other"
@@ -130,7 +129,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Vise at least {{process.vise_right_of_centre_mm:g}} right of table centre; jog to both ends before clamping. Screw along X on 1 in parallels kept inside the right jaw, wrapped in paper; cut end ~{{process.cut_overhang_mm:g}} past the right jaw side."
 datum = "X0 NEAR END (cutter-side touch)."
-diagram = { file = "diagrams/leadscrew-kit/length.svg", alt = "Top view: the screw in the vise, cut end just past the right jaw, milled to length from the NEAR END" }
+diagram = { file = "diagrams/demo-leadscrew-kit/length.svg", alt = "Top view: the screw in the vise, cut end just past the right jaw, milled to length from the NEAR END" }
 envelope = { x_span_mm = ["{{cad.saw_piece_max_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.major_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.major_dia_mm}}", along_jaws_mm = "{{cad.saw_piece_mm}}", part_height_mm = "{{cad.major_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{process.cut_overhang_mm}}"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
 # Stations from the NEAR END. The vise is set from the sawn end, so a piece
@@ -171,7 +170,7 @@ indexing = { head = "bs-0", tolerance_deg = "{{cad.clock_tolerance_deg}}", angle
 machine_ref = "pm-30mv"
 holding = "BS-0 on the table's left, chuck facing right (+X cutter right, as in the length setup). Screw through the spindle, NEAR END {{process.near_stickout_mm:g}} out of the head's 5 in {{process.bs0_chuck_jaws:d}}-jaw, threads wrapped in paper, jaws at {{cad.bs0_jaw_clocks}} o'clock (each {{cad.clock_deg:g}}° index, either way, returns them there: none on top). The tail hangs free out the back (about 0.15 kg: no support). Over the flat, here and in both re-grips, dry-run the cutter to depth with the spindle stopped: the collet and spindle nose must clear the jaws."
 datum = "X0 the NEAR END face; Z0 the thread crest on top."
-diagram = { file = "diagrams/leadscrew-kit/near-flats.svg", alt = "NEAR END out of the dividing-head chuck: the two KP08 flats, 0° then 120°" }
+diagram = { file = "diagrams/demo-leadscrew-kit/near-flats.svg", alt = "NEAR END out of the dividing-head chuck: the two KP08 flats, 0° then 120°" }
 envelope = { x_span_mm = ["{{cad.near_kp08_centre_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.major_radius_mm}}"], deepest_cut_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.flat_floor_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
 vise_hold = "other"
 # Stations measured into the screw from the NEAR END; the jaws grip from the stick-out on.
@@ -215,7 +214,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "BS-0 as before; the index left the {{process.bs0_chuck_jaws:d}}-jaw at {{cad.bs0_jaw_clocks}} o'clock. Screw reversed: cut end {{process.wheel_stickout_mm:g}} out, threads wrapped. The flat's angle to the others is free (sheet 2 note 1)."
 datum = "X0 the cut end face; Z0 the thread crest. L = the length written on the screw."
-diagram = { file = "diagrams/leadscrew-kit/wheel-flat.svg", alt = "Cut end just out of the dividing-head chuck: the open handwheel flat" }
+diagram = { file = "diagrams/demo-leadscrew-kit/wheel-flat.svg", alt = "Cut end just out of the dividing-head chuck: the open handwheel flat" }
 envelope = { x_span_mm = ["{{cad.handwheel_from_cut_max_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.major_radius_mm}}"], deepest_cut_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.flat_floor_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
 vise_hold = "other"
 # Stations measured into the screw from the cut end; the jaws grip from the stick-out on.
@@ -244,7 +243,7 @@ indexing = { head = "bs-0", tolerance_deg = "{{cad.clock_tolerance_deg}}", angle
 machine_ref = "pm-30mv"
 holding = "BS-0 as before, {{process.bs0_chuck_jaws:d}}-jaw at {{cad.bs0_jaw_clocks}} o'clock. Screw reversed: cut end {{process.far_stickout_mm:g}} out, threads wrapped."
 datum = "X0 the cut end face; Z0 the thread crest. L = the length written on the screw."
-diagram = { file = "diagrams/leadscrew-kit/far-flats.svg", alt = "Cut end out of the dividing-head chuck: the two KP08 flats, 0° then 120°" }
+diagram = { file = "diagrams/demo-leadscrew-kit/far-flats.svg", alt = "Cut end out of the dividing-head chuck: the two KP08 flats, 0° then 120°" }
 envelope = { x_span_mm = ["{{cad.far_kp08_from_cut_max_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.major_radius_mm}}"], deepest_cut_mm = ["{{process.bs0_centre_height_mm}}", "{{cad.flat_floor_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
 vise_hold = "other"
 # Stations measured into the screw from the cut end; the jaws grip from the stick-out on.
@@ -288,7 +287,7 @@ indexing = "none"
 machine_ref = "pm-1127vf-lb"
 holding = "Sawn offcut in the 3-jaw, factory end out, {{process.mandrel_stickout_mm:g}} out; nut spun on body first until the body end seats on the jaw fronts (the facing cut tightens it); spigot out."
 datum = "Z0 the flange seat face."
-diagram = { file = "diagrams/leadscrew-kit/nut-face.svg", alt = "The nut spun onto the threaded offcut in the lathe chuck, spigot faced off" }
+diagram = { file = "diagrams/demo-leadscrew-kit/nut-face.svg", alt = "The nut spun onto the threaded offcut in the lathe chuck, spigot faced off" }
 lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.major_dia_mm}}", stock_diameter_mm = "{{cad.nut_flange_dia_mm}}", stickout_mm = "{{cad.nut_supplied_length_mm}}", minimum_diameter_mm = "{{process.thread_root_dia_mm}}", support = "none" }
 
 [[setups.operations]]
@@ -315,7 +314,7 @@ indexing = "none"
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-diagram = { file = "diagrams/leadscrew-kit/nut-csk.svg", alt = "The flange's body side: four countersinks beside the body" }
+diagram = { file = "diagrams/demo-leadscrew-kit/nut-csk.svg", alt = "The flange's body side: four countersinks beside the body" }
 
 [[setups.operations]]
 speed_kind = "other"

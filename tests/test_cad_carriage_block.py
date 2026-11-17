@@ -17,7 +17,10 @@ FEED = ROOT / "examples/cad/feed-block-v49.toml"
 
 @pytest.mark.parametrize(
     ("plan", "number", "setups"),
-    [("pivot-block", "MHA-CH-06-TL-22", 6), ("feed-block", "MHA-CH-06-TL-32", 8)],
+    [
+        ("demo-pivot-block", "DEMO-PIVOT-BLOCK", 6),
+        ("demo-feed-block", "DEMO-FEED-BLOCK", 8),
+    ],
 )
 @pytest.mark.parametrize("profile", ["pro", "hobby"])
 def test_plans_render_with_every_check(tmp_path, plan, number, setups, profile):
@@ -35,7 +38,7 @@ def test_notch_picture_draws_the_spacer_offcut_at_its_size(tmp_path):
     # The notch spacer is the offcut sawn from the bar and faced to the
     # block's height: the bar width along the jaws, the sawn length upright.
     out = tmp_path / "feed-block-hobby.html"
-    plan = ROOT / "examples/feed-block.toml"
+    plan = ROOT / "examples/demo-feed-block.toml"
     assert main(["traveler", str(plan), "--profile", "hobby", "--out", str(out)]) == 0
     parameters = tomllib.loads(plan.read_text(encoding="utf-8"))["parameters"]
     ratio = parameters["blank_width_in"] / parameters["offcut_length_in"]
@@ -64,23 +67,26 @@ def test_station_tolerance_follows_the_printed_places(tmp_path):
     assert text.count(old) == 2  # the seat and its tap, one axis
     moved = tmp_path / "moved.toml"
     moved.write_text(text.replace(old, '"at" = [0.1, 0.0, 24.384]'), "utf-8")
-    load_pivot_block(moved, {})
+    load_pivot_block(moved, {}, "pivot-block")
     moved.write_text(text.replace(old, '"at" = [0.2, 0.0, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="station disagrees"):
-        load_pivot_block(moved, {})
+        load_pivot_block(moved, {}, "pivot-block")
     # One carriage hole .0025 in off the others (3 places) is refused, even
     # though the shared end rounding would allow that much for all of them.
     hole = '"at" = [-13.0, -13.0, 24.384]'
     assert text.count(hole) == 1
     moved.write_text(text.replace(hole, '"at" = [-12.9365, -13.0, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="station disagrees"):
-        load_pivot_block(moved, {})
+        load_pivot_block(moved, {}, "pivot-block")
 
 
 def test_rows_run_from_each_block_s_own_side():
-    pivot, feed = load_pivot_block(PIVOT, {}), load_feed_block(FEED, {})
+    pivot, feed = (
+        load_pivot_block(PIVOT, {}, "pivot-block"),
+        load_feed_block(FEED, {}, "feed-block"),
+    )
     # Same 2 x 2 pattern and pivot seat on both, each printed from the side
-    # its sheet dimensions the rows from: TL-22 from -Y, TL-32 from +Y.
+    # its sheet dimensions the rows from: the pivot block from -Y, the feed block from +Y.
     assert pivot.values["hole_rows"] == feed.values["hole_rows"]
     assert pivot.values["hole_rows"][0] == ["B", "0.790", "0.820"]
     assert [axis.required_mm for axis in feed.stock_requirement.axes] == [
@@ -93,15 +99,15 @@ def test_rows_run_from_each_block_s_own_side():
 
 
 def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
-    with pytest.raises(CadError, match="requires ch-rocker-arm-tl-oblique-pivot"):
-        load_pivot_block(FEED, {})
+    with pytest.raises(CadError, match="requires pivot-block in mm"):
+        load_pivot_block(FEED, {}, "pivot-block")
     moved = tmp_path / "moved.toml"
     text = PIVOT.read_text(encoding="utf-8")
     old = '"at" = [-13.0, -13.0, 24.384]'
     assert text.count(old) == 1
     moved.write_text(text.replace(old, '"at" = [-13.0, -12.7, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="row origin disagrees"):
-        load_pivot_block(moved, {})
+        load_pivot_block(moved, {}, "pivot-block")
 
 
 def test_refuses_carriage_holes_spread_past_their_printed_row(tmp_path):
@@ -117,7 +123,7 @@ def test_refuses_carriage_holes_spread_past_their_printed_row(tmp_path):
     spread = tmp_path / "spread.toml"
     spread.write_text(text, "utf-8")
     with pytest.raises(CadError, match="row origin disagrees with carriage_hole_1"):
-        load_pivot_block(spread, {})
+        load_pivot_block(spread, {}, "pivot-block")
 
 
 def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
@@ -129,7 +135,7 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
     assert text.count(old) == 1
     bored.write_text(text.replace(old, old + '"process" = "bore"\n'), "utf-8")
     with pytest.raises(CadError, match="plain through hole"):
-        load_feed_block(bored, {})
+        load_feed_block(bored, {}, "feed-block")
 
 
 def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
@@ -141,7 +147,7 @@ def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
     assert text.count(old) == 1
     moved.write_text(text.replace(old, '"at" = [20.828, -54.751, 12.4]'), "utf-8")
     with pytest.raises(CadError, match="expected on the lug"):
-        load_feed_block(moved, {})
+        load_feed_block(moved, {}, "feed-block")
 
 
 @pytest.mark.parametrize(
@@ -161,7 +167,7 @@ def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
 )
 def test_pro_refuses_a_bad_feed_block_process(tmp_path, capsys, old, new, message):
     examples = (ROOT / "examples").as_posix()
-    text = (ROOT / "examples/feed-block.toml").read_text(encoding="utf-8")
+    text = (ROOT / "examples/demo-feed-block.toml").read_text(encoding="utf-8")
     assert text.count(old) == 1
     text = text.replace(old, new)
     for name in ('"shop.toml"', '"cad/', '"diagrams/'):

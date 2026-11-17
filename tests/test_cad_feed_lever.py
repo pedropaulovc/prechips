@@ -8,7 +8,7 @@ from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/feed-lever-v50.toml"
-PLAN = ROOT / "examples/feed-lever.toml"
+PLAN = ROOT / "examples/demo-feed-lever.toml"
 
 
 def test_pro_plan_renders_with_every_check(tmp_path):
@@ -17,7 +17,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     # The post-v49 drawing prints the 11/32 drill (Ø.3438 +.004/0), so the
     # plan's drill fits.
     assert main(command) == 0
-    assert "MHA-CH-06-TL-26" in out.read_text(encoding="utf-8")
+    assert "DEMO-FEED-LEVER" in out.read_text(encoding="utf-8")
 
 
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
@@ -29,7 +29,7 @@ def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
 
 
 def test_envelope_holes_and_corners_follow_the_manifest():
-    cad = load_feed_lever(SOURCE, {})
+    cad = load_feed_lever(SOURCE, {}, "feed-lever")
     assert [axis.required_mm for axis in cad.stock_requirement.axes] == [
         299.72,
         12.7,
@@ -51,7 +51,7 @@ def test_a_manifest_without_the_grip_corners_is_refused(tmp_path):
     stripped = tmp_path / "feed-lever.toml"
     stripped.write_text(text[:start] + (text[end + 1 :] if end != -1 else ""), "utf-8")
     with pytest.raises(CadError, match="grip_corners"):
-        load_feed_lever(stripped, {})
+        load_feed_lever(stripped, {}, "feed-lever")
 
 
 def test_corner_radius_prints_the_nominal_not_the_band_midpoint(tmp_path):
@@ -61,7 +61,7 @@ def test_corner_radius_prints_the_nominal_not_the_band_midpoint(tmp_path):
     end = text.index("\n", at)
     skewed = tmp_path / "feed-lever.toml"
     skewed.write_text(text[:at] + '"radius" = [2.54, 10.16]' + text[end:], "utf-8")
-    cad = load_feed_lever(skewed, {})
+    cad = load_feed_lever(skewed, {}, "feed-lever")
     assert cad.values["corner_radius_in"] == pytest.approx(0.2)
     assert cad.values["corner_radius_max_in"] == pytest.approx(0.4)
 
@@ -70,4 +70,4 @@ def test_an_end_cut_depth_that_prints_short_of_the_thickest_bar_is_refused():
     # .5 + .004 prints ".50" from the top: it stops above a .509 bar's underside.
     parameters = {"blank_thickness_in": 0.5, "end_cut_tip_z_mm": -0.1}
     with pytest.raises(CadError, match="thickest bar"):
-        load_feed_lever(SOURCE, parameters)
+        load_feed_lever(SOURCE, parameters, "feed-lever")

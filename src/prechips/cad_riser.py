@@ -1,4 +1,4 @@
-"""Bindings for the released harmonic oblique-trammel riser (MHA-CH-06-TL-24)."""
+"""Bindings for the released riser of a jig."""
 
 from pathlib import Path
 
@@ -10,18 +10,18 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
-    _harmonic_manifest,
     _inch_limits,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _shorthand,
     _trim,
 )
 
 # Drawing tags by manifest feature. The stop-pin holes P1/P2 are drilled at
 # their printed .XX stations; the other seven are spotted from the carrier
-# (TL-21) at assembly, so the drawing prints their X/Y LOC REF only.
+# at assembly, so the drawing prints their X/Y LOC REF only.
 _STOPS = (("P1", "stop_hole_1"), ("P2", "stop_hole_2"))
 _SCREWS = tuple((f"R{index}", f"screw_hole_{index}") for index in range(1, 5))
 _HUB = (("HUB", "hub_hole"),)
@@ -134,11 +134,9 @@ def _face_stations(parameters: dict, values: dict) -> None:
         values[f"face_{key}_supports_mm"] = [supports[0] * 25.4, supports[1] * 25.4]
 
 
-def load_riser(path: Path, parameters: dict) -> CadData:
+def load_riser(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the riser envelope, its two stop-pin holes and the seven REF holes."""
-    raw, values, features = _harmonic_manifest(
-        path, "ch-rocker-arm-tl-oblique-riser", "harmonic_riser"
-    )
+    raw, values, features = _read_manifest(path, part, "riser")
     _model_frame(raw)
     if set(features) != _FEATURES:
         extra = sorted(set(features) - _FEATURES)
@@ -251,7 +249,7 @@ def load_riser(path: Path, parameters: dict) -> CadData:
     for tag, name in _SPOTTED:
         item, x, y = hole(name)
         if {"station", "width", "height"} & set(item.get("requirements", [])):
-            raise CadError(f"{name}: expected REF X/Y LOC (spotted from TL-21)")
+            raise CadError(f"{name}: expected REF X/Y LOC (spotted from the carrier)")
         if (
             _number(item.get("station_nominal"), f"{name}.station_nominal") != x
             or _number(item.get("width_nominal"), f"{name}.width_nominal") != y

@@ -8,8 +8,8 @@ from prechips.cli import main
 from prechips.traveler import load_plan, render_traveler
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "examples/cad/pivot-bracket-example-v39.toml"
-PLAN = ROOT / "examples/comparison/pivot-bracket.toml"
+SOURCE = ROOT / "examples/cad/demo-pivot-bracket-v39.toml"
+PLAN = ROOT / "examples/comparison/demo-pivot-bracket.toml"
 
 
 def prepare(tmp_path, replacements):
@@ -23,7 +23,7 @@ def prepare(tmp_path, replacements):
     plan = tmp_path / "plan.toml"
     plan.write_text(
         PLAN.read_text(encoding="utf-8")
-        .replace("../cad/pivot-bracket-example-v39.toml", "cad.toml")
+        .replace("../cad/demo-pivot-bracket-v39.toml", "cad.toml")
         .replace('shop = "../shop.toml"', 'shop = "shop.toml"'),
         encoding="utf-8",
     )
@@ -176,4 +176,4 @@ def test_unusable_bracket_source_fails_before_output(tmp_path, old, new):
 
 def test_missing_bracket_process_parameter_is_clear(tmp_path):
     with pytest.raises(CadError, match="parameters.outline_allowance_mm"):
-        load_bracket(SOURCE, {})
+        load_bracket(SOURCE, {}, "pivot-bracket")

@@ -1,6 +1,6 @@
 """Trammel-jig setup pictures for the ``jig-*`` diagram templates.
 
-The end bracket (TL-28) and feed lever (TL-26) are drawn from their adapter
+The end bracket and feed lever are drawn from their adapter
 values and authored holding parameters. Vise top views look down from the
 operator's side: +X right from the part's X0 end, +Y toward the operator, down
 the page. Every element is drawn in a :mod:`prechips.palette` role group:

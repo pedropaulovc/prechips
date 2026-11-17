@@ -16,11 +16,11 @@ from prechips.cad import (
 )
 
 
-def load_shaft(path: Path, parameters: dict) -> CadData:
+def load_shaft(path: Path, parameters: dict, part: str) -> CadData:
     with path.open("rb") as source:
         raw = tomllib.load(source)
-    if raw.get("units") != "mm" or raw.get("part") != "pivot-shaft":
-        raise CadError("cad: harmonic_pivot_shaft requires pivot-shaft in mm")
+    if raw.get("units") != "mm" or raw.get("part") != part:
+        raise CadError(f"cad: pivot_shaft requires {part} in mm")
     frames = raw.get("frames")
     model = frames.get("model") if isinstance(frames, dict) else None
     expected_frame = {

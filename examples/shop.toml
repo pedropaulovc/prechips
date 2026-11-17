@@ -40,8 +40,8 @@ grip_range_mm = [6.0, 150.0]
 body_diameter_mm = 158.0
 body_length_mm = 70.0
 
-# The BS-0's own chuck: harmonic-analyzer inventory (45952b66bc:cad/process/
-# shop/inventory.toml machines.BS-0.included, chuck_3jaw_5in_inside_outside_jaws).
+# The BS-0's own chuck: the owner's inventory (the BS-0's included 3-jaw 5 in
+# chuck with inside/outside jaws).
 # No source gives its grip range or body size, so none is declared. The
 # archive's 5 in independent 4-jaw for the BS-0 was an illustrative example
 # purchase, not owned.
@@ -86,7 +86,7 @@ range_mm = [0.0, 699.77]
 resolution_mm = 0.005
 
 # PM-30MV X DRO scale read as a length gauge (feed-lever length, hand sheet
-# TL-26 Setup B). Range: machines.pm-30mv X travel; resolution: archive
+# Setup B). Range: machines.pm-30mv X travel; resolution: archive
 # machines PM-30MV EL400-class DRO resolution_mm.
 [gauges.mill-x-dro]
 range_mm = [0.0, 584.2]
@@ -112,14 +112,14 @@ vise_grip_fraction_min = 0.3333
 # says only that work held at the end of the vise needs a spacing block.
 vise_centre_fraction_max = 0.3333
 
-# Source: base-bar.toml; source hand traveler dated 2026-11-05 and
+# Source: demo-base-bar.toml; source hand traveler dated 2026-11-05 and
 # table-clamped squaring sequence dated 2026-11-07 (see plan provenance).
 # diameter_mm: standard nominal size stated in each description, × 25.4.
 # The 8-32 tap records the plan's authored #29 (.136 in) tap drill. The v48
 # drawing calls the #12 bracket drill (notes.process).
-# Logbook (C:/src/harmonic-analyzer/logbook/entries): 2026-11-04 end brackets
+# Owner's logbook: 2026-11-04 end brackets
 # and 2026-11-05 base bar blanks "sawn ... on a 14 in Evolution metal-cutting
-# miter saw" (lines 17 and 19). No entry states the blade (HA #2084).
+# miter saw" (lines 17 and 19). No entry states the blade.
 [tools.saw-evolution-14]
 description = "14 in Evolution metal-cutting miter saw"
 [tools.basebar-em-half]
@@ -162,9 +162,9 @@ material = "6061-t6511"
 rpm = 850
 feed = "6.8 in/min"
 
-# Source: comparison/pivot-shaft.toml; archived pivot-shaft plan rev 7,
+# Source: comparison/demo-pivot-shaft.toml; archived pivot-shaft plan rev 7,
 # inventory/pedro-shop.toml and cutting-data.toml pivot-shaft/DataShaft4 rows.
-# These are authored choices, not drawing requirements (MHA-065 v40).
+# These are authored choices, not drawing requirements (drawing v40).
 [tools.shaft-ar]
 description = "AR carbide turning/facing tool"
 [tools.shaft-centre]
@@ -230,7 +230,7 @@ material = "shaft-1018-cold-finished"
 rpm = 1400
 feed = "Manual light cross-slide infeed / handle sweep"
 
-# Source: comparison/pivot-bracket.toml; archived pivot-bracket plan,
+# Source: comparison/demo-pivot-bracket.toml; archived pivot-bracket plan,
 # inventory/pedro-shop.toml, cutting-data.toml and expected/traveler.html.
 # The source says plain carbon steel, not a specific grade or stock condition.
 [tools.bracket-face]
@@ -261,7 +261,7 @@ material = "bracket-plain-carbon-steel"
 rpm = 900
 feed = "90 mm/min; any in-stock plunge 45 mm/min"
 
-# Source: comparison/blondihacks-t-nuts.toml; archive/pre-v0.10-2026-11-08
+# Source: comparison/demo-blondihacks-t-nuts.toml; archive/pre-v0.10-2026-11-08
 # (6603afbc), blondihacks-t-nuts inventory/cutting-data and expected traveler.
 # HB120 annealed stock and these numeric settings are source-author selections.
 # Matching rpm/feed does not equate the shoulder rougher and flat-end finisher.
@@ -291,8 +291,8 @@ material = "tnuts-1018-annealed-hb120"
 rpm = 750
 feed = "3 in/min"
 
-# Source: end-bracket.toml and feed-lever.toml; hand travelers dated
-# 2026-11-02 (MHA-CH-06-TL-28/TL-26 v47), the v48 manifest notes (#29 tap
+# Source: demo-end-bracket.toml and demo-feed-lever.toml; hand travelers dated
+# 2026-11-02 (end bracket and feed lever, v47), the v48 manifest notes (#29 tap
 # drill, plug-start then bottoming-finish taps) and the archived
 # taps-unc-hand 8-32 plug/bottoming records.
 [tools.jig-saw]
@@ -322,12 +322,12 @@ diameter_mm = 8.73125
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
 
-# TL-22/TL-24/TL-26/TL-28/TL-32 end mill (owner ruling 2026-11-16, prechips
+# Jig-part end mill (owner ruling 2026-11-16, prechips
 # #436; the riser's Setups 3-4 since #435; the blocks at 7 in/min, owner
 # ruling 2026-11-16): the speed and
 # feed the owner ran a 1/2 in 2-flute HSS end mill at on the PM-30MV, facing
-# the base bar's long edge (harmonic-analyzer
-# logbook/entries/2026-11-05-base-bar-on-the-table.md, op 3: 1800 rpm,
+# the base bar's long edge (owner's logbook
+# 2026-11-05, base bar on the table, op 3: 1800 rpm,
 # 7 in/min). 1800 rpm = 236 ft/min; 7 / (1800 x 2) = .0019 in/tooth.
 [settings.jig-em-half-6061-t6511]
 tool = "jig-em-half"
@@ -335,7 +335,7 @@ material = "6061-t6511"
 rpm = 1800
 feed = "7 in/min"
 
-# Riser (MHA-CH-06-TL-24): the v49 notes.process names the #30 screw and stop
+# Riser: the v49 notes.process names the #30 screw and stop
 # holes, the #9 CL/CR clearances and the 12 mm HUB relief; the 1/4 in drill
 # pilots the 12 mm and the 82° countersink cuts the Ø.25 × 82° seats. Nominal
 # sizes × 25.4 (#30 .1285 in, #9 .1960 in).
@@ -354,18 +354,17 @@ diameter_mm = 12.0
 [tools.riser-countersink]
 description = "3/8 in 82° countersink"
 
-# Source: harmonic-analyzer cad/process/shop.toml (leadscrew-kit.toml,
-# MHA-CH-06-TL-VN-84 v49), as written there; ownership notes refer to that
-# repository's shop-equipment.toml. The AR holder is the A R Warner LMS 4132
+# Source: the leadscrew-kit plan's shop records (demo-leadscrew-kit.toml, drawing
+# v49), as written there; ownership notes refer to the owner's
+# equipment list. The AR holder is the A R Warner LMS 4132
 # set's (TCMT insert, R0.4 nose); it faces the kit nut.
 [tools.lathe-ar]
 description = "A R Warner AR carbide turning holder, TCMT insert, R0.4 nose (LMS 4132)"
 
-# Kit tools: a hand hacksaw (not owned, cad/config/shop-equipment.toml
-# tools.kit-hacksaw), the 1/2 in end mill (jig-em-half) for the cut end, the 5/16 in
+# Kit tools: a hand hacksaw (not owned), the 1/2 in end mill (jig-em-half)
+# for the cut end, the 5/16 in
 # end mill (basebar-counterbore) for the flats, and an 82° countersink no
-# larger than the 3/16 in cutter the sheet allows (not owned,
-# tools.kit-countersink-82).
+# larger than the 3/16 in cutter the sheet allows (not owned).
 [tools.kit-hacksaw]
 description = "Hacksaw, 12 in 32 TPI bi-metal blade"
 [tools.kit-countersink-82]
@@ -390,11 +389,11 @@ sfm = 50  # Below LMS 70 for hand feed in 304: ~600 rpm (machinist review 2026-1
 # the plan's milling_cuts declare; the feed prints from the calculated rpm.
 chip_load_mm_per_tooth = 0.0254
 flutes = 2
-# Source: carrier.toml (MHA-CH-06-TL-21 v49), as harmonic-analyzer
-# cad/process/shop.toml records them. Number and letter drills are the
+# Source: the carrier plan's shop records (demo-carrier.toml, drawing v49).
+# Number and letter drills are the
 # 115-piece index's; diameter_mm and tap_drill_mm are standard nominal sizes
 # × 25.4: #43 .089 (4-40 tap drill), F .257 (5/16-18 tap drill), 23/64 .3594
-# (reamer pilot). The .3760 reamer is HA's owned 3/8 in over reamer
+# (reamer pilot). The .3760 reamer is the owner's 3/8 in over reamer
 # (REAM_SLIDE); its cutting size is its nominal.
 [tools.jig-drill-43]
 description = "#43 (.089 in) drill, 115-piece index"
@@ -422,13 +421,13 @@ tap_drill_mm = 6.5278
 range_mm = [0.0, 222.25]
 resolution_mm = 0.005
 
-# Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
-# as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
+# Source: demo-pivot-block.toml and demo-feed-block.toml (drawing v49),
+# as the owner's shop records them. The blocks also use
 # saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter)
 # at jig-em-half-6061-t6511, jig-spot,
 # basebar-counterbore (the 5/16 in end mill) and the carrier's jig-drill-f and
 # jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
-# end mill, plunged; TL-32's notch takes the owner's 1/2 in end mill with 1 in
+# end mill, plunged; the feed block's notch takes the owner's 1/2 in end mill with 1 in
 # of flute, the part on edge so its end cuts the lug face.
 [tools.block-drill-15]
 description = "#15 (.180 in) drill, 115-piece index"
@@ -446,7 +445,7 @@ flute_length_mm = 12.7
 description = "1/2 in centre-cutting end mill, flutes ≥1.00 in"
 diameter_mm = 12.7
 
-# TL-32's notch cutter: 1800 rpm = 236 ft/min (blind review 2026-11-14) at
+# The feed block's notch cutter: 1800 rpm = 236 ft/min (blind review 2026-11-14) at
 # 7 in/min (owner ruling 2026-11-16, as the blocks' other 1/2 in end mill at
 # jig-em-half-6061-t6511); 7 / (1800 × 2) = .0019 in/tooth.
 [settings.block-em-half-long-6061-t6511]

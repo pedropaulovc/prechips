@@ -1,8 +1,8 @@
-# Sources: drawing MHA-CH-06-TL-21 (three sheets: edge-view thickness,
+# Demo plan: a carrier plate. Sources: its drawing (three sheets: edge-view thickness,
 # sheet 2 hole table and notes 1-2, sheet 3 HUB REF) and its feature
 # manifest; the carrier's registry process note (21.3 in length from the owned
 # 1/2 x 6 bar, clamped flat on the table, no rip; holes from the sheet 2
-# corner; .3760 reamer; HUB drilled and tapped at assembly, TL-00 step 10;
+# corner; .3760 reamer; HUB drilled and tapped at assembly, step 10;
 # owner rulings 2026-11-13); the base-bar plan's table-clamped edge, end and
 # facing sequence and its owner-ruled speeds (same bar, same cutters); logbook
 # 2026-11-05/06 for the owned 1-2-3 blocks and LMS 1268 strap clamps.
@@ -23,12 +23,12 @@
 # over .480 (X1: neither flatness nor parallelism is toleranced); the ends
 # rough at .100 (X2); the edges keep .080 roughing, since .150 bends the
 # two-strap blank 0.15 mm (milling_deflection, X3 refused); the reamer keeps
-# the PM-30MV's top speed (owner-ruled 3000, #2748; 2800 since the owner's
+# the PM-30MV's top speed (owner ruling 2026-11-13, at 3000; 2800 since the owner's
 # 2026-11-16 correction) and gains a test hole and a runout check
 # (S1's safeguards; its lower speed is not taken).
 #
 # The pin holes' underside edges carry the title block's edge break only, no
-# chamfer (owner ruling 2026-11-13): the TL-VN-78 spacers seat on them.
+# chamfer (owner ruling 2026-11-13): the spacers seat on them.
 # Reamed Ø.3760–.3770 (owner ruling 2026-11-13: what the owned .3760 over
 # reamer cuts), gauged with the owned pin-gauge set, .376 GO / .377 NO-GO.
 title = "Oblique trammel carrier"
@@ -36,14 +36,15 @@ part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
 stock = "{{cad.material_spec}}; {{process.quantity:d}} × {{process.blank_length_in:.2f}} in blank and a {{process.coupon_width_in:g}} × {{process.coupon_length_in:g}} in reamer test coupon from the same bar."
-note = "Inches. X/Y from the lower-left corner (ZERO END, ZERO EDGE), as sheet 2. Vise off: the plate stays flat on the table on four 1-2-3 blocks under strap clamps. HUB is drilled and tapped at assembly (TL-00 step 10), not here."
+note = "Inches. X/Y from the lower-left corner (ZERO END, ZERO EDGE), as sheet 2. Vise off: the plate stays flat on the table on four 1-2-3 blocks under strap clamps. HUB is drilled and tapped at assembly (step 10), not here."
 shop = "shop.toml"
 material_key = "6061-t6511"
 milling_material = "aluminum_6061"
 
 [cad]
 file = "cad/carrier-v50.toml"
-adapter = "harmonic_carrier"
+adapter = "carrier"
+part = "carrier"
 
 [parameters]
 # drill_pecking steps, one drill Ø each: #43 (.089 in), #29 (.136 in).
@@ -90,8 +91,7 @@ coupon_width_in = 1.0
 coupon_length_in = 3.0
 coupon_hole_x_in = 10.25
 coupon_hole_y_in = 5.9
-# The parallels: the 1 in pair of the owned LMS 6745 set (harmonic-analyzer
-# cad/config/shop-equipment.toml fixtures.parallels-lms-6745), level with the
+# The parallels: the 1 in pair of the owned LMS 6745 set, level with the
 # 1-2-3 blocks (the adapter binds cad.coupon_parallel_height_in from
 # block_height_mm), so the reamer breaks through the coupon at the plate's
 # depth. LMS 6745 parallels are 1/8 in thick
@@ -105,7 +105,7 @@ coupon_parallel_width_in = 0.125
 # coupon's right end, reaches block 4's back strap (here it ends near X 15.06,
 # 1.68 clear).
 coupon_strap_length_in = 3.25
-# TL-VN-78 (AS62-18-40) OD .625 -.005: the adapter checks the broken underside
+# Spacer (AS62-18-40) OD .625 -.005: the adapter checks the broken underside
 # edge stays inside its seat; the setup 6 picture draws it.
 spacer_seat_dia_in = 0.62
 # Machine-capacity inputs (mm). Heights are above the mill table; tool lengths
@@ -118,7 +118,7 @@ end_cut_tip_z_mm = -1.016        # End cutter .04 in below the plate.
 ream_tip_z_mm = -7.62
 cutter_dia_mm = 12.7             # 1/2 in end mill (edges, ends).
 face_cutter_dia_mm = 19.05       # 3/4 in end mill (faces).
-r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
+r8_collet_gauge_mm = 6.3         # Owned LMS 4860 R8 collets, gauge length.
 half_mill_projection_min_mm = 41.0  # Archive LMS 6784 neighbours bound 1/2 in.
 half_mill_projection_max_mm = 50.0
 face_mill_projection_mm = 57.0   # Archive LMS 6784 3/4 in projection.
@@ -195,7 +195,7 @@ machine = "Saw / bench"
 indexing = "none"
 envelope = "other"
 vise_hold = "other"
-diagram = { file = "diagrams/carrier/saw.svg", alt = "The carrier blank from the 1173 bar, then a strip cut to the reamer's test coupon" }
+diagram = { file = "diagrams/demo-carrier/saw.svg", alt = "The carrier blank from the 1173 bar, then a strip cut to the reamer's test coupon" }
 beam = "other"
 
 [[setups.operations]]
@@ -219,7 +219,7 @@ holding = "Measure the blank, Lb, and scribe ZERO END across TOP (Lb − {{cad.l
 # edge's last pass, the narrowest) at the blank thickness.
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.end_block_blank_x_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
 datum = "Face up = TOP. Front edge milled first becomes ZERO EDGE. +X right, +Y away."
-diagram = { file = "diagrams/carrier/edges.svg", alt = "Blank flat on four 1-2-3 blocks with an end strap at mid-width of each end; front edge cut in +X makes ZERO EDGE, back edge cut in −X finishes the width" }
+diagram = { file = "diagrams/demo-carrier/edges.svg", alt = "Blank flat on four 1-2-3 blocks with an end strap at mid-width of each end; front edge cut in +X makes ZERO EDGE, back edge cut in −X finishes the width" }
 # Cutter centre runs past both blank ends and across the 6 in blank.
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{process.edge_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = "other"
@@ -264,7 +264,7 @@ holding = "Plate stays on the blocks. Add two straps across the finished long ed
 # thickness. Both end cuts are declared at the blank's ends, the farthest out.
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.end_block_blank_x_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.blank_thickness_mm}}" } }
 datum = "First squared end (left) becomes ZERO END, X0. Keep ZERO EDGE."
-diagram = { file = "diagrams/carrier/ends.svg", alt = "Straps moved onto the long edges over the end blocks; left end squared in −Y to ZERO END, right end cut in +Y to length" }
+diagram = { file = "diagrams/demo-carrier/ends.svg", alt = "Straps moved onto the long edges over the end blocks; left end squared in −Y to ZERO END, right end cut in +Y to length" }
 # Cutter centre runs past both ends (final X = length + D/2) and across the width.
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = "other"
@@ -300,7 +300,7 @@ holding = "Same blocks and edge straps (over the end blocks). Each edge strap's 
 # finished-length frame, section at the finished size (the thinnest).
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = "{{cad.end_block_x_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 datum = "Z from the plate's mid-length reading. Re-mark ZERO END and ZERO EDGE on TOP after the last pass."
-diagram = { file = "diagrams/carrier/face-top.svg", alt = "TOP faced to thickness on the blocks under the edge straps; then the end straps on faced metal and the edge-strap footprints faced at the same Z" }
+diagram = { file = "diagrams/demo-carrier/face-top.svg", alt = "TOP faced to thickness on the blocks under the edge straps; then the end straps on faced metal and the edge-strap footprints faced at the same Z" }
 # Arrives at blank thickness; the last pass leaves the finished top.
 envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"] }
 vise_hold = "other"
@@ -331,7 +331,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Plate stays on the blocks, TOP up, ZERO END left, ZERO EDGE front: block centres at X {{cad.block_stations}} ±{{process.block_tolerance_in:.2dot}}. ZERO EDGE indicated along X within .002 over its length. One strap over each block, alternating front/back from the front at the left end block (back straps over blocks {{cad.back_strap_blocks}}), heel step slightly high, toe down, toe {{process.strap_toe_in:.2f}} in from the edge on the block: blocks and toes sit between hole columns. Before the first drill, sight under A1, B1, CL and CR: each clears its block by about 1/8. The {{process.coupon_width_in:g}} × {{process.coupon_length_in:g}} coupon lengthwise on two {{cad.coupon_parallel_height_in:g}} in parallels (level with the blocks) behind the plate, centred at X {{process.coupon_hole_x_in:.2f}} between the back straps, under its own {{process.coupon_strap_length_in:.2f}} in strap: toe on the coupon over the right-hand parallel, heel toward +X; its test hole at X {{process.coupon_hole_x_in:.2f}}, Y {{process.coupon_hole_y_in:.2f}}, between the parallels."
 datum = "X0 ZERO END, Y0 ZERO EDGE (edge finder); +X right, +Y away. HUB is not drilled here."
-diagram = { file = "diagrams/carrier/holes.svg", alt = "Plate TOP up on the blocks with one strap over each; all twelve tabled holes from X0 Y0 at the lower-left corner; HUB shown dashed, made at assembly; the test coupon on two parallels behind the plate" }
+diagram = { file = "diagrams/demo-carrier/holes.svg", alt = "Plate TOP up on the blocks with one strap over each; all twelve tabled holes from X0 Y0 at the lower-left corner; HUB shown dashed, made at assembly; the test coupon on two parallels behind the plate" }
 # X: the plate's hole centres. Y reaches the reamer coupon's test hole behind
 # the plate (cad.coupon_hole_y_mm). Work top: the coupon's raw bar on parallels
 # level with the blocks, at least the faced plate's height. Longest: the
@@ -388,7 +388,7 @@ milling_cuts = [
 # reaming 350-400 ft/min (https://littlemachineshop.com/pages/cutting-speeds,
 # read 2026-11-13). Every size here computes above the PM-30MV's 2800 rpm top
 # speed (owner 2026-11-16), so drills and the reamer run at 2800 (owner ruling
-# 2026-11-13, #2748, made at the then-recorded 3000).
+# 2026-11-13, made at the then-recorded 3000).
 # The blind review (S1) cited lower HSS reaming speeds; the owner ruling
 # stands, and its safeguards are taken instead: reamer runout checked and a
 # test hole gauged in the offcut before the plate.
@@ -506,11 +506,11 @@ machine = "Bench"
 indexing = "none"
 envelope = "other"
 vise_hold = "other"
-diagram = { file = "diagrams/carrier/inspect.svg", alt = "Section at A1 with the broken underside edge inside the TL-VN-78 spacer seat, and the pin-hole relations read from A1" }
+diagram = { file = "diagrams/demo-carrier/inspect.svg", alt = "Section at A1 with the broken underside edge inside the spacer seat, and the pin-hole relations read from A1" }
 beam = "other"
 
 [[setups.operations]]
 instruction = "Every edge and hole end, the reamed holes' (A1, B1, A2, B2) undersides included, R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; do not countersink threads. Run a screw into every thread."
-instruction_detailed = "Break every edge and hole end R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max with a deburring tool, the underside ends of A1, B1, A2, B2 included: the TL-VN-78 spacers seat there, so a light even break, no countersink. Do not countersink the threads. Run a screw of each size in through every thread by hand."
+instruction_detailed = "Break every edge and hole end R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max with a deburring tool, the underside ends of A1, B1, A2, B2 included: the spacers seat there, so a light even break, no countersink. Do not countersink the threads. Run a screw of each size in through every thread by hand."
 inspection = "4-40, 8-32 and 5/16-18 screws turn in through by hand."
 gauge_checks = "other"

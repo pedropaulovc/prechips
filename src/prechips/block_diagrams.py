@@ -1,6 +1,6 @@
 """Carriage-block setup pictures for the ``jig-block-*`` diagram templates.
 
-The pivot block (TL-22) and feed block (TL-32) are drawn from their adapter
+The pivot block and feed block are drawn from their adapter
 values (:mod:`prechips.cad_carriage_block`) and authored holding parameters,
 in the shared jig shell and conventions of :mod:`prechips.jig_diagrams`:
 arriving material dashed, kept solid, removed hatched; jaws, parallels,
@@ -283,8 +283,8 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Top-face holes: the part in the vise (``vise``) or finished (``inspect``).
 
     Top view, SPINDLE END at the back (fixed jaw), ROW SIDE on the hand the
-    model frame gives it (:func:`_row_right`): right on TL-32, LUG END on the
-    left; left on TL-22. The holes come before the feed block's notch, so the
+    model frame gives it (:func:`_row_right`): right on the feed block, LUG END on the
+    left; left on the pivot block. The holes come before the feed block's notch, so the
     vise view is the full rectangle; the finished view shows the notch.
     Beside it a stepped section through H1 and B, looking toward ROW SIDE.
     """
@@ -442,8 +442,8 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     # Stepped section through H1 and B, looking toward ROW SIDE, TOP up,
     # beside the top view; labels in a column under it. Looking toward ROW
     # SIDE puts SPINDLE END (the top view's back) on the viewer's left when
-    # ROW SIDE is on the right (TL-32), on the right when it is on the left
-    # (TL-22): stations run from the matching edge.
+    # ROW SIDE is on the right (feed block), on the right when it is on the left
+    # (pivot block): stations run from the matching edge.
     s_left = right + 32 + 22 * len(station_x) + 28
     t = min(110.0, (650 - s_left) / length)
 

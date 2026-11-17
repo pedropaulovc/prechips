@@ -15,12 +15,12 @@ from .cad import (
 )
 
 
-def load_bracket(path: Path, parameters: dict) -> CadData:
+def load_bracket(path: Path, parameters: dict, part: str) -> CadData:
     """Read only the bracket facts used by the authored comparison route."""
     with path.open("rb") as source:
         raw = tomllib.load(source)
-    if raw.get("part") != "pivot-bracket" or raw.get("units") != "mm":
-        raise CadError("cad: harmonic_pivot_bracket requires pivot-bracket in mm")
+    if raw.get("part") != part or raw.get("units") != "mm":
+        raise CadError(f"cad: pivot_bracket requires {part} in mm")
     frames = raw.get("frames")
     if not isinstance(frames, dict):
         raise CadError("cad.frames: expected a table")

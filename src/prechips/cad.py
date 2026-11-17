@@ -1,4 +1,4 @@
-"""Small, explicit bindings for supported harmonic part manifests."""
+"""Small, explicit bindings for supported part manifests."""
 
 import math
 import re
@@ -98,7 +98,7 @@ def _trim(blank: float, length: float, key: str) -> float:
 
 
 def _model_frame(raw: dict) -> None:
-    """Require the identity model frame the harmonic jig adapters read."""
+    """Require the identity model frame the jig adapters read."""
     frames = raw.get("frames")
     model = frames.get("model") if isinstance(frames, dict) else None
     if not isinstance(model, dict) or any(
@@ -113,8 +113,9 @@ def _model_frame(raw: dict) -> None:
         raise CadError("cad.frames.model: expected the identity model frame")
 
 
-def _harmonic_manifest(path: Path, part: str, adapter: str) -> tuple[dict, dict, dict]:
-    """Read one mm manifest for `part`: raw table, drawing identity and features."""
+def _read_manifest(path: Path, part: str, adapter: str) -> tuple[dict, dict, dict]:
+    """Read one mm manifest for the plan's `part`: raw table, drawing identity
+    and features."""
     with path.open("rb") as source:
         raw = tomllib.load(source)
     if raw.get("units") != "mm" or raw.get("part") != part:
@@ -155,50 +156,51 @@ def _blank_mm(values: dict, parameters: dict) -> None:
             values[f"blank_{key}_mm"] = parameters[f"blank_{key}_in"] * 25.4
 
 
-def load_cad(path: Path, parameters: dict, adapter: str) -> CadData:
-    """Dispatch a required, explicit part adapter without guessing from the source."""
-    if adapter == "harmonic_base_bar":
-        return _load_base_bar(path, parameters)
-    if adapter == "harmonic_pivot_shaft":
+def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
+    """Dispatch a required, explicit part adapter without guessing from the
+    source; the manifest must name the plan's `part`."""
+    if adapter == "base_bar":
+        return _load_base_bar(path, parameters, part)
+    if adapter == "pivot_shaft":
         from prechips.cad_shaft import load_shaft
 
-        return load_shaft(path, parameters)
-    if adapter == "harmonic_pivot_bracket":
+        return load_shaft(path, parameters, part)
+    if adapter == "pivot_bracket":
         from prechips.cad_bracket import load_bracket
 
-        return load_bracket(path, parameters)
-    if adapter == "harmonic_rocker_arm":
+        return load_bracket(path, parameters, part)
+    if adapter == "rocker_arm":
         from prechips.cad_rocker import load_rocker
 
-        return load_rocker(path, parameters)
-    if adapter == "harmonic_end_bracket":
+        return load_rocker(path, parameters, part)
+    if adapter == "end_bracket":
         from prechips.cad_end_bracket import load_end_bracket
 
-        return load_end_bracket(path, parameters)
-    if adapter == "harmonic_feed_lever":
+        return load_end_bracket(path, parameters, part)
+    if adapter == "feed_lever":
         from prechips.cad_feed_lever import load_feed_lever
 
-        return load_feed_lever(path, parameters)
-    if adapter == "harmonic_riser":
+        return load_feed_lever(path, parameters, part)
+    if adapter == "riser":
         from prechips.cad_riser import load_riser
 
-        return load_riser(path, parameters)
-    if adapter == "harmonic_leadscrew_kit":
+        return load_riser(path, parameters, part)
+    if adapter == "leadscrew_kit":
         from prechips.cad_leadscrew_kit import load_leadscrew_kit
 
-        return load_leadscrew_kit(path, parameters)
-    if adapter == "harmonic_carrier":
+        return load_leadscrew_kit(path, parameters, part)
+    if adapter == "carrier":
         from prechips.cad_carrier import load_carrier
 
-        return load_carrier(path, parameters)
-    if adapter == "harmonic_pivot_block":
+        return load_carrier(path, parameters, part)
+    if adapter == "pivot_block":
         from prechips.cad_carriage_block import load_pivot_block
 
-        return load_pivot_block(path, parameters)
-    if adapter == "harmonic_feed_block":
+        return load_pivot_block(path, parameters, part)
+    if adapter == "feed_block":
         from prechips.cad_carriage_block import load_feed_block
 
-        return load_feed_block(path, parameters)
+        return load_feed_block(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
@@ -221,11 +223,9 @@ def id_range(prefix: str, first: int, count: int) -> str:
     return f"{prefix}{first}–{prefix}{first + count - 1}"
 
 
-def _load_base_bar(path: Path, parameters: dict) -> CadData:
-    """Normalize only the supported harmonic base-bar manifest, in physical mm."""
-    raw, values, features = _harmonic_manifest(
-        path, "ch-rocker-arm-tl-oblique-base-bar", "harmonic_base_bar"
-    )
+def _load_base_bar(path: Path, parameters: dict, part: str) -> CadData:
+    """Normalize only the supported base-bar manifest, in physical mm."""
+    raw, values, features = _read_manifest(path, part, "base_bar")
 
     def feature(name: str) -> dict:
         result = features.get(name)
@@ -325,8 +325,8 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
     def toleranced_station(name: str, item: dict) -> float:
         return _mid(_band(item, "station", name))
 
-    # Rail holes are drilled at their printed stations (harmonic-analyzer
-    # owner ruling 2026-11-16); the untrimmed rail is fitted to them.
+    # Rail holes are drilled at their printed stations (owner ruling
+    # 2026-11-16); the untrimmed rail is fitted to them.
     rail_points = points(rails, toleranced_station)
     bracket_points = points(brackets, toleranced_station)
     values["rail_points_in"] = rail_points

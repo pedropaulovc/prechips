@@ -1,4 +1,4 @@
-"""Bindings for the released harmonic oblique-trammel carrier (MHA-CH-06-TL-21)."""
+"""Bindings for the released carrier plate of a jig."""
 
 import math
 from pathlib import Path
@@ -11,18 +11,18 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
-    _harmonic_manifest,
     _inch_limits,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _shorthand,
     _string,
 )
 
 # Manifest feature -> sheet 2 hole-table tag. The v49 export holds exactly
 # these: the four reamed pin holes, the tapped holes and the HUB tap that
-# TL-00 step 10 drills at assembly.
+# assembly step 10 drills.
 _PINS = {
     "pin_hole_a1": "A1",
     "pin_hole_b1": "B1",
@@ -49,11 +49,9 @@ _CORNER = ("pin_hole_a1", "lever_tap_1", "lever_tap_2")
 _PRINTED_MM = 0.0005 * 25.4
 
 
-def load_carrier(path: Path, parameters: dict) -> CadData:
+def load_carrier(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the plate envelope, the corner-frame hole table and its limits."""
-    raw, values, features = _harmonic_manifest(
-        path, "ch-rocker-arm-tl-oblique-carrier", "harmonic_carrier"
-    )
+    raw, values, features = _read_manifest(path, part, "carrier")
     _model_frame(raw)
     expected = {*_FACES, *_PINS, *_TAPS, _HUB}
     if set(features) != expected:
@@ -353,7 +351,7 @@ def _beam_stations(values: dict, centres: list[float], along: float) -> None:
 
 
 def _spacer_seat(values: dict, parameters: dict) -> None:
-    """The TL-VN-78 spacer seats on each pin hole's broken underside edge.
+    """The spacer seats on each pin hole's broken underside edge.
 
     The drawing has no underside chamfer, only the title block's edge break
     (owner ruling 2026-11-13). The spacer's OD is authored: the largest bore

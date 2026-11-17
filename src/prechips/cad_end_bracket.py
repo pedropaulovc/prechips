@@ -1,4 +1,4 @@
-"""Bindings for the released harmonic oblique-trammel end bracket (MHA-CH-06-TL-28)."""
+"""Bindings for the released end bracket of a jig."""
 
 import math
 import re
@@ -12,12 +12,12 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
-    _harmonic_manifest,
     _inch_limits,
     _mid,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _string,
 )
 
@@ -26,7 +26,7 @@ from .cad import (
 # note (mm, by face) and in the process note (inch, with the bottoming-tap tip
 # marks). Both must match these exact phrasings and agree; anything else is
 # refused. Replace with structured thread_zone/tip_mark fields once
-# harmonic-analyzer exports them.
+# the CAD export provides them.
 _NOTE_ZONES = re.compile(
     r"FULL THREAD (\d+\.\d+) TO (\d+\.\d+) mm FROM THE TOP FACE "
     r"AND (\d+\.\d+) TO (\d+\.\d+) mm FROM THE BOTTOM FACE"
@@ -39,11 +39,9 @@ _PROCESS_ZONES = re.compile(
 _PRINTED_IN = 0.0005  # The process note prints three-place inches.
 
 
-def load_end_bracket(path: Path, parameters: dict) -> CadData:
+def load_end_bracket(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the bracket envelope, both shared-axis taps and their thread zones."""
-    raw, values, features = _harmonic_manifest(
-        path, "ch-rocker-arm-tl-oblique-end-bracket", "harmonic_end_bracket"
-    )
+    raw, values, features = _read_manifest(path, part, "end_bracket")
     _model_frame(raw)
 
     def feature(name: str) -> dict:
