@@ -512,6 +512,7 @@ gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.lug_x_band_mm}}" }, { gau
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em-3-8"
+drilling = "none"
 sizing = { kind = "band", band_mm = "{{cad.screw_dia_band_mm}}", depth_mm = "{{cad.lug_bore_mill_mm}}" }
 instruction = "Leadscrew clearance from the lug face: centre on the pilot; 3/8 end mill, Z0 on the lug face, plunged to Z −{{process.lug_bore_mill_in:.2dot}}, through to the first plunge."
 instruction_detailed = "Centre on the pilot where it opens in the lug face: the 5/16 drill in the chuck, spindle off, lowered into the pilot; lock both table axes. Change to the 3/8 end mill and touch it on the lug face, which shows round the pilot; zero Z there. Plunge it down the pilot to Z −{{process.lug_bore_mill_in:.2dot}}, where it meets the plunge from OUTER END; retract and brush the chips off. The .375 pin passes through the lug; the .379 enters neither end."

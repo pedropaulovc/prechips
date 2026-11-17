@@ -415,7 +415,7 @@ def _feed_process(values: dict, parameters: dict) -> None:
     Notch hold: the worst-case overhang, clear of the step, and the spacer
     offcut sawn from the bar, fitting beside the block within the jaws.
     Leadscrew clearance (before the notch): the pilot runs blind from OUTER
-    END to ``lug_bore_depth_in``, past the lug face at every drawing size; the
+    END to ``lug_bore_depth_mm``, past the lug face at every drawing size; the
     3/8 end mill plunges ``lug_bore_mill_in`` from OUTER END and, after the
     notch, the same from the lug face, Z zeroed on the face each enters, so
     each cuts exactly ``lug_bore_mill_in`` (tool_sizing checks it against the
@@ -453,12 +453,16 @@ def _feed_process(values: dict, parameters: dict) -> None:
         values["offcut_length_mm"] = offcut * 25.4
     if "spacer_over_max_in" in parameters:
         _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
-    if "lug_bore_depth_in" in parameters:
-        depth = _positive(parameters["lug_bore_depth_in"], "process.lug_bore_depth_in")
+    depth = math.inf
+    if "lug_bore_depth_mm" in parameters:
+        depth = (
+            _positive(parameters["lug_bore_depth_mm"], "process.lug_bore_depth_mm")
+            / 25.4
+        )
         if not values["length_max_in"] - values["lug_x_min_in"] < depth:
-            raise CadError("process.lug_bore_depth_in: must pass the lug face")
+            raise CadError("process.lug_bore_depth_mm: must pass the lug face")
         if not depth < values["length_min_in"]:
-            raise CadError("process.lug_bore_depth_in: must stop inside the block")
+            raise CadError("process.lug_bore_depth_mm: must stop inside the block")
         values["lug_bore_floor_in"] = length_in - depth
         values["lug_bore_floor_mm"] = (length_in - depth) * 25.4
     if "lug_bore_mill_in" in parameters:
@@ -470,7 +474,7 @@ def _feed_process(values: dict, parameters: dict) -> None:
             raise CadError("process.lug_bore_mill_in: the two plunges must meet")
         if not mill < values["length_min_in"] - values["lug_x_max_in"]:
             raise CadError("process.lug_bore_mill_in: must stop inside the lug")
-        if mill >= parameters.get("lug_bore_depth_in", math.inf):
+        if mill >= depth:
             raise CadError("process.lug_bore_mill_in: must stop short of the pilot")
         # The lug-face plunge's floor over the parallels at the thinnest lug.
         floor = values["length_min_in"] - values["lug_x_max_in"] - mill

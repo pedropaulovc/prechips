@@ -74,7 +74,7 @@ def _check_sizing(sizing: dict, tool: dict, tools: dict, where: str) -> None:
             )
         if "depth_mm" not in sizing:
             return
-        depth = _positive(sizing["depth_mm"], f"{where}.depth_mm")
+        depth = positive_mm(sizing["depth_mm"], f"{where}.depth_mm")
         flutes = _tool_size(tool, "flute_length_mm", where)
         if depth <= flutes:
             return
