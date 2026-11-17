@@ -798,6 +798,11 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             f'<th scope="col">Setup {setup_number} — Work</th>'
             '<th scope="col">Tool / settings</th></tr></thead><tbody>'
         )
+        # The plain tbody just opened has no rows. An op picture and its row
+        # get a tbody of their own ("closed" leaves none open), and no empty
+        # tbody is left between the header and a group: that break point
+        # would carry no break-avoid and could strand the heading.
+        body = "empty"
         for op_index, operation in enumerate(setup["operations"], 1):
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
@@ -816,8 +821,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 )
                 drawn |= roles
                 op_diagrams = True
+                if body == "empty":
+                    lines[-1] = lines[-1].removesuffix("<tbody>")
                 lines.append(
-                    '</tbody><tbody class="op-group">'
+                    ("</tbody>" if body == "rows" else "") + '<tbody class="op-group">'
                     f'<tr class="op-diagram"><td colspan="3">{diagram}</td></tr>'
                 )
             # The detailed slot, when selected and authored, replaces the
@@ -836,7 +843,11 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 text = _rich(operation[text_key])
                 rich |= text != _html(operation[text_key])
                 work = f'<div class="text">{text}</div>'
-            lines.append(f'<tr><td class="op-number">{operation_number}</td><td>{work}')
+            reopen = "<tbody>" if body == "closed" and not grouped else ""
+            lines.append(
+                f'{reopen}<tr><td class="op-number">{operation_number}</td><td>{work}'
+            )
+            body = "rows"
             if "inspection" in operation:
                 lines.append(
                     '<div class="text"><strong>Check:</strong> '
@@ -858,11 +869,13 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 )
             lines.append("</td></tr>")
             if grouped:
-                lines.append("</tbody><tbody>")
+                lines.append("</tbody>")
+                body = "closed"
             if "table" in operation:
                 data = operation["table"]
                 lines.append(
-                    '<tr class="data-row"><td colspan="3">'
+                    ("<tbody>" if body == "closed" else "")
+                    + '<tr class="data-row"><td colspan="3">'
                     f'<table class="data" aria-label="Op {operation_number} data">'
                     "<thead><tr>"
                     + "".join(
@@ -880,7 +893,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                         + "</tr>"
                     )
                 lines.append("</tbody></table></td></tr>")
-        lines.append("</tbody></table>")
+                body = "rows"
+        lines.append("</table>" if body == "closed" else "</tbody></table>")
         checks = setup.get("inspection", [])
         if len(checks) == 1:
             lines.append(
