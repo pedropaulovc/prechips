@@ -293,6 +293,8 @@ sizing = { kind = "tap_drill", tap = "tap" }                         # a plan to
 
 A band passes when the operation tool's `diameter_mm` lies inside the inclusive band; a reversed band refuses. A tap drill passes when the operation tool's `diameter_mm` equals the named tap's `tap_drill_mm` within 1e-6 mm. Plan `[[tools]]` and shop `[tools.<ref>]` records take numeric `diameter_mm` and `tap_drill_mm` (never printed); shop values flow into the plan tool unless it sets its own. A missing diameter or tap drill, an unknown tap id or a missing `sizing` refuses. The base-bar adapter supplies each drawing limit as `<limit>_band_mm` (such as `bracket_dia_band_mm`, `counterbore_dia_band_mm`, `slot_width_band_mm`), plus `slot_cutter_band_mm` for its slot operation: the cutter cuts its Ø plus twice the adapter's path offset e, so the band is the slot width band less 2e, and a shop end mill other than the one the offsets assume refuses.
 
+A band may add `depth_mm`, the cut depth the tool's flutes must cover: it refuses unless the tool declares a numeric `flute_length_mm` (never printed) at least that long, so a shank never follows its flutes into the hole (the feed block's 3/8 leadscrew plunges, against `block-em-3-8`'s recorded .50 in length of cut).
+
 Only the selected tool is compared; no nearer tool is suggested. Thread designation, tap class, operation order, reaming allowance and actual cut size (runout, drill wander) are not checked.
 
 ### Indexing

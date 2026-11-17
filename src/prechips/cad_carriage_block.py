@@ -437,6 +437,8 @@ def _feed_process(values: dict, parameters: dict) -> None:
             raise CadError("process.lug_bore_mill_in: must stop short of the pilot")
         values["lug_bore_back_z_in"] = back_z
         values["lug_bore_back_floor_mm"] = (length_in - back_z) * 25.4
+        # Each plunge's depth, for tool_sizing against the cutter's flutes.
+        values["lug_bore_mill_mm"] = mill * 25.4
     if "notch_side_overrun_in" in parameters and "half_cutter_dia_mm" in parameters:
         overrun = _positive(
             parameters["notch_side_overrun_in"], "process.notch_side_overrun_in"

@@ -106,3 +106,20 @@ def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
     bored.write_text(text.replace(old, old + '"process" = "bore"\n'), "utf-8")
     with pytest.raises(CadError, match="plain through hole"):
         load_feed_block(bored, {})
+
+
+def test_refuses_a_lug_plunge_deeper_than_the_flutes(tmp_path, capsys):
+    # Each 3/8 plunge must stay within the cutter's recorded length of cut,
+    # so its shank never follows the flutes into the hole.
+    examples = (ROOT / "examples").as_posix()
+    text = (ROOT / "examples/feed-block.toml").read_text(encoding="utf-8")
+    old = "lug_bore_mill_in = 0.45"
+    assert text.count(old) == 1
+    text = text.replace(old, "lug_bore_mill_in = 0.55")
+    for name in ('"shop.toml"', '"cad/', '"diagrams/'):
+        text = text.replace(name, f'"{examples}/{name[1:]}')
+    plan = tmp_path / "feed-block.toml"
+    plan.write_text(text, encoding="utf-8")
+    out = tmp_path / "out.html"
+    assert main(["traveler", str(plan), "--profile", "pro", "--out", str(out)]) != 0
+    assert "shorter than" in capsys.readouterr().err
