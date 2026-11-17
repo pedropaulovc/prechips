@@ -16,6 +16,7 @@ from .cad import (
     _model_frame,
     _number,
     _positive,
+    _shorthand,
 )
 
 
@@ -100,6 +101,8 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     _edge_breaks(raw, values)
     # End cuts: the cutter tip's depth below the underside, and the same Z
     # from the as-bought top (blank thickness plus that depth), as printed.
+    # The bar is as supplied, up to the thickness band's top, so the depth the
+    # hobby text prints (.2dot) must pass the thickest bar's underside.
     if "end_cut_tip_z_mm" in parameters:
         tip = _number(parameters["end_cut_tip_z_mm"], "process.end_cut_tip_z_mm")
         if tip >= 0:
@@ -108,7 +111,14 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
         thickness = _positive(
             parameters.get("blank_thickness_in"), "process.blank_thickness_in"
         )
-        values["end_cut_depth_in"] = thickness - tip / 25.4
+        depth = thickness - tip / 25.4
+        printed = _shorthand(round(depth, 9), 2)
+        if float(printed) <= values["thickness_max_in"]:
+            raise CadError(
+                f"process.end_cut_tip_z_mm: printed depth from the top {printed}"
+                f" does not pass the thickest bar ({values['thickness_max_in']:.4f})"
+            )
+        values["end_cut_depth_in"] = depth
     # The two grip-end plan corners (drawing 2X R.2): one fillet record.
     corners = features.get("grip_corners")
     if (
