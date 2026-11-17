@@ -17,7 +17,17 @@ from .cad import (
     _model_frame,
     _number,
     _positive,
+    _shorthand,
 )
+
+
+def _exact_shorthand(value: float, where: str) -> str:
+    """Shop shorthand that reads back as ``value``: the printed station is the one used."""
+    for places in (1, 2, 3):
+        text = _shorthand(value, places)
+        if float(text) == value:
+            return text
+    raise CadError(f"{where}: give it to .001 in at most, as the sheet prints it")
 
 
 def load_feed_lever(path: Path, parameters: dict) -> CadData:
@@ -105,18 +115,32 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     # End squareness: the allowed spread of two DRO X readings on one end,
     # taken at the authored Y stations from ZERO EDGE: their span (not the
     # full width) × tan(±angular_deg). Both must lie on the narrowest end.
-    if "square_probe_near_y_in" in parameters:
-        at = "process.square_probe_{near,far}_y_in"
-        near = _number(parameters["square_probe_near_y_in"], at)
-        far = _number(parameters.get("square_probe_far_y_in"), at)
+    # The sheet prints the stations bound here, from the same numbers.
+    probes = ("square_probe_near_y_in", "square_probe_far_y_in")
+    if any(key in parameters for key in probes):
+        near, far = (_number(parameters.get(key), f"process.{key}") for key in probes)
         if not 0 < near < far < values["width_min_in"]:
             raise CadError(
-                f"{at}: expected 0 < near < far < {values['width_min_in']:.3f} "
-                "(the narrowest end)"
+                f"process.square_probe_{{near,far}}_y_in: expected 0 < near < far < "
+                f"{values['width_min_in']:.3f} (the narrowest end)"
+            )
+        for key, station in zip(probes, (near, far)):
+            values[key.removesuffix("_in")] = _exact_shorthand(
+                station, f"process.{key}"
             )
         values["end_square_in"] = (far - near) * math.tan(
             math.radians(values["angular_tol_deg"])
         )
+    # End-cut Z from the as-bought top: the blank thickness plus the cutter
+    # tip's depth below the underside.
+    if "end_cut_tip_z_mm" in parameters:
+        tip = _number(parameters["end_cut_tip_z_mm"], "process.end_cut_tip_z_mm")
+        if tip >= 0:
+            raise CadError("process.end_cut_tip_z_mm: expected below the underside")
+        thickness = _positive(
+            parameters.get("blank_thickness_in"), "process.blank_thickness_in"
+        )
+        values["end_cut_depth_in"] = thickness - tip / 25.4
     # The two grip-end plan corners (drawing 2X R.2): one fillet record.
     corners = features.get("grip_corners")
     if (

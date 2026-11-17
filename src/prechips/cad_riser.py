@@ -43,34 +43,18 @@ def _in(value_mm: float, places: int = 3) -> str:
     return _shorthand(value_mm / 25.4, places)
 
 
-def _face_stations(parameters: dict, values: dict) -> None:
-    """Bind Setup 2's strap layout and faced spans, inches from the blank's left end.
+def _face_layout(blank: float, layout: dict) -> tuple:
+    """Stage A spans, Stage B cuts and both strap sets on one blank, inches.
 
-    Stage A faces two spans between the end straps and the middle strap, the
-    cutter edge ``strap_clear_in`` off each strap; Stage B faces both ends and
-    the strip under the middle strap, each ``face_overlap_in`` over Stage A,
-    from four straps on Stage A's faced metal. The milling_deflection supports
-    and traverses are these same stations in mm, so the beams cannot drift
-    from the printed layout.
+    Refuses a layout that leaves no Stage A span or puts a Stage B strap off
+    Stage A's faced metal or in a Stage B cut.
     """
-
-    def get(key: str) -> float:
-        return _positive(parameters.get(key), f"process.{key}")
-
-    blank, toe, clear = (
-        get("blank_length_in"),
-        get("strap_toe_in"),
-        get("strap_clear_in"),
-    )
-    overlap, mid, strap = (
-        get("face_overlap_in"),
-        get("strap_a_mid_x_in"),
-        get("strap_width_in"),
-    )
-    outer, inner = get("strap_b_outer_in"), get("strap_b_inner_in")
+    toe, clear, overlap = layout["toe"], layout["clear"], layout["overlap"]
+    mid, strap = layout["mid"], layout["strap"]
+    outer, inner = layout["outer"], layout["inner"]
     if not outer < inner < blank - inner:
         raise CadError(
-            "process.strap_b_*_in: expected outer < inner < blank_length_in - inner"
+            "process.strap_b_*_in: expected outer < inner < blank length - inner"
         )
     a0, a1 = toe + clear, blank - toe - clear
     m0, m1 = mid - strap / 2 - clear, mid + strap / 2 + clear
@@ -88,16 +72,63 @@ def _face_stations(parameters: dict, values: dict) -> None:
             )
     # Stage A's end straps bear half their toe in from each end.
     straps_a = (toe / 2, mid, blank - toe / 2)
+    return stage_a, stage_b, straps_a, straps_b
+
+
+def _cut_supports(cut: tuple, straps: tuple) -> tuple:
+    """The Stage B straps a cut bends on: the nearest on each side, or, for an
+    end cut with none beyond it, the two nearest (the cut overhangs them)."""
+    left = [x for x in straps if x < cut[0]]
+    right = [x for x in straps if x > cut[1]]
+    if left and right:
+        return left[-1], right[0]
+    return tuple(left[-2:]) if left else tuple(right[:2])
+
+
+def _face_stations(parameters: dict, values: dict) -> None:
+    """Bind Setup 2's strap layout and faced spans, inches from the blank's left end.
+
+    Stage A faces two spans between the end straps and the middle strap, the
+    cutter edge ``strap_clear_in`` off each strap; Stage B faces both ends and
+    the strip under the middle strap, each ``face_overlap_in`` over Stage A,
+    from four straps on Stage A's faced metal. The printed layout is the
+    nominal blank's; every sawn length must take it. The milling_deflection
+    supports and traverses are the same layout on the longest blank (its
+    right-hand spans are the longest), in mm, so the beams cannot drift from
+    the printed layout.
+    """
+
+    def get(key: str) -> float:
+        return _positive(parameters.get(key), f"process.{key}")
+
+    layout = {
+        name: get(key)
+        for name, key in (
+            ("toe", "strap_toe_in"),
+            ("clear", "strap_clear_in"),
+            ("overlap", "face_overlap_in"),
+            ("mid", "strap_a_mid_x_in"),
+            ("strap", "strap_width_in"),
+            ("outer", "strap_b_outer_in"),
+            ("inner", "strap_b_inner_in"),
+        )
+    }
+    _face_layout(get("blank_min_length_in"), layout)
+    stage_a, stage_b, straps_a, straps_b = _face_layout(get("blank_length_in"), layout)
     values["face_stage_a_in"] = [list(span) for span in stage_a]
     values["face_stage_b_in"] = [list(span) for span in stage_b]
     values["face_straps_a_in"] = list(straps_a)
     values["face_straps_b_in"] = list(straps_b)
+    stage_a, stage_b, straps_a, straps_b = _face_layout(
+        get("blank_max_length_in"), layout
+    )
     for key, span, supports in (
         ("a_left", stage_a[0], straps_a[:2]),
         ("a_right", stage_a[1], straps_a[1:]),
-        ("b_left", stage_b[0], straps_b[:2]),
-        ("b_mid", stage_b[1], straps_b[1:3]),
-        ("b_right", stage_b[2], straps_b[2:]),
+        *(
+            (f"b_{side}", cut, _cut_supports(cut, straps_b))
+            for side, cut in zip(("left", "mid", "right"), stage_b)
+        ),
     ):
         values[f"face_{key}_mm"] = [span[0] * 25.4, span[1] * 25.4]
         values[f"face_{key}_supports_mm"] = [supports[0] * 25.4, supports[1] * 25.4]
@@ -157,8 +188,11 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         raise CadError("carrier_seat.height: disagrees with the top face")
     length, width = values["length_mm"], values["width_mm"]
     # Setup 1 sends any bar within the thickness band past Setup 2, so beams
-    # through the finished thickness take its thinnest (the most flexible).
+    # through the finished thickness take its thinnest (the most flexible);
+    # Setup 2 gets only bars over the band, so its unfaced metal is at least
+    # the band's top.
     values["thickness_min_mm"] = values["thickness_band_mm"][0]
+    values["thickness_max_mm"] = values["thickness_band_mm"][1]
 
     def hole(name: str) -> tuple[dict, float, float]:
         item = feature(name)
