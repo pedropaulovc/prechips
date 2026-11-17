@@ -6,8 +6,9 @@ from above with the operator at the bottom of the page: +X right from ZERO END,
 +Y up the page from ZERO EDGE (the front edge), as sheet 2 draws the plate.
 Plate geometry, hole positions and block stations come from the adapter; the
 blank, cutter, block and strap-toe sizes from authored parameters. Blocks,
-straps, cutters and pins are schematic symbols, and the face elevations
-exaggerate the removed layer so it shows.
+straps, cutters and pins are schematic symbols, feed arrows show the cutter's
+path over the plate, and the face elevations exaggerate the removed layer so
+it shows.
 """
 
 from __future__ import annotations
@@ -41,9 +42,6 @@ _STEPS = {
 }
 _STRAP = 0.55  # schematic strap bar width, inches
 _HEEL = 1.1  # schematic step-block distance outside the plate edge, inches
-# Straps lie on top of the plate: drawn in the tool layer (above the kept
-# plate) in the fixture colour of the jaws layer.
-_STRAP_STYLE = {"fill": "#8a9099"}
 
 
 @dataclass(frozen=True)
@@ -150,7 +148,7 @@ def _plan(values: dict, parameters: dict, step: str) -> _Plan:
 
 
 def _axes_up(groups: Groups, x: float, y: float) -> None:
-    groups["arrows"] += [_line(x, y, x + 36, y), _line(x, y, x, y - 28)]
+    groups["arrow"] += [_line(x, y, x + 36, y), _line(x, y, x, y - 28)]
     _label(groups, x + 40, y + 5, "+X")
     _label(groups, x + 6, y - 32, "+Y")
 
@@ -158,19 +156,15 @@ def _axes_up(groups: Groups, x: float, y: float) -> None:
 def _strap_y(groups: Groups, x: float, heel: float, toe: float, s: float) -> None:
     """A strap across a long edge at ``x``: step block at ``heel``, toe at ``toe``."""
     half = _STRAP * s / 2
-    groups["tool"].append(
-        _rect(x - half, min(heel, toe), 2 * half, abs(toe - heel), **_STRAP_STYLE)
-    )
-    groups["fixture"].append(_rect(x - half - 4, heel - 8, 2 * half + 8, 16))
+    groups["clamp"].append(_rect(x - half, min(heel, toe), 2 * half, abs(toe - heel)))
+    groups["fixture-support"].append(_rect(x - half - 4, heel - 8, 2 * half + 8, 16))
 
 
 def _strap_x(groups: Groups, heel: float, toe: float, y: float, s: float) -> None:
     """A strap along the plate at ``y``: step block at ``heel``, toe at ``toe``."""
     half = _STRAP * s / 2
-    groups["tool"].append(
-        _rect(min(heel, toe), y - half, abs(toe - heel), 2 * half, **_STRAP_STYLE)
-    )
-    groups["fixture"].append(_rect(heel - 8, y - half - 4, 16, 2 * half + 8))
+    groups["clamp"].append(_rect(min(heel, toe), y - half, abs(toe - heel), 2 * half))
+    groups["fixture-support"].append(_rect(heel - 8, y - half - 4, 16, 2 * half + 8))
 
 
 def _edge_strap(groups: Groups, plan: _Plan, x: float, front: bool) -> None:
@@ -182,7 +176,7 @@ def _edge_strap(groups: Groups, plan: _Plan, x: float, front: bool) -> None:
 
 def _draw_blocks(groups: Groups, plan: _Plan) -> None:
     for x in plan.blocks:
-        groups["hidden"].append(
+        groups["fixture-support"].append(
             _rect(
                 plan.px(x - plan.along / 2),
                 plan.middle - plan.across / 2 * plan.s,
@@ -208,18 +202,18 @@ def _draw_datums(groups: Groups, plan: _Plan) -> None:
 
 def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
     left, right = plan.ends
-    groups["arriving"].append(
+    groups["part-arriving"].append(
         _rect(left, plan.back, right - left, plan.front - plan.back)
     )
-    groups["removed"] += [
+    groups["part-removed"] += [
         _rect(left, plan.back, right - left, plan.kept_back - plan.back),
         _rect(left, plan.kept_front, right - left, plan.front - plan.kept_front),
     ]
-    groups["active"] += [
+    groups["active-face"] += [
         _line(left, plan.kept_back, right, plan.kept_back),
         _line(left, plan.kept_front, right, plan.kept_front),
     ]
-    groups["kept"].append(
+    groups["part-kept"].append(
         _rect(left, plan.kept_back, right - left, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
@@ -227,11 +221,11 @@ def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
     _strap_x(groups, right + 1.2 * plan.s, plan.px(plan.blocks[3]), plan.middle, plan.s)
     radius = plan.cutter / 2 * plan.s
     y_front, y_back = plan.kept_front + radius, plan.kept_back - radius
-    groups["tool"] += [
+    groups["cutter"] += [
         _el("circle", cx=left - radius - 2, cy=y_front, r=radius),
         _el("circle", cx=right + radius + 2, cy=y_back, r=radius),
     ]
-    groups["arrows"] += [
+    groups["arrow"] += [
         _line(left + 6, y_front + radius + 6, left + 66, y_front + radius + 6),
         _line(right - 6, y_back - radius - 6, right - 66, y_back - radius - 6),
     ]
@@ -252,9 +246,9 @@ def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
     ]
     _label(groups, right + 52, plan.middle + 5, _shorthand(_cad(values, "width_in"), 1))
     return [
-        (left - radius - 2, y_front + radius, ["front edge first, +X"]),
+        (left - radius - 2, y_front + radius, ["front edge first,", "cutter path +X"]),
         (plan.px(plan.blocks[1]), plan.front, ["4 blocks, 1 in up"]),
-        (right + radius + 2, y_back, ["back edge, −X, to width"]),
+        (right + radius + 2, y_back, ["back edge to width,", "cutter path −X"]),
     ]
 
 
@@ -279,39 +273,46 @@ def _ends(groups: Groups, plan: _Plan, values: dict) -> Items:
     )
     _draw_datums(groups, plan)
     return [
-        (left_cut, below + radius, ["ZERO END first, −Y"]),
+        (left_cut, below + radius, ["ZERO END first,", "cutter path −Y"]),
         (
             plan.px(plan.blocks[0]),
             plan.front + _HEEL * plan.s,
             ["toes over end blocks"],
         ),
-        (right_cut, below + radius, ["right end, +Y, to length"]),
+        (right_cut, below + radius, ["right end to length,", "cutter path +Y"]),
     ]
 
 
 def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
-    groups["kept"].append(
+    groups["part-kept"].append(
         _rect(plan.px(0), plan.kept_back, plan.length * plan.s, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
     _edge_strap(groups, plan, plan.blocks[0], front=True)
     _edge_strap(groups, plan, plan.blocks[3], front=False)
-    # Second clamping: end straps on faced metal over the outer blocks.
+    # Second clamping: end straps on faced metal over the outer blocks, dashed.
     half = _STRAP * plan.s / 2
     for x, heel in (
         (plan.blocks[0], plan.px(0) - 1.2 * plan.s),
         (plan.blocks[3], plan.px(plan.length) + 1.2 * plan.s),
     ):
         tip = plan.px(x)
-        groups["hidden"].append(
-            _rect(min(heel, tip), plan.middle - half, abs(tip - heel), 2 * half)
+        groups["clamp"].append(
+            _rect(
+                min(heel, tip),
+                plan.middle - half,
+                abs(tip - heel),
+                2 * half,
+                fill="none",
+                stroke_dasharray="5 3",
+            )
         )
     radius = plan.cutter / 2 * plan.s
     rows = max(2, int(plan.width / 0.6))
     pitch = plan.width * plan.s / rows
     for row in range(rows):
         y = plan.kept_back + (row + 0.5) * pitch
-        groups["leaders"].append(
+        groups["leader"].append(
             _line(
                 plan.px(0) - radius,
                 y,
@@ -320,7 +321,7 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
                 stroke_dasharray="2 5",
             )
         )
-    groups["tool"].append(
+    groups["cutter"].append(
         _el(
             "circle",
             cx=plan.px(0) - radius - 2,
@@ -333,7 +334,7 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
 
 
 def _holes(groups: Groups, plan: _Plan, values: dict) -> Items:
-    groups["kept"].append(
+    groups["part-kept"].append(
         _rect(plan.px(0), plan.kept_back, plan.length * plan.s, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
@@ -350,7 +351,7 @@ def _holes(groups: Groups, plan: _Plan, values: dict) -> Items:
         r = max(dia / 2 * plan.s, 2.0)
         cx, cy = plan.px(x), plan.py(y)
         groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
-        groups["active"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
+        groups["active-face"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
         _hole_label(groups, tag, cx, cy, r)
     hub = (plan.px(_cad(values, "hub_x_in")), plan.py(_cad(values, "hub_y_in")))
     groups["hidden"].append(
@@ -380,12 +381,12 @@ def _coupon(groups: Groups, plan: _Plan, pin: float) -> None:
     left = plan.coupon_x - plan.coupon_length / 2
     right = plan.coupon_x + plan.coupon_length / 2
     back = plan.py(plan.coupon_y + plan.coupon_width / 2)
-    groups["kept"].append(
+    groups["part-kept"].append(
         _rect(plan.px(left), back, plan.coupon_length * s, plan.coupon_width * s)
     )
     inset = (plan.coupon_length / 2 - pin) / 2
     for centre in (left + inset, right - inset):
-        groups["hidden"].append(
+        groups["fixture-support"].append(
             _rect(
                 plan.px(centre - _PARALLEL / 2),
                 back,
@@ -396,7 +397,7 @@ def _coupon(groups: Groups, plan: _Plan, pin: float) -> None:
     cx, cy = plan.px(plan.coupon_x), plan.py(plan.coupon_y)
     r = pin / 2 * s
     groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
-    groups["active"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
+    groups["active-face"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
     heel = plan.px(right + _HEEL)
     _strap_x(groups, heel, plan.px(right - inset), cy, s)
     _label(groups, heel + 14, cy - 2, "test coupon on")
@@ -420,11 +421,11 @@ def _elevation(groups: Groups, plan: _Plan, values: dict, top_y: float) -> float
     layer = 5.0
     table = base + plate_h + layer + block_h
     _title(groups, 20, base - 12, "Front elevation (removed layer exaggerated)")
-    groups["fixture"].append(
+    groups["fixture-table"].append(
         _line(plan.px(0) - 30, table, plan.px(plan.length) + 30, table)
     )
     for x in plan.blocks:
-        groups["fixture"].append(
+        groups["fixture-support"].append(
             _rect(
                 plan.px(x - plan.along / 2),
                 table - block_h,
@@ -433,11 +434,11 @@ def _elevation(groups: Groups, plan: _Plan, values: dict, top_y: float) -> float
             )
         )
     top = table - block_h - plate_h
-    groups["kept"].append(_rect(plan.px(0), top, plan.length * plan.s, plate_h))
-    groups["removed"].append(
+    groups["part-kept"].append(_rect(plan.px(0), top, plan.length * plan.s, plate_h))
+    groups["part-removed"].append(
         _rect(plan.px(0), top - layer, plan.length * plan.s, layer)
     )
-    groups["active"].append(_line(plan.px(0), top, plan.px(plan.length), top))
+    groups["active-face"].append(_line(plan.px(0), top, plan.px(plan.length), top))
     low, high = (_cad(values, f"thickness_{end}_in") for end in ("min", "max"))
     target = f"TOP only, to {_shorthand(low, 3)}–{_shorthand(high, 3)} thick"
     return _callouts(
@@ -500,7 +501,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
     for sign in (-1, 1):
         inner = cx + sign * half_bore
         outer = cx + sign * 110
-        groups["kept"].append(
+        groups["part-kept"].append(
             _el(
                 "path",
                 d=(
@@ -510,7 +511,7 @@ def _section(groups: Groups, values: dict, parameters: dict) -> float:
             )
         )
     spacer_half = seat / 2 * s
-    groups["hidden"].append(_rect(cx - spacer_half, bottom + 2, 2 * spacer_half, 46))
+    groups["part-rest"].append(_rect(cx - spacer_half, bottom + 2, 2 * spacer_half, 46))
     low = _shorthand(_cad(values, "pin_dia_min_in"), 4)
     brk_max = _shorthand(_cad(values, "chamfer_max_in"), 3)
     return _callouts(

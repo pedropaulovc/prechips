@@ -1,4 +1,5 @@
 import base64
+import re
 import subprocess
 from html.parser import HTMLParser
 
@@ -280,6 +281,36 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     assert html.index(second_image) < html.index("Locate the pattern.")
     assert 'alt="Vise &amp; stock &lt;side view&gt;"' in html
     assert "<svg" not in html
+
+
+def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
+    diagrams = tmp_path / "diagrams"
+    diagrams.mkdir()
+    (diagrams / "setup.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<defs><marker id="arr"><path d="M0 0L4 2L0 4z"/></marker></defs>'
+        '<rect class="st0" width="4" height="4"/>'
+        '<rect class="st0 clamp" width="4" height="4"/></svg>',
+        encoding="utf-8",
+    )
+    result, out = run_cli(
+        tmp_path,
+        with_diagram(PLAN),
+        "--profile",
+        stock_free_profile(tmp_path, diagrams=True),
+    )
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    images = re.findall(r'src="data:image/svg\+xml;base64,([^"]+)"', html)
+    picture = next(
+        base64.b64decode(image).decode("utf-8")
+        for image in images
+        if b"st0" in base64.b64decode(image)
+    )
+    assert '<rect class="st0" width="4" height="4"' in picture
+    assert 'class="st0 clamp" width="4" height="4" fill=' in picture
+    assert picture.count('id="arr"') == 1
+    assert "M0 0L4 2L0 4z" in picture
 
 
 @pytest.mark.parametrize("asset", [None, "missing.svg", "invalid.svg"])

@@ -46,7 +46,7 @@ def test_notch_picture_draws_the_spacer_offcut_at_its_size(tmp_path):
             r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", out.read_text("utf-8")
         )
         for group in ElementTree.fromstring(base64.b64decode(data)).iter(f"{svg}g")
-        if group.get("fill") == "#e6e7e9"  # fixtures
+        if group.get("class") == "fixture-support"
         for rect in group.iter(f"{svg}rect")
     ]
     assert any(

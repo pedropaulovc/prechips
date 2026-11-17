@@ -8,7 +8,7 @@ from math import isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
-from prechips import indexing, speeds
+from prechips import indexing, palette, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
@@ -485,15 +485,16 @@ def _diagram_html(
     source_dir: Path,
     cad: CadData | None,
     parameters: dict,
-) -> str:
+) -> tuple[str, set[str]]:
+    """Return the setup's picture figure and the palette roles it draws."""
     if "setup_diagrams" not in profile.features:
-        return ""
+        return "", set()
     diagram = setup.get("diagram")
     where = f"setup {setup['title']!r}.diagram"
     if diagram is None:
         if "setup_diagrams" in profile.enforce:
             raise PlanError(f"{where}: required by profile {profile.name!r}")
-        return ""
+        return "", set()
     path = source_dir / diagram["file"]
     try:
         content = path.read_bytes()
@@ -504,17 +505,21 @@ def _diagram_html(
         root = ElementTree.fromstring(content)
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
+        drawn = palette.paint(root)
+        if drawn:
+            content = ElementTree.tostring(root, encoding="utf-8")
     except (OSError, ElementTree.ParseError, ValueError) as error:
         raise PlanError(
             f"{where}: cannot use SVG {diagram['file']!r}: {error}"
         ) from error
     image = base64.b64encode(content).decode("ascii")
     alt = _html(diagram["alt"])
-    return (
+    figure = (
         '<figure class="setup-diagram">'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
+    return figure, drawn
 
 
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
@@ -547,6 +552,9 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             lines.append("<td></td>")
         lines.append("</tr>")
     lines.append("</tbody></table>")
+    # The palette's key prints here, once, listing the roles the pictures draw.
+    key_at = len(lines)
+    drawn: set[str] = set()
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -568,9 +576,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 )
             lines.append("</dl>")
         lines.append("</div>")
-        diagram = _diagram_html(
+        diagram, roles = _diagram_html(
             setup, profile, source_dir, loaded.cad, loaded.parameters
         )
+        drawn |= roles
         if diagram:
             lines.append(diagram)
         lines.append(
@@ -643,5 +652,16 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 lines.append(f'<li class="text">{_html(check)}</li>')
             lines.append("</ul>")
         lines.append("</section>")
+    entries = [(role, text) for role, text in palette.LEGEND if role in drawn]
+    if entries:
+        key = base64.b64encode(palette.legend_svg(entries)).decode("ascii")
+        alt = _html("Picture key: " + "; ".join(text for _, text in entries))
+        lines.insert(
+            key_at,
+            '<figure class="picture-key" style="margin: 0.08in 0">'
+            f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
+            ' style="display: block; width: 100%">'
+            "</figure>",
+        )
     lines.append("</body></html>\n")
     return "\n".join(lines)

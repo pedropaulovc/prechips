@@ -2,11 +2,13 @@
 
 Each layout draws one setup in its own Z frame (X diametric, Z+ away from the
 chuck) as a plan view with the operator side at the bottom. Part outlines come
-from CAD values and authored process parameters: arriving material dashed,
-material kept after the setup solid, material removed in the setup hatched.
-Chuck, shim, centre, rest and tool shapes are schematic symbols owned by the
-SVG; layouts only anchor them. Labels sit on rows, spread in anchor order so
-they cannot overlap, with leaders back to their features.
+from CAD values and authored process parameters, drawn in
+:mod:`prechips.palette` roles: arriving material dashed, material kept after
+the setup solid, material removed in the setup hatched. Chuck, shim, centre,
+rest and tool shapes are schematic symbols owned by the SVG; layouts only
+anchor them. Labels sit on rows, spread in anchor order so they cannot
+overlap, with leaders back to their features. The traveler prints the
+palette's legend once.
 """
 
 from __future__ import annotations
@@ -41,21 +43,22 @@ JAW = 26.0
 CHUCK = 44.0
 SHIM = 3.0
 TOOL = 50.0
-LEGEND = 40.0
+# Template groups the layouts fill, by palette role.
 GROUPS = (
-    "removed",
-    "waste",
-    "arriving",
-    "kept",
-    "centre",
-    "active",
-    "planes",
+    "part-removed",
+    "part-waste",
+    "part-arriving",
+    "part-kept",
+    "centre-line",
+    "active-face",
     "datum",
-    "arrows",
+    "arrow",
     "dims",
-    "leaders",
-    "labels",
+    "leader",
+    "label",
 )
+# Rough-stop and parting planes: dashed datum lines.
+_PLANE = {"stroke_width": 1.5, "stroke_dasharray": "5 3"}
 
 
 @dataclass(frozen=True)
@@ -220,12 +223,14 @@ def _callouts(
         row = end + 4
     for (x, y, lines), centre in zip(items, centres):
         first = row - (len(lines) - 1) * LINE if above else row + FONT - 2
-        groups["leaders"].append(
+        groups["leader"].append(
             _el("polyline", points=f"{_pt(centre, end)} {_pt(x, knee)} {_pt(x, y)}")
         )
-        groups["leaders"].append(_el("circle", cx=x, cy=y, r=1.8, fill="#333"))
+        groups["leader"].append(
+            _el("circle", cx=x, cy=y, r=1.8, **{"class": "leader-dot"})
+        )
         for index, line in enumerate(lines):
-            groups["labels"].append(
+            groups["label"].append(
                 _text(centre, first + index * LINE, line, text_anchor="middle")
             )
     if above:
@@ -254,9 +259,9 @@ def _dimension(
         _line(x0, y, x1, y, marker_start="url(#arr)", marker_end="url(#arr)"),
     ]
     if beside:
-        groups["labels"].append(_text(x1 + 6, y + 5, text))
+        groups["label"].append(_text(x1 + 6, y + 5, text))
     else:
-        groups["labels"].append(_text((x0 + x1) / 2, y - 5, text, text_anchor="middle"))
+        groups["label"].append(_text((x0 + x1) / 2, y - 5, text, text_anchor="middle"))
 
 
 def _chuck(
@@ -286,25 +291,11 @@ def _groups() -> dict[str, list[Element]]:
 
 
 def _frame_view(
-    chuck: dict[str, float],
-    top: float,
-    bottom: float,
-    legend: tuple[float, float] | None = None,
-    **view: float,
+    chuck: dict[str, float], top: float, bottom: float, **view: float
 ) -> dict[str, float]:
-    """View scalars and picture band; the legend goes below unless placed."""
+    """View scalars and the picture band from ``top`` to ``bottom``."""
     top -= 10
-    if legend is None:
-        legend = (10.0, bottom + 14)
-        bottom = legend[1] + LEGEND
-    return _view(
-        **chuck,
-        **view,
-        top=top,
-        legend_x=legend[0],
-        legend_y=legend[1],
-        height=bottom + 10 - top,
-    )
+    return _view(**chuck, **view, top=top, height=bottom + 10 - top)
 
 
 def _short(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
@@ -328,12 +319,12 @@ def _short(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups = _groups()
     arriving = [(left, radius), (allowance, radius)]
     kept = [(left, radius), (0.0, radius)]
-    groups["removed"].append(_solid(frame, arriving, left_break=True))
-    groups["arriving"].append(_solid(frame, arriving, left_break=True))
-    groups["kept"].append(_solid(frame, kept, left_break=True))
+    groups["part-removed"].append(_solid(frame, arriving, left_break=True))
+    groups["part-arriving"].append(_solid(frame, arriving, left_break=True))
+    groups["part-kept"].append(_solid(frame, kept, left_break=True))
     end = frame.x(0)
     drill = end + 20
-    groups["centre"].append(
+    groups["centre-line"].append(
         _line(frame.x(left) - 8, frame.axis, drill + 84, frame.axis)
     )
     groups["datum"].append(
@@ -415,20 +406,20 @@ def _supported(values: dict, parameters: dict, root: ElementTree.Element) -> Lay
         (relief_high, bearing),
         (plain, bearing),
     ]
-    groups["removed"].append(_solid(frame, arriving))
-    groups["arriving"].append(_solid(frame, arriving))
-    groups["kept"].append(_solid(frame, kept))
+    groups["part-removed"].append(_solid(frame, arriving))
+    groups["part-arriving"].append(_solid(frame, arriving))
+    groups["part-kept"].append(_solid(frame, kept))
     centre_x = frame.x(plain)
-    groups["centre"].append(
+    groups["centre-line"].append(
         _line(frame.x(stub) - 8, frame.axis, centre_x + 76, frame.axis)
     )
     groups["datum"].append(
         _line(frame.x(0), frame.up(radius) - 8, frame.x(0), frame.down(radius) + 8)
     )
     arrow_y = frame.down(radius) + 12
-    groups["arrows"].append(_line(frame.x(reset) - 8, arrow_y, frame.x(0) + 3, arrow_y))
+    groups["arrow"].append(_line(frame.x(reset) - 8, arrow_y, frame.x(0) + 3, arrow_y))
     window = (-shoulder - 2, relief_high + 5)
-    groups["leaders"].append(
+    groups["leader"].append(
         _el(
             "rect",
             x=frame.x(window[0]),
@@ -486,22 +477,23 @@ def _supported(values: dict, parameters: dict, root: ElementTree.Element) -> Lay
         )
         box_bottom = detail.up(floor) + 8
         box_right = detail.x(window[1]) + 8
-        into["removed"].append(_half(detail, arriving_detail, floor))
-        into["arriving"].append(_meridian(detail, arriving_detail))
-        into["kept"].append(_half(detail, kept_detail, floor, stroke="none"))
-        into["kept"].append(_meridian(detail, kept_detail, fill="none"))
-        into["active"].append(
+        into["part-removed"].append(_half(detail, arriving_detail, floor))
+        into["part-arriving"].append(_meridian(detail, arriving_detail))
+        into["part-kept"].append(_half(detail, kept_detail, floor, stroke="none"))
+        into["part-kept"].append(_meridian(detail, kept_detail, fill="none"))
+        into["active-face"].append(
             _line(detail.x(0), detail.up(relief), detail.x(0), detail.up(radius))
         )
-        into["planes"].append(
+        into["datum"].append(
             _line(
                 detail.x(stop),
                 detail.up(radius) - 6,
                 detail.x(stop),
                 detail.up(bearing),
+                **_PLANE,
             )
         )
-        into["leaders"].append(
+        into["leader"].append(
             _el(
                 "rect",
                 x=box_left,
@@ -540,14 +532,12 @@ def _supported(values: dict, parameters: dict, root: ElementTree.Element) -> Lay
     trial_top, box_right, _ = draw_detail(0.0, _groups())
     box_top = bottom + 14 - trial_top
     _, _, box_bottom = draw_detail(box_top, groups)
-    legend_x = WIDTH - 260
-    if box_right + 20 > legend_x:
+    if box_right + 10 > WIDTH:
         raise CadError("diagram detail A is wider than its printed band")
     view = _frame_view(
         chuck,
         top,
-        max(box_bottom, box_top + 10 + 2 * LEGEND),
-        (legend_x, box_top + 10),
+        box_bottom,
         axis=frame.axis,
         tool_x=frame.x(reset),
         tool_y=tool_y,
@@ -601,10 +591,10 @@ def _reverse(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         (relief_end, journal),
         *_dome(base, sphere, height),
     ]
-    groups["removed"].append(_solid(frame, arriving, left_break=True))
-    groups["arriving"].append(_solid(frame, arriving, left_break=True))
-    groups["kept"].append(_solid(frame, kept, left_break=True))
-    groups["centre"].append(
+    groups["part-removed"].append(_solid(frame, arriving, left_break=True))
+    groups["part-arriving"].append(_solid(frame, arriving, left_break=True))
+    groups["part-kept"].append(_solid(frame, kept, left_break=True))
+    groups["centre-line"].append(
         _line(frame.x(left) - 8, frame.axis, frame.x(stub) + 24, frame.axis)
     )
     groups["datum"].append(
@@ -695,24 +685,27 @@ def _fit(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     arriving = [(left, bearing), (right, bearing)]
     kept = [(left, bearing), *_dome(base, sphere, height)]
     waste = [(parting + blade, bearing), (right, bearing)]
-    groups["removed"].append(_solid(frame, arriving, left_break=True, right_break=True))
-    groups["waste"].append(_solid(frame, waste, right_break=True))
-    groups["arriving"].append(
+    groups["part-removed"].append(
         _solid(frame, arriving, left_break=True, right_break=True)
     )
-    groups["kept"].append(_solid(frame, kept, left_break=True))
-    groups["centre"].append(
+    groups["part-waste"].append(_solid(frame, waste, right_break=True))
+    groups["part-arriving"].append(
+        _solid(frame, arriving, left_break=True, right_break=True)
+    )
+    groups["part-kept"].append(_solid(frame, kept, left_break=True))
+    groups["centre-line"].append(
         _line(frame.x(left) - 8, frame.axis, frame.x(right) + 14, frame.axis)
     )
     groups["datum"].append(
         _line(frame.x(0), frame.up(bearing) - 8, frame.x(0), frame.down(bearing) + 8)
     )
-    groups["planes"].append(
+    groups["datum"].append(
         _line(
             frame.x(parting),
             frame.up(bearing) - 12,
             frame.x(parting),
             frame.down(bearing) + 12,
+            **_PLANE,
         )
     )
     chuck = _chuck(frame, jaw_face - grip, jaw_face, bearing, SHIM)
