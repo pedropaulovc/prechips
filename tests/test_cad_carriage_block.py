@@ -96,6 +96,22 @@ def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
         load_pivot_block(moved, {})
 
 
+def test_refuses_carriage_holes_spread_past_their_printed_row(tmp_path):
+    # Every hole moved outward .13 mm (±13.0 → ±13.13): each stays within the
+    # bore's coarse 2-place row, but the 1.024 ±.005 spacing becomes 1.034.
+    text = PIVOT.read_text(encoding="utf-8")
+    for x in ("-13.0", "13.0"):
+        for y in ("-13.0", "13.0"):
+            old = f'"at" = [{x}, {y}, 24.384]'
+            assert text.count(old) == 1
+            new = f'"at" = [{x}, {y.replace("13.0", "13.13")}, 24.384]'
+            text = text.replace(old, new)
+    spread = tmp_path / "spread.toml"
+    spread.write_text(text, "utf-8")
+    with pytest.raises(CadError, match="row origin disagrees with carriage_hole_1"):
+        load_pivot_block(spread, {})
+
+
 def test_refuses_a_leadscrew_hole_with_a_process(tmp_path):
     # The sheet prints a plain THRU under DRILLED HOLES; a process word
     # (the old BORE) would be an operation the plan does not author.

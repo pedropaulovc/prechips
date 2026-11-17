@@ -211,6 +211,8 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     points = []
     # Each hole's worst case toward the notch: least station, greatest row.
     extremes = []
+    # The holes' own row origin (from the first), held to their printed places.
+    hole_edge = None
     for n in range(1, 5):
         name = f"carriage_hole_{n}"
         cbore_name = f"carriage_counterbore_{n}"
@@ -218,8 +220,14 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         if item.get("thru") is not True:
             raise CadError(f"{name}: expected a through hole")
         station, edge, tol = plan_position(item, at, name)
+        # The bore prints coarser: its looser tolerance only relates it to the
+        # holes; the holes agree with each other at their own precision.
         if not _close(edge, y_edge, edge_tol + tol):
             raise CadError(f"{name}.at: row origin disagrees with the pivot bore")
+        if hole_edge is None:
+            hole_edge = (edge, tol)
+        elif not _close(edge, hole_edge[0], hole_edge[1] + tol):
+            raise CadError(f"{name}.at: row origin disagrees with carriage_hole_1")
         cbore = _feature(features, cbore_name, "counterbore", ["dia", "floor"])
         if cbore.get("parent") != name or cbore.get("floor_from") != "carriage_seat":
             raise CadError(f"{cbore_name}: expected {name}'s counterbore")
