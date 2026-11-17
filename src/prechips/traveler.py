@@ -1,6 +1,7 @@
 """Read the small process-plan format and render a self-contained print sheet."""
 
 import base64
+import re
 import tomllib
 from dataclasses import dataclass
 from html import escape
@@ -66,6 +67,44 @@ def _cutting_settings(table: dict, where: str) -> None:
 def _choice(table: dict, key: str, choices: set[str], where: str) -> None:
     if key in table and (not isinstance(table[key], str) or table[key] not in choices):
         raise PlanError(f"{where}.{key}: expected {' or '.join(sorted(choices))}")
+
+
+STEP_KINDS = {"action", "check", "stop"}
+
+
+def _steps(operation: dict, key: str, where: str) -> None:
+    if key not in operation:
+        return
+    steps = operation[key]
+    if (
+        not isinstance(steps, list)
+        or not steps
+        or any(not isinstance(step, dict) for step in steps)
+    ):
+        raise PlanError(f"{where}.{key}: expected a nonempty array of tables")
+    for index, step in enumerate(steps, 1):
+        step_where = f"{where}.{key}[{index}]"
+        _keys(step, {"text", "kind"}, step_where)
+        _text(step, "text", step_where)
+        if step.get("kind") not in STEP_KINDS:
+            raise PlanError(f"{step_where}.kind: expected action, check or stop")
+
+
+def _work(operation: dict, where: str) -> None:
+    """Each slot, compact and detailed, holds instruction text or steps."""
+    if "instruction" in operation and "steps" in operation:
+        raise PlanError(f"{where}: declare instruction or steps, not both")
+    if "instruction_detailed" in operation and "steps_detailed" in operation:
+        raise PlanError(
+            f"{where}: declare instruction_detailed or steps_detailed, not both"
+        )
+    if "instruction" not in operation and "steps" not in operation:
+        raise PlanError(f"{where}: expected instruction or steps")
+    if "instruction" in operation:
+        _text(operation, "instruction", where)
+    _text(operation, "instruction_detailed", where, optional=True)
+    _steps(operation, "steps", where)
+    _steps(operation, "steps_detailed", where)
 
 
 def _turning_numbers(table: dict, keys: set[str], where: str) -> None:
@@ -301,6 +340,8 @@ def load_plan(path: Path) -> LoadedPlan:
                     "settings",
                     "instruction",
                     "instruction_detailed",
+                    "steps",
+                    "steps_detailed",
                     "rpm",
                     "feed",
                     "inspection",
@@ -377,8 +418,7 @@ def load_plan(path: Path) -> LoadedPlan:
                         shared, operation["rpm"]
                     )[1]
                 operation.pop("settings")
-            _text(operation, "instruction", op_where)
-            _text(operation, "instruction_detailed", op_where, optional=True)
+            _work(operation, op_where)
             _text(operation, "inspection", op_where, optional=True)
             if "table" in operation:
                 data = operation["table"]
@@ -480,6 +520,92 @@ def _html(value: str | int) -> str:
     return escape(str(value), quote=True)
 
 
+# Printed only on sheets that use markup or steps, so plain sheets keep their
+# exact bytes.
+RICH_CSS = """\
+.text ol, .text ul { margin: 0; padding-left: 0.22in; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 0.95em; }
+.steps { margin: 0; padding-left: 0.22in; white-space: pre-wrap; }
+.steps-spaced > li + li { margin-top: 0.04in; }
+.step-check, .step-stop { padding-left: 0.05in; }
+.step-check { border-left: 1px solid var(--ink); }
+.step-stop { border-left: 3px solid var(--ink); font-weight: bold; }
+"""
+
+_CODE = re.compile(r"`([^`\n]+)`")
+_BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
+_EM = re.compile(r"(?<![*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])")
+_ITEM = re.compile(r"(?:(\d+)\.|(-)) (.*)")
+
+
+def _inline(value: str) -> str:
+    """Escape, then apply **bold**, *em* and `code`; code spans stay literal."""
+    parts = _CODE.split(_html(value))
+    for index, part in enumerate(parts):
+        if index % 2:
+            parts[index] = f"<code>{part}</code>"
+        else:
+            part = _BOLD.sub(r"<strong>\1</strong>", part)
+            parts[index] = _EM.sub(r"<em>\1</em>", part)
+    return "".join(parts)
+
+
+def _rich(value: str) -> str:
+    """Inline markup plus `1.`/`-` line lists; plain text renders as `_html`."""
+    blocks = []
+    plain: list[str] = []
+    items: list[str] = []
+    tag = start = None
+
+    def close_list() -> None:
+        nonlocal tag, start
+        if tag:
+            begin = (
+                f'<ol start="{start}">' if tag == "ol" and start != 1 else f"<{tag}>"
+            )
+            blocks.append(begin + "".join(items) + f"</{tag}>")
+            items.clear()
+            tag = None
+
+    for line in value.split("\n"):
+        item = _ITEM.fullmatch(line)
+        if item is None:
+            close_list()
+            plain.append(line)
+            continue
+        kind = "ol" if item[1] else "ul"
+        if kind != tag:
+            close_list()
+            if plain:
+                blocks.append(_inline("\n".join(plain)))
+                plain.clear()
+            tag, start = kind, int(item[1]) if item[1] else None
+        items.append(f"<li>{_inline(item[3])}</li>")
+    close_list()
+    if plain:
+        blocks.append(_inline("\n".join(plain)))
+    return "".join(blocks)
+
+
+STEP_LABELS = {"check": "Check:", "stop": "Stop:"}
+
+
+def _steps_html(steps: list[dict], *, spaced: bool) -> str:
+    """Numbered steps; check and stop lines carry a label, rule and weight."""
+    rows = []
+    for step in steps:
+        text = _inline(step["text"])
+        label = STEP_LABELS.get(step["kind"])
+        if label is None:
+            rows.append(f"<li>{text}</li>")
+        else:
+            rows.append(
+                f'<li class="step-{step["kind"]}"><strong>{label}</strong> {text}</li>'
+            )
+    spacing = " steps-spaced" if spaced else ""
+    return f'<ol class="steps{spacing}">' + "".join(rows) + "</ol>"
+
+
 def _diagram_html(
     setup: dict,
     profile: Profile,
@@ -556,6 +682,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     # The palette's key prints here, once, listing the roles the pictures draw.
     key_at = len(lines)
     drawn: set[str] = set()
+    rich = False
+    detailed = "detailed_instructions" in profile.features
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -593,13 +721,22 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         for operation in setup["operations"]:
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
-            instruction = operation["instruction"]
-            if "detailed_instructions" in profile.features:
-                instruction = operation.get("instruction_detailed", instruction)
-            lines.append(
-                f'<tr><td class="op-number">{operation_number}</td>'
-                f'<td><div class="text">{_html(instruction)}</div>'
+            # The detailed slot, when selected and authored, replaces the
+            # compact one; either slot holds instruction text or steps.
+            slots = [("instruction", "steps")]
+            if detailed:
+                slots.insert(0, ("instruction_detailed", "steps_detailed"))
+            text_key, steps_key = next(
+                pair for pair in slots if pair[0] in operation or pair[1] in operation
             )
+            if text_key in operation:
+                work = _rich(operation[text_key])
+                rich |= work != _html(operation[text_key])
+                work = f'<div class="text">{work}</div>'
+            else:
+                work = _steps_html(operation[steps_key], spaced=detailed)
+                rich = True
+            lines.append(f'<tr><td class="op-number">{operation_number}</td><td>{work}')
             if "inspection" in operation:
                 lines.append(
                     '<div class="text"><strong>Check:</strong> '
@@ -664,5 +801,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             ' style="display: block; width: 100%">'
             "</figure>",
         )
+    if rich:
+        lines[3] = f"<style>{CSS}{RICH_CSS}</style></head><body>"
     lines.append("</body></html>\n")
     return "\n".join(lines)

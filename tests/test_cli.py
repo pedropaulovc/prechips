@@ -142,6 +142,93 @@ def test_numbered_setups_operations_and_authored_table_content(tmp_path):
     assert "internal-mill-id" not in parts
 
 
+STEPS = """
+steps = [
+  { kind = "action", text = "Load <T1>." },
+  { kind = "check", text = "Probe out." },
+  { kind = "stop", text = "Probe in: no spindle." },
+]
+steps_detailed = [{ kind = "stop", text = "Detailed **stop** line." }]
+"""
+
+
+@pytest.mark.parametrize("detailed", [False, True])
+def test_operation_steps_render_by_kind_and_profile(tmp_path, detailed):
+    text = PLAN.replace(
+        'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
+        STEPS,
+    )
+    profile = tmp_path / "steps.toml"
+    features = '["detailed_instructions"]' if detailed else "[]"
+    profile.write_text(
+        f'name = "Steps"\nfeatures = {features}\nenforce = []\n', encoding="utf-8"
+    )
+    result, out = run_cli(tmp_path, text, "--profile", str(profile))
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    if detailed:
+        assert '<ol class="steps steps-spaced"><li class="step-stop">' in html
+        assert "<strong>Stop:</strong> Detailed <strong>stop</strong> line." in html
+        assert "Load" not in html
+    else:
+        assert (
+            '<ol class="steps"><li>Load &lt;T1&gt;.</li>'
+            '<li class="step-check"><strong>Check:</strong> Probe out.</li>'
+            '<li class="step-stop"><strong>Stop:</strong> Probe in: no spindle.</li>'
+            "</ol>"
+        ) in html
+        assert "Detailed" not in html
+    assert ".step-stop {" in html
+
+
+@pytest.mark.parametrize(
+    "work,message",
+    [
+        ('instruction = "A"\nsteps = [{ kind = "action", text = "B" }]', "not both"),
+        (
+            (
+                'instruction = "A"\ninstruction_detailed = "B"\n'
+                'steps_detailed = [{ kind = "action", text = "C" }]'
+            ),
+            "not both",
+        ),
+        ('tool = "internal-mill-id"', "expected instruction or steps"),
+        ('steps = [{ kind = "note", text = "A" }]', "expected action, check or stop"),
+        ("steps = []", "expected a nonempty array of tables"),
+    ],
+)
+def test_operation_declares_instruction_or_steps(tmp_path, work, message):
+    text = PLAN.split("[[setups.operations]]")[0] + f"[[setups.operations]]\n{work}\n"
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert not out.exists()
+
+
+def test_instruction_markdown_is_applied_after_escaping(tmp_path):
+    instruction = (
+        "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n- Dash\\nTail"
+    )
+    text = PLAN.replace(
+        'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
+        f'instruction = "{instruction}"',
+    )
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    assert (
+        '<div class="text">&lt;b&gt;Raw&lt;/b&gt; <strong>bold</strong> <em>em</em> '
+        "<code>&lt;code&gt;</code> 2 * 3<ol><li>One</li><li>Two</li></ol>"
+        "<ul><li>Dash</li></ul>Tail</div>"
+    ) in html
+    assert "<b>" not in html
+    # Plain text keeps its exact bytes, with no added style rules.
+    result, out = run_cli(tmp_path, PLAN, "--profile", stock_free_profile(tmp_path))
+    html = out.read_text(encoding="utf-8")
+    assert "Face to thickness.\nKeep &lt; 0.2 mm" in html
+    assert ".steps {" not in html
+
+
 @pytest.mark.parametrize(
     ("text", "message"),
     [
