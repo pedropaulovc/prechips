@@ -93,7 +93,7 @@ def _path(points: list[Point], close: bool = True) -> str:
 
 
 class _Plan:
-    """Setup frame to page: X from the blank's left end, Y into the blank."""
+    """Setup frame to page: X from the plate's end stop, Y into the blank."""
 
     def __init__(self, values: dict, parameters: dict) -> None:
         plate = values.get("plate_x_mm")
@@ -219,10 +219,11 @@ def _outline_plan(
     groups: Groups, plan: _Plan, values: dict, parameters: dict
 ) -> Layout:
     outline = _outline(values)
-    notches = [
-        values["fence_notch_left_x_mm"],
-        values["fence_notch_right_x_mm"],
-    ]
+    if "fence_notch_x_mm" not in values:
+        raise CadError(
+            "plate-strap: the outline step needs the bonded-outline parameters"
+        )
+    notches = [values["fence_notch_left_x_mm"], values["fence_notch_right_x_mm"]]
     bottom = _fixture(groups, plan, [], notches)
     _blank_plan(groups, plan, ("part-arriving",))
     points = _loop(outline)

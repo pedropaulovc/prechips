@@ -71,6 +71,7 @@ def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
     assert values["outline_through_depth_mm"] == pytest.approx(0.33)
     assert values["fence_notch_left_x_mm"] == pytest.approx([2.4, 21.4])
     assert values["fence_notch_right_x_mm"] == pytest.approx([283.4, 302.4])
+    assert values["fence_notch_x_mm"] == pytest.approx([2.4, 21.4, 283.4, 302.4])
     # Blank 304.8 × 38.1 less the Ø12.7 hole in the plate; the strap is
     # 16 mm wide along a 291 mm mean arc, less the same hole.
     assert values["blank_bond_area_mm2"] == pytest.approx(11486.2, abs=0.1)

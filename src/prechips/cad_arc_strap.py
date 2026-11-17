@@ -342,7 +342,7 @@ def _face_levels(values: dict, parameters: dict) -> None:
 def _plate_hold(values: dict, parameters: dict) -> None:
     """Place the strap in its blank on the plate.
 
-    Setup X runs from the blank's left end, the hub hole at ``hub_x_mm``;
+    Setup X runs from the plate's end stop, the hub hole at ``hub_x_mm``;
     the fence is at Y0 and the hub ``hub_y_mm`` into the blank, the bottom
     arc toward the clamps on the far edge. The rough slot's outer wall lies
     the cutter Ø plus the finish stock outside the strap's edge; what is left
@@ -473,6 +473,11 @@ def _plate_hold(values: dict, parameters: dict) -> None:
         raise CadError("process.fence_notch_inner_mm: beyond the top arc's end")
     values["fence_notch_left_x_mm"] = [hub_x - outer, hub_x - inner]
     values["fence_notch_right_x_mm"] = [hub_x + inner, hub_x + outer]
+    # Both notches' ends, as stations for the cut that clears the strip.
+    values["fence_notch_x_mm"] = [
+        *values["fence_notch_left_x_mm"],
+        *values["fence_notch_right_x_mm"],
+    ]
     # Bonded areas, for the plan's bond declaration. The strap: its outline
     # less the plate's hole under the hub. The waste once the slot is through:
     # the fence-side piece between the notches, and of the clamp-side piece
