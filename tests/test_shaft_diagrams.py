@@ -5,8 +5,9 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips.cad import load_cad
-from prechips.cad_diagrams import render_cad_svg
+from prechips.cad import CadData, load_cad
+from prechips.cad_diagrams import _binding, render_cad_svg
+from prechips.shaft_diagrams import CHAR, _callouts
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/pivot-shaft-v40.toml"
@@ -130,3 +131,26 @@ def test_parted_waste_starts_beyond_the_blade_kerf():
         assert waste_left == pytest.approx(
             float(blade["x"]) + float(blade["width"]), abs=0.02
         )
+
+
+def callouts(items, parameters):
+    """Run ``_callouts`` as a layout would, with ``parameters`` bound."""
+    groups = {"leaders": [], "labels": []}
+    token = _binding.set((CadData({}, None, SOURCE), parameters))
+    try:
+        _callouts(groups, items, 100.0, above=False)
+    finally:
+        _binding.reset(token)
+    return [text for _, _, text in groups["labels"]]
+
+
+def test_callouts_measure_labels_as_printed():
+    # Six labels fit when measured bound ("X 13.51"), not as raw tokens.
+    items = [(60.0 + 110 * i, 50.0, ["X {{process.x:.2f}}"]) for i in range(6)]
+    assert callouts(items, {"x": 13.514}) == ["X {{process.x:.2f}}"] * 6
+
+
+def test_callouts_accept_an_exact_fit():
+    width = CHAR + 12
+    anchor = 10 + width + width / 2
+    assert callouts([(0.0, 50.0, ["A"]), (anchor, 50.0, ["B"])], {}) == ["A", "B"]
