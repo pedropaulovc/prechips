@@ -42,7 +42,7 @@
   <text x="337" y="46" text-anchor="middle">fixed jaw: ZERO EDGE against it</text>
 
   <!-- axes -->
-  <g class="arrow">
+  <g class="axis">
     <line x1="630" y1="22" x2="680" y2="22"/>
     <line x1="630" y1="22" x2="630" y2="58"/>
   </g>
@@ -54,7 +54,7 @@
   <g class="dims">
     <line x1="{{view.x0}}" y1="{{view.ext_top}}" x2="{{view.x0}}" y2="{{view.ext_bottom}}"/>
     <line x1="{{view.x1}}" y1="{{view.ext_top}}" x2="{{view.x1}}" y2="{{view.ext_bottom}}"/>
-    <line x1="{{view.dim_x1}}" y1="{{view.dim_y}}" x2="{{view.dim_x2}}" y2="{{view.dim_y}}" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <line x1="{{view.dim_x1}}" y1="{{view.dim_y}}" x2="{{view.dim_x2}}" y2="{{view.dim_y}}" marker-start="url(#prechips-arr)" marker-end="url(#prechips-arr)"/>
   </g>
   <text x="337" y="{{view.dim_label_y}}" text-anchor="middle">{{cad.length_in:.2f}}</text>
 </svg>

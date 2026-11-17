@@ -2,6 +2,7 @@ import base64
 import re
 import subprocess
 from html.parser import HTMLParser
+from xml.etree import ElementTree
 
 import pytest
 
@@ -288,9 +289,12 @@ def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
     diagrams.mkdir()
     (diagrams / "setup.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg">'
-        '<defs><marker id="arr"><path d="M0 0L4 2L0 4z"/></marker></defs>'
+        '<defs><marker id="arr"><path d="M0 0L4 2L0 4z"/></marker>'
+        '<marker id="prechips-arr"><path d="M0 0L5 2L0 4z"/></marker>'
+        '<g id="cut"/></defs>'
         '<rect class="st0" width="4" height="4"/>'
-        '<rect class="st0 clamp" width="4" height="4"/></svg>',
+        '<rect class="st0 clamp" width="4" height="4"/>'
+        '<rect class="part-removed" width="4" height="4"/></svg>',
         encoding="utf-8",
     )
     result, out = run_cli(
@@ -303,14 +307,24 @@ def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
     html = out.read_text(encoding="utf-8")
     images = re.findall(r'src="data:image/svg\+xml;base64,([^"]+)"', html)
     picture = next(
-        base64.b64decode(image).decode("utf-8")
+        ElementTree.fromstring(base64.b64decode(image))
         for image in images
         if b"st0" in base64.b64decode(image)
     )
-    assert '<rect class="st0" width="4" height="4"' in picture
-    assert 'class="st0 clamp" width="4" height="4" fill=' in picture
-    assert picture.count('id="arr"') == 1
-    assert "M0 0L4 2L0 4z" in picture
+    svg = "{http://www.w3.org/2000/svg}"
+    rects = {rect.get("class"): rect for rect in picture.iter(f"{svg}rect")}
+    assert rects["st0"].get("fill") is None
+    assert rects["st0 clamp"].get("fill") is not None
+    # The author's own ids stay theirs; the palette's paint servers sit beside,
+    # and one the picture already carries is not added again.
+    ids = [element.get("id") for element in picture.iter() if element.get("id")]
+    assert len(ids) == len(set(ids))
+    by_id = {element.get("id"): element for element in picture.iter()}
+    assert by_id["arr"].find(f"{svg}path").get("d") == "M0 0L4 2L0 4z"
+    assert by_id["prechips-arr"].find(f"{svg}path").get("d") == "M0 0L5 2L0 4z"
+    assert by_id["cut"].tag == f"{svg}g"
+    fill = rects["part-removed"].get("fill")
+    assert by_id[fill[5:-1]].tag == f"{svg}pattern"
 
 
 @pytest.mark.parametrize("asset", [None, "missing.svg", "invalid.svg"])
