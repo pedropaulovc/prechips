@@ -155,8 +155,9 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     # The pictures put ROW SIDE on the hand the model frame gives it.
     values["row_from"] = row_from
     x_end = -length / 2
-    # The -X end comes from the printed length nominal: a station may sit off
-    # it by half that rounding as well as by its own.
+    # The -X end comes from the printed length nominal, so every station may
+    # share one shift of up to half that rounding; beyond that shared shift,
+    # features agree with each other at their own printed places.
     end_tol = _printed_mm(seat, "length", "carriage_seat") / 2
     envelope = (
         StockAxis("length", "blank_length_in", y_length),
@@ -164,9 +165,10 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         StockAxis("thickness", "blank_thickness_in", height),
     )
 
-    def plan_position(item: dict, at: list, name: str) -> tuple[float, float, float]:
-        """Return the station, the hole's model Y origin edge and how far that
-        edge may sit off the true one from the printed row's rounding."""
+    def plan_position(item: dict, at: list, name: str) -> tuple:
+        """Return the station, the hole's model Y origin edge, how far that
+        edge may sit off the true one from the printed row's rounding, the
+        station's shift from the nominal -X end and its printed rounding."""
         if (
             item.get("station_from") != "minus_x_end"
             or item.get("row_from") != row_from
@@ -176,12 +178,12 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         row = _nominal(item, "row", name)
         if not _close(at[2], height):
             raise CadError(f"{name}.at: expected entry at TOP (height)")
-        if not _close(
-            at[0] - x_end, station, _printed_mm(item, "station", name) + end_tol
-        ):
+        station_tol = _printed_mm(item, "station", name)
+        shift = at[0] - x_end - station
+        if not _close(shift, 0, station_tol + end_tol):
             raise CadError(f"{name}.at: station disagrees with the -X end")
         edge = at[1] - row if row_from == "minus_y_side" else at[1] + row
-        return station, edge, _printed_mm(item, "row", name)
+        return station, edge, _printed_mm(item, "row", name), shift, station_tol
 
     # Pivot seat: flat-floored .375 down from the top, tap through below it.
     bore, bore_at = _hole(
@@ -189,7 +191,9 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     )
     if bore.get("floor") != "flat" or "thru" in bore:
         raise CadError("pivot_bore: expected a flat-floored blind bore")
-    bore_station, y_edge, edge_tol = plan_position(bore, bore_at, "pivot_bore")
+    bore_station, y_edge, edge_tol, bore_shift, bore_tol = plan_position(
+        bore, bore_at, "pivot_bore"
+    )
     _bind(values, bore, "dia", "pivot_bore", "bore_dia")
     _bind(values, bore, "depth", "pivot_bore", "bore_depth")
     for field, key in (("station", "bore_x"), ("row", "bore_y")):
@@ -216,23 +220,28 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     points = []
     # Each hole's worst case toward the notch: least station, greatest row.
     extremes = []
-    # The holes' own row origin (from the first), held to their printed places.
-    hole_edge = None
+    # The holes' own row origin and station shift (from the first), held to
+    # their printed places.
+    hole_edge = hole_shift = None
     for n in range(1, 5):
         name = f"carriage_hole_{n}"
         cbore_name = f"carriage_counterbore_{n}"
         item, at = _hole(features, name, ["dia", "thru", "station", "row"], [0, 0, -1])
         if item.get("thru") is not True:
             raise CadError(f"{name}: expected a through hole")
-        station, edge, tol = plan_position(item, at, name)
+        station, edge, tol, shift, station_tol = plan_position(item, at, name)
         # The bore prints coarser: its looser tolerance only relates it to the
         # holes; the holes agree with each other at their own precision.
         if not _close(edge, y_edge, edge_tol + tol):
             raise CadError(f"{name}.at: row origin disagrees with the pivot bore")
+        if not _close(shift, bore_shift, bore_tol + station_tol):
+            raise CadError(f"{name}.at: station disagrees with the pivot bore")
         if hole_edge is None:
-            hole_edge = (edge, tol)
+            hole_edge, hole_shift = (edge, tol), (shift, station_tol)
         elif not _close(edge, hole_edge[0], hole_edge[1] + tol):
             raise CadError(f"{name}.at: row origin disagrees with carriage_hole_1")
+        elif not _close(shift, hole_shift[0], hole_shift[1] + station_tol):
+            raise CadError(f"{name}.at: station disagrees with carriage_hole_1")
         cbore = _feature(features, cbore_name, "counterbore", ["dia", "floor"])
         if cbore.get("parent") != name or cbore.get("floor_from") != "carriage_seat":
             raise CadError(f"{cbore_name}: expected {name}'s counterbore")
@@ -524,9 +533,15 @@ def _feed_process(values: dict, parameters: dict) -> None:
             / 2
         )
         height_in = values["height_nominal_in"]
-        # Each side pass must overlap the middle slot, or a strip stays uncut.
+        # Each side pass must overlap the middle slot, or a strip stays uncut,
+        # and the far pass (placed from the nominal height) must still reach
+        # past the far face of the tallest block.
         if not overrun <= 3 * radius - height_in / 2:
             raise CadError("process.notch_side_overrun_in: the passes leave a strip")
+        if not overrun >= values["height_max_in"] - height_in:
+            raise CadError(
+                "process.notch_side_overrun_in: the far pass misses the tallest face"
+            )
         values["notch_pass_near_in"] = radius - overrun
         values["notch_pass_mid_in"] = height_in / 2
         values["notch_pass_far_in"] = height_in - radius + overrun

@@ -16,6 +16,7 @@ so they cannot overlap, with leaders back to their features.
 
 from __future__ import annotations
 
+from enum import Enum
 from xml.etree import ElementTree
 
 from prechips.cad import CadError, _shorthand, _trim
@@ -112,6 +113,13 @@ def _datum_label(
     _label(groups, x, y, text, anchor, **{"class": "datum-label"})
 
 
+class DimText(Enum):
+    """Where a vertical dimension's text goes."""
+
+    RIGHT = "right"  # upright, right of the line
+    ALONG_LEFT = "along-left"  # turned to run along the line, on its left
+
+
 def _vdim(
     groups: dict[str, list[Element]],
     x: float,
@@ -120,31 +128,30 @@ def _vdim(
     text: str,
     *,
     witness: tuple[float, float] | None = None,
-    rotate: bool = False,
+    place: DimText = DimText.RIGHT,
 ) -> None:
-    """Vertical dimension at ``x`` from ``y0`` to ``y1``.
+    """Vertical dimension at ``x`` from ``y0`` to ``y1``, its text at ``place``.
 
     ``witness`` gives the x each witness line starts from, at ``y0`` and
-    ``y1``; each runs 4 px past the dimension line. The text stands upright
-    on the right, or with ``rotate`` runs along the line on its left.
+    ``y1``; each runs 4 px past the dimension line.
     """
     if witness is not None:
         for start, y in zip(witness, (y0, y1)):
             groups["dims"].append(_line(start, y, x + 4 if x > start else x - 4, y))
     groups["dims"].append(_dim(x, y0, x, y1))
     middle = (y0 + y1) / 2
-    if rotate:
-        groups["label"].append(
-            _text(
-                x - 5,
-                middle,
-                text,
-                text_anchor="middle",
-                transform=f"rotate(-90 {_fmt(x - 5)} {_fmt(middle)})",
-            )
-        )
-    else:
+    if place is DimText.RIGHT:
         _label(groups, x + 6, middle + 5, text)
+        return
+    groups["label"].append(
+        _text(
+            x - 5,
+            middle,
+            text,
+            text_anchor="middle",
+            transform=f"rotate(-90 {_fmt(x - 5)} {_fmt(middle)})",
+        )
+    )
 
 
 def _vise(
@@ -789,12 +796,14 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
             labels_right=True,
         )
         _blank(groups, left, right, x0, right, back, front)
+        # Rows 24 px apart: a short station's text, centred over its span,
+        # stays clear of the next row's line and arrowheads.
         for index, station in enumerate(stations):
             _dimension(
                 groups,
                 x0,
                 x0 + station * scale,
-                back - JAW - 10 - 18 * index,
+                back - JAW - 10 - 24 * index,
                 back,
                 _shorthand(station, 3),
             )

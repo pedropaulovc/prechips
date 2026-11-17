@@ -25,6 +25,7 @@ from prechips.cad_diagrams import (
 )
 from prechips.jig_diagrams import (
     JAW,
+    DimText,
     _axes,
     _datum_label,
     _finish,
@@ -178,7 +179,11 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         keep: float,
         low: str,
         top: str,
+        dim: str | None = None,
     ) -> None:
+        """One hold. ``dim`` labels a dimension of the kept height drawn
+        inside the part at its fixed-jaw side; the face names then centre in
+        the rest of the width, clear of it."""
         half = across * s / 2
         left, right = centre - half, centre + half
         floor = bed - parallel * s
@@ -201,9 +206,13 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         groups["cutter"].append(
             _rect(centre - cutter / 2 * s, top_y - 40, cutter * s, 32)
         )
-        if across * s >= 8 * max(len(low), len(top)) + 8:
-            _label(groups, centre, floor - 6, low, "middle")
-            _label(groups, centre, keep_y + 16, top, "middle")
+        inset = 0.0
+        if dim is not None:
+            inset = 24.0
+            _vdim(groups, left + 16, keep_y, floor, dim, place=DimText.ALONG_LEFT)
+        if across * s - inset >= 8 * max(len(low), len(top)) + 8:
+            _label(groups, centre + inset / 2, floor - 6, low, "middle")
+            _label(groups, centre + inset / 2, keep_y + 16, top, "middle")
         else:
             # Narrow on edge or on end: the face down on the parallels is
             # named level with it, outside the fixed jaw; the new face's name
@@ -234,7 +243,7 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     )
     floor = bed - parallel * s
     right = 530 + across * s / 2
-    _vdim(groups, right + 70, floor - final * s, floor, size, rotate=True)
+    _vdim(groups, right + 70, floor - final * s, floor, size, place=DimText.ALONG_LEFT)
     end_y = _callouts(
         groups,
         [
@@ -257,12 +266,10 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         final,
         names[0],
         offcut,
+        # The offcut's height, H, is the block's: drawn inside it, from the
+        # parallels to its cut top, clear of both jaws.
+        "H",
     )
-    floor = bed - parallel * s
-    left = 190 - across * s / 2
-    # The offcut's height, H, is the block's: drawn inside it, from the
-    # parallels to its cut top, clear of both jaws.
-    _vdim(groups, left + 16, floor - final * s, floor, "H", rotate=True)
     end_y = _callouts(
         groups,
         [(190, bed, ["same parallels, Z unmoved:", "H = the block's height"])],
@@ -380,7 +387,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             back + station * s,
             _shorthand(station, 3),
             witness=(right, station_x[station]),
-            rotate=True,
+            place=DimText.ALONG_LEFT,
         )
     end_y = front + (JAW + 6 if mode == "vise" else 6)
     lug_side = left if row_right else right
@@ -405,7 +412,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             front,
             _shorthand(length, 2),
             witness=(step_x, left) if feed else None,
-            rotate=True,
+            place=DimText.ALONG_LEFT,
         )
         _dimension(groups, left, right, end_y + 22, front, _shorthand(y_length, 2))
         end_y += 30
@@ -427,7 +434,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
                 lug,
                 "{{cad.lug_x_nominal_in:.2dot}}",
                 witness=(step_x, lug_side),
-                rotate=True,
+                place=DimText.ALONG_LEFT,
             )
     # Inspect: above the left dimension column, clear of its lines.
     _axes(groups, 24, front - 34 if mode == "vise" else back - 52)
@@ -470,7 +477,9 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     step_x = (hx + bxs) / 2
     groups["hidden"].append(_line(step_x, top, step_x, seat))
     s_right = s_left + length * t
-    _vdim(groups, s_right + 18, top, seat, _shorthand(height, 2), rotate=True)
+    _vdim(
+        groups, s_right + 18, top, seat, _shorthand(height, 2), place=DimText.ALONG_LEFT
+    )
     _label(groups, s_right + 26, seat - 4, "SEAT")
     _label(groups, s_right + 26, top + 12, "TOP")
     # Each leader lands on its feature's edge facing the buses (the section's
@@ -624,7 +633,7 @@ def _notch(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         lug_face,
         "{{cad.lug_x_nominal_in:.2dot}}",
         witness=(step, end),
-        rotate=True,
+        place=DimText.ALONG_LEFT,
     )
     _label(groups, (start + step) / 2, top - 6, "SPINDLE END", "middle")
     _label(groups, end + 6, floor - 4, "LUG END")
@@ -744,7 +753,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         mill_floor,
         "{{process.lug_bore_mill_in:.2dot}}",
         witness=(bx - dia / 2 * t, bx - dia / 2 * t),
-        rotate=True,
+        place=DimText.ALONG_LEFT,
     )
     _vdim(
         groups,
@@ -753,7 +762,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         pilot_floor,
         "{{process.lug_bore_depth_mm:in.2dot}}",
         witness=(bx - pilot / 2 * t, bx - pilot / 2 * t),
-        rotate=True,
+        place=DimText.ALONG_LEFT,
     )
 
     # End view from LUG END: the whole end face; the lug face to come hidden.
@@ -834,7 +843,14 @@ def _saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     _label(groups, (x + x1) / 2, (top + cut) / 2 + 5, "blank", "middle")
     _label(groups, (x + x1) / 2, (cut + bottom) / 2 + 5, "offcut", "middle")
     _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
-    _vdim(groups, x - 20, top, cut, "{{process.blank_width_in:.2f}}", rotate=True)
+    _vdim(
+        groups,
+        x - 20,
+        top,
+        cut,
+        "{{process.blank_width_in:.2f}}",
+        place=DimText.ALONG_LEFT,
+    )
     _label(groups, x - 30, bottom - 4, "bar end", "end")
     end_y = _callouts(
         groups,

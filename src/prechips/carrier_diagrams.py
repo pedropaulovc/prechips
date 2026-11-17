@@ -17,7 +17,16 @@ from dataclasses import dataclass
 from xml.etree import ElementTree
 
 from prechips.cad import CadError, _shorthand, _trim
-from prechips.cad_diagrams import Element, Layout, _cad, _dim, _el, _line, _rect
+from prechips.cad_diagrams import (
+    Element,
+    Layout,
+    _cad,
+    _dim,
+    _el,
+    _fmt,
+    _line,
+    _rect,
+)
 from prechips.jig_diagrams import (
     _blank,
     _cutter,
@@ -193,11 +202,30 @@ def _draw_datums(groups: Groups, plan: _Plan) -> None:
         _line(plan.px(0), plan.kept_back, plan.px(0), plan.kept_front),
         _line(plan.px(0), edge_y, plan.px(plan.length), edge_y),
     ]
-    _datum_label(groups, plan.px(0), plan.kept_back - 8, "ZERO END", "start")
-    _datum_label(groups, plan.px(plan.length * 0.75), edge_y - 8, "ZERO EDGE", "middle")
     # Clear of the edge straps (faces) and the R-row labels (holes).
     at = 0.62 if plan.step == "holes" else 0.4
     _label(groups, plan.px(plan.length * at), plan.kept_back + 18, "TOP up", "middle")
+    if plan.step != "holes":
+        _datum_label(groups, plan.px(0), plan.kept_back - 8, "ZERO END", "start")
+        _datum_label(
+            groups, plan.px(plan.length * 0.75), edge_y - 8, "ZERO EDGE", "middle"
+        )
+        return
+    # Holes: a strap stands on every block, so ZERO END runs along its edge,
+    # outside it, and ZERO EDGE sits between the third block's front strap
+    # and the right end.
+    end_x, middle = plan.px(0) - 8, (plan.kept_back + plan.kept_front) / 2
+    _label(
+        groups,
+        end_x,
+        middle,
+        "ZERO END",
+        "middle",
+        transform=f"rotate(-90 {_fmt(end_x)} {_fmt(middle)})",
+        **{"class": "datum-label"},
+    )
+    edge_x = (plan.px(plan.blocks[2]) + plan.px(plan.length)) / 2
+    _datum_label(groups, edge_x, edge_y - 8, "ZERO EDGE", "middle")
 
 
 def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
@@ -285,9 +313,10 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
     _edge_strap(groups, plan, plan.blocks[3], front=False)
     # Second clamping: end straps on faced metal over the outer blocks, dashed.
     half = _STRAP * plan.s / 2
+    right_heel = plan.px(plan.length) + 1.2 * plan.s
     for x, heel in (
         (plan.blocks[0], plan.px(0) - 1.2 * plan.s),
-        (plan.blocks[3], plan.px(plan.length) + 1.2 * plan.s),
+        (plan.blocks[3], right_heel),
     ):
         tip = plan.px(x)
         groups["clamp"].append(
@@ -300,7 +329,6 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
                 stroke_dasharray="5 3",
             )
         )
-        strap = ((heel + tip) / 2, plan.middle + half)
     radius = plan.cutter / 2 * plan.s
     rows = max(2, int(plan.width / 0.6))
     pitch = plan.width * plan.s / rows
@@ -324,8 +352,10 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
         )
     )
     _draw_datums(groups, plan)
-    # The key's clamp swatch is solid: name the dashed second-clamping straps.
-    return [(*strap, ["end straps, second", "clamping (dashed)"])]
+    # The key's clamp swatch is solid: name the dashed second-clamping straps,
+    # anchored on the right one (over the last block) below its middle.
+    strap_x = (plan.px(plan.blocks[3]) + right_heel) / 2
+    return [(strap_x, plan.middle + half, ["end straps, second", "clamping (dashed)"])]
 
 
 def _holes(groups: Groups, plan: _Plan, values: dict) -> Items:

@@ -57,7 +57,8 @@ def test_notch_picture_draws_the_spacer_offcut_at_its_size(tmp_path):
 
 def test_station_tolerance_follows_the_printed_places(tmp_path):
     # The pivot seat's station prints to two places (.82): its model point
-    # may sit up to .005 in (0.127 mm) off, but no further.
+    # may sit up to .005 in (0.127 mm) off the holes' stations, which share
+    # the -X end's rounding (half of the 2-place length) between them.
     text = PIVOT.read_text(encoding="utf-8")
     old = '"at" = [0.0, 0.0, 24.384]'
     assert text.count(old) == 2  # the seat and its tap, one axis
@@ -65,6 +66,13 @@ def test_station_tolerance_follows_the_printed_places(tmp_path):
     moved.write_text(text.replace(old, '"at" = [0.1, 0.0, 24.384]'), "utf-8")
     load_pivot_block(moved, {})
     moved.write_text(text.replace(old, '"at" = [0.2, 0.0, 24.384]'), "utf-8")
+    with pytest.raises(CadError, match="station disagrees"):
+        load_pivot_block(moved, {})
+    # One carriage hole .0025 in off the others (3 places) is refused, even
+    # though the shared end rounding would allow that much for all of them.
+    hole = '"at" = [-13.0, -13.0, 24.384]'
+    assert text.count(hole) == 1
+    moved.write_text(text.replace(hole, '"at" = [-12.9365, -13.0, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="station disagrees"):
         load_pivot_block(moved, {})
 

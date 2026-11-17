@@ -290,6 +290,7 @@ def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
     (diagrams / "setup.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg">'
         '<defs><marker id="arr"><path d="M0 0L4 2L0 4z"/></marker>'
+        '<marker id="prechips-arr"><path d="M0 0L5 2L0 4z"/></marker>'
         '<g id="cut"/></defs>'
         '<rect class="st0" width="4" height="4"/>'
         '<rect class="st0 clamp" width="4" height="4"/>'
@@ -314,12 +315,16 @@ def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
     rects = {rect.get("class"): rect for rect in picture.iter(f"{svg}rect")}
     assert rects["st0"].get("fill") is None
     assert rects["st0 clamp"].get("fill") is not None
-    # The author's own ids stay theirs; the palette's paint servers sit beside.
-    ids = {element.get("id"): element for element in picture.iter()}
-    assert ids["arr"].find(f"{svg}path").get("d") == "M0 0L4 2L0 4z"
-    assert ids["cut"].tag == f"{svg}g"
+    # The author's own ids stay theirs; the palette's paint servers sit beside,
+    # and one the picture already carries is not added again.
+    ids = [element.get("id") for element in picture.iter() if element.get("id")]
+    assert len(ids) == len(set(ids))
+    by_id = {element.get("id"): element for element in picture.iter()}
+    assert by_id["arr"].find(f"{svg}path").get("d") == "M0 0L4 2L0 4z"
+    assert by_id["prechips-arr"].find(f"{svg}path").get("d") == "M0 0L5 2L0 4z"
+    assert by_id["cut"].tag == f"{svg}g"
     fill = rects["part-removed"].get("fill")
-    assert ids[fill[5:-1]].tag == f"{svg}pattern"
+    assert by_id[fill[5:-1]].tag == f"{svg}pattern"
 
 
 @pytest.mark.parametrize("asset", [None, "missing.svg", "invalid.svg"])

@@ -184,9 +184,10 @@ def paint(root: ElementTree.Element) -> set[str]:
     Classes that name no role are left alone, and attributes the element
     already sets (a dash, a width) win over the role's. The palette's
     markers and patterns are installed whenever a role is drawn; their
-    ``prechips-`` ids leave the picture's own ids alone. Returns the roles
-    drawn: those of rendered elements (shapes, text, ``<use>``, images), own
-    or from a group.
+    ``prechips-`` ids leave the picture's own ids alone, and one the picture
+    already carries (a template copied from a rendered traveler) is not added
+    twice. Returns the roles drawn: those of rendered elements (shapes, text,
+    ``<use>``, images), own or from a group.
     """
     drawn: set[str] = set()
     stack = [(root, None)]
@@ -200,8 +201,14 @@ def paint(root: ElementTree.Element) -> set[str]:
         if role is not None and element.tag.rpartition("}")[2] in _SHAPES:
             drawn.add(role)
         stack += [(child, role) for child in element]
-    if drawn:
-        root.insert(0, ElementTree.fromstring(_DEFS))
+    if not drawn:
+        return drawn
+    taken = {element.get("id") for element in root.iter()}
+    defs = ElementTree.fromstring(_DEFS)
+    for child in list(defs):
+        if child.get("id") in taken:
+            defs.remove(child)
+    root.insert(0, defs)
     return drawn
 
 
