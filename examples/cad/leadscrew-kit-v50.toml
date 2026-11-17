@@ -3,14 +3,12 @@
 "units" = "mm"
 "precision" = "unknown"
 "step" = "leadscrew-kit.STEP"
-"step_sha256" = "2454c5da723c68314a32f3a91828842fdc66d2bcf2cd1201214656ef79e43fc0"
 "construction" = "one_piece"
 
 ["member_steps"]
 
 ["member_steps"."FeedNut"]
 "step" = "leadscrew-kit--feednut.STEP"
-"step_sha256" = "1fb3d923b06e0cd541be19a1f2524e604de7ef0f7f737eef8269898ad0c0f4fd"
 
 ["drawing"]
 "number" = "DEMO-LEADSCREW-KIT"

@@ -11,7 +11,6 @@ part = "pivot-bracket"
 units = "mm"
 precision = 2                    # example (plausible): two-place mm sizes
 step = "pivot-bracket.STEP"
-step_sha256 = "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc"
 construction = "one_piece"       # no note permits built-up construction
 
 [cite]

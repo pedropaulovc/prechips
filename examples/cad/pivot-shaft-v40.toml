@@ -1,11 +1,10 @@
 # Demo feature manifest in the CAD export format; part, drawing and STEP names are demo identities and source citations are omitted.
-# Example divergence (examples/README.md provenance): north_relief and south_relief carry
-# corner_radius_max_design = 0.25 from pivot_shaft_spec.py:73 (title-block R0.25 MAX), which the export omits.
+# Example divergence: north_relief and south_relief carry
+# corner_radius_max_design = 0.25 (the drawing's title-block R0.25 MAX), which the export omits.
 "part" = "pivot-shaft"
 "units" = "mm"
 "precision" = "unknown"
 "step" = "pivot-shaft.STEP"
-"step_sha256" = "cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc"
 "construction" = "one_piece"
 
 ["drawing"]

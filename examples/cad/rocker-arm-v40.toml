@@ -1,9 +1,8 @@
-# Demo example manifest in the CAD export format, derived from an export and adjacent STEP with documented example patches; part and drawing names are demo identities and source citations are omitted.
+# Demo example manifest in the CAD export format, derived from an export and adjacent STEP with example patches; part and drawing names are demo identities and source citations are omitted.
 "part" = "rocker-arm"
 "units" = "mm"
 "precision" = 2
 "step" = "rocker-arm.STEP"
-"step_sha256" = "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e"
 "construction" = "one_piece"
 
 ["drawing"]

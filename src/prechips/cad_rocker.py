@@ -1,7 +1,6 @@
 """Bindings for the patched rocker-arm example, not a process generator."""
 
 import math
-import tomllib
 from pathlib import Path
 
 from .cad import (
@@ -12,22 +11,14 @@ from .cad import (
     _band,
     _number,
     _positive,
+    _read_manifest,
     _string,
 )
 
 
 def load_rocker(path: Path, parameters: dict, part: str) -> CadData:
     """Bind model geometry to pivot-relative upper and X-turned lower setups."""
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if raw.get("units") != "mm" or raw.get("part") != part:
-        raise CadError(f"cad: rocker_arm requires {part} in mm")
-    values = {"part": raw["part"]}
-    drawing = raw.get("drawing", {})
-    if not isinstance(drawing, dict):
-        raise CadError("cad.drawing: required table missing")
-    for key, field in (("drawing_number", "number"), ("revision", "revision")):
-        values[key] = _string(drawing.get(field), f"cad.drawing.{field}")
+    raw, values, features = _read_manifest(path, part, "rocker_arm")
 
     def table(parent: dict, key: str) -> dict:
         item = parent.get(key)
@@ -51,8 +42,6 @@ def load_rocker(path: Path, parameters: dict, part: str) -> CadData:
         vector(frame, "origin")
         if any(vector(frame, axis) != expected for axis, expected in zip("xyz", axes)):
             raise CadError(f"cad.frames.{name}: unsupported rocker frame axes")
-
-    features = table(raw, "features")
 
     def feature(name: str, kind: str) -> dict:
         item = table(features, name)

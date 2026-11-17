@@ -3,7 +3,6 @@
 "units" = "mm"
 "precision" = "unknown"
 "step" = "end-bracket.STEP"
-"step_sha256" = "2ba2f02eb7ef67d99ebe92f7e75418e9746563f78af62f5fb1d9f1c8becab0f5"
 "construction" = "one_piece"
 
 ["drawing"]

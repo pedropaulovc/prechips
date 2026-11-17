@@ -26,11 +26,6 @@ from .cad import (
     _string,
 )
 
-# adapter: (Y-extent field on carriage_seat, plan row origin)
-_KINDS = {
-    "pivot_block": ("width", "minus_y_side"),
-    "feed_block": ("overall_y", "plus_y_side"),
-}
 _COMMON = {
     "carriage_seat",
     "pivot_bore",
@@ -38,10 +33,22 @@ _COMMON = {
     *(f"carriage_hole_{n}" for n in range(1, 5)),
     *(f"carriage_counterbore_{n}" for n in range(1, 5)),
 }
-_FEED = {"leadscrew_bore", *(f"nut_tap_{n}" for n in range(1, 5))}
-_SEAT = {
-    "pivot_block": ["length", "width", "height"],
-    "feed_block": ["length", "height", "lug_x", "overall_y", "lug_length"],
+_FEED = frozenset({"leadscrew_bore", *(f"nut_tap_{n}" for n in range(1, 5))})
+# adapter: (Y-extent field on carriage_seat, plan row origin, carriage_seat
+# requirements, lug features beyond the common set)
+_KINDS = {
+    "pivot_block": (
+        "width",
+        "minus_y_side",
+        ["length", "width", "height"],
+        frozenset(),
+    ),
+    "feed_block": (
+        "overall_y",
+        "plus_y_side",
+        ["length", "height", "lug_x", "overall_y", "lug_length"],
+        _FEED,
+    ),
 }
 _TOL_MM = 1e-6
 
@@ -120,18 +127,17 @@ def _hole(features: dict, name: str, requirements: list[str], axis: list) -> tup
 
 
 def _load(path: Path, parameters: dict, part: str, adapter: str) -> CadData:
-    y_field, row_from = _KINDS[adapter]
+    y_field, row_from, seat_fields, lug = _KINDS[adapter]
     raw, values, features = _read_manifest(path, part, adapter)
     _model_frame(raw)
-    feed = adapter == "feed_block"
-    expected = _COMMON | (_FEED if feed else set())
+    expected = _COMMON | lug
     if set(features) != expected:
         raise CadError(f"cad.features: expected exactly {', '.join(sorted(expected))}")
 
     # Model X runs along the 1.64 length (stations from the -X end), Y across
     # (rows from the -Y side on the pivot block, the +Y side on the feed
     # block), Z up from the carriage seat (Z0, facing -Z) to the top face.
-    seat = _feature(features, "carriage_seat", "face", _SEAT[adapter])
+    seat = _feature(features, "carriage_seat", "face", seat_fields)
     plane = seat.get("plane")
     if seat.get("normal") != [0, 0, -1] or plane != {
         "frame": "model",
@@ -294,7 +300,7 @@ def _load(path: Path, parameters: dict, part: str, adapter: str) -> CadData:
         ),
     ]
 
-    if feed:
+    if lug:
         _feed(
             features,
             values,

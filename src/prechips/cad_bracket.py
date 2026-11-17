@@ -1,6 +1,5 @@
 """Bindings for the hand-authored v39 bracket example, not a released drawing."""
 
-import tomllib
 from pathlib import Path
 
 from .cad import (
@@ -9,49 +8,22 @@ from .cad import (
     StockAxis,
     StockRequirement,
     _band,
+    _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _string,
 )
 
 
 def load_bracket(path: Path, parameters: dict, part: str) -> CadData:
     """Read only the bracket facts used by the authored comparison route."""
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if raw.get("part") != part or raw.get("units") != "mm":
-        raise CadError(f"cad: pivot_bracket requires {part} in mm")
-    frames = raw.get("frames")
-    if not isinstance(frames, dict):
-        raise CadError("cad.frames: expected a table")
-    model = frames.get("model")
-    if not isinstance(model, dict):
-        raise CadError("cad.frames.model: expected a table")
-    if any(
-        model.get(key) != expected
-        for key, expected in (
-            ("origin", [0, 0, 0]),
-            ("x", [1, 0, 0]),
-            ("y", [0, 1, 0]),
-            ("z", [0, 0, 1]),
-        )
-    ):
-        raise CadError("cad.frames.model: unsupported bracket frame")
-    drawing = raw.get("drawing", {})
-    if not isinstance(drawing, dict):
-        raise CadError("cad.drawing: expected a table")
-    values = {
-        "part": raw["part"],
-        "drawing_number": _string(drawing.get("number"), "cad.drawing.number"),
-        "revision": _string(drawing.get("revision"), "cad.drawing.revision"),
-    }
+    raw, values, features = _read_manifest(path, part, "pivot_bracket")
+    _model_frame(raw)
     material = raw.get("material")
     if not isinstance(material, dict):
         raise CadError("cad.material: expected a table")
     values["finish"] = _string(material.get("finish"), "cad.material.finish")
-    features = raw.get("features", {})
-    if not isinstance(features, dict):
-        raise CadError("cad.features: expected a table")
 
     def feature(name):
         item = features.get(name)

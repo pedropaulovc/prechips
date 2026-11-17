@@ -3,7 +3,6 @@
 "units" = "mm"
 "precision" = "unknown"
 "step" = "feed-lever.STEP"
-"step_sha256" = "58f8634f73e80ead29b1a3568d6d5c12f96a449fb285f2887a296f858af7f6d6"
 "construction" = "one_piece"
 
 ["drawing"]
