@@ -9,7 +9,7 @@ from prechips.cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/carrier-v50.toml"
-PLAN = ROOT / "examples/carrier.toml"
+PLAN = ROOT / "examples/demo-carrier.toml"
 PARAMETERS = tomllib.loads(PLAN.read_text(encoding="utf-8"))["parameters"]
 
 
@@ -17,7 +17,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     out = tmp_path / "carrier.html"
     assert main(["traveler", str(PLAN), "--profile", "pro", "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
-    assert "MHA-CH-06-TL-21" in html
+    assert "DEMO-CARRIER" in html
     assert "Ø.3760–.3770" in html
 
 
@@ -28,7 +28,7 @@ def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
 
 
 def test_hole_table_prints_sheet_two_from_the_lower_left_corner():
-    rows = load_carrier(SOURCE, PARAMETERS).values["hole_rows"]
+    rows = load_carrier(SOURCE, PARAMETERS, "carrier").values["hole_rows"]
     assert {tag: (x, y) for tag, x, y, _ in rows} == {
         "A1": ("1.389", "1.770"),
         "B1": ("19.111", "1.770"),
@@ -46,7 +46,7 @@ def test_hole_table_prints_sheet_two_from_the_lower_left_corner():
 
 
 def test_beam_stations_are_the_blocks_and_hole_groups_in_mm():
-    values = load_carrier(SOURCE, PARAMETERS).values
+    values = load_carrier(SOURCE, PARAMETERS, "carrier").values
     assert values["end_block_x_mm"] == pytest.approx([2.70 * 25.4, 17.80 * 25.4])
     assert values["inner_block_x_mm"] == pytest.approx([7.10 * 25.4, 13.40 * 25.4])
     assert values["block_span_mm"] == pytest.approx([1.70 * 25.4, 18.80 * 25.4])
@@ -60,20 +60,20 @@ def test_a_block_within_its_placing_tolerance_of_a_hole_refuses():
     # Block 1 spans 1.70-3.70 in; A1's bore edge is at 1.389 + .189 = 1.578,
     # .122 clear. Placed anywhere within ±.15 it could reach the bore.
     with pytest.raises(CadError, match="block 1 .* under hole A1"):
-        load_carrier(SOURCE, PARAMETERS | {"block_tolerance_in": 0.15})
+        load_carrier(SOURCE, PARAMETERS | {"block_tolerance_in": 0.15}, "carrier")
 
 
 def test_a_block_under_a_hole_refuses():
     with pytest.raises(CadError, match="under hole R1"):
-        load_carrier(SOURCE, PARAMETERS | {"block_inner_offset_in": 2.0})
+        load_carrier(SOURCE, PARAMETERS | {"block_inner_offset_in": 2.0}, "carrier")
 
 
 def test_a_spacer_seat_inside_the_broken_edge_refuses():
-    values = load_carrier(SOURCE, PARAMETERS).values
+    values = load_carrier(SOURCE, PARAMETERS, "carrier").values
     assert "chamfer_mouth_min_in" not in values
     assert values["spacer_seat_margin_in"] > 0
     with pytest.raises(CadError, match="edge break reaches the seat"):
-        load_carrier(SOURCE, PARAMETERS | {"spacer_seat_dia_in": 0.39})
+        load_carrier(SOURCE, PARAMETERS | {"spacer_seat_dia_in": 0.39}, "carrier")
 
 
 def test_an_unexpected_feature_set_refuses(tmp_path):
@@ -85,26 +85,26 @@ def test_an_unexpected_feature_set_refuses(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(CadError, match="expected exactly"):
-        load_carrier(source, PARAMETERS)
+        load_carrier(source, PARAMETERS, "carrier")
 
 
 def test_a_strap_toe_beyond_the_blocks_refuses():
     with pytest.raises(CadError, match="strap toe outside the blocks"):
-        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 0.6})
+        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 0.6}, "carrier")
 
 
 def test_a_toe_pad_on_the_nominal_but_not_the_placed_blocks_refuses():
     # Blocks span 1.05-4.05 in across; less ±.06 placing, 1.11-3.99. The plan's
     # .25 pad centred at 1.20 spans 1.075-1.325: on the nominal block only.
     with pytest.raises(CadError, match="strap toe outside the blocks"):
-        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 1.20})
+        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 1.20}, "carrier")
 
 
 def test_a_partial_block_toe_or_coupon_key_set_refuses():
     for key in ("block_tolerance_in", "strap_toe_width_in", "coupon_hole_y_in"):
         parameters = {k: v for k, v in PARAMETERS.items() if k != key}
         with pytest.raises(CadError, match=f"also need {key}"):
-            load_carrier(SOURCE, parameters)
+            load_carrier(SOURCE, parameters, "carrier")
 
 
 def test_a_misplaced_test_coupon_refuses():
@@ -118,13 +118,15 @@ def test_a_misplaced_test_coupon_refuses():
         ({"coupon_hole_x_in": 12.0}, "onto block 4's back strap"),
     ):
         with pytest.raises(CadError, match=message):
-            load_carrier(SOURCE, PARAMETERS | change)
+            load_carrier(SOURCE, PARAMETERS | change, "carrier")
 
 
 def test_note_two_relations_print_from_a1_and_the_line():
     rows = {
         tag: (x, y)
-        for tag, x, y in load_carrier(SOURCE, PARAMETERS).values["relation_rows"]
+        for tag, x, y in load_carrier(SOURCE, PARAMETERS, "carrier").values[
+            "relation_rows"
+        ]
     }
     assert rows["B1"] == ("17.717–17.727", "sets the line")
     assert rows["A2"] == (".279–.289 left", ".962–.966")

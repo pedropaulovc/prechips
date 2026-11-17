@@ -1,4 +1,4 @@
-"""Setup pictures for the leadscrew kit rework (TL-VN-84).
+"""Setup pictures for the leadscrew kit rework.
 
 ``kit-*`` templates share the jig shell (:mod:`prechips.jig_diagrams`): bare
 ``<svg>`` roots, the same palette role groups and conventions. Lathe and

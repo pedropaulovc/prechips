@@ -17,7 +17,8 @@ note = "mm throughout. Repeat route ×20. Conventional milling, brush cutting oi
 
 [cad]
 file = "../cad/rocker-arm-v40.toml"
-adapter = "harmonic_rocker_arm"
+adapter = "rocker_arm"
+part = "rocker-arm"
 
 [parameters]
 hub_length_aim = 7.080

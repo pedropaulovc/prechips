@@ -1,7 +1,6 @@
 """Explicit pivot-shaft drawing bindings and the authored RH turning route."""
 
 import math
-import tomllib
 from pathlib import Path
 
 from prechips.cad import (
@@ -10,37 +9,16 @@ from prechips.cad import (
     StockAxis,
     StockRequirement,
     _band,
+    _model_frame,
     _number,
     _positive,
-    _string,
+    _read_manifest,
 )
 
 
-def load_shaft(path: Path, parameters: dict) -> CadData:
-    with path.open("rb") as source:
-        raw = tomllib.load(source)
-    if raw.get("units") != "mm" or raw.get("part") != "pivot-shaft":
-        raise CadError("cad: harmonic_pivot_shaft requires pivot-shaft in mm")
-    frames = raw.get("frames")
-    model = frames.get("model") if isinstance(frames, dict) else None
-    expected_frame = {
-        "origin": [0, 0, 0],
-        "x": [1, 0, 0],
-        "y": [0, 1, 0],
-        "z": [0, 0, 1],
-    }
-    if not isinstance(model, dict) or any(
-        model.get(k) != v for k, v in expected_frame.items()
-    ):
-        raise CadError("cad.frames.model: expected the shaft's XYZ model frame")
-    drawing, features = raw.get("drawing"), raw.get("features")
-    if not isinstance(drawing, dict) or not isinstance(features, dict):
-        raise CadError("cad: missing drawing or features table")
-    values = {
-        "part": raw["part"],
-        "drawing_number": _string(drawing.get("number"), "cad.drawing.number"),
-        "revision": _string(drawing.get("revision"), "cad.drawing.revision"),
-    }
+def load_shaft(path: Path, parameters: dict, part: str) -> CadData:
+    raw, values, features = _read_manifest(path, part, "pivot_shaft")
+    _model_frame(raw)
 
     def feature(name: str, kind: str) -> dict:
         item = features.get(name)

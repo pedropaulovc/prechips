@@ -1,4 +1,4 @@
-"""Bindings for the harmonic leadscrew kit rework (MHA-CH-06-TL-VN-84).
+"""Bindings for a purchased leadscrew kit's rework.
 
 A purchased ReliaBot Tr8x2 screw and brass flange nut, one manifest with two
 members: the LeadScrew (saved default) is cut to length and takes five
@@ -17,14 +17,13 @@ from .cad import (
     StockAxis,
     StockRequirement,
     _band,
-    _harmonic_manifest,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _string,
 )
 
-_PART = "ch-rocker-arm-tl-vn-oblique-leadscrew-kit"
 _NUT = "FeedNut"
 _FLATS = ("near_kp08", "far_kp08", "handwheel")
 _CLOCKED = ("near_kp08", "far_kp08")
@@ -41,9 +40,9 @@ def _limits(values: dict, key: str, band: tuple[float, float], nominal: float) -
     values[f"{key}_band_mm"] = list(band)
 
 
-def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
+def load_leadscrew_kit(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the screw's cut and flats and the nut's facing and countersinks."""
-    raw, values, features = _harmonic_manifest(path, _PART, "harmonic_leadscrew_kit")
+    raw, values, features = _read_manifest(path, part, "leadscrew_kit")
     _model_frame(raw)
     members = raw.get("member_steps")
     if not isinstance(members, dict) or set(members) != {_NUT}:

@@ -8,7 +8,7 @@ from prechips.traveler import PlanError, load_plan, render_traveler
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/rocker-arm-v40.toml"
-PLAN = ROOT / "examples/comparison/rocker-arm.toml"
+PLAN = ROOT / "examples/comparison/demo-rocker-arm.toml"
 PARAMETERS = tomllib.loads(PLAN.read_text(encoding="utf-8"))["parameters"]
 
 
@@ -26,7 +26,7 @@ def prepare(tmp_path, source_text, plan_text=None):
 
 
 def test_rocker_bound_geometry_preserves_authored_aims_and_plugs():
-    cad = load_rocker(SOURCE, PARAMETERS)
+    cad = load_rocker(SOURCE, PARAMETERS, "rocker-arm")
     stock = cad.stock_requirement
     assert stock.unit == "mm"
     assert [(axis.name, axis.parameter) for axis in stock.axes] == [

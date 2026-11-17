@@ -1,4 +1,4 @@
-"""Bindings for the released harmonic oblique-trammel feed lever (MHA-CH-06-TL-26)."""
+"""Bindings for the released feed lever of a jig."""
 
 from pathlib import Path
 
@@ -10,21 +10,19 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
-    _harmonic_manifest,
     _inch_limits,
     _mid,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _shorthand,
 )
 
 
-def load_feed_lever(path: Path, parameters: dict) -> CadData:
+def load_feed_lever(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the lever envelope, its two clearance holes and its grip corners."""
-    raw, values, features = _harmonic_manifest(
-        path, "ch-rocker-arm-tl-oblique-feed-lever", "harmonic_feed_lever"
-    )
+    raw, values, features = _read_manifest(path, part, "feed_lever")
     _model_frame(raw)
 
     # Model X runs along the lever from the zero end, Y through the 1/2 in

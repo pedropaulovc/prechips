@@ -156,11 +156,12 @@ def load_plan(path: Path) -> LoadedPlan:
         if config is not None:
             if not isinstance(config, dict):
                 raise PlanError("cad: expected a table")
-            _keys(config, {"file", "adapter"}, "cad")
+            _keys(config, {"file", "adapter", "part"}, "cad")
             cad = load_cad(
                 path.parent / _text(config, "file", "cad"),
                 parameters,
                 _text(config, "adapter", "cad"),
+                _text(config, "part", "cad"),
             )
         # Literal-only plans can also bind authored process parameters.
         context = cad or CadData({}, stock_requirement=None, source=path.resolve())

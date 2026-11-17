@@ -114,7 +114,7 @@ def comparison_stock_fit(tmp_path, name, edits=None):
     return main(["traveler", str(plan), "--out", str(out), "--profile", str(profile)])
 
 
-@pytest.mark.parametrize("name", ["pivot-bracket.toml", "rocker-arm.toml"])
+@pytest.mark.parametrize("name", ["demo-pivot-bracket.toml", "demo-rocker-arm.toml"])
 def test_comparison_flat_bar_examples_fit_their_cad_envelope(tmp_path, capsys, name):
     assert comparison_stock_fit(tmp_path, name) == 0
     assert capsys.readouterr().err == ""
@@ -125,24 +125,28 @@ def test_comparison_flat_bar_examples_fit_their_cad_envelope(tmp_path, capsys, n
     [
         # The bracket's prepared size shrinks with its raw size so the adapter's
         # own skim check does not refuse first; exact fits pass.
-        ("pivot-bracket.toml", {"raw_width_mm": 16.0, "prepared_width_mm": 16.0}, ""),
         (
-            "pivot-bracket.toml",
+            "demo-pivot-bracket.toml",
+            {"raw_width_mm": 16.0, "prepared_width_mm": 16.0},
+            "",
+        ),
+        (
+            "demo-pivot-bracket.toml",
             {"raw_width_mm": 15.99, "prepared_width_mm": 15.99},
             "stock_fit: width: declared 15.99 mm (15.99 mm); CAD requires 16 mm",
         ),
         (
-            "pivot-bracket.toml",
+            "demo-pivot-bracket.toml",
             {"sawn_height_mm": 32.2, "prepared_height_mm": 32.2},
             "",
         ),
         (
-            "pivot-bracket.toml",
+            "demo-pivot-bracket.toml",
             {"sawn_height_mm": 32.1, "prepared_height_mm": 32.1},
             "stock_fit: height: declared 32.1 mm (32.1 mm); CAD requires 32.2 mm",
         ),
         (
-            "rocker-arm.toml",
+            "demo-rocker-arm.toml",
             {"stock_length": 292.5},
             "stock_fit: length: declared 292.5 mm (292.5 mm); CAD requires 292.509",
         ),

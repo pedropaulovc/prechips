@@ -1,30 +1,29 @@
-# Mirror of harmonic-analyzer cad/process/ch_rocker_arm_tl_oblique_feed_block/plan.toml against the
-# v49-geometry manifest (cad/feed-block-v49.toml) exported by HA farm run
-# 20261114T082526642Z-a70438f8050d43c0b2fe05ff691dfc38 at 682754a98e (plan at HA 8ec8e2995c, #2776); it
-# carries the build's next drawing revision of MHA-CH-06-TL-32, v50.
-# Source: the v50 MHA-CH-06-TL-32 sheets through the feature manifest (sizes,
+# Demo plan: the feed block of a carriage, against its v49-geometry feature
+# manifest (cad/feed-block-v49.toml), which carries the next drawing
+# revision, v50.
+# Source: the v50 drawing sheets through the feature manifest (sizes,
 # lug, stations, rows, limits, the counterbored .375 seat and its 5/16-18
 # tap, the Ø.375 leadscrew clearance and its row and height). No hand
 # traveler exists for this block. Route, tools, speeds, workholding and datums
-# are authored here, as for TL-22 (its plan.toml): one blank from the
+# are authored here, as for the pivot block (demo-pivot-block.toml): one blank from the
 # OnlineMetals 1187 1 x 3 in bar (the sheet's material block; coordinator
 # 2026-11-14) with the 3.47 overall along the bar, both faces faced, the 1.64
-# milled from the 3 in width on edge in ≤.10 layers (owner ruling #2083: mill
+# milled from the 3 in width on edge in ≤.10 layers (owner ruling: mill
 # to size, no bandsaw rip), the sawn ends faced on end, the top holes in one
-# hold (the seat a plunged 3/8 end mill, as TL-22's), the leadscrew clearance
+# hold (the seat a plunged 3/8 end mill, as the pivot block's), the leadscrew clearance
 # with the block standing on SPINDLE END: a 5/16 pilot blind past where the
 # lug face will be, and the same 3/8 end mill plunged part way down it (owner
-# ruling 2026-11-13; RV-04 accepts its .044 wall to the taps), and last the
+# ruling 2026-11-13; the drawing review accepts its .044 wall to the taps), and last the
 # lug notch with the block on edge, OUTER END down, so the end mill's square
 # end cuts the lug face and leaves the inside corner sharp (INSIDE CORNERS
 # R.040 MAX; blind review 2026-11-14 L1), then the 3/8 end mill down from the
 # lug face to meet its first plunge. Both hole setups come before the notch
-# (Codjiflo, #2745/#397): the block is still a full rectangle, so the fixed
+# (Codjiflo review, #397): the block is still a full rectangle, so the fixed
 # jaw meets all of SPINDLE END and the block stands on all of it; the notch
 # opens the pilot. The four #4-40 nut
-# taps are transferred through the MHA-CH-06-TL-VN-84 feed nut at TL-00
+# taps are transferred through the leadscrew kit's feed nut at
 # assembly (the sheet's note): no operation here. The KP08 axis-height check
-# (#2184) is an assembly check, not this part's.
+# is an assembly check, not this part's.
 # Speeds: the jig sheets' LittleMachineShop 6061-T6 row, 165 ft/min:
 # rpm = 12 × 165 / (π × D in), rounded down to 50, capped at the PM-30MV's
 # 2800 (owner 2026-11-16; #15 3501 → 2800; F 2452 → 2450; 5/16 2017 → 2000; 3/8 1680 → 1650).
@@ -34,15 +33,16 @@ title = "Oblique trammel feed block"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
-stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 12 in bar (OnlineMetals 1187, shared with TL-22); {{process.quantity:d}} blank {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × {{process.blank_length_in:.2f}} in; 1 spacer offcut {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × {{process.offcut_length_in:.2f}} in (the notch setup's)."
-note = "Inches. Every face machined. The {{cad.nut_tap_count:d}}X {{cad.nut_thread}} nut taps are transferred at TL-00 assembly, not here."
+stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 12 in bar (OnlineMetals 1187, shared with the pivot block); {{process.quantity:d}} blank {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × {{process.blank_length_in:.2f}} in; 1 spacer offcut {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × {{process.offcut_length_in:.2f}} in (the notch setup's)."
+note = "Inches. Every face machined. The {{cad.nut_tap_count:d}}X {{cad.nut_thread}} nut taps are transferred at assembly, not here."
 shop = "shop.toml"
 material_key = "6061-t6511"
 milling_material = "aluminum_6061"
 
 [cad]
 file = "cad/feed-block-v49.toml"
-adapter = "harmonic_feed_block"
+adapter = "feed_block"
+part = "feed-block"
 
 [parameters]
 # drill_pecking steps, one drill Ø each: #15 (.180 in), F (.257 in).
@@ -66,7 +66,7 @@ end_layer_in = 0.05              # Facing layers on the tall ends (Setup 4).
 # offcut_length_in offcut of the 1187 bar, faced at the block's finish Z in
 # "Face SEAT and TOP", at most spacer_over_max_in over it (thin: shimmed),
 # standing offcut_length_in high with the bar width along the jaws. The
-# finished TL-22 is not the spacer (Codjiflo, #2745): its .950-.970 height is
+# finished pivot block is not the spacer (Codjiflo review): its .950-.970 height is
 # unmatched, and its SEAT and TOP would take the jaw load.
 notch_overhang_min_in = 2.05
 notch_overhang_max_in = 2.15
@@ -80,11 +80,11 @@ notch_side_overrun_in = 0.05
 vise_jaw_width_mm = 158.6738     # Shop workholding.vise-pm-6.jaw_width_mm.
 vise_jaw_height_mm = 44.9453     # Shop workholding.vise-pm-6.jaw_height_mm.
 vise_bed_height_mm = 73.3044     # Shop workholding.vise-pm-6.bed_height_mm.
-face_parallel_height_mm = 25.4   # 1 in parallels (shop-equipment parallels-lms-6745).
+face_parallel_height_mm = 25.4   # 1 in parallels (owned LMS 6745 set).
 edge_parallel_height_mm = 12.7   # 1/2 in parallels, same set.
 face_cutter_dia_mm = 12.7        # 1/2 in end mill (LMS 6784 set).
 half_cutter_dia_mm = 12.7        # The owner's 1/2 in end mill, flutes ≥1.00.
-r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
+r8_collet_gauge_mm = 6.3         # Owned LMS 4860 R8 collets, gauge length.
 # Archive LMS 6784 projections from the R8 collet: 1/4 in 25, 7/16 in 41,
 # 11/16 in 50; the 1/2 and 5/16 in cutters have no member record, so their
 # neighbours bound them.
@@ -169,7 +169,7 @@ machine = "Saw / bench"
 indexing = "none"
 envelope = "other"
 vise_hold = "other"
-diagram = { file = "diagrams/feed-block/saw.svg", alt = "The feed-block blank, then the spacer offcut, from the 1187 bar end" }
+diagram = { file = "diagrams/demo-feed-block/saw.svg", alt = "The feed-block blank, then the spacer offcut, from the 1187 bar end" }
 beam = "other"
 
 [[setups.operations]]
@@ -178,7 +178,7 @@ tool = "saw"
 drilling = "none"
 sizing = "other"
 instruction = "From the 1187 bar end: one {{process.blank_length_in:.2f}} blank, waste side of the line; ≥{{process.blank_min_length_in:.2f}}. Then one {{process.offcut_length_in:.2f}} spacer offcut."
-instruction_detailed = "Square the 1187 bar end first if it is rough. Mark {{process.blank_length_in:.2f}} from the end and saw on the waste side of the line (~{{process.kerf_in:fraction}} kerf); the blank must be at least {{process.blank_min_length_in:.2f}} long. Then saw one {{process.offcut_length_in:.2f}} offcut, the notch setup's spacer; it need not be square. The rest of the bar goes to TL-22."
+instruction_detailed = "Square the 1187 bar end first if it is rough. Mark {{process.blank_length_in:.2f}} from the end and saw on the waste side of the line (~{{process.kerf_in:fraction}} kerf); the blank must be at least {{process.blank_min_length_in:.2f}} long. Then saw one {{process.offcut_length_in:.2f}} offcut, the notch setup's spacer; it need not be square. The rest of the bar goes to the pivot block."
 feed = "hand"
 
 [[setups]]
@@ -188,7 +188,7 @@ machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Flat on 1 in parallels, as-bought 3 in edges in the jaws, centred."
-diagram = { file = "diagrams/feed-block/faces.svg", alt = "Blank flat in the vise: clean one face (SEAT), flip, face TOP to height; then the spacer offcut in its place, faced at the same Z" }
+diagram = { file = "diagrams/demo-feed-block/faces.svg", alt = "Blank flat in the vise: clean one face (SEAT), flip, face TOP to height; then the spacer offcut in its place, faced at the same Z" }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.face_parallel_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.face_parallel_height_mm}}", "{{cad.height_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 # Two holds: the blank, then the spacer offcut in its place (its last op).
 vise_hold = [
@@ -228,7 +228,7 @@ tool = "em-face"
 drilling = "none"
 sizing = "other"
 instruction = "Spacer: the offcut on the same parallels; face it at the block's finish Z, unmoved: at most {{process.spacer_over_max_in:.3dot}} over the block's height, thin shimmed up to it."
-instruction_detailed = "The spacer balances the vise in the notch setup; the finished TL-22 is not used. Leave the head and quill locked, Z where the block's finish pass ran. Unclamp the block and clamp the spacer offcut in its place, flat on the same parallels, its as-bought 3 in edges in the jaws; tap it down until both parallels are pinned. Take a rough pass about .010 above the finish Z, then the finish pass at the block's finish Z: the spacer comes out at the block's height over the same parallels. Mic the block and the spacer at both ends, each pair at the same spot: the spacer may stand up to {{process.spacer_over_max_in:.3dot}} over the block, never more. If it is thicker, take another .001–.002; if it is thin, it is still good: shim it up to the block's height between the spacer and the moving jaw in the notch setup. Mark it SPACER."
+instruction_detailed = "The spacer balances the vise in the notch setup; the finished pivot block is not used. Leave the head and quill locked, Z where the block's finish pass ran. Unclamp the block and clamp the spacer offcut in its place, flat on the same parallels, its as-bought 3 in edges in the jaws; tap it down until both parallels are pinned. Take a rough pass about .010 above the finish Z, then the finish pass at the block's finish Z: the spacer comes out at the block's height over the same parallels. Mic the block and the spacer at both ends, each pair at the same spot: the spacer may stand up to {{process.spacer_over_max_in:.3dot}} over the block, never more. If it is thicker, take another .001–.002; if it is thin, it is still good: shim it up to the block's height between the spacer and the moving jaw in the notch setup. Mark it SPACER."
 milling_cuts = [
   { name = "spacer rough", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "rough", axial_doc_mm = 1.016, radial_woc_mm = 10.16, traverse_mm = [0, "{{cad.offcut_length_mm}}"] },
   { name = "spacer finish", kind = "end", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = 177.8, phase = "finish", axial_doc_mm = 0.254, radial_woc_mm = 10.16, traverse_mm = [0, "{{cad.offcut_length_mm}}"] },
@@ -249,7 +249,7 @@ machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
 holding = "On edge on 1/2 in parallels, SEAT and TOP in the jaws, centred."
-diagram = { file = "diagrams/feed-block/width.svg", alt = "Blank on edge: clean one 3 in edge (SPINDLE END), flip, mill the other down to the 1.64" }
+diagram = { file = "diagrams/demo-feed-block/width.svg", alt = "Blank on edge: clean one 3 in edge (SPINDLE END), flip, mill the other down to the 1.64" }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.height_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.edge_parallel_height_mm}}", "{{cad.blank_width_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.edge_parallel_height_mm}}", "{{cad.length_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.height_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.blank_width_mm}}", parallel_height_mm = "{{process.edge_parallel_height_mm}}", overhang_mm = ["{{cad.centred_overhang_blank_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 # Standing on edge: a cantilever up from the jaw tops, bent across the jaws.
@@ -286,7 +286,7 @@ machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
 holding = "On end on 1/2 in parallels, SEAT at the fixed jaw, TOP at the moving jaw, SPINDLE END on your left, squared to the jaw tops, centred: the up end becomes ROW SIDE, on the hand the drawing has."
-diagram = { file = "diagrams/feed-block/ends.svg", alt = "Blank on end: clean one sawn end (ROW SIDE), flip, face LUG END to the overall length" }
+diagram = { file = "diagrams/demo-feed-block/ends.svg", alt = "Blank on end: clean one sawn end (ROW SIDE), flip, face LUG END to the overall length" }
 envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.height_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.edge_parallel_height_mm}}", "{{cad.blank_length_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.edge_parallel_height_mm}}", "{{cad.y_length_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.height_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.blank_length_mm}}", parallel_height_mm = "{{process.edge_parallel_height_mm}}", overhang_mm = ["{{cad.centred_overhang_x_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 # Standing on a sawn end: a cantilever up from the jaw tops.
@@ -324,7 +324,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Flat, SEAT down on 1 in parallels no thicker than 1/8, tight against the jaws (H1–H4 break out .22 from each jaw); SPINDLE END at the fixed jaw, ROW SIDE on your right, centred."
 datum = "X0 ROW SIDE (touched): the hole table's X runs left from it, −X on the DRO; Y0 SPINDLE END = fixed jaw face, +Y toward you; Z0 TOP, touched off with each end mill."
-diagram = { file = "diagrams/feed-block/holes.svg", alt = "Block SEAT down, SPINDLE END at the fixed jaw: pivot seat B and H1-H4 with their counterbores; section through H1 and B" }
+diagram = { file = "diagrams/demo-feed-block/holes.svg", alt = "Block SEAT down, SPINDLE END at the fixed jaw: pivot seat B and H1-H4 with their counterbores; section through H1 and B" }
 # Every hole sits inside the block. Longest: a jobber drill in the chuck;
 # shortest: the 5/16 in end mill in its collet. The tap tip runs deepest.
 envelope = { x_span_mm = "{{cad.y_length_mm}}", y_span_mm = "{{cad.length_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.face_parallel_height_mm}}", "{{cad.height_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.face_parallel_height_mm}}", "{{process.tap_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
@@ -419,7 +419,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "On SPINDLE END on 1/2 in parallels, SEAT at the fixed jaw, LUG END on your right, centred."
 datum = "X0 LUG END (touched): the bore's X runs left from it, −X on the DRO; Y0 SEAT = fixed jaw face, +Y toward you; Z0 OUTER END."
-diagram = { file = "diagrams/feed-block/lug-bore.svg", alt = "Block standing on all of SPINDLE END, SEAT at the fixed jaw: the pilot down from OUTER END, blind past where the notch's lug face will be, and the 3/8 end mill part way down it" }
+diagram = { file = "diagrams/demo-feed-block/lug-bore.svg", alt = "Block standing on all of SPINDLE END, SEAT at the fixed jaw: the pilot down from OUTER END, blind past where the notch's lug face will be, and the 3/8 end mill part way down it" }
 # The hole and the LUG END touch lie within the overall length; across, the
 # .96 height. The 5/16 drill's tip runs deepest, just past the blind floor
 # (the 3/8 plunge stops .45 down); longest: that jobber drill in the chuck;
@@ -476,9 +476,9 @@ title = "Mill the lug notch"
 machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "On edge, OUTER END down on 1/2 in parallels, TOP at the fixed jaw; LUG END {{process.notch_overhang_min_in:.2f}}–{{process.notch_overhang_max_in:.2f}} past the right jaw side, measured; the spacer offcut (faced with the block, at most {{process.spacer_over_max_in:.3dot}} over its height, thin shimmed up) at the left jaw end, {{process.blank_width_in:fraction}} in along the jaws, its faced and as-bought faces against the jaws; not TL-22."
+holding = "On edge, OUTER END down on 1/2 in parallels, TOP at the fixed jaw; LUG END {{process.notch_overhang_min_in:.2f}}–{{process.notch_overhang_max_in:.2f}} past the right jaw side, measured; the spacer offcut (faced with the block, at most {{process.spacer_over_max_in:.3dot}} over its height, thin shimmed up) at the left jaw end, {{process.blank_width_in:fraction}} in along the jaws, its faced and as-bought faces against the jaws; not the pivot block."
 datum = "X0 LUG END (touched): the notch's X runs left from it, −X on the DRO; Y0 TOP = fixed jaw face, +Y toward you; Z0 SPINDLE END for the notch, the lug face for the 3/8 plunge (touched with each end mill)."
-diagram = { file = "diagrams/feed-block/notch.svg", alt = "Front view, moving jaw not shown: the block on edge, LUG END past the right jaw side, the notch cut down from SPINDLE END to the lug face, then the leadscrew clearance down from the lug face" }
+diagram = { file = "diagrams/demo-feed-block/notch.svg", alt = "Front view, moving jaw not shown: the block on edge, LUG END past the right jaw side, the notch cut down from SPINDLE END to the lug face, then the leadscrew clearance down from the lug face" }
 # The cutters work only past the jaw side: along the lug plus a cutter
 # diameter either side, across the .96 plus one diameter, down to the 3/8
 # end mill's plunge below the lug face. Longest: the 5/16 drill in the chuck
@@ -531,7 +531,7 @@ machine_kind = "other"
 title = "Deburr / inspect"
 machine = "Bench"
 indexing = "none"
-diagram = { file = "diagrams/feed-block/inspect.svg", alt = "Finished block: lug, hole positions from ROW SIDE and SPINDLE END; section through H1 and B" }
+diagram = { file = "diagrams/demo-feed-block/inspect.svg", alt = "Finished block: lug, hole positions from ROW SIDE and SPINDLE END; section through H1 and B" }
 envelope = "other"
 vise_hold = "other"
 beam = "other"

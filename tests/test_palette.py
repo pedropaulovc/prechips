@@ -12,7 +12,7 @@ from prechips.traveler import load_plan, render_traveler
 ROOT = Path(__file__).resolve().parents[1]
 PLANS = sorted(
     path for path in (ROOT / "examples").glob("*.toml") if path.name != "shop.toml"
-) + [ROOT / "examples/comparison/pivot-shaft.toml"]
+) + [ROOT / "examples/comparison/demo-pivot-shaft.toml"]
 COLOUR_ATTRIBUTES = ("fill", "stroke", "color", "stop-color", "flood-color")
 IMAGE = re.compile(r'src="data:image/svg\+xml;base64,([^"]+)"')
 

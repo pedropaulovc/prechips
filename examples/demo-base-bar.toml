@@ -1,15 +1,13 @@
-# Source: Pedro's 2026-11-05 hand traveler
-# ch-rocker-arm-tl-oblique-base-bar-traveler-2026-11-05.html (open PR #2218,
-# branch process/basebar-traveler-logbook-advice; drawing v47), including its
-# vise workholding: 1-3/8 in parallels and the HHIP 3901-0079 jack, recorded in
-# cad/config/shop-equipment.toml with that sheet's ownership status.
+# Demo plan: a base bar for a two-bar jig, after Pedro's 2026-11-05 hand
+# traveler (drawing v47), including its vise workholding: 1-3/8 in parallels
+# and the HHIP 3901-0079 jack, as owned.
 # Both ends are squared in the facing clamping (2026-11-14 blind traveler
 # review, item 1, and the milling_deflection check): the former table-strapped
 # squaring left the ends on a 221 mm cantilever (0.057 mm, refused).
 # v48/v49 drawing: bar 1 alone carries the four #12 bracket holes. Owner
 # ruling 2026-11-16: the rail holes are drilled at their printed stations
 # (±0.05 mm from ZERO END); each bar's untrimmed rail is fitted to it, then
-# trimmed flush with both ends (MHA-CH-06-TL-00 steps 1D–1F). Bar 2 (drawing
+# trimmed flush with both ends at assembly (steps 1D–1F). Bar 2 (drawing
 # sheet 2) swaps the seats: its rail seats on the face that is far in the
 # front view (up in Setup 4) and its near face seats on the mill table. The
 # manifest describes bar 1 only, so the per-bar face text below is authored
@@ -26,11 +24,12 @@ milling_material = "aluminum_6061"
 
 [cad]
 file = "cad/base-bar-v50.toml"
-adapter = "harmonic_base_bar"
+adapter = "base_bar"
+part = "base-bar"
 
 [parameters]
 # drill_pecking: rail holes take full-retract pecks of one #29 Ø (.136 in), as
-# harmonic-analyzer's BB07 posts them (G83, HA #2855), so the plans agree.
+# the CAM program (G83) drills them.
 rail_peck_mm = 3.4544
 blank_length_in = 17.4375
 blank_width_in = 6.0
@@ -67,7 +66,7 @@ end_cut_tip_z_mm = -1.016        # End cutter .04 in below the bar.
 drill_tip_z_mm = -3.175          # Drill tips .125 in past the underside.
 half_cutter_dia_mm = 12.7        # 1/2 in end mill; also cuts the slots.
 face_cutter_dia_mm = 19.05       # 3/4 in end mill.
-r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
+r8_collet_gauge_mm = 6.3         # Owned LMS 4860 R8 collets, gauge length.
 drill_chuck_gauge_mm = 95.0      # Archive holders.drill-chuck-r8.gauge_len_mm.
 # Archive LMS 6784 set projections from the R8 collet grow with size: 3/16 and
 # 1/4 in 25, 3/8 in 38, 7/16 in 41, 11/16 in 50, 3/4 in 57. The 1/2 and 5/16 in
@@ -128,7 +127,7 @@ machine_kind = "other"
 title = "Saw blanks"
 machine = "Saw / bench"
 indexing = "none"
-diagram = { file = "diagrams/saw.svg", alt = "{{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks marked on the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; bar supported level on saw bed and stands at the cutline." }
+diagram = { file = "diagrams/demo-base-bar/saw.svg", alt = "{{process.quantity:d}} × {{process.blank_length_in:fraction}} in blanks marked on the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} in bar; bar supported level on saw bed and stands at the cutline." }
 envelope = "other"
 vise_hold = "other"
 beam = "other"
@@ -149,7 +148,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Vise off; three 1-2-3 blocks flat (1 in up, 3 in across) inboard, near each end and mid-length; long edges overhang ~1.5 in. One strap at mid-width ~1 in in from each end."
 datum = "Front edge becomes ZERO EDGE. X along length; +X cutter right, +Y away; X travel ~18.5 in."
-diagram = { file = "diagrams/width.svg", alt = "Blank on three inboard 1-2-3 blocks, near each end and at mid-length, with straps at mid-width of each end; both long edges exposed. Front edge cut with the cutter moving +X makes ZERO EDGE; the opposite edge, cutter moving −X, finishes width without moving the bar." }
+diagram = { file = "diagrams/demo-base-bar/width.svg", alt = "Blank on three inboard 1-2-3 blocks, near each end and at mid-length, with straps at mid-width of each end; both long edges exposed. Front edge cut with the cutter moving +X makes ZERO EDGE; the opposite edge, cutter moving −X, finishes width without moving the bar." }
 envelope = { x_span_mm = "{{process.edge_x_travel_mm}}", y_span_mm = ["{{cad.blank_width_mm}}", "{{process.half_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{process.edge_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = "other"
 # The blocks only push up; the two end straps hold the bar both ways.
@@ -190,7 +189,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Vise indicated <.001 along X. On 1-3/8 in parallels inside the jaw ends; blank centred, ZERO EDGE at fixed (back) jaw; top {{cad.jaw_standout_in:.2dot}}–{{cad.jaw_standout_blank_in:.2dot}} above jaws. Jacks, touch only: X {{process.jack_left_x_in:.1f}} Y {{process.jack_left_y_in:.1f}}; X {{process.jack_right_x_in:.1f}} Y {{process.jack_right_y_in:.1f}} (X from ZERO END); kept for Setup 4."
 datum = "Z0 underside from measured thickness (slots: top face). X0 = left end squared here (ZERO END). Y0 (slots): edge-find ZERO EDGE; drawing Y becomes −Y."
-diagram = { file = "diagrams/face.svg", alt = "Bar in vise on 1-3/8 in parallels, ZERO EDGE at fixed jaw, top just above the jaws, jacks touching under both overhangs; 3/4 in end mill faces the full length, side 1 then side 2 after an end-for-end flip. Then the 1/2 in end mill squares the left end (ZERO END) and the right end to length in the same clamping, and the upper face is marked: bar 1 C'BORE SIDE, bar 2 RAIL SIDE." }
+diagram = { file = "diagrams/demo-base-bar/face.svg", alt = "Bar in vise on 1-3/8 in parallels, ZERO EDGE at fixed jaw, top just above the jaws, jacks touching under both overhangs; 3/4 in end mill faces the full length, side 1 then side 2 after an end-for-end flip. Then the 1/2 in end mill squares the left end (ZERO END) and the right end to length in the same clamping, and the upper face is marked: bar 1 C'BORE SIDE, bar 2 RAIL SIDE." }
 # The face cutter runs past both ends; the end cutter centre runs D/2 past
 # each end, .04 in below the bar.
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
@@ -286,7 +285,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "As Setup 3 (re-clamp alike), jacks as set; bar 1 C'BORE SIDE up, bar 2 RAIL SIDE up."
 datum = "X0: edge-find ZERO END. Y0: edge-find ZERO EDGE; drawing Y becomes −Y. Z0 = top face."
-diagram = { file = "diagrams/holes.svg", alt = "Finished {{cad.length_in:.2f}} in bar in vise: bar 1 C'BORE SIDE up, bar 2 RAIL SIDE up, ZERO EDGE at back fixed jaw, ZERO END left, X0 Y0 back-left; rail holes {{cad.rail_range}}, counterbored {{cad.bracket_range}} (bar 1 only), slots {{cad.slot_range}} and one jack under each overhang's holes." }
+diagram = { file = "diagrams/demo-base-bar/holes.svg", alt = "Finished {{cad.length_in:.2f}} in bar in vise: bar 1 C'BORE SIDE up, bar 2 RAIL SIDE up, ZERO EDGE at back fixed jaw, ZERO END left, X0 Y0 back-left; rail holes {{cad.rail_range}}, counterbored {{cad.bracket_range}} (bar 1 only), slots {{cad.slot_range}} and one jack under each overhang's holes." }
 # Hole and slot centres lie inside the finished bar. Longest: a drill in the
 # drill chuck; shortest: the 5/16 in counterbore cutter in an R8 collet.
 envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
@@ -423,7 +422,7 @@ title = "Deburr / inspect both"
 machine = "Bench / clean mill table"
 indexing = "none"
 datum = "Marked end/edge. Bar 1 turned over from Setup 4: C'BORE SIDE down, rail up. Bar 2: RAIL SIDE up."
-diagram = { file = "diagrams/inspect.svg", alt = "Finished bar 1 viewed from C'BORE SIDE, and as used on the table in a section through bracket holes {{cad.bracket_section_range}}: C'BORE SIDE down, socket heads recessed from below, HGR15 rail on top, trimmed flush with both ends; slot stud fit. Bar 2 section: rail on the marked RAIL SIDE, table seat on the opposite face." }
+diagram = { file = "diagrams/demo-base-bar/inspect.svg", alt = "Finished bar 1 viewed from C'BORE SIDE, and as used on the table in a section through bracket holes {{cad.bracket_section_range}}: C'BORE SIDE down, socket heads recessed from below, HGR15 rail on top, trimmed flush with both ends; slot stud fit. Bar 2 section: rail on the marked RAIL SIDE, table seat on the opposite face." }
 envelope = "other"
 vise_hold = "other"
 beam = "other"
@@ -447,6 +446,6 @@ rows = [
   ["Overall size", "{{cad.size_summary}} at ends/mid; ends square to ZERO EDGE and faces ±{{cad.angular_tol_deg:g}}°"],
   ["Seats", "No rock on table (bar 1 on C'BORE SIDE, bar 2 opposite RAIL SIDE); no chatter; Ra {{cad.finish_ra_uin:d}} µin"],
   ["Bracket holes", "Bar 1: Ø{{cad.bracket_dia_min_in:.3f}}–{{cad.bracket_dia_max_in:.3f}}; c'bores Ø{{cad.counterbore_dia_min_in:.3f}}–{{cad.counterbore_dia_max_in:.3f}} × {{cad.counterbore_depth_min_in:.3f}}–{{cad.counterbore_depth_max_in:.3f}} deep; #8-32 × 5/8 head recessed"],
-  ["Rail fit", "Own HGR15 rail, untrimmed: {{cad.rail_count:d}}× #8-32 × 3/4 enter free; no tip proud of seat. Ends trimmed flush after the fit (TL-00 1D–1F)"],
+  ["Rail fit", "Own HGR15 rail, untrimmed: {{cad.rail_count:d}}× #8-32 × 3/4 enter free; no tip proud of seat. Ends trimmed flush after the fit (assembly steps 1D–1F)"],
   ["Slots", "Width {{cad.slot_width_min_in:.2f}}–{{cad.slot_width_max_in:.2f}}; length − width {{cad.slot_spacing_min_in:.2f}}–{{cad.slot_spacing_max_in:.2f}}; 1/2-13 stud slides end-to-end"],
 ]

@@ -9,7 +9,7 @@ from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import PlanError, load_plan, render_traveler
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN = ROOT / "examples/comparison/pivot-shaft.toml"
+PLAN = ROOT / "examples/comparison/demo-pivot-shaft.toml"
 SOURCE = ROOT / "examples/cad/pivot-shaft-v40.toml"
 
 
@@ -328,11 +328,11 @@ def test_unsupported_authored_tool_strategy_refuses(tmp_path, old, new):
 
 def test_required_dispatcher_does_not_guess_adapter(tmp_path):
     with pytest.raises(CadError, match="adapter"):
-        load_cad(SOURCE, {}, "unknown")
+        load_cad(SOURCE, {}, "unknown", "pivot-shaft")
     path = prepare(
         tmp_path,
         plan_replacements=[
-            ('adapter = "harmonic_pivot_shaft"', 'adapter = "unknown"'),
+            ('adapter = "pivot_shaft"', 'adapter = "unknown"'),
         ],
     )
     with pytest.raises(PlanError, match="adapter"):

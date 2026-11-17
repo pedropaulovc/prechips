@@ -85,7 +85,7 @@ def _base_bar(tmp_path, old, new):
     shop = (EXAMPLES / "shop.toml").read_text(encoding="utf-8")
     assert old in shop
     (tmp_path / "shop.toml").write_text(shop.replace(old, new), encoding="utf-8")
-    plan = (EXAMPLES / "base-bar.toml").read_text(encoding="utf-8")
+    plan = (EXAMPLES / "demo-base-bar.toml").read_text(encoding="utf-8")
     plan = plan.replace('"cad/', f'"{(EXAMPLES / "cad").as_posix()}/')
     path = tmp_path / "base-bar.toml"
     path.write_text(plan, encoding="utf-8")

@@ -1,5 +1,5 @@
-"""Bindings for the harmonic oblique-trammel carriage blocks: the pivot block
-(MHA-CH-06-TL-22) and the feed block (MHA-CH-06-TL-32).
+"""Bindings for two carriage blocks of one jig: the pivot block and the feed
+block.
 
 Both blocks share one 1.64 × .96 section, the flat-floored pivot seat with its
 tapped through hole and four counterbored carriage holes; the feed block adds
@@ -18,27 +18,14 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
-    _harmonic_manifest,
     _inch_limits,
     _model_frame,
     _number,
     _positive,
+    _read_manifest,
     _string,
 )
 
-# part: (adapter, Y-extent field on carriage_seat, plan row origin)
-_PARTS = {
-    "ch-rocker-arm-tl-oblique-pivot-block": (
-        "harmonic_pivot_block",
-        "width",
-        "minus_y_side",
-    ),
-    "ch-rocker-arm-tl-oblique-feed-block": (
-        "harmonic_feed_block",
-        "overall_y",
-        "plus_y_side",
-    ),
-}
 _COMMON = {
     "carriage_seat",
     "pivot_bore",
@@ -46,22 +33,34 @@ _COMMON = {
     *(f"carriage_hole_{n}" for n in range(1, 5)),
     *(f"carriage_counterbore_{n}" for n in range(1, 5)),
 }
-_FEED = {"leadscrew_bore", *(f"nut_tap_{n}" for n in range(1, 5))}
-_SEAT = {
-    "harmonic_pivot_block": ["length", "width", "height"],
-    "harmonic_feed_block": ["length", "height", "lug_x", "overall_y", "lug_length"],
+_FEED = frozenset({"leadscrew_bore", *(f"nut_tap_{n}" for n in range(1, 5))})
+# adapter: (Y-extent field on carriage_seat, plan row origin, carriage_seat
+# requirements, lug features beyond the common set)
+_KINDS = {
+    "pivot_block": (
+        "width",
+        "minus_y_side",
+        ["length", "width", "height"],
+        frozenset(),
+    ),
+    "feed_block": (
+        "overall_y",
+        "plus_y_side",
+        ["length", "height", "lug_x", "overall_y", "lug_length"],
+        _FEED,
+    ),
 }
 _TOL_MM = 1e-6
 
 
-def load_pivot_block(path: Path, parameters: dict) -> CadData:
-    """Bind the pivot block (MHA-CH-06-TL-22)."""
-    return _load(path, parameters, "ch-rocker-arm-tl-oblique-pivot-block")
+def load_pivot_block(path: Path, parameters: dict, part: str) -> CadData:
+    """Bind the pivot block."""
+    return _load(path, parameters, part, "pivot_block")
 
 
-def load_feed_block(path: Path, parameters: dict) -> CadData:
-    """Bind the feed block (MHA-CH-06-TL-32)."""
-    return _load(path, parameters, "ch-rocker-arm-tl-oblique-feed-block")
+def load_feed_block(path: Path, parameters: dict, part: str) -> CadData:
+    """Bind the feed block."""
+    return _load(path, parameters, part, "feed_block")
 
 
 def _close(a: float, b: float, tol: float = _TOL_MM) -> bool:
@@ -127,19 +126,18 @@ def _hole(features: dict, name: str, requirements: list[str], axis: list) -> tup
     return item, [_number(v, f"{name}.at") for v in at]
 
 
-def _load(path: Path, parameters: dict, part: str) -> CadData:
-    adapter, y_field, row_from = _PARTS[part]
-    raw, values, features = _harmonic_manifest(path, part, adapter)
+def _load(path: Path, parameters: dict, part: str, adapter: str) -> CadData:
+    y_field, row_from, seat_fields, lug = _KINDS[adapter]
+    raw, values, features = _read_manifest(path, part, adapter)
     _model_frame(raw)
-    feed = adapter == "harmonic_feed_block"
-    expected = _COMMON | (_FEED if feed else set())
+    expected = _COMMON | lug
     if set(features) != expected:
         raise CadError(f"cad.features: expected exactly {', '.join(sorted(expected))}")
 
     # Model X runs along the 1.64 length (stations from the -X end), Y across
-    # (rows from the -Y side on TL-22, the +Y side on TL-32), Z up from the
-    # carriage seat (Z0, facing -Z) to the top face.
-    seat = _feature(features, "carriage_seat", "face", _SEAT[adapter])
+    # (rows from the -Y side on the pivot block, the +Y side on the feed
+    # block), Z up from the carriage seat (Z0, facing -Z) to the top face.
+    seat = _feature(features, "carriage_seat", "face", seat_fields)
     plane = seat.get("plane")
     if seat.get("normal") != [0, 0, -1] or plane != {
         "frame": "model",
@@ -302,7 +300,7 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         ),
     ]
 
-    if feed:
+    if lug:
         _feed(
             features,
             values,

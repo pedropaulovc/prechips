@@ -63,7 +63,7 @@ def test_cone_reproduces_hand_setting_and_passes(tmp_path, capsys):
     profile = tmp_path / "profile.toml"
     profile.write_text('name = "Indexing"\nfeatures = []\nenforce = ["indexing"]\n')
     out = tmp_path / "cone.html"
-    plan = EXAMPLES / "comparison" / "cone-pivot-post.toml"
+    plan = EXAMPLES / "comparison" / "demo-cone-pivot-post.toml"
     args = ["traveler", str(plan), "--out", str(out), "--profile", str(profile)]
     assert main(args) == 0
     line = "B 23-hole circle: 1 turn + 9 spaces; 12.5217° (target 12.5182°)"

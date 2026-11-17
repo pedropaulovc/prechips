@@ -1,5 +1,5 @@
-# Source: harmonic-analyzer cad/process/hand-travelers/
-# ch-rocker-arm-tl-oblique-feed-lever-traveler-2026-11-02.html (drawing v47):
+# Demo plan: a feed lever. Source: Pedro's 2026-11-02 hand traveler for the
+# lever (drawing v47):
 # route, cut list, tools, workholding, datums, the milled grip end and the
 # filed grip-end corners. Dimensions and limits follow the feature manifest,
 # whose process note reads "saw and face to length": both ends are milled, and
@@ -11,12 +11,12 @@
 # face. The end mill runs at the shop's
 # jig-em-half-6061-t6511 (owner ruling 2026-11-16: the 2026-11-05 logbook's
 # 1800 rpm, 7 in/min). Every speed is on the PM-30MV low belt (owner ruling
-# 2026-11-16, harmonic-analyzer #2867): no belt change.
+# 2026-11-16): no belt change.
 title = "Oblique trammel feed lever"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
-stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 24 in bar (OnlineMetals 1165, shared with TL-28); {{process.quantity:d}} × {{process.blank_length_in:.2f}} in blank."
+stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 24 in bar (OnlineMetals 1165, shared with the end brackets); {{process.quantity:d}} × {{process.blank_length_in:.2f}} in blank."
 note = "Inches. Only the ends, two holes and two grip-end corners are machined; 1/2 and 1 in faces as bought. All spindle work on the low belt; no belt change."
 shop = "shop.toml"
 material_key = "6061-t6511"
@@ -24,7 +24,8 @@ milling_material = "aluminum_6061"
 
 [cad]
 file = "cad/feed-lever-v50.toml"
-adapter = "harmonic_feed_lever"
+adapter = "feed_lever"
+part = "feed-lever"
 
 [parameters]
 # Hand sheet: saw 11.9, at least 11.85; both ends are then milled to length.
@@ -51,7 +52,7 @@ vise_jaw_width_mm = 158.6738     # Archive fixtures.vise-pm-6.jaw_width_in 6.247
 end_cut_tip_z_mm = -1.016        # Hand sheet: cutter .04 below the bar.
 drill_tip_z_mm = -5.08           # Drill tip .2 in past the bottom face.
 cutter_dia_mm = 12.7             # 1/2 in end mill.
-r8_collet_gauge_mm = 6.3         # HA: holders.r8-collets-lms-4860.gauge_len_mm.
+r8_collet_gauge_mm = 6.3         # Owned LMS 4860 R8 collets, gauge length.
 half_mill_projection_min_mm = 41.0  # Archive LMS 6784 neighbours bound 1/2 in.
 half_mill_projection_max_mm = 50.0
 drill_chuck_gauge_mm = 95.0      # Archive holders.drill-chuck-r8.gauge_len_mm.
@@ -88,14 +89,14 @@ indexing = "none"
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-diagram = { file = "diagrams/feed-lever/saw.svg", alt = "The lever blank from the bar's squared end" }
+diagram = { file = "diagrams/demo-feed-lever/saw.svg", alt = "The lever blank from the bar's squared end" }
 
 [[setups.operations]]
 speed_kind = "other"
 tool = "saw"
 drilling = "none"
 sizing = "other"
-instruction = "Cut this lever {{process.blank_length_in:.2f}} first from the squared end of the 1165 bar, ~{{process.kerf_in:fraction}} kerf; the rest goes to TL-28. Waste side of the line; lever blank ≥{{process.blank_min_length_in:.2f}}."
+instruction = "Cut this lever {{process.blank_length_in:.2f}} first from the squared end of the 1165 bar, ~{{process.kerf_in:fraction}} kerf; the rest goes to the end brackets. Waste side of the line; lever blank ≥{{process.blank_min_length_in:.2f}}."
 feed = "hand"
 
 [[setups]]
@@ -106,7 +107,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Flat, 1 in face up, on 1 in tall parallels against both jaws, not past the left jaw side; ZERO EDGE at fixed jaw; ~{{process.overhang_in:.1dot}} out past the left jaw side, the rest out right. Keep off the ~5 in overhang."
 datum = "X0 ZERO END (milled here); Y0 ZERO EDGE, touched past the jaws (~X {{process.y_touch_x_in:g}}); +Y toward you."
-diagram = { file = "diagrams/feed-lever/zero-end.svg", alt = "ZERO END out left of the vise: end cleaned up and both holes drilled; the grip end out right" }
+diagram = { file = "diagrams/demo-feed-lever/zero-end.svg", alt = "ZERO END out left of the vise: end cleaned up and both holes drilled; the grip end out right" }
 # The cutter centre and edge finder stay within the lever length plus one
 # cutter diameter; across the 1 in width plus one diameter.
 envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
@@ -169,7 +170,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Same vise and parallels, not past the right jaw side; ZERO EDGE at fixed jaw, slid left: grip end ~{{process.overhang_in:.1dot}} past the right jaw side; ZERO END ~5 in out left."
 datum = "Re-find X0 on ZERO END; keep Y."
-diagram = { file = "diagrams/feed-lever/grip-end.svg", alt = "Slid left: grip end out right of the vise and cut to length from ZERO END" }
+diagram = { file = "diagrams/demo-feed-lever/grip-end.svg", alt = "Slid left: grip end out right of the vise and cut to length from ZERO END" }
 envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 # ZERO END is only cleaned up, so the blank length bounds the part.
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.blank_width_mm}}", along_jaws_mm = "{{cad.blank_length_mm}}", part_height_mm = "{{cad.blank_thickness_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{cad.overhang_mm}}"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
@@ -199,7 +200,7 @@ indexing = "none"
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-diagram = { file = "diagrams/feed-lever/corners.svg", alt = "Finished lever and the grip end upright at the end of the soft jaws with scribed lines and filed corners" }
+diagram = { file = "diagrams/demo-feed-lever/corners.svg", alt = "Finished lever and the grip end upright at the end of the soft jaws with scribed lines and filed corners" }
 
 [[setups.operations]]
 speed_kind = "other"

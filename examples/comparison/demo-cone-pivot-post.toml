@@ -7,11 +7,11 @@
 # journal shop12.256–12.285 vs feature12.2558–12.2858.
 shop = "../shop.toml"
 title = "Cone pivot post — body + two bonded sleeves"
-part = "MHA-016 · cone-pivot-post · quantity 1"
+part = "cone-pivot-post · quantity 1"
 revision = "v40 example"
 material = "1018 low-carbon steel"
 stock = "Body Ø44.45×127; cone Ø19.05×75; crank Ø25×105 mm."
-note = "mm throughout. Settings: rpm / mm/min; turning feeds mm/rev. Cutting oil; saw dry. Prerequisite: cone-pivot-post-fixtures.toml — reamer trials, bond cradle/arbor, saw cradle/bridge, buttons and tall jaws."
+note = "mm throughout. Settings: rpm / mm/min; turning feeds mm/rev. Cutting oil; saw dry. Prerequisite: demo-cone-pivot-post-fixtures.toml — reamer trials, bond cradle/arbor, saw cradle/bridge, buttons and tall jaws."
 
 [[tools]]
 id = "turn"

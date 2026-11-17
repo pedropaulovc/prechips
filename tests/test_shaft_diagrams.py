@@ -11,8 +11,8 @@ from prechips.shaft_diagrams import CHAR, _callouts
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/pivot-shaft-v40.toml"
-PLAN = ROOT / "examples/comparison/pivot-shaft.toml"
-DIAGRAMS = ROOT / "examples/comparison/diagrams/pivot-shaft"
+PLAN = ROOT / "examples/comparison/demo-pivot-shaft.toml"
+DIAGRAMS = ROOT / "examples/comparison/diagrams/demo-pivot-shaft"
 NS = "{http://www.w3.org/2000/svg}"
 CAP = [
     ('"height_nominal" = 1.5', '"height_nominal" = 1.6'),
@@ -31,7 +31,7 @@ def render(name, tmp_path=None, replacements=(), **changes):
             text = text.replace(old, new)
         source = tmp_path / "cad.toml"
         source.write_text(text, encoding="utf-8")
-    cad = load_cad(source, parameters, "harmonic_pivot_shaft")
+    cad = load_cad(source, parameters, "pivot_shaft", "pivot-shaft")
     content = render_cad_svg((DIAGRAMS / f"{name}.svg").read_bytes(), cad, parameters)
     assert b"{{" not in content
     return ElementTree.fromstring(content)
