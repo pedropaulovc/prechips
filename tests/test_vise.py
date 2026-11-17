@@ -73,6 +73,8 @@ def _plan(setup, limits=LIMITS):
         _hold(),
         _hold(across_jaws_mm=80.0),  # opening
         _hold(part_height_mm=6.0),  # grip minimum
+        # Under the 6 mm minimum but held over its full height (Pedro 2026-11-16).
+        _hold(part_height_mm=5.84),
         _hold(part_height_mm=20.0),  # grip 10 = 0.5 x part height 20
         _hold(along_jaws_mm=400.0, overhang_mm=[150.0, "rest"]),  # overhang unjudged
         _hold(along_jaws_mm=120.0, overhang_mm=["rest", 20.0]),
@@ -151,8 +153,9 @@ def test_limits_must_be_declared():
             "parallels 40 mm are not below shop.workholding.vise jaw height 40 mm",
         ),
         (
-            {"vise_hold": _hold(part_height_mm=5.999)},
-            "grip depth 5.999 mm is below vise_grip_min_mm 6 mm",
+            # The same 5.84 mm grip on a part standing out of the jaws.
+            {"vise_hold": _hold(part_height_mm=10.0, parallel_height_mm=34.16)},
+            "grip depth 5.84 mm is below vise_grip_min_mm 6 mm",
         ),
         (
             {"vise_hold": _hold(part_height_mm=20.001)},
@@ -209,7 +212,7 @@ description = "End mill"
 title = "Face"
 machine = "Mill"
 machine_kind = "other"
-vise_hold = {{ vise = "vise-pm-6", across_jaws_mm = 25.4, along_jaws_mm = 158.6738, part_height_mm = "{{{{process.height}}}}", parallel_height_mm = 25.4, overhang_mm = [0, 0], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }}
+vise_hold = {{ vise = "vise-pm-6", across_jaws_mm = 25.4, along_jaws_mm = 158.6738, part_height_mm = "{{{{process.height}}}}", parallel_height_mm = 39.0, overhang_mm = [0, 0], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }}
 
 [[setups.operations]]
 tool = "em"
@@ -217,7 +220,9 @@ instruction = "Face."
 """
 
 
-@pytest.mark.parametrize(("height", "code"), [(6.0, 0), (5.9, 2)])
+# 39 mm parallels leave 5.9453 mm of the PM 6 in jaw: a 5.9 part sits wholly
+# in it, a 6.0 part stands out with only 5.9453 gripped.
+@pytest.mark.parametrize(("height", "code"), [(5.9, 0), (6.0, 2)])
 def test_cli_enforces_through_custom_profile(tmp_path, capsys, height, code):
     shop = Path(__file__).parents[1] / "examples/shop.toml"
     (tmp_path / "shop.toml").write_bytes(shop.read_bytes())
@@ -230,7 +235,7 @@ def test_cli_enforces_through_custom_profile(tmp_path, capsys, height, code):
     assert main(args) == code
     assert out.exists() == (code == 0)
     if code:
-        assert "setup 1 (Face): grip depth 5.9 mm is below vise_grip_min_mm 6 mm" in (
+        assert "setup 1 (Face): grip depth 5.9453 mm is below vise_grip_min_mm 6" in (
             capsys.readouterr().err
         )
     assert main([*args, "--disable-check", "vise_holding"]) == 0

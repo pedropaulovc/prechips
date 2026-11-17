@@ -152,7 +152,10 @@ def _check(shop_data: dict, held: dict, at: str) -> None:
     height = held["part_height_mm"]
     grip = min(height, jaw - parallel)
     minimum = _limit(shop_data, "vise_grip_min_mm", f"{at}: grip depth {grip:g} mm")
-    if grip < minimum:
+    # The minimum guards a part standing out of the jaws; a part gripped over
+    # its full height (top at or below the jaw top) is fully held (Pedro
+    # 2026-11-16).
+    if grip < minimum and height > jaw - parallel:
         raise CheckError(
             f"{at}: grip depth {grip:g} mm is below vise_grip_min_mm {minimum:g} mm"
         )

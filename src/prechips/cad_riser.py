@@ -90,6 +90,7 @@ def _face_stations(parameters: dict, values: dict) -> None:
     straps_a = (toe / 2, mid, blank - toe / 2)
     values["face_stage_a_in"] = [list(span) for span in stage_a]
     values["face_stage_b_in"] = [list(span) for span in stage_b]
+    values["face_straps_a_in"] = list(straps_a)
     values["face_straps_b_in"] = list(straps_b)
     for key, span, supports in (
         ("a_left", stage_a[0], straps_a[:2]),
@@ -279,7 +280,8 @@ def load_riser(path: Path, parameters: dict) -> CadData:
         raise CadError(
             "process.blank_length_in: outside blank_min_length_in..blank_max_length_in"
         )
-    _trim(blank_min * 25.4, length, "blank_min_length_in")
+    # The shortest blank must still reach the longest finished length.
+    _trim(blank_min * 25.4, values["length_band_mm"][1], "blank_min_length_in")
     # Hold 2 may cut to the shortest finished length, so ZERO END's clean-up
     # can take up to the longest blank less that.
     allowance = 2 * _trim(

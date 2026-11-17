@@ -85,12 +85,15 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     stock = _param(parameters, "blank_thickness_in")
     thickness = _cad(values, "thickness_in")
     toe = _param(parameters, "strap_toe_in")
-    mid = _param(parameters, "strap_a_mid_x_in")
     strap = _param(parameters, "strap_width_in")
     cutter = _param_in(parameters, "face_cutter_dia_mm")
-    # The adapter binds and checks the strap layout: Stage A's two spans,
-    # Stage B's three cuts and its four strap stations.
+    # The adapter binds and checks the strap layout: Stage A's two spans and
+    # three strap stations, Stage B's three cuts and its four strap stations.
     (a0, m0), (m1, a1) = _stations(values, "face_stage_a_in", 2)
+    a_straps = values.get("face_straps_a_in")
+    if not isinstance(a_straps, list) or len(a_straps) != 3:
+        raise CadError("cad.face_straps_a_in: expected three strap stations")
+    a_left, mid, a_right = a_straps
     b_cuts = _stations(values, "face_stage_b_in", 3)
     b_straps = values.get("face_straps_b_in")
     if not isinstance(b_straps, list) or len(b_straps) != 4:
@@ -114,12 +117,9 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bottom = bar(top)
     faced(top, a0, m0)
     faced(top, m1, a1)
-    for start, end in (
-        (0.0, toe),
-        (mid - strap / 2, mid + strap / 2),
-        (blank - toe, blank),
-    ):
-        _strap(groups, x0 + start * s, x0 + end * s, top, bottom)
+    # End straps bear their toe on the bar; the middle strap its full width.
+    for x, span in ((a_left, toe), (mid, strap), (a_right, toe)):
+        _strap(groups, x0 + (x - span / 2) * s, x0 + (x + span / 2) * s, top, bottom)
     r = cutter / 2 * s
     cx = x0 + (a0 + cutter / 2) * s
     groups["tool"].append(_el("circle", cx=cx, cy=top + r, r=r))
@@ -127,7 +127,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     end_y = _callouts(
         groups,
         [
-            (x0 + toe / 2 * s, bottom + 8, ["strap"]),
+            (x0 + a_left * s, bottom + 8, ["strap"]),
             (cx, top + 2 * r, ["3/4 end mill, +X"]),
             (x0 + mid * s, bottom + 8, ["strap"]),
             (
