@@ -552,9 +552,8 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     ]
     if face == "bar":
         callouts.append((right_zero, front, ["XR"]))
-    if face == "bar":
-        # Y0 is touched on the fixed jaw in the gap between the parts; Setup 4
-        # keeps it.
+        # Y0 is touched on the fixed jaw in the gap between the parts; the
+        # KP08-side setup lines each hole up on the drill shank instead.
         finder = zero + touch * scale
         finder_r = 0.1 * scale
         if not length + 0.1 <= touch <= span - length - 0.1:
@@ -768,7 +767,10 @@ def _bracket_inspect(
 
 
 def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Feed-lever setup 2: ZERO END out left, the saw-cut grip end out right."""
+    """Feed-lever setups 2/3: ZERO END out left, then the grip end out right."""
+    hold = root.get("data-hold")
+    if hold not in {"zero", "grip"}:
+        raise CadError("diagram data-hold: expected 'zero' or 'grip'")
     blank = _param(parameters, "blank_length_in")
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
@@ -780,7 +782,7 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
     parallel = _param_in(parameters, "parallel_thickness_mm")
     cutter = _param_in(parameters, "cutter_dia_mm")
     trim = _trim(blank, length, "blank_length_in")
-    touch = _param(parameters, "y_touch_x_in")
+    touch = _param(parameters, "y_touch_x_in") if hold == "zero" else 0.0
     x0 = 84.0  # finished X0 (ZERO END)
     # The blank plus a cutter at either end, and the Y0 finder, fit by x 700.
     scale = min(48.0, (700 - x0) / max(blank + cutter, touch + 0.3))
@@ -791,72 +793,114 @@ def _lever_hold(values: dict, parameters: dict, root: ElementTree.Element) -> La
     mid = (back + front) / 2
     groups = _groups(root)
     row_y = back + row * scale
+    # Setup 2 drills both holes (active); Setup 3 only carries them.
+    for station in stations:
+        x = x0 + station * scale
+        groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole / 2 * scale))
+        if hold == "zero":
+            groups["active"].append(
+                _el("circle", cx=x, cy=row_y, r=hole / 2 * scale + 3, fill="none")
+            )
 
-    def holes(active: bool) -> None:
-        for station in stations:
-            x = x0 + station * scale
-            groups["holes"].append(_el("circle", cx=x, cy=row_y, r=hole / 2 * scale))
-            if active:
-                groups["active"].append(
-                    _el("circle", cx=x, cy=row_y, r=hole / 2 * scale + 3, fill="none")
-                )
-
-    left = x0 - trim_px
-    right = left + blank * scale
-    jaw_left = left + over * scale
-    _title(
-        groups,
-        20,
-        30,
-        "ZERO END ~{{process.overhang_in:.1dot}} out left, the rest out right",
-    )
-    _vise(
-        groups,
-        jaw_left,
-        jaw_left + jaw * scale,
-        back,
-        front,
-        parallel * scale,
-        "fixed jaw · ZERO EDGE",
-        "moving jaw",
-        labels_right=True,
-    )
-    _blank(groups, left, right, x0, right, back, front)
-    holes(True)
-    for index, station in enumerate(stations):
-        _dimension(
+    if hold == "zero":
+        left = x0 - trim_px
+        right = left + blank * scale
+        jaw_left = left + over * scale
+        _title(
             groups,
-            x0,
-            x0 + station * scale,
-            back - JAW - 10 - 18 * index,
-            back,
-            _inch(station),
+            20,
+            30,
+            "ZERO END ~{{process.overhang_in:.1dot}} out left, the rest out right",
         )
-    groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
-    _datum_label(groups, x0 - 6, back - 8, "X0 Y0", "end")
-    _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
-    finder = x0 + touch * scale
-    finder_r = 0.1 * scale
-    groups["tool"].append(_el("circle", cx=finder, cy=back - finder_r, r=finder_r))
-    _datum_label(
-        groups,
-        finder,
-        back - 2 * finder_r - 6,
-        "Y0 touch ~X {{process.y_touch_x_in:g}}",
-        "middle",
-    )
-    overhang = jaw_left + jaw * scale
-    _label(groups, (overhang + right) / 2, mid + 5, "overhang: keep clear", "middle")
-    items = [
-        (
-            x0 - radius,
-            front + 2 * radius + 4,
-            ["end mill, conventional:", "table moves away"],
-        ),
-        (x0, front, ["ZERO END"]),
-        ((x0 + (stations[0] + stations[1]) / 2 * scale), front, ["H1, H2 through"]),
-        (right, front, ["grip end, saw cut"]),
-    ]
+        _vise(
+            groups,
+            jaw_left,
+            jaw_left + jaw * scale,
+            back,
+            front,
+            parallel * scale,
+            "fixed jaw · ZERO EDGE",
+            "moving jaw",
+            labels_right=True,
+        )
+        _blank(groups, left, right, x0, right, back, front)
+        for index, station in enumerate(stations):
+            _dimension(
+                groups,
+                x0,
+                x0 + station * scale,
+                back - JAW - 10 - 18 * index,
+                back,
+                _inch(station),
+            )
+        groups["datum"].append(_el("circle", cx=x0, cy=back, r=3.5))
+        _datum_label(groups, x0 - 6, back - 8, "X0 Y0", "end")
+        _cutter(groups, x0 - radius, radius, back, front + radius + 4, at_end=True)
+        finder = x0 + touch * scale
+        finder_r = 0.1 * scale
+        groups["tool"].append(_el("circle", cx=finder, cy=back - finder_r, r=finder_r))
+        _datum_label(
+            groups,
+            finder,
+            back - 2 * finder_r - 6,
+            "Y0 touch ~X {{process.y_touch_x_in:g}}",
+            "middle",
+        )
+        overhang = jaw_left + jaw * scale
+        _label(
+            groups, (overhang + right) / 2, mid + 5, "overhang: keep clear", "middle"
+        )
+        items = [
+            (
+                x0 - radius,
+                front + 2 * radius + 4,
+                ["end mill, conventional:", "table moves away"],
+            ),
+            (x0, front, ["ZERO END"]),
+            ((x0 + (stations[0] + stations[1]) / 2 * scale), front, ["H1, H2 through"]),
+            (right, front, ["grip end"]),
+        ]
+    else:
+        right = x0 + (length + trim) * scale
+        finish = x0 + length * scale
+        if right - finish < 4:
+            right = finish + 4
+        jaw_right = right - over * scale
+        _title(
+            groups,
+            20,
+            30,
+            "Slid left: grip end ~{{process.overhang_in:.1dot}} out right",
+        )
+        _vise(
+            groups,
+            jaw_right - jaw * scale,
+            jaw_right,
+            back,
+            front,
+            parallel * scale,
+            "fixed jaw · ZERO EDGE",
+            "moving jaw",
+            labels_right=True,
+        )
+        _blank(groups, x0, right, x0, finish, back, front)
+        groups["datum"] += [
+            _line(x0, back, x0, front),
+            _el("circle", cx=x0, cy=back, r=3.5),
+        ]
+        _datum_label(groups, x0 - 6, back - 8, "X0", "end")
+        _label(groups, x0 - 6, mid + 5, "ZERO END", "end")
+        _cutter(
+            groups, finish + radius, radius, front + radius + 4, back - 2, at_end=False
+        )
+        _dimension(groups, x0, finish, front + JAW + 34, front, "{{cad.length_in:.3f}}")
+        items = [
+            (
+                finish + radius,
+                front + 2 * radius + 4,
+                ["conventional: table", "toward you; L + D/2"],
+            ),
+        ]
     end_y = _callouts(groups, items, front + JAW + 44, above=False)
     _axes(groups, 24, end_y + 12)
     return _finish(groups, end_y + 44)

@@ -17,10 +17,7 @@ def test_pro_plan_renders_with_every_check(tmp_path):
     # The post-v49 drawing prints the 11/32 drill (Ø.3438 +.004/0), so the
     # plan's drill fits.
     assert main(command) == 0
-    html = out.read_text(encoding="utf-8")
-    assert "MHA-CH-06-TL-26" in html
-    # The saw-cut grip end holds the length: no second vise setup.
-    assert "Length 11.7–11.9: edge finder on the saw-cut grip end" in html
+    assert "MHA-CH-06-TL-26" in out.read_text(encoding="utf-8")
 
 
 def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
@@ -28,8 +25,7 @@ def test_hobby_plan_renders_a_diagram_for_every_setup(tmp_path):
     command = ["traveler", str(PLAN), "--profile", "hobby", "--out", str(out)]
     assert main(command) == 0
     html = out.read_text(encoding="utf-8")
-    assert html.count('class="setup-diagram"') == 3
-    assert "flat at 45° only until the flat is about .12 from the corner" in html
+    assert html.count('class="setup-diagram"') == 4
 
 
 def test_envelope_holes_and_corners_follow_the_manifest():

@@ -377,42 +377,89 @@ def _width(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
 
 
 def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 3: finished-length bar in the vise, faced from blank thickness."""
+    """Setup 3: the sawn blank in the vise, faced, squared to length, slotted."""
+    blank = _process(parameters, "blank_length_in")
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _process(parameters, "blank_thickness_in")
-    front_scale = min(28.0, 606 / length)
+    if blank < length:
+        raise CadError("process.blank_length_in: shorter than the finished length")
+    # The blank arrives centred on the jaws; each end's stock is drawn at
+    # least a few pixels wide so the squaring cut stays visible.
+    trim = (blank - length) / 2
+    jacks = [
+        (
+            _process(parameters, f"jack_{side}_x_in"),
+            _process(parameters, f"jack_{side}_y_in"),
+        )
+        for side in ("left", "right")
+    ]
+    front_scale = min(28.0, 600 / blank)
+    front_trim = max(trim * front_scale, 5.0)
     centre = 333.0
-    fx0, fx1 = centre - length * front_scale / 2, centre + length * front_scale / 2
+    fzero = centre - length * front_scale / 2
+    fend = centre + length * front_scale / 2
     fbottom = 120 + thickness * front_scale
     # Jaw top from the bound stand-out; the vise body top sits at y=172.
     jaw_top = 120 + _cad(values, "jaw_standout_blank_in") * front_scale
-    top_scale = min(14.0, 257 / length, 77 / width)
+    top_scale = min(14.0, 250 / blank, 77 / width)
+    top_trim = max(trim * top_scale, 4.0)
     tcentre = 201.5
-    tx0, tx1 = tcentre - length * top_scale / 2, tcentre + length * top_scale / 2
+    tzero = tcentre - length * top_scale / 2
+    tend = tcentre + length * top_scale / 2
     tbottom = 250 + width * top_scale
+    slots, labels = [], []
+    for index, slot in enumerate(_slots(values), start=1):
+        slot_w = slot["width"] * top_scale
+        cx = tzero + slot["x"] * top_scale
+        slots.append(
+            _rect(
+                cx - slot_w / 2,
+                250 + slot["rise_low"] * top_scale - slot_w / 2,
+                slot_w,
+                (slot["rise_high"] - slot["rise_low"]) * top_scale + slot_w,
+                rx=slot_w / 2,
+            )
+        )
+        # Left slot: label below it, clear of the marking text; right slot:
+        # label inboard of it.
+        if cx < tcentre:
+            below = 250 + slot["rise_high"] * top_scale + slot_w / 2 + 13
+            labels.append(_text(cx, below, f"S{index}", text_anchor="middle"))
+            continue
+        mid = 250 + (slot["rise_low"] + slot["rise_high"]) / 2 * top_scale + 5
+        labels.append(_text(cx - slot_w, mid, f"S{index}", text_anchor="end"))
+    marks = [
+        _el("circle", cx=tzero + x * top_scale, cy=250 - y * top_scale, r=4)
+        for x, y in jacks
+    ]
     view = _view(
-        fx0=fx0,
-        fx1=fx1,
-        flen=fx1 - fx0,
+        fx0=fzero - front_trim,
+        fx1=fend + front_trim,
+        flen=fend - fzero + 2 * front_trim,
+        fzero=fzero,
+        fend=fend,
         fthick=fbottom - 120,
         fbottom=fbottom,
         parallel_h=171.5 - fbottom,
         jaw_top=jaw_top,
         jaw_h=172 - jaw_top,
+        jack1_x=fzero + jacks[0][0] * front_scale,
+        jack2_x=fzero + jacks[1][0] * front_scale,
         jack_shaft_h=158 - fbottom,
-        tx0=tx0,
-        tx1=tx1,
-        tlen=tx1 - tx0,
+        tx0=tzero - top_trim,
+        tx1=tend + top_trim,
+        tlen=tend - tzero + 2 * top_trim,
+        tzero=tzero,
+        tend=tend,
         twidth=tbottom - 250,
         tbottom=tbottom,
-        zero_end_x=tx0 + 1,
         mark1_y=(250 + tbottom) / 2 - 3.5,
         mark2_y=(250 + tbottom) / 2 + 14.5,
         zero_end_y=(250 + tbottom) / 2 + 5.5,
-        zero_end_label_x=tx0 - 6,
+        zero_end_label_x=tzero - top_trim - 6,
     )
-    return view, {}
+    return view, {"slots": slots, "slot-labels": labels, "jacks": marks}
 
 
 def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
