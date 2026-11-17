@@ -273,7 +273,7 @@ def _support_blocks(values: dict, parameters: dict) -> None:
     from the finished ZERO END. Refuse any block whose footprint
     (``block_length_in`` along X, ``block_width_in`` across, centred on the
     width), grown by that tolerance on every side, reaches a hole edge, the
-    HUB included.
+    HUB included. Once any block key is authored, all five are required.
     """
     keys = (
         "block_inner_offset_in",
@@ -282,8 +282,12 @@ def _support_blocks(values: dict, parameters: dict) -> None:
         "block_width_in",
         "block_tolerance_in",
     )
-    if not all(key in parameters for key in keys):
+    present = [key for key in keys if key in parameters]
+    if not present:
         return
+    if len(present) != len(keys):
+        missing = ", ".join(key for key in keys if key not in parameters)
+        raise CadError(f"process: the support blocks also need {missing}")
     inner, outer, along, across, slack = (
         _positive(parameters[key], f"process.{key}") for key in keys
     )
@@ -318,7 +322,6 @@ def _support_blocks(values: dict, parameters: dict) -> None:
                 )
     values["block_x_in"] = centres
     values["block_stations"] = ", ".join(f"{x:.2f}" for x in centres)
-    values["block_tolerance_in"] = slack
     _beam_stations(values, centres, along)
 
 
@@ -396,13 +399,28 @@ def _relation_rows(values: dict) -> list[list[str]]:
 def _strap_toes(values: dict, parameters: dict) -> None:
     """Every strap toe lands on a block, so no clamp bends the overhang.
 
-    ``strap_toe_in`` is the toe's centre in from a long edge. Blocks are
-    centred on the width, so the toe must fall inside a block's span across.
+    ``strap_toe_in`` is the toe pad's centre in from a long edge and
+    ``strap_toe_width_in`` its bearing extent across the plate; both are
+    required together. Blocks are centred on the width and placed within
+    ``block_tolerance_in``, so the whole pad must lie inside the blocks' span
+    across shrunk by that tolerance on each side.
     """
-    if "strap_toe_in" not in parameters or "block_width_in" not in parameters:
+    if "strap_toe_in" not in parameters:
         return
+    if "block_x_in" not in values:
+        raise CadError("process.strap_toe_in: needs the support block_* keys")
+    if "strap_toe_width_in" not in parameters:
+        raise CadError("process.strap_toe_in: also needs strap_toe_width_in")
     toe = _positive(parameters["strap_toe_in"], "process.strap_toe_in")
-    across = _positive(parameters["block_width_in"], "process.block_width_in")
+    pad = _positive(parameters["strap_toe_width_in"], "process.strap_toe_width_in")
+    half = pad / 2
+    across = parameters["block_width_in"]
+    slack = parameters["block_tolerance_in"]
     width = values["width_mm"] / 25.4
-    if not (width - across) / 2 < toe < (width + across) / 2:
-        raise CadError("process.strap_toe_in: strap toe outside the blocks")
+    low, high = (width - across) / 2 + slack, (width + across) / 2 - slack
+    if not (low <= toe - half and toe + half <= high):
+        raise CadError(
+            f"process.strap_toe_in: strap toe outside the blocks (pad "
+            f"{toe - half:.2f}–{toe + half:.2f} in from the edge; the blocks, "
+            f"less their ±{slack:.2f} placing tolerance, span {low:.2f}–{high:.2f})"
+        )
