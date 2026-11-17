@@ -151,6 +151,10 @@ face_wear = 1.25
 # F*a^2*b^2/(3EI*l) at the load (case 3, PDF0582/p261), and F*c^2*(c+l)/(3EI)
 # on an overhang c beyond one support (case 8, PDF0585/p264); rectangle
 # I=b*d^3/12 (PDF0560/p239), round I=pi*D^4/64 (PDF0576/p255).
+# A plate hold applies cases 3 and 8 between its clamp (or tab) stations. A
+# tab is a case 11 cantilever across the slot plus shear 1.2*F*L/(G*A) at
+# G = E/3, the least an isotropic material allows (Poisson's ratio <= 0.5);
+# no shear modulus is tabulated here. Along its length it stretches F*L/(E*A).
 
 [drilling]
 # Thrust T = 2*Kd*Ff*FT*B*W + Kd*D^2*J*W lb, D in (PDF1412/p1091 eq. 1),

@@ -310,6 +310,23 @@ def _both(setup):
     setup["operations"][0]["milling_cuts"][0]["traverse_mm"] = [0, 10]
 
 
+def _upright_plate(setup):
+    setup["beam"] = PLATE | {"axis": "z", "section_mm": {"x": 38.1, "y": 2.49}}
+
+
+def _one_clamp(setup):
+    setup["beam"] = PLATE | {"clamps_mm": [152.4]}
+
+
+def _clamp_off_part(setup):
+    setup["beam"] = PLATE | {"clamps_mm": [38.1, 310]}
+
+
+def _wide_tab_section(setup):
+    setup["beam"] = copy.deepcopy(TABBED)
+    setup["beam"]["tabs"]["section_mm"] = {"y": 3.0, "z": 0.5}
+
+
 def _bending(setup):
     # Loaded axes are derived; a declaration could drop the governing one.
     setup["operations"][0]["milling_cuts"][0]["bending"] = "y"
@@ -319,7 +336,7 @@ def _bending(setup):
     ("change", "message"),
     [
         (_rpm, "rpm: 1250 disagrees with the operation's 2500 rpm"),
-        (_hold, "beam.hold: expected cantilever, between or solid"),
+        (_hold, "beam.hold: expected cantilever, between, solid or plate"),
         (_overflow, "numerical range exceeded"),
         (_lathe, "lathe setups take no beam or milling_cuts"),
         (_other, 'beam "other" is only for setups that cut nothing'),
@@ -327,6 +344,10 @@ def _bending(setup):
         (_huge, "beam.extent_mm: expected a finite number"),
         (_both, "declare stations_mm (points) or traverse_mm"),
         (_bending, "unknown field(s): bending"),
+        (_upright_plate, "beam.axis: a plate seats a part lying along x or y"),
+        (_one_clamp, "beam.clamps_mm: expected two or more stations"),
+        (_clamp_off_part, "beam.clamps_mm: must lie within extent_mm"),
+        (_wide_tab_section, "beam.tabs.section_mm: expected { x, z }"),
     ],
 )
 def test_contradictory_or_out_of_range_declarations_refuse(change, message):
@@ -502,3 +523,159 @@ def test_cuts_take_or_must_match_the_settings_chip_load_and_flutes():
     cut.update(flutes=2, feed_per_tooth_mm=0.05)
     with pytest.raises(CheckError, match="feed_per_tooth_mm: 0.05 disagrees"):
         _check(setup)
+
+
+# A strap-like flat on a fixture plate: 1018 flat 2.49 x 38.1 x 304.8 mm, fully
+# backed, pushed against a fence by four edge clamps 76.2 mm apart, cut with a
+# 1/8 in 3-flute 30° end mill at .001 in/tooth. Later its 16 mm wide outline
+# hangs on four 3 x 0.5 mm tabs across the 3.175 mm slot, one at each clamp.
+CLAMPS = [38.1, 114.3, 190.5, 266.7]
+PLATE = {
+    "axis": "x",
+    "hold": "plate",
+    "extent_mm": [0, 304.8],
+    "seat": "faced sub-plate",
+    "seat_mm": [-12.7, 317.5],
+    "clamps_mm": CLAMPS,
+    "section_mm": {"y": 38.1, "z": 2.49},
+}
+TABBED = {
+    **PLATE,
+    "extent_mm": [6.35, 298.45],
+    "section_mm": {"y": 16.0, "z": 2.49},
+    "tabs": {
+        "stations_mm": CLAMPS,
+        "section_mm": {"x": 3.0, "z": 0.5},
+        "length_mm": 3.175,
+    },
+}
+SLOT = {
+    "name": "outline",
+    "kind": "slot",
+    "phase": "rough",
+    "material": "steel_1018",
+    "cutter_dia_mm": 3.175,
+    "flutes": 3,
+    "feed_per_tooth_mm": 0.0254,
+    "axial_doc_mm": 0.5,
+    "radial_woc_mm": 3.175,
+}
+SKIM = {
+    "name": "skim",
+    "kind": "face",
+    "phase": "finish",
+    "material": "steel_1018",
+    "cutter_dia_mm": 50.8,
+    "flutes": 2,
+    "feed_per_tooth_mm": 0.0508,
+    "axial_doc_mm": 0.343,
+    "radial_woc_mm": 38.1,
+    "traverse_mm": [0, 304.8],
+}
+
+
+def _strap(beam: dict, cut: dict, **setup) -> None:
+    operation = {"tool": "em", "speed_kind": "spindle", "milling_cuts": [cut]}
+    _check(
+        {
+            "title": "Strap",
+            "machine_kind": "other",
+            "beam": beam,
+            "operations": [operation],
+            **setup,
+        },
+        tools=[{"id": "em", "helix_deg": 30}],
+    )
+
+
+def _refused(beam: dict, cut: dict) -> tuple[float, str]:
+    """The refusal's estimated bending (mm) and its text."""
+    with pytest.raises(CheckError) as caught:
+        _strap(beam, cut)
+    text = str(caught.value)
+    return float(re.search(r"estimated bending ([0-9.e-]+) mm", text)[1]), text
+
+
+def test_a_flat_on_a_plate_bends_only_under_lift_and_side_load_between_clamps():
+    # The face skim pushes down onto the plate and bends nothing along z;
+    # across, its 43.8 N bends the 38.1 mm width 0.001 mm at the blank ends.
+    _strap(PLATE, SKIM)
+    bending, text = _refused(PLATE, SKIM | {"max_deflection_mm": 1e-9})
+    assert "along y" in text and "cross-spindle force 43.8 N" in text
+    assert bending == pytest.approx(0.00102, abs=1e-5)
+    # A bare seat cannot take that side load, and the plate ends where stated.
+    seat = {key: PLATE[key] for key in ("axis", "hold", "extent_mm", "seat", "seat_mm")}
+    with pytest.raises(CheckError, match="a solid seat resists only"):
+        _strap(seat | {"hold": "solid", "seat_mm": [0, 304.8]}, SKIM)
+    with pytest.raises(CheckError, match=r"station 304\.8 mm is off the stated seat"):
+        _strap(PLATE | {"seat_mm": [0, 300]}, SKIM)
+    # The hub hole's drill thrust goes straight into the plate.
+    drill = {"kind": "drill", "phase": "finish", "cutter_dia_mm": 9.921875}
+    drill |= {"name": "hub", "material": "steel_1018", "flutes": 2}
+    _strap(PLATE, drill | {"feed_per_tooth_mm": 0.05, "stations_mm": 152.4})
+
+    # A .5 mm deep slot pass lifts 26.2 N (45.5 N × tan 30°): 0.0238 mm at
+    # mid-span of the 2.49 mm thickness between two clamps, inside 0.10 rough.
+    between = SLOT | {"traverse_mm": [38.1, 266.7]}
+    _strap(PLATE, between)
+    bending, text = _refused(PLATE, between | {"max_deflection_mm": 1e-6})
+    assert "pinned span 76.2 mm between clamps at" in text
+    assert "load 38.1 mm from the first" in text
+    assert "axial force 26.2 N" in text and "I 49.0164 mm^4" in text
+    assert bending == pytest.approx(0.0238, abs=1e-4)
+    # The full thickness in one pass lifts 131 N and refuses: 0.119 mm.
+    bending, text = _refused(PLATE, between | {"axial_doc_mm": 2.49})
+    assert "exceeds the rough limit 0.1 mm" in text
+    assert bending == pytest.approx(0.119, abs=1e-3)
+    # So does the shallow pass run out to the blank end, 38.1 mm past the
+    # last clamp: nothing holds the end down.
+    bending, text = _refused(PLATE, SLOT | {"traverse_mm": [0, 304.8]})
+    assert "overhang 38.1 mm beyond the clamp at" in text
+    assert bending == pytest.approx(0.143, abs=1e-3)
+
+
+def test_a_cut_out_part_is_judged_on_its_tabs_or_refused():
+    finish = SLOT | {"kind": "side", "phase": "finish"}
+    finish |= {"axial_doc_mm": 2.49, "radial_woc_mm": 0.2}
+    # A .2 mm finish pass lifts 8.23 N. Mid-way between tabs the 16 mm part
+    # bends 0.0178 mm and the two tabs give 0.0069 mm: 0.0248 of 0.025 mm.
+    middle = finish | {"stations_mm": 152.4}
+    _strap(TABBED, middle)
+    bending, text = _refused(TABBED, middle | {"max_deflection_mm": 1e-6})
+    assert "between tabs at 114.3 and 190.5 mm" in text
+    assert "0.00694 mm of it the tabs giving" in text
+    assert bending == pytest.approx(0.0248, abs=1e-4)
+    # The part end, 31.75 mm past the last tab, refuses: 0.100 mm.
+    bending, text = _refused(TABBED, finish | {"traverse_mm": [6.35, 298.45]})
+    assert "overhang 31.75 mm beyond the tab at 38.1 mm" in text
+    assert "exceeds the finish limit 0.025 mm" in text
+    assert bending == pytest.approx(0.100, abs=1e-3)
+    # Only its tabs hold a cut-out part along its length: they share the
+    # cross-spindle force, so that axis is loaded too.
+    floor = SLOT | {"kind": "end", "phase": "finish", "axial_doc_mm": 0.1}
+    floor |= {"stations_mm": 114.3, "max_deflection_mm": 1e-9}
+    bending, text = _refused(TABBED, floor)
+    assert "along x" in text and "4 tabs 3.175 mm long sharing the force" in text
+    assert bending == pytest.approx(0.000266, abs=1e-6)
+    # A tab between clamps hangs the part on an unclamped strip: not judged.
+    stray = copy.deepcopy(TABBED)
+    stray["tabs"]["stations_mm"] = [38.1, 150.0, 266.7]
+    with pytest.raises(CheckError, match="the tab at 150 mm is not at a clamp"):
+        _strap(stray, middle)
+
+
+def test_a_plate_in_a_vise_is_gripped_by_its_plate_not_the_part():
+    cut = SLOT | {"stations_mm": 152.4}
+    # Clamped to the table: no vise hold to link.
+    _strap(PLATE, cut, vise_hold="other")
+    with pytest.raises(CheckError, match="vise_hold: the setup declares no vise hold"):
+        _strap(PLATE | {"vise_hold": 1}, cut, vise_hold="other")
+    with pytest.raises(CheckError, match="vise hold 1 grips the part, but a plate"):
+        _strap(PLATE, cut, vise_hold=dict(HOLD))
+    plate = dict(HOLD, grips="plate")
+    _strap(PLATE, cut, vise_hold=plate)
+    _strap(PLATE | {"vise_hold": 2}, cut, vise_hold=[dict(HOLD), plate])
+    # A cantilever cannot take its clamp from jaws that grip a plate.
+    beam = copy.deepcopy(SETUP["beam"]) | {"vise_left": "start"}
+    with pytest.raises(CheckError, match="vise hold 1 grips a plate, not this part"):
+        _strap(beam, cut, vise_hold=plate)
