@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from xml.etree import ElementTree
 
 from prechips.cad import CadError, _shorthand
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _fmt, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
 from prechips.jig_diagrams import (
     _blank,
     _cutter,
@@ -29,7 +29,7 @@ from prechips.jig_diagrams import (
     _title,
     _trim,
 )
-from prechips.shaft_diagrams import _break, _callouts, _dimension
+from prechips.shaft_diagrams import _callouts, _dimension
 
 Groups = dict[str, list[Element]]
 Items = list[tuple[float, float, list[str]]]
@@ -119,14 +119,13 @@ def _plan(values: dict, parameters: dict, step: str) -> _Plan:
     trim = _trim(blank, length, "blank_length_in")
     coupon = {}
     if step == "holes":
+        # load_carrier refuses a coupon that is not behind the plate.
         coupon = {
             "coupon_x": _param(parameters, "coupon_hole_x_in"),
-            "coupon_y": _param_in(parameters, "coupon_hole_y_mm"),
+            "coupon_y": _param(parameters, "coupon_hole_y_in"),
             "coupon_length": _param(parameters, "coupon_length_in"),
             "coupon_width": _param(parameters, "coupon_width_in"),
         }
-        if coupon["coupon_y"] - coupon["coupon_width"] / 2 <= width:
-            raise CadError("process.coupon_hole_y_mm: coupon not behind the plate")
     # Room above the plate for the coupon behind it.
     beyond = coupon["coupon_y"] + coupon["coupon_width"] / 2 - width if coupon else 0
     back = 92.0 + beyond * s
@@ -581,74 +580,7 @@ def _relations(groups: Groups, values: dict) -> float:
     return ay
 
 
-def _carrier_saw(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
-    """Setup 1: the blank, then a strip cut to the reamer's test coupon."""
-    length = _param(parameters, "blank_length_in")
-    kerf = _param(parameters, "kerf_in")
-    width = _param(parameters, "blank_width_in")
-    strip = _param(parameters, "coupon_width_in")
-    coupon = _param(parameters, "coupon_length_in")
-    if coupon >= width:
-        raise CadError("process.coupon_length_in: longer than the bar is wide")
-    rest = 1.5  # schematic stub of the remaining bar, inches
-    scale = min(60.0, 640 / (length + strip + 2 * kerf + rest))
-    x, top = 40.0, 74.0
-    bottom = top + width * scale
-    groups = _groups(root)
-    _title(groups, 40, 24, "Top view, bar end at the left")
-    x1 = x + length * scale
-    groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
-    _label(
-        groups,
-        (x + x1) / 2,
-        (top + bottom) / 2 + 5,
-        "blank, ≥{{process.blank_min_length_in:.2f}}",
-        "middle",
-    )
-    _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
-    groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
-    # The strip, then the coupon cut off its front end; the rest is offcut.
-    x = x1 + kerf * scale
-    x1 = x + strip * scale
-    cut = bottom - coupon * scale
-    groups["kept"].append(_rect(x, cut, x1 - x, bottom - cut))
-    groups["other"].append(_rect(x, top, x1 - x, cut - top))
-    groups["active"].append(_line(x, cut, x1, cut))
-    _dimension(groups, x, x1, top - 16, top, "{{process.coupon_width_in:g}}")
-    groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
-    coupon_x = (x + x1) / 2
-    x = x1 + kerf * scale
-    end = x + rest * scale
-    groups["other"].append(
-        _el(
-            "path",
-            d=f"M{_fmt(x)} {_fmt(top)}H{_fmt(end)}{_break(end, top, bottom)}"
-            f"H{_fmt(x)}Z",
-        )
-    )
-    kerf_x = 40 + length * scale + kerf * scale / 2
-    end_y = _callouts(
-        groups,
-        [
-            (
-                kerf_x,
-                bottom,
-                ["kerf ~{{process.kerf_in:fraction}}", "waste side of line"],
-            ),
-            (
-                coupon_x,
-                bottom,
-                ["test coupon", "{{process.coupon_length_in:g}} long"],
-            ),
-        ],
-        bottom + 4,
-        above=False,
-    )
-    return _finish(groups, end_y)
-
-
 CARRIER_LAYOUTS = {
-    "jig-carrier-saw": _carrier_saw,
     "jig-carrier-table": _carrier_table,
     "jig-carrier-inspect": _carrier_inspect,
 }

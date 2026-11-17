@@ -93,25 +93,36 @@ def test_a_strap_toe_beyond_the_blocks_refuses():
         load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 0.6})
 
 
-def test_a_toe_pad_reaching_past_the_placed_blocks_refuses():
-    # Blocks span 1.05-4.05 in across; less ±.06 placing, 1.11-3.99. A toe
-    # centred at 1.08 is on the nominal block but not the placed one, and a
-    # .6 pad at 1.35 reaches 1.05.
+def test_a_toe_pad_on_the_nominal_but_not_the_placed_blocks_refuses():
+    # Blocks span 1.05-4.05 in across; less ±.06 placing, 1.11-3.99. The plan's
+    # .25 pad centred at 1.20 spans 1.075-1.325: on the nominal block only.
     with pytest.raises(CadError, match="strap toe outside the blocks"):
-        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 1.08})
-    with pytest.raises(CadError, match="strap toe outside the blocks"):
-        load_carrier(SOURCE, PARAMETERS | {"strap_toe_width_in": 0.6})
+        load_carrier(SOURCE, PARAMETERS | {"strap_toe_in": 1.20})
 
 
-def test_a_partial_block_or_toe_key_set_refuses():
-    parameters = dict(PARAMETERS)
-    del parameters["block_tolerance_in"]
-    with pytest.raises(CadError, match="also need block_tolerance_in"):
-        load_carrier(SOURCE, parameters)
-    del parameters["strap_toe_width_in"]
-    parameters["block_tolerance_in"] = PARAMETERS["block_tolerance_in"]
-    with pytest.raises(CadError, match="also needs strap_toe_width_in"):
-        load_carrier(SOURCE, parameters)
+def test_a_partial_block_toe_or_coupon_key_set_refuses():
+    for key, message in (
+        ("block_tolerance_in", "also need block_tolerance_in"),
+        ("strap_toe_in", "also needs strap_toe_in"),
+        ("strap_toe_width_in", "also needs strap_toe_width_in"),
+        ("coupon_hole_y_in", "also needs coupon_hole_y_in"),
+    ):
+        parameters = {k: v for k, v in PARAMETERS.items() if k != key}
+        with pytest.raises(CadError, match=message):
+            load_carrier(SOURCE, parameters)
+
+
+def test_a_misplaced_test_coupon_refuses():
+    # Behind the plate means its front edge past the 5.1 in width; the back
+    # straps sit over blocks 2 (7.10) and 4 (17.80), 2 in long, ±.06 placed.
+    for change, message in (
+        ({"coupon_hole_y_in": 4.72, "coupon_hole_y_mm": 119.888}, "not behind"),
+        ({"coupon_hole_x_in": 9.0}, "reaches a back strap block"),
+        ({"coupon_hole_y_mm": 120.0}, "disagrees with coupon_hole_y_in"),
+        ({"coupon_parallel_height_in": 0.75}, "not level with the blocks"),
+    ):
+        with pytest.raises(CadError, match=message):
+            load_carrier(SOURCE, PARAMETERS | change)
 
 
 def test_note_two_relations_print_from_a1_and_the_line():
