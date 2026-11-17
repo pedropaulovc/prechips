@@ -120,6 +120,9 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
         bind_text("{{process.label}}", cad, {"label": "{{cad.unknown}}"})
         == "{{cad.unknown}}"
     )
+    # mm -> in division noise (9.525 / 25.4 = 0.37500000000000006).
+    assert bind_text("{{process.x_mm:infraction}}", cad, {"x_mm": 9.525}) == "3/8"
+    assert bind_text("{{process.x_mm:in}}", cad, {"x_mm": 4.7625}) == "0.1875"
     with pytest.raises(CadError):
         bind_text("{{process.x_in:in.2dot}}", cad, {"x_in": 0.9})
 

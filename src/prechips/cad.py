@@ -656,10 +656,13 @@ def bind_text(
             # ``in`` prefix: a millimetre value printed in inches, so one
             # authored mm number feeds both analysis data and the sheet text.
             # Only ``*_mm`` keys qualify; anything else would print wrongly.
+            # The quotient is rounded to 9 places, finer than any sheet prints,
+            # so the conversion's float noise never reaches a bare ``in`` or
+            # ``infraction`` (9.525 mm prints 0.375 and 3/8).
             if spec and spec.startswith("in"):
                 if not match[2].endswith("_mm"):
                     raise CadError(f"{match[0]}: the in prefix needs a *_mm key")
-                value, spec = value / 25.4, spec[2:] or None
+                value, spec = round(value / 25.4, 9), spec[2:] or None
             if spec == "fraction":
                 fraction = Fraction(str(value)).limit_denominator(64)
                 if float(fraction) != value:
