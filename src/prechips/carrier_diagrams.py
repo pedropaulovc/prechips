@@ -338,8 +338,11 @@ def _holes(groups: Groups, plan: _Plan, values: dict) -> Items:
         _rect(plan.px(0), plan.kept_back, plan.length * plan.s, plan.width * plan.s)
     )
     _draw_blocks(groups, plan)
-    for index, x in enumerate(plan.blocks):
-        _edge_strap(groups, plan, x, front=index % 2 == 0)
+    back = values.get("back_strap_block_numbers")
+    if not isinstance(back, list) or not all(type(n) is int for n in back):
+        raise CadError("cad.back_strap_block_numbers: expected the back-strap blocks")
+    for number, x in enumerate(plan.blocks, 1):
+        _edge_strap(groups, plan, x, front=number not in back)
     pin = _cad(values, "pin_dia_max_in")
     sizes = {
         "C": _cad(values, "clamp_drill_max_in"),

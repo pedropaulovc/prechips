@@ -434,8 +434,9 @@ def _all_or_none(parameters: dict, keys: tuple[str, ...], what: str) -> bool:
 
 # The holes setup straps every block, alternating front/back from the front at
 # block 1, so the back straps (whose heels stand behind the plate) are over
-# blocks 2 and 4. The plan's holding text binds this as ``cad.back_strap_blocks``
-# and the holes picture draws the same alternation.
+# blocks 2 and 4. This is the one source: the adapter binds it as
+# ``cad.back_strap_block_numbers`` (the holes picture draws its straps from it)
+# and ``cad.back_strap_blocks`` (the holding text).
 _BACK_STRAP_BLOCKS = (2, 4)
 
 _COUPON = (
@@ -462,6 +463,7 @@ def _coupon(values: dict, parameters: dict) -> None:
     ``coupon_parallel_height_in``: the parallels stand at the blocks' height,
     so the reamer breaks through the coupon at the plate's depth.
     """
+    values["back_strap_block_numbers"] = list(_BACK_STRAP_BLOCKS)
     values["back_strap_blocks"] = " and ".join(map(str, _BACK_STRAP_BLOCKS))
     if not _all_or_none(parameters, _COUPON, "the test coupon"):
         return

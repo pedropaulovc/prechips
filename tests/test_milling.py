@@ -242,6 +242,12 @@ def test_thrust_on_a_seat_or_along_an_upright_beam_passes():
         material="bronze", cutter_dia_mm=1.0
     )
     _check(setup)
+    # A rough pilot naming its finish cut loads no axis upright: its empty
+    # finish_stock_mm compares nothing, but declares no "through" either.
+    finish = setup["operations"][0]["milling_cuts"][0]
+    pilot = {**finish, "name": "pilot", "phase": "rough", "finish_cut": "end hole"}
+    setup["operations"][0]["milling_cuts"] = [pilot | {"finish_stock_mm": {}}, finish]
+    _check(setup)
 
 
 def test_a_traverse_is_judged_at_its_worst_point():

@@ -574,7 +574,10 @@ def _limits(
     A rough cut that names the next finish cut in its operation and the stock
     that cut leaves along each loaded axis is compared with that stock instead
     of the rough limit; nothing is inferred from the finish cut or from prose.
-    A cut's max_deflection_mm still applies on every axis, "through" included.
+    A cut's max_deflection_mm still applies on every axis, "through" included;
+    when every loaded axis is "through" and no max_deflection_mm is given the
+    declaration compares nothing and is refused (a cut loading no axis, along
+    an upright beam, has nothing to compare and passes as before).
     """
     limit = config["milling"][f"{phase}_mm"]
     tighter = None
@@ -603,7 +606,7 @@ def _limits(
     explicit = None
     if tighter is not None:
         explicit = (tighter, f"max_deflection_mm {tighter:g} mm")
-    elif all(stock[axis] == "through" for axis in axes):
+    elif axes and all(stock[axis] == "through" for axis in axes):
         raise CheckError(
             f'{where}.finish_stock_mm: every axis "through" compares nothing; '
             "declare a numeric finish stock or max_deflection_mm"
