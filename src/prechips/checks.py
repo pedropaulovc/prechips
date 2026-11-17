@@ -1,11 +1,24 @@
 """Declared-input checks: enforcement names and the plan fields each one owns."""
 
+import math
 from dataclasses import dataclass
 from importlib import import_module
 
 
 class CheckError(ValueError):
     """Declared plan or shop data is missing, unusable or outside a limit."""
+
+
+def positive_mm(value: object, where: str) -> float:
+    """A finite positive TOML number in mm; huge integers refuse, not overflow."""
+    if type(value) in (int, float):
+        try:
+            number = float(value)
+        except OverflowError:  # TOML integers are unbounded
+            number = math.inf
+        if math.isfinite(number) and number > 0:
+            return number
+    raise CheckError(f"{where}: expected a positive number in mm")
 
 
 @dataclass(frozen=True)
@@ -58,6 +71,13 @@ CHECKS: dict[str, Check] = {
     ),
     "machine_capacity": Check(
         module="prechips.capacity", setup_fields=frozenset({"envelope"})
+    ),
+    "drill_pecking": Check(
+        module="prechips.pecking",
+        operation_fields=frozenset(
+            {"drilling", "hole_depth_mm", "peck", "peck_reason"}
+        ),
+        config="turning",
     ),
 }
 

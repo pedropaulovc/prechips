@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         metavar="FILE.toml",
         help=(
-            "override turning, milling and drilling coefficients and limits "
+            "override turning, milling, drilling and drill-pecking coefficients and limits "
             "(partial TOML config)"
         ),
     )
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
-        # Turning and milling read the same packaged/override coefficient file.
+        # Turning, milling and drill pecking read the same packaged/override file.
         readers = [
             name
             for name in ("turning_deflection", *checks.CHECKS)

@@ -120,6 +120,8 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
         bind_text("{{process.label}}", cad, {"label": "{{cad.unknown}}"})
         == "{{cad.unknown}}"
     )
+    with pytest.raises(CadError):
+        bind_text("{{process.x_in:in.2dot}}", cad, {"x_in": 0.9})
 
 
 def test_one_cutter_slot_rectangle_makes_the_drawn_width_and_length(tmp_path):

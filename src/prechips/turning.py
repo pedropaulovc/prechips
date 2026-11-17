@@ -44,6 +44,12 @@ _SECTIONS = {
         "feed_factors",
         "diameter_factors",
     },
+    "pecking": {
+        "chip_break_above_ld",
+        "full_retract_above_ld",
+        "max_ld",
+        "step_max_diameters",
+    },
 }
 _FACTOR_TABLES = {"feed_factors", "diameter_factors"}
 
@@ -111,7 +117,7 @@ def _factor_pairs(pairs: object, where: str) -> list[list[float]]:
 
 
 def load_config(path: Path | None) -> dict:
-    """Packaged turning, milling and drilling data with a partial TOML override."""
+    """Packaged turning, milling, drilling and pecking data with a partial override."""
     config = _read_config(DEFAULT_CONFIG)
     if path is not None:
         overrides = _read_config(path)

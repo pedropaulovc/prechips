@@ -4,19 +4,11 @@ Every operation with a tool declares ``sizing``: ``"other"`` or a table. The
 check compares the selected tool only; it never searches for a nearer tool.
 """
 
-from math import isfinite
-
-from prechips.checks import CheckError
+from prechips.checks import CheckError, positive_mm
 from prechips.traveler import LoadedPlan
 
 # Archived op_chain criterion: tap-drill lengths agree within absolute 1e-6 mm.
 TAP_DRILL_TOLERANCE_MM = 1e-6
-
-
-def _positive(value: object, where: str) -> float:
-    if type(value) not in (int, float) or not isfinite(value) or value <= 0:
-        raise CheckError(f"{where}: expected a positive number in mm")
-    return float(value)
 
 
 def _keys(table: dict, allowed: set[str], where: str) -> None:
@@ -36,7 +28,7 @@ def check(plan: LoadedPlan) -> None:
     for tool in tools.values():
         for field in ("diameter_mm", "tap_drill_mm"):
             if field in tool:
-                _positive(tool[field], f"tool {tool['id']!r} {field}")
+                positive_mm(tool[field], f"tool {tool['id']!r} {field}")
     number = 0
     for setup_index, setup in enumerate(plan.data["setups"], 1):
         where = f"setup {setup_index} ({setup['title']})"
@@ -68,8 +60,8 @@ def _check_sizing(sizing: dict, tool: dict, tools: dict, where: str) -> None:
         band = sizing.get("band_mm")
         if not isinstance(band, list) or len(band) != 2:
             raise CheckError(f"{where}.band_mm: expected [low, high] in mm")
-        low = _positive(band[0], f"{where}.band_mm")
-        high = _positive(band[1], f"{where}.band_mm")
+        low = positive_mm(band[0], f"{where}.band_mm")
+        high = positive_mm(band[1], f"{where}.band_mm")
         if low > high:
             raise CheckError(f"{where}.band_mm: reversed band {low:.6g}–{high:.6g} mm")
         diameter = _tool_size(tool, "diameter_mm", where)

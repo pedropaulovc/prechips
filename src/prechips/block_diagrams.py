@@ -533,7 +533,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     and end view (from LUG END: SEAT and the fixed jaw on the right) at one
     scale. The bore comes before the notch: the block stands on all of
     SPINDLE END and the bore runs blind from OUTER END to
-    ``lug_bore_depth_in``, past the lug face to come (drawn hidden), which
+    ``lug_bore_depth_mm``, past the lug face to come (drawn hidden), which
     the notch opens.
     """
     if not _feed(values):
@@ -548,7 +548,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
     dia = _cad(values, "screw_dia_in")
     parallel = _param_in(parameters, "edge_parallel_height_mm")
     jaw_h = _param_in(parameters, "vise_jaw_height_mm")
-    depth = _param(parameters, "lug_bore_depth_in")
+    depth = _param_in(parameters, "lug_bore_depth_mm")
     if not length - lug_x < depth < length:
         raise CadError(
             "diagram jig-block-lug-bore: the bore must end past the lug face"
@@ -602,7 +602,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         bx - dia / 2 * t - 14,
         top,
         bore_floor,
-        "{{process.lug_bore_depth_in:.2dot}}",
+        "{{process.lug_bore_depth_mm:in.2dot}}",
     )
 
     # End view from LUG END: the whole end face; the lug face to come hidden.

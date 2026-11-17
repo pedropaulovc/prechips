@@ -224,3 +224,23 @@ diameter_factors = [
     [3.500, 2.724],
     [4.000, 3.031],
 ]
+
+[pecking]
+# drill_pecking bands on hole depth over drill diameter (L/D). Rules of thumb,
+# NOT standards; one band set for every material: the sources name long- and
+# short-chipping materials but give no numeric shift.
+# CNCCookbook, "G81, G73, G83: Peck Drilling Canned Cycles"
+# (https://www.cnccookbook.com/g81-g73-g83-drill-peck-canned-cycle/): G81, no
+# peck, for drill depths <= 3 diameters; pecking from about 4 diameters.
+chip_break_above_ld = 3.0
+# CNCCookbook, "Deep Hole Drilling" (https://www.cnccookbook.com/deep-hole-drilling/):
+# twist drills to 5 diameters without issue, peck drilling from 5 to 7,
+# parabolic flutes with pecking from 7 to 10, deep-hole techniques beyond.
+# Above 5 the check requires full retract; the parabolic-flute advice above 7
+# is not checked (tool records carry no flute form).
+full_retract_above_ld = 5.0
+max_ld = 10.0
+# MTI Manufacturing Atlas, "Peck drilling cycle"
+# (https://www.mactool.com/atlas/drilling/peck-drilling-cycles/): "a peck of
+# about one drill diameter, reduced as the hole deepens".
+step_max_diameters = 1.0

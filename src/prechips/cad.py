@@ -646,6 +646,13 @@ def bind_text(
         spec = match[3]
         if type(value) in (int, float):
             _number(value, match[0])
+            # ``in`` prefix: a millimetre value printed in inches, so one
+            # authored mm number feeds both analysis data and the sheet text.
+            # Only ``*_mm`` keys qualify; anything else would print wrongly.
+            if spec and spec.startswith("in"):
+                if not match[2].endswith("_mm"):
+                    raise CadError(f"{match[0]}: the in prefix needs a *_mm key")
+                value, spec = value / 25.4, spec[2:] or None
             if spec == "fraction":
                 fraction = Fraction(str(value)).limit_denominator(64)
                 if float(fraction) != value:
