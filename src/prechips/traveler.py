@@ -678,6 +678,7 @@ def used_diagrams(setup: dict, profile: Profile) -> dict[int, dict]:
 def _diagram_html(
     diagram: dict,
     where: str,
+    figure_class: str,
     source_dir: Path,
     cad: CadData | None,
     parameters: dict,
@@ -703,7 +704,7 @@ def _diagram_html(
     image = base64.b64encode(content).decode("ascii")
     alt = _html(diagram["alt"])
     figure = (
-        '<figure class="setup-diagram">'
+        f'<figure class="{figure_class}">'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
@@ -720,7 +721,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(plan['title'])}</title>",
     ]
-    # Sheets using markup or steps get RICH_CSS spliced in here at the end.
+    # Sheets using markup, steps or operation pictures get their extra CSS
+    # spliced in here at the end.
     style_at = len(lines)
     lines += [
         f"<style>{CSS}</style></head><body>",
@@ -778,7 +780,12 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         where = f"setup {setup['title']!r}.diagram"
         if 0 in pictures:
             diagram, roles = _diagram_html(
-                pictures[0], where, source_dir, loaded.cad, loaded.parameters
+                pictures[0],
+                where,
+                "setup-diagram",
+                source_dir,
+                loaded.cad,
+                loaded.parameters,
             )
             drawn |= roles
             lines.append(diagram)
@@ -796,10 +803,13 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             tool = tools[operation["tool"]] if "tool" in operation else None
             grouped = op_index in pictures
             if grouped:
+                # Setup-picture styling, plus a class of its own so setup
+                # pictures can still be counted apart.
                 diagram, roles = _diagram_html(
                     pictures[op_index],
                     f"setup {setup_number} ({setup['title']}), Op {operation_number}"
                     " diagram",
+                    "setup-diagram op-picture",
                     source_dir,
                     loaded.cad,
                     loaded.parameters,

@@ -439,15 +439,18 @@ def test_operation_diagram_prints_before_its_row_and_is_optional(tmp_path):
     setup_figure = html.index('alt="Vise &amp; stock &lt;side view&gt;"')
     group = html.index(
         '<tbody class="op-group"><tr class="op-diagram"><td colspan="3">'
+        '<figure class="setup-diagram op-picture">'
     )
     group_end = html.index("</tbody>", group)
     # The picture and its operation's row cannot print apart.
     assert (
         setup_figure < group < html.index('<td class="op-number">10</td>') < group_end
     )
+    assert ".op-group" in html[html.index("<style>") : html.index("</style>")]
+    # Setup pictures still count apart from operation pictures.
+    assert html.count('class="setup-diagram"') == 1
     assert 'alt="Op &lt;view&gt;"' in html
     assert "Picture key: hole" in html  # The operation picture's roles count.
-    assert ".op-group { break-inside: avoid; }" in html
     # The profile requires the setup picture only; an operation picture
     # cannot stand in for it.
     result, out = run_cli(tmp_path, with_operation_diagram(PLAN), "--profile", required)
