@@ -508,7 +508,7 @@ Instruction and step text may use basic markdown: `**bold**`, `*emphasis*` and `
 
 `diagram` is optional in the process schema, on a setup and on an operation, in the same `{ file, alt }` shape. Its `file` and `alt` strings are required when it is supplied. SVG paths are relative to the process TOML, regardless of the working directory. An enabled diagram must parse as SVG; it is embedded as an image, not executable page markup. In `pro`, unused diagram files are not opened.
 
-A setup has at most one `diagram`, printed under its heading. An operation's `diagram` prints just before that operation's row, for a later stage of the same clamping (a hole layout after facing, say). Operation pictures print wherever setup pictures do (`setup_diagrams` in `features`) and add their roles to the picture key; a profile's required-diagram rule (`setup_diagrams` in `enforce`) asks for the setup's picture only, which an operation picture cannot replace.
+A setup has at most one `diagram`, printed under its heading. An operation's `diagram` prints just before that operation's row, grouped with it so a page break cannot separate them, for a later stage of the same clamping (a hole layout after facing, say). Operation pictures print wherever setup pictures do (`setup_diagrams` in `features`) and add their roles to the picture key; a profile's required-diagram rule (`setup_diagrams` in `enforce`) asks for the setup's picture only, which an operation picture cannot replace.
 
 ## Development
 

@@ -654,11 +654,25 @@ def _steps_html(steps: list[dict], layout: StepLayout) -> str:
     return f'<ol class="{layout.value}">' + "".join(rows) + "</ol>"
 
 
-# Printed only on sheets with an operation picture.
+# Printed only on sheets with an operation picture. The picture and its
+# operation's row share one tbody so a page break cannot separate them.
 OP_DIAGRAM_CSS = """\
-.op-diagram { break-after: avoid; }
+.op-group { break-inside: avoid; }
 .op-diagram > td { padding: 0; border-bottom: 0; }
 """
+
+
+def used_diagrams(setup: dict, profile: Profile) -> dict[int, dict]:
+    """The pictures a render of this setup opens: 0 is the setup's own, n its
+    nth operation's. The CLI's output guard reads the same lookup."""
+    if "setup_diagrams" not in profile.features:
+        return {}
+    tables = (setup, *setup["operations"])
+    return {
+        index: table["diagram"]
+        for index, table in enumerate(tables)
+        if "diagram" in table
+    }
 
 
 def _diagram_html(
@@ -736,7 +750,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     rich = op_diagrams = False
     detailed = "detailed_instructions" in profile.features
     layout = StepLayout.SPACED if detailed else StepLayout.COMPACT
-    pictures = "setup_diagrams" in profile.features
+    pictures_on = "setup_diagrams" in profile.features
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -760,14 +774,15 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         lines.append("</div>")
         # Profiles require the setup's picture only; operation pictures are
         # optional additions under the same feature.
+        pictures = used_diagrams(setup, profile)
         where = f"setup {setup['title']!r}.diagram"
-        if pictures and "diagram" in setup:
+        if 0 in pictures:
             diagram, roles = _diagram_html(
-                setup["diagram"], where, source_dir, loaded.cad, loaded.parameters
+                pictures[0], where, source_dir, loaded.cad, loaded.parameters
             )
             drawn |= roles
             lines.append(diagram)
-        elif pictures and "setup_diagrams" in profile.enforce:
+        elif pictures_on and "setup_diagrams" in profile.enforce:
             raise PlanError(f"{where}: required by profile {profile.name!r}")
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
@@ -776,13 +791,15 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             f'<th scope="col">Setup {setup_number} — Work</th>'
             '<th scope="col">Tool / settings</th></tr></thead><tbody>'
         )
-        for operation in setup["operations"]:
+        for op_index, operation in enumerate(setup["operations"], 1):
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
-            if pictures and "diagram" in operation:
+            grouped = op_index in pictures
+            if grouped:
                 diagram, roles = _diagram_html(
-                    operation["diagram"],
-                    f"setup {setup['title']!r} op {operation_number}.diagram",
+                    pictures[op_index],
+                    f"setup {setup_number} ({setup['title']}), Op {operation_number}"
+                    " diagram",
                     source_dir,
                     loaded.cad,
                     loaded.parameters,
@@ -790,6 +807,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 drawn |= roles
                 op_diagrams = True
                 lines.append(
+                    '</tbody><tbody class="op-group">'
                     f'<tr class="op-diagram"><td colspan="3">{diagram}</td></tr>'
                 )
             # The detailed slot, when selected and authored, replaces the
@@ -829,6 +847,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     '<div class="text setting-value">' + "; ".join(settings) + "</div>"
                 )
             lines.append("</td></tr>")
+            if grouped:
+                lines.append("</tbody><tbody>")
             if "table" in operation:
                 data = operation["table"]
                 lines.append(

@@ -437,11 +437,17 @@ def test_operation_diagram_prints_before_its_row_and_is_optional(tmp_path):
     assert result.returncode == 0, result.stderr
     html = out.read_text(encoding="utf-8")
     setup_figure = html.index('alt="Vise &amp; stock &lt;side view&gt;"')
-    op_figure = html.index('<tr class="op-diagram"><td colspan="3"><figure')
-    assert setup_figure < op_figure < html.index('<td class="op-number">10</td>')
+    group = html.index(
+        '<tbody class="op-group"><tr class="op-diagram"><td colspan="3">'
+    )
+    group_end = html.index("</tbody>", group)
+    # The picture and its operation's row cannot print apart.
+    assert (
+        setup_figure < group < html.index('<td class="op-number">10</td>') < group_end
+    )
     assert 'alt="Op &lt;view&gt;"' in html
     assert "Picture key: hole" in html  # The operation picture's roles count.
-    assert ".op-diagram {" in html
+    assert ".op-group { break-inside: avoid; }" in html
     # The profile requires the setup picture only; an operation picture
     # cannot stand in for it.
     result, out = run_cli(tmp_path, with_operation_diagram(PLAN), "--profile", required)
@@ -451,7 +457,7 @@ def test_operation_diagram_prints_before_its_row_and_is_optional(tmp_path):
     missing = with_operation_diagram(with_diagram(PLAN, file="setup.svg"), "no.svg")
     result, out = run_cli(tmp_path, missing, "--profile", required)
     assert result.returncode == 2
-    assert "op 10.diagram" in result.stderr
+    assert "setup 1 (Face stock), Op 10 diagram: cannot use SVG" in result.stderr
     result, out = run_cli(tmp_path, missing, "--profile", stock_free_profile(tmp_path))
     assert result.returncode == 0, result.stderr
     assert "<img " not in out.read_text(encoding="utf-8")

@@ -9,7 +9,7 @@ from pathlib import Path
 from prechips import checks
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
-from prechips.traveler import PlanError, load_plan, render_traveler
+from prechips.traveler import PlanError, load_plan, render_traveler, used_diagrams
 from prechips.turning import (
     DEFAULT_CONFIG,
     TurningError,
@@ -81,13 +81,11 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(DEFAULT_CONFIG)
             if profile.turning_config is not None:
                 inputs.append(profile.turning_config)
-        if "setup_diagrams" in profile.features:
-            inputs.extend(
-                args.plan.parent / table["diagram"]["file"]
-                for setup in plan.data["setups"]
-                for table in (setup, *setup["operations"])
-                if "diagram" in table
-            )
+        inputs.extend(
+            args.plan.parent / diagram["file"]
+            for setup in plan.data["setups"]
+            for diagram in used_diagrams(setup, profile).values()
+        )
         # A missing input cannot be the output; the render names it instead.
         if args.out.exists() and any(
             path.exists() and args.out.samefile(path) for path in inputs
