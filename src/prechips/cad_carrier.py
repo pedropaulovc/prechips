@@ -260,6 +260,7 @@ def load_carrier(path: Path, parameters: dict) -> CadData:
     _blank_mm(values, parameters)
     _support_blocks(values, parameters)
     _strap_toes(values, parameters)
+    _coupon(values, parameters)
     _spacer_seat(values, parameters)
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
@@ -405,12 +406,15 @@ def _strap_toes(values: dict, parameters: dict) -> None:
     ``block_tolerance_in``, so the whole pad must lie inside the blocks' span
     across shrunk by that tolerance on each side.
     """
-    if "strap_toe_in" not in parameters:
+    keys = ("strap_toe_in", "strap_toe_width_in")
+    present = [key for key in keys if key in parameters]
+    if not present:
         return
+    if len(present) != len(keys):
+        missing = next(key for key in keys if key not in parameters)
+        raise CadError(f"process.{present[0]}: also needs {missing}")
     if "block_x_in" not in values:
         raise CadError("process.strap_toe_in: needs the support block_* keys")
-    if "strap_toe_width_in" not in parameters:
-        raise CadError("process.strap_toe_in: also needs strap_toe_width_in")
     toe = _positive(parameters["strap_toe_in"], "process.strap_toe_in")
     pad = _positive(parameters["strap_toe_width_in"], "process.strap_toe_width_in")
     half = pad / 2
@@ -424,3 +428,68 @@ def _strap_toes(values: dict, parameters: dict) -> None:
             f"{toe - half:.2f}–{toe + half:.2f} in from the edge; the blocks, "
             f"less their ±{slack:.2f} placing tolerance, span {low:.2f}–{high:.2f})"
         )
+
+
+_COUPON = (
+    "coupon_width_in",
+    "coupon_length_in",
+    "coupon_hole_x_in",
+    "coupon_hole_y_in",
+    "coupon_hole_y_mm",
+    "coupon_parallel_height_in",
+)
+
+
+def _coupon(values: dict, parameters: dict) -> None:
+    """The reamer's test coupon: sawn from the bar, then drilled and reamed in
+    the holes setup on two parallels behind the plate, between the back straps.
+
+    Once any coupon key is authored, all are required. Refuse a coupon longer
+    than the bar is wide, one reaching the plate or the back strap blocks
+    (2 and 4, placed within ``block_tolerance_in``), one too short to put a
+    parallel either side of its hole, parallels not level with the blocks (the
+    reamer must break through it at the plate's depth) and a ``_mm`` twin that
+    disagrees with its inches. Binds ``coupon_thickness_mm``: the raw bar, at
+    least the faced plate's thickness, so it tops the holes setup's work.
+    """
+    present = [key for key in _COUPON if key in parameters]
+    if not present:
+        return
+    if len(present) != len(_COUPON):
+        missing = ", ".join(key for key in _COUPON if key not in parameters)
+        raise CadError(f"process: the test coupon also needs {missing}")
+    if "block_x_in" not in values:
+        raise CadError("process.coupon_*: needs the support block_* keys")
+    width, length, x, y, y_mm, parallel = (
+        _positive(parameters[key], f"process.{key}") for key in _COUPON
+    )
+    if not math.isclose(y * 25.4, y_mm, abs_tol=0.005):
+        raise CadError("process.coupon_hole_y_mm: disagrees with coupon_hole_y_in")
+    bar = _positive(parameters.get("blank_width_in"), "process.blank_width_in")
+    if length >= bar:
+        raise CadError("process.coupon_length_in: longer than the bar is wide")
+    if y - width / 2 <= values["width_mm"] / 25.4:
+        raise CadError("process.coupon_hole_y_in: coupon not behind the plate")
+    if length / 2 <= values["pin_dia_max_in"]:
+        raise CadError(
+            "process.coupon_length_in: no room for a parallel either side of its hole"
+        )
+    along = parameters["block_length_in"]
+    slack = parameters["block_tolerance_in"]
+    _, block_2, _, block_4 = values["block_x_in"]
+    low, high = block_2 + along / 2 + slack, block_4 - along / 2 - slack
+    start, end = x - length / 2, x + length / 2
+    if not (low < start and end < high):
+        raise CadError(
+            f"process.coupon_hole_x_in: coupon X {start:.2f}–{end:.2f} reaches a "
+            f"back strap block (clear span {low:.2f}–{high:.2f})"
+        )
+    block = _positive(parameters.get("block_height_mm"), "process.block_height_mm")
+    if not math.isclose(parallel * 25.4, block, abs_tol=0.005):
+        raise CadError(
+            "process.coupon_parallel_height_in: parallels not level with the blocks"
+        )
+    thickness = _positive(
+        parameters.get("blank_thickness_in"), "process.blank_thickness_in"
+    )
+    values["coupon_thickness_mm"] = thickness * 25.4

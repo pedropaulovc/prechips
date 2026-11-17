@@ -274,7 +274,9 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     """Saw setup: this sheet's blanks from the bar end, the rest of the bar beyond.
 
     A plan with `spacer_height_in` (a fixture spacer sawn from the same bar,
-    as the feed block's notch spacer) shows that offcut after the blanks.
+    as the feed block's notch spacer) shows that offcut after the blanks. A
+    plan with `coupon_width_in` and `coupon_length_in` (the carrier's reamer
+    test coupon) shows a strip that wide, cut to the coupon at its front end.
     """
     length = _param(parameters, "blank_length_in")
     count = _count(parameters, "quantity")
@@ -285,10 +287,14 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         if "spacer_height_in" in parameters
         else 0.0
     )
-    rest = 1.5  # schematic stub of the remaining bar, inches
-    scale = min(
-        60.0, 640 / (count * (length + kerf) + (spacer + kerf if spacer else 0) + rest)
+    strip = (
+        _param(parameters, "coupon_width_in")
+        if "coupon_width_in" in parameters
+        else 0.0
     )
+    rest = 1.5  # schematic stub of the remaining bar, inches
+    offcuts = sum(cut + kerf for cut in (spacer, strip) if cut)
+    scale = min(60.0, 640 / (count * (length + kerf) + offcuts + rest))
     x, top = 40.0, 74.0
     bottom = top + width * scale
     groups = _groups(root)
@@ -314,6 +320,23 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
         _dimension(groups, x, x1, top - 16, top, "{{process.spacer_height_in:.2f}}")
         groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         x = x1 + kerf * scale
+    items = []
+    if strip:
+        x1 = x + strip * scale
+        cut = bottom - _param(parameters, "coupon_length_in") * scale
+        groups["kept"].append(_rect(x, cut, x1 - x, bottom - cut))
+        groups["other"].append(_rect(x, top, x1 - x, cut - top))
+        groups["active"].append(_line(x, cut, x1, cut))
+        _dimension(groups, x, x1, top - 16, top, "{{process.coupon_width_in:g}}")
+        groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
+        items.append(
+            (
+                (x + x1) / 2,
+                bottom,
+                ["test coupon", "{{process.coupon_length_in:g}} long"],
+            )
+        )
+        x = x1 + kerf * scale
     end = x + rest * scale
     groups["other"].append(
         _el(
@@ -330,7 +353,8 @@ def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
                 kerf_x,
                 bottom,
                 ["kerf ~{{process.kerf_in:fraction}}", "waste side of line"],
-            )
+            ),
+            *items,
         ],
         bottom + 4,
         above=False,
