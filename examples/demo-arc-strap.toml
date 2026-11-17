@@ -160,7 +160,7 @@ title = "Reseat; finish the first face"
 machine = "PM-30MV CNC / vise, swivel off"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Release the blank, wipe the plate and both faces, reseat it against the fence and clamp again at the same stations: the rough passes' stress is let go before the finish cuts."
+holding = "Release the blank, wipe the plate and both faces, turn the blank over end for end (face 1, the first one roughed, up), reseat it against the fence and clamp again at the same stations: the rough passes' stress is let go before the finish cuts."
 datum = "Program RS02_finish_face_1. G54 unchanged: Z0 plate top, Y0 fence, X0 blank's left end."
 diagram = { file = "diagrams/demo-arc-strap/finish.svg", alt = "Plan of the sub-plate: the reseated blank against the fence under the four edge clamps; the 1/2 in end mill takes the finish pass over the full face." }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
