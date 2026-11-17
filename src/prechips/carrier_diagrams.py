@@ -78,6 +78,7 @@ class _Plan:
     coupon_y: float = 0.0
     coupon_length: float = 0.0
     coupon_width: float = 0.0
+    coupon_strap: float = 0.0  # the coupon strap's body length, toe to heel
 
     def px(self, x: float) -> float:
         return self.x0 + x * self.s
@@ -131,6 +132,7 @@ def _plan(values: dict, parameters: dict, step: str) -> _Plan:
             "coupon_y": _param(parameters, "coupon_hole_y_in"),
             "coupon_length": _param(parameters, "coupon_length_in"),
             "coupon_width": _param(parameters, "coupon_width_in"),
+            "coupon_strap": _param(parameters, "coupon_strap_length_in"),
         }
     # Room above the plate for the coupon behind it.
     beyond = coupon["coupon_y"] + coupon["coupon_width"] / 2 - width if coupon else 0
@@ -404,7 +406,8 @@ _PARALLEL = 0.25  # schematic parallel width under the coupon, inches
 
 def _coupon(groups: Groups, plan: _Plan, pin: float) -> None:
     """The test coupon lengthwise behind the plate on two parallels, its hole
-    between them and a strap along X over the right-hand parallel."""
+    between them and its strap along +X: toe over the right-hand parallel,
+    heel the authored strap length beyond it."""
     s = plan.s
     left = plan.coupon_x - plan.coupon_length / 2
     right = plan.coupon_x + plan.coupon_length / 2
@@ -426,10 +429,12 @@ def _coupon(groups: Groups, plan: _Plan, pin: float) -> None:
     r = pin / 2 * s
     groups["holes"].append(_el("circle", cx=cx, cy=cy, r=r))
     groups["active-face"].append(_el("circle", cx=cx, cy=cy, r=r + 3, fill="none"))
-    heel = plan.px(right + _HEEL)
-    _strap_x(groups, heel, plan.px(right - inset), cy, s)
-    _label(groups, heel + 14, cy - 2, "test coupon on")
-    _label(groups, heel + 14, cy + 13, "two parallels")
+    toe = right - inset
+    heel = plan.px(toe + plan.coupon_strap)
+    _strap_x(groups, heel, plan.px(toe), cy, s)
+    # Above the coupon: right of the heel the label would run into the back
+    # strap over block 4.
+    _label(groups, plan.px(left), back - 8, "test coupon on two parallels")
 
 
 def _hole_label(groups: Groups, tag: str, cx: float, cy: float, r: float) -> None:

@@ -445,7 +445,7 @@ _COUPON = (
     "coupon_hole_x_in",
     "coupon_hole_y_in",
     "coupon_parallel_width_in",
-    "strap_length_in",
+    "coupon_strap_length_in",
 )
 
 
@@ -460,7 +460,7 @@ def _coupon(values: dict, parameters: dict) -> None:
     tolerance), and one too short to stand a ``coupon_parallel_width_in``
     parallel each side between its end and one hole diameter from the hole
     centre. The coupon's own strap runs along +X, toe down on it, its
-    ``strap_length_in`` body toward the right-hand back strap block: taking
+    ``coupon_strap_length_in`` body toward the right-hand back strap block: taking
     the toe end at the coupon's right end, the farthest it can bear, the body
     must also clear that block.
     Binds ``coupon_hole_y_mm`` for the holes envelope and
@@ -502,7 +502,7 @@ def _coupon(values: dict, parameters: dict) -> None:
         )
     if end + strap >= high:
         raise CadError(
-            f"process.strap_length_in: the coupon's strap, toe at X {end:.2f} with "
+            f"process.coupon_strap_length_in: the coupon's strap, toe at X {end:.2f} with "
             f"the placing tolerance, reaches X {end + strap:.2f}, onto block "
             f"{_BACK_STRAP_BLOCKS[1]}'s back strap (from X {high:.2f})"
         )

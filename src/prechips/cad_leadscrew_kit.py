@@ -330,12 +330,13 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
     values["vise_jaw_right_min_mm"] = values["vise_jaw_right_mm"] - mark_tol
     values["vise_jaw_left_min_mm"] = values["vise_jaw_left_mm"] - mark_tol
+    values["vise_jaw_right_max_mm"] = values["vise_jaw_right_mm"] + mark_tol
     # The shortest piece must still span the jaws.
     if values["vise_jaw_left_min_mm"] <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
     # A piece sawn long by the mark tolerance must still finish clear of the
     # right jaw.
-    if overhang <= values["saw_piece_max_mm"] - length:
+    if values["vise_jaw_right_max_mm"] >= length:
         raise CadError(
             "process.cut_overhang_mm: the finish pass (the allowance in from a "
             "long-sawn end) would reach the vise jaw"

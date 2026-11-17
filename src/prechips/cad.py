@@ -614,6 +614,23 @@ _FORMAT = re.compile(r"(?:[+ -])?(?:[1-9][0-9]?)?(?:\.[0-9])?[fge%]|d")
 _DOT = re.compile(r"\.([0-9])dot")
 
 
+def _denoised(value: float) -> float:
+    """A float rounded to 9 places, finer than any sheet prints, with -0.0 as 0.
+
+    Every printed binding but ``e`` takes it (bare, ``fraction``, ``.Ndot``,
+    ``.Nf``, ``g``, ``%``, ``d``), so unit-conversion noise never
+    reaches the sheet and one value prints the same digits under each: 9.525 mm
+    in inches prints 0.375 and 3/8, an adapter's 19.05 / 25.4 prints 3/4, and
+    76.2 mm under ``ind`` prints 3. ``d`` tests wholeness on this value, so it
+    still refuses anything more than 5e-10 off a whole number; ``g`` prints
+    0.1 + 0.2 - 0.3 as 0. ``e`` takes the value as computed, so small
+    magnitudes still print.
+    """
+    if type(value) is not float:
+        return value
+    return round(value, 9) + 0.0
+
+
 def _shorthand(value: float, places: int) -> str:
     """Fixed places without the leading zero: ``.900``, ``-.25``, ``19.111``."""
     result = format(value, f".{places}f")
@@ -660,12 +677,11 @@ def bind_text(
                 if not match[2].endswith("_mm"):
                     raise CadError(f"{match[0]}: the in prefix needs a *_mm key")
                 value, spec = value / 25.4, spec[2:] or None
-            # Every printed float is rounded to 9 places, finer than any sheet
-            # prints, so unit-conversion noise from the prefix or an adapter
-            # never reaches the text (9.525 mm in inches prints 0.375 and 3/8,
-            # 19.05 / 25.4 prints 3/4).
-            if type(value) is float:
-                value = round(value, 9)
+            # e prints magnitudes, so it takes the value as computed. Every
+            # other path prints the denoised value, so .Nf, .Ndot, g, %,
+            # fraction, d and bare agree on one value.
+            if not (spec and spec[-1] == "e"):
+                value = _denoised(value)
             if spec == "fraction":
                 fraction = Fraction(str(value)).limit_denominator(64)
                 if float(fraction) != value:
