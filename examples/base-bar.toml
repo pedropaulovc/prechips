@@ -262,8 +262,11 @@ gauge_checks = [
   { gauge = "mill-x-dro", band_mm = "{{cad.slot1_x_band_mm}}" },
   { gauge = "mill-x-dro", band_mm = "{{cad.slot2_x_band_mm}}" },
 ]
-# The bar is squared to length here: slot stations sit in the finished frame.
-beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{cad.vise_centred_overhang_mm}}", "{{cad.vise_centred_jaw_right_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
+# The bar is squared to length here: slot stations sit in the finished frame,
+# X0 the left end squared clean in this clamping. The jaws have not moved, so
+# the bar's left end stands the blank's centred overhang out of the left jaw
+# (vise_left start) and the right-end trim comes off past the right jaw.
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{cad.blank_centred_overhang_mm}}", "{{cad.blank_centred_jaw_right_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" }, vise_left = "start" }
 milling_cuts = [
   { name = "S1–S2 depth steps", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.slot_step_mm}}", radial_woc_mm = "{{process.half_cutter_dia_mm}}", rpm = 1250, feed_mm_min = 127.0, stations_mm = "{{cad.slot_x_mm}}" },
 ]

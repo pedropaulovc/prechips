@@ -228,13 +228,15 @@ def _beam(value: object, where: str) -> dict:
 
 
 def _vise_link(
-    beam: dict, setup: dict, shop_data: dict, required: bool, where: str
+    beam: dict, setup: dict, setup_where: str, shop_data: dict, where: str
 ) -> None:
     """Refuse a cantilever clamp that is not the grip its vise hold describes.
 
-    ``vise_left`` names the extent end at the hold's left overhang. The hold
-    is read only for a ``start``/``end`` link: that link is the explicit
-    dependency on ``vise_hold``, which stays validated by ``vise_holding``.
+    Every cantilever in a milling-vise setup, the setup's own or an
+    operation's, declares ``vise_left``: the extent end at the hold's left
+    overhang, or ``"other"`` when it does not run along the jaws. Only the
+    linked hold is read and validated, at its own path in the setup;
+    ``vise_holding`` validates every hold.
     """
     mapping = beam.get("vise_left")
     if setup.get("vise_hold", "other") == "other":
@@ -244,24 +246,23 @@ def _vise_link(
     if beam["hold"] != "cantilever":
         return
     if mapping is None:
-        if required:
-            raise CheckError(
-                f'{where}: missing vise_left ("start" or "end": the extent end at '
-                'the vise hold\'s left overhang; "other" when the beam does not '
-                "run along the jaws)"
-            )
-        return
+        raise CheckError(
+            f'{where}: missing vise_left ("start" or "end": the extent end at '
+            'the vise hold\'s left overhang; "other" when the beam does not '
+            "run along the jaws)"
+        )
     if mapping == "other":
         return
-    holds = vise.holds(shop_data, setup, where)
+    tables = vise.entries(setup, setup_where)
     index = beam.get("vise_hold")
-    if index is None and len(holds) > 1:
+    if index is None and len(tables) > 1:
         raise CheckError(f"{where}: missing vise_hold, the number of its vise hold")
     index = index or 1
-    if index > len(holds):
-        raise CheckError(f"{where}.vise_hold: the setup has {len(holds)} vise holds")
-    held = holds[index - 1]
-    left, right = vise.overhangs(held, where)
+    if index > len(tables):
+        raise CheckError(f"{where}.vise_hold: the setup has {len(tables)} vise holds")
+    value, at = tables[index - 1]
+    held = vise.hold(shop_data, value, at)
+    left, right = vise.overhangs(held, at)
     width = shop.fact(held["vise"], "jaw_width_mm")
     start, end = beam["extent"]
     length = end - start
@@ -602,6 +603,11 @@ def _limits(
     explicit = None
     if tighter is not None:
         explicit = (tighter, f"max_deflection_mm {tighter:g} mm")
+    elif all(stock[axis] == "through" for axis in axes):
+        raise CheckError(
+            f'{where}.finish_stock_mm: every axis "through" compares nothing; '
+            "declare a numeric finish stock or max_deflection_mm"
+        )
     limits = {}
     for axis in axes:
         if stock[axis] == "through":
@@ -730,7 +736,7 @@ def check(plan: LoadedPlan, config: dict) -> None:
         setup_beam = setup["beam"]
         if setup_beam != "other":
             setup_beam = _beam(setup_beam, f"{where}.beam")
-            _vise_link(setup_beam, setup, plan.shop_data, True, f"{where}.beam")
+            _vise_link(setup_beam, setup, where, plan.shop_data, f"{where}.beam")
         for op_where, operation in numbered:
             speed = operation.get("speed_kind")
             if "tool" in operation and speed not in ("spindle", "other"):
@@ -765,7 +771,7 @@ def check(plan: LoadedPlan, config: dict) -> None:
             beam = setup_beam
             if "beam" in operation:
                 beam = _beam(operation["beam"], f"{op_where}.beam")
-                _vise_link(beam, setup, plan.shop_data, False, f"{op_where}.beam")
+                _vise_link(beam, setup, where, plan.shop_data, f"{op_where}.beam")
             for cut_index, cut in enumerate(cuts, 1):
                 if not isinstance(cut, dict):
                     raise CheckError(f"{op_where}, cut {cut_index}: expected a table")

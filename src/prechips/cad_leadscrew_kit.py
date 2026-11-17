@@ -296,21 +296,46 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["saw_rule_step_in"] = sixteenths / 16
     values["saw_rule_step_mm"] = sixteenths * _SIXTEENTH_MM
     values["saw_piece_mm"] = rule + values["saw_rule_step_mm"]
-    if values["saw_piece_mm"] + mark_tol >= stock:
-        raise CadError("process.saw_allowance_mm: the screw is too short for the cut")
+    # A piece sawn short or long by the mark tolerance: the length setup's
+    # beam and machine envelope take the extremes.
+    values["saw_piece_min_mm"] = values["saw_piece_mm"] - mark_tol
+    values["saw_piece_max_mm"] = values["saw_piece_mm"] + mark_tol
+    # The offcut is the lathe mandrel, short of the nut's flange and seat face;
+    # after a mark long by its tolerance and the saw kerf it must still stand
+    # out of the jaws by that stick-out. It is the one stock-length guard.
+    mandrel = _positive(
+        parameters.get("mandrel_stickout_mm"), "process.mandrel_stickout_mm"
+    )
+    body_min = values["nut_length_min_mm"] - values["nut_flange_thickness_max_mm"]
+    if mandrel >= body_min:
+        raise CadError(
+            f"process.mandrel_stickout_mm: the offcut must end inside the nut's "
+            f"body (under {body_min:g}), clear of the flange and seat face"
+        )
+    kerf = _positive(parameters.get("kerf_mm"), "process.kerf_mm")
+    offcut = stock - values["saw_piece_max_mm"] - kerf
+    if offcut <= mandrel:
+        raise CadError(
+            f"process.screw_stock_length_mm: the offcut ({offcut:.1f}) is too "
+            f"short for the {mandrel:g} lathe mandrel stick-out"
+        )
     # Cut end to length: vise jaw span along the screw from the NEAR END, the
     # sawn end the overhang past the right jaw side (milling_deflection beam).
+    # The vise is set from the sawn end, so a piece sawn short by the mark
+    # tolerance puts both jaws that much nearer the NEAR END: the beam clamps
+    # there, its finish pass on the longest arm.
     overhang = _positive(parameters.get("cut_overhang_mm"), "process.cut_overhang_mm")
     jaw = _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
     values["vise_jaw_right_mm"] = values["saw_piece_mm"] - overhang
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
-    # A piece sawn short by the mark tolerance moves the left jaw that much
-    # closer to the NEAR END: the screw must still span the jaws.
-    if values["vise_jaw_left_mm"] - mark_tol <= 0:
+    values["vise_jaw_right_min_mm"] = values["vise_jaw_right_mm"] - mark_tol
+    values["vise_jaw_left_min_mm"] = values["vise_jaw_left_mm"] - mark_tol
+    # The shortest piece must still span the jaws.
+    if values["vise_jaw_left_min_mm"] <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
-    # The vise is set from the sawn end: a piece sawn long by the mark
-    # tolerance must still finish clear of the right jaw.
-    if overhang <= values["saw_piece_mm"] + mark_tol - length:
+    # A piece sawn long by the mark tolerance must still finish clear of the
+    # right jaw.
+    if overhang <= values["saw_piece_max_mm"] - length:
         raise CadError(
             "process.cut_overhang_mm: the finish pass (the allowance in from a "
             "long-sawn end) would reach the vise jaw"
@@ -345,24 +370,6 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
         stickout = _positive(parameters.get(key), f"process.{key}")
         if stickout <= centre + cutter / 2:
             raise CadError(f"process.{key}: the flat cutter would reach the chuck jaws")
-    mandrel = _positive(
-        parameters.get("mandrel_stickout_mm"), "process.mandrel_stickout_mm"
-    )
-    body_min = values["nut_length_min_mm"] - values["nut_flange_thickness_max_mm"]
-    if mandrel >= body_min:
-        raise CadError(
-            f"process.mandrel_stickout_mm: the offcut must end inside the nut's "
-            f"body (under {body_min:g}), clear of the flange and seat face"
-        )
-    # The offcut is the lathe mandrel: after a mark long by its tolerance and
-    # the saw kerf, it must still stand out of the jaws by the stick-out.
-    kerf = _positive(parameters.get("kerf_mm"), "process.kerf_mm")
-    offcut = stock - values["saw_piece_mm"] - mark_tol - kerf
-    if offcut <= mandrel:
-        raise CadError(
-            f"process.screw_stock_length_mm: the offcut ({offcut:.1f}) is too "
-            f"short for the {mandrel:g} lathe mandrel stick-out"
-        )
     return CadData(
         values,
         StockRequirement("mm", (StockAxis("length", "screw_stock_length_mm", length),)),
