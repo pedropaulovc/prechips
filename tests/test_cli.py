@@ -210,9 +210,7 @@ def test_operation_declares_instruction_or_steps(tmp_path, work, message):
 
 
 def test_instruction_markdown_is_applied_after_escaping(tmp_path):
-    instruction = (
-        "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n- Dash\\nTail"
-    )
+    instruction = "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n- Dash\\n- Dot\\nTail"
     text = PLAN.replace(
         'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
         f'instruction = "{instruction}"',
@@ -223,7 +221,7 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
     assert (
         '<div class="text">&lt;b&gt;Raw&lt;/b&gt; <strong>bold</strong> <em>em</em> '
         "<code>&lt;code&gt;</code> 2 * 3<ol><li>One</li><li>Two</li></ol>"
-        "<ul><li>Dash</li></ul>Tail</div>"
+        "<ul><li>Dash</li><li>Dot</li></ul>Tail</div>"
     ) in html
     assert "<b>" not in html
     # Plain text keeps its exact bytes, with no added style rules.
@@ -236,21 +234,31 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
 @pytest.mark.parametrize(
     "value,html",
     [
-        # Footnote marks and a minus-sign tolerance line stay literal;
-        # emphasis may end in punctuation.
+        # Footnote marks stay literal, even after an unmatched "*word";
+        # emphasis may end in other punctuation.
         ("Ream (*) then gauge (*)", "Ream (*) then gauge (*)"),
+        ("*Note: see (*)", "*Note: see (*)"),
+        ("Drill *2 holes then gauge (*)", "Drill *2 holes then gauge (*)"),
         ("*Note:* gauge", "<em>Note:</em> gauge"),
+        # A lone "- " line prints as typed, whatever follows: tolerances.
         ("Ø.376 +.001\n- .000", "Ø.376 +.001\n- .000"),
-        # A bullet that starts with a quantity stays in its list.
+        ("Ø8 +0.05\n- 0.02 mm", "Ø8 +0.05\n- 0.02 mm"),
+        ("+0.05\n- 0.02 mm", "+0.05\n- 0.02 mm"),
+        ("Ø.376 +.001\n- .000 ", "Ø.376 +.001\n- .000 "),
+        ('… +.001\n- .000"', "… +.001\n- .000&quot;"),
+        ("Bore +.002\n- .000\r", "Bore +.002\n- .000\r"),
+        # Two or more "- " lines in a row are a list, quantities included.
+        ("- Spot\n- 4 holes M6", "<ul><li>Spot</li><li>4 holes M6</li></ul>"),
         (
             "Tap:\n- Spot\n- 4 holes M6\n- Chamfer",
             "Tap:<ul><li>Spot</li><li>4 holes M6</li><li>Chamfer</li></ul>",
         ),
-        # Authored numbers that skip print as written.
+        # Numbers that jump ahead print as written; repeated ones count on.
         (
             "10. Face\n20. Drill\n21. Ream",
             '<ol start="10"><li>Face</li><li value="20">Drill</li><li>Ream</li></ol>',
         ),
+        ("1. A\n1. B\n1. C", "<ol><li>A</li><li>B</li><li>C</li></ol>"),
         # Blank lines beside a list print as gaps, except at either end.
         (
             "\nIntro\n\n1. A\n\n2. B\nTail\n",

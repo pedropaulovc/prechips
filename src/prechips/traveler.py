@@ -530,12 +530,11 @@ code { font-family: Consolas, "Courier New", monospace; font-size: 0.95em; }
 
 _CODE = re.compile(r"`([^`\n]+)`")
 _BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
-# Emphasis opens before a word character, so footnote marks such as "(*)"
-# stay literal; it may close after punctuation ("*Note:*").
-_EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=[^\s*])\*(?![*\w])")
-# A line that is only "- " and a number is a minus-sign tolerance ("- .000"),
-# not a bullet; "- 4 holes M6" is a bullet.
-_ITEM = re.compile(r"(\d+)\. (.*)|- (?![\d.]+$)(.*)")
+# Emphasis opens before a word character and never closes after "(", so
+# footnote marks such as "(*)" stay literal; it may close after other
+# punctuation ("*Note:*").
+_EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=[^\s*(])\*(?![*\w])")
+_ITEM = re.compile(r"(\d+)\. (.*)|- (.*)")
 # A blank line beside a list: the list's block edges would swallow it.
 _GAP = '<div class="gap"></div>'
 
@@ -551,10 +550,23 @@ def _inline(value: str) -> str:
     return "".join(parts)
 
 
+def _list_items(lines: list[str]) -> list[re.Match | None]:
+    """Each line's list match. A "- " line is a bullet only beside another
+    "- " line; a lone one prints as typed (a "- 0.02 mm" tolerance)."""
+    found = [_ITEM.fullmatch(line) for line in lines]
+    dashes = [match is not None and match[1] is None for match in found]
+    beside = [False, *dashes, False]
+    return [
+        None if dashes[index] and not (beside[index] or beside[index + 2]) else match
+        for index, match in enumerate(found)
+    ]
+
+
 def _rich(value: str) -> str:
     """Inline markup plus `1.`/`-` line lists; plain text renders as `_html`."""
     lines = value.split("\n")
-    if not any(_ITEM.fullmatch(line) for line in lines):
+    found = _list_items(lines)
+    if not any(found):
         return _inline(value)
     blocks: list[str] = []
     plain: list[str] = []
@@ -586,8 +598,7 @@ def _rich(value: str) -> str:
         plain.clear()
         return trailing
 
-    for line in lines:
-        item = _ITEM.fullmatch(line)
+    for line, item in zip(lines, found, strict=True):
         if item is None:
             close_list()
             plain.append(line)
@@ -598,15 +609,22 @@ def _rich(value: str) -> str:
             if plain:
                 blocks.append(_GAP * flush_plain())
             tag, start = kind, int(item[1]) if item[1] else None
+            number = start - 1 if start is not None else None
         text = _inline(item[2] if item[1] else item[3])
         if kind == "ul":
             items.append(f"<li>{text}</li>")
             continue
-        # An authored number that does not follow on prints as written.
-        value = int(item[1])
-        skip = f' value="{value}"' if items and value != number + 1 else ""
-        number = value
-        items.append(f"<li{skip}>{text}</li>")
+        # Numbers count on from the previous item; an authored number that
+        # jumps ahead prints as written, and a repeated or lower one ("1.",
+        # "1.", "1.") counts on, as in markdown.
+        authored = int(item[1])
+        if authored <= number:
+            number += 1
+            items.append(f"<li>{text}</li>")
+            continue
+        jump = f' value="{authored}"' if authored != number + 1 else ""
+        number = authored
+        items.append(f"<li{jump}>{text}</li>")
     close_list()
     if plain:
         flush_plain()
