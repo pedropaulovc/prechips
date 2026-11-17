@@ -25,6 +25,7 @@ from prechips.cad_diagrams import (
     Element,
     Layout,
     _cad,
+    _dim,
     _el,
     _fmt,
     _line,
@@ -130,9 +131,7 @@ def _vdim(
     if witness is not None:
         for start, y in zip(witness, (y0, y1)):
             groups["dims"].append(_line(start, y, x + 4 if x > start else x - 4, y))
-    groups["dims"].append(
-        _line(x, y0, x, y1, marker_start="url(#arr)", marker_end="url(#arr)")
-    )
+    groups["dims"].append(_dim(x, y0, x, y1))
     middle = (y0 + y1) / 2
     if rotate:
         groups["label"].append(
@@ -220,7 +219,7 @@ def _cutter(
 
 
 def _axes(groups: dict[str, list[Element]], x: float, y: float) -> None:
-    groups["arrow"] += [_line(x, y, x + 36, y), _line(x, y, x, y + 28)]
+    groups["axis"] += [_line(x, y, x + 36, y), _line(x, y, x, y + 28)]
     _label(groups, x + 40, y + 5, "+X")
     _label(groups, x + 6, y + 32, "+Y")
 

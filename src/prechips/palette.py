@@ -2,45 +2,48 @@
 
 Layouts and SVG templates name a role (``class="clamp"``, or a jig-shell
 group of that name), never a colour: :func:`paint` gives each role element
-its style and installs the shared markers and patterns. Every role differs in
-greyscale by lightness, pattern or line style, not by hue alone. The legend is
-printed once per hobby traveler, not in each picture, and lists only the
-roles that traveler's pictures draw.
+its style and installs the shared markers and patterns, whose ids carry a
+``prechips-`` prefix so an authored picture's own ids never collide with
+them. Every role differs in greyscale by lightness, pattern or line style,
+not by hue alone. The legend is printed once per hobby traveler, not in each
+picture, and lists only the roles that traveler's pictures draw.
 
 Feed arrows (``arrow``) show the cutter's path over the part. On a knee mill
-the table moves the other way; setup text names the table motion.
+the table moves the other way; setup text names the table motion. Coordinate
+axes and viewing-direction arrows are ``axis``: thin, labelled where drawn,
+and not in the legend.
 """
 
 from __future__ import annotations
 
 from xml.etree import ElementTree
 
-from prechips.cad_diagrams import SVG_NS
+from prechips.cad_diagrams import ARROW, SVG_NS
 
 _DEFS = f"""<defs xmlns="{SVG_NS}">
-  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+  <marker id="prechips-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
       markerHeight="7" orient="auto-start-reverse">
     <path d="M0 0L10 5L0 10z" fill="#111"/>
   </marker>
-  <pattern id="cut" width="6" height="6" patternUnits="userSpaceOnUse"
+  <pattern id="prechips-cut" width="6" height="6" patternUnits="userSpaceOnUse"
       patternTransform="rotate(45)">
     <rect width="6" height="6" fill="#fbe1dd"/>
     <line x1="0" y1="0" x2="0" y2="6" stroke="#b33" stroke-width="1.6"/>
   </pattern>
-  <pattern id="sec" width="6" height="6" patternUnits="userSpaceOnUse"
+  <pattern id="prechips-sec" width="6" height="6" patternUnits="userSpaceOnUse"
       patternTransform="rotate(-45)">
     <rect width="6" height="6" fill="#d7e1ec"/>
     <line x1="0" y1="0" x2="0" y2="6" stroke="#333" stroke-width="0.9"/>
   </pattern>
-  <pattern id="thread" width="4" height="4" patternUnits="userSpaceOnUse">
+  <pattern id="prechips-thread" width="4" height="4" patternUnits="userSpaceOnUse">
     <rect width="4" height="4" fill="#fff"/>
     <path d="M0 0L4 4M4 0L0 4" stroke="#333" stroke-width="0.8"/>
   </pattern>
-  <pattern id="vise" width="6" height="6" patternUnits="userSpaceOnUse">
+  <pattern id="prechips-vise" width="6" height="6" patternUnits="userSpaceOnUse">
     <rect width="6" height="6" fill="#dcdee1"/>
     <line x1="0" y1="3" x2="6" y2="3" stroke="#9a9fa6" stroke-width="1"/>
   </pattern>
-  <pattern id="support" width="4" height="4" patternUnits="userSpaceOnUse">
+  <pattern id="prechips-support" width="4" height="4" patternUnits="userSpaceOnUse">
     <circle cx="2" cy="2" r="1.1" fill="#2f6b3a"/>
   </pattern>
 </defs>"""
@@ -49,7 +52,11 @@ _DEFS = f"""<defs xmlns="{SVG_NS}">
 ROLES: dict[str, dict[str, str]] = {
     "paper": {"fill": "#fff"},
     "fixture-table": {"fill": "#f1f2f3", "stroke": "#7a7f86", "stroke-width": "1"},
-    "fixture-vise": {"fill": "url(#vise)", "stroke": "#555", "stroke-width": "1.2"},
+    "fixture-vise": {
+        "fill": "url(#prechips-vise)",
+        "stroke": "#555",
+        "stroke-width": "1.2",
+    },
     "part-rest": {"fill": "#c9cbce", "stroke": "#888", "stroke-width": "1.2"},
     "part-waste": {
         "fill": "#eeeff0",
@@ -64,9 +71,13 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke-dasharray": "8 4",
     },
     "part-kept": {"fill": "#d7e1ec", "stroke": "#111", "stroke-width": "1.6"},
-    "section": {"fill": "url(#sec)", "stroke": "#111", "stroke-width": "1.5"},
-    "part-removed": {"fill": "url(#cut)", "stroke": "none"},
-    "part-threads": {"fill": "url(#thread)", "stroke": "#555", "stroke-width": "0.6"},
+    "section": {"fill": "url(#prechips-sec)", "stroke": "#111", "stroke-width": "1.5"},
+    "part-removed": {"fill": "url(#prechips-cut)", "stroke": "none"},
+    "part-threads": {
+        "fill": "url(#prechips-thread)",
+        "stroke": "#555",
+        "stroke-width": "0.6",
+    },
     "holes": {"fill": "#fff", "stroke": "#111", "stroke-width": "1.2"},
     "hidden": {
         "fill": "none",
@@ -75,7 +86,7 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke-dasharray": "4 3",
     },
     "fixture-support": {
-        "fill": "url(#support)",
+        "fill": "url(#prechips-support)",
         "stroke": "#2f6b3a",
         "stroke-width": "1.3",
         "stroke-dasharray": "1.5 2",
@@ -95,7 +106,17 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke-linecap": "round",
     },
     "datum": {"fill": "#b22", "stroke": "#b22", "stroke-width": "2.4"},
-    "arrow": {"stroke": "#111", "stroke-width": "1.5", "marker-end": "url(#arr)"},
+    "arrow": {
+        "stroke": "#111",
+        "stroke-width": "1.5",
+        "marker-end": ARROW,
+    },
+    "axis": {
+        "fill": "none",
+        "stroke": "#111",
+        "stroke-width": "1",
+        "marker-end": ARROW,
+    },
     "dims": {"fill": "none", "stroke": "#111", "stroke-width": "1"},
     "leader": {"fill": "none", "stroke": "#333", "stroke-width": "0.9"},
     "leader-dot": {"fill": "#333", "stroke": "none"},
@@ -127,14 +148,27 @@ LEGEND = (
     ("fixture-vise", "vise or chuck body"),
     ("fixture-support", "block, parallel, jack"),
     ("clamp", "jaw, strap, soft jaw"),
-    ("cutter", "end mill, drill, tap"),
+    ("cutter", "cutter, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),
     ("centre-line", "centre line"),
 )
 
 
-_SHAPES = {"rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text"}
+# Rendered elements: a role on any of these counts as drawn for the key.
+_SHAPES = {
+    "rect",
+    "circle",
+    "ellipse",
+    "line",
+    "polyline",
+    "polygon",
+    "path",
+    "text",
+    "tspan",
+    "use",
+    "image",
+}
 
 
 def _role(element: ElementTree.Element) -> str | None:
@@ -148,9 +182,11 @@ def paint(root: ElementTree.Element) -> set[str]:
     """Style every element whose ``class`` names a role; install the defs.
 
     Classes that name no role are left alone, and attributes the element
-    already sets (a dash, a width) win over the role's. Only the markers and
-    patterns whose ids the picture does not define itself are installed.
-    Returns the roles drawn: those of shapes and text, own or from a group.
+    already sets (a dash, a width) win over the role's. The palette's
+    markers and patterns are installed whenever a role is drawn; their
+    ``prechips-`` ids leave the picture's own ids alone. Returns the roles
+    drawn: those of rendered elements (shapes, text, ``<use>``, images), own
+    or from a group.
     """
     drawn: set[str] = set()
     stack = [(root, None)]
@@ -165,12 +201,7 @@ def paint(root: ElementTree.Element) -> set[str]:
             drawn.add(role)
         stack += [(child, role) for child in element]
     if drawn:
-        taken = {element.get("id") for element in root.iter()}
-        defs = ElementTree.fromstring(_DEFS)
-        for child in list(defs):
-            if child.get("id") in taken:
-                defs.remove(child)
-        root.insert(0, defs)
+        root.insert(0, ElementTree.fromstring(_DEFS))
     return drawn
 
 

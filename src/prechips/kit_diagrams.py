@@ -301,7 +301,7 @@ def _kit_flats(
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
     # The signed touch-off (X = +D/2 on the end face) needs +X out past it.
-    groups["arrow"].append(_line(free + 10, axis, free + 46, axis))
+    groups["axis"].append(_line(free + 10, axis, free + 46, axis))
     _label(groups, free + 50, axis + 5, "+X cutter right")
 
     spans: list[tuple[float, float]] = []

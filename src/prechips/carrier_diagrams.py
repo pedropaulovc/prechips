@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from xml.etree import ElementTree
 
 from prechips.cad import CadError, _shorthand, _trim
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _cad, _dim, _el, _line, _rect
 from prechips.jig_diagrams import (
     _blank,
     _cutter,
@@ -148,7 +148,7 @@ def _plan(values: dict, parameters: dict, step: str) -> _Plan:
 
 
 def _axes_up(groups: Groups, x: float, y: float) -> None:
-    groups["arrow"] += [_line(x, y, x + 36, y), _line(x, y, x, y - 28)]
+    groups["axis"] += [_line(x, y, x + 36, y), _line(x, y, x, y - 28)]
     _label(groups, x + 40, y + 5, "+X")
     _label(groups, x + 6, y - 32, "+Y")
 
@@ -235,14 +235,7 @@ def _edges(groups: Groups, plan: _Plan, values: dict) -> Items:
     groups["dims"] += [
         _line(right + 36, plan.kept_back, right + 52, plan.kept_back),
         _line(right + 36, plan.kept_front, right + 52, plan.kept_front),
-        _line(
-            right + 46,
-            plan.kept_back,
-            right + 46,
-            plan.kept_front,
-            marker_start="url(#arr)",
-            marker_end="url(#arr)",
-        ),
+        _dim(right + 46, plan.kept_back, right + 46, plan.kept_front),
     ]
     _label(groups, right + 52, plan.middle + 5, _shorthand(_cad(values, "width_in"), 1))
     return [
@@ -307,6 +300,7 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
                 stroke_dasharray="5 3",
             )
         )
+        strap = ((heel + tip) / 2, plan.middle + half)
     radius = plan.cutter / 2 * plan.s
     rows = max(2, int(plan.width / 0.6))
     pitch = plan.width * plan.s / rows
@@ -330,7 +324,8 @@ def _face(groups: Groups, plan: _Plan, values: dict) -> Items:
         )
     )
     _draw_datums(groups, plan)
-    return []
+    # The key's clamp swatch is solid: name the dashed second-clamping straps.
+    return [(*strap, ["end straps, second", "clamping (dashed)"])]
 
 
 def _holes(groups: Groups, plan: _Plan, values: dict) -> Items:
@@ -562,16 +557,7 @@ def _relations(groups: Groups, values: dict) -> float:
         groups, ax, bx, ay + 52, ay, f"{_shorthand(low, 3)}–{_shorthand(high, 3)}"
     )
     a2x, a2y = plan("A2")
-    groups["dims"].append(
-        _line(
-            a2x - 22,
-            ay,
-            a2x - 22,
-            a2y,
-            marker_start="url(#arr)",
-            marker_end="url(#arr)",
-        )
-    )
+    groups["dims"].append(_dim(a2x - 22, ay, a2x - 22, a2y))
     low, high = (_cad(values, f"outer_row_{end}_in") for end in ("min", "max"))
     _label(
         groups,

@@ -24,6 +24,7 @@ from prechips.cad_diagrams import (
     Layout,
     _bound,
     _cad,
+    _dim,
     _el,
     _fmt,
     _line,
@@ -256,7 +257,7 @@ def _dimension(
     groups["dims"] += [
         _line(x0, edge, x0, beyond),
         _line(x1, edge, x1, beyond),
-        _line(x0, y, x1, y, marker_start="url(#arr)", marker_end="url(#arr)"),
+        _dim(x0, y, x1, y),
     ]
     if beside:
         groups["label"].append(_text(x1 + 6, y + 5, text))

@@ -37,6 +37,8 @@ Element = tuple[str, dict[str, str], str | None]
 Layout = tuple[dict[str, float], dict[str, list[Element]]]
 
 MM_PER_IN = 25.4
+# The palette's arrowhead marker (prechips.palette installs it).
+ARROW = "url(#prechips-arr)"
 
 # The CAD data and parameters of the layout being drawn, so a label can be
 # measured as printed, after its tokens are bound. ``render_cad_svg`` sets it
@@ -81,7 +83,7 @@ def _line(x1: float, y1: float, x2: float, y2: float, **attrs: float | str) -> E
 
 
 def _dim(x1: float, y1: float, x2: float, y2: float) -> Element:
-    return _line(x1, y1, x2, y2, marker_start="url(#arr)", marker_end="url(#arr)")
+    return _line(x1, y1, x2, y2, marker_start=ARROW, marker_end=ARROW)
 
 
 def _text(x: float, y: float, text: str, **attrs: float | str) -> Element:
