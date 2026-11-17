@@ -99,14 +99,24 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     ]
 
     general = _edge_breaks(raw, values)
-    # End squareness: ±angular_deg across the 1 in width, as the spread of two
-    # DRO X readings on one end, one at each edge.
     values["angular_tol_deg"] = _positive(
         general.get("angular_deg"), "general_tolerances.angular_deg"
     )
-    values["end_square_in"] = values["width_in"] * math.tan(
-        math.radians(values["angular_tol_deg"])
-    )
+    # End squareness: the allowed spread of two DRO X readings on one end,
+    # taken at the authored Y stations from ZERO EDGE: their span (not the
+    # full width) × tan(±angular_deg). Both must lie on the narrowest end.
+    if "square_probe_near_y_in" in parameters:
+        at = "process.square_probe_{near,far}_y_in"
+        near = _number(parameters["square_probe_near_y_in"], at)
+        far = _number(parameters.get("square_probe_far_y_in"), at)
+        if not 0 < near < far < values["width_min_in"]:
+            raise CadError(
+                f"{at}: expected 0 < near < far < {values['width_min_in']:.3f} "
+                "(the narrowest end)"
+            )
+        values["end_square_in"] = (far - near) * math.tan(
+            math.radians(values["angular_tol_deg"])
+        )
     # The two grip-end plan corners (drawing 2X R.2): one fillet record.
     corners = features.get("grip_corners")
     if (

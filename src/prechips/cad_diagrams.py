@@ -162,6 +162,18 @@ def _root_mm(root: ElementTree.Element, name: str) -> float:
     return value
 
 
+def _slot_rect(slot: dict[str, float], x0: float, top: float, scale: float) -> Element:
+    """One slot's rounded outline on a y-down top view (X0 at x0, Y0 at top)."""
+    width = slot["width"] * scale
+    return _rect(
+        x0 + slot["x"] * scale - width / 2,
+        top + slot["rise_low"] * scale - width / 2,
+        width,
+        (slot["rise_high"] - slot["rise_low"]) * scale + width,
+        rx=width / 2,
+    )
+
+
 def _top_view_features(
     values: dict, x0: float, top: float, scale: float
 ) -> dict[str, list[Element]]:
@@ -178,18 +190,7 @@ def _top_view_features(
         cx, cy = x0 + x * scale, top + rise * scale
         brackets.append(_el("circle", cx=cx, cy=cy, r=counterbore_r))
         brackets.append(_el("circle", cx=cx, cy=cy, r=bracket_r))
-    slots = []
-    for slot in _slots(values):
-        width = slot["width"] * scale
-        slots.append(
-            _rect(
-                x0 + slot["x"] * scale - width / 2,
-                top + slot["rise_low"] * scale - width / 2,
-                width,
-                (slot["rise_high"] - slot["rise_low"]) * scale + width,
-                rx=width / 2,
-            )
-        )
+    slots = [_slot_rect(slot, x0, top, scale) for slot in _slots(values)]
     return {"rail-holes": rails, "bracket-holes": brackets, "slots": slots}
 
 
@@ -382,11 +383,12 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     length = _cad(values, "length_in")
     width = _cad(values, "width_in")
     thickness = _process(parameters, "blank_thickness_in")
-    if blank < length:
-        raise CadError("process.blank_length_in: shorter than the finished length")
     # The blank arrives centred on the jaws; each end's stock is drawn at
-    # least a few pixels wide so the squaring cut stays visible.
-    trim = (blank - length) / 2
+    # least a few pixels wide so the squaring cut stays visible. Imported
+    # here: jig_diagrams imports this module.
+    from prechips.jig_diagrams import _trim
+
+    trim = _trim(blank, length, "blank_length_in")
     jacks = [
         (
             _process(parameters, f"jack_{side}_x_in"),
@@ -412,15 +414,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     for index, slot in enumerate(_slots(values), start=1):
         slot_w = slot["width"] * top_scale
         cx = tzero + slot["x"] * top_scale
-        slots.append(
-            _rect(
-                cx - slot_w / 2,
-                250 + slot["rise_low"] * top_scale - slot_w / 2,
-                slot_w,
-                (slot["rise_high"] - slot["rise_low"]) * top_scale + slot_w,
-                rx=slot_w / 2,
-            )
-        )
+        slots.append(_slot_rect(slot, tzero, 250, top_scale))
         # Left slot: label below it, clear of the marking text; right slot:
         # label inboard of it.
         if cx < tcentre:
@@ -435,7 +429,6 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     ]
     view = _view(
         fx0=fzero - front_trim,
-        fx1=fend + front_trim,
         flen=fend - fzero + 2 * front_trim,
         fzero=fzero,
         fend=fend,
