@@ -40,7 +40,7 @@ width_rough_allowance_in = 0.015
 slot_breakthrough_in = 0.02
 # Slot depth step: the slots sit on the jaws' 4.7 in cantilever with nothing
 # holding the bar down against the end mill's lift, so steps stay light
-# (milling_deflection: .13 steps, 0.059 mm at S1, refused; .05 steps pass).
+# (milling_deflection: .13 steps, 0.061 mm at S1, refused; .05 steps 0.024 mm).
 slot_step_in = 0.05
 # Machine-capacity inputs (mm). Heights are above the mill table; tool lengths
 # run from spindle nose to tip (holder gauge + projection). The archived
@@ -82,9 +82,9 @@ drill_projection_max_mm = 112.8
 # Milling-deflection stations, mm from ZERO END, all bound by the adapter:
 # Setup 2's straps cad.strap_left_x_mm/strap_right_x_mm (strap_inset_mm in
 # from each blank end); Setup 3's jaws on the centred blank
-# (cad.blank_centred_overhang_mm/blank_centred_jaw_right_mm); Setups 3–4's
-# jaws on the centred finished bar (cad.vise_centred_overhang_mm/
-# vise_centred_jaw_right_mm); the jacks (cad.jack_left_x_mm/jack_right_x_mm);
+# (cad.blank_centred_overhang_mm/blank_centred_jaw_right_mm), its slot beam
+# included; Setup 4's jaws on the centred finished bar
+# (cad.vise_centred_overhang_mm/vise_centred_jaw_right_mm); the jacks (cad.jack_left_x_mm/jack_right_x_mm);
 # rail stations by end (cad.rail_left_x_mm/rail_right_x_mm), bracket columns
 # (cad.bracket_x1_mm/bracket_x2_mm), slot centres (cad.slot_x_mm) and slot
 # entry corners (cad.slot_entry_x_mm).
@@ -263,9 +263,12 @@ gauge_checks = [
   { gauge = "mill-x-dro", band_mm = "{{cad.slot2_x_band_mm}}" },
 ]
 # The bar is squared to length here: slot stations sit in the finished frame,
-# X0 the left end squared clean in this clamping. The jaws have not moved, so
-# the bar's left end stands the blank's centred overhang out of the left jaw
-# (vise_left start) and the right-end trim comes off past the right jaw.
+# X0 the left end squared clean in this clamping, the jaws unmoved. The beam
+# takes no stock off that end (vise_left start: the left jaw the blank's
+# centred overhang from X0), the worst case for S1, left of the jaws: 0.024 mm
+# on a 120.0 mm arm. The real clean-up, at most the 2.98 mm total trim, moves
+# the jaws that much nearer X0 and lengthens S2's arm right of them from 89.1
+# to at most 92.1 mm: about 0.011 mm, still under S1's.
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{cad.blank_centred_overhang_mm}}", "{{cad.blank_centred_jaw_right_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" }, vise_left = "start" }
 milling_cuts = [
   { name = "S1–S2 depth steps", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.slot_step_mm}}", radial_woc_mm = "{{process.half_cutter_dia_mm}}", rpm = 1250, feed_mm_min = 127.0, stations_mm = "{{cad.slot_x_mm}}" },
