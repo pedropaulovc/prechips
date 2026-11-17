@@ -8,7 +8,7 @@
 
   <!-- setup material from CAD values and authored parameters -->
   <g id="removed" data-cad-group="part-removed" class="part-removed"/>
-  <g id="waste" data-cad-group="part-rest" class="part-rest"/>
+  <g id="waste" data-cad-group="part-waste" class="part-waste"/>
   <g id="arriving" data-cad-group="part-arriving" class="part-arriving"/>
   <g id="kept" data-cad-group="part-kept" class="part-kept"/>
   <g id="centre" data-cad-group="centre-line" class="centre-line"/>

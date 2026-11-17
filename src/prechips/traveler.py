@@ -485,16 +485,16 @@ def _diagram_html(
     source_dir: Path,
     cad: CadData | None,
     parameters: dict,
-) -> tuple[str, bool]:
-    """Return the setup's picture figure and whether it drew palette roles."""
+) -> tuple[str, set[str]]:
+    """Return the setup's picture figure and the palette roles it draws."""
     if "setup_diagrams" not in profile.features:
-        return "", False
+        return "", set()
     diagram = setup.get("diagram")
     where = f"setup {setup['title']!r}.diagram"
     if diagram is None:
         if "setup_diagrams" in profile.enforce:
             raise PlanError(f"{where}: required by profile {profile.name!r}")
-        return "", False
+        return "", set()
     path = source_dir / diagram["file"]
     try:
         content = path.read_bytes()
@@ -505,8 +505,8 @@ def _diagram_html(
         root = ElementTree.fromstring(content)
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
-        painted = palette.paint(root)
-        if painted:
+        drawn = palette.paint(root)
+        if drawn:
             content = ElementTree.tostring(root, encoding="utf-8")
     except (OSError, ElementTree.ParseError, ValueError) as error:
         raise PlanError(
@@ -519,7 +519,7 @@ def _diagram_html(
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
-    return figure, painted
+    return figure, drawn
 
 
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
@@ -552,9 +552,9 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             lines.append("<td></td>")
         lines.append("</tr>")
     lines.append("</tbody></table>")
-    # The palette's key prints here, once, if any picture draws by role.
+    # The palette's key prints here, once, listing the roles the pictures draw.
     key_at = len(lines)
-    painted_any = False
+    drawn: set[str] = set()
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -576,10 +576,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 )
             lines.append("</dl>")
         lines.append("</div>")
-        diagram, painted = _diagram_html(
+        diagram, roles = _diagram_html(
             setup, profile, source_dir, loaded.cad, loaded.parameters
         )
-        painted_any = painted_any or painted
+        drawn |= roles
         if diagram:
             lines.append(diagram)
         lines.append(
@@ -652,9 +652,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 lines.append(f'<li class="text">{_html(check)}</li>')
             lines.append("</ul>")
         lines.append("</section>")
-    if painted_any:
-        key = base64.b64encode(palette.legend_svg()).decode("ascii")
-        alt = _html("Picture key: " + "; ".join(text for _, text in palette.LEGEND))
+    entries = [(role, text) for role, text in palette.LEGEND if role in drawn]
+    if entries:
+        key = base64.b64encode(palette.legend_svg(entries)).decode("ascii")
+        alt = _html("Picture key: " + "; ".join(text for _, text in entries))
         lines.insert(
             key_at,
             '<figure class="picture-key" style="margin: 0.08in 0">'

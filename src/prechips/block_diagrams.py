@@ -36,7 +36,6 @@ from prechips.jig_diagrams import (
     _title,
     _vise,
 )
-from prechips.palette import colour
 from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 _PARALLEL_IN = 0.125  # schematic parallel thickness
@@ -107,7 +106,7 @@ def _label_rows(
         points = [(x - 4, y - 4), (bus, y - 4), (bus, ay), (ax, ay)]
         groups["leader"] += [
             _el("polyline", points=" ".join(f"{_fmt(a)} {_fmt(b)}" for a, b in points)),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
+            _el("circle", cx=ax, cy=ay, r=1.8, **{"class": "leader-dot"}),
         ]
         for line_index, line in enumerate(lines):
             _label(groups, x, y + line_index * 15, line)

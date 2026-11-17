@@ -33,7 +33,7 @@ from prechips.cad_diagrams import (
     _text,
     _view,
 )
-from prechips.palette import ROLES, colour
+from prechips.palette import ROLES
 from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 JAW = 14.0  # schematic jaw-plate depth in top views
@@ -108,7 +108,7 @@ def _label(
 def _datum_label(
     groups: dict[str, list[Element]], x: float, y: float, text: str, anchor: str
 ) -> None:
-    _label(groups, x, y, text, anchor, fill=colour("datum"), font_weight="bold")
+    _label(groups, x, y, text, anchor, **{"class": "datum-label"})
 
 
 def _vise(
@@ -608,7 +608,7 @@ def _bracket_tap(values: dict, parameters: dict, root: ElementTree.Element) -> L
     for y, ax, ay, lines in rows:
         groups["leader"] += [
             _el("polyline", points=f"{_fmt(618)} {_fmt(y - 4)} {_fmt(ax)} {_fmt(ay)}"),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
+            _el("circle", cx=ax, cy=ay, r=1.8, **{"class": "leader-dot"}),
         ]
         for index, line in enumerate(lines):
             _label(groups, 622, y + index * 15, line)
@@ -962,7 +962,14 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
         ),
     ]
     groups["clamp"].append(_rect(left - 50, jaw_y, right - left + 100, 46))
-    _label(groups, (left + right) / 2, jaw_y + 28, "soft jaws", "middle")
+    _label(
+        groups,
+        (left + right) / 2,
+        jaw_y + 28,
+        "soft jaws",
+        "middle",
+        **{"class": "label-on-clamp"},
+    )
     groups["active-face"] += [
         _el(
             "path",
@@ -1014,7 +1021,7 @@ def _lever_grip(values: dict, parameters: dict, root: ElementTree.Element) -> La
     for y, ax, ay, lines in rows:
         groups["leader"] += [
             _el("polyline", points=f"{_fmt(386)} {_fmt(y - 4)} {_fmt(ax)} {_fmt(ay)}"),
-            _el("circle", cx=ax, cy=ay, r=1.8, fill=colour("leader")),
+            _el("circle", cx=ax, cy=ay, r=1.8, **{"class": "leader-dot"}),
         ]
         for index, line in enumerate(lines):
             _label(groups, 390, y + index * 16, line)

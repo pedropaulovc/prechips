@@ -32,7 +32,6 @@ from prechips.cad_diagrams import (
     _text,
     _view,
 )
-from prechips.palette import colour
 
 Profile = list[tuple[float, float]]  # (Z, radius) along the upper meridian
 
@@ -47,7 +46,7 @@ TOOL = 50.0
 # Template groups the layouts fill, by palette role.
 GROUPS = (
     "part-removed",
-    "part-rest",
+    "part-waste",
     "part-arriving",
     "part-kept",
     "centre-line",
@@ -227,7 +226,9 @@ def _callouts(
         groups["leader"].append(
             _el("polyline", points=f"{_pt(centre, end)} {_pt(x, knee)} {_pt(x, y)}")
         )
-        groups["leader"].append(_el("circle", cx=x, cy=y, r=1.8, fill=colour("leader")))
+        groups["leader"].append(
+            _el("circle", cx=x, cy=y, r=1.8, **{"class": "leader-dot"})
+        )
         for index, line in enumerate(lines):
             groups["label"].append(
                 _text(centre, first + index * LINE, line, text_anchor="middle")
@@ -687,7 +688,7 @@ def _fit(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     groups["part-removed"].append(
         _solid(frame, arriving, left_break=True, right_break=True)
     )
-    groups["part-rest"].append(_solid(frame, waste, right_break=True))
+    groups["part-waste"].append(_solid(frame, waste, right_break=True))
     groups["part-arriving"].append(
         _solid(frame, arriving, left_break=True, right_break=True)
     )

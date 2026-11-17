@@ -459,7 +459,7 @@ def _spots(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     back = top + 14 * len(spans) + 18
     front = back + width * s
     groups["part-kept"].append(_rect(x0, back, length * s, width * s))
-    groups["hidden"] += [
+    groups["fixture-support"] += [
         _rect(x0, back, length * s, parallel * s),
         _rect(x0, front - parallel * s, length * s, parallel * s),
     ]
