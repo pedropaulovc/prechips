@@ -159,16 +159,17 @@ holding = "Vise off; bar flat on the clean table. Stage A: a strap across each e
 datum = "Z0 = mill table. Bar does not move between stages."
 diagram = { file = "diagrams/riser/face.svg", alt = "Bar strapped on the bare table: Stage A faces the two spans between end and middle straps, Stage B faces both ends and the middle strip from four straps on faced metal; section shows the top skimmed to the finished thickness from the table" }
 # The cutter centre runs the longest blank and across its width plus one
-# diameter; the bar lies on the table.
+# diameter; the bar lies on the table. The work top is the declared 1/4 in
+# stock: Setup 1 sends bars over .250 here, and no source bounds how far over.
 envelope = { x_span_mm = ["{{cad.blank_max_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = "{{cad.blank_thickness_mm}}", deepest_cut_mm = "{{cad.thickness_mm}}", longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.face_mill_projection_mm}}"] }
 vise_hold = "other"
 # Straps hold the bar both ways; the table only pushes up. Each cut bends
 # between the nearest strap on each side of it, or overhangs the outer strap
 # at the Stage B ends (operation beams). The beams take the longest blank,
-# whose right-hand spans are the longest; Stage A's section is the thinnest
-# bar Setup 1 sends here (the band's top), Stage B's the metal Stage A faced,
-# at the band's bottom.
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_max_mm}}" } }
+# whose right-hand spans are the longest. One section serves each beam's
+# rough and finish passes: the faced metal at the band's bottom, the thinnest
+# the finish pass meets and below every bar Setup 1 sends here.
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_left_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_min_mm}}" } }
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -190,7 +191,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Stage A: face the right span the same way."
 settings = "basebar-face-6061-t6511"
-beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_max_mm}}" } }
+beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_max_length_mm}}"], supports_mm = "{{cad.face_a_right_supports_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_min_mm}}" } }
 milling_cuts = [
   { name = "rough passes", kind = "end", phase = "rough", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_a_right_mm}}" },
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_a_right_mm}}" },
@@ -419,7 +420,7 @@ datum = "No DRO coordinates: each hole is drilled at its own spot mark."
 diagram = { file = "diagrams/riser/spots.svg", alt = "Marked face up: seven spot marks drilled in three vise holds, then turned over and R1–R4 countersunk" }
 # Every hole lies inside the finished part; the 12 mm drill in the drill
 # chuck is the longest tool, the #2 centre drill the shortest.
-envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.hub_drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.hub_drill_projection_mm}}"], shortest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.centre_drill_projection_mm}}"] }
+envelope = { x_span_mm = "{{cad.length_mm}}", y_span_mm = "{{cad.width_mm}}", work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.thickness_max_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.hub_drill_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.hub_drill_projection_mm}}"], shortest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.centre_drill_projection_mm}}"] }
 # Hold L: left end at the left jaw side; C: centred; R: right end at the
 # right jaw side. The adapter refuses a REF hole outside every hold's jaws or
 # over a parallel.
@@ -495,9 +496,9 @@ milling_cuts = [
   { name = "HUB pilot", kind = "drill", phase = "rough", cutter_dia_mm = 6.35, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.hub_y_mm}}" },
 ]
 
-# HUB 1400 rpm and the 600 rpm countersink are both on the PM-30MV low belt,
-# which covers 100-2800 rpm (owner, Pedro 2026-11-16, "2800 max with low
-# belty"): no belt change.
+# HUB 1400 rpm and the 600 rpm countersink are both on the PM-30MV low belt
+# (owner, Pedro 2026-11-16, "2800 max with low belty"; shop
+# machines.pm-30mv): no belt change.
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "drill-12mm"

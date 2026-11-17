@@ -302,8 +302,13 @@ description = "1/2 in centre-cutting 2-flute end mill"
 diameter_mm = 12.7
 [tools.jig-spot]
 description = "#2 centre drill"
+# The owner's set (Pedro, 2026-11-16): LittleMachineShop SKU 6955, 115-piece
+# jobber-length HSS, bright finish, straight shank, 118° split point
+# (https://littlemachineshop.com/products/drill-set-115-piece-jobber-length-hss-made-in-usa).
+# Conventional flutes, not parabolic: owner fact; the page states no flute
+# form or flute length.
 [tools.jig-drill-29]
-description = "#29 (.136 in) drill"
+description = "#29 (.136 in) jobber-length HSS drill, conventional flute, 115-piece index"
 diameter_mm = 3.4544
 [tools.jig-tap-8-32-plug]
 description = "8-32 UNC plug tap; T-handle wrench"
@@ -317,8 +322,9 @@ diameter_mm = 8.73125
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
 
-# TL-24/TL-26/TL-28 end mill (owner ruling 2026-11-16, prechips #436; the
-# riser's Setups 3-4 since #435): the speed and
+# TL-22/TL-24/TL-26/TL-28/TL-32 end mill (owner ruling 2026-11-16, prechips
+# #436; the riser's Setups 3-4 since #435; the blocks at 7 in/min, owner
+# ruling 2026-11-16): the speed and
 # feed the owner ran a 1/2 in 2-flute HSS end mill at on the PM-30MV, facing
 # the base bar's long edge (harmonic-analyzer
 # logbook/entries/2026-11-05-base-bar-on-the-table.md, op 3: 1800 rpm,
@@ -419,7 +425,7 @@ resolution_mm = 0.005
 # Source: pivot-block.toml and feed-block.toml (MHA-CH-06-TL-22/TL-32 v49),
 # as harmonic-analyzer cad/process/shop.toml records them. The blocks also use
 # saw-evolution-14, jig-em-half (it faces every side: no 3/4 in face cutter)
-# at block-em-half-6061-t6511 (below), jig-spot,
+# at jig-em-half-6061-t6511, jig-spot,
 # basebar-counterbore (the 5/16 in end mill) and the carrier's jig-drill-f and
 # jig-tap-5-16-18-plug. The seat is the LMS 6784 set's 3/8 in
 # end mill, plunged; TL-32's notch takes the owner's 1/2 in end mill with 1 in
@@ -440,17 +446,18 @@ flute_length_mm = 12.7
 description = "1/2 in centre-cutting end mill, flutes ≥1.00 in"
 diameter_mm = 12.7
 
-# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min on
-# the PM-30MV's low belt (100–2800 rpm, owner 2026-11-16, harmonic-analyzer
-# #2867), no belt change; 8 in/min / (1800 × 2) = .0022 in/tooth, a chip
-# that cuts rather than rubs in 6061.
+# TL-32's notch cutter: 1800 rpm = 236 ft/min (blind review 2026-11-14) at
+# 7 in/min (owner ruling 2026-11-16, as the blocks' other 1/2 in end mill at
+# jig-em-half-6061-t6511); 7 / (1800 × 2) = .0019 in/tooth.
 [settings.block-em-half-long-6061-t6511]
 tool = "block-em-half-long"
 material = "6061-t6511"
 rpm = 1800
-feed = "8 in/min"
-[settings.block-em-half-6061-t6511]
-tool = "jig-em-half"
-material = "6061-t6511"
-rpm = 1800
-feed = "8 in/min"
+feed = "7 in/min"
+
+# The owner's Shrum Solutions Tri Fly, 3/4 in shank (Pedro, 2026-11-16), as
+# the vendor publishes it (https://www.shrumsolutions.com/product-page/tri-fly):
+# a 2 in, 3-flute indexable face mill from solid 4140 that can shoulder,
+# TCMT 32.52 inserts (TCGT 32.52 also fits). No plan uses it yet.
+[tools.shrum-tri-fly]
+description = "Shrum Solutions Tri Fly face mill, 2 in, 3 flutes, 3/4 in shank, TCMT 32.52 inserts"
