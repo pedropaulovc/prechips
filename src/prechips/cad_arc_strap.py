@@ -21,6 +21,7 @@ from .cad import (
     CadError,
     StockAxis,
     StockRequirement,
+    _all_or_none,
     _band,
     _blank_mm,
     _edge_breaks,
@@ -87,13 +88,23 @@ def _feature(features: dict, name: str, kind: str) -> dict:
     return item
 
 
-def _mirrored(features: dict, stem: str, bands: tuple[str, ...]) -> dict:
+def _same_point(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return _same(a[0], b[0]) and _same(a[1], b[1])
+
+
+def _mirrored(
+    features: dict, stem: str, bands: tuple[str, ...], points: tuple[str, ...]
+) -> dict:
     """The +X member of a mirrored face pair whose bands and points agree."""
     pos = _feature(features, f"{stem}_pos_x", "face")
     neg = _feature(features, f"{stem}_neg_x", "face")
     for key in bands:
         if _band(pos, key, f"{stem}_pos_x") != _band(neg, key, f"{stem}_neg_x"):
             raise CadError(f"{stem}: the two ends disagree on {key}")
+    for key in points:
+        x, y = _point(neg, key, f"{stem}_neg_x")
+        if not _same_point(_point(pos, key, f"{stem}_pos_x"), (-x, y)):
+            raise CadError(f"{stem}: the two ends' {key} points are not mirrored")
     return pos
 
 
@@ -164,7 +175,7 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
         ("bottom_arc", "height_below_pivot", -1),
     ):
         arc = _feature(features, name, "profile")
-        if arc["kind"] != "profile" or arc.get("height_from") != "hub_hole":
+        if arc.get("height_from") != "hub_hole":
             raise CadError(f"{name}: expected an edge height from hub_hole")
         height = _band(arc, key, name)
         _inch_limits(values, name.replace("arc", "height"), height)
@@ -186,10 +197,10 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
         ends = arc.get("ends")
         if not isinstance(ends, list) or len(ends) != 2:
             raise CadError(f"{name}.ends: expected the arc's two end points")
-        end = max(
-            (_point({"p": p}, "p", f"{name}.ends") for p in ends), key=lambda p: p[0]
-        )
-        if not _same(math.hypot(end[0], centre[1] - end[1]), r):
+        low, end = sorted(_point({"p": p}, "p", f"{name}.ends") for p in ends)
+        if not _same_point(end, (-low[0], low[1])):
+            raise CadError(f"{name}.ends: not mirrored about the Y axis")
+        if end[0] <= 0 or not _same(math.hypot(end[0], centre[1] - end[1]), r):
             raise CadError(f"{name}.ends: not on the arc")
         arcs[name] = {"centre_y": centre[1], "radius": r, "edge_y": edge[1], "end": end}
     top, bottom = arcs["top_arc"], arcs["bottom_arc"]
@@ -202,17 +213,20 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
     # Ends: tip land from the top arc's end to the corner, end face from the
     # corner to its foot on the bottom arc.
     land = _mirrored(
-        features, "tip_land", ("land_length", "land_angle_deg", "corner_station")
+        features,
+        "tip_land",
+        ("land_length", "land_angle_deg", "corner_station"),
+        ("inner_end", "corner"),
     )
-    face = _mirrored(features, "end_face", ("foot_station",))
+    face = _mirrored(features, "end_face", ("foot_station",), ("corner", "foot"))
     corner = _point(land, "corner", "tip_land_pos_x")
     foot = _point(face, "foot", "end_face_pos_x")
     if (
         land.get("station_from") != "hub_hole"
         or face.get("station_from") != "hub_hole"
-        or _point(land, "inner_end", "tip_land_pos_x") != top["end"]
-        or _point(face, "corner", "end_face_pos_x") != corner
-        or foot != bottom["end"]
+        or not _same_point(_point(land, "inner_end", "tip_land_pos_x"), top["end"])
+        or not _same_point(_point(face, "corner", "end_face_pos_x"), corner)
+        or not _same_point(foot, bottom["end"])
     ):
         raise CadError("tip_land, end_face: the end outline does not close")
     _inch_limits(values, "tip_length", _band(land, "land_length", "tip_land_pos_x"))
@@ -234,10 +248,7 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
     values["overall_length_in"] = overall / 25.4
     # Bounding height: the top arc's ends above the bottom arc's lowest point.
     height = top["end"][1] - bottom["edge_y"]
-    values["height_mm"] = height
-    values["height_in"] = height / 25.4
     values["width_mm"] = bottom["radius"] - top["radius"]
-    values["hub_height_mm"] = hub_y - bottom["edge_y"]
     # Mid-plane outline for the setup pictures, model mm.
     values["outline"] = {
         "hub_y": hub_y,
@@ -261,15 +272,6 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
     return CadData(values, StockRequirement("in", envelope), path.resolve())
 
 
-def _required(parameters: dict, keys: tuple[str, ...]) -> bool:
-    """Whether a parameter group is declared; a partial group refuses."""
-    declared = [key for key in keys if key in parameters]
-    if declared and len(declared) != len(keys):
-        missing = next(key for key in keys if key not in parameters)
-        raise CadError(f"process.{declared[0]}: also need {missing}")
-    return bool(declared)
-
-
 def _face_levels(values: dict, parameters: dict) -> None:
     """Fixed facing heights above the plate top, both faces skimmed equally.
 
@@ -278,7 +280,7 @@ def _face_levels(values: dict, parameters: dict) -> None:
     pass per face. The posted heights are fixed, so the thinnest blank the
     plan admits must still clean up on face 1.
     """
-    if not _required(parameters, _FACES):
+    if not _all_or_none(parameters, _FACES, "the facing heights"):
         return
     if "blank_thickness_mm" not in values:
         raise CadError("process.face_finish_stock_mm: also need blank_thickness_in")
@@ -306,14 +308,14 @@ def _face_levels(values: dict, parameters: dict) -> None:
         raise CadError(
             "process.face_finish_stock_mm: leaves nothing for the rough passes"
         )
-    levels = [blank - rough, finished + 2 * stock, finished + stock, finished]
+    levels = [blank - rough, finished + 2 * stock, finished + stock]
     if low - levels[0] <= 0:
         raise CadError(
             f"process.blank_thickness_min_in: a {low / 25.4:.4f} in blank is not "
             f"cleaned up by the first rough face at {levels[0] / 25.4:.4f} in"
         )
     for name, level in zip(
-        ("rough_face_1", "rough_face_2", "finish_face_1"), levels, strict=False
+        ("rough_face_1", "rough_face_2", "finish_face_1"), levels, strict=True
     ):
         values[f"{name}_z_mm"] = level
         values[f"{name}_z_in"] = level / 25.4
@@ -332,7 +334,7 @@ def _plate_hold(values: dict, parameters: dict) -> None:
     of the blank beyond it is the margin strip a clamp bears on and a tab
     joins to.
     """
-    if not _required(parameters, _HOLD):
+    if not _all_or_none(parameters, _HOLD, "the plate hold"):
         return
     for key in ("length", "width"):
         if f"blank_{key}_mm" not in values:
@@ -366,7 +368,9 @@ def _plate_hold(values: dict, parameters: dict) -> None:
     # while the outline is roughed.
     values["slotted_width_mm"] = width - 2 * cutter
     values["tab_length_mm"] = reach
-    # Fence side: the top arc's ends are the strap's nearest points.
+    # Fence side: the top arc's ends are the strap's nearest points. The strip
+    # left there lies against the fence for its whole length; it is refused
+    # only when the slot would cut the fence, and bound for the plan to print.
     fence = hub_y - (outline["top_end"][1] - outline["hub_y"]) - reach
     if fence <= 0:
         raise CadError(
@@ -374,41 +378,44 @@ def _plate_hold(values: dict, parameters: dict) -> None:
         )
     values["fence_margin_mm"] = fence
 
-    def clamp_margin(station: float) -> float:
-        """Strip left between the slot and the clamped edge at ``station``."""
-        x = abs(station - hub_x)
-        foot, corner = outline["foot"], outline["corner"]
-        if x >= corner[0] + reach:
-            return width
-        if x <= foot[0]:
-            y = outline["centre_y"] - math.sqrt(outline["bottom_radius"] ** 2 - x**2)
-        else:
-            # Along the end face, or level with the corner just past it.
-            run = min(x, corner[0]) - foot[0]
-            y = foot[1] + run * (corner[1] - foot[1]) / (corner[0] - foot[0])
+    def clamp_margin(x: float) -> float:
+        """Strip between the slot and the clamped edge, ``x`` from the hub."""
+        y = outline["centre_y"] - math.sqrt(outline["bottom_radius"] ** 2 - x**2)
         return width - hub_y + (y - outline["hub_y"]) - reach
 
+    # Clamp side: the bottom arc comes nearest the clamped edge on the hub's
+    # centre line, where the strip is narrowest.
+    front = clamp_margin(0)
+    if front <= 0:
+        raise CadError(
+            f"process.hub_y_mm: the outline slot runs {-front:.3f} mm off the "
+            "blank's clamped edge at the hub"
+        )
+    values["front_margin_mm"] = front
     # One tab at every clamp: the only stations where a tab is held down.
     clamps = _clamps(parameters)
     if clamps[0] < 0 or clamps[-1] > length:
         raise CadError("process.clamp_N_x_mm: off the blank")
-    margins = [clamp_margin(station) for station in clamps]
-    for number, (station, margin) in enumerate(zip(clamps, margins), 1):
+    margins = []
+    for number, station in enumerate(clamps, 1):
+        # A tab joins the bottom arc to the clamped margin.
+        x = abs(station - hub_x)
+        if x + tab / 2 > outline["foot"][0]:
+            raise CadError(
+                f"process.clamp_{number}_x_mm: the tab at {station:g} mm is not on "
+                "the bottom arc"
+            )
+        # Narrowest under the tab: at its edge nearer the hub.
+        margin = clamp_margin(max(x - tab / 2, 0))
         if margin < minimum:
             raise CadError(
                 f"process.clamp_{number}_x_mm: at {station:g} mm the outline slot "
                 f"leaves a {margin:.3f} mm margin strip, under margin_min_mm "
                 f"{minimum:g} mm"
             )
-        # A tab joins the bottom arc to the clamped margin.
-        if abs(station - hub_x) + tab / 2 > outline["foot"][0]:
-            raise CadError(
-                f"process.clamp_{number}_x_mm: the tab at {station:g} mm is not on "
-                "the bottom arc"
-            )
+        margins.append(margin)
     values["clamp_x_mm"] = clamps
     values["clamp_margin_mm"] = margins
-    values["margin_least_mm"] = min(margins)
     start = _number(parameters["plate_start_x_mm"], "process.plate_start_x_mm")
     plate = [
         start,

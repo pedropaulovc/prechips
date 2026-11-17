@@ -158,16 +158,15 @@ def _fixture(groups: Groups, plan: _Plan) -> float:
     return bottom
 
 
-def _blank_plan(groups: Groups, plan: _Plan, kept: bool) -> None:
+def _blank_plan(groups: Groups, plan: _Plan, roles: tuple[str, ...]) -> None:
     box = (plan.px(0), plan.y0, plan.length * plan.scale, plan.front - plan.y0)
-    groups["part-arriving"].append(_rect(*box))
-    if kept:
-        groups["part-kept"].append(_rect(*box))
+    for role in roles:
+        groups[role].append(_rect(*box))
 
 
 def _faces(groups: Groups, plan: _Plan, parameters: dict) -> Layout:
     bottom = _fixture(groups, plan)
-    _blank_plan(groups, plan, kept=True)
+    _blank_plan(groups, plan, ("part-arriving", "part-kept"))
     radius = _param(parameters, "face_cutter_dia_mm") / 2 * plan.scale
     middle = (plan.y0 + plan.front) / 2
     start = plan.px(0) - radius - 6
@@ -199,7 +198,7 @@ def _outline_plan(
 ) -> Layout:
     outline = _outline(values)
     bottom = _fixture(groups, plan)
-    _blank_plan(groups, plan, kept=False)
+    _blank_plan(groups, plan, ("part-arriving",))
     tabs = [x - plan.hub_x for x in plan.clamps]
     half = _param(parameters, "tab_width_mm") / 2
     edges = [x + side * half for x in tabs for side in (-1, 1)]

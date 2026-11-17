@@ -241,21 +241,25 @@ def _beam(value: object, where: str) -> dict:
     return beam
 
 
-def _row(value: object, extent: tuple[float, float], where: str) -> list[float]:
-    """Two or more ascending stations along the beam, inside its extent."""
+def _row(
+    value: object, span: tuple[float, float], within: str, where: str
+) -> list[float]:
+    """Two or more ascending stations along the beam, inside ``span``."""
     if not isinstance(value, list) or len(value) < 2:
         raise CheckError(f"{where}: expected two or more stations")
     stations = [_number(item, where) for item in value]
     if any(low >= high for low, high in pairwise(stations)):
         raise CheckError(f"{where}: expected ascending, distinct stations")
-    if stations[0] < extent[0] or stations[-1] > extent[1]:
-        raise CheckError(f"{where}: must lie within extent_mm")
+    if stations[0] < span[0] or stations[-1] > span[1]:
+        raise CheckError(f"{where}: must lie within {within}")
     return stations
 
 
 def _plate(value: dict, beam: dict, where: str) -> None:
     """A plate hold's clamp stations and, for a cut-out part, its tabs.
 
+    Clamps bear on the beam; once the part is cut out they bear on the blank's
+    margin, which may run past the part, so they need only be on the plate.
     Tabs are judged only at clamp stations: between clamps a tab hangs the
     part on a margin strip that nothing holds down there, and the strip's own
     bending is not modelled.
@@ -263,7 +267,11 @@ def _plate(value: dict, beam: dict, where: str) -> None:
     axis = beam["axis"]
     if axis == _SPINDLE:
         raise CheckError(f"{where}.axis: a plate seats a part lying along x or y")
-    clamps = _row(value["clamps_mm"], beam["extent"], f"{where}.clamps_mm")
+    if "tabs" in value:
+        span, within = beam["stations"], "seat_mm"
+    else:
+        span, within = beam["extent"], "extent_mm"
+    clamps = _row(value["clamps_mm"], span, within, f"{where}.clamps_mm")
     beam["supports"] = clamps
     if "tabs" not in value:
         return
@@ -272,7 +280,9 @@ def _plate(value: dict, beam: dict, where: str) -> None:
     if not isinstance(tabs, dict):
         raise CheckError(f"{where}: expected a table")
     _fields(tabs, _TAB_KEYS, _TAB_KEYS, where)
-    stations = _row(tabs["stations_mm"], beam["extent"], f"{where}.stations_mm")
+    stations = _row(
+        tabs["stations_mm"], beam["extent"], "extent_mm", f"{where}.stations_mm"
+    )
     for station in stations:
         if all(abs(station - clamp) > vise.ROUNDING_MM for clamp in clamps):
             raise CheckError(
@@ -613,7 +623,7 @@ def _tab_give(tabs: dict, axis: str, modulus: float) -> float:
 
 
 def _plate_deflection(
-    beam: dict, axis: str, station: float, force: float, modulus: float, lift: bool
+    beam: dict, axis: str, station: float, force: float, modulus: float, kind: str
 ):
     """Deflection (mm) of a part on a plate and the governing span's description.
 
@@ -625,7 +635,7 @@ def _plate_deflection(
     load, and the part moves with them.
     """
     low, high = beam["stations"]
-    if axis == _SPINDLE and not lift:
+    if axis == _SPINDLE and kind not in _HELICAL:
         if not low <= station <= high:
             raise CheckError(
                 f"station {station:g} mm is off the stated seat {low:g}..{high:g} mm"
@@ -853,7 +863,7 @@ def _check_cut(
             try:
                 if plate:
                     deflection, span = _plate_deflection(
-                        beam, axis, station, force, modulus, kind in _HELICAL
+                        beam, axis, station, force, modulus, kind
                     )
                 else:
                     deflection, span = _deflection(

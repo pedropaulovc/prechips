@@ -662,6 +662,14 @@ def test_a_cut_out_part_is_judged_on_its_tabs_or_refused():
     stray["tabs"]["stations_mm"] = [38.1, 150.0, 266.7]
     with pytest.raises(CheckError, match="the tab at 150 mm is not at a clamp"):
         _strap(stray, middle)
+    # Clamps bear on the blank's margin, which runs past the cut-out part;
+    # only the tabs must be on the part.
+    wide = copy.deepcopy(TABBED)
+    wide["clamps_mm"] = [3.0, 38.1, 114.3, 190.5, 266.7, 302.0]
+    _strap(wide, middle)
+    wide["clamps_mm"][-1] = 320.0
+    with pytest.raises(CheckError, match="clamps_mm: must lie within seat_mm"):
+        _strap(wide, middle)
 
 
 def test_a_plate_in_a_vise_is_gripped_by_its_plate_not_the_part():
