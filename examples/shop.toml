@@ -448,9 +448,10 @@ flute_length_mm = 12.7
 description = "1/2 in centre-cutting end mill, flutes ≥1.00 in"
 diameter_mm = 12.7
 
-# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min in
-# the PM-30MV high belt range with the drills, so no belt change; 8 in/min /
-# (1800 × 2) = .0022 in/tooth, a chip that cuts rather than rubs in 6061.
+# Both 1/2 in end mills (blind review 2026-11-14): 1800 rpm = 236 ft/min on
+# the PM-30MV's low belt (100–2800 rpm, owner 2026-11-16, harmonic-analyzer
+# #2867), no belt change; 8 in/min / (1800 × 2) = .0022 in/tooth, a chip
+# that cuts rather than rubs in 6061.
 [settings.block-em-half-long-6061-t6511]
 tool = "block-em-half-long"
 material = "6061-t6511"

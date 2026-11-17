@@ -339,7 +339,7 @@ def _feed(
     radius) in mm, the counterbores' for H1–H4; each must stay clear of the
     notch at its band extremes.
     """
-    lug_x = _bind(values, seat, "lug_x", "carriage_seat", "lug_x")
+    _bind(values, seat, "lug_x", "carriage_seat", "lug_x")
     lug_length = _bind(values, seat, "lug_length", "carriage_seat", "lug_length")
     length, height, overall_y = (
         values["length_mm"],
@@ -359,7 +359,8 @@ def _feed(
     for station, row, radius in holes:
         if row + radius > head and station - radius < notch_x:
             raise CadError("carriage_seat: a top hole breaks into the lug notch")
-    values["lug_width_mm"] = length - lug_x
+    # The notch beam's section: the thinnest lug the bands allow.
+    values["lug_width_mm"] = values["length_band_mm"][0] - values["lug_x_band_mm"][1]
     lug_end = y_edge - overall_y
     # A plain through hole under the title block (no process word on the sheet).
     bore, at = _hole(
@@ -454,8 +455,19 @@ def _feed_process(values: dict, parameters: dict) -> None:
     if "offcut_length_in" in parameters:
         offcut = _positive(parameters["offcut_length_in"], "process.offcut_length_in")
         values["offcut_length_mm"] = offcut * 25.4
+    # The spacer offcut is faced with the block and may stand over it by no
+    # more than this: the band its micrometer comparison gauges.
     if "spacer_over_max_in" in parameters:
-        _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
+        over = _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
+        values["spacer_over_band_mm"] = [0.0, over * 25.4]
+    # The pilot guides both 3/8 plunges: it must cut under the clearance's
+    # smallest size, or the hole comes out oversize and the plunges cut nothing.
+    if "pilot_dia_mm" in parameters:
+        pilot = _positive(parameters["pilot_dia_mm"], "process.pilot_dia_mm")
+        if not pilot < values["screw_dia_band_mm"][0]:
+            raise CadError(
+                "process.pilot_dia_mm: must be under the clearance's minimum"
+            )
     depth = math.inf
     if "lug_bore_depth_mm" in parameters:
         depth = (

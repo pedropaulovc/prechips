@@ -745,12 +745,14 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         top,
         "{{cad.screw_y_min_in:.3dot}}–{{cad.screw_y_max_in:.3dot}}",
     )
+    # Witness lines from each floor (drawn across its own hole) to its depth.
     _vdim(
         groups,
         bx - dia / 2 * t - 14,
         top,
         mill_floor,
         "{{process.lug_bore_mill_in:.2dot}}",
+        (bx - dia / 2 * t, bx - dia / 2 * t),
     )
     _vdim(
         groups,
@@ -758,6 +760,7 @@ def _lug_bore(values: dict, parameters: dict, root: ElementTree.Element) -> Layo
         top,
         pilot_floor,
         "{{process.lug_bore_depth_mm:in.2dot}}",
+        (bx - pilot / 2 * t, bx - pilot / 2 * t),
     )
 
     # End view from LUG END: the whole end face; the lug face to come hidden.

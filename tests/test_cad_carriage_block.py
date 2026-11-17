@@ -147,6 +147,8 @@ def test_refuses_a_leadscrew_bore_off_its_printed_row(tmp_path):
         ("blank_width_in = 3.0 ", "blank_width_in = 5.0 ", "spacer does not fit"),
         # Side passes that miss the middle slot leave a strip on every layer.
         ("notch_side_overrun_in = 0.05", "notch_side_overrun_in = 0.30", "strip"),
+        # A 25/64 pilot is over the clearance band: the hole comes out oversize.
+        ("pilot_dia_mm = 7.9375 ", "pilot_dia_mm = 9.9219 ", "under the clearance"),
     ],
 )
 def test_pro_refuses_a_bad_feed_block_process(tmp_path, capsys, old, new, message):
