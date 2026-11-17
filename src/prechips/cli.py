@@ -69,11 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning and milling read the same packaged/override coefficient file.
-        reads_config = "turning_deflection" in profile.enforce or any(
-            checks.CHECKS[name].config == "turning"
-            for name in profile.enforce & checks.CHECKS.keys()
-        )
-        if reads_config:
+        readers = [
+            name
+            for name in ("turning_deflection", *checks.CHECKS)
+            if name in profile.enforce
+            and (
+                name == "turning_deflection" or checks.CHECKS[name].config == "turning"
+            )
+        ]
+        if readers:
             inputs.append(DEFAULT_CONFIG)
             if profile.turning_config is not None:
                 inputs.append(profile.turning_config)
@@ -88,7 +92,16 @@ def main(argv: list[str] | None = None) -> int:
                 "output must not overwrite an input CAD source, profile, diagram, "
                 "shop or turning config"
             )
-        config = load_config(profile.turning_config) if reads_config else None
+        config = None
+        if readers:
+            try:
+                config = load_config(profile.turning_config)
+            except TurningError as error:
+                opt_out = " ".join(f"--disable-check {name}" for name in readers)
+                raise TurningError(
+                    f"{', '.join(readers)}: {error}. Use {opt_out} or a custom "
+                    "profile to opt out."
+                ) from error
         if "turning_deflection" in profile.enforce:
             check_turning_deflection(plan, config)
         for name in checks.CHECKS:

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from prechips import milling
+from prechips import milling, speeds
 from prechips.checks import CHECKS, CheckError
 from prechips.cli import main
 from prechips.milling import (
@@ -95,6 +95,13 @@ def test_base_bar_ends_refuse_on_the_mid_strap_and_pass_in_the_vise(
     assert main([*command, *ONLY_MILLING]) == 0
     html = out.read_text(encoding="utf-8").lower()
     assert "bending" not in html and "milling_deflection" not in html
+
+    override = tmp_path / "bad.toml"
+    override.write_text('[limits]\nrough_mm = "x"\n', encoding="utf-8")
+    assert main([*command, *ONLY_MILLING, "--turning-config", str(override)]) == 2
+    error = capsys.readouterr().err
+    assert "milling_deflection" in error
+    assert "--disable-check milling_deflection" in error
 
 
 def test_beam_formulas_agree_with_their_limiting_cases():
@@ -393,8 +400,15 @@ def test_a_rough_cut_is_judged_per_axis_against_its_declared_finish_stock():
     ):
         _check(setup)
     rough["finish_stock_mm"] = {"y": 0.254, "z": "through"}
+    rough["max_deflection_mm"] = 0.01
+    with pytest.raises(CheckError, match="along z exceeds the max_deflection_mm 0.01"):
+        _check(setup)
+    del rough["max_deflection_mm"]
     setup["operations"][0]["milling_cuts"] = [finish, rough]
-    with pytest.raises(CheckError, match="'edge finish' names no later finish cut"):
+    with pytest.raises(CheckError, match="'edge finish' is not the next finish cut"):
+        _check(setup)
+    setup["operations"][0]["milling_cuts"] = [rough, finish, dict(finish)]
+    with pytest.raises(CheckError, match="'edge finish' must name exactly one cut"):
         _check(setup)
 
 
@@ -425,13 +439,26 @@ def test_a_vise_cantilever_clamp_is_the_grip_its_hold_declares():
         _check(setup)
     setup["beam"].update(vise_left="end", clamp_mm=[134.2387, 292.9125])
     _check(setup)
+    # A machined beam shorter than the held part: the grip is measured from
+    # the end whose overhang the hold declares.
+    setup["vise_hold"]["overhang_mm"] = ["rest", 150]
+    setup["beam"].update(
+        vise_left="start", extent_mm=[0, 430], clamp_mm=[121.3262, 280]
+    )
+    _check(setup)
+    # The hold is read only for a start/end link.
+    setup["vise_hold"]["vise"] = "no-such-vise"
+    setup["beam"]["vise_left"] = "other"
+    _check(setup)
 
 
 def test_cuts_take_or_must_match_the_settings_chip_load_and_flutes():
     setup = copy.deepcopy(SETUP)
     operation = setup["operations"][0]
     # As the plan reader carries them from a chip-load shared setting.
-    operation.update(chip_load_mm_per_tooth=0.0254, flutes=2)
+    shared = {"chip_load_mm_per_tooth": 0.0254, "flutes": 2}
+    printed = speeds.chip_load_feed(shared, operation["rpm"])[1]
+    operation.update(shared, feed_mm_min=printed)
     cut = operation["milling_cuts"][0]
     with pytest.raises(CheckError, match="not rpm with feed_mm_min"):
         _check(setup)

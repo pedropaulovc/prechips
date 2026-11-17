@@ -365,13 +365,16 @@ def load_plan(path: Path) -> LoadedPlan:
                 for key, value in values.items():
                     if key not in operation:
                         operation[key] = value
-                # milling_deflection reads the numeric chip load behind a
-                # calculated feed; an authored feed has none.
+                # milling_deflection reads the chip load behind a calculated
+                # feed and the feed as printed; an authored feed has neither.
                 if "chip_load_mm_per_tooth" in shared and not authored_feed:
                     operation["chip_load_mm_per_tooth"] = shared[
                         "chip_load_mm_per_tooth"
                     ]
                     operation["flutes"] = shared["flutes"]
+                    operation["feed_mm_min"] = speeds.chip_load_feed(
+                        shared, operation["rpm"]
+                    )[1]
                 operation.pop("settings")
             _text(operation, "instruction", op_where)
             _text(operation, "instruction_detailed", op_where, optional=True)
