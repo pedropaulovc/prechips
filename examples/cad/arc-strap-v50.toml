@@ -1,0 +1,175 @@
+# Demo manifest in the CAD export format: a flat arc strap, demo identity, no source citations.
+"part" = "arc-strap"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "arc-strap.STEP"
+"step_sha256" = "82598cf5cd9226e21c499dd9db2f9db22f0aa62128eccf93872042aa9f5df5a0"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-ARC-STRAP"
+"revision" = "v50"
+
+["material"]
+"spec" = "AISI 1018 CF flat, 1/8 x 1-1/2 REF"
+"name" = "LOW-CARBON STEEL, E.G. 1018 CF"
+"finish" = "none"
+"thickness" = 2.4892
+
+["notes"]
+"manufacturing" = []
+"process" = "Cold-finished flat, both faces skimmed equally to the finished thickness on the full-width blank before the outline is cut: rough the two faces in turns, release the blank and reseat it, then take the finish passes on both faces; hub hole reamed; outline milled."
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."hub_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru"]
+"at" = [0.0, 8.0, 0.0]
+"axis" = [0.0, 0.0, 1.0]
+"dia" = [10.16, 10.1727]
+"nominal_dia" = 10.16
+"thru" = true
+"process" = "ream"
+"press_fit_on" = "DEMO-HUB"
+"edge_note" = "BOTH EDGES SHARP, NO BURR"
+"callout" = "REAM THRU\nPRESS FIT ON DEMO-HUB\nBOTH EDGES SHARP, NO BURR"
+"precision" = { "dia" = 4 }
+"faces" = ["#18/ADVANCED_FACE[1]/HAF_HUB_HOLE__P01", "#161/ADVANCED_FACE[7]/HAF_HUB_HOLE__P01"]
+
+["features"."broad_face_pos_z"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness"]
+"thickness" = [2.4638, 2.5146]
+"thickness_nominal" = 2.4892
+"plane" = { "frame" = "model", "axis" = "z", "value" = 1.2446 }
+"callout" = "SLIDING FIT IN\nDEMO FORK"
+"precision" = { "thickness" = 3 }
+"faces" = ["#149/ADVANCED_FACE[5]/HAF_BROAD_FACE_POS_Z__P01"]
+
+["features"."broad_face_neg_z"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness"]
+"thickness" = [2.4638, 2.5146]
+"thickness_nominal" = 2.4892
+"plane" = { "frame" = "model", "axis" = "z", "value" = -1.2446 }
+"callout" = "SLIDING FIT IN\nDEMO FORK"
+"precision" = { "thickness" = 3 }
+"faces" = ["#184/ADVANCED_FACE[8]/HAF_BROAD_FACE_NEG_Z__P01"]
+
+["features"."top_arc"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["height_above_pivot", "radius"]
+"height_above_pivot" = [8.0, 8.508]
+"height_above_pivot_nominal" = 8.254000000000019
+"height_from" = "hub_hole"
+"edge_on_axis" = [0.0, 16.25400000000002, 0.0]
+"radius" = [797.56, 802.64]
+"radius_nominal" = 799.746
+"arc_centre" = [0.0, 816.0, 0.0]
+"ends" = [[-144.94416587593915, 29.498345014755728, 0.0], [144.94416587593915, 29.498345014755728, 0.0]]
+"precision" = { "height_above_pivot" = 3, "radius" = 1 }
+"faces" = ["#299/ADVANCED_FACE[10]/HAF_TOP_ARC__P01"]
+
+["features"."bottom_arc"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["height_below_pivot", "radius"]
+"height_below_pivot" = [7.492, 8.0]
+"height_below_pivot_nominal" = 7.745999999999981
+"height_from" = "hub_hole"
+"edge_on_axis" = [0.0, 0.2540000000000191, 0.0]
+"radius" = [812.8, 817.88]
+"radius_nominal" = 815.746
+"arc_centre" = [0.0, 816.0, 0.0]
+"ends" = [[-132.63835287134907, 11.109570274577436, 0.0], [132.63835287134907, 11.109570274577436, 0.0]]
+"precision" = { "height_below_pivot" = 3, "radius" = 1 }
+"faces" = ["#158/ADVANCED_FACE[6]/HAF_BOTTOM_ARC__P01"]
+
+["features"."tip_land_pos_x"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["land_length", "land_angle_deg", "corner_station"]
+"land_length" = [5.334, 5.842]
+"land_length_nominal" = 5.706195255113439
+"land_angle_deg" = [9.4, 11.4]
+"land_angle_nominal_deg" = 10.4418635594487
+"land_angle_from" = "vertical"
+"corner_station" = [145.796, 146.304]
+"corner_station_nominal" = 145.97834386692335
+"station_from" = "hub_hole"
+"inner_end" = [144.94416587593915, 29.498345014755728, 0.0]
+"corner" = [145.97834386692335, 23.88664828627485, 0.0]
+"precision" = { "land_length" = 2, "land_angle_deg" = 1, "corner_station" = 2 }
+"faces" = ["#41/ADVANCED_FACE[2]/HAF_TIP_LAND_POS_X__P01"]
+
+["features"."tip_land_neg_x"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["land_length", "land_angle_deg", "corner_station"]
+"land_length" = [5.334, 5.842]
+"land_length_nominal" = 5.706195255113439
+"land_angle_deg" = [9.4, 11.4]
+"land_angle_nominal_deg" = 10.4418635594487
+"land_angle_from" = "vertical"
+"corner_station" = [145.796, 146.304]
+"corner_station_nominal" = 145.97834386692335
+"station_from" = "hub_hole"
+"inner_end" = [-144.94416587593915, 29.498345014755728, 0.0]
+"corner" = [-145.97834386692335, 23.88664828627485, 0.0]
+"precision" = { "land_length" = 2, "land_angle_deg" = 1, "corner_station" = 2 }
+"faces" = ["#100/ADVANCED_FACE[4]/HAF_TIP_LAND_NEG_X__P01"]
+
+["features"."end_face_pos_x"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["foot_station"]
+"foot_station" = [132.334, 132.842]
+"foot_station_nominal" = 132.63835287134907
+"station_from" = "hub_hole"
+"foot" = [132.63835287134907, 11.109570274577436, 0.0]
+"corner" = [145.97834386692335, 23.88664828627485, 0.0]
+"corner_feature" = "tip_land_pos_x"
+"overall_length_ref" = 291.9566877338467
+"precision" = { "foot_station" = 2, "overall_length_ref" = 1 }
+"faces" = ["#79/ADVANCED_FACE[3]/HAF_END_FACE_POS_X__P01"]
+
+["features"."end_face_neg_x"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["foot_station"]
+"foot_station" = [132.334, 132.842]
+"foot_station_nominal" = 132.63835287134907
+"station_from" = "hub_hole"
+"foot" = [-132.63835287134907, 11.109570274577436, 0.0]
+"corner" = [-145.97834386692335, 23.88664828627485, 0.0]
+"corner_feature" = "tip_land_neg_x"
+"overall_length_ref" = 291.9566877338467
+"precision" = { "foot_station" = 2, "overall_length_ref" = 1 }
+"faces" = ["#189/ADVANCED_FACE[9]/HAF_END_FACE_NEG_X__P01"]

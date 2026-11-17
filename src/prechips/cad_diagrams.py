@@ -719,6 +719,7 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     from prechips.kit_diagrams import KIT_LAYOUTS
     from prechips.riser_diagrams import RISER_LAYOUTS
     from prechips.shaft_diagrams import SHAFT_LAYOUTS
+    from prechips.strap_diagrams import STRAP_LAYOUTS
 
     layout = (
         LAYOUTS
@@ -727,6 +728,7 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         | RISER_LAYOUTS
         | KIT_LAYOUTS
         | CARRIER_LAYOUTS
+        | STRAP_LAYOUTS
         | BLOCK_LAYOUTS
     ).get(name)
     if layout is None:

@@ -201,6 +201,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_carriage_block import load_feed_block
 
         return load_feed_block(path, parameters, part)
+    if adapter == "arc_strap":
+        from prechips.cad_arc_strap import load_arc_strap
+
+        return load_arc_strap(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
