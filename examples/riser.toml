@@ -490,10 +490,9 @@ milling_cuts = [
   { name = "HUB pilot", kind = "drill", phase = "rough", cutter_dia_mm = 6.35, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.hub_y_mm}}" },
 ]
 
-# HUB 1400 rpm sits at the bottom of the PM-30MV high belt range (1400-2800;
-# harmonic-analyzer cad/process/ch_rocker_arm_tl_oblique_{pivot,feed}_block/
-# plan.toml), so it runs on the drills' belt. The 600 rpm countersink is below
-# that range: low belt.
+# HUB 1400 rpm and the 600 rpm countersink are both on the PM-30MV low belt,
+# which covers 100-2800 rpm (owner, Pedro 2026-11-16, "2800 max with low
+# belty"): no belt change.
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "drill-12mm"
@@ -514,8 +513,8 @@ speed_kind = "spindle"
 tool = "csk"
 drilling = "none"
 sizing = "other"
-instruction = "Turn over, marked face down, ZERO EDGE now at the moving jaw; same holds. Low belt. Countersink R1–R4 Ø{{cad.csk_dia_in:.2dot}} × {{cad.csk_angle_deg:g}}°."
-instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Move the belt to the low range: a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until the mouth calipers Ø{{cad.csk_dia_min_in:.2dot}}–{{cad.csk_dia_max_in:.2dot}}; a #4-40 flat head then sits just below the face."
+instruction = "Turn over, marked face down, ZERO EDGE now at the moving jaw; same holds. Spindle down to 600. Countersink R1–R4 Ø{{cad.csk_dia_in:.2dot}} × {{cad.csk_angle_deg:g}}°."
+instruction_detailed = "Turn the riser over, marked face down, ZERO EDGE now at the moving jaw; same holds. Turn the spindle down to 600 rpm (still the low belt; no belt change): a countersink chatters at drilling speed. Centre the countersink in each R hole, spindle stopped, then sink until the mouth calipers Ø{{cad.csk_dia_min_in:.2dot}}–{{cad.csk_dia_max_in:.2dot}}; a #4-40 flat head then sits just below the face."
 rpm = 600
 feed = "hand"
 milling_cuts = [
