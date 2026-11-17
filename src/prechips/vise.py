@@ -21,6 +21,9 @@ _CHOICES = {
     "moving_jaw_contact": ("flat", "rod"),
 }
 _BALANCE = ("twin_part", "spacer")
+# What the jaws grip: the part, or a fixture plate the part is clamped to, in
+# which case the hold's sizes and faces are the plate's.
+_GRIPS = ("part", "plate")
 _FIELDS = {"vise", "overhang_mm", *_POSITIVE, *_NON_NEGATIVE, *_CHOICES}
 # Authored overhangs are rounded to 0.01 mm; their sum with the gripped length
 # may differ from along_jaws_mm by that much without contradicting it.
@@ -48,13 +51,15 @@ def hold(shop_data: dict, value: object, where: str) -> dict:
     if not isinstance(value, dict):
         raise CheckError(f"{where}: expected a table")
     fields = _FIELDS | ({"balance"} if value.get("jaw_offset") == "balanced" else set())
-    unknown = value.keys() - fields
+    unknown = value.keys() - fields - {"grips"}
     if unknown:
         raise CheckError(f"{where}: unknown field(s): {', '.join(sorted(unknown))}")
     missing = fields - value.keys()
     if missing:
         raise CheckError(f"{where}: missing field(s): {', '.join(sorted(missing))}")
-    held = {}
+    held = {"grips": value.get("grips", "part")}
+    if held["grips"] not in _GRIPS:
+        raise CheckError(f"{where}.grips: expected {' or '.join(_GRIPS)}")
     for key in _POSITIVE:
         held[key] = _number(value[key], f"{where}.{key}")
         if held[key] <= 0:

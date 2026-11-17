@@ -460,3 +460,38 @@ feed = "7 in/min"
 # TCMT 32.52 inserts (TCGT 32.52 also fits). No plan uses it yet.
 [tools.shrum-tri-fly]
 description = "Shrum Solutions Tri Fly face mill, 2 in, 3 flutes, 3/4 in shank, TCMT 32.52 inserts"
+
+# Demo arc strap (examples/demo-arc-strap.toml): 3-flute uncoated carbide end
+# mills on cold-finished 1018 within the mill's 2800 rpm. No helix is stated
+# for either, so their cuts keep the configured axial_ratio 1.0. Chip loads:
+# .0028 in/tooth on the 1/2 in cutter and .001 in/tooth on the 1/8 in, the
+# floor of the milling feed-factor table.
+[tools.arc-strap-em-half]
+description = "1/2 in 3-flute uncoated carbide square end mill, 3 in OAL"
+diameter_mm = 12.7
+[tools.arc-strap-em-eighth]
+description = "1/8 in 3-flute uncoated carbide square end mill, 1-1/2 in OAL"
+diameter_mm = 3.175
+[tools.arc-strap-probe]
+description = "3D touch probe, 6 mm shank"
+[tools.arc-strap-drill-25-64]
+description = "25/64 (.3906 in) drill"
+diameter_mm = 9.921875
+[tools.arc-strap-reamer-4000]
+description = ".4000 in HSS straight-flute chucking reamer"
+diameter_mm = 10.16
+
+[settings.arc-strap-em-half-1018-cf]
+tool = "arc-strap-em-half"
+material = "arc-strap-1018-cold-finished"
+rpm = 2650
+chip_load_mm_per_tooth = 0.07112
+flutes = 3
+feed_unit = "in/min"
+[settings.arc-strap-em-eighth-1018-cf]
+tool = "arc-strap-em-eighth"
+material = "arc-strap-1018-cold-finished"
+rpm = 2800
+chip_load_mm_per_tooth = 0.0254
+flutes = 3
+feed_unit = "in/min"

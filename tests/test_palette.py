@@ -5,7 +5,7 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips.palette import ROLES, paint
+from prechips.palette import LEGEND, ROLES, legend_svg, paint
 from prechips.profiles import HOBBY
 from prechips.traveler import load_plan, render_traveler
 
@@ -59,3 +59,25 @@ def test_hobby_pictures_take_every_colour_from_a_palette_role(plan):
                     found.append(f"picture {number}: {key}={value!r} on {role}")
             stack += list(element)
     assert found == []
+
+
+def test_a_fixture_plate_and_its_edge_clamps_draw_by_role_and_enter_the_key():
+    svg = "{http://www.w3.org/2000/svg}"
+    root = ElementTree.fromstring(
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<rect class="fixture-plate" width="330" height="76"/>'
+        '<rect class="fixture-plate" width="330" height="10"/>'
+        '<rect class="clamp" x="40" y="60" width="16" height="12"/>'
+        "</svg>"
+    )
+    assert paint(root) == {"fixture-plate", "clamp"}
+    plate, _fence, clamp = root.findall(f"{svg}rect")
+    assert plate.get("fill") == "url(#prechips-plate)"
+    assert root.find(f"{svg}defs/{svg}pattern[@id='prechips-plate']") is not None
+    # Distinct from the table, the vise body and the clamps in greyscale.
+    looks = [ROLES[role] for role in ("fixture-table", "fixture-vise", "clamp")]
+    assert all(ROLES["fixture-plate"]["fill"] != look["fill"] for look in looks)
+    assert clamp.get("fill") == ROLES["clamp"]["fill"]
+    entries = [entry for entry in LEGEND if entry[0] in {"fixture-plate", "clamp"}]
+    key = legend_svg(entries).decode("utf-8")
+    assert "fixture plate, fence" in key and "edge clamp" in key

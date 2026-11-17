@@ -56,6 +56,16 @@ def _positive(value: object, where: str) -> float:
     return result
 
 
+def _all_or_none(parameters: dict, keys: tuple[str, ...], what: str) -> bool:
+    """True when every key is authored, False when none is; refuse a partial set."""
+    missing = [key for key in keys if key not in parameters]
+    if len(missing) == len(keys):
+        return False
+    if missing:
+        raise CadError(f"process: {what} also need {', '.join(missing)}")
+    return True
+
+
 def _string(value: object, where: str) -> str:
     if not isinstance(value, str) or not value.strip() or value == "unknown":
         raise CadError(f"{where}: expected a known nonempty string")
@@ -201,6 +211,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_carriage_block import load_feed_block
 
         return load_feed_block(path, parameters, part)
+    if adapter == "arc_strap":
+        from prechips.cad_arc_strap import load_arc_strap
+
+        return load_arc_strap(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

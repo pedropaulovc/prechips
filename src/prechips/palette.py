@@ -43,6 +43,10 @@ _DEFS = f"""<defs xmlns="{SVG_NS}">
     <rect width="6" height="6" fill="#dcdee1"/>
     <line x1="0" y1="3" x2="6" y2="3" stroke="#9a9fa6" stroke-width="1"/>
   </pattern>
+  <pattern id="prechips-plate" width="8" height="8" patternUnits="userSpaceOnUse">
+    <rect width="8" height="8" fill="#e6e8ea"/>
+    <line x1="4" y1="0" x2="4" y2="8" stroke="#9a9fa6" stroke-width="1"/>
+  </pattern>
   <pattern id="prechips-support" width="4" height="4" patternUnits="userSpaceOnUse">
     <circle cx="2" cy="2" r="1.1" fill="#2f6b3a"/>
   </pattern>
@@ -54,6 +58,11 @@ ROLES: dict[str, dict[str, str]] = {
     "fixture-table": {"fill": "#f1f2f3", "stroke": "#7a7f86", "stroke-width": "1"},
     "fixture-vise": {
         "fill": "url(#prechips-vise)",
+        "stroke": "#555",
+        "stroke-width": "1.2",
+    },
+    "fixture-plate": {
+        "fill": "url(#prechips-plate)",
         "stroke": "#555",
         "stroke-width": "1.2",
     },
@@ -146,8 +155,9 @@ LEGEND = (
     ("hidden", "hidden edge"),
     ("fixture-table", "table, saw bed"),
     ("fixture-vise", "vise or chuck body"),
+    ("fixture-plate", "fixture plate, fence"),
     ("fixture-support", "block, parallel, jack"),
-    ("clamp", "jaw, strap, soft jaw"),
+    ("clamp", "jaw, strap, edge clamp"),
     ("cutter", "cutter, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),

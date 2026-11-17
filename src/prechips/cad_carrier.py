@@ -8,6 +8,7 @@ from .cad import (
     CadError,
     StockAxis,
     StockRequirement,
+    _all_or_none,
     _band,
     _blank_mm,
     _edge_breaks,
@@ -418,16 +419,6 @@ def _strap_toes(values: dict, parameters: dict) -> None:
             f"{toe - half:.2f}–{toe + half:.2f} in from the edge; the blocks, "
             f"less their ±{slack:.2f} placing tolerance, span {low:.2f}–{high:.2f})"
         )
-
-
-def _all_or_none(parameters: dict, keys: tuple[str, ...], what: str) -> bool:
-    """True when every key is authored, False when none is; refuse a partial set."""
-    missing = [key for key in keys if key not in parameters]
-    if len(missing) == len(keys):
-        return False
-    if missing:
-        raise CadError(f"process: {what} also need {', '.join(missing)}")
-    return True
 
 
 # The holes setup straps every block, alternating front/back from the front at

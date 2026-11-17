@@ -94,6 +94,7 @@ def _plan(setup, limits=LIMITS):
         ),
         _hold(fixed_jaw_face="machined", moving_jaw_face="machined"),
         _hold(moving_jaw_face="sawn"),
+        _hold(grips="plate"),  # a fixture plate in the jaws: the same rules
     ],
 )
 def test_boundaries_pass(hold):
@@ -140,6 +141,7 @@ def test_limits_must_be_declared():
         ),
         ({"vise_hold": _hold(jaw_offset="balanced")}, r"missing field\(s\): balance"),
         ({"vise_hold": _hold(balance="spacer")}, r"unknown field\(s\): balance"),
+        ({"vise_hold": _hold(grips="fixture")}, "grips: expected part or plate"),
         (
             {"vise_hold": _twin(balance="block")},
             "balance: expected twin_part or spacer",

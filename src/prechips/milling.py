@@ -4,16 +4,19 @@ Every mill or drill-press setup declares how the part is held as a beam and
 every spindle operation its cuts. The handbook mean cutting force (unit power ×
 removal rate ÷ cutting speed) or drill thrust loads an Euler–Bernoulli beam at
 each declared cut station: a cantilever from the nearer clamp edge, two pinned
-supports (inside the span or on an overhang beyond one), or a stated rigid seat
-(no bending). Coefficients, authored force ratios and limits live in
-turning.toml beside the turning data. The spindle is vertical (machine Z). This
-is a stiffness screen at the cut, not predicted dimensional error, chatter,
-clamp slip or machine compliance.
+supports (inside the span or on an overhang beyond one), a stated rigid seat
+(no bending), or a plate seat with clamp stations (a downward push bends
+nothing; lift and side load bend the part between the clamps, or between the
+tabs a cut-out part hangs on). Coefficients, authored force ratios and limits
+live in turning.toml beside the turning data. The spindle is vertical (machine
+Z). This is a stiffness screen at the cut, not predicted dimensional error,
+chatter, clamp slip or machine compliance.
 """
 
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from prechips import shop, vise
@@ -38,10 +41,15 @@ _HOLDS = {
     "cantilever": {"clamp_mm", "section_mm"},
     "between": {"supports_mm", "section_mm"},
     "solid": {"seat", "seat_mm"},
+    "plate": {"seat", "seat_mm", "clamps_mm", "section_mm"},
 }
 # A cantilever in a milling vise names which extent end the vise's left
-# overhang is measured from, and which hold when the setup re-grips.
+# overhang is measured from, and which hold when the setup re-grips. A plate
+# names the hold that grips it when the setup has several, and the tabs a
+# cut-out part hangs on.
 _VISE_LINK = {"vise_left", "vise_hold"}
+_OPTIONAL = {"cantilever": _VISE_LINK, "plate": {"tabs", "vise_hold"}}
+_TAB_KEYS = {"stations_mm", "section_mm", "length_mm"}
 _CUT_KEYS = {
     "name",
     "kind",
@@ -189,9 +197,9 @@ def _beam(value: object, where: str) -> dict:
         raise CheckError(f'{where}: expected a table or "other"')
     hold = value.get("hold")
     if not isinstance(hold, str) or hold not in _HOLDS:
-        raise CheckError(f"{where}.hold: expected cantilever, between or solid")
+        raise CheckError(f"{where}.hold: expected cantilever, between, solid or plate")
     keys = {"axis", "hold", "extent_mm"} | _HOLDS[hold]
-    _fields(value, keys, keys | (_VISE_LINK if hold == "cantilever" else set()), where)
+    _fields(value, keys, keys | _OPTIONAL.get(hold, set()), where)
     axis = value["axis"]
     if axis not in _AXES:
         raise CheckError(f"{where}.axis: expected x, y or z")
@@ -199,27 +207,33 @@ def _beam(value: object, where: str) -> dict:
     if extent[0] == extent[1]:
         raise CheckError(f"{where}.extent_mm: expected the part's [start, end]")
     beam = {"axis": axis, "hold": hold, "extent": extent}
-    key = {"cantilever": "clamp_mm", "between": "supports_mm", "solid": "seat_mm"}[hold]
+    key = {"cantilever": "clamp_mm", "between": "supports_mm"}.get(hold, "seat_mm")
     stations = _span(value[key], f"{where}.{key}")
-    if not extent[0] <= stations[0] <= stations[1] <= extent[1]:
+    # A plate usually runs past the part it seats; other spans are on the part.
+    if hold == "plate":
+        if stations[0] == stations[1]:
+            raise CheckError(f"{where}.seat_mm: expected the plate's [start, end]")
+    elif not extent[0] <= stations[0] <= stations[1] <= extent[1]:
         raise CheckError(f"{where}.{key}: must lie within extent_mm")
     if hold == "between" and stations[0] == stations[1]:
         raise CheckError(f"{where}.supports_mm: expected two distinct supports")
     beam["stations"] = stations
-    if hold == "solid":
+    if "seat" in value:
         seat = value["seat"]
         if not isinstance(seat, str) or not seat.strip():
             raise CheckError(f"{where}.seat: expected the rigid seat, stated")
         beam["seat"] = seat
-    else:
+    if hold != "solid":
         beam["section"] = _section(value["section_mm"], axis, f"{where}.section_mm")
+    if hold == "plate":
+        _plate(value, beam, where)
     if "vise_left" in value:
         if value["vise_left"] not in ("start", "end", "other"):
             raise CheckError(f"{where}.vise_left: expected start, end or other")
         beam["vise_left"] = value["vise_left"]
     if "vise_hold" in value:
         index = value["vise_hold"]
-        if beam.get("vise_left") not in ("start", "end"):
+        if hold != "plate" and beam.get("vise_left") not in ("start", "end"):
             raise CheckError(f"{where}.vise_hold: requires vise_left start or end")
         if type(index) is not int or index < 1:
             raise CheckError(f"{where}.vise_hold: expected a hold number from 1")
@@ -227,21 +241,111 @@ def _beam(value: object, where: str) -> dict:
     return beam
 
 
+def _row(
+    value: object, span: tuple[float, float], within: str, where: str
+) -> list[float]:
+    """Two or more ascending stations along the beam, inside ``span``."""
+    if not isinstance(value, list) or len(value) < 2:
+        raise CheckError(f"{where}: expected two or more stations")
+    stations = [_number(item, where) for item in value]
+    if any(low >= high for low, high in pairwise(stations)):
+        raise CheckError(f"{where}: expected ascending, distinct stations")
+    if stations[0] < span[0] or stations[-1] > span[1]:
+        raise CheckError(f"{where}: must lie within {within}")
+    return stations
+
+
+def _plate(value: dict, beam: dict, where: str) -> None:
+    """A plate hold's clamp stations and, for a cut-out part, its tabs.
+
+    Clamps bear on the beam; once the part is cut out they bear on the blank's
+    margin, which may run past the part, so they need only be on the plate.
+    Tabs are judged only at clamp stations: between clamps a tab hangs the
+    part on a margin strip that nothing holds down there, and the strip's own
+    bending is not modelled.
+    """
+    axis = beam["axis"]
+    if axis == _SPINDLE:
+        raise CheckError(f"{where}.axis: a plate seats a part lying along x or y")
+    span, within = beam["extent"], "extent_mm"
+    if "tabs" in value:
+        span, within = beam["stations"], "seat_mm"
+    clamps = _row(value["clamps_mm"], span, within, f"{where}.clamps_mm")
+    beam["supports"] = clamps
+    if "tabs" not in value:
+        return
+    tabs = value["tabs"]
+    where = f"{where}.tabs"
+    if not isinstance(tabs, dict):
+        raise CheckError(f"{where}: expected a table")
+    _fields(tabs, _TAB_KEYS, _TAB_KEYS, where)
+    stations = _row(
+        tabs["stations_mm"], beam["extent"], "extent_mm", f"{where}.stations_mm"
+    )
+    for station in stations:
+        if all(abs(station - clamp) > vise.ROUNDING_MM for clamp in clamps):
+            raise CheckError(
+                f"{where}.stations_mm: the tab at {station:g} mm is not at a clamp "
+                "station; between clamps it hangs the part on an unclamped "
+                "margin strip, which this screen does not judge"
+            )
+    section = tabs["section_mm"]
+    if not isinstance(section, dict) or section.keys() != {axis, _SPINDLE}:
+        raise CheckError(
+            f"{where}.section_mm: expected {{ {axis}, {_SPINDLE} }}: a tab's width "
+            "along the beam and its thickness"
+        )
+    beam["tabs"] = {
+        "section": {
+            key: _positive(size, f"{where}.section_mm.{key}")
+            for key, size in section.items()
+        },
+        "length": _positive(tabs["length_mm"], f"{where}.length_mm"),
+    }
+    beam["supports"] = stations
+
+
+def _linked_hold(
+    beam: dict, setup: dict, setup_where: str, shop_data: dict, where: str
+) -> tuple[int, dict, str]:
+    """The vise hold a beam links: its number, validated table and path."""
+    tables = vise.entries(setup, setup_where)
+    index = beam.get("vise_hold")
+    if index is None and len(tables) > 1:
+        raise CheckError(f"{where}: missing vise_hold, the number of its vise hold")
+    index = index or 1
+    if index > len(tables):
+        raise CheckError(f"{where}.vise_hold: the setup has {len(tables)} vise holds")
+    value, at = tables[index - 1]
+    return index, vise.hold(shop_data, value, at), at
+
+
 def _vise_link(
     beam: dict, setup: dict, setup_where: str, shop_data: dict, where: str
 ) -> None:
-    """Refuse a cantilever clamp that is not the grip its vise hold describes.
+    """Refuse a beam that contradicts the vise hold it links.
 
     Every cantilever in a milling-vise setup, the setup's own or an
     operation's, declares ``vise_left``: the extent end at the hold's left
-    overhang, or ``"other"`` when it does not run along the jaws. Only the
-    linked hold is read and validated, at its own path in the setup;
-    ``vise_holding`` validates every hold.
+    overhang, or ``"other"`` when it does not run along the jaws; its clamp
+    must be that hold's grip. A plate hold's vise hold must grip the plate,
+    not the part. Only the linked hold is read and validated, at its own
+    path in the setup; ``vise_holding`` validates every hold.
     """
     mapping = beam.get("vise_left")
     if setup.get("vise_hold", "other") == "other":
-        if mapping is not None:
-            raise CheckError(f"{where}.vise_left: the setup declares no vise hold")
+        if mapping is not None or "vise_hold" in beam:
+            key = "vise_left" if mapping is not None else "vise_hold"
+            raise CheckError(f"{where}.{key}: the setup declares no vise hold")
+        return
+    if beam["hold"] == "plate":
+        index, held, _ = _linked_hold(beam, setup, setup_where, shop_data, where)
+        if held["grips"] != "plate":
+            raise CheckError(
+                f"{where}: vise hold {index} grips the part, but a plate hold "
+                'seats the part on a plate; declare that hold with grips = "plate" '
+                "and the plate's sizes"
+            )
         return
     if beam["hold"] != "cantilever":
         return
@@ -253,15 +357,12 @@ def _vise_link(
         )
     if mapping == "other":
         return
-    tables = vise.entries(setup, setup_where)
-    index = beam.get("vise_hold")
-    if index is None and len(tables) > 1:
-        raise CheckError(f"{where}: missing vise_hold, the number of its vise hold")
-    index = index or 1
-    if index > len(tables):
-        raise CheckError(f"{where}.vise_hold: the setup has {len(tables)} vise holds")
-    value, at = tables[index - 1]
-    held = vise.hold(shop_data, value, at)
+    index, held, at = _linked_hold(beam, setup, setup_where, shop_data, where)
+    if held["grips"] == "plate":
+        raise CheckError(
+            f"{where}.vise_left: vise hold {index} grips a plate, not this part; "
+            'declare a plate hold, or vise_left = "other"'
+        )
     left, right = vise.overhangs(held, at)
     width = shop.fact(held["vise"], "jaw_width_mm")
     start, end = beam["extent"]
@@ -302,6 +403,9 @@ def _axes(beam: dict, kind: str) -> list[str]:
     thrust is along z, which compresses a beam along z instead of bending it.
     """
     loaded = [_SPINDLE] if kind in _THRUST else list(_AXES)
+    if "tabs" in beam and kind not in _THRUST:
+        # Nothing but its tabs holds a cut-out part along its own length.
+        return loaded
     return [axis for axis in loaded if axis != beam["axis"]]
 
 
@@ -501,12 +605,93 @@ def _deflection(beam: dict, station: float, force: float, rigidity: float):
     return pinned_mm(force, a, b, rigidity), text
 
 
+def _tab_give(tabs: dict, axis: str, modulus: float) -> float:
+    """One tab's deflection per newton along ``axis`` (mm/N).
+
+    Along its length (across the slot) a tab stretches, L/(E·A). Across it,
+    it is a cantilever L from the margin strip, L³/(3EI), plus shear
+    1.2·L/(G·A) taken at G = E/3, the least an isotropic material allows
+    (Poisson's ratio at most 0.5), since tabs are short.
+    """
+    section, length = tabs["section"], tabs["length"]
+    area = math.prod(section.values())
+    if axis not in section:
+        return length / (modulus * area)
+    inertia = section_inertia_mm4(section, axis)
+    return length**3 / (3 * modulus * inertia) + 3.6 * length / (modulus * area)
+
+
+def _plate_span(
+    supports: list[float], station: float, force: float, rigidity: float, name: str
+) -> tuple[float, tuple[float, float], str]:
+    """Bending (mm), the two supports' load shares and the span's description."""
+    if supports[0] <= station <= supports[-1]:
+        first, second = next(
+            pair for pair in pairwise(supports) if pair[0] <= station <= pair[1]
+        )
+        span = second - first
+        a, b = station - first, second - station
+        text = (
+            f"pinned span {span:.6g} mm between {name}s at {first:.6g} and "
+            f"{second:.6g} mm, load {a:.6g} mm from the first"
+        )
+        return pinned_mm(force, a, b, rigidity), (b / span, a / span), text
+    below = station < supports[0]
+    near, far = (supports[0], supports[1]) if below else supports[:-3:-1]
+    span, reach = abs(far - near), abs(station - near)
+    text = (
+        f"overhang {reach:.6g} mm beyond the {name} at {near:.6g} mm of a "
+        f"pinned span {span:.6g} mm"
+    )
+    shares = ((reach + span) / span, reach / span)
+    return overhang_mm(force, reach, span, rigidity), shares, text
+
+
+def _plate_deflection(
+    beam: dict, axis: str, station: float, force: float, modulus: float, kind: str
+):
+    """Deflection (mm) of a part on a plate and the governing span's description.
+
+    The plate takes a downward push anywhere on the seat. Lift, and side load
+    away from the fence, are held only at the clamp stations: a pinned span
+    between the two nearest, or an overhang beyond the end pair (the further
+    clamps of a continuous part only stiffen it). A cut-out part is held at
+    its tabs instead, which also give: each tab moves by its share of the
+    load, and the part moves with them.
+    """
+    low, high = beam["stations"]
+    if axis == _SPINDLE and kind not in _HELICAL:
+        if not low <= station <= high:
+            raise CheckError(
+                f"station {station:g} mm is off the stated seat {low:g}..{high:g} mm"
+            )
+        return 0.0, f"seated on {beam['seat']}"
+    tabs = beam.get("tabs")
+    supports = beam["supports"]
+    if axis == beam["axis"]:
+        give = force / len(supports) * _tab_give(tabs, axis, modulus)
+        text = (
+            f"{len(supports)} tabs {tabs['length']:g} mm long sharing the force "
+            "along the part"
+        )
+        return give, text
+    name = "tab" if tabs else "clamp"
+    rigidity = modulus * section_inertia_mm4(beam["section"], axis)
+    bending, shares, text = _plate_span(supports, station, force, rigidity, name)
+    if tabs:
+        give = force * _tab_give(tabs, axis, modulus) * math.hypot(*shares) ** 2
+        bending += give
+        text += f", {give:.3g} mm of it the tabs giving"
+    return bending, text
+
+
 def _stations(cut: dict, beam: dict, where: str) -> list[float]:
     """Evaluation points: declared stations, or a traverse's worst candidates.
 
     Along a traverse, cantilever and overhang bending grow toward its ends and
     pinned-span bending peaks at mid-span, so its ends and any mid-span point
-    inside it bound the whole pass.
+    inside it bound the whole pass. On a plate every clamp or tab station and
+    every mid-span inside it is a candidate: tabs give most at a tab.
     """
     declared = {"stations_mm", "traverse_mm"} & cut.keys()
     if len(declared) != 1:
@@ -517,9 +702,14 @@ def _stations(cut: dict, beam: dict, where: str) -> list[float]:
     if "traverse_mm" in cut:
         start, end = _span(cut["traverse_mm"], f"{where}.traverse_mm")
         stations = [start, end]
-        middle = sum(beam["stations"]) / 2
-        if beam["hold"] == "between" and start < middle < end:
-            stations.append(middle)
+        if beam["hold"] == "between":
+            inside = [sum(beam["stations"]) / 2]
+        elif beam["hold"] == "plate":
+            supports = beam["supports"]
+            inside = supports + [(a + b) / 2 for a, b in pairwise(supports)]
+        else:
+            inside = []
+        stations += [station for station in inside if start < station < end]
         key = "traverse_mm"
     else:
         stations = cut["stations_mm"]
@@ -666,12 +856,23 @@ def _check_cut(
     worst = None
     for axis in axes:
         force, component = forces[_SPINDLE if axis == _SPINDLE else "across"]
-        inertia = (
-            section_inertia_mm4(beam["section"], axis) if "section" in beam else 0.0
-        )
+        plate = beam["hold"] == "plate"
+        if plate and axis == beam["axis"]:
+            inertia = section_inertia_mm4(beam["tabs"]["section"], axis)
+        elif "section" in beam:
+            inertia = section_inertia_mm4(beam["section"], axis)
+        else:
+            inertia = 0.0
         for station in stations:
             try:
-                deflection, span = _deflection(beam, station, force, modulus * inertia)
+                if plate:
+                    deflection, span = _plate_deflection(
+                        beam, axis, station, force, modulus, kind
+                    )
+                else:
+                    deflection, span = _deflection(
+                        beam, station, force, modulus * inertia
+                    )
             except CheckError as error:
                 raise CheckError(f"{where}: {error}") from error
             if not math.isfinite(deflection):
