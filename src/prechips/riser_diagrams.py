@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from xml.etree import ElementTree
 
-from prechips.cad import CadError
+from prechips.cad import CadError, _shorthand, _trim
 from prechips.cad_diagrams import Element, Layout, _cad, _el, _fmt, _line, _rect
 from prechips.jig_diagrams import (
     JAW,
@@ -22,12 +22,10 @@ from prechips.jig_diagrams import (
     _datum_label,
     _finish,
     _groups,
-    _inch,
     _label,
     _param,
     _param_in,
     _title,
-    _trim,
     _vise,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
@@ -73,6 +71,13 @@ def _strap(
     groups["tool"].append(_rect(x0, top - 8, x1 - x0, bottom - top + 16))
 
 
+def _stations(values: dict, key: str, count: int) -> list[tuple[float, float]]:
+    spans = values.get(key)
+    if not isinstance(spans, list) or len(spans) != count:
+        raise CadError(f"cad.{key}: expected {count} [start, end] spans")
+    return [(float(start), float(end)) for start, end in spans]
+
+
 def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Setup 2: top faced on the bare table in two strap stages, Z0 the table."""
     blank = _param(parameters, "blank_length_in")
@@ -80,29 +85,19 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     stock = _param(parameters, "blank_thickness_in")
     thickness = _cad(values, "thickness_in")
     toe = _param(parameters, "strap_toe_in")
-    clear = _param(parameters, "strap_clear_in")
-    overlap = _param(parameters, "face_overlap_in")
-    mid = _param(parameters, "strap_a_mid_x_in")
-    outer = _param(parameters, "strap_b_outer_in")
-    inner = _param(parameters, "strap_b_inner_in")
     strap = _param(parameters, "strap_width_in")
     cutter = _param_in(parameters, "face_cutter_dia_mm")
-    # Stage A faces two spans between the end toes and the middle strap; Stage
-    # B faces both ends and the strip under the middle strap, each overlapping
-    # Stage A, from four straps on Stage A's faced metal.
-    a0, a1 = toe + clear, blank - toe - clear
-    m0, m1 = mid - strap / 2 - clear, mid + strap / 2 + clear
-    if not a0 < m0 < m1 < a1:
-        raise CadError("process.strap_a_mid_x_in: the middle strap leaves no span")
-    b_cuts = ((0.0, a0 + overlap), (m0 - overlap, m1 + overlap), (a1 - overlap, blank))
-    b_straps = (outer, inner, blank - inner, blank - outer)
-    for x in b_straps:
-        lo, hi = x - strap / 2 - clear, x + strap / 2 + clear
-        on_a = a0 <= lo and hi <= m0 or m1 <= lo and hi <= a1
-        if not on_a or any(c0 < hi and lo < c1 for c0, c1 in b_cuts):
-            raise CadError(
-                "process.strap_b_*_in: a Stage B strap is off faced metal or in a cut"
-            )
+    # The adapter binds and checks the strap layout: Stage A's two spans and
+    # three strap stations, Stage B's three cuts and its four strap stations.
+    (a0, m0), (m1, a1) = _stations(values, "face_stage_a_in", 2)
+    a_straps = values.get("face_straps_a_in")
+    if not isinstance(a_straps, list) or len(a_straps) != 3:
+        raise CadError("cad.face_straps_a_in: expected three strap stations")
+    a_left, mid, a_right = a_straps
+    b_cuts = _stations(values, "face_stage_b_in", 3)
+    b_straps = values.get("face_straps_b_in")
+    if not isinstance(b_straps, list) or len(b_straps) != 4:
+        raise CadError("cad.face_straps_b_in: expected four strap stations")
     x0 = 60.0
     s = min(44.0, 600 / blank)
     h = width * s
@@ -122,12 +117,9 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     bottom = bar(top)
     faced(top, a0, m0)
     faced(top, m1, a1)
-    for start, end in (
-        (0.0, toe),
-        (mid - strap / 2, mid + strap / 2),
-        (blank - toe, blank),
-    ):
-        _strap(groups, x0 + start * s, x0 + end * s, top, bottom)
+    # End straps bear their toe on the bar; the middle strap its full width.
+    for x, span in ((a_left, toe), (mid, strap), (a_right, toe)):
+        _strap(groups, x0 + (x - span / 2) * s, x0 + (x + span / 2) * s, top, bottom)
     r = cutter / 2 * s
     cx = x0 + (a0 + cutter / 2) * s
     groups["tool"].append(_el("circle", cx=cx, cy=top + r, r=r))
@@ -135,7 +127,7 @@ def _face(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     end_y = _callouts(
         groups,
         [
-            (x0 + toe / 2 * s, bottom + 8, ["strap"]),
+            (x0 + a_left * s, bottom + 8, ["strap"]),
             (cx, top + 2 * r, ["3/4 end mill, +X"]),
             (x0 + mid * s, bottom + 8, ["strap"]),
             (
@@ -367,7 +359,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 x0 + p1[1] * s,
                 back + p1[2] * s,
-                [f"P1 through: X {_inch(p1[1], 2)}, Y {_inch(p1[2], 2)}"],
+                [f"P1 through: X {_shorthand(p1[1], 2)}, Y {_shorthand(p1[2], 2)}"],
             ),
         ],
         front + JAW + 20,
@@ -405,7 +397,7 @@ def _ends(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             (
                 x0 + p2[1] * s,
                 back + p2[2] * s,
-                [f"P2 through: X {_inch(p2[1], 2)}, Y {_inch(p2[2], 2)}"],
+                [f"P2 through: X {_shorthand(p2[1], 2)}, Y {_shorthand(p2[2], 2)}"],
             ),
             (
                 finish + radius,

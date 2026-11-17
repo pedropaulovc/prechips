@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree
 
-from prechips.cad import CadError
+from prechips.cad import CadError, _shorthand
 from prechips.cad_diagrams import (
     Element,
     Layout,
@@ -30,7 +30,6 @@ from prechips.jig_diagrams import (
     _datum_label,
     _finish,
     _groups,
-    _inch,
     _label,
     _param,
     _param_in,
@@ -227,7 +226,7 @@ def _section(values: dict, parameters: dict, root: ElementTree.Element) -> Layou
     end_y = _callouts(
         groups,
         [
-            (190, bed, [f"on {_inch(parallel, 2)} in parallels"]),
+            (190, bed, [f"on {_shorthand(parallel, 2)} in parallels"]),
             (530, bed, [passes]),
         ],
         bed + 4,
@@ -313,9 +312,17 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
         transform=f"rotate(-90 {_fmt(edge + 14)} {_fmt(middle)})",
     )
     for index, row in enumerate(sorted([*rows, bore[0]])):
-        _dimension(groups, edge - row * s, edge, dim_top - 18 * index, back, _inch(row))
+        _dimension(
+            groups, edge - row * s, edge, dim_top - 18 * index, back, _shorthand(row, 3)
+        )
     for index, station in enumerate(sorted([*stations, bore[1]])):
-        _vdim(groups, edge + 32 + 22 * index, back, back + station * s, _inch(station))
+        _vdim(
+            groups,
+            edge + 32 + 22 * index,
+            back,
+            back + station * s,
+            _shorthand(station, 3),
+        )
     end_y = front + (JAW + 6 if mode == "vise" else 6)
     if feed:
         lug = back + _cad(values, "lug_x_in") * s
@@ -326,8 +333,8 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
             above=False,
         )
     if mode == "inspect":
-        _vdim(groups, left - 16, back, front, _inch(length, 2))
-        _dimension(groups, left, edge, end_y + 22, front, _inch(y_length, 2))
+        _vdim(groups, left - 16, back, front, _shorthand(length, 2))
+        _dimension(groups, left, edge, end_y + 22, front, _shorthand(y_length, 2))
         end_y += 30
         if feed:
             _dimension(
@@ -379,7 +386,7 @@ def _holes(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     step_x = (hx + bxs) / 2
     groups["hidden"].append(_line(step_x, top, step_x, seat))
     right = s_left + length * t
-    _vdim(groups, right + 18, top, seat, _inch(height, 2))
+    _vdim(groups, right + 18, top, seat, _shorthand(height, 2))
     _label(groups, right + 26, seat - 4, "SEAT")
     _label(groups, right + 26, top + 12, "TOP")
     texts = [
