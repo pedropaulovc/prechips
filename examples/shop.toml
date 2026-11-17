@@ -38,11 +38,13 @@ grip_range_mm = [6.0, 150.0]
 body_diameter_mm = 158.0
 body_length_mm = 70.0
 
-[workholding.chuck-4jaw-5-bs0]
+# The BS-0's own chuck: harmonic-analyzer inventory (45952b66bc:cad/process/
+# shop/inventory.toml machines.BS-0.included, chuck_3jaw_5in_inside_outside_jaws).
+# No source gives its grip range or body size, so none is declared. The
+# archive's 5 in independent 4-jaw for the BS-0 was an illustrative example
+# purchase, not owned.
+[workholding.chuck-3jaw-5-bs0]
 kind = "chuck"
-grip_range_mm = [4.0, 110.0]
-body_diameter_mm = 127.0
-body_length_mm = 62.0
 
 # Archive fixtures.vise-pm-6 (Precision Matthews VISE-6in-HIGHPREC), measured
 # 2026-10-05: jaw width 6.247 in, opening 6.135 in, jaw height (bed slideway to

@@ -12,7 +12,9 @@ PLAN = ROOT / "examples/leadscrew-kit.toml"
 PARAMETERS = {
     "flat_cutter_dia_mm": 7.9375,
     "screw_stock_length_mm": 600.0,
+    "kerf_mm": 1.0,
     "saw_allowance_mm": 3.0,
+    "saw_mark_tolerance_mm": 1.0,
     "rule_mm": 304.8,
     "cut_overhang_mm": 10.0,
     "vise_jaw_width_mm": 158.6738,
@@ -20,6 +22,7 @@ PARAMETERS = {
     "wheel_stickout_mm": 16.0,
     "far_stickout_mm": 42.0,
     "mandrel_stickout_mm": 8.0,
+    "bs0_chuck_jaws": 3,
 }
 
 
@@ -41,13 +44,12 @@ def test_flat_crossings_and_nut_bands():
     )
     assert values["clock_deg"] == 120
     assert values["csk_cutter_band_mm"] == [4.76, 4.7625]
-    assert values["saw_piece_mm"] == pytest.approx(419.5 + 3.0)
-    assert values["saw_rule_step_mm"] == pytest.approx(419.5 + 3.0 - 304.8)
-    assert values["saw_rule_step_in"] == "4 5/8"
-    assert values["saw_rule_step_rounded_mm"] == pytest.approx(117.475)
-    assert values["vise_jaw_right_mm"] == pytest.approx(422.5 - 10.0)
-    assert values["vise_jaw_left_mm"] == pytest.approx(412.5 - 158.6738)
-    assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(419.5 - 385.016 - 8.0)
+    # The finished end lies right of the vise, and the jaws grip the piece.
+    assert 0 < values["vise_jaw_left_mm"] < values["vise_jaw_right_mm"]
+    assert values["vise_jaw_right_mm"] < values["length_mm"]
+    assert values["bs0_jaw_clocks"] == "2, 6 and 10"
+    # Deflection station at the shortest in-band screw (L 418.7).
+    assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(418.7 - 385.016 - 8.0)
 
 
 def test_refuses_a_cutter_too_small_to_open_the_handwheel_flat():
@@ -77,21 +79,40 @@ def test_refuses_flats_whose_nominals_disagree(tmp_path):
         load_leadscrew_kit(source, PARAMETERS)
 
 
-def test_index_tolerance_is_the_nearer_clock_limit():
-    values = load_leadscrew_kit(SOURCE, PARAMETERS).values
-    assert (values["clock_min_deg"], values["clock_max_deg"]) == (119.0, 121.0)
+def _clock_band(tmp_path, band: str) -> Path:
+    text = SOURCE.read_text(encoding="utf-8")
+    marker = '"clock_deg" = [119.0, 121.0]\n'
+    assert text.count(marker) == 2
+    source = tmp_path / "features.toml"
+    source.write_text(text.replace(marker, f'"clock_deg" = {band}\n'), "utf-8")
+    return source
+
+
+def test_index_tolerance_is_the_nearer_clock_limit(tmp_path):
+    source = _clock_band(tmp_path, "[119.0, 122.0]")
+    values = load_leadscrew_kit(source, PARAMETERS).values
     assert values["clock_tolerance_deg"] == 1.0
-    assert "open_flat" not in values
+
+
+def test_refuses_a_clock_nominal_on_its_limit(tmp_path):
+    source = _clock_band(tmp_path, "[120.0, 122.0]")
+    with pytest.raises(CadError, match="strictly inside"):
+        load_leadscrew_kit(source, PARAMETERS)
 
 
 @pytest.mark.parametrize(
     ("key", "value", "message"),
     [
-        ("cut_overhang_mm", 3.0, "would reach the vise jaw"),
+        ("cut_overhang_mm", 5.0, "would reach the vise jaw"),
+        ("cut_overhang_mm", 264.9, "does not span the jaws"),
+        ("kerf_mm", 170.0, "too short for the 8 lathe mandrel"),
         ("near_stickout_mm", 12.0, "would reach the chuck jaws"),
-        ("wheel_stickout_mm", 9.9, "would reach the chuck jaws"),
-        ("far_stickout_mm", 30.0, "would reach the chuck jaws"),
-        ("mandrel_stickout_mm", 13.2, "seat face"),
+        ("wheel_stickout_mm", 10.7, "would reach the chuck jaws"),
+        ("far_stickout_mm", 35.0, "would reach the chuck jaws"),
+        ("mandrel_stickout_mm", 9.5, "inside the nut's body"),
+        ("rule_mm", 300.0, "inch rule"),
+        ("bs0_chuck_jaws", 4, "odd jaw count"),
+        ("bs0_chuck_jaws", 5, "would not return the BS-0 5-jaw"),
     ],
 )
 def test_process_clearances_refused(key, value, message):
@@ -100,10 +121,15 @@ def test_process_clearances_refused(key, value, message):
 
 
 @pytest.mark.parametrize(
-    ("allowance", "lay"), [(3.0 - 0.8 * 25.4 / 16, "4 9/16"), (3.0 + 9.3, "5")]
+    ("rule", "allowance"), [(304.8, 3.0), (304.8, 1.5), (419.1, 0.5), (406.4, 5.0)]
 )
-def test_saw_lay_fractions(allowance, lay):
+def test_saw_mark_keeps_the_allowance_on_the_rule(rule, allowance):
     values = load_leadscrew_kit(
-        SOURCE, {**PARAMETERS, "saw_allowance_mm": allowance, "cut_overhang_mm": 20.0}
+        SOURCE,
+        {**PARAMETERS, "rule_mm": rule, "saw_allowance_mm": allowance},
     ).values
-    assert values["saw_rule_step_in"] == lay
+    sixteenths = values["saw_rule_step_in"] * 16
+    assert sixteenths == round(sixteenths) >= 1
+    kept = values["saw_piece_mm"] - 419.5
+    # A mark short by its tolerance still keeps the allowance.
+    assert allowance + 1.0 <= kept < allowance + 1.0 + 25.4 / 16
