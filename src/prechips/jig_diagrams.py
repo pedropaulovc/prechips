@@ -262,56 +262,51 @@ def _finish(groups: dict[str, list[Element]], bottom: float) -> Layout:
 def _cutlist(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
     """Saw setup: this sheet's blanks from the bar end, the rest of the bar beyond.
 
-    A plan with `spacer_height_in` (a fixture spacer sawn from the same bar,
-    as the feed block's notch spacer) shows that offcut after the blanks. A
-    plan with `coupon_width_in` and `coupon_length_in` (the carrier's reamer
-    test coupon) shows a strip that wide, cut to the coupon at its front end.
+    A template with ``data-offcut`` (the piece's name) also saws one
+    `offcut_length_in` piece of the same bar after the blanks, as the feed
+    block's notch spacer. A plan with `coupon_width_in` and
+    `coupon_length_in` (the carrier's reamer test coupon) shows a strip that
+    wide, cut to the coupon at its front end.
     """
     length = _param(parameters, "blank_length_in")
     count = _count(parameters, "quantity")
     kerf = _param(parameters, "kerf_in")
     width = _param(parameters, "blank_width_in")
-    spacer = (
-        _param(parameters, "spacer_height_in")
-        if "spacer_height_in" in parameters
-        else 0.0
+    minimum = (
+        ", {{process.blank_min_length_in:.2f}}–{{process.blank_max_length_in:.2f}}"
+        if "blank_max_length_in" in parameters
+        else ", ≥{{process.blank_min_length_in:.2f}}"
     )
+    # (length, label, dimension text) for each piece sawn, in order.
+    pieces = [
+        (
+            length,
+            (f"blank {number}" if count > 1 else "blank") + minimum,
+            "{{process.blank_length_in:.2f}}",
+        )
+        for number in range(1, count + 1)
+    ]
+    offcut = root.get("data-offcut")
+    if offcut is not None:
+        offcut_length = _param(parameters, "offcut_length_in")
+        pieces.append((offcut_length, offcut, "{{process.offcut_length_in:.2f}}"))
     strip = (
         _param(parameters, "coupon_width_in")
         if "coupon_width_in" in parameters
         else 0.0
     )
     rest = 1.5  # schematic stub of the remaining bar, inches
-    offcuts = sum(cut + kerf for cut in (spacer, strip) if cut)
-    scale = min(60.0, 640 / (count * (length + kerf) + offcuts + rest))
+    sawn = sum(piece + kerf for piece, _, _ in pieces) + (strip + kerf if strip else 0)
+    scale = min(60.0, 640 / (sawn + rest))
     x, top = 40.0, 74.0
     bottom = top + width * scale
     groups = _groups(root)
     _title(groups, 40, 24, "Top view, bar end at the left")
-    for number in range(1, count + 1):
-        x1 = x + length * scale
+    for piece, name, dimension in pieces:
+        x1 = x + piece * scale
         groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
-        name = f"blank {number}" if count > 1 else "blank"
-        _label(
-            groups,
-            (x + x1) / 2,
-            (top + bottom) / 2 + 5,
-            name
-            + (
-                ", {{process.blank_min_length_in:.2f}}–{{process.blank_max_length_in:.2f}}"
-                if "blank_max_length_in" in parameters
-                else ", ≥{{process.blank_min_length_in:.2f}}"
-            ),
-            "middle",
-        )
-        _dimension(groups, x, x1, top - 16, top, "{{process.blank_length_in:.2f}}")
-        groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
-        x = x1 + kerf * scale
-    if spacer:
-        x1 = x + spacer * scale
-        groups["kept"].append(_rect(x, top, x1 - x, bottom - top))
-        _label(groups, (x + x1) / 2, (top + bottom) / 2 + 5, "spacer", "middle")
-        _dimension(groups, x, x1, top - 16, top, "{{process.spacer_height_in:.2f}}")
+        _label(groups, (x + x1) / 2, (top + bottom) / 2 + 5, name, "middle")
+        _dimension(groups, x, x1, top - 16, top, dimension)
         groups["removed"].append(_rect(x1, top, kerf * scale, bottom - top))
         x = x1 + kerf * scale
     items = []

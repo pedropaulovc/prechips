@@ -52,9 +52,6 @@ _SEAT = {
     "harmonic_feed_block": ["length", "height", "lug_x", "overall_y", "lug_length"],
 }
 _TOL_MM = 1e-6
-# Stations and rows print at three places, so the model point may sit up to
-# half a last digit (.0005 in) off the printed nominal.
-_PRINTED_MM = 0.0127 + _TOL_MM
 
 
 def load_pivot_block(path: Path, parameters: dict) -> CadData:
@@ -71,45 +68,77 @@ def _close(a: float, b: float, tol: float = _TOL_MM) -> bool:
     return math.isclose(a, b, abs_tol=tol)
 
 
+def _printed_mm(item: dict, field: str, where: str) -> float:
+    """Half a last printed inch digit of ``field``, in mm: how far the model
+    point may sit from the nominal the sheet prints."""
+    precision = item.get("precision")
+    places = precision.get(field) if isinstance(precision, dict) else None
+    if type(places) is not int or places < 0:
+        raise CadError(f"{where}.precision.{field}: expected printed decimal places")
+    return 0.5 * 10.0**-places * 25.4 + _TOL_MM
+
+
+def _feature(features: dict, name: str, kind: str, requirements: list[str]) -> dict:
+    item = features[name]
+    if (
+        not isinstance(item, dict)
+        or item.get("frame") != "model"
+        or item.get("kind") != kind
+    ):
+        raise CadError(f"cad.features.{name}: expected a model-frame {kind}")
+    if item.get("requirements") != requirements:
+        raise CadError(f"{name}.requirements: expected {', '.join(requirements)}")
+    return item
+
+
+def _nominal(item: dict, field: str, where: str) -> float:
+    band = _band(item, field, where)
+    value = _number(item.get(f"{field}_nominal"), f"{where}.{field}_nominal")
+    if not band[0] - _TOL_MM <= value <= band[1] + _TOL_MM:
+        raise CadError(f"{where}.{field}_nominal: outside the {field} band")
+    return value
+
+
+def _bind(values: dict, item: dict, field: str, where: str, key: str) -> float:
+    _inch_limits(values, key, _band(item, field, where))
+    value = _nominal(item, field, where)
+    values[f"{key}_mm"] = value
+    values[f"{key}_nominal_in"] = value / 25.4
+    return value
+
+
+def _half_band(band: tuple[float, float], value: float, where: str) -> float:
+    """The ± a symmetric band prints about its nominal, in mm."""
+    if not _close(band[1] - value, value - band[0]):
+        raise CadError(f"{where}: expected a band symmetric about its nominal")
+    return (band[1] - band[0]) / 2
+
+
+def _hole(features: dict, name: str, requirements: list[str], axis: list) -> tuple:
+    item = _feature(features, name, "hole", requirements)
+    at = item.get("at")
+    if (
+        item.get("axis") != axis
+        or not isinstance(at, list)
+        or len(at) != 3
+        or item.get("thru", True) is not True
+    ):
+        raise CadError(f"{name}: expected a hole along {axis}")
+    return item, [_number(v, f"{name}.at") for v in at]
+
+
 def _load(path: Path, parameters: dict, part: str) -> CadData:
     adapter, y_field, row_from = _PARTS[part]
-    feed = adapter == "harmonic_feed_block"
     raw, values, features = _harmonic_manifest(path, part, adapter)
     _model_frame(raw)
-    expected = _COMMON | (_FEED if feed else set())
+    expected = _COMMON | (_FEED if part.endswith("feed-block") else set())
     if set(features) != expected:
         raise CadError(f"cad.features: expected exactly {', '.join(sorted(expected))}")
-
-    def feature(name: str, kind: str, requirements: list[str]) -> dict:
-        item = features[name]
-        if (
-            not isinstance(item, dict)
-            or item.get("frame") != "model"
-            or item.get("kind") != kind
-        ):
-            raise CadError(f"cad.features.{name}: expected a model-frame {kind}")
-        if item.get("requirements") != requirements:
-            raise CadError(f"{name}.requirements: expected {', '.join(requirements)}")
-        return item
-
-    def nominal(item: dict, field: str, where: str) -> float:
-        band = _band(item, field, where)
-        value = _number(item.get(f"{field}_nominal"), f"{where}.{field}_nominal")
-        if not band[0] - _TOL_MM <= value <= band[1] + _TOL_MM:
-            raise CadError(f"{where}.{field}_nominal: outside the {field} band")
-        return value
-
-    def bind(item: dict, field: str, where: str, key: str) -> float:
-        _inch_limits(values, key, _band(item, field, where))
-        value = nominal(item, field, where)
-        values[f"{key}_mm"] = value
-        values[f"{key}_nominal_in"] = value / 25.4
-        return value
 
     # Model X runs along the 1.64 length (stations from the -X end), Y across
     # (rows from the -Y side on TL-22, the +Y side on TL-32), Z up from the
     # carriage seat (Z0, facing -Z) to the top face.
-    seat = feature("carriage_seat", "face", _SEAT[adapter])
+    seat = _feature(features, "carriage_seat", "face", _SEAT[adapter])
     plane = seat.get("plane")
     if seat.get("normal") != [0, 0, -1] or plane != {
         "frame": "model",
@@ -117,11 +146,13 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         "value": 0,
     }:
         raise CadError("carriage_seat: expected the Z0 carriage seat facing -Z")
-    length = bind(seat, "length", "carriage_seat", "length")
-    y_length = bind(seat, y_field, "carriage_seat", y_field)
-    height = bind(seat, "height", "carriage_seat", "height")
+    length = _bind(values, seat, "length", "carriage_seat", "length")
+    y_length = _bind(values, seat, y_field, "carriage_seat", y_field)
+    height = _bind(values, seat, "height", "carriage_seat", "height")
     _inch_limits(values, "y_length", _band(seat, y_field, "carriage_seat"))
     values["y_length_mm"] = y_length
+    # The pictures put ROW SIDE on the hand the model frame gives it.
+    values["row_from"] = row_from
     x_end = -length / 2
     envelope = (
         StockAxis("length", "blank_length_in", y_length),
@@ -129,41 +160,39 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         StockAxis("thickness", "blank_thickness_in", height),
     )
 
-    def hole(name: str, requirements: list[str], axis: list) -> tuple[dict, list]:
-        item = feature(name, "hole", requirements)
-        at = item.get("at")
-        if (
-            item.get("axis") != axis
-            or not isinstance(at, list)
-            or len(at) != 3
-            or item.get("thru", True) is not True
-        ):
-            raise CadError(f"{name}: expected a hole along {axis}")
-        return item, [_number(v, f"{name}.at") for v in at]
-
-    def plan_position(item: dict, at: list, name: str) -> tuple[float, float]:
-        """Return the hole's model Y origin edge after checking both offsets."""
+    def plan_position(item: dict, at: list, name: str) -> tuple[float, float, float]:
+        """Return the station, the hole's model Y origin edge and how far that
+        edge may sit off the true one from the printed row's rounding."""
         if (
             item.get("station_from") != "minus_x_end"
             or item.get("row_from") != row_from
         ):
             raise CadError(f"{name}: expected stations from -X, rows from {row_from}")
-        station = nominal(item, "station", name)
-        row = nominal(item, "row", name)
-        if not _close(at[0] - x_end, station, _PRINTED_MM) or not _close(at[2], height):
+        station = _nominal(item, "station", name)
+        row = _nominal(item, "row", name)
+        if not _close(at[2], height):
+            raise CadError(f"{name}.at: expected entry at TOP (height)")
+        if not _close(at[0] - x_end, station, _printed_mm(item, "station", name)):
             raise CadError(f"{name}.at: station disagrees with the -X end")
-        return station, at[1] - row if row_from == "minus_y_side" else at[1] + row
+        edge = at[1] - row if row_from == "minus_y_side" else at[1] + row
+        return station, edge, _printed_mm(item, "row", name)
 
     # Pivot seat: flat-floored .375 down from the top, tap through below it.
-    bore, bore_at = hole("pivot_bore", ["dia", "depth", "station", "row"], [0, 0, -1])
+    bore, bore_at = _hole(
+        features, "pivot_bore", ["dia", "depth", "station", "row"], [0, 0, -1]
+    )
     if bore.get("floor") != "flat" or "thru" in bore:
         raise CadError("pivot_bore: expected a flat-floored blind bore")
-    bore_station, y_edge = plan_position(bore, bore_at, "pivot_bore")
-    bind(bore, "dia", "pivot_bore", "bore_dia")
-    bind(bore, "depth", "pivot_bore", "bore_depth")
-    bind(bore, "station", "pivot_bore", "bore_x")
-    bind(bore, "row", "pivot_bore", "bore_y")
-    tap, tap_at = hole("pivot_tap", ["thread", "dia", "thru"], [0, 0, -1])
+    bore_station, y_edge, edge_tol = plan_position(bore, bore_at, "pivot_bore")
+    _bind(values, bore, "dia", "pivot_bore", "bore_dia")
+    _bind(values, bore, "depth", "pivot_bore", "bore_depth")
+    for field, key in (("station", "bore_x"), ("row", "bore_y")):
+        value = _bind(values, bore, field, "pivot_bore", key)
+        half = _half_band(
+            _band(bore, field, "pivot_bore"), value, f"pivot_bore.{field}"
+        )
+        values[f"{key}_tol_in"] = half / 25.4
+    tap, tap_at = _hole(features, "pivot_tap", ["thread", "dia", "thru"], [0, 0, -1])
     if (
         tap.get("thru") is not True
         or tap.get("parent") != "pivot_bore"
@@ -181,45 +210,53 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     points = []
     for n in range(1, 5):
         name = f"carriage_hole_{n}"
-        item, at = hole(name, ["dia", "thru", "station", "row"], [0, 0, -1])
+        cbore_name = f"carriage_counterbore_{n}"
+        item, at = _hole(features, name, ["dia", "thru", "station", "row"], [0, 0, -1])
         if item.get("thru") is not True:
             raise CadError(f"{name}: expected a through hole")
-        station, edge = plan_position(item, at, name)
-        if not _close(edge, y_edge, 2 * _PRINTED_MM):
+        station, edge, tol = plan_position(item, at, name)
+        if not _close(edge, y_edge, edge_tol + tol):
             raise CadError(f"{name}.at: row origin disagrees with the pivot bore")
-        cbore = feature(f"carriage_counterbore_{n}", "counterbore", ["dia", "floor"])
+        cbore = _feature(features, cbore_name, "counterbore", ["dia", "floor"])
         if cbore.get("parent") != name or cbore.get("floor_from") != "carriage_seat":
-            raise CadError(f"carriage_counterbore_{n}: expected {name}'s counterbore")
-        for key, source, field in (
-            ("hole_dia", item, "dia"),
-            ("cbore_dia", cbore, "dia"),
-            ("cbore_floor", cbore, "floor"),
-            ("station", item, "station"),
-            ("row", item, "row"),
+            raise CadError(f"{cbore_name}: expected {name}'s counterbore")
+        for key, source, where, field in (
+            ("hole_dia", item, name, "dia"),
+            ("cbore_dia", cbore, cbore_name, "dia"),
+            ("cbore_floor", cbore, cbore_name, "floor"),
+            ("station", item, name, "station"),
+            ("row", item, name, "row"),
         ):
-            band = (_band(source, field, name), nominal(source, field, name))
+            band = (_band(source, field, where), _nominal(source, field, where))
             if key in ("station", "row"):
                 shared.setdefault(key, set()).add(band)
             elif shared.setdefault(key, band) != band:
-                raise CadError(f"{name}.{field}: carriage holes disagree")
-        depth_ref = _positive(cbore.get("depth_ref"), f"carriage_counterbore_{n}")
+                raise CadError(f"{where}.{field}: carriage holes disagree")
+        depth_ref = _positive(cbore.get("depth_ref"), f"{cbore_name}.depth_ref")
         if not _close(depth_ref, height - shared["cbore_floor"][1]):
-            raise CadError(f"carriage_counterbore_{n}.depth_ref: not height − floor")
-        points.append((station, nominal(item, "row", name)))
+            raise CadError(f"{cbore_name}.depth_ref: not height − floor")
+        points.append((station, _nominal(item, "row", name)))
     for key in ("hole_dia", "cbore_dia", "cbore_floor"):
         band, value = shared[key]
         _inch_limits(values, key, band)
         values[f"{key}_mm"] = value
         values[f"{key}_nominal_in"] = value / 25.4
     values["cbore_depth_in"] = depth_ref / 25.4
-    for key in ("station", "row"):
+    # Stations (model X, hole_x*) and rows (model Y, hole_y*) each print one ±
+    # for every hole: both bands of each must share it.
+    for key, axis in (("station", "x"), ("row", "y")):
         if len(shared[key]) != 2:
             raise CadError(f"carriage holes: expected two {key} bands")
+        halves = set()
         for index, (band, value) in enumerate(sorted(shared[key], key=lambda b: b[1])):
-            label = f"hole_{'x' if key == 'station' else 'y'}{index + 1}"
+            label = f"hole_{axis}{index + 1}"
             _inch_limits(values, label, band)
             values[f"{label}_mm"] = value
             values[f"{label}_nominal_in"] = value / 25.4
+            halves.add(round(_half_band(band, value, f"carriage holes.{key}"), 6))
+        if len(halves) != 1:
+            raise CadError(f"carriage holes: the two {key} bands differ in width")
+        values[f"hole_{axis}_tol_in"] = halves.pop() / 25.4
     if sorted(points) != sorted(
         (x, y)
         for x in (values["hole_x1_mm"], values["hole_x2_mm"])
@@ -236,12 +273,20 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
             )
         ),
     ]
-    # Station and row tolerances print one band for every hole.
-    values["hole_x_tol_in"] = (values["hole_x1_max_in"] - values["hole_x1_min_in"]) / 2
-    values["hole_y_tol_in"] = (values["hole_y1_max_in"] - values["hole_y1_min_in"]) / 2
 
-    if feed:
-        _feed(features, values, seat, length, height, y_edge, hole, nominal, bind)
+    if adapter == "harmonic_feed_block":
+        _feed(
+            features,
+            values,
+            parameters,
+            seat=seat,
+            y_edge=y_edge,
+            edge_tol=edge_tol,
+            holes=[
+                (bore_station, values["bore_y_mm"], values["bore_dia_mm"] / 2),
+                *((x, y, values["cbore_dia_mm"] / 2) for x, y in points),
+            ],
+        )
     _edge_breaks(raw, values)
     _blank_mm(values, parameters)
     # A centred vise hold leaves equal insets (negative overhangs) at both jaw
@@ -250,6 +295,7 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
         jaw = _positive(parameters["vise_jaw_width_mm"], "process.vise_jaw_width_mm")
         for key, along in (
             ("blank", values.get("blank_length_mm")),
+            ("offcut", values.get("offcut_length_mm")),
             ("x", length),
             ("y", y_length),
         ):
@@ -258,13 +304,46 @@ def _load(path: Path, parameters: dict, part: str) -> CadData:
     return CadData(values, StockRequirement("in", envelope), path.resolve())
 
 
-def _feed(features, values, seat, length, height, y_edge, hole, nominal, bind) -> None:
-    """Bind the feed block's lug, leadscrew clearance and assembly-transferred taps."""
-    bind(seat, "lug_x", "carriage_seat", "lug_x")
-    bind(seat, "lug_length", "carriage_seat", "lug_length")
-    lug_end = y_edge - values["overall_y_mm"]
+def _feed(
+    features: dict,
+    values: dict,
+    parameters: dict,
+    *,
+    seat: dict,
+    y_edge: float,
+    edge_tol: float,
+    holes: list[tuple[float, float, float]],
+) -> None:
+    """Bind the feed block's lug, leadscrew clearance and assembly-transferred
+    taps, and the plan's lug-relative process values.
+
+    ``holes`` are the top holes as (station, row, radius) in mm, the
+    counterbores' radius for H1–H4; each must stay clear of the notch.
+    """
+    lug_x = _bind(values, seat, "lug_x", "carriage_seat", "lug_x")
+    lug_length = _bind(values, seat, "lug_length", "carriage_seat", "lug_length")
+    length, height, overall_y = (
+        values["length_mm"],
+        values["height_mm"],
+        values["overall_y_mm"],
+    )
+    if not (
+        values["lug_x_max_in"] < values["length_min_in"]
+        and values["lug_length_max_in"] < values["overall_y_min_in"]
+    ):
+        raise CadError("carriage_seat: expected the lug inside the block's length")
+    # The notch takes SPINDLE END to lug_x, from LUG END to lug_length; the
+    # head beyond it, overall_y − lug_length from ROW SIDE, keeps every hole.
+    head = overall_y - lug_length
+    for station, row, radius in holes:
+        if row + radius > head and station - radius < lug_x:
+            raise CadError("carriage_seat: a top hole breaks into the lug notch")
+    values["lug_width_mm"] = length - lug_x
+    lug_end = y_edge - overall_y
     # A plain through hole under the title block (no process word on the sheet).
-    bore, at = hole("leadscrew_bore", ["dia", "thru", "row", "height"], [-1, 0, 0])
+    bore, at = _hole(
+        features, "leadscrew_bore", ["dia", "thru", "row", "height"], [-1, 0, 0]
+    )
     if (
         bore.get("thru") is not True
         or "process" in bore
@@ -272,33 +351,102 @@ def _feed(features, values, seat, length, height, y_edge, hole, nominal, bind) -
         or bore.get("height_from") != "carriage_seat"
     ):
         raise CadError("leadscrew_bore: expected a plain through hole from the lug end")
-    row = bind(bore, "row", "leadscrew_bore", "screw_y")
-    z = bind(bore, "height", "leadscrew_bore", "screw_z")
+    row = _bind(values, bore, "row", "leadscrew_bore", "screw_y")
+    z = _bind(values, bore, "height", "leadscrew_bore", "screw_z")
+    # LUG END comes from the pivot row and the overall length, both printed
+    # nominals: allow each one's rounding as well as the bore row's own.
+    row_tol = (
+        edge_tol
+        + _printed_mm(seat, "overall_y", "carriage_seat")
+        + _printed_mm(bore, "row", "leadscrew_bore")
+    )
     if (
-        not _close(at[0], length / 2)
-        or not _close(at[1] - lug_end, row)
-        or not _close(at[2], z)
-        or row >= values["lug_length_mm"]
+        not _close(at[0], length / 2, _printed_mm(seat, "length", "carriage_seat"))
+        or not _close(at[1] - lug_end, row, row_tol)
+        or not _close(at[2], z, _printed_mm(bore, "height", "leadscrew_bore"))
+        or row >= lug_length
         or not 0 < z < height
     ):
         raise CadError("leadscrew_bore.at: expected on the lug, from its +X face")
-    bind(bore, "dia", "leadscrew_bore", "screw_dia")
+    _bind(values, bore, "dia", "leadscrew_bore", "screw_dia")
     values["screw_z_band_text"] = (
         f"{values['screw_z_band_mm'][0]:.2f}–{values['screw_z_band_mm'][1]:.2f} mm"
     )
     shared: dict = {}
     for n in range(1, 5):
         name = f"nut_tap_{n}"
-        item, _ = hole(name, ["thread", "dia", "thru", "clock_deg", "note"], [-1, 0, 0])
+        item, _ = _hole(
+            features, name, ["thread", "dia", "thru", "clock_deg", "note"], [-1, 0, 0]
+        )
         if item.get("at_assembly") is not True or item.get("thru") is not True:
             raise CadError(f"{name}: expected a through tap transferred at assembly")
         for field in ("thread", "note", "dia", "clock_deg"):
             if shared.setdefault(field, item.get(field)) != item.get(field):
                 raise CadError(f"{name}.{field}: nut taps disagree")
-        nominal(item, "clock_deg", name)
+        _nominal(item, "clock_deg", name)
     values["nut_tap_count"] = 4
     values["nut_thread"] = _string(shared["thread"], "nut_tap_1.thread")
-    values["nut_tap_note"] = _string(shared["note"], "nut_tap_1.note")
-    low, high = (_number(v, "nut_tap_1.clock_deg") for v in shared["clock_deg"])
-    values["nut_clock_min_deg"] = low
-    values["nut_clock_max_deg"] = high
+    _feed_process(values, parameters)
+
+
+def _feed_process(values: dict, parameters: dict) -> None:
+    """Bind the feed plan's millimetre and lug-relative values from its inch
+    parameters, refusing bad relations here so both profiles do.
+
+    Notch hold: the worst-case overhang and the spacer offcut sawn from the
+    bar (and how far over the block's height it may stand). Leadscrew
+    clearance (before the notch): the pilot runs blind from OUTER END to
+    ``lug_bore_depth_in``, past the lug face at every drawing size; the 3/8
+    end mill plunges ``lug_bore_mill_in`` from OUTER END and, after the notch,
+    down from the lug face to Z −(lug_x + mill) from SPINDLE END, so neither
+    plunge puts its shank in the hole and the two meet at every drawing size.
+    Notch passes: the middle of the height, and each side with the cutter
+    ``notch_side_overrun_in`` past its face.
+    """
+    length_in = values["length_nominal_in"]
+    lug_x_in = values["lug_x_nominal_in"]
+    if "notch_overhang_max_in" in parameters:
+        over = _positive(
+            parameters["notch_overhang_max_in"], "process.notch_overhang_max_in"
+        )
+        values["notch_overhang_mm"] = over * 25.4
+    if "offcut_length_in" in parameters:
+        offcut = _positive(parameters["offcut_length_in"], "process.offcut_length_in")
+        values["offcut_length_mm"] = offcut * 25.4
+    # The spacer offcut is faced to the block's height and may stand over it
+    # by no more than this: the comparison its inspection gauges.
+    if "spacer_over_max_in" in parameters:
+        over = _positive(parameters["spacer_over_max_in"], "process.spacer_over_max_in")
+        values["spacer_over_band_mm"] = [0.0, over * 25.4]
+    if "lug_bore_depth_in" in parameters:
+        depth = _positive(parameters["lug_bore_depth_in"], "process.lug_bore_depth_in")
+        if not values["length_max_in"] - values["lug_x_min_in"] < depth:
+            raise CadError("process.lug_bore_depth_in: must pass the lug face")
+        if not depth < values["length_min_in"]:
+            raise CadError("process.lug_bore_depth_in: must stop inside the block")
+        values["lug_bore_floor_in"] = length_in - depth
+        values["lug_bore_floor_mm"] = (length_in - depth) * 25.4
+    if "lug_bore_mill_in" in parameters:
+        mill = _positive(parameters["lug_bore_mill_in"], "process.lug_bore_mill_in")
+        back_z = lug_x_in + mill
+        if not values["length_max_in"] < lug_x_in + 2 * mill:
+            raise CadError("process.lug_bore_mill_in: the two plunges must meet")
+        if not back_z < values["length_min_in"]:
+            raise CadError("process.lug_bore_mill_in: must stop inside the lug")
+        if mill >= parameters.get("lug_bore_depth_in", math.inf):
+            raise CadError("process.lug_bore_mill_in: must stop short of the pilot")
+        values["lug_bore_back_z_in"] = back_z
+        values["lug_bore_back_floor_mm"] = (length_in - back_z) * 25.4
+    if "notch_side_overrun_in" in parameters and "half_cutter_dia_mm" in parameters:
+        overrun = _positive(
+            parameters["notch_side_overrun_in"], "process.notch_side_overrun_in"
+        )
+        radius = (
+            _positive(parameters["half_cutter_dia_mm"], "process.half_cutter_dia_mm")
+            / 25.4
+            / 2
+        )
+        height_in = values["height_nominal_in"]
+        values["notch_pass_near_in"] = radius - overrun
+        values["notch_pass_mid_in"] = height_in / 2
+        values["notch_pass_far_in"] = height_in - radius + overrun

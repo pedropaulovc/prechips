@@ -1,6 +1,8 @@
 import base64
 import re
+import tomllib
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -29,20 +31,42 @@ def test_plans_render_with_every_check(tmp_path, plan, number, setups, profile):
         assert html.count('class="setup-diagram"') == setups
 
 
-def test_feed_block_pictures_show_the_faced_spacer_offcut(tmp_path):
-    # The notch spacer is the offcut sawn with the blank and faced to the
-    # block's height, not the finished TL-22.
+def test_notch_picture_draws_the_spacer_offcut_at_its_size(tmp_path):
+    # The notch spacer is the offcut sawn from the bar and faced to the
+    # block's height: the bar width along the jaws, the sawn length upright.
     out = tmp_path / "feed-block-hobby.html"
-    command = ["traveler", str(ROOT / "examples/feed-block.toml"), "--profile", "hobby"]
-    assert main([*command, "--out", str(out)]) == 0
-    html = out.read_text(encoding="utf-8")
-    svgs = "".join(
-        base64.b64decode(data).decode("utf-8")
-        for data in re.findall(r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", html)
+    plan = ROOT / "examples/feed-block.toml"
+    assert main(["traveler", str(plan), "--profile", "hobby", "--out", str(out)]) == 0
+    parameters = tomllib.loads(plan.read_text(encoding="utf-8"))["parameters"]
+    ratio = parameters["blank_width_in"] / parameters["offcut_length_in"]
+    svg = "{http://www.w3.org/2000/svg}"
+    rects = [
+        rect
+        for data in re.findall(
+            r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", out.read_text("utf-8")
+        )
+        for group in ElementTree.fromstring(base64.b64decode(data)).iter(f"{svg}g")
+        if group.get("fill") == "#e6e7e9"  # fixtures
+        for rect in group.iter(f"{svg}rect")
+    ]
+    assert any(
+        abs(float(r.get("width")) / float(r.get("height")) - ratio) < 0.01
+        for r in rects
     )
-    assert "spacer offcut, faced to" in svgs
-    assert "(TL-22)" not in svgs
-    assert ">spacer<" in svgs
+
+
+def test_station_tolerance_follows_the_printed_places(tmp_path):
+    # The pivot seat's station prints to two places (.82): its model point
+    # may sit up to .005 in (0.127 mm) off, but no further.
+    text = PIVOT.read_text(encoding="utf-8")
+    old = '"at" = [0.0, 0.0, 24.384]'
+    assert text.count(old) == 2  # the seat and its tap, one axis
+    moved = tmp_path / "moved.toml"
+    moved.write_text(text.replace(old, '"at" = [0.1, 0.0, 24.384]'), "utf-8")
+    load_pivot_block(moved, {})
+    moved.write_text(text.replace(old, '"at" = [0.2, 0.0, 24.384]'), "utf-8")
+    with pytest.raises(CadError, match="station disagrees"):
+        load_pivot_block(moved, {})
 
 
 def test_rows_run_from_each_block_s_own_side():
@@ -67,7 +91,7 @@ def test_refuses_the_other_block_and_a_moved_hole(tmp_path):
     text = PIVOT.read_text(encoding="utf-8")
     old = '"at" = [-13.0, -13.0, 24.384]'
     assert text.count(old) == 1
-    moved.write_text(text.replace(old, '"at" = [-13.0, -12.9, 24.384]'), "utf-8")
+    moved.write_text(text.replace(old, '"at" = [-13.0, -12.7, 24.384]'), "utf-8")
     with pytest.raises(CadError, match="row origin disagrees"):
         load_pivot_block(moved, {})
 
