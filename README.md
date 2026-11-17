@@ -237,7 +237,7 @@ Numeric fields are millimetres and accept exact whole-field bindings such as `"{
 # In the shop file:
 [machines.pm-30mv]
 kind = "mill"                 # mill, lathe or dividing_head
-rpm_ranges = [[50, 3000]]
+rpm_ranges = [[100, 2800]]
 travel_mm = { x = 584.2, y = 222.25, z = 355.6 }
 spindle_to_table_mm = [60.96, 431.8]
 
