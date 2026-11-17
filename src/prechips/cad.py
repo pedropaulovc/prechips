@@ -539,11 +539,10 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
         values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
     # Vise holds centre the finished bar on the jaws (plan's copy of the shop
     # vise jaw width); the right side is the rest.
-    values["vise_centred_overhang_mm"] = (
-        values["length_mm"]
-        - _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
-    ) / 2
-    # Setup 5 jack centres stay plan-authored; refuse one off the bar or under a
+    jaw = _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
+    values["vise_centred_overhang_mm"] = (values["length_mm"] - jaw) / 2
+    values["vise_centred_jaw_right_mm"] = values["vise_centred_overhang_mm"] + jaw
+    # Jack centres stay plan-authored; refuse one off the bar or under a
     # through feature's drawn outline (rail hole, counterbore, slot).
     outlines = [
         (f"R{index}", x, y, x, y, values["rail_dia_in"] / 2)
@@ -569,7 +568,34 @@ def _load_base_bar(path: Path, parameters: dict) -> CadData:
             near = (min(max(x, x1), x2), min(max(y, y1), y2))
             if math.dist((x, y), near) <= radius:
                 raise CadError(f"{at}: X {x:g} Y {y:g} is under {name}")
+        values[f"jack_{side}_x_mm"] = x * 25.4
+    # Milling-deflection stations, mm from ZERO END: each end's holes (left or
+    # right of mid-length) ride on that end's jack, and each slot's entry
+    # plunge sits at the cutter-centre corner X nearest its nearer jack.
+    middle = values["length_mm"] / 2
+    values["rail_left_x_mm"] = [x for x in values["rail_x_mm"] if x < middle]
+    values["rail_right_x_mm"] = [x for x in values["rail_x_mm"] if x >= middle]
+    for index in (1, 2):
+        values[f"bracket_x{index}_mm"] = _mid(values[f"bracket_x{index}_band_mm"])
+    left, right = values["jack_left_x_mm"], values["jack_right_x_mm"]
+    values["slot_x_mm"] = [shape["x_in"] * 25.4 for shape in shapes]
+    entries = []
+    for x in values["slot_x_mm"]:
+        jack = left if abs(left - x) <= abs(right - x) else right
+        low, high = x - offset * 25.4, x + offset * 25.4
+        entries.append(low if abs(low - jack) < abs(high - jack) else high)
+    values["slot_entry_x_mm"] = entries
     _blank_mm(values, parameters)
+    # Setup 2's straps sit strap_inset_mm in from each blank end; Setup 3
+    # centres the arriving blank on the jaws.
+    if "blank_length_mm" in values:
+        blank = values["blank_length_mm"]
+        values["blank_centred_overhang_mm"] = (blank - jaw) / 2
+        values["blank_centred_jaw_right_mm"] = (blank + jaw) / 2
+        if "strap_inset_mm" in parameters:
+            inset = _positive(parameters["strap_inset_mm"], "process.strap_inset_mm")
+            values["strap_left_x_mm"] = inset
+            values["strap_right_x_mm"] = blank - inset
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 

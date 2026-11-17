@@ -1,5 +1,6 @@
 """Bindings for the released harmonic oblique-trammel feed lever (MHA-CH-06-TL-26)."""
 
+import math
 from pathlib import Path
 
 from .cad import (
@@ -90,13 +91,22 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     values["hole_count"] = len(holes)
     values["hole_stations_in"] = ", ".join(f"{x / 25.4:.2f}" for x in stations)
     values["hole_x_in"] = [x / 25.4 for x in stations]
+    values["hole_x_mm"] = stations
     values["station_tol_in"] = min(tolerances) / 25.4
     values["hole_rows"] = [
         [f"H{index}", f"{x / 25.4:.3f}", f"{values['row_in']:.3f}"]
         for index, x in enumerate(stations, 1)
     ]
 
-    _edge_breaks(raw, values)
+    general = _edge_breaks(raw, values)
+    # End squareness: ±angular_deg across the 1 in width, as the spread of two
+    # DRO X readings on one end, one at each edge.
+    values["angular_tol_deg"] = _positive(
+        general.get("angular_deg"), "general_tolerances.angular_deg"
+    )
+    values["end_square_in"] = values["width_in"] * math.tan(
+        math.radians(values["angular_tol_deg"])
+    )
     # The two grip-end plan corners (drawing 2X R.2): one fillet record.
     corners = features.get("grip_corners")
     if (
@@ -118,8 +128,18 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     values["corner_radius_band_mm"] = [low, high]
     _blank_mm(values, parameters)
     # The hand sheet gives the vise overhang in inches; vise_hold reads mm.
-    if "overhang_in" in parameters:
-        values["overhang_mm"] = (
-            _positive(parameters["overhang_in"], "process.overhang_in") * 25.4
+    if "overhang_in" not in parameters:
+        return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
+    values["overhang_mm"] = (
+        _positive(parameters["overhang_in"], "process.overhang_in") * 25.4
+    )
+    # Milling-deflection clamps, mm from ZERO END. Setup 2: ZERO END overhang_mm
+    # out left. Setup 3: slid left, the arriving grip end overhang_mm out right.
+    jaw = _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
+    values["jaw_right_x_mm"] = values["overhang_mm"] + jaw
+    if "blank_length_mm" in values:
+        values["grip_jaw_right_x_mm"] = (
+            values["blank_length_mm"] - values["overhang_mm"]
         )
+        values["grip_jaw_left_x_mm"] = values["grip_jaw_right_x_mm"] - jaw
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())

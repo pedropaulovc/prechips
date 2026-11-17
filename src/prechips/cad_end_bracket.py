@@ -123,6 +123,7 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
     if any(row != rows[0] for row in rows):
         raise CadError("cad.row: holes disagree on the row band")
     _inch_limits(values, "row", rows[0])
+    values["row_mm"] = _mid(rows[0])
     values["thread"] = _string(shared["thread"], "tap_1.thread")
     _inch_limits(values, "tap_drill", _band(holes[0][1], "dia", holes[0][0]))
     values["hole_count"] = len(holes)
@@ -168,6 +169,36 @@ def load_end_bracket(path: Path, parameters: dict) -> CadData:
             raise CadError(f"cad.notes.process: reversed {key} mark")
         values[f"{key}_min_in"] = low
         values[f"{key}_max_in"] = high
+    # One authored flag per face, measured from the tap's physical tip as the
+    # process note states the marks. Each flag, ± the authored placement
+    # tolerance, must sit in its face's tip window, and the two deepest tips
+    # together must stay under the thinnest bracket, or the taps could meet.
+    tolerance = _number(parameters.get("tap_flag_tol_in"), "process.tap_flag_tol_in")
+    if tolerance < 0:
+        raise CadError("process.tap_flag_tol_in: expected a nonnegative tolerance")
+    reach = 0.0
+    for key in ("bar", "kp08"):
+        at = f"process.{key}_tap_flag_in"
+        flag = _positive(parameters.get(f"{key}_tap_flag_in"), at)
+        low, high = values[f"{key}_tip_min_in"], values[f"{key}_tip_max_in"]
+        if flag - tolerance < low or flag + tolerance > high:
+            raise CadError(
+                f"{at}: {flag:g} ±{tolerance:g} leaves the drawing's tip window "
+                f"{low:.3f}–{high:.3f}"
+            )
+        reach += flag + tolerance
+    if reach >= values["width_min_in"]:
+        raise CadError(
+            f"process: the deepest tap tips reach {reach:.3f} from both faces, not "
+            f"under the {values['width_min_in']:.3f} minimum width; the taps could meet"
+        )
+    # Setup 3's beam: the hole row spans the gap between two parallels against
+    # the jaws, pinned at their centres across the part's thickness.
+    parallel = _positive(
+        parameters.get("parallel_thickness_mm"), "process.parallel_thickness_mm"
+    )
+    values["parallel_near_mm"] = parallel / 2
+    values["parallel_far_mm"] = values["thickness_mm"] - parallel / 2
 
     _edge_breaks(raw, values)
     _blank_mm(values, parameters)
