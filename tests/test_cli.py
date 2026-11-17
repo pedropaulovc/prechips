@@ -236,9 +236,21 @@ def test_instruction_markdown_is_applied_after_escaping(tmp_path):
 @pytest.mark.parametrize(
     "value,html",
     [
-        # Footnote marks and a minus-sign tolerance line stay literal.
+        # Footnote marks and a minus-sign tolerance line stay literal;
+        # emphasis may end in punctuation.
         ("Ream (*) then gauge (*)", "Ream (*) then gauge (*)"),
-        ("Ø.376 +.001\n- .000\n- 1 pass", "Ø.376 +.001\n- .000\n- 1 pass"),
+        ("*Note:* gauge", "<em>Note:</em> gauge"),
+        ("Ø.376 +.001\n- .000", "Ø.376 +.001\n- .000"),
+        # A bullet that starts with a quantity stays in its list.
+        (
+            "Tap:\n- Spot\n- 4 holes M6\n- Chamfer",
+            "Tap:<ul><li>Spot</li><li>4 holes M6</li><li>Chamfer</li></ul>",
+        ),
+        # Authored numbers that skip print as written.
+        (
+            "10. Face\n20. Drill\n21. Ream",
+            '<ol start="10"><li>Face</li><li value="20">Drill</li><li>Ream</li></ol>',
+        ),
         # Blank lines beside a list print as gaps, except at either end.
         (
             "\nIntro\n\n1. A\n\n2. B\nTail\n",

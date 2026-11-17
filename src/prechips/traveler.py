@@ -530,11 +530,12 @@ code { font-family: Consolas, "Courier New", monospace; font-size: 0.95em; }
 
 _CODE = re.compile(r"`([^`\n]+)`")
 _BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
-# Emphasis needs a word character inside each mark, so footnote marks such as
-# "(*)" stay literal.
-_EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=\w)\*(?![*\w])")
-# "- " before a digit or point is a minus sign (a "- .000" tolerance line).
-_ITEM = re.compile(r"(\d+)\. (.*)|- (?![\d.])(.*)")
+# Emphasis opens before a word character, so footnote marks such as "(*)"
+# stay literal; it may close after punctuation ("*Note:*").
+_EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=[^\s*])\*(?![*\w])")
+# A line that is only "- " and a number is a minus-sign tolerance ("- .000"),
+# not a bullet; "- 4 holes M6" is a bullet.
+_ITEM = re.compile(r"(\d+)\. (.*)|- (?![\d.]+$)(.*)")
 # A blank line beside a list: the list's block edges would swallow it.
 _GAP = '<div class="gap"></div>'
 
@@ -558,7 +559,7 @@ def _rich(value: str) -> str:
     blocks: list[str] = []
     plain: list[str] = []
     items: list[str] = []
-    tag = start = None
+    tag = start = number = None
 
     def close_list() -> None:
         nonlocal tag
@@ -597,7 +598,15 @@ def _rich(value: str) -> str:
             if plain:
                 blocks.append(_GAP * flush_plain())
             tag, start = kind, int(item[1]) if item[1] else None
-        items.append(f"<li>{_inline(item[2] if item[1] else item[3])}</li>")
+        text = _inline(item[2] if item[1] else item[3])
+        if kind == "ul":
+            items.append(f"<li>{text}</li>")
+            continue
+        # An authored number that does not follow on prints as written.
+        value = int(item[1])
+        skip = f' value="{value}"' if items and value != number + 1 else ""
+        number = value
+        items.append(f"<li{skip}>{text}</li>")
     close_list()
     if plain:
         flush_plain()
