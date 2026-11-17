@@ -617,11 +617,13 @@ _DOT = re.compile(r"\.([0-9])dot")
 def _denoised(value: float) -> float:
     """A float rounded to 9 places, finer than any sheet prints, with -0.0 as 0.
 
-    Used where the printed digits follow the value itself (bare, ``fraction``,
-    ``.Ndot``), so unit-conversion noise never reaches the sheet: 9.525 mm in
-    inches prints 0.375 and 3/8, an adapter's 19.05 / 25.4 prints 3/4. Format
-    specs (``f``, ``g``, ``e``, ``%``, ``d``) get the value as computed: ``e``
-    and ``g`` still print small magnitudes and ``d`` stays strict.
+    Every printed binding but ``e``, ``g`` and ``%`` takes it (bare,
+    ``fraction``, ``.Ndot``, ``.Nf``, ``d``), so unit-conversion noise never
+    reaches the sheet and one value prints the same digits under each: 9.525 mm
+    in inches prints 0.375 and 3/8, an adapter's 19.05 / 25.4 prints 3/4, and
+    76.2 mm under ``ind`` prints 3. ``d`` tests wholeness on this value, so it
+    still refuses anything more than 5e-10 off a whole number. ``e``, ``g`` and
+    ``%`` take the value as computed, so small magnitudes still print.
     """
     if type(value) is not float:
         return value
@@ -674,8 +676,12 @@ def bind_text(
                 if not match[2].endswith("_mm"):
                     raise CadError(f"{match[0]}: the in prefix needs a *_mm key")
                 value, spec = value / 25.4, spec[2:] or None
-            if spec == "fraction":
+            # e/g/% print magnitudes, not fixed digits: they take the value as
+            # computed. Every other path prints the denoised value, so .Nf,
+            # .Ndot, fraction, d and bare agree on one value.
+            if not (spec and spec[-1] in "eg%"):
                 value = _denoised(value)
+            if spec == "fraction":
                 fraction = Fraction(str(value)).limit_denominator(64)
                 if float(fraction) != value:
                     result = str(value)
@@ -695,13 +701,13 @@ def bind_text(
                         + (f"{numerator}/{fraction.denominator}" if numerator else "")
                     )
             elif spec and (dot := _DOT.fullmatch(spec)):
-                result = _shorthand(_denoised(value), int(dot[1]))
+                result = _shorthand(value, int(dot[1]))
             elif spec:
                 if not _FORMAT.fullmatch(spec) or (spec == "d" and value != int(value)):
                     raise CadError(f"{match[0]}: unsupported numeric format")
                 result = format(int(value) if spec == "d" else value, spec)
             else:
-                result = str(_denoised(value))
+                result = str(value)
         elif isinstance(value, str) and spec is None:
             result = value
         else:

@@ -46,10 +46,11 @@ def test_flat_crossings_and_nut_bands():
     assert values["csk_cutter_band_mm"] == [4.76, 4.7625]
     # The finished end lies right of the vise, and the jaws grip the piece.
     assert 0 < values["vise_jaw_left_min_mm"] < values["vise_jaw_right_min_mm"]
-    # The vise is set from the sawn end: the right jaw on the short, nominal
-    # and long piece, each left of the finished end.
-    jaws = [values[f"vise_jaw_right{s}_mm"] for s in ("_min", "", "_max")]
-    assert jaws == sorted(jaws) and jaws[-1] < values["length_mm"]
+    # The vise is set from the sawn end: a long-sawn piece's right jaw is
+    # its end less the overhang (414.8625 here), left of the finished end.
+    long_jaw = values["saw_piece_max_mm"] - PARAMETERS["cut_overhang_mm"]
+    assert values["vise_jaw_right_max_mm"] == pytest.approx(long_jaw)
+    assert values["vise_jaw_right_max_mm"] < values["length_mm"]
     assert values["bs0_jaw_clocks"] == "2, 6 and 10"
     # Deflection station at the shortest in-band screw (L 418.7).
     assert values["far_kp08_outer_from_cut_mm"] == pytest.approx(418.7 - 385.016 - 8.0)
