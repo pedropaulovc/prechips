@@ -114,6 +114,8 @@ def test_a_misplaced_test_coupon_refuses():
         ({"coupon_hole_y_in": 5.65}, "not behind"),
         ({"coupon_hole_x_in": 9.7}, "reaches a back strap block"),
         ({"coupon_length_in": 1.0}, "no room for a parallel"),
+        # Body clear (13.56), but its 3.25 in strap reaches 16.81 > 16.74.
+        ({"coupon_hole_x_in": 12.0}, "onto block 4's back strap"),
     ):
         with pytest.raises(CadError, match=message):
             load_carrier(SOURCE, PARAMETERS | change)

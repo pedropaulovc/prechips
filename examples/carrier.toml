@@ -97,6 +97,13 @@ coupon_hole_y_in = 5.9
 # depth. LMS 6745 parallels are 1/8 in thick
 # (https://littlemachineshop.com/products/thin-parallels-4-long-11-pairs-sized-by-16ths).
 coupon_parallel_width_in = 0.125
+# The coupon's own strap runs along +X from its toe on the coupon: a 3/8-16
+# stud step clamp, TE-CO 30801, 3.250 in long × 1.000 in wide
+# (https://catalog.te-co.com/viewitems/machined-clamps/step-clamps), toe down,
+# heel step slightly high. The adapter refuses a strap body that, from a toe
+# at the coupon's right end, reaches block 4's back strap (here it ends near
+# X 15.06, 1.68 clear).
+strap_length_in = 3.25
 # TL-VN-78 (AS62-18-40) OD .625 -.005: the adapter checks the broken underside
 # edge stays inside its seat; the setup 6 picture draws it.
 spacer_seat_dia_in = 0.62

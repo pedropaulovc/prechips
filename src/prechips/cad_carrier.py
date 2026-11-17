@@ -445,6 +445,7 @@ _COUPON = (
     "coupon_hole_x_in",
     "coupon_hole_y_in",
     "coupon_parallel_width_in",
+    "strap_length_in",
 )
 
 
@@ -458,7 +459,10 @@ def _coupon(values: dict, parameters: dict) -> None:
     or a back strap block (``_BACK_STRAP_BLOCKS``, themselves placed within the
     tolerance), and one too short to stand a ``coupon_parallel_width_in``
     parallel each side between its end and one hole diameter from the hole
-    centre. Only the coupon body is checked; its own strap's heel is not.
+    centre. The coupon's own strap runs along +X, toe down on it, its
+    ``strap_length_in`` body toward the right-hand back strap block: taking
+    the toe end at the coupon's right end, the farthest it can bear, the body
+    must also clear that block.
     Binds ``coupon_hole_y_mm`` for the holes envelope and
     ``coupon_parallel_height_in``: the parallels stand at the blocks' height,
     so the reamer breaks through the coupon at the plate's depth.
@@ -469,7 +473,7 @@ def _coupon(values: dict, parameters: dict) -> None:
         return
     if "block_x_in" not in values:
         raise CadError("process.coupon_*: needs the support block_* keys")
-    width, length, x, y, parallel = (
+    width, length, x, y, parallel, strap = (
         _positive(parameters[key], f"process.{key}") for key in _COUPON
     )
     bar = _positive(parameters.get("blank_width_in"), "process.blank_width_in")
@@ -495,6 +499,12 @@ def _coupon(values: dict, parameters: dict) -> None:
             f"process.coupon_hole_x_in: coupon X {start:.2f}–{end:.2f} with its "
             f"±{slack:.2f} placing tolerance reaches a back strap block (clear "
             f"span {low:.2f}–{high:.2f})"
+        )
+    if end + strap >= high:
+        raise CadError(
+            f"process.strap_length_in: the coupon's strap, toe at X {end:.2f} with "
+            f"the placing tolerance, reaches X {end + strap:.2f}, onto block "
+            f"{_BACK_STRAP_BLOCKS[1]}'s back strap (from X {high:.2f})"
         )
     block = _positive(parameters.get("block_height_mm"), "process.block_height_mm")
     values["coupon_hole_y_mm"] = y * 25.4
