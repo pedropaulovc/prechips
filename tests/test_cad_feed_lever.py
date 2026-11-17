@@ -64,3 +64,10 @@ def test_corner_radius_prints_the_nominal_not_the_band_midpoint(tmp_path):
     cad = load_feed_lever(skewed, {})
     assert cad.values["corner_radius_in"] == pytest.approx(0.2)
     assert cad.values["corner_radius_max_in"] == pytest.approx(0.4)
+
+
+def test_an_end_cut_depth_that_prints_short_of_the_thickest_bar_is_refused():
+    # .5 + .004 prints ".50" from the top: it stops above a .509 bar's underside.
+    parameters = {"blank_thickness_in": 0.5, "end_cut_tip_z_mm": -0.1}
+    with pytest.raises(CadError, match="thickest bar"):
+        load_feed_lever(SOURCE, parameters)
