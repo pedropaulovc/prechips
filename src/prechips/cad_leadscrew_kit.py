@@ -304,7 +304,9 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     jaw = _positive(parameters.get("vise_jaw_width_mm"), "process.vise_jaw_width_mm")
     values["vise_jaw_right_mm"] = values["saw_piece_mm"] - overhang
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
-    if values["vise_jaw_left_mm"] <= 0:
+    # A piece sawn short by the mark tolerance moves the left jaw that much
+    # closer to the NEAR END: the screw must still span the jaws.
+    if values["vise_jaw_left_mm"] - mark_tol <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
     # The vise is set from the sawn end: a piece sawn long by the mark
     # tolerance must still finish clear of the right jaw.
@@ -317,10 +319,18 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     # the traveler prints X −(L − centre) against the measured L.
     for name in ("far_kp08", "handwheel"):
         values[f"{name}_from_cut_mm"] = length - values[f"{name}_centre_mm"]
-    # The cut-end KP08 flat's edge nearest the cut end: its farthest point
-    # from the dividing-head jaws (milling_deflection station).
+        # At the longest cut the crossing stands farthest in from the cut end,
+        # nearest the dividing-head jaws (stick-out checks, machine envelope).
+        values[f"{name}_from_cut_max_mm"] = (
+            values["length_max_mm"] - values[f"{name}_centre_mm"]
+        )
+    # The cut-end KP08 flat's edge nearest the cut end, at the shortest cut:
+    # its farthest point from the dividing-head jaws (milling_deflection
+    # station, the longest lever arm of any in-band screw).
     values["far_kp08_outer_from_cut_mm"] = (
-        length - values["far_kp08_station_mm"] - values["flat_length_mm"]
+        values["length_min_mm"]
+        - values["far_kp08_station_mm"]
+        - values["flat_length_mm"]
     )
     # Dividing-head stick-outs: the cutter's inboard edge stays out of the
     # jaws at every crossing, the cut-end ones at the longest cut (they are
@@ -328,8 +338,8 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     # short of the flange and the seat face the tool faces.
     inboard = {
         "near_stickout_mm": values["near_kp08_centre_mm"],
-        "wheel_stickout_mm": values["length_max_mm"] - values["handwheel_centre_mm"],
-        "far_stickout_mm": values["length_max_mm"] - values["far_kp08_centre_mm"],
+        "wheel_stickout_mm": values["handwheel_from_cut_max_mm"],
+        "far_stickout_mm": values["far_kp08_from_cut_max_mm"],
     }
     for key, centre in inboard.items():
         stickout = _positive(parameters.get(key), f"process.{key}")
@@ -343,6 +353,15 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
         raise CadError(
             f"process.mandrel_stickout_mm: the offcut must end inside the nut's "
             f"body (under {body_min:g}), clear of the flange and seat face"
+        )
+    # The offcut is the lathe mandrel: after a mark long by its tolerance and
+    # the saw kerf, it must still stand out of the jaws by the stick-out.
+    kerf = _positive(parameters.get("kerf_mm"), "process.kerf_mm")
+    offcut = stock - values["saw_piece_mm"] - mark_tol - kerf
+    if offcut <= mandrel:
+        raise CadError(
+            f"process.screw_stock_length_mm: the offcut ({offcut:.1f}) is too "
+            f"short for the {mandrel:g} lathe mandrel stick-out"
         )
     return CadData(
         values,
