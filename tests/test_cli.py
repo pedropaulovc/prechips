@@ -419,6 +419,72 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     assert "<svg" not in html
 
 
+def with_operation_diagram(text, file="op.svg"):
+    return text.replace(
+        'tool = "internal-mill-id"',
+        f'tool = "internal-mill-id"\ndiagram = {{ file = "{file}", alt = "Op <view>" }}',
+        1,
+    )
+
+
+def test_operation_diagram_prints_before_its_row_and_is_optional(tmp_path):
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect class="holes"/></svg>'
+    (tmp_path / "setup.svg").write_text(svg.replace("holes", "x"), encoding="utf-8")
+    (tmp_path / "op.svg").write_text(svg, encoding="utf-8")
+    required = stock_free_profile(tmp_path, diagrams=True)
+    text = with_operation_diagram(with_diagram(PLAN, file="setup.svg"))
+    result, out = run_cli(tmp_path, text, "--profile", required)
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    setup_figure = html.index('alt="Vise &amp; stock &lt;side view&gt;"')
+    group = html.index(
+        '<tbody class="op-group"><tr class="op-diagram"><td colspan="3">'
+        '<figure class="setup-diagram op-picture">'
+    )
+    group_end = html.index("</tbody>", group)
+    # The picture and its operation's row cannot print apart.
+    assert (
+        setup_figure < group < html.index('<td class="op-number">10</td>') < group_end
+    )
+    assert ".op-group" in html[html.index("<style>") : html.index("</style>")]
+    # Setup pictures still count apart from operation pictures.
+    assert html.count('class="setup-diagram"') == 1
+    assert 'alt="Op &lt;view&gt;"' in html
+    assert "Picture key: hole" in html  # The operation picture's roles count.
+    # No empty row group sits between the header and a first-op group, or
+    # after a last-op group.
+    empty = re.compile(r"<tbody[^>]*>\s*</tbody>")
+    assert not empty.search(html)
+    assert '</thead>\n<tbody class="op-group">' in html
+    # Between plain rows, the group closes the plain tbody and reopens one.
+    middle = PLAN.replace(
+        "[[setups.operations]]",
+        '[[setups.operations]]\ninstruction = "Before."\n\n[[setups.operations]]',
+        1,
+    )
+    middle += '\n[[setups.operations]]\ninstruction = "After."\n'
+    middle = with_operation_diagram(with_diagram(middle, file="setup.svg"))
+    result, out = run_cli(tmp_path, middle, "--profile", required)
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    assert not empty.search(html)
+    assert '</td></tr>\n</tbody><tbody class="op-group">' in html
+    assert '</tbody>\n<tbody><tr><td class="op-number">30</td>' in html
+    # The profile requires the setup picture only; an operation picture
+    # cannot stand in for it.
+    result, out = run_cli(tmp_path, with_operation_diagram(PLAN), "--profile", required)
+    assert result.returncode == 2
+    assert "'Face stock'.diagram: required" in result.stderr
+    # A broken operation picture is refused by its op; pro never opens it.
+    missing = with_operation_diagram(with_diagram(PLAN, file="setup.svg"), "no.svg")
+    result, out = run_cli(tmp_path, missing, "--profile", required)
+    assert result.returncode == 2
+    assert "setup 1 (Face stock), Op 10 diagram: cannot use SVG" in result.stderr
+    result, out = run_cli(tmp_path, missing, "--profile", stock_free_profile(tmp_path))
+    assert result.returncode == 0, result.stderr
+    assert "<img " not in out.read_text(encoding="utf-8")
+
+
 def test_authored_diagram_keeps_its_own_classes_and_markers(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
@@ -502,7 +568,7 @@ def test_custom_optional_diagrams_and_plan_relative_paths(tmp_path):
     assert not out.exists()
 
 
-@pytest.mark.parametrize("input_kind", ["profile", "diagram"])
+@pytest.mark.parametrize("input_kind", ["profile", "diagram", "op-diagram"])
 @pytest.mark.parametrize("output_kind", ["input", "hardlink"])
 def test_output_cannot_replace_profile_or_used_diagram(
     tmp_path, input_kind, output_kind
@@ -510,9 +576,16 @@ def test_output_cannot_replace_profile_or_used_diagram(
     profile = stock_free_profile(tmp_path, diagrams=True)
     diagram = tmp_path / "setup.svg"
     diagram.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
+    (tmp_path / "op.svg").write_bytes(diagram.read_bytes())
     plan = tmp_path / "plan.toml"
-    plan.write_text(with_diagram(PLAN, file="setup.svg"), encoding="utf-8")
-    source = tmp_path / "rendering.toml" if input_kind == "profile" else diagram
+    plan.write_text(
+        with_operation_diagram(with_diagram(PLAN, file="setup.svg")), encoding="utf-8"
+    )
+    source = {
+        "profile": tmp_path / "rendering.toml",
+        "diagram": diagram,
+        "op-diagram": tmp_path / "op.svg",
+    }[input_kind]
     before = source.read_bytes()
     out = source
     if output_kind == "hardlink":

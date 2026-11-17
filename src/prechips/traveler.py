@@ -102,6 +102,19 @@ def _work(operation: dict, where: str) -> None:
     _steps(operation, "steps_detailed", where)
 
 
+def _diagram(table: dict, where: str) -> None:
+    """A setup's or an operation's picture: an SVG file and its alt text."""
+    if "diagram" not in table:
+        return
+    diagram = table["diagram"]
+    where = f"{where}.diagram"
+    if not isinstance(diagram, dict):
+        raise PlanError(f"{where}: expected a table")
+    _keys(diagram, {"file", "alt"}, where)
+    _text(diagram, "file", where)
+    _text(diagram, "alt", where)
+
+
 def _turning_numbers(table: dict, keys: set[str], where: str) -> None:
     for key in keys & table.keys():
         value = table[key]
@@ -311,14 +324,7 @@ def load_plan(path: Path) -> LoadedPlan:
         _turning_support(setup, where)
         for key in ("holding", "datum"):
             _text(setup, key, where, optional=True)
-        if "diagram" in setup:
-            diagram = setup["diagram"]
-            diagram_where = f"{where}.diagram"
-            if not isinstance(diagram, dict):
-                raise PlanError(f"{diagram_where}: expected a table")
-            _keys(diagram, {"file", "alt"}, diagram_where)
-            _text(diagram, "file", diagram_where)
-            _text(diagram, "alt", diagram_where)
+        _diagram(setup, where)
         checks = setup.get("inspection", [])
         if not isinstance(checks, list) or any(
             not isinstance(check, str) or not check.strip() for check in checks
@@ -341,6 +347,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     "feed",
                     "inspection",
                     "table",
+                    "diagram",
                     "cut_kind",
                     "turning_cuts",
                 }
@@ -350,6 +357,7 @@ def load_plan(path: Path) -> LoadedPlan:
             _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
             _turning_cuts(operation, op_where)
             _cutting_settings(operation, op_where)
+            _diagram(operation, op_where)
             tool_id = _text(operation, "tool", op_where, optional=True)
             if tool_id and tool_id not in tool_ids:
                 raise PlanError(f"{op_where}.tool: unknown tool {tool_id!r}")
@@ -646,22 +654,39 @@ def _steps_html(steps: list[dict], layout: StepLayout) -> str:
     return f'<ol class="{layout.value}">' + "".join(rows) + "</ol>"
 
 
+# Printed only on sheets with an operation picture. The picture and its
+# operation's row share one tbody so a page break cannot separate them; the
+# row-level break-after backs that up in engines that ignore break-inside
+# on row groups.
+OP_DIAGRAM_CSS = """\
+.op-group { break-inside: avoid; }
+.op-diagram { break-after: avoid; }
+.op-diagram > td { padding: 0; border-bottom: 0; }
+"""
+
+
+def used_diagrams(setup: dict, profile: Profile) -> dict[int, dict]:
+    """The pictures a render of this setup opens: 0 is the setup's own, n its
+    nth operation's. The CLI's output guard reads the same lookup."""
+    if "setup_diagrams" not in profile.features:
+        return {}
+    tables = (setup, *setup["operations"])
+    return {
+        index: table["diagram"]
+        for index, table in enumerate(tables)
+        if "diagram" in table
+    }
+
+
 def _diagram_html(
-    setup: dict,
-    profile: Profile,
+    diagram: dict,
+    where: str,
+    figure_class: str,
     source_dir: Path,
     cad: CadData | None,
     parameters: dict,
 ) -> tuple[str, set[str]]:
-    """Return the setup's picture figure and the palette roles it draws."""
-    if "setup_diagrams" not in profile.features:
-        return "", set()
-    diagram = setup.get("diagram")
-    where = f"setup {setup['title']!r}.diagram"
-    if diagram is None:
-        if "setup_diagrams" in profile.enforce:
-            raise PlanError(f"{where}: required by profile {profile.name!r}")
-        return "", set()
+    """Return a setup's or operation's picture figure and the roles it draws."""
     path = source_dir / diagram["file"]
     try:
         content = path.read_bytes()
@@ -682,7 +707,7 @@ def _diagram_html(
     image = base64.b64encode(content).decode("ascii")
     alt = _html(diagram["alt"])
     figure = (
-        '<figure class="setup-diagram">'
+        f'<figure class="{figure_class}">'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
@@ -699,7 +724,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(plan['title'])}</title>",
     ]
-    # Sheets using markup or steps get RICH_CSS spliced in here at the end.
+    # Sheets using markup, steps or operation pictures get their extra CSS
+    # spliced in here at the end.
     style_at = len(lines)
     lines += [
         f"<style>{CSS}</style></head><body>",
@@ -726,9 +752,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     # The palette's key prints here, once, listing the roles the pictures draw.
     key_at = len(lines)
     drawn: set[str] = set()
-    rich = False
+    rich = op_diagrams = False
     detailed = "detailed_instructions" in profile.features
     layout = StepLayout.SPACED if detailed else StepLayout.COMPACT
+    pictures_on = "setup_diagrams" in profile.features
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -750,12 +777,23 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 )
             lines.append("</dl>")
         lines.append("</div>")
-        diagram, roles = _diagram_html(
-            setup, profile, source_dir, loaded.cad, loaded.parameters
-        )
-        drawn |= roles
-        if diagram:
+        # Profiles require the setup's picture only; operation pictures are
+        # optional additions under the same feature.
+        pictures = used_diagrams(setup, profile)
+        where = f"setup {setup['title']!r}.diagram"
+        if 0 in pictures:
+            diagram, roles = _diagram_html(
+                pictures[0],
+                where,
+                "setup-diagram",
+                source_dir,
+                loaded.cad,
+                loaded.parameters,
+            )
+            drawn |= roles
             lines.append(diagram)
+        elif pictures_on and "setup_diagrams" in profile.enforce:
+            raise PlanError(f"{where}: required by profile {profile.name!r}")
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
             '<col class="work-column"><col class="settings-column"></colgroup>'
@@ -763,9 +801,35 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             f'<th scope="col">Setup {setup_number} — Work</th>'
             '<th scope="col">Tool / settings</th></tr></thead><tbody>'
         )
-        for operation in setup["operations"]:
+        # The plain tbody just opened has no rows. An op picture and its row
+        # get a tbody of their own ("closed" leaves none open), and no empty
+        # tbody is left between the header and a group: that break point
+        # would carry no break-avoid and could strand the heading.
+        body = "empty"
+        for op_index, operation in enumerate(setup["operations"], 1):
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
+            grouped = op_index in pictures
+            if grouped:
+                # Setup-picture styling, plus a class of its own so setup
+                # pictures can still be counted apart.
+                diagram, roles = _diagram_html(
+                    pictures[op_index],
+                    f"setup {setup_number} ({setup['title']}), Op {operation_number}"
+                    " diagram",
+                    "setup-diagram op-picture",
+                    source_dir,
+                    loaded.cad,
+                    loaded.parameters,
+                )
+                drawn |= roles
+                op_diagrams = True
+                if body == "empty":
+                    lines[-1] = lines[-1].removesuffix("<tbody>")
+                lines.append(
+                    ("</tbody>" if body == "rows" else "") + '<tbody class="op-group">'
+                    f'<tr class="op-diagram"><td colspan="3">{diagram}</td></tr>'
+                )
             # The detailed slot, when selected and authored, replaces the
             # compact one; either slot holds instruction text or steps.
             slots = [("instruction", "steps")]
@@ -782,7 +846,11 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 text = _rich(operation[text_key])
                 rich |= text != _html(operation[text_key])
                 work = f'<div class="text">{text}</div>'
-            lines.append(f'<tr><td class="op-number">{operation_number}</td><td>{work}')
+            reopen = "<tbody>" if body == "closed" and not grouped else ""
+            lines.append(
+                f'{reopen}<tr><td class="op-number">{operation_number}</td><td>{work}'
+            )
+            body = "rows"
             if "inspection" in operation:
                 lines.append(
                     '<div class="text"><strong>Check:</strong> '
@@ -803,10 +871,14 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     '<div class="text setting-value">' + "; ".join(settings) + "</div>"
                 )
             lines.append("</td></tr>")
+            if grouped:
+                lines.append("</tbody>")
+                body = "closed"
             if "table" in operation:
                 data = operation["table"]
                 lines.append(
-                    '<tr class="data-row"><td colspan="3">'
+                    ("<tbody>" if body == "closed" else "")
+                    + '<tr class="data-row"><td colspan="3">'
                     f'<table class="data" aria-label="Op {operation_number} data">'
                     "<thead><tr>"
                     + "".join(
@@ -824,7 +896,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                         + "</tr>"
                     )
                 lines.append("</tbody></table></td></tr>")
-        lines.append("</tbody></table>")
+                body = "rows"
+        lines.append("</table>" if body == "closed" else "</tbody></table>")
         checks = setup.get("inspection", [])
         if len(checks) == 1:
             lines.append(
@@ -847,7 +920,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             ' style="display: block; width: 100%">'
             "</figure>",
         )
-    if rich:
-        lines[style_at] = f"<style>{CSS}{RICH_CSS}</style></head><body>"
+    extra = (RICH_CSS if rich else "") + (OP_DIAGRAM_CSS if op_diagrams else "")
+    if extra:
+        lines[style_at] = f"<style>{CSS}{extra}</style></head><body>"
     lines.append("</body></html>\n")
     return "\n".join(lines)
