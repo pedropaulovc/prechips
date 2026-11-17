@@ -109,7 +109,7 @@ parallel_height_mm = 34.925
 
 All supplied parameters must be finite numbers. `blank_length_in`, `blank_width_in` and `blank_thickness_in`, when supplied, must be positive in every profile. The base-bar adapter requires `half_cutter_dia_mm`, the end mill that cuts the slots, and `vise_jaw_height_mm` and `parallel_height_mm`, which with the thicknesses give the bar's stand-out above the vise jaws; it refuses a finished bar top at or below the jaw tops. `quantity`, when supplied, must be a positive integer (not a fractional value, float or boolean) in every profile. Literal-only plans can omit parameters, including `quantity`; the saw diagram requires `quantity`.
 
-Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. `:.1dot` (any one-digit precision) prints fixed places in shop shorthand without the leading zero, as in `~{{process.overhang_in:.1dot}}` → `~.4`. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
+Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_in:fraction}}` in text. `:.1dot` (any one-digit precision) prints fixed places in shop shorthand without the leading zero, as in `~{{process.overhang_in:.1dot}}` → `~.4`. An `in` prefix prints a millimetre value in inches, so one mm number can feed both analysis data and the sheet: `{{process.rail_peck_mm:in.3dot}}` → `.136`. It applies only to names ending in `_mm`; on any other name it refuses. A whole-field binding can supply structured data, as in `rows = "{{cad.hole_rows}}"`. Unknown names fail; bindings do not execute expressions. See `examples/base-bar.toml` for the complete recipe.
 
 Each adapter applies the selected plan's setup frames and distinguishes model geometry from requirement limits. Named bindings update repeated dimensions and coordinate tables together. Conflicting machining targets and source acceptance limits are input errors. The shaft's reference span remains REF: its final length still follows the assembly fit. The rocker's hub-length aim is authored; its strap aim follows that aim and the bound face depths. Selected tools and gauges remain separate from source acceptance limits.
 
@@ -179,9 +179,9 @@ finish_mm = 0.005
 elastic_modulus_gpa = 207.0
 ```
 
-Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence, and the same file also overrides the `[milling]` and `[drilling]` sections (see [Milling deflection](#milling-deflection)). New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; `drill_kd` is optional and only drilling and plunging read it. Unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
+Use `--turning-config path/to/shop-turning.toml`, or set `turning_config = "shop-turning.toml"` in a custom profile (relative to that profile). The CLI file takes precedence, and the same file also overrides the `[milling]`, `[drilling]` and `[pecking]` sections (see [Milling deflection](#milling-deflection) and [Drill pecking](#drill-pecking)). New material keys require both `unit_power_hp_min_per_in3` and `elastic_modulus_gpa`; `drill_kd` is optional and only drilling and plunging read it. Unknown configuration keys, invalid numbers and feeds outside the factor table fail rather than extrapolate.
 
-For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. The configuration is read and validated once per render, before either check runs, so a broken override refuses the same way whichever check is enforced. When turning and milling deflection are both disabled, it is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
+For an explicit opt-out, use `--disable-check turning_deflection`, or omit it from a custom profile's `enforce` list. `--disable-check` is repeatable and also accepts `stock_fit` and `setup_diagrams`; CLI disables win over the selected profile. The configuration is read and validated once per render, before any check runs, so a broken override refuses the same way whichever check is enforced. When turning deflection, milling deflection and drill pecking are all disabled, the configuration is intentionally not read, even if a config path was supplied. Disabling a check adds no warning, checker status or certificate to the sheet.
 
 ## Milling deflection
 
@@ -363,6 +363,35 @@ Each value is a number or an array summed as a stack, so bindings can name the l
 
 The base bar binds its stacks from CAD/blank sizes and process parameters: the stated ~18.5 in edge travel, 1-2-3 blocks lying flat (1 in), 1-3/8 in parallels, and archived inventory facts for the vise bed height and R8 collet/drill chuck gauge lengths. Its 1/2 and 5/16 in end mills have no archived length, so the plan bounds them by the neighbouring archived sizes, and its drills by the archived 13/32 in jobber. All base-bar and shaft setups pass.
 
+### Drill pecking
+
+`drill_pecking` (`src/prechips/pecking.py`) checks each twist-drilled hole's declared peck strategy against its depth over drill diameter (L/D). Every operation with a tool declares `drilling`: `"twist_drill"` for a twist-drilled hole on the mill, drill press or lathe tailstock, or `"none"` for everything else (spots, countersinks, reamers, end mills, taps, saws, turning tools). An operation without a tool declares none of these fields.
+
+```toml
+# A twist-drilled hole:
+drilling = "twist_drill"
+hole_depth_mm = "{{cad.thickness_mm}}"
+peck = { step_mm = "{{process.rail_peck_mm}}", retract = "chip_break" }  # or "full"; or peck = "none"
+```
+
+```toml
+# A spot, countersink, reamer, end mill or turning tool:
+drilling = "none"
+```
+
+A twist-drilled hole declares `peck` and `hole_depth_mm` (bind it from CAD, or from the process value the plan already prints); the drill Ø is the operation tool's `diameter_mm`. `drilling = "none"` takes neither. With L/D = depth ÷ Ø, the hole refuses when:
+
+- L/D exceeds `max_ld` (10): deep-hole tooling, not twist-drill pecking;
+- the strategy is lighter than its band: above `chip_break_above_ld` (3) at least `chip_break`, above `full_retract_above_ld` (5) `full`;
+- `step_mm` exceeds `step_max_diameters` (1) × Ø;
+- it pecks at L/D ≤ `chip_break_above_ld` without a stated `peck_reason`, or states one where it justifies nothing.
+
+Band edges and the step limit allow a relative 1e-9 of floating-point slack, so a hole of exactly 3 Ø in inch sizes (9.525 ÷ 3.175 mm) counts as ≤ 3.
+
+The bands are rules of thumb, not standards: no peck at ≤ 3 diameters ([CNCCookbook, G81/G73/G83](https://www.cnccookbook.com/g81-g73-g83-drill-peck-canned-cycle/)); twist drills to 5 diameters, pecking from 5 to 7, parabolic flutes with pecking from 7 to 10 ([CNCCookbook, deep-hole drilling](https://www.cnccookbook.com/deep-hole-drilling/)); a peck of about one drill diameter, shortened as the hole deepens ([MTI, peck drilling cycles](https://www.mactool.com/atlas/drilling/peck-drilling-cycles/)). They live in the `[pecking]` section of packaged `turning.toml` and are overridden like the other sections. One band set serves every material: the sources name long-chipping (aluminium, steel, stainless, copper) and short-chipping (cast iron, brass) materials but give no numeric shift, so no material is read. The parabolic-flute advice above 7 diameters is not checked (tool records state no flute form), nor are chip evacuation, coolant, a shortening step or end-mill plunges. Plans state the peck in their instruction text: bind the step from one process parameter in both places, `step_mm = "{{process.x_peck_mm}}"` and `every {{process.x_peck_mm:in.3dot}}`, as the examples do (one drill Ø per peck).
+
+Every harmonic-analyzer example passes. Their drilled holes: riser #30 through .24 (L/D 1.9) and feed lever 11/32 through .50 (1.5), no peck; carrier CL/CR #29 through .47 (3.5), chip-break; base-bar #12 through .47 (2.5), no peck; base-bar rail #29 through .47 (3.5, full retract as harmonic-analyzer's BB07 posts them, heavier than its chip-break band), carrier #43 through .47 (5.3), pivot/feed-block #15 through .96 (5.3) and end-bracket #29 through 1.000 (7.4), full retract; pivot/feed-block F tap drill through .96 (3.7), chip-break; feed-block 5/16 pilot .90 deep (2.9; `hole_depth_mm = "{{process.lug_bore_depth_mm}}"`, printed as `{{process.lug_bore_depth_mm:in.2dot}}`), no peck. The pivot-shaft comparison declares `drilling = "none"` on every tooled operation (its centre drill is a spot).
+
 ## Profiles
 
 | Preset | Setup diagrams | Operation instructions | Enforcement |
@@ -380,7 +409,7 @@ features = ["setup_diagrams", "detailed_instructions"]
 enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`, `drill_pecking`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text, regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 
