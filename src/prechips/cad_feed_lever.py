@@ -98,12 +98,17 @@ def load_feed_lever(path: Path, parameters: dict) -> CadData:
     ]
 
     _edge_breaks(raw, values)
-    # End cuts: the cutter tip's depth below the underside, as printed.
+    # End cuts: the cutter tip's depth below the underside, and the same Z
+    # from the as-bought top (blank thickness plus that depth), as printed.
     if "end_cut_tip_z_mm" in parameters:
         tip = _number(parameters["end_cut_tip_z_mm"], "process.end_cut_tip_z_mm")
         if tip >= 0:
             raise CadError("process.end_cut_tip_z_mm: expected below the underside")
         values["end_cut_below_in"] = -tip / 25.4
+        thickness = _positive(
+            parameters.get("blank_thickness_in"), "process.blank_thickness_in"
+        )
+        values["end_cut_depth_in"] = thickness - tip / 25.4
     # The two grip-end plan corners (drawing 2X R.2): one fillet record.
     corners = features.get("grip_corners")
     if (

@@ -122,7 +122,7 @@ tool = "em-half"
 drilling = "none"
 sizing = "other"
 instruction = "Cutter {{cad.end_cut_below_in:.2dot}} below bar. Left end, conventional (table moves away from you): skim .02–.04 in .02 X steps until clean. Mark ZERO END and ZERO EDGE."
-instruction_detailed = "Cutter {{cad.end_cut_below_in:.2dot}} below the bottom of the bar, beside the left end. Left end, conventional: the table moves away from you (cutter toward you). Skim .02–.04 in .02 X steps until clean all over. Mark ZERO END and ZERO EDGE."
+instruction_detailed = "Cutter down {{cad.end_cut_depth_in:.2dot}} from the top face ({{cad.end_cut_below_in:.2dot}} below the bar), beside the left end. Left end, conventional: the table moves away from you (cutter toward you). Skim .02–.04 in .02 X steps until clean all over. Mark ZERO END and ZERO EDGE."
 settings = "jig-em-half-6061-t6511"
 milling_cuts = [
   { name = "ZERO END clean-up", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = 0 },
@@ -183,7 +183,7 @@ tool = "em-half"
 drilling = "none"
 sizing = "other"
 instruction = "Cutter {{cad.end_cut_below_in:.2dot}} below bar. Measure cutter D; grip end, conventional (table moves toward you), .02 passes, last X = {{cad.length_in:.3f}} + D/2."
-instruction_detailed = "Measure the end mill across its cutting edges: D. The last pass is at X = {{cad.length_in:.3f}} + D/2. Cutter {{cad.end_cut_below_in:.2dot}} below the bottom of the bar, beside the grip end. Grip end, conventional: the table moves toward you (cutter away from you); .02 passes across the end, in toward the last-pass X, never past it."
+instruction_detailed = "Measure the end mill across its cutting edges: D. The last pass is at X = {{cad.length_in:.3f}} + D/2. Cutter down {{cad.end_cut_depth_in:.2dot}} from the top face ({{cad.end_cut_below_in:.2dot}} below the bar), beside the grip end. Grip end, conventional: the table moves toward you (cutter away from you); .02 passes across the end, in toward the last-pass X, never past it."
 settings = "jig-em-half-6061-t6511"
 inspection = "Length {{cad.length_min_in:.1f}}–{{cad.length_max_in:.1f}}: edge finder on the grip end, DRO X from ZERO END."
 gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
