@@ -44,6 +44,11 @@ def _datum(groups: Groups, x: float, top: float, bottom: float) -> None:
     groups["datum"] += [_line(x, top, x, bottom), _el("circle", cx=x, cy=top, r=3.5)]
 
 
+# Jaw clocks in degrees from the top of the side view: two jaws seen through
+# the axis, or the BS-0 3-jaw at 2, 6 and 10 o'clock.
+_JAW_CLOCKS = {"top_bottom": (0.0, 180.0), "clocked": (60.0, 180.0, 300.0)}
+
+
 def _chuck(
     groups: Groups,
     face: float,
@@ -52,22 +57,32 @@ def _chuck(
     depth: float,
     label: str,
     jaws: str = "top_bottom",
-) -> None:
-    """Schematic 3-jaw: jaws on ``radius`` ending at ``face``, body behind.
+) -> float:
+    """Schematic chuck: jaws gripping at ``radius``, ending at ``face``, body behind.
 
     ``jaws``: ``top_bottom`` (side view through two jaws) or ``clocked`` (the
     BS-0's 5 in 3-jaw at 2, 6 and 10 o'clock, where a 120° index returns
-    them: none on top where the cutter works, so only the lower jaw shows).
+    them). Each jaw is drawn as its side-view projection; clocked jaws reach
+    past the crest, so the 2 and 10 o'clock pair shows standing above the
+    axis at the jaw face, where the collet and spindle nose must clear.
+    Returns the label's baseline, the chuck's lowest drawn point.
     """
-    if jaws not in ("top_bottom", "clocked"):
+    clocks = _JAW_CLOCKS.get(jaws)
+    if clocks is None:
         raise CadError(f"chuck jaws: unknown clocking {jaws!r}")
-    if jaws == "top_bottom":
-        groups["jaws"].append(_rect(face - depth, axis - radius - 22, depth, 22))
-    groups["jaws"].append(_rect(face - depth, axis + radius, depth, 22))
+    outer = radius + (22.0 if jaws == "top_bottom" else radius + 30.0)
+    spans = set()
+    for clock in clocks:
+        up = math.cos(math.radians(clock))
+        ends = (axis - radius * up, axis - outer * up)
+        spans.add((round(min(ends), 6), round(max(ends), 6)))
+    for top, bottom in sorted(spans):
+        groups["jaws"].append(_rect(face - depth, top, depth, bottom - top))
     groups["fixture"].append(
-        _rect(face - depth - 26, axis - radius - 40, 26, 2 * radius + 80)
+        _rect(face - depth - 26, axis - outer - 18, 26, 2 * outer + 36)
     )
-    _label(groups, face - depth - 13, axis + radius + 58, label, "middle")
+    _label(groups, face - depth - 13, axis + outer + 36, label, "middle")
+    return axis + outer + 36
 
 
 # --- Leadscrew kit ------------------------------------------------------------
@@ -87,6 +102,7 @@ def _kit_receipt(values: dict, parameters: dict, root: ElementTree.Element) -> L
     x_seat = x_spigot + spigot * s
     x_head = x_seat + flange * s
     x_end = x_head + body_len * s
+    r_thread = _cad(values, "major_radius_mm") * s
     groups = _groups(root)
     _title(groups, 20, 24, "Feed nut as supplied: spigot left, flange, body right")
     groups["kept"] += [
@@ -97,18 +113,8 @@ def _kit_receipt(values: dict, parameters: dict, root: ElementTree.Element) -> L
         _rect(x_spigot, axis - r_spigot * s, spigot * s, 2 * r_spigot * s)
     )
     groups["hidden"] += [
-        _line(
-            x_spigot,
-            axis - _cad(values, "major_radius_mm") * s,
-            x_end,
-            axis - _cad(values, "major_radius_mm") * s,
-        ),
-        _line(
-            x_spigot,
-            axis + _cad(values, "major_radius_mm") * s,
-            x_end,
-            axis + _cad(values, "major_radius_mm") * s,
-        ),
+        _line(x_spigot, axis - r_thread, x_end, axis - r_thread),
+        _line(x_spigot, axis + r_thread, x_end, axis + r_thread),
     ]
     top = axis - r_flange * s
     _callouts(
@@ -226,9 +232,10 @@ def _kit_length(values: dict, parameters: dict, root: ElementTree.Element) -> La
     _datum_label(groups, near + 4, back - 12, "X0 NEAR END", "start")
     # Conventional: with M03 (clockwise seen from above) the teeth on the
     # cutter's -X flank, the one cutting the end, move toward the fixed jaw
-    # (+Y). Climb rolls the cutter along the face, travelling against its
-    # teeth (toward you: work on the cutter's right, G41); conventional travels
-    # with them, from the front toward the fixed jaw: the table moves toward you.
+    # (the column: up the picture, -Y on its axes). Climb rolls the cutter
+    # along the face, travelling against its teeth (toward you: work on the
+    # cutter's right, G41); conventional travels with them, from the front
+    # toward the fixed jaw: the table moves toward you.
     _cutter(groups, cut + radius, radius, front + radius + 26, back - 4, at_end=False)
     _dimension(
         groups,
@@ -284,9 +291,14 @@ def _kit_flats(
         else "flats on top, 0° then {{cad.clock_deg:g}}°"
     )
     _title(groups, 20, 24, f"Side view: {title} out of the BS-0 chuck; {what}")
-    _chuck(groups, jaw_face, axis, r, 40, "3-jaw, clocked", jaws="clocked")
+    chuck_bottom = _chuck(
+        groups, jaw_face, axis, r, 40, "3-jaw, clocked", jaws="clocked"
+    )
     _datum(groups, free, axis - r - 26, axis + r + 6)
     _datum_label(groups, free + 6, axis - r - 30, f"X0 {title}", "start")
+    # The signed touch-off (X = +D/2 on the end face) needs +X out past it.
+    groups["arrows"].append(_line(free + 10, axis, free + 46, axis))
+    _label(groups, free + 50, axis + 5, "+X cutter right")
 
     spans: list[tuple[float, float]] = []
 
@@ -338,18 +350,16 @@ def _kit_flats(
             )
         )
         cutter_x = centre
-    # The thread fill stops at each flat's floor, so the removed hatch shows.
-    floor = axis - r + depth * s
-    groups["threads"].append(
-        _rect(jaw_face - 40, floor, free - jaw_face + 40, 2 * r - depth * s)
-    )
-    edge = jaw_face - 40
+    # One thread outline, stepping down to each flat's floor, so the removed
+    # hatch shows and no seam is stroked along the screw.
+    top, floor, bottom = axis - r, axis - r + depth * s, axis + r
+    outline = f"M{_fmt(jaw_face - 40)} {_fmt(bottom)}V{_fmt(top)}"
     for x0, x1 in sorted(spans):
-        if x0 > edge:
-            groups["threads"].append(_rect(edge, axis - r, x0 - edge, depth * s))
-        edge = max(edge, x1)
-    if free > edge:
-        groups["threads"].append(_rect(edge, axis - r, free - edge, depth * s))
+        outline += f"H{_fmt(x0)}V{_fmt(floor)}H{_fmt(x1)}"
+        if x1 < free:
+            outline += f"V{_fmt(top)}"
+    outline += f"H{_fmt(free)}V{_fmt(bottom)}Z"
+    groups["threads"].append(_el("path", d=outline))
     # Cutter drawn lifted clear of the work so the flat it cuts stays visible.
     left = cutter_x - cutter / 2 * s
     groups["tool"].append(_rect(left, axis - r - 70, cutter * s, 58))
@@ -371,7 +381,7 @@ def _kit_flats(
     )
 
     # End view of the free end: the 0° flat up, the 120° flat after indexing.
-    cx, cy, er = 600.0, axis + r + 130, 56.0
+    cx, cy, er = 600.0, max(axis + r + 130, chuck_bottom + 44), 56.0
     groups["kept"].append(_el("circle", cx=cx, cy=cy, r=er))
     floor = _cad(values, "flat_floor_mm") / (major / 2) * er
     clock = _cad(values, "clock_deg")
@@ -467,18 +477,8 @@ def _kit_nut_face(values: dict, parameters: dict, root: ElementTree.Element) -> 
     groups["arriving"].append(_rect(seat, axis - r_spigot, tip - seat, 2 * r_spigot))
     groups["active"].append(_line(seat, axis - r_spigot, seat, axis + r_spigot))
     groups["hidden"] += [
-        _line(
-            head - body_len * s,
-            axis - _cad(values, "major_radius_mm") * s,
-            tip,
-            axis - _cad(values, "major_radius_mm") * s,
-        ),
-        _line(
-            head - body_len * s,
-            axis + _cad(values, "major_radius_mm") * s,
-            tip,
-            axis + _cad(values, "major_radius_mm") * s,
-        ),
+        _line(body_end, axis - r_rod, tip, axis - r_rod),
+        _line(body_end, axis + r_rod, tip, axis + r_rod),
     ]
     groups["tool"].append(
         _el(

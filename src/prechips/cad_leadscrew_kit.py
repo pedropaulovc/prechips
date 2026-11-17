@@ -28,6 +28,11 @@ _PART = "ch-rocker-arm-tl-vn-oblique-leadscrew-kit"
 _NUT = "FeedNut"
 _FLATS = ("near_kp08", "far_kp08", "handwheel")
 _CLOCKED = ("near_kp08", "far_kp08")
+# The BS-0 holds the screw in the head's 5 in 3-jaw (HA 45952b66bc inventory,
+# machines.BS-0.included); the plans clock its jaws at 2, 6 and 10 o'clock.
+_BS0_JAW_PITCH_DEG = 120.0
+# 1/16 in, the inch rule's graduation.
+_SIXTEENTH_MM = 25.4 / 16
 
 
 def _limits(values: dict, key: str, band: tuple[float, float], nominal: float) -> None:
@@ -184,8 +189,19 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["flat_floor_mm"] = af_nominal - values["major_radius_mm"]
     _limits(values, "flat_length", lengths.pop(), length_nominals.pop())
     clock_band, clock = clocks.pop()
-    if not clock_band[0] <= clock <= clock_band[1]:
-        raise CadError("cad: clock nominal lies outside source limits")
+    # A nominal on a band limit leaves no index tolerance on that side.
+    if not clock_band[0] < clock < clock_band[1]:
+        raise CadError(
+            f"cad: clock nominal {clock:g}° must lie strictly inside its band "
+            f"{clock_band[0]:g}–{clock_band[1]:g}°"
+        )
+    # Indexing by a multiple of the jaw pitch, either way, returns the 3-jaw
+    # to the clock the plan sets (no jaw on top, under the cutter).
+    if not math.isclose(math.remainder(clock, _BS0_JAW_PITCH_DEG), 0, abs_tol=1e-9):
+        raise CadError(
+            f"cad: a {clock:g}° index would not return the BS-0 3-jaw "
+            f"(jaws {_BS0_JAW_PITCH_DEG:g}° apart) to its clock"
+        )
     values["clock_deg"] = clock
     values["clock_min_deg"], values["clock_max_deg"] = clock_band
     # The index check is symmetric about the nominal: the nearer limit.
@@ -249,28 +265,24 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     )
     if not math.isclose(stock, values["stock_length_mm"]):
         raise CadError("process.screw_stock_length_mm: not the supplied length")
-    # Saw: the piece kept from the NEAR END is the cut plus a milling
-    # allowance, marked from the NEAR END by stepping a rule twice.
+    # Saw: the piece kept from the NEAR END, marked by stepping the inch rule
+    # twice: its full length, then a second lay rounded up to the next 1/16 in,
+    # so the piece keeps at least the milling allowance.
     allowance = _positive(
         parameters.get("saw_allowance_mm"), "process.saw_allowance_mm"
     )
-    values["saw_piece_mm"] = length + allowance
+    rule = _positive(parameters.get("rule_mm"), "process.rule_mm")
+    rule_sixteenths = rule / _SIXTEENTH_MM
+    if not math.isclose(rule_sixteenths, round(rule_sixteenths), abs_tol=1e-6):
+        raise CadError("process.rule_mm: expected the inch rule, in whole 1/16 in")
+    sixteenths = math.ceil((length + allowance - rule) / _SIXTEENTH_MM - 1e-9)
+    if not 0 < sixteenths <= round(rule_sixteenths):
+        raise CadError("process.rule_mm: two steps of the rule must reach the mark")
+    values["saw_rule_step_in"] = sixteenths / 16
+    values["saw_rule_step_mm"] = sixteenths * _SIXTEENTH_MM
+    values["saw_piece_mm"] = rule + values["saw_rule_step_mm"]
     if values["saw_piece_mm"] >= stock:
         raise CadError("process.saw_allowance_mm: the screw is too short for the cut")
-    rule = _positive(parameters.get("rule_mm"), "process.rule_mm")
-    values["saw_rule_step_mm"] = values["saw_piece_mm"] - rule
-    if not 0 < values["saw_rule_step_mm"] <= rule:
-        raise CadError("process.rule_mm: two steps of the rule must reach the mark")
-    # The owned rule is inch-graduated: print the second lay to the nearest
-    # 1/16 in (always within 0.8 mm of the mark) and its metric equivalent.
-    sixteenths = round(values["saw_rule_step_mm"] / 25.4 * 16)
-    whole, rest = divmod(sixteenths, 16)
-    step = math.gcd(rest, 16) if rest else 16
-    fraction = f"{rest // step}/{16 // step}" if rest else ""
-    values["saw_rule_step_in"] = " ".join(
-        part for part in (str(whole) if whole else "", fraction) if part
-    )
-    values["saw_rule_step_rounded_mm"] = sixteenths / 16 * 25.4
     # Cut end to length: vise jaw span along the screw from the NEAR END, the
     # sawn end the overhang past the right jaw side (milling_deflection beam).
     overhang = _positive(parameters.get("cut_overhang_mm"), "process.cut_overhang_mm")
@@ -279,7 +291,7 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     values["vise_jaw_left_mm"] = values["vise_jaw_right_mm"] - jaw
     if values["vise_jaw_left_mm"] <= 0:
         raise CadError("process.cut_overhang_mm: the screw does not span the jaws")
-    if overhang <= allowance:
+    if overhang <= values["saw_piece_mm"] - length:
         raise CadError(
             "process.cut_overhang_mm: the finish pass (the allowance in from the "
             "sawn end) would reach the vise jaw"
@@ -294,12 +306,13 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
         length - values["far_kp08_station_mm"] - values["flat_length_mm"]
     )
     # Dividing-head stick-outs: the cutter's inboard edge stays out of the
-    # jaws at every crossing; the lathe mandrel stays inside the nut, short of
-    # the seat face the tool faces.
+    # jaws at every crossing, the cut-end ones at the longest cut (they are
+    # set from the measured L); the lathe mandrel ends inside the nut's body,
+    # short of the flange and the seat face the tool faces.
     inboard = {
         "near_stickout_mm": values["near_kp08_centre_mm"],
-        "wheel_stickout_mm": values["handwheel_from_cut_mm"],
-        "far_stickout_mm": values["far_kp08_from_cut_mm"],
+        "wheel_stickout_mm": values["length_max_mm"] - values["handwheel_centre_mm"],
+        "far_stickout_mm": values["length_max_mm"] - values["far_kp08_centre_mm"],
     }
     for key, centre in inboard.items():
         stickout = _positive(parameters.get(key), f"process.{key}")
@@ -308,9 +321,11 @@ def load_leadscrew_kit(path: Path, parameters: dict) -> CadData:
     mandrel = _positive(
         parameters.get("mandrel_stickout_mm"), "process.mandrel_stickout_mm"
     )
-    if mandrel >= values["nut_length_min_mm"]:
+    body_min = values["nut_length_min_mm"] - values["nut_flange_thickness_max_mm"]
+    if mandrel >= body_min:
         raise CadError(
-            "process.mandrel_stickout_mm: the offcut would reach the nut's seat face"
+            f"process.mandrel_stickout_mm: the offcut must end inside the nut's "
+            f"body (under {body_min:g}), clear of the flange and seat face"
         )
     return CadData(
         values,
