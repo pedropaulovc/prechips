@@ -125,6 +125,11 @@ def test_drawing_targets_conversion_sign_and_nominal_envelope():
     assert bind_text("{{process.x_mm:in}}", cad, {"x_mm": 4.7625}) == "0.1875"
     # The same noise from any computed value (19.05 mm blocks / 25.4).
     assert bind_text("{{process.h:fraction}}", cad, {"h": 19.05 / 25.4}) == "3/4"
+    # Noise near zero prints unsigned; format specs get the value as computed.
+    assert bind_text("{{process.v}}", cad, {"v": 0.1 - 0.1000000000001}) == "0.0"
+    assert bind_text("{{process.v:.2e}}", cad, {"v": 4e-10}) == "4.00e-10"
+    with pytest.raises(CadError, match="unsupported numeric format"):
+        bind_text("{{process.v:d}}", cad, {"v": 2.9999999999})
     with pytest.raises(CadError):
         bind_text("{{process.x_in:in.2dot}}", cad, {"x_in": 0.9})
 
