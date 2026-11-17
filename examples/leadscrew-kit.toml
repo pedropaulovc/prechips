@@ -131,10 +131,12 @@ machine_ref = "pm-30mv"
 holding = "Vise at least {{process.vise_right_of_centre_mm:g}} right of table centre; jog to both ends before clamping. Screw along X on 1 in parallels kept inside the right jaw, wrapped in paper; cut end ~{{process.cut_overhang_mm:g}} past the right jaw side."
 datum = "X0 NEAR END (cutter-side touch)."
 diagram = { file = "diagrams/leadscrew-kit/length.svg", alt = "Top view: the screw in the vise, cut end just past the right jaw, milled to length from the NEAR END" }
-envelope = { x_span_mm = ["{{cad.saw_piece_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.major_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
+envelope = { x_span_mm = ["{{cad.saw_piece_max_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.major_dia_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.major_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.end_cut_tip_z_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.major_dia_mm}}", along_jaws_mm = "{{cad.saw_piece_mm}}", part_height_mm = "{{cad.major_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["rest", "{{process.cut_overhang_mm}}"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
-# Stations from the NEAR END; the jaws hold from jaw_left to jaw_right.
-beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.saw_piece_mm}}"], clamp_mm = ["{{cad.vise_jaw_left_mm}}", "{{cad.vise_jaw_right_mm}}"], section_mm = { diameter = "{{process.thread_root_dia_mm}}" }, vise_left = "start" }
+# Stations from the NEAR END. The vise is set from the sawn end, so a piece
+# sawn short by the mark tolerance has both jaws that much nearer the NEAR END
+# and the longest finish arm: the beam is that piece.
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.saw_piece_min_mm}}"], clamp_mm = ["{{cad.vise_jaw_left_min_mm}}", "{{cad.vise_jaw_right_min_mm}}"], section_mm = { diameter = "{{process.thread_root_dia_mm}}" }, vise_left = "start" }
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -146,7 +148,7 @@ instruction_detailed = "Run the cutter, bring its side to the NEAR END on a pape
 settings = "kit-em-half-sus304"
 cut_diameter_mm = "{{process.cutter_dia_mm}}"
 milling_cuts = [
-  { name = "end, 0.5 mm steps", kind = "side", phase = "rough", material = "stainless_304", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.major_dia_mm}}", radial_woc_mm = 0.5, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.saw_piece_mm}}" },
+  { name = "end, 0.5 mm steps", kind = "side", phase = "rough", material = "stainless_304", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.major_dia_mm}}", radial_woc_mm = 0.5, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.saw_piece_min_mm}}" },
   { name = "end, finish pass", kind = "side", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.major_dia_mm}}", radial_woc_mm = 0.2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.length_mm}}" },
 ]
 inspection = "Length {{cad.length_min_mm:.1f}}–{{cad.length_max_mm:.1f}} on the DRO from the NEAR END."
