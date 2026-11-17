@@ -14,16 +14,15 @@ clamp slip or machine compliance.
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from prechips import shop, vise
 from prechips.checks import CheckError
 from prechips.turning import (
     INCH_MM,
     LBF_N,
     TurningError,
     cutting_force_n,
-    load_config,
     table_factor,
 )
 
@@ -33,12 +32,16 @@ if TYPE_CHECKING:
 _AXES = ("x", "y", "z")
 _SPINDLE = "z"
 _MILLING = ("side", "end", "face", "slot")
+_HELICAL = ("side", "slot")
 _THRUST = ("plunge", "drill")
 _HOLDS = {
     "cantilever": {"clamp_mm", "section_mm"},
     "between": {"supports_mm", "section_mm"},
     "solid": {"seat", "seat_mm"},
 }
+# A cantilever in a milling vise names which extent end the vise's left
+# overhang is measured from, and which hold when the setup re-grips.
+_VISE_LINK = {"vise_left", "vise_hold"}
 _CUT_KEYS = {
     "name",
     "kind",
@@ -54,6 +57,8 @@ _CUT_KEYS = {
     "stations_mm",
     "traverse_mm",
     "max_deflection_mm",
+    "finish_cut",
+    "finish_stock_mm",
 }
 
 
@@ -186,7 +191,7 @@ def _beam(value: object, where: str) -> dict:
     if not isinstance(hold, str) or hold not in _HOLDS:
         raise CheckError(f"{where}.hold: expected cantilever, between or solid")
     keys = {"axis", "hold", "extent_mm"} | _HOLDS[hold]
-    _fields(value, keys, keys, where)
+    _fields(value, keys, keys | (_VISE_LINK if hold == "cantilever" else set()), where)
     axis = value["axis"]
     if axis not in _AXES:
         raise CheckError(f"{where}.axis: expected x, y or z")
@@ -208,7 +213,75 @@ def _beam(value: object, where: str) -> dict:
         beam["seat"] = seat
     else:
         beam["section"] = _section(value["section_mm"], axis, f"{where}.section_mm")
+    if "vise_left" in value:
+        if value["vise_left"] not in ("start", "end", "other"):
+            raise CheckError(f"{where}.vise_left: expected start, end or other")
+        beam["vise_left"] = value["vise_left"]
+    if "vise_hold" in value:
+        index = value["vise_hold"]
+        if beam.get("vise_left") not in ("start", "end"):
+            raise CheckError(f"{where}.vise_hold: requires vise_left start or end")
+        if type(index) is not int or index < 1:
+            raise CheckError(f"{where}.vise_hold: expected a hold number from 1")
+        beam["vise_hold"] = index
     return beam
+
+
+def _vise_link(beam: dict, holds: list[dict], required: bool, where: str) -> None:
+    """Refuse a cantilever clamp that is not the grip its vise hold describes.
+
+    ``vise_left`` names the extent end the hold's left overhang is measured
+    from; the clamp is then the part's span between the jaws.
+    """
+    mapping = beam.get("vise_left")
+    if not holds:
+        if mapping is not None:
+            raise CheckError(f"{where}.vise_left: the setup declares no vise hold")
+        return
+    if beam["hold"] != "cantilever":
+        return
+    if mapping is None:
+        if required:
+            raise CheckError(
+                f'{where}: missing vise_left ("start" or "end": the extent end at '
+                'the vise hold\'s left overhang; "other" when the beam does not '
+                "run along the jaws)"
+            )
+        return
+    if mapping == "other":
+        return
+    index = beam.get("vise_hold")
+    if index is None and len(holds) > 1:
+        raise CheckError(f"{where}: missing vise_hold, the number of its vise hold")
+    index = index or 1
+    if index > len(holds):
+        raise CheckError(f"{where}.vise_hold: the setup has {len(holds)} vise holds")
+    held = holds[index - 1]
+    left, right = vise.overhangs(held, where)
+    width = shop.fact(held["vise"], "jaw_width_mm")
+    start, end = beam["extent"]
+    length = end - start
+    along = held["along_jaws_mm"]
+    if abs(length - along) > vise.ROUNDING_MM:
+        raise CheckError(
+            f"{where}.extent_mm: {length:g} mm long, but vise hold {index} has "
+            f"{along:g} mm along the jaws"
+        )
+    # From the part's left end the jaws grip [left, left + width] of it.
+    near, far = max(0.0, left), min(length, left + width)
+    grip = (
+        (start + near, start + far) if mapping == "start" else (end - far, end - near)
+    )
+    if any(
+        abs(declared - gripped) > vise.ROUNDING_MM
+        for declared, gripped in zip(beam["stations"], grip, strict=True)
+    ):
+        low, high = beam["stations"]
+        raise CheckError(
+            f"{where}.clamp_mm: {low:g}..{high:g} mm, but vise hold {index} grips "
+            f"{grip[0]:g}..{grip[1]:g} mm (overhangs {left:g} and {right:g} mm, "
+            f"jaw width {width:g} mm, its left overhang at the extent {mapping})"
+        )
 
 
 def _axes(beam: dict, kind: str) -> list[str]:
@@ -222,7 +295,24 @@ def _axes(beam: dict, kind: str) -> list[str]:
     return [axis for axis in loaded if axis != beam["axis"]]
 
 
-def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float:
+def _feed_per_tooth(cut: dict, flutes: int, operation: dict, where: str) -> float:
+    chip_load = operation.get("chip_load_mm_per_tooth")
+    if chip_load is not None:
+        # The operation prints the feed its shared setting calculates.
+        if {"rpm", "feed_mm_min"} & cut.keys():
+            raise CheckError(
+                f"{where}: the operation's setting gives {chip_load:g} mm/tooth; "
+                "declare feed_per_tooth_mm or no feed, not rpm with feed_mm_min"
+            )
+        feed = _positive(
+            cut.get("feed_per_tooth_mm", chip_load), f"{where}.feed_per_tooth_mm"
+        )
+        if feed != chip_load:
+            raise CheckError(
+                f"{where}.feed_per_tooth_mm: {feed:g} disagrees with the "
+                f"operation's setting, {chip_load:g} mm/tooth"
+            )
+        return feed
     if "feed_per_tooth_mm" in cut:
         if {"rpm", "feed_mm_min"} & cut.keys():
             raise CheckError(
@@ -233,6 +323,7 @@ def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float
         raise CheckError(f"{where}: missing feed_per_tooth_mm or rpm with feed_mm_min")
     rpm = _positive(cut["rpm"], f"{where}.rpm")
     # The printed spindle speed and the analysed one must not drift apart.
+    op_rpm = operation.get("rpm")
     if op_rpm is not None and rpm != op_rpm:
         raise CheckError(
             f"{where}.rpm: {rpm:g} disagrees with the operation's {op_rpm} rpm"
@@ -241,14 +332,26 @@ def _feed_per_tooth(cut: dict, flutes: int, op_rpm: object, where: str) -> float
 
 
 def _cutter(
-    cut: dict, kind: str, op_rpm: object, where: str
+    cut: dict, kind: str, operation: dict, where: str
 ) -> tuple[float, int, float]:
-    """Cutter diameter, flutes and feed per tooth, validated for every cut."""
+    """Cutter diameter, flutes and feed per tooth, validated for every cut.
+
+    An operation whose shared setting declares a chip load carries that load
+    and its flutes; a cut takes them from it or must restate them exactly.
+    """
     diameter = _positive(cut["cutter_dia_mm"], f"{where}.cutter_dia_mm")
-    flutes = cut["flutes"]
+    setting_flutes = operation.get("flutes")
+    flutes = cut.get("flutes", setting_flutes)
+    if flutes is None:
+        raise CheckError(f"{where}: missing flutes")
     if type(flutes) is not int or flutes < 1:
         raise CheckError(f"{where}.flutes: expected a positive integer")
-    feed = _feed_per_tooth(cut, flutes, op_rpm, where)
+    if setting_flutes is not None and flutes != setting_flutes:
+        raise CheckError(
+            f"{where}.flutes: {flutes} disagrees with the operation's setting, "
+            f"{setting_flutes} flutes"
+        )
+    feed = _feed_per_tooth(cut, flutes, operation, where)
     if kind in _THRUST and {"axial_doc_mm", "radial_woc_mm"} & cut.keys():
         raise CheckError(
             f"{where}: {kind} thrust takes no axial_doc_mm or radial_woc_mm"
@@ -256,19 +359,36 @@ def _cutter(
     return diameter, flutes, feed
 
 
+def _axial_ratio(kind: str, tool: dict | None, config: dict) -> tuple[float, str]:
+    """Axial ratio to the tangential force, and where it came from.
+
+    A tool's stated ``axial_ratio`` wins; a stated ``helix_deg`` gives
+    tan(helix) for the helix lift of side and slot cuts; otherwise the
+    configured default.
+    """
+    if tool is not None and "axial_ratio" in tool:
+        return tool["axial_ratio"], f"tool {tool['id']!r} axial_ratio"
+    if tool is not None and "helix_deg" in tool and kind in _HELICAL:
+        helix = tool["helix_deg"]
+        return math.tan(math.radians(helix)), f"tan {helix:g}° helix of {tool['id']!r}"
+    return config["milling"]["axial_ratio"], "configured axial_ratio"
+
+
 def _forces(
     cut: dict,
     kind: str,
-    material: dict,
+    material: tuple[str, dict],
     config: dict,
     cutter: tuple[float, int, float],
+    tool: dict | None,
     where: str,
 ) -> dict:
     """Force (N) and its description for each bending direction class."""
     diameter, flutes, feed = cutter
+    name, material = material
     if kind in _THRUST:
         if "drill_kd" not in material:
-            raise CheckError(f"{where}: material {cut['material']!r} has no drill_kd")
+            raise CheckError(f"{where}: material {name!r} has no drill_kd")
         drilling = config["drilling"]
         thrust = drill_thrust_n(
             material["drill_kd"],
@@ -319,10 +439,11 @@ def _forces(
         diameter,
     )
     across = tangential * math.hypot(1, milling["radial_ratio"])
-    along = tangential * milling["axial_ratio"]
+    ratio, source = _axial_ratio(kind, tool, config)
+    along = tangential * ratio
     along_text = (
         f"axial force {along:.3g} N (tangential {tangential:.3g} N × "
-        f"axial_ratio {milling['axial_ratio']:g})"
+        f"{ratio:.3g}, {source})"
     )
     across_text = (
         f"cross-spindle force {across:.3g} N (tangential {tangential:.3g} N × "
@@ -403,23 +524,73 @@ def _stations(cut: dict, beam: dict, where: str) -> list[float]:
     return stations
 
 
-def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) -> None:
-    required = {
-        "name",
-        "kind",
-        "phase",
-        "material",
-        "cutter_dia_mm",
-        "flutes",
-    }
-    _fields(cut, required, _CUT_KEYS, where)
+def _limits(
+    cut: dict, phase: str, axes: list[str], config: dict, later: list, where: str
+) -> dict[str, tuple[float, str] | None]:
+    """Each loaded axis's limit and its description; None where a rough cut
+    passes through the part.
+
+    A rough cut that names the finish cut following it and the stock that cut
+    leaves along each loaded axis is compared with that stock instead of the
+    rough limit; nothing is inferred from the finish cut or from prose.
+    """
+    limit = config["milling"][f"{phase}_mm"]
+    tighter = None
+    if "max_deflection_mm" in cut:
+        tighter = _positive(cut["max_deflection_mm"], f"{where}.max_deflection_mm")
+    declared = {"finish_cut", "finish_stock_mm"} & cut.keys()
+    if not declared:
+        if tighter is not None:
+            limit = min(limit, tighter)
+        return {axis: (limit, f"{phase} limit {limit:g} mm") for axis in axes}
+    if phase != "rough":
+        raise CheckError(
+            f"{where}: only a rough cut declares finish_cut and finish_stock_mm"
+        )
+    if len(declared) == 1:
+        raise CheckError(f"{where}: declare finish_cut with finish_stock_mm")
+    finish = cut["finish_cut"]
+    if not any(
+        isinstance(other, dict)
+        and other.get("name") == finish
+        and other.get("phase") == "finish"
+        for other in later
+    ):
+        raise CheckError(f"{where}.finish_cut: {finish!r} names no later finish cut")
+    stock = cut["finish_stock_mm"]
+    if not isinstance(stock, dict) or stock.keys() != set(axes):
+        raise CheckError(
+            f"{where}.finish_stock_mm: expected {{ {', '.join(axes)} }}: the stock "
+            f'{finish!r} leaves along each loaded axis, or "through" where this '
+            "cut passes through the part"
+        )
+    limits = {}
+    for axis in axes:
+        if stock[axis] == "through":
+            limits[axis] = None
+            continue
+        amount = _positive(stock[axis], f"{where}.finish_stock_mm.{axis}")
+        text = f"finish stock {amount:g} mm that {finish!r} leaves along {axis}"
+        if tighter is not None and tighter < amount:
+            amount, text = tighter, f"max_deflection_mm {tighter:g} mm"
+        limits[axis] = (amount, text)
+    return limits
+
+
+def _check_cut(
+    cut: dict, beam: dict, operation: dict, context: dict, where: str
+) -> None:
+    config = context["config"]
+    _fields(cut, {"name", "kind", "phase", "cutter_dia_mm"}, _CUT_KEYS, where)
     kind = cut["kind"]
     if kind not in _MILLING + _THRUST:
         raise CheckError(f"{where}.kind: expected {', '.join(_MILLING + _THRUST)}")
     phase = cut["phase"]
     if phase not in ("rough", "finish"):
         raise CheckError(f"{where}.phase: expected rough or finish")
-    name = cut["material"]
+    name = cut.get("material", context["material"])
+    if name is None:
+        raise CheckError(f"{where}: missing material (or the plan's milling_material)")
     material = config["materials"].get(name) if isinstance(name, str) else None
     if material is None:
         raise CheckError(
@@ -435,16 +606,15 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
             "cantilever or between beam for this cut"
         )
     stations = _stations(cut, beam, where)
-    limit = config["milling"][f"{phase}_mm"]
-    if "max_deflection_mm" in cut:
-        limit = min(
-            limit, _positive(cut["max_deflection_mm"], f"{where}.max_deflection_mm")
-        )
-    cutter = _cutter(cut, kind, op_rpm, where)
+    order = context["cuts"]
+    position = next(index for index, other in enumerate(order) if other is cut)
+    limits = _limits(cut, phase, axes, config, order[position + 1 :], where)
+    cutter = _cutter(cut, kind, operation, where)
     if not axes:
         # Thrust along an upright beam compresses it; no force is needed.
         return
-    forces = _forces(cut, kind, material, config, cutter, where)
+    tool = context["tools"].get(operation.get("tool"))
+    forces = _forces(cut, kind, (name, material), config, cutter, tool, where)
     modulus = material["elastic_modulus_gpa"] * 1000
     worst = None
     for axis in axes:
@@ -459,25 +629,57 @@ def _check_cut(cut: dict, beam: dict, config: dict, op_rpm: object, where: str) 
                 raise CheckError(f"{where}: {error}") from error
             if not math.isfinite(deflection):
                 raise CheckError(f"{where}: numerical range exceeded")
+            if limits[axis] is None or deflection <= limits[axis][0]:
+                continue
             if worst is None or deflection > worst[0]:
                 worst = (deflection, axis, station, span, component, inertia)
-    deflection, axis, station, span, component, inertia = worst
-    if deflection <= limit:
+    if worst is None:
         return
+    deflection, axis, station, span, component, inertia = worst
     raise CheckError(
         f"{where}: estimated bending {deflection:.3g} mm along {axis} exceeds the "
-        f"{phase} limit {limit:g} mm at station {station:.6g} mm, {span}; "
+        f"{limits[axis][1]} at station {station:.6g} mm, {span}; "
         f"{component}, I {inertia:.6g} mm^4, E {material['elastic_modulus_gpa']:g} "
-        f"GPa ({cut['material']}); static estimate at the cut, not measured error"
+        f"GPa ({name}); static estimate at the cut, not measured error"
     )
 
 
-def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
+def _tools(plan: LoadedPlan) -> dict[str, dict]:
+    """Plan tools by id, with any stated helix or axial ratio validated."""
+    tools = {}
+    for tool in plan.data.get("tools", []):
+        where = f"tool {tool.get('id')!r}"
+        if "axial_ratio" in tool:
+            _positive(tool["axial_ratio"], f"{where}.axial_ratio")
+        if (
+            "helix_deg" in tool
+            and _positive(tool["helix_deg"], f"{where}.helix_deg") >= 90
+        ):
+            raise CheckError(f"{where}.helix_deg: expected an angle below 90°")
+        tools[tool.get("id")] = tool
+    return tools
+
+
+def check(plan: LoadedPlan, config: dict) -> None:
     """Refuse missing coverage or excessive bending; emit nothing on a pass."""
-    try:
-        config = load_config(config_path)
-    except TurningError as error:
-        raise CheckError(str(error)) from error
+    material = plan.data.get("milling_material")
+    if material is not None and material not in config["materials"]:
+        raise CheckError(
+            f"milling_material: {material!r} must select a configured material"
+        )
+    context = {
+        "config": config,
+        "material": material,
+        "tools": _tools(plan),
+        # Every cut in plan order: a rough cut's finish_cut must come later.
+        "cuts": [
+            cut
+            for setup in plan.data["setups"]
+            for operation in setup["operations"]
+            if isinstance(operation.get("milling_cuts"), list)
+            for cut in operation["milling_cuts"]
+        ],
+    }
     operation_number = 0
     for index, setup in enumerate(plan.data["setups"], 1):
         where = f"setup {index} ({setup.get('title', 'untitled')})"
@@ -499,9 +701,13 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
             continue
         if "beam" not in setup:
             raise CheckError(f'{where}: missing beam (a table, or "other")')
+        holds = []
+        if setup.get("vise_hold", "other") != "other":
+            holds = vise.holds(plan.shop_data, setup, where)
         setup_beam = setup["beam"]
         if setup_beam != "other":
             setup_beam = _beam(setup_beam, f"{where}.beam")
+            _vise_link(setup_beam, holds, True, f"{where}.beam")
         for op_where, operation in numbered:
             speed = operation.get("speed_kind")
             if "tool" in operation and speed not in ("spindle", "other"):
@@ -536,6 +742,7 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
             beam = setup_beam
             if "beam" in operation:
                 beam = _beam(operation["beam"], f"{op_where}.beam")
+                _vise_link(beam, holds, False, f"{op_where}.beam")
             for cut_index, cut in enumerate(cuts, 1):
                 if not isinstance(cut, dict):
                     raise CheckError(f"{op_where}, cut {cut_index}: expected a table")
@@ -544,11 +751,7 @@ def check(plan: LoadedPlan, config_path: Path | None = None) -> None:
                     raise CheckError(f"{op_where}, cut {cut_index}: missing name")
                 try:
                     _check_cut(
-                        cut,
-                        beam,
-                        config,
-                        operation.get("rpm"),
-                        f"{op_where}, cut {name!r}",
+                        cut, beam, operation, context, f"{op_where}, cut {name!r}"
                     )
                 except TurningError as error:
                     raise CheckError(f"{op_where}, cut {name!r}: {error}") from error

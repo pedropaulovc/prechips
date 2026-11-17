@@ -24,7 +24,7 @@ _BALANCE = ("twin_part", "spacer")
 _FIELDS = {"vise", "overhang_mm", *_POSITIVE, *_NON_NEGATIVE, *_CHOICES}
 # Authored overhangs are rounded to 0.01 mm; their sum with the gripped length
 # may differ from along_jaws_mm by that much without contradicting it.
-_ROUNDING_MM = 0.01
+ROUNDING_MM = 0.01
 
 
 def _number(value: object, where: str) -> float:
@@ -112,6 +112,28 @@ def holds(shop_data: dict, setup: dict, where: str) -> list[dict]:
     raise CheckError(f'{where}.vise_hold: expected "other", a table or an array')
 
 
+def overhangs(held: dict, at: str) -> tuple[float, float]:
+    """Left and right overhang (mm) past the jaw sides, ``"rest"`` resolved.
+
+    Along the jaws from the left jaw side the part spans [-left, width + right];
+    a negative overhang is the part end's inset from that jaw side.
+    """
+    vise = held["vise"]
+    width = shop.fact(vise, "jaw_width_mm")
+    left, right = held["overhang_mm"]
+    along = held["along_jaws_mm"]
+    if left is None:
+        return along - width - right, right
+    if right is None:
+        return left, along - width - left
+    if abs(width + left + right - along) > ROUNDING_MM:
+        raise CheckError(
+            f"{at}: overhangs {left:g} + {right:g} mm and {vise['where']} jaw width "
+            f"{width:g} mm contradict {along:g} mm along the jaws"
+        )
+    return left, right
+
+
 def _check(shop_data: dict, held: dict, at: str) -> None:
     vise = held["vise"]
     name = vise["where"]
@@ -142,20 +164,9 @@ def _check(shop_data: dict, held: dict, at: str) -> None:
             f"{at}: grip depth {grip:g} mm is below vise_grip_fraction_min "
             f"{fraction:g} × part height {height:g} = {fraction * height:g} mm"
         )
-    # Along the jaws from the left jaw side: the part spans [-left, width + right];
-    # a negative overhang is the part end's inset from that jaw side.
+    # Along the jaws from the left jaw side: the part spans [-left, width + right].
     width = shop.fact(vise, "jaw_width_mm")
-    left, right = held["overhang_mm"]
-    along = held["along_jaws_mm"]
-    if left is None:
-        left = along - width - right
-    elif right is None:
-        right = along - width - left
-    elif abs(width + left + right - along) > _ROUNDING_MM:
-        raise CheckError(
-            f"{at}: overhangs {left:g} + {right:g} mm and {name} jaw width "
-            f"{width:g} mm contradict {along:g} mm along the jaws"
-        )
+    left, right = overhangs(held, at)
     start, end = max(0.0, -left), min(width, width + right)
     if end <= start:
         raise CheckError(f"{at}: the part does not reach between the jaws")

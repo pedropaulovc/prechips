@@ -186,8 +186,14 @@ SETUP = {
 }
 
 
-def _check(setup: dict) -> None:
-    milling.check(SimpleNamespace(data={"setups": [setup]}))
+SHOP = {"workholding": {"vise-pm-6": {"kind": "vise", "jaw_width_mm": 158.6738}}}
+
+
+def _check(setup: dict, **plan) -> None:
+    milling.check(
+        SimpleNamespace(data={"setups": [setup], **plan}, shop_data=SHOP),
+        load_config(None),
+    )
 
 
 def test_thrust_on_a_seat_or_along_an_upright_beam_passes():
@@ -314,4 +320,127 @@ def test_contradictory_or_out_of_range_declarations_refuse(change, message):
     setup = copy.deepcopy(SETUP)
     change(setup)
     with pytest.raises(CheckError, match=re.escape(message)):
+        _check(setup)
+
+
+def _z_bending(caught) -> float:
+    found = re.search(r"estimated bending ([0-9.]+) mm along z", str(caught.value))
+    return float(found[1])
+
+
+def test_a_stated_tool_ratio_or_helix_replaces_the_default_axial_ratio():
+    # The strapped end squaring, where the axial force governs.
+    setup = copy.deepcopy(SETUP)
+    setup["beam"].update(clamp_mm=221.45625, section_mm={"y": 139.7, "z": 12.7})
+    cut = setup["operations"][0]["milling_cuts"][0]
+    cut["axial_doc_mm"] = 12.7
+    with pytest.raises(CheckError, match="× 1, configured axial_ratio") as default:
+        _check(setup, tools=[{"id": "em"}])
+    with pytest.raises(CheckError, match="tan 30° helix of 'em'") as helix:
+        _check(setup, tools=[{"id": "em", "helix_deg": 30}])
+    assert _z_bending(helix) == pytest.approx(
+        _z_bending(default) * math.tan(math.radians(30)), rel=5e-3
+    )
+    # A stated ratio wins over the helix: 0.2 × 0.0574 mm passes 0.025 mm.
+    _check(setup, tools=[{"id": "em", "helix_deg": 30, "axial_ratio": 0.2}])
+    # End teeth push rather than lift: the helix does not apply to an end cut.
+    cut["kind"] = "end"
+    with pytest.raises(CheckError, match="× 1, configured axial_ratio"):
+        _check(setup, tools=[{"id": "em", "helix_deg": 30}])
+    with pytest.raises(CheckError, match="helix_deg: expected an angle below 90"):
+        _check(setup, tools=[{"id": "em", "helix_deg": 90}])
+
+
+def test_a_rough_cut_is_judged_per_axis_against_its_declared_finish_stock():
+    # Issue #430: the base-bar edge roughed 4.1 mm wide and 7.366 mm deep with
+    # the cutter tip below the underside, between straps 392 mm apart; a
+    # 0.254 mm finish pass follows.
+    rough = {
+        "name": "edge rough",
+        "kind": "side",
+        "phase": "rough",
+        "material": "aluminum_6061",
+        "cutter_dia_mm": 12.7,
+        "flutes": 2,
+        "axial_doc_mm": 7.366,
+        "radial_woc_mm": 4.1,
+        "rpm": 2250,
+        "feed_mm_min": 400.05,
+        "traverse_mm": [0, 442.9125],
+    }
+    finish = {**rough, "name": "edge finish", "phase": "finish", "radial_woc_mm": 0.254}
+    setup = copy.deepcopy(SETUP)
+    setup["beam"] = {
+        "axis": "x",
+        "hold": "between",
+        "extent_mm": [0, 442.9125],
+        "supports_mm": [25.4, 417.5125],
+        "section_mm": {"y": 139.7, "z": 12.7},
+    }
+    setup["operations"][0].update(rpm=2250, milling_cuts=[rough, finish])
+    with pytest.raises(CheckError, match=r"along z exceeds the rough limit 0\.1 mm"):
+        _check(setup)
+    rough.update(finish_cut="edge finish", finish_stock_mm={"y": 0.254, "z": "through"})
+    _check(setup)
+    rough["finish_stock_mm"]["z"] = 0.1
+    with pytest.raises(
+        CheckError, match="the finish stock 0.1 mm that 'edge finish' leaves along z"
+    ):
+        _check(setup)
+    rough["finish_stock_mm"] = {"y": 0.254}
+    with pytest.raises(
+        CheckError, match=re.escape("finish_stock_mm: expected { y, z }")
+    ):
+        _check(setup)
+    rough["finish_stock_mm"] = {"y": 0.254, "z": "through"}
+    setup["operations"][0]["milling_cuts"] = [finish, rough]
+    with pytest.raises(CheckError, match="'edge finish' names no later finish cut"):
+        _check(setup)
+
+
+HOLD = {
+    "vise": "vise-pm-6",
+    "across_jaws_mm": 139.7,
+    "along_jaws_mm": 442.9125,
+    "part_height_mm": 11.938,
+    "parallel_height_mm": 34.925,
+    "overhang_mm": [142.11935, "rest"],
+    "jaw_offset": "centred",
+    "fixed_jaw_face": "machined",
+    "moving_jaw_face": "machined",
+    "moving_jaw_contact": "flat",
+}
+
+
+def test_a_vise_cantilever_clamp_is_the_grip_its_hold_declares():
+    setup = copy.deepcopy(SETUP)
+    setup["vise_hold"] = dict(HOLD)
+    with pytest.raises(CheckError, match="missing vise_left"):
+        _check(setup)
+    setup["beam"]["vise_left"] = "start"
+    _check(setup)
+    # Overhang 150 at the jaws' left: 150..308.67 from that end of the part.
+    setup["vise_hold"]["overhang_mm"] = [150, "rest"]
+    with pytest.raises(CheckError, match=r"vise hold 1 grips 150\.\.308\.674 mm"):
+        _check(setup)
+    setup["beam"].update(vise_left="end", clamp_mm=[134.2387, 292.9125])
+    _check(setup)
+
+
+def test_cuts_take_or_must_match_the_settings_chip_load_and_flutes():
+    setup = copy.deepcopy(SETUP)
+    operation = setup["operations"][0]
+    # As the plan reader carries them from a chip-load shared setting.
+    operation.update(chip_load_mm_per_tooth=0.0254, flutes=2)
+    cut = operation["milling_cuts"][0]
+    with pytest.raises(CheckError, match="not rpm with feed_mm_min"):
+        _check(setup)
+    for key in ("rpm", "feed_mm_min", "flutes"):
+        del cut[key]
+    _check(setup)
+    cut["flutes"] = 4
+    with pytest.raises(CheckError, match="flutes: 4 disagrees"):
+        _check(setup)
+    cut.update(flutes=2, feed_per_tooth_mm=0.05)
+    with pytest.raises(CheckError, match="feed_per_tooth_mm: 0.05 disagrees"):
         _check(setup)

@@ -211,6 +211,7 @@ def load_plan(path: Path) -> LoadedPlan:
             "tools",
             "setups",
             "turning_material",
+            "milling_material",
         },
         "plan",
     )
@@ -218,6 +219,7 @@ def load_plan(path: Path) -> LoadedPlan:
         _text(plan, key, "plan")
     _text(plan, "note", "plan", optional=True)
     _text(plan, "turning_material", "plan", optional=True)
+    _text(plan, "milling_material", "plan", optional=True)
 
     tool_ids = set()
     tool_refs = {}
@@ -359,9 +361,17 @@ def load_plan(path: Path) -> LoadedPlan:
                     )
                 except CheckError as error:
                     raise PlanError(str(error)) from error
+                authored_feed = "feed" in operation
                 for key, value in values.items():
                     if key not in operation:
                         operation[key] = value
+                # milling_deflection reads the numeric chip load behind a
+                # calculated feed; an authored feed has none.
+                if "chip_load_mm_per_tooth" in shared and not authored_feed:
+                    operation["chip_load_mm_per_tooth"] = shared[
+                        "chip_load_mm_per_tooth"
+                    ]
+                    operation["flutes"] = shared["flutes"]
                 operation.pop("settings")
             _text(operation, "instruction", op_where)
             _text(operation, "instruction_detailed", op_where, optional=True)

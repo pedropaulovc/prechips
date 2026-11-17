@@ -368,10 +368,12 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     )
 
 
-def check_turning_deflection(plan: LoadedPlan, config_path: Path | None = None) -> None:
-    """Refuse missing declared coverage or excessive bending; emit nothing on pass."""
+def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
+    """Refuse missing declared coverage or excessive bending; emit nothing on pass.
+
+    ``config`` is :func:`load_config`'s result, parsed once per render.
+    """
     try:
-        config = load_config(config_path)
         operation_number = 0
         for setup_index, setup in enumerate(plan.data["setups"], 1):
             where = f"setup {setup_index} ({setup.get('title', 'untitled')})"

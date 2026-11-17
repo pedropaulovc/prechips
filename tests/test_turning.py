@@ -169,10 +169,10 @@ def test_uneven_pass_order_cannot_escape_final_diameter_bound(tmp_path):
     force_per_mm = 396000 * 0.01 / 25.4 * 4.4482216152605
     expected = force_per_mm * 10**3 / (3 * 200000 * math.pi * 7.5**4 / 64)
     cut["max_deflection_mm"] = expected * 1.000001
-    check_turning_deflection(_plan(cut), config)
+    check_turning_deflection(_plan(cut), load_config(config))
     cut["max_deflection_mm"] = expected * 0.999999
     with pytest.raises(TurningError, match="estimated radial bending"):
-        check_turning_deflection(_plan(cut), config)
+        check_turning_deflection(_plan(cut), load_config(config))
 
 
 def test_force_units_radial_ratio_and_existing_minimum_section(tmp_path):
@@ -182,20 +182,20 @@ def test_force_units_radial_ratio_and_existing_minimum_section(tmp_path):
     force = 39.6 * 4.4482216152605
     expected = force * 10**3 / (3 * 200000 * math.pi * 5**4 / 64)
     cut = _cut(minimum_diameter_mm=5, max_deflection_mm=expected * 1.000001)
-    check_turning_deflection(_plan(cut), config)
+    check_turning_deflection(_plan(cut), load_config(config))
     # Only the radial component bends toward the tool: doubling the ratio fails.
     text = config.read_text(encoding="utf-8")
     config.write_text(
         text.replace("radial_ratio=1.0", "radial_ratio=2.0"), encoding="utf-8"
     )
     with pytest.raises(TurningError, match="radial force"):
-        check_turning_deflection(_plan(cut), config)
+        check_turning_deflection(_plan(cut), load_config(config))
     config.write_text(
         text.replace("elastic_modulus_gpa=200.0", "elastic_modulus_gpa=400.0"),
         encoding="utf-8",
     )
     cut["max_deflection_mm"] = expected * 0.500001
-    check_turning_deflection(_plan(cut), config)
+    check_turning_deflection(_plan(cut), load_config(config))
 
 
 def test_full_feed_table_interpolates_and_refuses_extrapolation():
@@ -231,7 +231,7 @@ def test_partial_config_and_new_material(tmp_path):
     }
     plan = _plan()
     plan.data["turning_material"] = "custom"
-    check_turning_deflection(plan, path)
+    check_turning_deflection(plan, load_config(path))
 
 
 @pytest.mark.parametrize(
@@ -252,7 +252,7 @@ def test_invalid_config_refuses_instead_of_falling_back(tmp_path, text):
     path = tmp_path / "invalid.toml"
     path.write_text(text, encoding="utf-8")
     with pytest.raises(TurningError):
-        check_turning_deflection(_plan(), path)
+        check_turning_deflection(_plan(), load_config(path))
 
 
 @pytest.mark.parametrize(
@@ -270,7 +270,7 @@ def test_missing_coverage_is_not_success(field):
     )
     del target[field]
     with pytest.raises(TurningError, match=field):
-        check_turning_deflection(plan)
+        check_turning_deflection(plan, load_config(None))
 
 
 def test_explicit_other_needs_no_physics_data_and_pass_is_silent(capsys):
@@ -279,17 +279,17 @@ def test_explicit_other_needs_no_physics_data_and_pass_is_silent(capsys):
     setup = plan.data["setups"][0]
     setup.pop("turning_support")
     setup["operations"] = [{"cut_kind": "other"}]
-    check_turning_deflection(plan)
+    check_turning_deflection(plan, load_config(None))
     setup["machine_kind"] = "other"
     setup["operations"] = [{}]
-    check_turning_deflection(plan)
+    check_turning_deflection(plan, load_config(None))
     assert capsys.readouterr() == ("", "")
 
 
 def test_failure_names_cut_and_pre_engagement_state():
     cut = _cut(start_z_mm=90, end_z_mm=10, max_deflection_mm=1e-9)
     with pytest.raises(TurningError) as caught:
-        check_turning_deflection(_plan(cut, _follower()))
+        check_turning_deflection(_plan(cut, _follower()), load_config(None))
     message = str(caught.value)
     for fragment in (
         "RH end",
@@ -317,7 +317,7 @@ def test_numbering_counts_other_setups_and_other_operations():
     )
     plan.data["setups"][1]["operations"].insert(0, {"cut_kind": "other"})
     with pytest.raises(TurningError, match=r"setup 2 \(RH end\), Op 40"):
-        check_turning_deflection(plan)
+        check_turning_deflection(plan, load_config(None))
 
 
 def test_current_shaft_finish_independent_hand_oracle():
@@ -343,7 +343,7 @@ def test_current_shaft_finish_independent_hand_oracle():
         pad_width_mm=10,
     )
     with pytest.raises(TurningError) as caught:
-        check_turning_deflection(_plan(cut, support))
+        check_turning_deflection(_plan(cut, support), load_config(None))
     for fragment in (
         "0.00916328 mm (about 0.0183266 mm on diameter)",
         "limit 0.005 mm at Z 152 mm (before follower engagement)",
@@ -388,7 +388,7 @@ def test_refusal_reports_kept_and_whole_traverse_maxima(tmp_path):
     config = _oracle_config(tmp_path)
     cut = _cut(start_z_mm=10, end_z_mm=1, kept_start_z_mm=5, max_deflection_mm=1e-9)
     with pytest.raises(TurningError) as caught:
-        check_turning_deflection(_plan(cut), config)
+        check_turning_deflection(_plan(cut), load_config(config))
     message = str(caught.value)
     assert "at Z 5 mm (chuck only) over kept Z 5..1 mm; whole traverse" in message
     assert "at Z 10 mm (chuck only)" in message
@@ -399,11 +399,12 @@ def test_refusal_reports_kept_and_whole_traverse_maxima(tmp_path):
         _plan(
             _cut(start_z_mm=10, end_z_mm=1, kept_start_z_mm=5, max_deflection_mm=limit)
         ),
-        config,
+        load_config(config),
     )
     with pytest.raises(TurningError, match="at Z 10 mm"):
         check_turning_deflection(
-            _plan(_cut(start_z_mm=10, end_z_mm=1, max_deflection_mm=limit)), config
+            _plan(_cut(start_z_mm=10, end_z_mm=1, max_deflection_mm=limit)),
+            load_config(config),
         )
 
 
@@ -414,7 +415,7 @@ def test_kept_range_is_mandatory_not_defaulted(field):
     cut = _cut(max_deflection_mm=1.0)
     del cut[field]
     with pytest.raises(TurningError, match=f"{field}: expected a finite number"):
-        check_turning_deflection(_plan(cut))
+        check_turning_deflection(_plan(cut), load_config(None))
 
 
 def test_pad_band_can_exactly_fit_and_axis_can_be_reversed():
@@ -436,17 +437,17 @@ def test_invalid_toml_reports_override_path(tmp_path):
     path = tmp_path / "broken-assumptions.toml"
     path.write_text("[force\n", encoding="utf-8")
     with pytest.raises(TurningError) as caught:
-        check_turning_deflection(_plan(), path)
+        check_turning_deflection(_plan(), load_config(path))
     assert str(path) in str(caught.value)
 
 
 def test_per_cut_limit_only_tightens_but_config_can_raise_limit(tmp_path):
     plan = _plan(_cut(start_z_mm=50, max_deflection_mm=1.0))
     with pytest.raises(TurningError, match="limit 0.005 mm"):
-        check_turning_deflection(plan)
+        check_turning_deflection(plan, load_config(None))
     config = tmp_path / "explicit-limit.toml"
     config.write_text("[limits]\nfinish_mm=1.0\n", encoding="utf-8")
-    check_turning_deflection(plan, config)
+    check_turning_deflection(plan, load_config(config))
 
 
 @pytest.mark.parametrize(
@@ -468,4 +469,4 @@ def test_other_classification_rejects_contradictory_physics(
     if not support:
         setup.pop("turning_support")
     with pytest.raises(TurningError, match="contradicts"):
-        check_turning_deflection(plan)
+        check_turning_deflection(plan, load_config(None))
