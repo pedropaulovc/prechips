@@ -1,8 +1,10 @@
 """Read the small process-plan format and render a self-contained print sheet."""
 
 import base64
+import re
 import tomllib
 from dataclasses import dataclass
+from enum import Enum
 from html import escape
 from math import isfinite
 from pathlib import Path
@@ -66,6 +68,38 @@ def _cutting_settings(table: dict, where: str) -> None:
 def _choice(table: dict, key: str, choices: set[str], where: str) -> None:
     if key in table and (not isinstance(table[key], str) or table[key] not in choices):
         raise PlanError(f"{where}.{key}: expected {' or '.join(sorted(choices))}")
+
+
+STEP_KINDS = {"action", "check", "stop"}
+
+
+def _steps(operation: dict, key: str, where: str) -> None:
+    if key not in operation:
+        return
+    for index, step in enumerate(_tables(operation, key, where), 1):
+        step_where = f"{where}.{key}[{index}]"
+        _keys(step, {"text", "kind"}, step_where)
+        _text(step, "text", step_where)
+        if "kind" not in step:
+            raise PlanError(f"{step_where}.kind: required")
+        _choice(step, "kind", STEP_KINDS, step_where)
+
+
+def _work(operation: dict, where: str) -> None:
+    """Each slot, compact and detailed, holds instruction text or steps."""
+    if "instruction" in operation and "steps" in operation:
+        raise PlanError(f"{where}: declare instruction or steps, not both")
+    if "instruction_detailed" in operation and "steps_detailed" in operation:
+        raise PlanError(
+            f"{where}: declare instruction_detailed or steps_detailed, not both"
+        )
+    if "instruction" not in operation and "steps" not in operation:
+        raise PlanError(f"{where}: expected instruction or steps")
+    if "instruction" in operation:
+        _text(operation, "instruction", where)
+    _text(operation, "instruction_detailed", where, optional=True)
+    _steps(operation, "steps", where)
+    _steps(operation, "steps_detailed", where)
 
 
 def _turning_numbers(table: dict, keys: set[str], where: str) -> None:
@@ -301,6 +335,8 @@ def load_plan(path: Path) -> LoadedPlan:
                     "settings",
                     "instruction",
                     "instruction_detailed",
+                    "steps",
+                    "steps_detailed",
                     "rpm",
                     "feed",
                     "inspection",
@@ -377,8 +413,7 @@ def load_plan(path: Path) -> LoadedPlan:
                         shared, operation["rpm"]
                     )[1]
                 operation.pop("settings")
-            _text(operation, "instruction", op_where)
-            _text(operation, "instruction_detailed", op_where, optional=True)
+            _work(operation, op_where)
             _text(operation, "inspection", op_where, optional=True)
             if "table" in operation:
                 data = operation["table"]
@@ -480,6 +515,137 @@ def _html(value: str | int) -> str:
     return escape(str(value), quote=True)
 
 
+# Printed only on sheets that use markup or steps, so plain sheets keep their
+# exact bytes.
+RICH_CSS = """\
+.text ol, .text ul { margin: 0; padding-left: 0.22in; }
+.text .gap { height: 1.2em; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 0.95em; }
+.steps { margin: 0; padding-left: 0.22in; white-space: pre-wrap; }
+.steps-spaced > li + li { margin-top: 0.04in; }
+.step-check, .step-stop { padding-left: 0.05in; }
+.step-check { border-left: 1px solid var(--ink); }
+.step-stop { border-left: 3px solid var(--ink); font-weight: bold; }
+"""
+
+_CODE = re.compile(r"`([^`\n]+)`")
+_BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
+# Emphasis opens before a word character and never closes after "(", so
+# footnote marks such as "(*)" stay literal; it may close after other
+# punctuation ("*Note:*").
+_EM = re.compile(r"(?<![*\w])\*(?=\w)(.+?)(?<=[^\s*(])\*(?![*\w])")
+# Bullets use "* " (asterisk, space), which emphasis cannot open. "- " never
+# makes a list, so a minus-sign tolerance line always prints as typed.
+_ITEM = re.compile(r"(\d+)\. (.*)|\* (.*)")
+# A blank line beside a list: the list's block edges would swallow it.
+_GAP = '<div class="gap"></div>'
+
+
+def _inline(value: str) -> str:
+    """Escape, then apply **bold**, *em* and `code`; code spans stay literal."""
+    parts = _CODE.split(_html(value))
+    for index, part in enumerate(parts):
+        if index % 2:
+            parts[index] = f"<code>{part}</code>"
+            continue
+        parts[index] = _EM.sub(r"<em>\1</em>", _BOLD.sub(r"<strong>\1</strong>", part))
+    return "".join(parts)
+
+
+def _rich(value: str) -> str:
+    """Inline markup plus `1.`/`*` line lists; plain text renders as `_html`."""
+    lines = value.split("\n")
+    found = [_ITEM.fullmatch(line) for line in lines]
+    if not any(found):
+        return _inline(value)
+    blocks: list[str] = []
+    plain: list[str] = []
+    items: list[str] = []
+    tag = start = number = None
+
+    def close_list() -> None:
+        nonlocal tag
+        if tag is None:
+            return
+        begin = f'<ol start="{start}">' if tag == "ol" and start != 1 else f"<{tag}>"
+        blocks.append(begin + "".join(items) + f"</{tag}>")
+        items.clear()
+        tag = None
+
+    def flush_plain() -> int:
+        """Print the plain run; return its trailing blank lines, which print
+        as gaps only if a list follows (none at the start or end)."""
+        filled = [index for index, line in enumerate(plain) if line]
+        if not filled:
+            trailing = len(plain) if blocks else 0
+            plain.clear()
+            return trailing
+        first, final = filled[0], filled[-1]
+        if blocks:
+            blocks.append(_GAP * first)
+        blocks.append(_inline("\n".join(plain[first : final + 1])))
+        trailing = len(plain) - 1 - final
+        plain.clear()
+        return trailing
+
+    for line, item in zip(lines, found, strict=True):
+        if item is None:
+            close_list()
+            plain.append(line)
+            continue
+        kind = "ol" if item[1] else "ul"
+        if kind != tag:
+            close_list()
+            if plain:
+                blocks.append(_GAP * flush_plain())
+            tag, start = kind, int(item[1]) if item[1] else None
+            number = start - 1 if start is not None else None
+        text = _inline(item[2] if item[1] else item[3])
+        if kind == "ul":
+            items.append(f"<li>{text}</li>")
+            continue
+        # Numbers count on from the previous item; an authored number that
+        # jumps ahead prints as written, and a repeated or lower one ("1.",
+        # "1.", "1.") counts on, as in markdown.
+        authored = int(item[1])
+        if authored <= number:
+            number += 1
+            items.append(f"<li>{text}</li>")
+            continue
+        jump = f' value="{authored}"' if authored != number + 1 else ""
+        number = authored
+        items.append(f"<li{jump}>{text}</li>")
+    close_list()
+    if plain:
+        flush_plain()
+    return "".join(blocks)
+
+
+STEP_LABELS = {"check": "Check:", "stop": "Stop:"}
+
+
+class StepLayout(Enum):
+    """How a step list prints; the value is its CSS class."""
+
+    COMPACT = "steps"
+    SPACED = "steps steps-spaced"
+
+
+def _steps_html(steps: list[dict], layout: StepLayout) -> str:
+    """Numbered steps; check and stop lines carry a label, rule and weight."""
+    rows = []
+    for step in steps:
+        text = _inline(step["text"])
+        label = STEP_LABELS.get(step["kind"])
+        if label is None:
+            rows.append(f"<li>{text}</li>")
+            continue
+        rows.append(
+            f'<li class="step-{step["kind"]}"><strong>{label}</strong> {text}</li>'
+        )
+    return f'<ol class="{layout.value}">' + "".join(rows) + "</ol>"
+
+
 def _diagram_html(
     setup: dict,
     profile: Profile,
@@ -532,6 +698,10 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(plan['title'])}</title>",
+    ]
+    # Sheets using markup or steps get RICH_CSS spliced in here at the end.
+    style_at = len(lines)
+    lines += [
         f"<style>{CSS}</style></head><body>",
         f"<h1>{_html(plan['title'])}</h1>",
         '<div class="meta">',
@@ -556,6 +726,9 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     # The palette's key prints here, once, listing the roles the pictures draw.
     key_at = len(lines)
     drawn: set[str] = set()
+    rich = False
+    detailed = "detailed_instructions" in profile.features
+    layout = StepLayout.SPACED if detailed else StepLayout.COMPACT
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
         lines.append(
@@ -593,13 +766,23 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         for operation in setup["operations"]:
             operation_number += 10
             tool = tools[operation["tool"]] if "tool" in operation else None
-            instruction = operation["instruction"]
-            if "detailed_instructions" in profile.features:
-                instruction = operation.get("instruction_detailed", instruction)
-            lines.append(
-                f'<tr><td class="op-number">{operation_number}</td>'
-                f'<td><div class="text">{_html(instruction)}</div>'
+            # The detailed slot, when selected and authored, replaces the
+            # compact one; either slot holds instruction text or steps.
+            slots = [("instruction", "steps")]
+            if detailed:
+                slots.insert(0, ("instruction_detailed", "steps_detailed"))
+            text_key, steps_key = next(
+                pair for pair in slots if pair[0] in operation or pair[1] in operation
             )
+            # Validation leaves exactly one of the two keys.
+            if steps_key in operation:
+                work = _steps_html(operation[steps_key], layout)
+                rich = True
+            if text_key in operation:
+                text = _rich(operation[text_key])
+                rich |= text != _html(operation[text_key])
+                work = f'<div class="text">{text}</div>'
+            lines.append(f'<tr><td class="op-number">{operation_number}</td><td>{work}')
             if "inspection" in operation:
                 lines.append(
                     '<div class="text"><strong>Check:</strong> '
@@ -664,5 +847,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             ' style="display: block; width: 100%">'
             "</figure>",
         )
+    if rich:
+        lines[style_at] = f"<style>{CSS}{RICH_CSS}</style></head><body>"
     lines.append("</body></html>\n")
     return "\n".join(lines)

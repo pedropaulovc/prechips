@@ -6,6 +6,7 @@ from xml.etree import ElementTree
 
 import pytest
 
+from prechips import traveler
 from prechips.checks import CHECKS
 
 # Minimal fixtures for the older checks declare no data for the v0.8 checks.
@@ -140,6 +141,140 @@ def test_numbered_setups_operations_and_authored_table_content(tmp_path):
     assert "Measure at both ends." in parts
     assert "Check thickness & squareness." in parts
     assert "internal-mill-id" not in parts
+
+
+STEPS = """
+steps = [
+  { kind = "action", text = "Load <T1>." },
+  { kind = "check", text = "Probe out." },
+  { kind = "stop", text = "Probe in: no spindle." },
+]
+steps_detailed = [{ kind = "stop", text = "Detailed **stop** line." }]
+"""
+
+
+@pytest.mark.parametrize("detailed", [False, True])
+def test_operation_steps_render_by_kind_and_profile(tmp_path, detailed):
+    text = PLAN.replace(
+        'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
+        STEPS,
+    )
+    profile = tmp_path / "steps.toml"
+    features = '["detailed_instructions"]' if detailed else "[]"
+    profile.write_text(
+        f'name = "Steps"\nfeatures = {features}\nenforce = []\n', encoding="utf-8"
+    )
+    result, out = run_cli(tmp_path, text, "--profile", str(profile))
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    if detailed:
+        assert '<ol class="steps steps-spaced"><li class="step-stop">' in html
+        assert "<strong>Stop:</strong> Detailed <strong>stop</strong> line." in html
+        assert "Load" not in html
+    else:
+        assert (
+            '<ol class="steps"><li>Load &lt;T1&gt;.</li>'
+            '<li class="step-check"><strong>Check:</strong> Probe out.</li>'
+            '<li class="step-stop"><strong>Stop:</strong> Probe in: no spindle.</li>'
+            "</ol>"
+        ) in html
+        assert "Detailed" not in html
+    assert ".step-stop {" in html
+
+
+@pytest.mark.parametrize(
+    "work,message",
+    [
+        ('instruction = "A"\nsteps = [{ kind = "action", text = "B" }]', "not both"),
+        (
+            (
+                'instruction = "A"\ninstruction_detailed = "B"\n'
+                'steps_detailed = [{ kind = "action", text = "C" }]'
+            ),
+            "not both",
+        ),
+        ('tool = "internal-mill-id"', "expected instruction or steps"),
+        ('steps = [{ kind = "note", text = "A" }]', "expected action or check or stop"),
+        ('steps = [{ kind = ["stop"], text = "A" }]', "kind: expected action or"),
+        ('steps = [{ kind = { a = 1 }, text = "A" }]', "kind: expected action or"),
+        ('steps = [{ text = "A" }]', "kind: required"),
+        ("steps = []", "expected a nonempty array of tables"),
+    ],
+)
+def test_operation_declares_instruction_or_steps(tmp_path, work, message):
+    text = PLAN.split("[[setups.operations]]")[0] + f"[[setups.operations]]\n{work}\n"
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert not out.exists()
+
+
+def test_instruction_markdown_is_applied_after_escaping(tmp_path):
+    instruction = (
+        "<b>Raw</b> **bold** *em* `<code>` 2 * 3\\n1. One\\n2. Two\\n* Dash\\nTail"
+    )
+    text = PLAN.replace(
+        'instruction = "Face to thickness.\\nKeep < 0.2 mm finishing allowance."',
+        f'instruction = "{instruction}"',
+    )
+    result, out = run_cli(tmp_path, text, "--profile", stock_free_profile(tmp_path))
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    assert (
+        '<div class="text">&lt;b&gt;Raw&lt;/b&gt; <strong>bold</strong> <em>em</em> '
+        "<code>&lt;code&gt;</code> 2 * 3<ol><li>One</li><li>Two</li></ol>"
+        "<ul><li>Dash</li></ul>Tail</div>"
+    ) in html
+    assert "<b>" not in html
+    # Plain text keeps its exact bytes, with no added style rules.
+    result, out = run_cli(tmp_path, PLAN, "--profile", stock_free_profile(tmp_path))
+    html = out.read_text(encoding="utf-8")
+    assert "Face to thickness.\nKeep &lt; 0.2 mm" in html
+    assert ".steps {" not in html
+
+
+@pytest.mark.parametrize(
+    "value,html",
+    [
+        # Footnote marks stay literal, even after an unmatched "*word";
+        # emphasis may end in other punctuation.
+        ("Ream (*) then gauge (*)", "Ream (*) then gauge (*)"),
+        ("*Note: see (*)", "*Note: see (*)"),
+        ("Drill *2 holes then gauge (*)", "Drill *2 holes then gauge (*)"),
+        ("*Note:* gauge", "<em>Note:</em> gauge"),
+        # "- " never makes a list: every tolerance line prints as typed,
+        # stacked negative limits included.
+        ("Ø.376 +.001\n- .000", "Ø.376 +.001\n- .000"),
+        ("Ø8 +0.05\n- 0.02 mm", "Ø8 +0.05\n- 0.02 mm"),
+        ("Ø8 f7\n- 0.013\n- 0.028", "Ø8 f7\n- 0.013\n- 0.028"),
+        ("- Spot\n- Bore Ø8 +0.05\n- 0.02 mm", "- Spot\n- Bore Ø8 +0.05\n- 0.02 mm"),
+        # Bullets are "* " lines; a blank line between them splits the list.
+        ("* A\n* B", "<ul><li>A</li><li>B</li></ul>"),
+        (
+            "Steps:\n* Face\n\n* Drill",
+            (
+                'Steps:<ul><li>Face</li></ul><div class="gap"></div>'
+                "<ul><li>Drill</li></ul>"
+            ),
+        ),
+        # Numbers that jump ahead print as written; repeated ones count on.
+        (
+            "10. Face\n20. Drill\n21. Ream",
+            '<ol start="10"><li>Face</li><li value="20">Drill</li><li>Ream</li></ol>',
+        ),
+        ("1. A\n1. B\n1. C", "<ol><li>A</li><li>B</li><li>C</li></ol>"),
+        # Blank lines beside a list print as gaps, except at either end.
+        (
+            "\nIntro\n\n1. A\n\n2. B\nTail\n",
+            (
+                'Intro<div class="gap"></div><ol><li>A</li></ol>'
+                '<div class="gap"></div><ol start="2"><li>B</li></ol>Tail'
+            ),
+        ),
+    ],
+)
+def test_markup_leaves_ordinary_text_and_keeps_blank_lines(value, html):
+    assert traveler._rich(value) == html
 
 
 @pytest.mark.parametrize(
