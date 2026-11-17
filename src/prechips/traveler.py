@@ -655,9 +655,12 @@ def _steps_html(steps: list[dict], layout: StepLayout) -> str:
 
 
 # Printed only on sheets with an operation picture. The picture and its
-# operation's row share one tbody so a page break cannot separate them.
+# operation's row share one tbody so a page break cannot separate them; the
+# row-level break-after backs that up in engines that ignore break-inside
+# on row groups.
 OP_DIAGRAM_CSS = """\
 .op-group { break-inside: avoid; }
+.op-diagram { break-after: avoid; }
 .op-diagram > td { padding: 0; border-bottom: 0; }
 """
 
