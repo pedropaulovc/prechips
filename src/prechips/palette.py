@@ -47,6 +47,10 @@ _DEFS = f"""<defs xmlns="{SVG_NS}">
     <rect width="8" height="8" fill="#e6e8ea"/>
     <line x1="4" y1="0" x2="4" y2="8" stroke="#9a9fa6" stroke-width="1"/>
   </pattern>
+  <pattern id="prechips-bond" width="10" height="6" patternUnits="userSpaceOnUse">
+    <rect width="10" height="6" fill="#f4f1e4"/>
+    <path d="M1 1.5H5M6 4.5H10" stroke="#555" stroke-width="1"/>
+  </pattern>
   <pattern id="prechips-support" width="4" height="4" patternUnits="userSpaceOnUse">
     <circle cx="2" cy="2" r="1.1" fill="#2f6b3a"/>
   </pattern>
@@ -66,6 +70,7 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke": "#555",
         "stroke-width": "1.2",
     },
+    "bond": {"fill": "url(#prechips-bond)", "stroke": "#555", "stroke-width": "0.8"},
     "part-rest": {"fill": "#c9cbce", "stroke": "#888", "stroke-width": "1.2"},
     "part-waste": {
         "fill": "#eeeff0",
@@ -156,8 +161,9 @@ LEGEND = (
     ("fixture-table", "table, saw bed"),
     ("fixture-vise", "vise or chuck body"),
     ("fixture-plate", "fixture plate, fence"),
+    ("bond", "tape, bond"),
     ("fixture-support", "block, parallel, jack"),
-    ("clamp", "jaw, strap, edge clamp"),
+    ("clamp", "jaw, clamp"),
     ("cutter", "cutter, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),

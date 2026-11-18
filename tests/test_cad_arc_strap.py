@@ -1,5 +1,8 @@
+import base64
+import re
 import tomllib
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -146,3 +149,45 @@ def test_a_partial_hold_or_an_unexpected_feature_set_refuses(tmp_path):
     )
     with pytest.raises(CadError, match="expected exactly"):
         load_arc_strap(source, PARAMETERS, "arc-strap")
+
+
+def test_strap_pictures_land_leaders_on_features_and_key_roles_truthfully():
+    from prechips.profiles import HOBBY
+    from prechips.traveler import load_plan, render_traveler
+
+    html = render_traveler(load_plan(PLAN), profile=HOBBY)
+    key, *_, outline, inspect = [
+        ElementTree.fromstring(base64.b64decode(picture))
+        for picture in re.findall(r'src="data:image/svg\+xml;base64,([^"]+)"', html)
+    ]
+    svg = "{http://www.w3.org/2000/svg}"
+    words = " ".join(text.text for text in key.iter(f"{svg}text"))
+    assert "jaw, clamp" in words and "tape, bond" in words and "strap" not in words
+
+    def group(root, role):
+        return root.find(f"{svg}g[@class='{role}']")
+
+    # Bonded outline: tape under the blank, no clamp, the hub screw as hardware.
+    assert len(group(outline, "bond")) == 1 and len(group(outline, "clamp")) == 0
+    hardware = [
+        e for e in outline.iter(f"{svg}circle") if e.get("class") == "part-rest"
+    ]
+    assert len(hardware) == 1
+    # Inspection: the edge heights are called out on the hub's centre line,
+    # at its two ends on the top and bottom edges, and the corner on its vertex.
+    line = group(inspect, "centre-line")[0]
+    hole = group(inspect, "holes")[0]
+    assert line.get("x1") == line.get("x2") == hole.get("cx")
+    dots = {
+        (dot.get("cx"), dot.get("cy"))
+        for dot in inspect.iter(f"{svg}circle")
+        if dot.get("class") == "leader-dot"
+    }
+    assert {(line.get("x1"), line.get("y1")), (line.get("x1"), line.get("y2"))} <= dots
+    # The corner is the outline's right-most point.
+    path = group(inspect, "part-kept")[0].get("d")
+    points = [
+        tuple(map(float, pair)) for pair in re.findall(r"([\d.]+)[ ,]([\d.]+)", path)
+    ]
+    corner = max(points)
+    assert any((float(x), float(y)) == pytest.approx(corner, abs=0.06) for x, y in dots)
