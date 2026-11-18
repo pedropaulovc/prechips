@@ -157,7 +157,7 @@ LEGEND = (
     ("fixture-vise", "vise or chuck body"),
     ("fixture-plate", "fixture plate, fence"),
     ("fixture-support", "block, parallel, jack"),
-    ("clamp", "jaw, strap, edge clamp"),
+    ("clamp", "jaw, clamp"),
     ("cutter", "cutter, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),
