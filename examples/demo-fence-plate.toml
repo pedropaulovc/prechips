@@ -25,8 +25,6 @@ quantity = 1
 blank_length_in = 13.0
 blank_width_in = 6.0
 blank_thickness_in = 0.5
-blank_thickness_min_in = 0.495
-blank_thickness_max_in = 0.505
 blank_thickness_min_mm = 12.573
 blank_thickness_max_mm = 12.827
 sp01_x_set_mm = -15.24
@@ -126,8 +124,8 @@ speed_kind = "other"
 tool = "saw"
 drilling = "none"
 sizing = "other"
-instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:.1f}} in (±.1, the plate's finished length) from the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:g}} in bar, flat on the saw bed. Deburr both sawn ends. Mic the thickness at both ends: every reading {{process.blank_thickness_min_in:.3dot}}–{{process.blank_thickness_max_in:.3dot}}, else stop (the programs are posted for that band)."
-inspection = "Thickness {{process.blank_thickness_min_in:.3dot}}–{{process.blank_thickness_max_in:.3dot}} at both ends."
+instruction = "Saw {{process.quantity:d}} × {{process.blank_length_in:.1f}} in (±.1, the plate's finished length) from the {{process.blank_thickness_in:fraction}} × {{process.blank_width_in:g}} in bar, flat on the saw bed. Deburr both sawn ends. Mic the thickness at both ends: every reading {{process.blank_thickness_min_mm:in.3dot}}–{{process.blank_thickness_max_mm:in.3dot}}, else stop (the programs are posted for that band)."
+inspection = "Thickness {{process.blank_thickness_min_mm:in.3dot}}–{{process.blank_thickness_max_mm:in.3dot}} at both ends."
 gauge_checks = [{ gauge = "micrometers", band_mm = ["{{process.blank_thickness_min_mm}}", "{{process.blank_thickness_max_mm}}"] }]
 feed = "hand"
 

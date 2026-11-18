@@ -72,10 +72,14 @@ def _string(value: object, where: str) -> str:
     return value
 
 
-def _band(feature: dict, key: str, where: str) -> tuple[float, float]:
+def _required(feature: dict, key: str, where: str) -> None:
     requirements = feature.get("requirements")
     if not isinstance(requirements, list) or key not in requirements:
         raise CadError(f"{where}.{key}: missing drawing requirement")
+
+
+def _band(feature: dict, key: str, where: str) -> tuple[float, float]:
+    _required(feature, key, where)
     value = feature.get(key)
     if not isinstance(value, list) or len(value) != 2:
         raise CadError(f"{where}.{key}: expected a two-number requirement band")
@@ -219,6 +223,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_fence_plate import load_fence_plate
 
         return load_fence_plate(path, parameters, part)
+    if adapter == "hex_block":
+        from prechips.cad_hex_block import load_hex_block
+
+        return load_hex_block(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

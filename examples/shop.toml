@@ -525,3 +525,59 @@ diameter_mm = 5.1054
 [tools.fence-plate-tap-1-4-20-plug]
 description = "1/4-20 UNC plug tap; T-handle wrench"
 tap_drill_mm = 5.1054
+
+# --- Demo hex block (examples/demo-hex-block.toml) ---
+# The blank: 1/2 in hex brass, alloy not on record; the settings read the
+# sources' generic brass rows, so the material key asserts no alloy.
+[tools.hex-block-em-half]
+description = "1/2 in 3-flute uncoated carbide square end mill, 3 in OAL"
+diameter_mm = 12.7
+flute_length_mm = 25.4
+helix_deg = 30
+[tools.hex-block-dead-centre]
+description = "MT3 dead centre, straight end held in the 3/4 in R8 collet, used as a spindle tap guide"
+# Facing: The Carbide End Mill Store "Carbide End Mill Speeds and Feeds,
+# General Purpose, Uncoated" (6gtools.com, PDF read 2026-11-17), row
+# Non-Ferrous N, Brass/Bronze: 400 SFM, 1/2 in .0042 in/tooth at chip-load
+# factor 1.0 (50 % radial engagement). 400 × 3.82 / .5 = 3056 rpm, over the
+# spindle's 2800 (machines.pm-30mv), so 2800 (367 ft/min).
+[settings.hex-block-em-half-brass]
+tool = "hex-block-em-half"
+material = "hex-block-brass"
+rpm = 2800
+chip_load_mm_per_tooth = 0.10668  # .0042 in; 2800 × 3 × .0042 = 35.3 in/min
+flutes = 3
+feed_unit = "in/min"
+# Holes (HSS), speeds: LittleMachineShop "Cutting Speeds", Drilling &
+# Reaming, row Brass: 160-175 ft/min (read 2026-11-17). Feeds per rev:
+# AutoDrill "Suggested drilling feed rates"
+# (autodrill.com/resources/charts/suggested-drilling-feed-rates, read
+# 2026-11-17), row Brass: 1/16 in .001, 1/8 in .003, 1/4 in .004, 1/2 in
+# .008 in/rev; a size between two columns takes the lower column's feed.
+# - #2 centre drill (5/64 pilot, 3/16 body): 160 ft/min is over 3200 rpm on
+#   the body, so 2800; the pilot is under 1/8 in, .001 in/rev: 2.8 in/min.
+# - #43 (.089 in): 160 ft/min is 6870 rpm, so 2800 (65 ft/min); .001 in/rev.
+# - F (.257 in): 160-175 ft/min is 2378-2601 rpm: 2400; .004 in/rev.
+[settings.hex-block-spot-brass]
+tool = "jig-spot"
+material = "hex-block-brass"
+rpm = 2800
+feed = "2.8 in/min"
+[settings.hex-block-drill-43-brass]
+tool = "jig-drill-43"
+material = "hex-block-brass"
+rpm = 2800
+feed = "2.8 in/min"
+[settings.hex-block-drill-f-brass]
+tool = "jig-drill-f"
+material = "hex-block-brass"
+rpm = 2400
+feed = "9.6 in/min"
+# The bore's band checked by two drill shanks, each miked first: the F
+# drill's as the GO and the G drill's (.261 in) as the NO-GO. The pair reads
+# no scale: its resolution is the micrometers' reading of each shank. A
+# shank is not ground to a gauge class, so the lower limit is held by the F
+# drill and only checked to the miked F shank's size.
+[gauges.hex-block-bore-drill-shanks]
+range_mm = [6.5278, 6.6294]
+resolution_mm = 0.00254

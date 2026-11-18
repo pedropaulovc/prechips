@@ -24,6 +24,7 @@ from .cad import (
     _number,
     _positive,
     _read_manifest,
+    _required,
     _string,
 )
 
@@ -54,12 +55,6 @@ def _feature(features: dict, name: str, kind: str) -> dict:
     ):
         raise CadError(f"{name}: expected a model-frame {kind}")
     return item
-
-
-def _required(feature: dict, key: str, where: str) -> None:
-    requirements = feature.get("requirements")
-    if not isinstance(requirements, list) or key not in requirements:
-        raise CadError(f"{where}.{key}: missing drawing requirement")
 
 
 def _plane(features: dict, name: str, axis: str) -> tuple[dict, float]:
@@ -137,6 +132,8 @@ def _pockets(features: dict, values: dict) -> None:
         centre = _positive(pocket.get("centre_x"), f"{name}.centre_x")
         if stations and centre <= stations[-1]:
             raise CadError(f"{name}.centre_x: expected ascending stations")
+        if stations and centre - stations[-1] <= bands["length"][1]:
+            raise CadError(f"{name}.centre_x: overlaps the pocket before it")
         stations.append(centre)
         tap, (x, y, z) = _hole(features, tap_name)
         found = (
@@ -148,8 +145,14 @@ def _pockets(features: dict, values: dict) -> None:
         if (drill, thread, length, row) not in ((None,) * 4, found):
             raise CadError(f"{tap_name}: the clamp taps disagree")
         drill, thread, length, row = found
-        # The screw sits on the pocket's centre, in its floor, between its walls.
-        if x != centre or z != floor or not near < row < bands["back_wall_y"][0]:
+        # The screw's hole sits on the pocket's centre, in its floor, whole
+        # between its walls.
+        if (
+            x != centre
+            or z != floor
+            or not near < row - drill / 2
+            or not row + drill / 2 < bands["back_wall_y"][0]
+        ):
             raise CadError(f"{tap_name}.at: expected in the floor of {name}")
     for key, name in (
         ("back_wall_y", "pocket_back_wall"),
@@ -236,8 +239,8 @@ def _hub(features: dict, values: dict) -> None:
 
 
 def _placement(values: dict, ends: tuple[float, float], front: float) -> None:
-    """Refuse pockets or a counterbore that leave the plate or meet a notch,
-    each taken at its largest."""
+    """Refuse pockets or a counterbore that leave the plate top or cut into
+    each other, each taken at its largest."""
     half = values["pocket_length_band_mm"][1] / 2
     stations = values["pocket_x_mm"]
     if stations[0] - half <= 0 or stations[-1] + half >= ends[1]:
@@ -252,6 +255,12 @@ def _placement(values: dict, ends: tuple[float, float], front: float) -> None:
         raise CadError(
             "hub_counterbore.y: the counterbore meets the fence or the front edge"
         )
+    beside = all(
+        x[1] + radius < station - half or x[0] - radius > station + half
+        for station in stations
+    )
+    if not beside and y[1] + radius >= values["pocket_near_wall_mm"]:
+        raise CadError("hub_counterbore: the counterbore cuts into a clamp pocket")
 
 
 def load_fence_plate(path: Path, parameters: dict, part: str) -> CadData:
