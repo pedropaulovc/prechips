@@ -151,7 +151,10 @@ def _fixture(
     _datum_label(groups, right, back - 8, "Y0: fence face", "end")
     groups["datum"].append(_line(plan.px(0), plan.y0, plan.px(0), plan.front))
     _datum_label(groups, plan.px(0) + 4, back - 8, "X0: end stop", "start")
-    groups["clamp"].append(_rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP))
+    # The end stop is a block on the plate, not a clamp.
+    groups["fixture-support"].append(
+        _rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP)
+    )
     for station in clamps:
         groups["clamp"].append(
             _rect(plan.px(station) - _CLAMP / 2, plan.front, _CLAMP, _CLAMP)
@@ -225,7 +228,7 @@ def _outline_plan(
         )
     notches = [values["fence_notch_left_x_mm"], values["fence_notch_right_x_mm"]]
     bottom = _fixture(groups, plan, [], notches)
-    _blank_plan(groups, plan, ("part-arriving",))
+    _blank_plan(groups, plan, ("bond", "part-arriving"))
     points = _loop(outline)
     inner = [plan.model(outline, point) for point in points]
     outer = [
@@ -239,18 +242,29 @@ def _outline_plan(
     groups["part-kept"].append(_el("path", d=_path(inner)))
     (x, y), _ = _hub(plan, values)
     flange = _param(parameters, "bushing_flange_dia_mm") * plan.scale / 2
-    groups["clamp"].append(_el("circle", cx=x, cy=y, r=flange))
+    # Screw, washer and plug are hardware, not a clamp in the key's sense;
+    # drawn with the holes so they lie over the strap.
+    groups["holes"].append(
+        _el("circle", cx=x, cy=y, r=flange, **{"class": "part-rest"})
+    )
     tip = plan.px(sum(notches[1]) / 2)
+    # The tape shows between the slot and the blank's front edge: midway
+    # across that strip, over the bottom arc 0.6 of the way out to its end.
+    reach = -0.6 * outline["foot"][0]
+    wall = outline["bottom_radius"] + _cad(values, "slot_reach_mm")
+    tape_x, slot = plan.model(
+        outline, (reach, outline["centre_y"] - math.sqrt(wall**2 - reach**2))
+    )
     items = [
         (
-            plan.px(plan.length * 0.2),
-            plan.front,
+            tape_x,
+            (slot + plan.front) / 2,
             ["tape under the whole blank,", "no edge clamps"],
         ),
         (x, y, ["screw, washer and plug", "in the hub hole"]),
         (
             tip,
-            plan.y0,
+            plan.y0 - plan.fence * plan.scale / 2,
             ["fence notched under", "both tips"],
         ),
     ]
@@ -286,7 +300,7 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     points = _loop(outline)
     half = outline["corner"][0]
     scale = 620 / (2 * half)
-    top = 96.0
+    top = 122.0
 
     def page(point: Point) -> Point:
         x, y = point
@@ -296,36 +310,58 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     hub = page((0.0, outline["hub_y"]))
     radius = values["hub_dia_band_mm"][0] * scale / 2
     groups["holes"].append(_el("circle", cx=hub[0], cy=hub[1], r=radius))
-    groups["centre-line"].append(_line(hub[0], top - 14, hub[0], hub[1] + 40))
     left, right = page((-half, outline["corner"][1])), page(outline["corner"])
+    # Both edge heights are taken on the hub's centre line: the centre line
+    # runs edge to edge there and each callout's leader lands on its end.
+    high = page((0.0, outline["centre_y"] - outline["top_radius"]))[1]
     low = page((0.0, outline["bottom_y"]))[1]
+    groups["centre-line"].append(_line(hub[0], high, hub[0], low))
     _dimension(
         groups,
         left[0],
         right[0],
-        top - 30,
-        left[1],
+        top - 56,
+        # Stopped short of the corner, which the corner callout's leader leaves.
+        left[1] - 8,
         f"({_shorthand(_cad(values, 'overall_length_in'), 2)})",
     )
+    _callouts(
+        groups,
+        [
+            (
+                hub[0],
+                high,
+                [
+                    "top edge {{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} from the hub centre, on its centre line"
+                ],
+            )
+        ],
+        # Above the tips, the outline's highest points, whatever the arc's sag.
+        top - 6,
+        above=True,
+        gap=10.0,
+    )
+    # The hub leader leaves the hole's rim clear of the centre line, which
+    # the bottom-edge leader continues.
     items = [
         (
-            hub[0],
-            hub[1] + radius,
+            hub[0] - radius,
+            hub[1],
             [
                 "hub Ø{{cad.hub_dia_min_in:.4dot}}–{{cad.hub_dia_max_in:.4dot}}",
                 "reamed through",
             ],
         ),
         (
-            hub[0] + 90,
-            low + 4,
+            hub[0],
+            low,
             [
-                "edges from the hub centre:",
-                "{{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} above, {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}} below",
+                "bottom edge {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}}",
+                "from the hub centre, on its centre line",
             ],
         ),
         (
-            right[0] - 4,
+            right[0],
             right[1],
             [
                 "corner {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}}",
