@@ -506,12 +506,7 @@ feed_unit = "in/min"
 # end mill in aluminium: Carbide End Mill Store "Carbide End Mill Speeds and
 # Feeds, General Purpose, Uncoated", Non-Ferrous N, Al/Al Alloys: 500 SFM,
 # 1/8 in .0011 in/tooth; the spindle's 2800 rpm caps the speed.
-[settings.fence-plate-em-half-6061-wide]
-tool = "basebar-em-half"
-material = "6061-t6511"
-rpm = 2250
-feed = "15.75 in/min"
-[settings.fence-plate-em-half-6061-narrow]
+[settings.fence-plate-em-half-6061]
 tool = "basebar-em-half"
 material = "6061-t6511"
 rpm = 2250

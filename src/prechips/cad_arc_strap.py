@@ -256,7 +256,10 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
         _inch_limits(values, f"{name}_station", band)
         # The station runs along the strap (model X). The point also stands
         # off the hub centre across it, so calipers from the hub read the
-        # slant: the station's limits at the point's modelled rise.
+        # slant: the station's limits at the point's modelled rise. The rise
+        # has no band of its own (it follows the edge heights and the tip
+        # land), so the slant limits are the station's to within about a
+        # tenth of whatever the rise is off.
         rise = y - hub_y
         values[f"{name}_rise_in"] = rise / 25.4
         _inch_limits(

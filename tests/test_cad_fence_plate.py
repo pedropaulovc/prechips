@@ -47,6 +47,11 @@ def test_envelope_fence_pockets_and_hub_follow_the_manifest():
     assert values["counterbore_dia_band_mm"] == [12.573, 12.827]
     assert values["hub_tap_drill_mm"] == pytest.approx(5.105)
     assert values["blank_length_mm"] == pytest.approx(330.2)
+    # The same stations from the plate's left end, .5 in before the stop face.
+    assert values["pocket_beam_x_mm"] == pytest.approx([38.1, 120.65, 209.55, 292.1])
+    assert values["hub_beam_x_mm"] == pytest.approx(165.1)
+    assert values["notch_right_beam_x_mm"] == pytest.approx([294.132, 330.2])
+    assert values["pocket_width_mm"] == pytest.approx(9.525)
 
 
 @pytest.mark.parametrize(
@@ -76,6 +81,18 @@ def test_envelope_fence_pockets_and_hub_follow_the_manifest():
             '"length" = [300.0, 310.0]',
             "right_end.length",
         ),
+        # A screw toward the fence of the pocket's near wall is not in its floor.
+        (
+            '"at" = [25.4, -41.91, -3.556]',
+            '"at" = [25.4, -20.0, -3.556]',
+            "in the floor",
+        ),
+        ('"y" = [25.3492, 25.4508]', '"y" = [5.0, 25.4508]', "meets the fence"),
+        (
+            '"requirements" = ["x", "end_x", "depth", "corner_radius_max"]\n"x" = [0.0',
+            '"requirements" = "x,end_x"\n"x" = [0.0',
+            "fence_notch_left.x: missing",
+        ),
     ],
 )
 def test_a_manifest_that_is_not_this_kind_of_plate_refuses(tmp_path, old, new, message):
@@ -92,4 +109,14 @@ def test_a_missing_end_or_an_extra_feature_refuses(tmp_path):
     source = tmp_path / "cad.toml"
     source.write_text(text.replace('"left_end"', '"left_edge"'), encoding="utf-8")
     with pytest.raises(CadError, match="left_end: expected a model-frame face"):
+        load_fence_plate(source, {}, "fence-plate")
+    extra = '\n["features"."oil_groove"]\n"kind" = "profile"\n"frame" = "model"\n'
+    source.write_text(text + extra, encoding="utf-8")
+    with pytest.raises(CadError, match="cad.features: expected the plate's faces"):
+        load_fence_plate(source, {}, "fence-plate")
+    # A pocket numbered past a gap is an extra feature too.
+    source.write_text(
+        text.replace("clamp_pocket_4", "clamp_pocket_5"), encoding="utf-8"
+    )
+    with pytest.raises(CadError, match="cad.features: expected the plate's faces"):
         load_fence_plate(source, {}, "fence-plate")

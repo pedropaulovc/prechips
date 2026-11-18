@@ -385,7 +385,7 @@ def _inspect(groups: Groups, values: dict) -> Layout:
         groups,
         40,
         bottom + 22,
-        "Slant: straight from the hub centre to the corner, as calipers read it.",
+        "Slant: straight from the hub centre to the corner (over a pin in the hole, less half the pin).",
     )
     return _finish(groups, bottom + 28)
 

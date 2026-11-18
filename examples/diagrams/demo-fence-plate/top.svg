@@ -22,6 +22,7 @@
   <circle class="part-threads" cx="370.2" cy="136.2" r="5.1"/>
   <circle class="cutter" cx="719" cy="205" r="12.7"/>
   <line class="arrow" x1="700" y1="190" x2="90" y2="190"/>
+  <text class="label-halo" x="560" y="186" text-anchor="middle">cutter path −X</text>
   <line class="datum" x1="65.4" y1="72" x2="65.4" y2="100"/>
   <line class="datum" x1="52" y1="85.4" x2="80" y2="85.4"/>
   <text class="datum-label" x="70" y="104">X0 Y0</text>
