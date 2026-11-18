@@ -36,6 +36,7 @@ _TITLES = {
     "upright": "Looking along the jaws: part upright on parallels",
     "cross": "Corner down for the cross bore: end view, and plan",
     "inspect": "Finished part, looking along the cross bore",
+    "surfaces": "Finished part and its surfaces, looking along the cross bore",
 }
 _ENDS = ("bottom", "top")
 _WORK = ("drill", "tap")
@@ -277,7 +278,22 @@ def _cross(groups: Groups, values: dict, parameters: dict) -> Layout:
     return _finish(groups, _callouts(groups, items, low, above=False))
 
 
-def _inspect(groups: Groups, values: dict) -> Layout:
+def _surfaces(
+    groups: Groups, x0: float, low: float, tall: float, marks: list[tuple]
+) -> Layout:
+    """The finished view with its surfaces named and no sizes, for a step
+    that treats every surface (a finish, a wash)."""
+    bore, hole = marks
+    items = [
+        (x0, low - 12, ["both ends"]),
+        (x0 + tall * 0.3, low, ["all six flats"]),
+        (*bore, ["cross bore,", "inside too"]),
+        (*hole, ["both tapped holes,", "inside too"]),
+    ]
+    return _finish(groups, _callouts(groups, items, low + 30, above=False))
+
+
+def _inspect(groups: Groups, values: dict, step: str) -> Layout:
     scale = 15.0
     tall = _cad(values, "block_height_mm") * scale
     af = _cad(values, "af_mm") * scale
@@ -302,6 +318,12 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     groups["holes"].append(_el("circle", cx=station, cy=middle, r=radius))
     _label(groups, x0 - 8, top - 8, "BOTTOM", "end")
     _label(groups, x0 + tall + 8, top - 8, "TOP", "start")
+    if step == "surfaces":
+        marks = [
+            (station, middle + radius),
+            ((station + radius + x0 + tall) / 2, middle + drill / 2),
+        ]
+        return _surfaces(groups, x0, low, tall, marks)
     _dimension(
         groups,
         x0,
@@ -370,8 +392,8 @@ def _hex_block(values: dict, parameters: dict, root: ElementTree.Element) -> Lay
         return _saw(groups, values, parameters)
     if step == "cross":
         return _cross(groups, values, parameters)
-    if step == "inspect":
-        return _inspect(groups, values)
+    if step in ("inspect", "surfaces"):
+        return _inspect(groups, values, step)
     if end not in _ENDS or work not in _WORK:
         raise CadError(
             "hex-block: the upright step needs data-end (bottom or top) and "

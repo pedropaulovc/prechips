@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from prechips.cad import CadError
+from prechips.cad_diagrams import render_cad_svg
 from prechips.cad_hex_block import load_hex_block
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -147,3 +148,16 @@ def test_demo_renders_both_profiles_with_every_picture_bound(tmp_path):
     assert any("point is .445–.465 below this end" in picture for picture in pictures)
     assert any("point is .421–.444 below this end" in picture for picture in pictures)
     assert any("parallels end .375 in:" in picture for picture in pictures)
+
+
+def test_the_surfaces_picture_names_surfaces_and_prints_no_sizes():
+    root = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="hex-block"'
+        b' data-step="surfaces"/>'
+    )
+    picture = render_cad_svg(root, load_hex_block(SOURCE, {}, "hex-block"), {}).decode()
+    for words in ("both ends", "all six flats", "cross bore,", "both tapped holes,"):
+        assert words in picture
+    assert not re.search(
+        r"\d\.\d|\.\d\d", "".join(re.findall(r">([^<]+)</text>", picture))
+    )
