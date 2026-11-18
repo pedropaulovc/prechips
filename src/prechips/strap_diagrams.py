@@ -249,19 +249,15 @@ def _outline_plan(
     )
     tip = plan.px(sum(notches[1]) / 2)
     # The tape shows between the slot and the blank's front edge: midway
-    # across that strip, a fifth of the way along the blank.
-    tape_x = plan.length * 0.2
+    # across that strip, over the bottom arc 0.6 of the way out to its end.
+    reach = -0.6 * outline["foot"][0]
     wall = outline["bottom_radius"] + _cad(values, "slot_reach_mm")
-    slot = plan.model(
-        outline,
-        (
-            tape_x - plan.hub_x,
-            outline["centre_y"] - math.sqrt(wall**2 - (tape_x - plan.hub_x) ** 2),
-        ),
-    )[1]
+    tape_x, slot = plan.model(
+        outline, (reach, outline["centre_y"] - math.sqrt(wall**2 - reach**2))
+    )
     items = [
         (
-            plan.px(tape_x),
+            tape_x,
             (slot + plan.front) / 2,
             ["tape under the whole blank,", "no edge clamps"],
         ),
@@ -304,7 +300,7 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     points = _loop(outline)
     half = outline["corner"][0]
     scale = 620 / (2 * half)
-    top = 96.0
+    top = 122.0
 
     def page(point: Point) -> Point:
         x, y = point
@@ -324,8 +320,9 @@ def _inspect(groups: Groups, values: dict) -> Layout:
         groups,
         left[0],
         right[0],
-        top - 30,
-        left[1],
+        top - 56,
+        # Stopped short of the corner, which the corner callout's leader leaves.
+        left[1] - 8,
         f"({_shorthand(_cad(values, 'overall_length_in'), 2)})",
     )
     _callouts(
@@ -339,7 +336,8 @@ def _inspect(groups: Groups, values: dict) -> Layout:
                 ],
             )
         ],
-        high - 6,
+        # Above the tips, the outline's highest points, whatever the arc's sag.
+        top - 6,
         above=True,
         gap=10.0,
     )

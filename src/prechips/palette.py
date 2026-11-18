@@ -70,7 +70,7 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke": "#555",
         "stroke-width": "1.2",
     },
-    "bond": {"fill": "url(#prechips-bond)", "stroke": "#555", "stroke-width": "0.8"},
+    "bond": {"fill": "url(#prechips-bond)", "stroke": "none"},
     "part-rest": {"fill": "#c9cbce", "stroke": "#888", "stroke-width": "1.2"},
     "part-waste": {
         "fill": "#eeeff0",
