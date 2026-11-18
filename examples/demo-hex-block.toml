@@ -125,7 +125,8 @@ vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.af_mm}}", along_jaws_m
 beam = { axis = "z", hold = "cantilever", extent_mm = [0, "{{cad.blank_length_max_mm}}"], clamp_mm = [0, "{{process.upright_grip_mm}}"], section_mm = { diameter = "{{cad.af_mm}}" }, vise_left = "other" }
 
 [[setups.operations]]
-instruction = "Home the mill first ($H). Console M6 T1 (1/2 in end mill, at least 1.00 in out of the collet). Edge finder on the fixed jaw's face beside the blank: G10 L20 P1 Y(half your across-flats reading in mm − 2.540): for .500, Y3.810. Edge finder on the LEFT corner from the left: G10 L20 P1 X0; then on the RIGHT corner from the right: G10 L20 P1 X(half the DRO X reading). T1 back in, spindle stopped, its tip just dragging a .002 feeler leaf on the highest point of the sawn top: G10 L20 P1 Z{{process.bottom_skim_mm:.3f}} + 0.051, i.e. Z0.559."
+instruction = "Home the mill ($H). Touch off G54: Y0 the hex axis, from the fixed jaw's face; X0 midway between the left and right corners; Z0 {{process.bottom_skim_mm:in.3dot}} below the highest point of the sawn top."
+instruction_detailed = "Home the mill first ($H). Console M6 T1 (1/2 in end mill, at least 1.00 in out of the collet). Edge finder on the fixed jaw's face beside the blank: G10 L20 P1 Y(half your across-flats reading in mm − 2.540): for .500, Y3.810. Edge finder on the LEFT corner from the left: G10 L20 P1 X0; then on the RIGHT corner from the right: G10 L20 P1 X(half the DRO X reading). T1 back in, spindle stopped, its tip just dragging a .002 feeler leaf on the highest point of the sawn top: G10 L20 P1 Z{{process.bottom_skim_mm:.3f}} + 0.051, i.e. Z0.559."
 feed = "hand"
 
 [[setups.operations]]
@@ -157,7 +158,7 @@ drilling = "twist_drill"
 sizing = { kind = "tap_drill", tap = "tap-4-40" }
 instruction = "Same file, M6 T3: #43 drill, {{cad.rod_drill_depth_in:.2dot}} deep to the full diameter, pecks of {{process.peck_43_mm:in.3dot}} with full retract; set 2800. A drop of Tapmatic Gold. The depth ({{cad.rod_drill_depth_min_in:.3dot}}–{{cad.rod_drill_depth_max_in:.3dot}}) is the program's Z from the faced end, not gauged. Then the block stays in the vise for the tap."
 settings = "hex-block-drill-43-brass"
-hole_depth_mm = 12.192
+hole_depth_mm = "{{cad.rod_drill_depth_mm}}"
 peck = { step_mm = 2.032, retract = "full" }
 milling_cuts = [
   { name = "rod drill", kind = "drill", phase = "rough", cutter_dia_mm = 2.2606, flutes = 2, rpm = 2800, feed_mm_min = "{{process.drill_43_feed_per_min_mm}}", stations_mm = "{{process.upright_top_max_mm}}" },
@@ -199,7 +200,8 @@ vise_hold = "other"
 beam = { axis = "x", hold = "solid", extent_mm = [0, "{{cad.block_height_mm}}"], seat = "gripped full length in the vise jaws, the bottom end on the parallels' edges", seat_mm = [0, "{{cad.block_height_mm}}"] }
 
 [[setups.operations]]
-instruction = "Home the mill first ($H). Edge finder on the fixed jaw's face: G10 L20 P1 Y(half your across-flats reading in mm − 2.540): for .500, Y3.810. On the block's faced bottom end from the left: G10 L20 P1 X-2.540. Console M6 T1 (1/2 in end mill), spindle stopped, its tip just dragging a .002 feeler leaf on the top corner: G10 L20 P1 Z0.051."
+instruction = "Home the mill ($H). Touch off G54: Y0 the hex axis, from the fixed jaw's face; X0 the faced bottom end; Z0 the top corner."
+instruction_detailed = "Home the mill first ($H). Edge finder on the fixed jaw's face: G10 L20 P1 Y(half your across-flats reading in mm − 2.540): for .500, Y3.810. On the block's faced bottom end from the left: G10 L20 P1 X-2.540. Console M6 T1 (1/2 in end mill), spindle stopped, its tip just dragging a .002 feeler leaf on the top corner: G10 L20 P1 Z0.051."
 feed = "hand"
 
 [[setups.operations]]
@@ -207,7 +209,7 @@ speed_kind = "spindle"
 tool = "spot"
 drilling = "none"
 sizing = "other"
-instruction = "Run MC03_cross_bore (M6 T2, centre drill; set 2800): spot the top corner Ø{{process.corner_spot_dia_mm:in.3dot}} at X {{cad.bore_height_in:.3f}}, on the axis."
+instruction = "Run MC03_cross_bore (M6 T2, centre drill; set 2800): spot the top corner Ø{{process.corner_spot_dia_mm:in.3dot}} at X {{cad.bore_height_mm:.3f}} mm (the program's station), on the axis."
 settings = "hex-block-spot-brass"
 milling_cuts = [
   { name = "corner spot", kind = "drill", phase = "rough", cutter_dia_mm = "{{process.corner_spot_dia_mm}}", flutes = 2, rpm = 2800, feed_mm_min = "{{process.spot_feed_per_min_mm}}", stations_mm = "{{cad.bore_height_mm}}" },
@@ -242,7 +244,8 @@ vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.af_mm}}", along_jaws_m
 beam = { axis = "z", hold = "cantilever", extent_mm = [0, "{{process.upright_top_max_mm}}"], clamp_mm = [0, "{{process.upright_grip_mm}}"], section_mm = { diameter = "{{cad.af_mm}}" }, vise_left = "other" }
 
 [[setups.operations]]
-instruction = "Home the mill first ($H). Edge finder on the fixed jaw's face: G10 L20 P1 Y(half your across-flats reading in mm − 2.540). Edge finder on the LEFT corner from the left: G10 L20 P1 X0; on the RIGHT corner from the right: G10 L20 P1 X(half the DRO X reading). Console M6 T1, spindle stopped, its tip just dragging a .002 feeler leaf on a parallel's top beside the block: G10 L20 P1 Z0.051."
+instruction = "Home the mill ($H). Touch off G54: Y0 the hex axis, from the fixed jaw's face; X0 midway between the left and right corners; Z0 the parallels' top."
+instruction_detailed = "Home the mill first ($H). Edge finder on the fixed jaw's face: G10 L20 P1 Y(half your across-flats reading in mm − 2.540). Edge finder on the LEFT corner from the left: G10 L20 P1 X0; on the RIGHT corner from the right: G10 L20 P1 X(half the DRO X reading). Console M6 T1, spindle stopped, its tip just dragging a .002 feeler leaf on a parallel's top beside the block: G10 L20 P1 Z0.051."
 feed = "hand"
 
 [[setups.operations]]
@@ -276,7 +279,7 @@ drilling = "twist_drill"
 sizing = { kind = "tap_drill", tap = "tap-4-40" }
 instruction = "Same file, M6 T3: #43 drill down into the bore, its full diameter to the bore's axis, {{cad.thumb_drill_depth_in:.2dot}} deep; pecks of {{process.peck_43_mm:in.3dot}} with full retract; set 2800. A drop of Tapmatic Gold. The depth ({{cad.thumb_drill_depth_min_in:.3dot}}–{{cad.thumb_drill_depth_max_in:.3dot}}) is the program's Z, not gauged; look through the bore: the drill has broken into it."
 settings = "hex-block-drill-43-brass"
-hole_depth_mm = 9.514
+hole_depth_mm = "{{cad.thumb_drill_depth_mm}}"
 peck = { step_mm = 2.032, retract = "full" }
 milling_cuts = [
   { name = "thumb drill", kind = "drill", phase = "rough", cutter_dia_mm = 2.2606, flutes = 2, rpm = 2800, feed_mm_min = "{{process.drill_43_feed_per_min_mm}}", stations_mm = "{{cad.block_height_mm}}" },

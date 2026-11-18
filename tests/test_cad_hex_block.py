@@ -53,6 +53,8 @@ def test_the_corner_down_seat_between_two_parallels():
         load_hex_block(SOURCE, HOLD | {"cross_parallel_end_mm": 17.0}, "hex-block")
     with pytest.raises(CadError, match="leave no gap"):
         load_hex_block(SOURCE, HOLD | {"parallel_thickness_mm": 6.35}, "hex-block")
+    with pytest.raises(CadError, match="shorter than the longest finished block"):
+        load_hex_block(SOURCE, BLANK | {"blank_length_min_in": 1.162}, "hex-block")
     with pytest.raises(CadError, match="also need cross_parallel_end_mm"):
         load_hex_block(SOURCE, {"parallel_thickness_mm": 3.175}, "hex-block")
 
@@ -61,10 +63,24 @@ def test_the_corner_down_seat_between_two_parallels():
     ("old", "new", "message"),
     [
         # A rod-tap drill that deep reaches the bore's nearest wall.
+        # 16.3 mm is short of the bore's wall at 16.497, but the drill's
+        # 0.71 mm point is not.
         (
             '"drill_depth" = [11.938, 12.446]',
-            '"drill_depth" = [11.938, 16.6]',
-            "breaks into the bore",
+            '"drill_depth" = [11.938, 16.3]',
+            "0.710 mm point breaks into the bore",
+        ),
+        # A tap run 14 mm in meets the bore's far wall, as near as 11.93 mm.
+        (
+            '"tap_reach" = [10.685823607061101, 11.285176392938897]',
+            '"tap_reach" = [10.7, 14.0]',
+            "stop short of the bore's far wall",
+        ),
+        # Full thread through a wall up to 6.642 mm needs the point 9.817 in.
+        (
+            '"tap_reach" = [10.685823607061101, 11.285176392938897]',
+            '"tap_reach" = [9.5, 11.0]',
+            "full thread through the wall",
         ),
         # Full thread plus the tap's lead must fit the least drilled depth.
         (
@@ -124,7 +140,7 @@ def test_demo_renders_both_profiles_with_every_picture_bound(tmp_path):
         for data in re.findall(r'src="data:image/svg\+xml;base64,([^"]+)"', html)
     ]
     assert not any("{{" in picture for picture in pictures)
-    # The tap pictures print each hole's own reach band for the flag.
-    assert any("point .445–.465 below this end" in picture for picture in pictures)
-    assert any("point .421–.444 below this end" in picture for picture in pictures)
+    # The tap pictures print each hole's own reach band.
+    assert any("point is .445–.465 below this end" in picture for picture in pictures)
+    assert any("point is .421–.444 below this end" in picture for picture in pictures)
     assert any("parallels end .375 in:" in picture for picture in pictures)

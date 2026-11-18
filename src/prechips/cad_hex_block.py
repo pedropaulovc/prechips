@@ -23,6 +23,7 @@ from .cad import (
     _all_or_none,
     _band,
     _edge_breaks,
+    _feature,
     _inch_limits,
     _model_frame,
     _number,
@@ -42,18 +43,9 @@ _FEATURES = {
 _BLANK = ("blank_length_min_in", "blank_length_max_in")
 _CROSS = ("parallel_thickness_mm", "cross_parallel_end_mm")
 _TAN30 = math.tan(math.radians(30))
+# A 118° drill point is this many radii long.
+_POINT = 1 / math.tan(math.radians(59))
 _TOLERANCE = 1e-6
-
-
-def _feature(features: dict, name: str, kind: str) -> dict:
-    item = features[name]
-    if (
-        not isinstance(item, dict)
-        or item.get("kind") != kind
-        or item.get("frame") != "model"
-    ):
-        raise CadError(f"{name}: expected a model-frame {kind}")
-    return item
 
 
 def _window(feature: dict, key: str, where: str) -> tuple[float, float]:
@@ -65,6 +57,14 @@ def _window(feature: dict, key: str, where: str) -> tuple[float, float]:
     if low > high:
         raise CadError(f"{where}.{key}: reversed window")
     return low, high
+
+
+def _nominal(feature: dict, band: tuple[float, float], where: str) -> float:
+    """The depth the program drills to, inside its band."""
+    nominal = _positive(feature.get("drill_depth_nominal"), f"{where}.drill_depth")
+    if not band[0] <= nominal <= band[1]:
+        raise CadError(f"{where}.drill_depth_nominal: outside its band")
+    return nominal
 
 
 def _height(features: dict, values: dict) -> float:
@@ -171,16 +171,20 @@ def _holes(features: dict, values: dict, height: float, af: float) -> None:
     values["plug_tap_lead_mm"] = lead
     _inch_limits(values, "tap_drill_dia", drill)
     _inch_limits(values, "tap_location", location)
+    # Drilled depths are to the full diameter; the point runs on past them.
+    point = drill[1] / 2 * _POINT
+    values["tap_drill_point_mm"] = point
 
     # Rod tap, blind from the bottom: the deepest drill must stay out of the
     # bore, and the tap's point stops between full thread and the drilled
     # depth.
     depth = _band(rod, "drill_depth", "rod_tap")
     threads = _band(rod, "thread_depth", "rod_tap")
-    if depth[1] >= low:
+    if depth[1] + point >= low:
         raise CadError(
-            f"rod_tap.drill_depth: {depth[1]:g} mm deep breaks into the bore, "
-            f"whose nearest wall is {low:.3f} mm from the bottom"
+            f"rod_tap.drill_depth: {depth[1]:g} mm deep plus the drill's "
+            f"{point:.3f} mm point breaks into the bore, whose nearest wall is "
+            f"{low:.3f} mm from the bottom"
         )
     reach = (threads[0] + lead, min(threads[1] + lead, depth[0]))
     if reach[0] > reach[1]:
@@ -192,21 +196,38 @@ def _holes(features: dict, values: dict, height: float, af: float) -> None:
     _inch_limits(values, "rod_drill_depth", depth)
     _inch_limits(values, "rod_thread_depth", threads)
     _inch_limits(values, "rod_tap_reach", reach)
+    values["rod_drill_depth_mm"] = _nominal(rod, depth, "rod_tap")
 
     # Thumb tap, from the top into the bore: the shallowest drill must break
     # into the bore and the deepest stop short of its far wall.
     depth = _band(thumb, "drill_depth", "thumb_tap")
     tall = values["block_height_band_mm"]
-    wall = tall[1] - station[0] + dia[0] / 2 - dia[0]
-    far = tall[0] - station[1] + dia[0] / 2
-    if depth[0] <= wall or depth[1] >= far:
+    # The thickest wall above the bore: the highest top less the lowest
+    # bore's top. The nearest far wall: the lowest top less the highest bore's
+    # bottom, taken where the smallest bore meets the hole's edge.
+    wall = tall[1] - station[0] - dia[0] / 2
+    chord = math.sqrt((dia[0] / 2) ** 2 - (drill[1] / 2) ** 2)
+    far = tall[0] - station[1] + chord
+    if depth[0] <= wall or depth[1] + point >= far:
         raise CadError(
             f"thumb_tap.drill_depth: {depth[0]:g}..{depth[1]:g} mm must pass the "
-            f"wall above the bore (up to {wall:.3f} mm thick) and stop short of "
-            f"the bore's far wall (as near as {far:.3f} mm)"
+            f"wall above the bore (up to {wall:.3f} mm thick) and its "
+            f"{point:.3f} mm point stop short of the bore's far wall (as near "
+            f"as {far:.3f} mm)"
+        )
+    # The tap's point stops between full thread through that wall and the
+    # far wall.
+    reach = _window(thumb, "tap_reach", "thumb_tap")
+    if reach[0] - lead < wall or reach[1] >= far:
+        raise CadError(
+            f"thumb_tap.tap_reach: {reach[0]:g}..{reach[1]:g} mm must carry full "
+            f"thread through the wall above the bore ({wall + lead:.3f} mm with "
+            f"the tap's lead) and stop short of the bore's far wall "
+            f"({far:.3f} mm)"
         )
     _inch_limits(values, "thumb_drill_depth", depth)
-    _inch_limits(values, "thumb_tap_reach", _window(thumb, "tap_reach", "thumb_tap"))
+    _inch_limits(values, "thumb_tap_reach", reach)
+    values["thumb_drill_depth_mm"] = _nominal(thumb, depth, "thumb_tap")
 
 
 def _cross(values: dict, parameters: dict, af: float) -> None:
@@ -227,10 +248,6 @@ def _cross(values: dict, parameters: dict, af: float) -> None:
     values["cross_corner_drop_mm"] = drop
     values["cross_axis_height_mm"] = values["ac_mm"] / 2 - drop
     values["cross_top_height_mm"] = values["ac_mm"] - drop
-    # The vertical flats start this far above the parallels' tops.
-    values["cross_flat_bottom_mm"] = (
-        values["cross_axis_height_mm"] - values["flat_width_mm"] / 2
-    )
     low = values["bore_span_mm"][0]
     if end >= low:
         raise CadError(
@@ -255,6 +272,10 @@ def load_hex_block(path: Path, parameters: dict, part: str) -> CadData:
         low, high = (_positive(parameters[key], f"process.{key}") for key in _BLANK)
         if low > high:
             raise CadError("process.blank_length_min_in: over blank_length_max_in")
+        if low < values["block_height_max_in"]:
+            raise CadError(
+                "process.blank_length_min_in: shorter than the longest finished block"
+            )
         values["blank_length_min_mm"], values["blank_length_max_mm"] = (
             low * 25.4,
             high * 25.4,

@@ -64,7 +64,6 @@ def _jaws(
 
 
 def _saw(groups: Groups, values: dict, parameters: dict) -> Layout:
-    low = _param(parameters, "blank_length_min_in")
     high = _param(parameters, "blank_length_max_in")
     kerf = _param(parameters, "kerf_in")
     scale = 150.0  # px per inch: a short blank drawn large
@@ -91,7 +90,8 @@ def _saw(groups: Groups, values: dict, parameters: dict) -> Layout:
         x,
         bottom + 22,
         "Blank {{process.blank_length_min_in:.2dot}}–{{process.blank_length_max_in:.2dot}} long:"
-        f" both ends are faced, to {{{{cad.block_height_in:.2f}}}} (low {low:g}, high {high:g}).",
+        " {{cad.face_stock_min_in:.2dot}}–{{cad.face_stock_max_in:.2dot}} comes off"
+        " the two ends together, to {{cad.block_height_in:.2f}}.",
     )
     return _finish(groups, bottom + 28)
 
@@ -153,13 +153,11 @@ def _upright(
                 f"{tool_top - 40:.1f} L{centre:.1f} {tool_top - 10:.1f} Z",
             )
         )
-        flag = top - 14
-        groups["dims"].append(_line(centre - 14, flag, centre + 14, flag))
         text = [
-            "tap by hand to the flag:",
-            f"point {{{{cad.{hole}_tap_reach_min_in:.3dot}}}}–{{{{cad.{hole}_tap_reach_max_in:.3dot}}}} below this end",
+            "tap by hand until its",
+            f"point is {{{{cad.{hole}_tap_reach_min_in:.3dot}}}}–{{{{cad.{hole}_tap_reach_max_in:.3dot}}}} below this end",
         ]
-        items.append((centre + 14, flag, text))
+        items.append((centre, top, text))
         _label(groups, centre + 76, tool_top - 1, "wrench, centre in its top", "start")
     else:
         text = [

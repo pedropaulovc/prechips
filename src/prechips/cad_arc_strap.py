@@ -27,6 +27,7 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
+    _feature,
     _inch_limits,
     _model_frame,
     _number,
@@ -90,17 +91,6 @@ def _point(feature: dict, key: str, where: str) -> tuple[float, float]:
 
 def _same(a: float, b: float) -> bool:
     return math.isclose(a, b, rel_tol=0, abs_tol=_TOLERANCE)
-
-
-def _feature(features: dict, name: str, kind: str) -> dict:
-    item = features[name]
-    if (
-        not isinstance(item, dict)
-        or item.get("kind") != kind
-        or item.get("frame") != "model"
-    ):
-        raise CadError(f"{name}: expected a model-frame {kind}")
-    return item
 
 
 def _same_point(a: tuple[float, float], b: tuple[float, float]) -> bool:

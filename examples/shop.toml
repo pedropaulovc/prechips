@@ -577,7 +577,8 @@ feed = "9.6 in/min"
 # drill's as the GO and the G drill's (.261 in) as the NO-GO. The pair reads
 # no scale: its resolution is the micrometers' reading of each shank. A
 # shank is not ground to a gauge class, so the lower limit is held by the F
-# drill and only checked to the miked F shank's size.
+# drill and only checked to the miked F shank's size. The range is the
+# shanks' accepted span: the GO from .2560 in, the NO-GO to .2610 in.
 [gauges.hex-block-bore-drill-shanks]
-range_mm = [6.5278, 6.6294]
+range_mm = [6.5024, 6.6294]
 resolution_mm = 0.00254

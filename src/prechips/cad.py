@@ -72,6 +72,17 @@ def _string(value: object, where: str) -> str:
     return value
 
 
+def _feature(features: dict, name: str, kind: str) -> dict:
+    item = features.get(name)
+    if (
+        not isinstance(item, dict)
+        or item.get("kind") != kind
+        or item.get("frame") != "model"
+    ):
+        raise CadError(f"{name}: expected a model-frame {kind}")
+    return item
+
+
 def _required(feature: dict, key: str, where: str) -> None:
     requirements = feature.get("requirements")
     if not isinstance(requirements, list) or key not in requirements:

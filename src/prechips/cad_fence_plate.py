@@ -19,6 +19,7 @@ from .cad import (
     _band,
     _blank_mm,
     _edge_breaks,
+    _feature,
     _inch_limits,
     _model_frame,
     _number,
@@ -44,17 +45,6 @@ _FIXED = (
     "hub_tap",
 )
 _UP = [0, 0, 1]
-
-
-def _feature(features: dict, name: str, kind: str) -> dict:
-    item = features.get(name)
-    if (
-        not isinstance(item, dict)
-        or item.get("kind") != kind
-        or item.get("frame") != "model"
-    ):
-        raise CadError(f"{name}: expected a model-frame {kind}")
-    return item
 
 
 def _plane(features: dict, name: str, axis: str) -> tuple[dict, float]:
@@ -259,7 +249,11 @@ def _placement(values: dict, ends: tuple[float, float], front: float) -> None:
         x[1] + radius < station - half or x[0] - radius > station + half
         for station in stations
     )
-    if not beside and y[1] + radius >= values["pocket_near_wall_mm"]:
+    across = (
+        y[1] + radius >= values["pocket_near_wall_mm"]
+        and y[0] - radius <= values["pocket_back_wall_band_mm"][1]
+    )
+    if not beside and across:
         raise CadError("hub_counterbore: the counterbore cuts into a clamp pocket")
 
 
