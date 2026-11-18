@@ -79,6 +79,19 @@ tap_tip_z_mm = -8.0
 # at .001 in/tooth (.002 in/rev).
 jaw_grip_mm = 32.2453
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["carriage_hole_1.dia", "carriage_hole_2.dia", "carriage_hole_3.dia", "carriage_hole_4.dia"]
+reason = "The #15 drill's size (Op 100, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["carriage_counterbore_1.dia", "carriage_counterbore_2.dia", "carriage_counterbore_3.dia", "carriage_counterbore_4.dia"]
+reason = "The 5/16 end mill's size (Op 110, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["pivot_tap.dia"]
+reason = "The F tap drill's size (Op 120, tool_sizing), then tapped 5/16-18 (Op 140); not gauged."
+
 [[tools]]
 id = "saw"
 name = "Evolution miter saw"
@@ -175,7 +188,7 @@ milling_cuts = [
 ]
 settings = "jig-em-half-6061-t6511"
 inspection = "Height {{cad.height_min_in:.3dot}}–{{cad.height_max_in:.3dot}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.height_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.height_band_mm}}", requirements = ["carriage_seat.height"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -212,7 +225,7 @@ milling_cuts = [
 ]
 settings = "jig-em-half-6061-t6511"
 inspection = "SPINDLE END to OUTER END {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}", requirements = ["carriage_seat.length"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -249,7 +262,7 @@ milling_cuts = [
 ]
 settings = "jig-em-half-6061-t6511"
 inspection = "ROW SIDE to FAR SIDE {{cad.width_min_in:.3dot}}–{{cad.width_max_in:.3dot}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["carriage_seat.width"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -295,7 +308,7 @@ milling_cuts = [{ name = "H1–H4", kind = "drill", phase = "finish", flutes = 2
 rpm = 2800
 feed = "hand"
 inspection = "Ø{{cad.hole_dia_min_in:.3dot}}–{{cad.hole_dia_max_in:.3dot}} (the #15 drill); rows {{cad.hole_y1_nominal_in:.3dot}}/{{cad.hole_y2_nominal_in:.3dot}} ±{{cad.hole_y_tol_in:.3dot}}, stations {{cad.hole_x1_nominal_in:.3dot}}/{{cad.hole_x2_nominal_in:.3dot}} ±{{cad.hole_x_tol_in:.3dot}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_x1_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_x2_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_y1_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_y2_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_x1_band_mm}}", requirements = ["carriage_hole_1.station", "carriage_hole_2.station"] }, { gauge = "calipers", band_mm = "{{cad.hole_x2_band_mm}}", requirements = ["carriage_hole_3.station", "carriage_hole_4.station"] }, { gauge = "calipers", band_mm = "{{cad.hole_y1_band_mm}}", requirements = ["carriage_hole_1.row", "carriage_hole_3.row"] }, { gauge = "calipers", band_mm = "{{cad.hole_y2_band_mm}}", requirements = ["carriage_hole_2.row", "carriage_hole_4.row"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -308,7 +321,7 @@ milling_cuts = [{ name = "H1–H4 counterbores", kind = "plunge", phase = "finis
 rpm = 2000
 feed = "hand"
 inspection = "Ø{{cad.cbore_dia_min_in:.3dot}}–{{cad.cbore_dia_max_in:.3dot}} (the 5/16 end mill); floors {{cad.cbore_floor_min_in:.3dot}}–{{cad.cbore_floor_max_in:.3dot}} above SEAT."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.cbore_floor_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.cbore_floor_band_mm}}", requirements = ["carriage_counterbore_1.floor", "carriage_counterbore_2.floor", "carriage_counterbore_3.floor", "carriage_counterbore_4.floor"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -322,7 +335,7 @@ milling_cuts = [{ name = "B tap drill", kind = "drill", phase = "finish", flutes
 rpm = 2450
 feed = "hand"
 inspection = "B {{cad.bore_y_min_in:.3dot}}–{{cad.bore_y_max_in:.3dot}} from ROW SIDE, {{cad.bore_x_min_in:.3dot}}–{{cad.bore_x_max_in:.3dot}} from SPINDLE END."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.bore_y_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.bore_x_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.bore_y_band_mm}}", requirements = ["pivot_bore.row"] }, { gauge = "calipers", band_mm = "{{cad.bore_x_band_mm}}", requirements = ["pivot_bore.station"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -335,7 +348,7 @@ milling_cuts = [{ name = "seat B", kind = "plunge", phase = "finish", flutes = 2
 rpm = 1650
 feed = "hand"
 inspection = "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}} (pins) × {{cad.bore_depth_min_in:.3dot}}–{{cad.bore_depth_max_in:.3dot}} deep, flat."
-gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.bore_dia_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.bore_depth_band_mm}}" }]
+gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.bore_dia_band_mm}}", requirements = ["pivot_bore.dia"] }, { gauge = "calipers", band_mm = "{{cad.bore_depth_band_mm}}", requirements = ["pivot_bore.depth"] }]
 
 [[setups.operations]]
 speed_kind = "other"

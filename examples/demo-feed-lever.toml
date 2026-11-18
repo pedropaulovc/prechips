@@ -60,6 +60,11 @@ drill_chuck_gauge_mm = 95.0      # Archive holders.drill-chuck-r8.gauge_len_mm.
 # next recorded jobber above 11/32 in, so it bounds that drill.
 drill_projection_max_mm = 112.8
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["grip_corners.radius"]
+reason = "Filed to the scribed lines (Op 60) and checked by eye against them; not gauged."
+
 [[tools]]
 id = "saw"
 name = "Saw"
@@ -155,7 +160,7 @@ instruction = "H1–H{{cad.hole_count:d}} through between the parallels, tip ~.2
 rpm = 2000
 feed = "hand"
 inspection = "Ø{{cad.hole_dia_min_in:.4dot}}–{{cad.hole_dia_max_in:.4dot}}; stations {{cad.hole_stations_in}} ±{{cad.station_tol_in:.2f}} from ZERO END; row {{cad.row_min_in:.2f}}–{{cad.row_max_in:.2f}} from ZERO EDGE."
-gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.hole_dia_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_2_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.row_band_mm}}" }]
+gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.hole_dia_band_mm}}", requirements = ["bolt_hole_1.dia", "bolt_hole_2.dia"] }, { gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}", requirements = ["bolt_hole_1.station"] }, { gauge = "calipers", band_mm = "{{cad.hole_2_station_band_mm}}", requirements = ["bolt_hole_2.station"] }, { gauge = "calipers", band_mm = "{{cad.row_band_mm}}", requirements = ["bolt_hole_1.width", "bolt_hole_2.width"] }]
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
 milling_cuts = [
@@ -187,7 +192,7 @@ instruction = "Cutter {{cad.end_cut_below_in:.2dot}} below bar. Measure cutter D
 instruction_detailed = "Measure the end mill across its cutting edges: D. The last pass is at X = {{cad.length_in:.3f}} + D/2. Cutter down {{cad.end_cut_depth_in:.2dot}} from the top face ({{cad.end_cut_below_in:.2dot}} below the bar), beside the grip end. Grip end, conventional: the table moves toward you (cutter away from you); .02 passes across the end, in toward the last-pass X, never past it."
 settings = "jig-em-half-6061-t6511"
 inspection = "Length {{cad.length_min_in:.1f}}–{{cad.length_max_in:.1f}}: edge finder on the grip end, DRO X from ZERO END."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}", requirements = ["carrier_seat.length"] }]
 milling_cuts = [
   { name = "grip end to length", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = "{{cad.blank_length_mm}}" },
 ]
@@ -216,4 +221,4 @@ gauge_checks = "other"
 [[setups.operations]]
 instruction = "Edges and both ends of both holes R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max."
 inspection = "Section {{cad.thickness_min_in:.3f}}–{{cad.thickness_max_in:.3f}} × {{cad.width_min_in:.3f}}–{{cad.width_max_in:.3f}} as bought, no saw or vise damage; two 5/16-18 socket screws pass through both holes at once without binding."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["carrier_seat.thickness"] }, { gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["carrier_seat.width"] }]

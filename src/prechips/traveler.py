@@ -260,7 +260,8 @@ def load_plan(path: Path) -> LoadedPlan:
             "setups",
             "turning_material",
             "milling_material",
-        },
+        }
+        | check_fields("plan"),
         "plan",
     )
     for key in ("title", "part", "revision", "material", "stock"):

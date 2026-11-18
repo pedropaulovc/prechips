@@ -89,6 +89,35 @@ drill_projection_max_mm = 112.8
 # entry corners (cad.slot_entry_x_mm).
 strap_inset_mm = 25.4            # One strap at mid-width ~1 in in from each end.
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["top_seat.height"]
+reason = "Faced to Z .4700 from Z0 set on the measured thickness (Op 40); not gauged."
+
+[[process_held]]
+requirements = ["near_slot.width", "near_slot.separation", "far_slot.width", "far_slot.separation"]
+reason = "The .500 end mill traversing its cutter-centre rectangle (Ops 60–70); not gauged."
+
+[[process_held]]
+requirements = ["rail_hole_2.station", "rail_hole_3.station", "rail_hole_4.station", "rail_hole_5.station", "rail_hole_6.station", "rail_hole_7.station"]
+reason = "Drilled at their DRO stations (Ops 90–100) and read back on the DRO with R1–R8; gauge_checks list only R1 and R8, whose bands have the same width."
+
+[[process_held]]
+requirements = ["rail_hole_1.dia", "rail_hole_2.dia", "rail_hole_3.dia", "rail_hole_4.dia", "rail_hole_5.dia", "rail_hole_6.dia", "rail_hole_7.dia", "rail_hole_8.dia"]
+reason = "The #29 tap drill's size (Ops 90–100, tool_sizing), then tapped #8-32 (Op 130); not gauged."
+
+[[process_held]]
+requirements = ["bracket_hole_1.dia", "bracket_hole_2.dia", "bracket_hole_3.dia", "bracket_hole_4.dia"]
+reason = "The #12 drill's size (Ops 110–120, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["bracket_hole_1_counterbore.dia", "bracket_hole_2_counterbore.dia", "bracket_hole_3_counterbore.dia", "bracket_hole_4_counterbore.dia"]
+reason = "The 5/16 end mill's size (Ops 140–150, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["bracket_hole_1_counterbore.depth", "bracket_hole_2_counterbore.depth", "bracket_hole_3_counterbore.depth", "bracket_hole_4_counterbore.depth"]
+reason = "Cut .200 deep from Z0 on the top face (Ops 140–150); not gauged."
+
 [[tools]]
 id = "saw"
 name = "Evolution miter saw"
@@ -175,7 +204,7 @@ instruction = "Opposite edge, conventional, table +X (cutter −X); D = measured
 instruction_detailed = "Opposite edge, conventional: table moves +X (cutter −X). Measure the cutter: D. The front-pass Y is the cutter centre, D/2 outside ZERO EDGE, so this edge's cutter centre sits the width plus D beyond it. Rough .050–.080 radial passes down to cutter-centre Y = front-pass Y + {{cad.width_rough_in:.3f}} + D; caliper the width at both ends; finish in one pass at front-pass Y + {{cad.width_in:.3f}} + D. Never set the DRO to {{cad.width_in:.3f}} alone: that cuts the bar a cutter diameter narrow."
 settings = "basebar-edge-6061-t6511"
 inspection = "Width at ends/middle."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["bar_high_side.width"] }]
 milling_cuts = [
   { name = "opposite edge rough", kind = "side", phase = "rough", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 2.032, rpm = 1250, feed_mm_min = 152.4, traverse_mm = [0, "{{cad.blank_length_mm}}"], finish_cut = "opposite edge finish", finish_stock_mm = { y = 0.254, z = "through" } },
   { name = "opposite edge finish", kind = "side", phase = "finish", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, traverse_mm = [0, "{{cad.blank_length_mm}}"] },
@@ -220,7 +249,7 @@ instruction = "Cutter .04 below bar. Left end, conventional (table away, cutter 
 instruction_detailed = "Measure cutter D. Cutter .04 below bar; it runs just past the end, clear of parallels and jacks. Left end: conventional, table moving away from you (cutter −Y), .020 passes until clean; mark ZERO END both faces; cutter still touching that end, set DRO X = −D/2 (X0 = end face). Right end: conventional, table moving toward you (cutter +Y), .010 passes; read length on DRO before the last pass; final cutter-centre X = {{cad.length_in:.4f}} + D/2. With ZERO END left and ZERO EDGE at the back jaw, mark the upper face: bar 1 C'BORE SIDE, bar 2 RAIL SIDE."
 settings = "basebar-edge-6061-t6511"
 inspection = "DRO X, before unclamping: right end {{cad.length_min_in:.2f}}–{{cad.length_max_in:.2f}} at both edges."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}", requirements = ["bar_far_end.length"] }]
 milling_cuts = [
   { name = "left end to ZERO END", kind = "side", phase = "finish", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.thickness_mm}}", radial_woc_mm = 0.508, rpm = 1250, feed_mm_min = 152.4, stations_mm = 0 },
   { name = "right end to length", kind = "side", phase = "finish", cutter_dia_mm = "{{process.half_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.thickness_mm}}", radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, stations_mm = "{{cad.blank_length_mm}}" },
@@ -258,8 +287,8 @@ instruction_detailed = "{{cad.slot_range}}, {{cad.slot_cutter_in:.3dot}} cutter 
 settings = "basebar-slot-rough-6061-t6511"
 inspection = "DRO X: slot centres S1 {{cad.slot1_x_min_in:.2f}}–{{cad.slot1_x_max_in:.2f}}, S2 {{cad.slot2_x_min_in:.2f}}–{{cad.slot2_x_max_in:.2f}}."
 gauge_checks = [
-  { gauge = "mill-x-dro", band_mm = "{{cad.slot1_x_band_mm}}" },
-  { gauge = "mill-x-dro", band_mm = "{{cad.slot2_x_band_mm}}" },
+  { gauge = "mill-x-dro", band_mm = "{{cad.slot1_x_band_mm}}", requirements = ["near_slot.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.slot2_x_band_mm}}", requirements = ["far_slot.station"] },
 ]
 # The bar is squared to length here: slot stations sit in the finished frame,
 # X0 the left end squared clean in this clamping, the jaws unmoved. The beam
@@ -295,10 +324,10 @@ vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.width_mm}}", along_jaw
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{cad.vise_centred_overhang_mm}}", "{{cad.vise_centred_jaw_right_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" }, vise_left = "start" }
 inspection = ["Before unclamping, DRO X from ZERO END: {{cad.rail_range}} at the hole table's X ±{{cad.rail_station_tol_in:.4f}} ({{cad.rail_first_mm:.3f}} + n × {{cad.rail_pitch_mm:.3f}} mm ±{{cad.rail_station_tol_mm:.3f}} mm); bar 1 B1–B2 {{cad.bracket_x1_min_in:.4f}}–{{cad.bracket_x1_max_in:.4f}}, B3–B4 {{cad.bracket_x2_min_in:.4f}}–{{cad.bracket_x2_max_in:.4f}}."]
 gauge_checks = [
-  { gauge = "mill-x-dro", band_mm = "{{cad.rail_first_band_mm}}" },
-  { gauge = "mill-x-dro", band_mm = "{{cad.rail_last_band_mm}}" },
-  { gauge = "mill-x-dro", band_mm = "{{cad.bracket_x1_band_mm}}" },
-  { gauge = "mill-x-dro", band_mm = "{{cad.bracket_x2_band_mm}}" },
+  { gauge = "mill-x-dro", band_mm = "{{cad.rail_first_band_mm}}", requirements = ["rail_hole_1.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.rail_last_band_mm}}", requirements = ["rail_hole_8.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.bracket_x1_band_mm}}", requirements = ["bracket_hole_1.station", "bracket_hole_2.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.bracket_x2_band_mm}}", requirements = ["bracket_hole_3.station", "bracket_hole_4.station"] },
 ]
 
 [[setups.operations]]
@@ -428,11 +457,11 @@ vise_hold = "other"
 beam = "other"
 inspection = ["From ZERO EDGE: rail row {{cad.rail_row_min_in:.2f}}–{{cad.rail_row_max_in:.2f}}; S1 near arc centre {{cad.slot1_y_min_in:.2f}}–{{cad.slot1_y_max_in:.2f}}, S2 {{cad.slot2_y_min_in:.2f}}–{{cad.slot2_y_max_in:.2f}}; bar 1 bracket rows {{cad.bracket_y1_min_in:.4f}}–{{cad.bracket_y1_max_in:.4f}}, {{cad.bracket_y2_min_in:.4f}}–{{cad.bracket_y2_max_in:.4f}}."]
 gauge_checks = [
-  { gauge = "calipers", band_mm = "{{cad.rail_row_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.slot1_y_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.slot2_y_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.bracket_y1_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.bracket_y2_band_mm}}" },
+  { gauge = "calipers", band_mm = "{{cad.rail_row_band_mm}}", requirements = ["rail_hole_1.height", "rail_hole_2.height", "rail_hole_3.height", "rail_hole_4.height", "rail_hole_5.height", "rail_hole_6.height", "rail_hole_7.height", "rail_hole_8.height"] },
+  { gauge = "calipers", band_mm = "{{cad.slot1_y_band_mm}}", requirements = ["near_slot.height"] },
+  { gauge = "calipers", band_mm = "{{cad.slot2_y_band_mm}}", requirements = ["far_slot.height"] },
+  { gauge = "calipers", band_mm = "{{cad.bracket_y1_band_mm}}", requirements = ["bracket_hole_2.height", "bracket_hole_4.height"] },
+  { gauge = "calipers", band_mm = "{{cad.bracket_y2_band_mm}}", requirements = ["bracket_hole_1.height", "bracket_hole_3.height"] },
 ]
 
 [[setups.operations]]

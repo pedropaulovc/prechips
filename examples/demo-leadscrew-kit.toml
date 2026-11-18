@@ -61,6 +61,11 @@ half_mill_projection_max_mm = 50.0
 small_mill_projection_min_mm = 25.0
 small_mill_projection_max_mm = 38.0
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["near_kp08_clock_flat.clock_deg", "far_kp08_clock_flat.clock_deg"]
+reason = "Indexed 120° from the first flat by the setup's index setting (Ops 60, 90); not gauged."
+
 [[tools]]
 id = "saw"
 name = "Hacksaw"
@@ -100,7 +105,7 @@ diagram = { file = "diagrams/demo-leadscrew-kit/receipt.svg", alt = "The feed nu
 instruction = "Screw and nut right-hand; each KP08 inner ring two set screws 120° apart (else stop). Check the nut; mark one end NEAR END."
 instruction_detailed = "Before sawing, check the screw and its nut are right-hand, and count and clock both KP08 inner rings' set screws: two on each, 120° apart. If either differs, stop and report: the flats' clock and the nut's facing hold assume both. Check the nut as supplied and mark one screw end NEAR END (its factory chamfer stays)."
 inspection = "Nut seat face to body end {{cad.nut_length_min_mm:.1f}}–{{cad.nut_length_max_mm:.1f}} (spigot excluded); flange Ø{{cad.nut_flange_dia_min_mm:.1f}}–{{cad.nut_flange_dia_max_mm:.1f}} × {{cad.nut_flange_thickness_min_mm:.1f}}–{{cad.nut_flange_thickness_max_mm:.1f}}; body Ø{{cad.nut_body_dia_min_mm:.1f}}–{{cad.nut_body_dia_max_mm:.1f}}; {{cad.csk_count:d}} holes Ø{{cad.nut_hole_dia_min_mm:.2f}}–{{cad.nut_hole_dia_max_mm:.2f}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.nut_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.nut_flange_dia_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.nut_flange_thickness_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.nut_body_dia_band_mm}}" }, { gauge = "pin-gauges", band_mm = "{{cad.nut_hole_dia_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.nut_length_band_mm}}", requirements = ["nut_seat_face.length"] }, { gauge = "calipers", band_mm = "{{cad.nut_flange_dia_band_mm}}", requirements = ["nut_flange.dia"] }, { gauge = "calipers", band_mm = "{{cad.nut_flange_thickness_band_mm}}", requirements = ["nut_flange.thickness"] }, { gauge = "calipers", band_mm = "{{cad.nut_body_dia_band_mm}}", requirements = ["nut_body.dia"] }, { gauge = "pin-gauges", band_mm = "{{cad.nut_hole_dia_band_mm}}", requirements = ["nut_holes.dia"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -151,7 +156,7 @@ milling_cuts = [
   { name = "end, finish pass", kind = "side", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.major_dia_mm}}", radial_woc_mm = 0.2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.length_mm}}" },
 ]
 inspection = "Length {{cad.length_min_mm:.1f}}–{{cad.length_max_mm:.1f}} on the DRO from the NEAR END."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}", requirements = ["near_end.length", "cut_end.length"] }]
 
 [[setups.operations]]
 speed_kind = "other"
@@ -189,7 +194,7 @@ milling_cuts = [
   { name = "KP08 flat, 0.40 mm pass", kind = "slot", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.40, radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.near_kp08_station_mm}}" },
 ]
 inspection = "Starts {{cad.near_kp08_station_min_mm:.1f}}–{{cad.near_kp08_station_max_mm:.1f}} from the NEAR END; {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long; {{cad.af_min_mm:.2f}}–{{cad.af_max_mm:.2f}} across flat to the crest."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.near_kp08_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.near_kp08_station_band_mm}}", requirements = ["near_kp08_flat.station"] }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}", requirements = ["near_kp08_flat.length"] }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}", requirements = ["near_kp08_flat.af"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -204,7 +209,7 @@ milling_cuts = [
   { name = "second KP08 flat, 0.40 mm pass", kind = "slot", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.40, radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.near_kp08_station_mm}}" },
 ]
 inspection = "{{cad.af_min_mm:.2f}}–{{cad.af_max_mm:.2f}} across flat; {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.af_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.af_band_mm}}", requirements = ["near_kp08_clock_flat.af"] }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}", requirements = ["near_kp08_clock_flat.length"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -233,7 +238,7 @@ milling_cuts = [
   { name = "handwheel flat, 0.40 mm pass", kind = "slot", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.40, radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, stations_mm = [0, "{{cad.handwheel_from_cut_mm}}"] },
 ]
 inspection = "Starts {{cad.handwheel_station_min_mm:.1f}}–{{cad.handwheel_station_max_mm:.1f}} from the NEAR END (L − |X| − D/2 on the DRO), open to the end; {{cad.af_min_mm:.2f}}–{{cad.af_max_mm:.2f}} across flat."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.handwheel_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.handwheel_station_band_mm}}", requirements = ["handwheel_flat.station"] }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}", requirements = ["handwheel_flat.af"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -262,7 +267,7 @@ milling_cuts = [
   { name = "cut-end KP08 flat, 0.40 mm pass", kind = "slot", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.40, radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.far_kp08_outer_from_cut_mm}}" },
 ]
 inspection = "Starts {{cad.far_kp08_station_min_mm:.1f}}–{{cad.far_kp08_station_max_mm:.1f}} from the NEAR END (L − |X| − D/2 on the DRO); {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long; {{cad.af_min_mm:.2f}}–{{cad.af_max_mm:.2f}} across flat."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.far_kp08_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.far_kp08_station_band_mm}}", requirements = ["far_kp08_flat.station"] }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}", requirements = ["far_kp08_flat.length"] }, { gauge = "calipers", band_mm = "{{cad.af_band_mm}}", requirements = ["far_kp08_flat.af"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -277,7 +282,7 @@ milling_cuts = [
   { name = "second cut-end KP08 flat, 0.40 mm pass", kind = "slot", phase = "finish", material = "stainless_304", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.40, radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.far_kp08_outer_from_cut_mm}}" },
 ]
 inspection = "{{cad.af_min_mm:.2f}}–{{cad.af_max_mm:.2f}} across flat; {{cad.flat_length_min_mm:.1f}}–{{cad.flat_length_max_mm:.1f}} long."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.af_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.af_band_mm}}", requirements = ["far_kp08_clock_flat.af"] }, { gauge = "calipers", band_mm = "{{cad.flat_length_band_mm}}", requirements = ["far_kp08_clock_flat.length"] }]
 
 [[setups]]
 machine_kind = "lathe"
@@ -304,7 +309,7 @@ instruction_detailed = "Touch the spigot end and face it off in light cuts until
 rpm = 1000
 feed = "0.05 mm/rev"
 inspection = "Nut length {{cad.nut_length_min_mm:.1f}}–{{cad.nut_length_max_mm:.1f}}; flange {{cad.nut_flange_thickness_min_mm:.1f}}–{{cad.nut_flange_thickness_max_mm:.1f}} thick; the nut runs freely along the screw."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.nut_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.nut_flange_thickness_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.nut_length_band_mm}}", requirements = ["nut_seat_face.length"] }, { gauge = "calipers", band_mm = "{{cad.nut_flange_thickness_band_mm}}", requirements = ["nut_flange.thickness"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -325,4 +330,4 @@ instruction = "{{cad.csk_count:d}}× countersink on the flange's body side by ha
 instruction_detailed = "Hold the nut by its flange O.D. in soft jaws, body up. Turn the {{cad.csk_angle_deg:g}}° countersink by hand in each hole, checking the mouth with calipers every few turns, to Ø{{cad.csk_dia_min_mm:.2f}}–{{cad.csk_dia_max_mm:.2f}} (sheet 3: {{cad.csk_wall_note}})."
 feed = "hand"
 inspection = "Mouths Ø{{cad.csk_dia_min_mm:.2f}}–{{cad.csk_dia_max_mm:.2f}} × {{cad.csk_angle_deg:g}}°. The flat heads seat on the cone and stand slightly proud; do not open a mouth to sink them."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.csk_dia_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.csk_dia_band_mm}}", requirements = ["nut_countersinks.dia"] }]
