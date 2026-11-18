@@ -87,6 +87,13 @@ def test_envelope_fence_pockets_and_hub_follow_the_manifest():
             '"at" = [25.4, -20.0, -3.556]',
             "in the floor",
         ),
+        # .1 mm inside the near wall the tap drill still breaks through it.
+        (
+            '"at" = [25.4, -41.91, -3.556]',
+            '"at" = [25.4, -38.2, -3.556]',
+            "clamp_tap_1.at: expected in the floor",
+        ),
+        ('"centre_x" = 107.95', '"centre_x" = 30.0', "overlaps the pocket before it"),
         ('"y" = [25.3492, 25.4508]', '"y" = [5.0, 25.4508]', "meets the fence"),
         (
             '"requirements" = ["x", "end_x", "depth", "corner_radius_max"]\n"x" = [0.0',

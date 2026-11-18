@@ -715,6 +715,7 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     # them here.
     from prechips.block_diagrams import BLOCK_LAYOUTS
     from prechips.carrier_diagrams import CARRIER_LAYOUTS
+    from prechips.hex_diagrams import HEX_LAYOUTS
     from prechips.jig_diagrams import JIG_LAYOUTS
     from prechips.kit_diagrams import KIT_LAYOUTS
     from prechips.riser_diagrams import RISER_LAYOUTS
@@ -730,6 +731,7 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
         | CARRIER_LAYOUTS
         | STRAP_LAYOUTS
         | BLOCK_LAYOUTS
+        | HEX_LAYOUTS
     ).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")

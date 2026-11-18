@@ -1,0 +1,124 @@
+# Demo manifest in the CAD export format: a hex-bar block tapped in both ends and cross-bored through its corners, demo identity, no source citations.
+"part" = "hex-block"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "hex-block.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-HEX-BLOCK"
+"revision" = "v51"
+
+["material"]
+"spec" = "Brass"
+"name" = "Brass"
+"finish" = "machined; chemically blackened (brass black)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "Cut to length from 1/2 hex brass; the flats are as bought. Face both ends square to the hex axis. Drill the cross bore through the corners. Drill and tap both ends on the axis; the top hole runs into the bore."
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."bottom_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"height" = [29.21, 29.718]
+"height_nominal" = 29.464
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"note" = "DEMO-ROD SHOULDER SEAT: NO CHAMFER OR SPOTFACE AT TAP"
+"precision" = { "height" = 2 }
+
+["features"."top_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"height" = [29.21, 29.718]
+"height_nominal" = 29.464
+"plane" = { "frame" = "model", "axis" = "y", "value" = 29.464 }
+"precision" = { "height" = 2 }
+
+["features"."hex_flats"]
+"kind" = "stock"
+"frame" = "model"
+"requirements" = []
+"af_ref" = 12.7
+"ac_nominal" = 14.664696837416493
+"stock_form" = "HEX STOCK"
+"flat_normals" = [[0.0, 0.0, 1.0], [0.866025403784, 0.0, 0.5], [0.866025403784, 0.0, -0.5], [0.0, 0.0, -1.0], [-0.866025403784, 0.0, -0.5], [-0.866025403784, 0.0, 0.5]]
+
+["features"."lever_bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "height", "location_from_z_flat"]
+"at" = [0.0, 19.95, 0.0]
+"axis" = [1.0, 0.0, 0.0]
+"dia" = [6.5278, 6.6294]
+"nominal_dia" = 6.5278
+"thru" = true
+"process" = "Cut to length from 1/2 hex brass; the flats are as bought. Face both ends square to the hex axis. Drill the cross bore through the corners. Drill and tap both ends on the axis; the top hole runs into the bore."
+"callout" = "DRILL THRU CORNERS\nSLIDING FIT ON DEMO-LEVER LEVER"
+"height" = [19.812, 20.32]
+"height_from" = "bottom_face"
+"location_from_z_flat" = [6.096, 6.604]
+"precision" = { "dia" = 3, "height" = 2, "location_from_z_flat" = 2 }
+
+["features"."thumb_tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "drill_depth", "location_from_z_flat"]
+"at" = [0.0, 29.464, 0.0]
+"axis" = [0.0, -1.0, 0.0]
+"thread" = "#4-40 UNC-2B"
+"dia" = [2.261, 2.3626]
+"drill_depth" = [9.144, 9.652]
+"drill_depth_nominal" = 9.514
+"thread_depth_ref" = 6.2501
+"into" = "lever_bore"
+"location_from_z_flat" = [6.096, 6.604]
+"mates" = "MATES DEMO-THUMBSCREW"
+"plug_tap_lead" = 3.175
+"tap_reach" = [10.685823607061101, 11.285176392938897]
+"precision" = { "dia" = 3, "drill_depth" = 2, "location_from_z_flat" = 2 }
+
+["features"."rod_tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "thread_depth", "drill_depth", "location_from_z_flat"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [0.0, 1.0, 0.0]
+"thread" = "#4-40 UNC-2B"
+"dia" = [2.261, 2.3626]
+"thread_depth" = [8.128, 8.636]
+"thread_depth_nominal" = 8.382
+"drill_depth" = [11.938, 12.446]
+"drill_depth_nominal" = 12.192
+"location_from_z_flat" = [6.096, 6.604]
+"seat_note" = "DEMO-ROD SHOULDER SEAT: NO CHAMFER OR SPOTFACE AT TAP"
+"plug_tap_lead" = 3.175
+"precision" = { "dia" = 3, "thread_depth" = 2, "drill_depth" = 2, "location_from_z_flat" = 2 }
