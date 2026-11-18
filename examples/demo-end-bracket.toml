@@ -222,6 +222,7 @@ gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}"
 # Through the 1 in width (BAR SIDE to KP08 SIDE); one drill Ø per peck.
 hole_depth_mm = "{{cad.width_mm}}"
 peck = { step_mm = "{{process.peck_mm}}", retract = "full" }
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "H1–H2", kind = "drill", phase = "finish", cutter_dia_mm = 3.4544, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.row_mm}}" },
 ]

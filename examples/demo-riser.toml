@@ -355,6 +355,7 @@ rpm = 2800
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "P1", kind = "drill", phase = "finish", cutter_dia_mm = 3.2639, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.p1_x_mm}}" },
 ]
@@ -398,6 +399,7 @@ feed = "hand"
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = "{{cad.ends_hold2_jaw_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_min_mm}}" }, vise_left = "start", vise_hold = 2 }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "P2", kind = "drill", phase = "finish", cutter_dia_mm = 3.2639, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.p2_x_mm}}" },
 ]
@@ -464,6 +466,7 @@ rpm = 2800
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "R1-R4", kind = "drill", phase = "finish", cutter_dia_mm = 3.2639, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.screw_y_mm}}" },
 ]
@@ -478,6 +481,7 @@ rpm = 2800
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "CL, CR", kind = "drill", phase = "finish", cutter_dia_mm = 4.9784, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.clamp_y_mm}}" },
 ]
@@ -492,6 +496,7 @@ rpm = 2500
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "HUB pilot", kind = "drill", phase = "rough", cutter_dia_mm = 6.35, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.hub_y_mm}}" },
 ]
@@ -510,6 +515,7 @@ rpm = 1400
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.hub_drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "HUB", kind = "drill", phase = "finish", cutter_dia_mm = 12.0, flutes = 2, feed_per_tooth_mm = 0.0508, stations_mm = "{{cad.hub_y_mm}}" },
 ]

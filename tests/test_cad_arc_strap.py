@@ -72,6 +72,11 @@ def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
     assert values["fence_notch_left_x_mm"] == pytest.approx([2.4, 21.4])
     assert values["fence_notch_right_x_mm"] == pytest.approx([283.4, 302.4])
     assert values["fence_notch_x_mm"] == pytest.approx([2.4, 21.4, 283.4, 302.4])
+    # The cutter centre works 133.5..148.0 mm either side of the hub, a
+    # cutter radius inside the notches' ends.
+    assert values["fence_sliver_x_mm"] == pytest.approx(
+        [4.386, 18.891, 285.909, 300.414], abs=1e-3
+    )
     # Blank 304.8 × 38.1 less the Ø12.7 hole in the plate; the strap is
     # 16 mm wide along a 291 mm mean arc, less the same hole.
     assert values["blank_bond_area_mm2"] == pytest.approx(11486.2, abs=0.1)
@@ -93,6 +98,9 @@ def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
         ({"x_stop_tolerance_mm": 1.5}, "leaves 1.264 mm round the hub hole"),
         # The hole in the plate is 4.7 mm deep.
         ({"ream_tip_z_mm": -4.5}, "ream_tip_z_mm: the tip, 4.5 mm below"),
+        ({"drill_tip_z_mm": 0.2}, "drill_tip_z_mm: the tip stays 0.2 mm above"),
+        # The thickness band's low limit is 2.4638 mm above the plate.
+        ({"fence_height_mm": 2.3}, "fence_height_mm: 2.3 mm .* leaves 0.164 mm"),
         ({"bushing_flange_dia_mm": 14.0}, "the flange comes 0.492 mm from"),
         ({"outline_breakthrough_mm": 0.15}, "cuts through the 0.15 mm tape"),
         # The strip is under 2.5 mm from 133.5 to 148.0 mm from the hub.

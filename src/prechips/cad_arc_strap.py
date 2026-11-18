@@ -71,6 +71,14 @@ _BOND = (
 _RELIEF = ("hub_relief_dia_mm", "x_stop_tolerance_mm")
 _FLOOR = ("hub_relief_depth_mm", "relief_floor_clearance_mm")
 _FLANGE = ("bushing_flange_dia_mm", "bushing_clearance_mm")
+# Heights above the plate top of what the face cutter passes over, and the
+# least clearance under its lowest pass.
+_HEIGHTS = (
+    "clamp_height_mm",
+    "fence_height_mm",
+    "end_stop_height_mm",
+    "fixture_clearance_mm",
+)
 _STEPS = 400  # integration steps along the strap for the bonded areas
 _CLAMP = re.compile(r"clamp_\d+_x_mm")
 _FACES = ("face_finish_stock_mm", "blank_thickness_min_in", "blank_thickness_max_in")
@@ -349,7 +357,7 @@ def _plate_hold(values: dict, parameters: dict) -> None:
     of the blank beyond it is waste.
     """
     if not _all_or_none(parameters, _HOLD, "the plate hold"):
-        for key in (*_BOND, *_RELIEF, *_FLOOR, *_FLANGE):
+        for key in (*_BOND, *_RELIEF, *_FLOOR, *_FLANGE, *_HEIGHTS):
             if key in parameters:
                 raise CadError(f"process.{key}: needs the plate hold parameters")
         return
@@ -428,6 +436,7 @@ def _plate_hold(values: dict, parameters: dict) -> None:
     values["clamp_stations_in"] = ", ".join(f"{x / 25.4:.2f}" for x in clamps)
     unbacked = _relief(values, parameters, hub_x)
     _flange(values, parameters)
+    _fixture_heights(values, parameters)
     if not _all_or_none(parameters, _BOND, "the bonded outline"):
         return
     tape, skin, through, sliver, inner, outer = (
@@ -456,15 +465,24 @@ def _plate_hold(values: dict, parameters: dict) -> None:
             else:
                 high = middle
         beyond = math.sqrt(reach**2 - max(gap - sliver, 0) ** 2)
-        need = [high - cutter / 2, tip_x + beyond + cutter / 2]
+        worked = [high, tip_x + beyond]
+        need = [worked[0] - cutter / 2, worked[1] + cutter / 2]
         if inner > need[0] or outer < need[1]:
             raise CadError(
                 "process.fence_notch_inner_mm: the fence-side strip is under "
-                f"sliver_width_min_mm {sliver:g} mm from {high:.2f} to "
-                f"{tip_x + beyond:.2f} mm either side of the hub; with a cutter "
+                f"sliver_width_min_mm {sliver:g} mm from {worked[0]:.2f} to "
+                f"{worked[1]:.2f} mm either side of the hub; with a cutter "
                 f"radius each side the notches must span {need[0]:.2f}.."
                 f"{need[1]:.2f} mm, not {inner:g}..{outer:g} mm"
             )
+        # The stretch the cutter works either side of the hub, as stations
+        # for the cut that clears the strip.
+        values["fence_sliver_x_mm"] = [
+            hub_x - worked[1],
+            hub_x - worked[0],
+            hub_x + worked[0],
+            hub_x + worked[1],
+        ]
     if not inner < outer <= hub_x or hub_x + outer > length:
         raise CadError(
             "process.fence_notch_outer_mm: the notches must lie on the blank"
@@ -473,7 +491,7 @@ def _plate_hold(values: dict, parameters: dict) -> None:
         raise CadError("process.fence_notch_inner_mm: beyond the top arc's end")
     values["fence_notch_left_x_mm"] = [hub_x - outer, hub_x - inner]
     values["fence_notch_right_x_mm"] = [hub_x + inner, hub_x + outer]
-    # Both notches' ends, as stations for the cut that clears the strip.
+    # Both notches' ends, for the fixture and the picture.
     values["fence_notch_x_mm"] = [
         *values["fence_notch_left_x_mm"],
         *values["fence_notch_right_x_mm"],
@@ -520,7 +538,11 @@ def _relief(values: dict, parameters: dict, hub_x: float) -> float:
     """Bind the plate's hole under the hub; return the area it leaves unbacked.
 
     The relief hole is fixed in the plate, ``hub_x_mm`` from its end stop;
-    the hub hole may be drilled ``x_stop_tolerance_mm`` off it.
+    the hub hole may be drilled ``x_stop_tolerance_mm`` off it. The drill and
+    reamer tips must pass the plate top, where the hub hole exits, and stop
+    short of the relief hole's floor; whether the hole is full Ø at its exit
+    is ``drill_breakthrough``'s, from the tool's point or lead, with the plan
+    binding the same tip parameters.
     """
     hub = values["hub_dia_band_mm"][1]
     if not _all_or_none(parameters, _RELIEF, "the hub relief hole"):
@@ -546,6 +568,11 @@ def _relief(values: dict, parameters: dict, hub_x: float) -> float:
             if key not in parameters:
                 raise CadError(f"process.hub_relief_depth_mm: also need {key}")
             tip = -_number(parameters[key], f"process.{key}")
+            if tip <= 0:
+                raise CadError(
+                    f"process.{key}: the tip stays {-tip:g} mm above the plate "
+                    "top: the hub hole does not go through"
+                )
             if tip > depth - clearance:
                 raise CadError(
                     f"process.{key}: the tip, {tip:g} mm below the plate top, "
@@ -578,3 +605,26 @@ def _flange(values: dict, parameters: dict) -> None:
             "outline cutter would hit it"
         )
     values["bushing_clear_mm"] = clear
+
+
+def _fixture_heights(values: dict, parameters: dict) -> None:
+    """Refuse a clamp nose, fence or end stop the face cutter could reach.
+
+    The face cutter passes over all three. Its lowest full-blank pass can take
+    the strap down to the thickness band's low limit.
+    """
+    if not _all_or_none(parameters, _HEIGHTS, "the fixture heights"):
+        return
+    clearance = _positive(
+        parameters["fixture_clearance_mm"], "process.fixture_clearance_mm"
+    )
+    floor = values["thickness_band_mm"][0]
+    for key in _HEIGHTS[:-1]:
+        height = _positive(parameters[key], f"process.{key}")
+        if floor - height < clearance:
+            raise CadError(
+                f"process.{key}: {height:g} mm above the plate top leaves "
+                f"{floor - height:.3f} mm under the lowest face pass at "
+                f"{floor:g} mm (the thickness band's low limit), under "
+                f"fixture_clearance_mm {clearance:g} mm"
+            )

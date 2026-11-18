@@ -60,6 +60,11 @@ plate_thickness_mm = 12.7
 fence_width_mm = 12.7
 fence_height_mm = 2.0
 clamp_height_mm = 1.905
+end_stop_height_mm = 2.0         # Made with the plate, as high as the fence.
+# Authored, no published figure: the face cutter's lowest pass (the thickness
+# band's low limit) clears the clamp noses, fence top and end stop by at
+# least .010 in, twice a ±.005 in height tolerance on those fixture parts.
+fixture_clearance_mm = 0.254
 hub_relief_dia_mm = 12.7
 hub_relief_depth_mm = 4.7
 relief_floor_clearance_mm = 0.5
@@ -156,7 +161,7 @@ title = "Rough both faces on the sub-plate"
 machine = "PM-30MV CNC (FluidNC, CNCjs with the electronic tool setter) / vise, swivel off"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Sub-plate (made beforehand, its top and fence face milled in the vise) in the vise on 1 in parallels, centred, the fence indicated <.001 along X; it stays there for every blank. Blank flat on the plate, one long edge against the fence, its left end against the plate's end stop, pushed by the edge clamps at X {{cad.clamp_stations_in}} from the end stop. Clamp noses {{process.clamp_height_mm:in.3dot}} and the fence top {{process.fence_height_mm:in.3dot}} above the plate stay below the cut."
+holding = "Sub-plate (made beforehand, its top and fence face milled in the vise) in the vise on 1 in parallels, centred, the fence indicated <.001 along X; it stays there for every blank. Blank flat on the plate, one long edge against the fence, its left end against the plate's end stop, pushed by the edge clamps at X {{cad.clamp_stations_in}} from the end stop. Clamp noses {{process.clamp_height_mm:in.3dot}}, the fence top {{process.fence_height_mm:in.3dot}} and the end stop {{process.end_stop_height_mm:in.3dot}} above the plate stay below the cut."
 datum = "Program RS01_rough_faces. One G54 while the plate stays put: Z0 = the faced plate top, Y0 = the fence face (blank at −Y), X0 = the end stop's face. Tool lengths from the tool setter at each M6."
 diagram = { file = "diagrams/demo-arc-strap/rough.svg", alt = "Plan of the sub-plate: fence along the back, blank against it and against the end stop at its left end, edge clamps at the front at X {{cad.clamp_stations_in}}; the 1/2 in end mill faces the full blank, one face, then the other after the flip." }
 envelope = { x_span_mm = ["{{cad.blank_length_mm}}", "{{process.face_cutter_dia_mm}}"], y_span_mm = ["{{cad.blank_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.blank_thickness_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{process.plate_thickness_mm}}", "{{cad.thickness_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
@@ -252,6 +257,7 @@ feed = "{{process.hub_drill_feed_per_min_mm:in.1f}} in/min"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.hub_relief_x_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "hub drill", kind = "drill", phase = "rough", cutter_dia_mm = "{{process.hub_drill_dia_mm}}", flutes = 2, rpm = 600, feed_mm_min = "{{process.hub_drill_feed_per_min_mm}}", stations_mm = "{{process.hub_x_mm}}" },
 ]
@@ -266,6 +272,7 @@ rpm = 400
 feed = "{{process.hub_ream_feed_per_min_mm:in.1f}} in/min, in and out"
 inspection = "Hub hole Ø{{cad.hub_dia_min_in:.4dot}}–{{cad.hub_dia_max_in:.4dot}}, telescoping gauge read on the micrometer; both edges sharp, no burr."
 gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.hub_dia_band_mm}}" }]
+hole_exit = { tip_z_mm = "{{process.ream_tip_z_mm}}" }
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.hub_relief_x_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_mm}}" } }
 milling_cuts = [
   { name = "hub ream", kind = "drill", phase = "finish", cutter_dia_mm = "{{process.hub_reamer_dia_mm}}", flutes = 2, rpm = 400, feed_mm_min = "{{process.hub_ream_feed_per_min_mm}}", stations_mm = "{{process.hub_x_mm}}" },
@@ -308,7 +315,7 @@ sizing = "other"
 instruction = "Fence sliver: inside both fence notches the strip of blank between the outline and the fence ({{cad.fence_margin_mm:in.3dot}} at its thinnest) is milled away, levels ≤ {{process.fence_sliver_step_mm:in.3dot}}, before the outline is cut."
 settings = "arc-strap-em-eighth-1018-cf"
 milling_cuts = [
-  { name = "fence sliver", kind = "slot", phase = "rough", cutter_dia_mm = "{{process.outline_cutter_dia_mm}}", axial_doc_mm = "{{process.fence_sliver_step_mm}}", radial_woc_mm = "{{process.outline_cutter_dia_mm}}", stations_mm = "{{cad.fence_notch_x_mm}}" },
+  { name = "fence sliver", kind = "slot", phase = "rough", cutter_dia_mm = "{{process.outline_cutter_dia_mm}}", axial_doc_mm = "{{process.fence_sliver_step_mm}}", radial_woc_mm = "{{process.outline_cutter_dia_mm}}", stations_mm = "{{cad.fence_sliver_x_mm}}" },
 ]
 
 [[setups.operations]]

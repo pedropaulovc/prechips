@@ -356,6 +356,7 @@ sizing = { kind = "band", band_mm = "{{cad.hole_dia_band_mm}}" }
 instruction = "H1–H4 through, full-retract pecks every {{process.hole_peck_mm:in.3dot}}."
 hole_depth_mm = "{{cad.height_mm}}"
 peck = { step_mm = "{{process.hole_peck_mm}}", retract = "full" }
+hole_exit = "other"
 milling_cuts = [{ name = "H1–H4", kind = "drill", phase = "finish", flutes = 2, feed_per_tooth_mm = 0.0254, cutter_dia_mm = 4.572, stations_mm = ["{{cad.hole_y1_mm}}", "{{cad.hole_y2_mm}}"] }]
 rpm = 2800
 feed = "hand"
@@ -383,6 +384,7 @@ sizing = { kind = "band", band_mm = "{{cad.tap_drill_band_mm}}" }
 instruction = "B through (tap drill); chip-break pecks every {{process.tap_drill_peck_mm:in.3dot}}."
 hole_depth_mm = "{{cad.height_mm}}"
 peck = { step_mm = "{{process.tap_drill_peck_mm}}", retract = "chip_break" }
+hole_exit = "other"
 milling_cuts = [{ name = "B tap drill", kind = "drill", phase = "finish", flutes = 2, feed_per_tooth_mm = 0.0254, cutter_dia_mm = 6.5278, stations_mm = "{{cad.bore_y_mm}}" }]
 rpm = 2450
 feed = "hand"
@@ -453,6 +455,7 @@ instruction = "Pilot to Z −{{process.lug_bore_depth_mm:in.2dot}}."
 instruction_detailed = "Touch OUTER END and zero Z. Drill the pilot to Z −{{process.lug_bore_depth_mm:in.2dot}}, past where the lug face will be; no pecks (under 3 diameters deep). The notch opens the hole later."
 hole_depth_mm = "{{process.lug_bore_depth_mm}}"
 peck = "none"
+hole_exit = "blind"
 milling_cuts = [{ name = "leadscrew pilot", kind = "drill", phase = "rough", flutes = 2, feed_per_tooth_mm = 0.0254, cutter_dia_mm = "{{process.pilot_dia_mm}}", stations_mm = "{{cad.length_mm}}" }]
 rpm = 2000
 feed = "hand"

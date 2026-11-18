@@ -332,6 +332,7 @@ feed = "hand"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = ["{{cad.jack_left_x_mm}}", "{{cad.vise_centred_overhang_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = { step_mm = "{{process.rail_peck_mm}}", retract = "full" }
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "R1–R4", kind = "drill", phase = "finish", cutter_dia_mm = 3.4544, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.rail_left_x_mm}}" },
 ]
@@ -347,6 +348,7 @@ feed = "hand"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = ["{{cad.vise_centred_jaw_right_mm}}", "{{cad.jack_right_x_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = { step_mm = "{{process.rail_peck_mm}}", retract = "full" }
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "R5–R8", kind = "drill", phase = "finish", cutter_dia_mm = 3.4544, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.rail_right_x_mm}}" },
 ]
@@ -362,6 +364,7 @@ feed = "hand"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = ["{{cad.jack_left_x_mm}}", "{{cad.vise_centred_overhang_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "B1–B2", kind = "drill", phase = "finish", cutter_dia_mm = 4.8006, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.bracket_x1_mm}}" },
 ]
@@ -377,6 +380,7 @@ feed = "hand"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = ["{{cad.vise_centred_jaw_right_mm}}", "{{cad.jack_right_x_mm}}"], section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "B3–B4", kind = "drill", phase = "finish", cutter_dia_mm = 4.8006, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.bracket_x2_mm}}" },
 ]

@@ -415,6 +415,7 @@ rpm = 2800
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = { step_mm = "{{process.riser_peck_mm}}", retract = "full" }
+hole_exit = "other"
 milling_cuts = [{ name = "R1–R4 at .001 in/rev", kind = "drill", phase = "finish", cutter_dia_mm = 2.2606, flutes = 2, feed_per_tooth_mm = 0.0127, stations_mm = "{{cad.riser_x_mm}}" }]
 
 [[setups.operations]]
@@ -428,6 +429,7 @@ feed = "hand"
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.length_mm}}"], supports_mm = "{{cad.end_block_x_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = { step_mm = "{{process.clamp_peck_mm}}", retract = "chip_break" }
+hole_exit = "other"
 milling_cuts = [{ name = "CL, CR at .002 in/rev", kind = "drill", phase = "finish", cutter_dia_mm = 3.4544, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.clamp_x_mm}}" }]
 
 [[setups.operations]]
@@ -441,6 +443,7 @@ rpm = 2800
 feed = "hand"
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = "other"
 milling_cuts = [{ name = "L1, L2 at .002 in/rev", kind = "drill", phase = "finish", cutter_dia_mm = 6.5278, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.lever_x_mm}}" }]
 
 [[setups.operations]]
@@ -455,6 +458,7 @@ feed = "hand"
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = "{{cad.block_span_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = "other"
 milling_cuts = [{ name = "A1, A2, B1, B2 at .004 in/rev", kind = "drill", phase = "rough", cutter_dia_mm = 9.128125, flutes = 2, feed_per_tooth_mm = 0.0508, stations_mm = "{{cad.pin_x_mm}}" }]
 
 [[setups.operations]]

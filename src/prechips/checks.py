@@ -79,6 +79,11 @@ CHECKS: dict[str, Check] = {
         ),
         config="turning",
     ),
+    "drill_breakthrough": Check(
+        module="prechips.breakthrough",
+        tool_fields=frozenset({"point_deg", "lead_mm"}),
+        operation_fields=frozenset({"hole_exit"}),
+    ),
 }
 
 

@@ -130,12 +130,18 @@ description = "3/4 in 4-flute end mill"
 diameter_mm = 19.05
 [tools.basebar-spot]
 description = "#2 centre drill"
+# point_deg: the maker of these two drills is not recorded. 118° is the
+# general-purpose jobber point (Chicago-Latrobe drill catalogue, styles
+# 150/150D "General-purpose, 118° point", ±5° through 1/2 in:
+# https://www.technitoolinc.com/wp-content/uploads/2021/06/HSS%20DRILLS,%20END%20MILLS,%20BURRS,/Chicago-Latrobe_Catalog.pdf).
 [tools.basebar-rail-drill]
 description = "#29 (.136 in) drill"
 diameter_mm = 3.4544
+point_deg = 118
 [tools.basebar-bracket-drill]
 description = "#12 (.189 in) drill"
 diameter_mm = 4.8006
+point_deg = 118
 [tools.basebar-tap]
 description = "8-32 plug tap"
 tap_drill_mm = 3.4544
@@ -310,6 +316,7 @@ description = "#2 centre drill"
 [tools.jig-drill-29]
 description = "#29 (.136 in) jobber-length HSS drill, conventional flute, 115-piece index"
 diameter_mm = 3.4544
+point_deg = 118                  # The set's 118° split point.
 [tools.jig-tap-8-32-plug]
 description = "8-32 UNC plug tap; T-handle wrench"
 tap_drill_mm = 3.4544
@@ -319,6 +326,7 @@ tap_drill_mm = 3.4544
 [tools.jig-drill-11-32]
 description = "11/32 (.3438 in) drill, 115-piece index"
 diameter_mm = 8.73125
+point_deg = 118                  # LMS SKU 6955, as jig-drill-29.
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
 
@@ -338,19 +346,26 @@ feed = "7 in/min"
 # Riser: the v49 notes.process names the #30 screw and stop
 # holes, the #9 CL/CR clearances and the 12 mm HUB relief; the 1/4 in drill
 # pilots the 12 mm and the 82° countersink cuts the Ø.25 × 82° seats. Nominal
-# sizes × 25.4 (#30 .1285 in, #9 .1960 in).
+# sizes × 25.4 (#30 .1285 in, #9 .1960 in). point_deg: the 115-piece index
+# drills' 118° split point (LMS SKU 6955, above); the 12 mm drill's maker is
+# not recorded, so the general-purpose jobber 118° (Chicago-Latrobe, as the
+# base-bar drills).
 [tools.riser-drill-30]
 description = "#30 (.1285 in) drill, 115-piece index"
 diameter_mm = 3.2639
+point_deg = 118
 [tools.riser-drill-9]
 description = "#9 (.1960 in) drill, 115-piece index"
 diameter_mm = 4.9784
+point_deg = 118
 [tools.riser-drill-quarter]
 description = "1/4 in drill, 115-piece index"
 diameter_mm = 6.35
+point_deg = 118
 [tools.riser-drill-12mm]
 description = "12 mm jobber drill"
 diameter_mm = 12.0
+point_deg = 118
 [tools.riser-countersink]
 description = "3/8 in 82° countersink"
 
@@ -476,12 +491,21 @@ diameter_mm = 12.7
 description = "1/8 in 3-flute uncoated carbide square end mill, 30° helix, 1-1/2 in OAL (McMaster 88815A18)"
 diameter_mm = 3.175
 helix_deg = 30
+# The drill's maker is not recorded: the general-purpose jobber 118° point
+# (Chicago-Latrobe, as the base-bar drills). The reamer's chamfer length is
+# not recorded either, and HSS chucking-reamer catalogues give the 45° chamfer
+# but no length (Yankee List 433: https://www.airtekltdcatalogue.com/yankee.htm).
+# lead_mm takes .040 in, the longer of Garr Tool's stated 45° lead chamfers
+# at the neighbouring sizes (4100 series: Ø.430 96404 .035 in, Ø.439 96440
+# .040 in; https://allindustrial.com/garr-tool-96440-0-439-diameter-x-0-439-shank-x-1-3-8-loc-x-4-oal-x-45-degree-chamfer-angle-6-flute-solid-carbide-chucking-reamer/).
 [tools.arc-strap-drill-25-64]
 description = "25/64 (.3906 in) drill"
 diameter_mm = 9.921875
+point_deg = 118
 [tools.arc-strap-reamer-4000]
 description = ".4000 in HSS straight-flute chucking reamer"
 diameter_mm = 10.16
+lead_mm = 1.016
 
 [settings.arc-strap-em-half-1018-cf]
 tool = "arc-strap-em-half"
