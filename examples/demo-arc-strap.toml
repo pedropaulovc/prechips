@@ -356,13 +356,13 @@ diagram = { file = "diagrams/demo-arc-strap/inspect.svg", alt = "The finished st
 envelope = "other"
 vise_hold = "other"
 beam = "other"
-inspection = ["Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}}. From the hub hole's centre: top edge {{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} above, bottom edge {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}} below; corners {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}} and end-face feet {{cad.foot_station_min_in:.2f}}–{{cad.foot_station_max_in:.2f}} each side; tip lands {{cad.tip_length_min_in:.2f}}–{{cad.tip_length_max_in:.2f}} long. Not gauged, the program's interpolated path: arc radii R{{cad.top_radius_min_in:.1f}}–{{cad.top_radius_max_in:.1f}} top and R{{cad.bottom_radius_min_in:.1f}}–{{cad.bottom_radius_max_in:.1f}} bottom, tip-land angle {{cad.tip_angle_min_deg:.1f}}–{{cad.tip_angle_max_deg:.1f}}°."]
+inspection = ["Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}}. From the hub hole's centre: top edge {{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} above, bottom edge {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}} below; calipers over a snug pin in the hub hole, less half the pin, straight to each top corner {{cad.corner_slant_min_in:.3f}}–{{cad.corner_slant_max_in:.3f}} and each bottom corner {{cad.foot_slant_min_in:.3f}}–{{cad.foot_slant_max_in:.3f}} (the drawing's {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}} and {{cad.foot_station_min_in:.2f}}–{{cad.foot_station_max_in:.2f}} run along the strap; the corners stand {{cad.corner_rise_in:.3dot}} and {{cad.foot_rise_in:.3dot}} above the hub centre, so calipers read the slant); tip lands {{cad.tip_length_min_in:.2f}}–{{cad.tip_length_max_in:.2f}} long. Not gauged, the program's interpolated path: arc radii R{{cad.top_radius_min_in:.1f}}–{{cad.top_radius_max_in:.1f}} top and R{{cad.bottom_radius_min_in:.1f}}–{{cad.bottom_radius_max_in:.1f}} bottom, tip-land angle {{cad.tip_angle_min_deg:.1f}}–{{cad.tip_angle_max_deg:.1f}}°."]
 gauge_checks = [
   { gauge = "micrometers", band_mm = "{{cad.thickness_band_mm}}" },
   { gauge = "calipers", band_mm = "{{cad.top_height_band_mm}}" },
   { gauge = "calipers", band_mm = "{{cad.bottom_height_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.corner_station_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.foot_station_band_mm}}" },
+  { gauge = "calipers", band_mm = "{{cad.corner_slant_band_mm}}" },
+  { gauge = "calipers", band_mm = "{{cad.foot_slant_band_mm}}" },
   { gauge = "calipers", band_mm = "{{cad.tip_length_band_mm}}" },
 ]
 

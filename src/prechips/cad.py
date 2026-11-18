@@ -215,6 +215,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_arc_strap import load_arc_strap
 
         return load_arc_strap(path, parameters, part)
+    if adapter == "fence_plate":
+        from prechips.cad_fence_plate import load_fence_plate
+
+        return load_fence_plate(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

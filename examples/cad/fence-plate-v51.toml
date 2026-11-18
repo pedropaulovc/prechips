@@ -1,0 +1,262 @@
+# Demo manifest in the CAD export format: a fixture plate with an integral fence and end stop, demo identity, no source citations.
+"part" = "fence-plate"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "fence-plate.STEP"
+"step_sha256" = "22e2e0dc45854cbc8de9ef26c5591e7ed62834d4ce794a0a9cc1a4c90d1576d1"
+"construction" = "one_piece"
+"volume_mm3" = 272066.6855841119
+
+["drawing"]
+"number" = "DEMO-FENCE-PLATE"
+"revision" = "v51"
+
+["material"]
+"spec" = "6061-T6511 aluminum flat, 1/2 x 6 in, ASTM B221"
+"name" = "6061-T6511 ALUMINUM"
+"finish" = "as machined"
+"thickness" = 12.446
+
+["notes"]
+"manufacturing" = []
+"process" = "saw one length from the flat bar and mill a strip off it; mill both long edges for the vise jaws, then in one vise setup mill the plate top down round the integral fence and end stop, their faces, the fence notches, the clamp pockets and the hub counterbore; spot, drill and hand-tap the holes; break edges"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."plate_top"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+
+["features"."faced_top"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 1.8796 }
+"height" = [1.7526, 2.0066]
+"precision" = { "height" = 3 }
+
+["features"."underside"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = -10.5664 }
+"thickness" = [12.192, 12.7]
+"finish" = "as received"
+"precision" = { "thickness" = 2 }
+
+["features"."fence_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+
+["features"."stop_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+
+["features"."front_edge"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["width"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = -63.5 }
+"width" = [75.946, 76.454]
+"precision" = { "width" = 2 }
+
+["features"."back_edge"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["y"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 12.7 }
+"y" = [12.446, 12.954]
+"precision" = { "y" = 2 }
+
+["features"."fence_notch_left"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["x", "end_x", "depth", "corner_radius_max"]
+"x" = [0.0, 23.368]
+"end_x" = [23.114, 23.622]
+"depth" = [4.064, 4.572]
+"floor_z" = 0.0
+"corner_radius_max" = 1.778
+"covers" = [[2.4000000000000057, 21.400000000000006], [283.4, 302.4]]
+"precision" = { "end_x" = 2, "depth" = 2 }
+
+["features"."fence_notch_right"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["x", "end_x", "depth", "corner_radius_max"]
+"x" = [281.432, 317.5]
+"end_x" = [281.178, 281.686]
+"depth" = [4.064, 4.572]
+"floor_z" = 0.0
+"corner_radius_max" = 1.778
+"covers" = [[2.4000000000000057, 21.400000000000006], [283.4, 302.4]]
+"precision" = { "end_x" = 2, "depth" = 2 }
+
+["features"."clamp_pocket_1"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["centre_x", "back_wall_y", "length", "depth", "corner_radius_max"]
+"centre_x" = 25.4
+"y_walls" = [-47.625, -38.1]
+"back_wall_y" = [47.5742, 47.6758]
+"near_wall_y" = [37.846, 38.354]
+"length" = [13.97, 14.478]
+"depth" = [3.429, 3.683]
+"floor_z" = -3.556
+"corner_radius_max" = 1.778
+"precision" = { "back_wall_y" = 3, "near_wall_y" = 2, "length" = 2, "depth" = 3 }
+
+["features"."clamp_tap_1"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["at", "thread", "thru"]
+"at" = [25.4, -41.91, -3.556]
+"axis" = [0.0, 0.0, 1.0]
+"thread" = "#4-40"
+"drill_dia" = 2.261
+"thru" = true
+"thread_length" = 7.0104
+
+["features"."clamp_pocket_2"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["centre_x", "back_wall_y", "length", "depth", "corner_radius_max"]
+"centre_x" = 107.95
+"y_walls" = [-47.625, -38.1]
+"back_wall_y" = [47.5742, 47.6758]
+"near_wall_y" = [37.846, 38.354]
+"length" = [13.97, 14.478]
+"depth" = [3.429, 3.683]
+"floor_z" = -3.556
+"corner_radius_max" = 1.778
+"precision" = { "back_wall_y" = 3, "near_wall_y" = 2, "length" = 2, "depth" = 3 }
+
+["features"."clamp_tap_2"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["at", "thread", "thru"]
+"at" = [107.95, -41.91, -3.556]
+"axis" = [0.0, 0.0, 1.0]
+"thread" = "#4-40"
+"drill_dia" = 2.261
+"thru" = true
+"thread_length" = 7.0104
+
+["features"."clamp_pocket_3"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["centre_x", "back_wall_y", "length", "depth", "corner_radius_max"]
+"centre_x" = 196.85
+"y_walls" = [-47.625, -38.1]
+"back_wall_y" = [47.5742, 47.6758]
+"near_wall_y" = [37.846, 38.354]
+"length" = [13.97, 14.478]
+"depth" = [3.429, 3.683]
+"floor_z" = -3.556
+"corner_radius_max" = 1.778
+"precision" = { "back_wall_y" = 3, "near_wall_y" = 2, "length" = 2, "depth" = 3 }
+
+["features"."clamp_tap_3"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["at", "thread", "thru"]
+"at" = [196.85, -41.91, -3.556]
+"axis" = [0.0, 0.0, 1.0]
+"thread" = "#4-40"
+"drill_dia" = 2.261
+"thru" = true
+"thread_length" = 7.0104
+
+["features"."clamp_pocket_4"]
+"kind" = "profile"
+"frame" = "model"
+"requirements" = ["centre_x", "back_wall_y", "length", "depth", "corner_radius_max"]
+"centre_x" = 279.4
+"y_walls" = [-47.625, -38.1]
+"back_wall_y" = [47.5742, 47.6758]
+"near_wall_y" = [37.846, 38.354]
+"length" = [13.97, 14.478]
+"depth" = [3.429, 3.683]
+"floor_z" = -3.556
+"corner_radius_max" = 1.778
+"precision" = { "back_wall_y" = 3, "near_wall_y" = 2, "length" = 2, "depth" = 3 }
+
+["features"."clamp_tap_4"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["at", "thread", "thru"]
+"at" = [279.4, -41.91, -3.556]
+"axis" = [0.0, 0.0, 1.0]
+"thread" = "#4-40"
+"drill_dia" = 2.261
+"thru" = true
+"thread_length" = 7.0104
+
+["features"."hub_counterbore"]
+"kind" = "counterbore"
+"frame" = "model"
+"requirements" = ["at", "x", "y", "dia", "depth"]
+"at" = [152.4, -25.4, 0.0]
+"axis" = [0.0, 0.0, 1.0]
+"x" = [152.3492, 152.4508]
+"y" = [25.3492, 25.4508]
+"dia" = [12.573, 12.827]
+"depth" = [4.572, 4.826]
+"floor_z" = -4.699
+"precision" = { "x" = 3, "y" = 3, "dia" = 3, "depth" = 3 }
+
+["features"."hub_tap"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["at", "thread", "thru", "engagement_min"]
+"at" = [152.4, -25.4, -4.699]
+"axis" = [0.0, 0.0, 1.0]
+"thread" = "1/4-20"
+"drill_dia" = 5.105
+"thru" = true
+"engagement_nominal" = 5.8674
+"engagement_min" = 5.359400000000001
+
+["features"."left_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = -12.7 }
+"finish" = "as sawn"
+
+["features"."right_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 317.5 }
+"length" = [327.66, 332.74]
+"finish" = "as sawn"
+"precision" = { "length" = 1 }

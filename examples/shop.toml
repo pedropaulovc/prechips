@@ -497,3 +497,31 @@ rpm = 2800
 chip_load_mm_per_tooth = 0.0254
 flutes = 3
 feed_unit = "in/min"
+
+# Demo fence plate (examples/demo-fence-plate.toml). The 1/2 in HSS 2-flute
+# end mill's side-milling settings are a measured pair on this machine at
+# 2250 rpm, .0035 in/tooth (2250 × 2 × .0035 = 15.75 in/min): wide cuts were
+# stable to 4.7 mm radial, narrow ones (≤ 0.6 mm) at every speed tried; both
+# within 7.62 mm deep, deeper cuts taking equal levels. The 1/8 in carbide
+# end mill in aluminium: Carbide End Mill Store "Carbide End Mill Speeds and
+# Feeds, General Purpose, Uncoated", Non-Ferrous N, Al/Al Alloys: 500 SFM,
+# 1/8 in .0011 in/tooth; the spindle's 2800 rpm caps the speed.
+[settings.fence-plate-em-half-6061]
+tool = "basebar-em-half"
+material = "6061-t6511"
+rpm = 2250
+feed = "15.75 in/min"
+[settings.fence-plate-em-eighth-6061]
+tool = "arc-strap-em-eighth"
+material = "6061-t6511"
+rpm = 2800
+chip_load_mm_per_tooth = 0.02794
+flutes = 3
+feed_unit = "in/min"
+# Nominal sizes × 25.4: #7 is .201 in, the 1/4-20 tap drill.
+[tools.fence-plate-drill-7]
+description = "#7 (.201 in) drill"
+diameter_mm = 5.1054
+[tools.fence-plate-tap-1-4-20-plug]
+description = "1/4-20 UNC plug tap; T-handle wrench"
+tap_drill_mm = 5.1054

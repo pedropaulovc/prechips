@@ -247,13 +247,24 @@ def load_arc_strap(path: Path, parameters: dict, part: str) -> CadData:
     _inch_limits(values, "tip_length", _band(land, "land_length", "tip_land_pos_x"))
     angle = _band(land, "land_angle_deg", "tip_land_pos_x")
     values["tip_angle_min_deg"], values["tip_angle_max_deg"] = angle
-    for key, band, at in (
-        ("corner_station", _band(land, "corner_station", "tip_land_pos_x"), corner[0]),
-        ("foot_station", _band(face, "foot_station", "end_face_pos_x"), foot[0]),
+    for name, band, (at, y) in (
+        ("corner", _band(land, "corner_station", "tip_land_pos_x"), corner),
+        ("foot", _band(face, "foot_station", "end_face_pos_x"), foot),
     ):
         if not band[0] <= at <= band[1]:
-            raise CadError(f"{key}: the outline point lies outside its band")
-        _inch_limits(values, key, band)
+            raise CadError(f"{name}_station: the outline point lies outside its band")
+        _inch_limits(values, f"{name}_station", band)
+        # The station runs along the strap (model X). The point also stands
+        # off the hub centre across it, so calipers from the hub read the
+        # slant: the station's limits at the point's modelled rise. The rise
+        # has no band of its own (it follows the edge heights and the tip
+        # land), so the slant limits are the station's to within about a
+        # tenth of whatever the rise is off.
+        rise = y - hub_y
+        values[f"{name}_rise_in"] = rise / 25.4
+        _inch_limits(
+            values, f"{name}_slant", tuple(math.hypot(limit, rise) for limit in band)
+        )
     overall = _positive(
         face.get("overall_length_ref"), "end_face_pos_x.overall_length_ref"
     )
