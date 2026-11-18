@@ -80,6 +80,11 @@ drill_tip_z_mm = -1.524
 # parallels, pinned at their centres (cad.parallel_near_mm, cad.parallel_far_mm
 # from parallel_thickness_mm).
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["tap_1.dia", "tap_2.dia"]
+reason = "The #29 tap drill's size (Op 60, tool_sizing), then tapped #8-32 (Ops 70–110); not gauged."
+
 [[tools]]
 id = "saw"
 name = "Evolution miter saw"
@@ -164,7 +169,7 @@ instruction = "Turn both end-for-end, raw end ~.2 out. X0 on left INNER END; tou
 instruction_detailed = "Turn each part end-for-end in place, INNER END inboard, raw end ~.2 past its jaw side. Touch both INNER ENDs from the gap between the parts: X0 on the left part's, then read the right part's as XR. Measure cutter D; .02 passes, conventional: left end with the table moving away from you, last pass X = −({{cad.length_in:.3f}} + D/2); right end with the table moving toward you, last pass X = XR + {{cad.length_in:.3f}} + D/2."
 settings = "jig-em-half-6061-t6511"
 inspection = "Length {{cad.length_min_in:.3f}}–{{cad.length_max_in:.3f}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}", requirements = ["bar_seat.length"] }]
 milling_cuts = [
   { name = "raw end to length", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = 0 },
 ]
@@ -218,7 +223,7 @@ instruction = "H1–H{{cad.hole_count:d}} through on both parts to Z −1.06 bel
 rpm = 2800
 feed = "hand"
 inspection = "Each part from its INNER END: stations as tabled ±{{cad.station_tol_in:.3f}} ({{cad.hole_stations_mm}} mm ±{{cad.station_tol_mm:.2f}}); row {{cad.row_min_in:.3f}}–{{cad.row_max_in:.3f}} from ROW EDGE."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_2_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.row_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}", requirements = ["tap_1.station"] }, { gauge = "calipers", band_mm = "{{cad.hole_2_station_band_mm}}", requirements = ["tap_2.station"] }, { gauge = "calipers", band_mm = "{{cad.row_band_mm}}", requirements = ["tap_1.height", "tap_2.height"] }]
 # Through the 1 in width (BAR SIDE to KP08 SIDE); one drill Ø per peck.
 hole_depth_mm = "{{cad.width_mm}}"
 peck = { step_mm = "{{process.peck_mm}}", retract = "full" }
@@ -298,4 +303,4 @@ beam = "other"
 [[setups.operations]]
 instruction = "Edges and hole ends R{{cad.edge_break_in:.3f}} or chamfer {{cad.chamfer_max_in:.3f}} max; do not countersink threads. Flag a #8-32 socket screw {{cad.bar_thread_min_in:.3f}} from its end: it runs in by hand from BAR SIDE to the flag; re-flag at {{cad.kp08_thread_min_in:.3f}} for KP08 SIDE. Never on into the other face's thread."
 inspection = "Section {{cad.thickness_min_in:.3f}}–{{cad.thickness_max_in:.3f}} × {{cad.width_min_in:.3f}}–{{cad.width_max_in:.3f}} as bought; the flagged screw turns in by hand to its flag from each face."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["bar_seat.width"] }, { gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["bar_seat.thickness"] }]

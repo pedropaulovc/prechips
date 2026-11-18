@@ -89,6 +89,19 @@ stop_drill_projection_mm = 62.0
 # overall), plus the 5 mm longer DIN 338 12 mm jobber (151 overall).
 hub_drill_projection_mm = 130.0
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["stop_hole_1.dia", "stop_hole_2.dia", "screw_hole_1.dia", "screw_hole_2.dia", "screw_hole_3.dia", "screw_hole_4.dia"]
+reason = "The #30 drill's size (Ops 120, 150, 190, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["cl_hole.dia", "cr_hole.dia"]
+reason = "The #9 drill's size (Op 200, tool_sizing); not gauged."
+
+[[process_held]]
+requirements = ["hub_hole.dia"]
+reason = "The 12 mm drill's size (Op 220, tool_sizing); not gauged."
+
 [[tools]]
 id = "saw"
 name = "Saw"
@@ -147,7 +160,7 @@ feed = "hand"
 [[setups.operations]]
 instruction = "Caliper the bar at both ends and mid-length."
 inspection = "Thickness at all three: any under {{cad.thickness_min_in:.3dot}}, reject the bar; else any over {{cad.thickness_max_in:.3dot}}, Setup 2; else skip Setup 2."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["top_face.height", "carrier_seat.height"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -236,7 +249,7 @@ milling_cuts = [
   { name = "last pass", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", flutes = 4, axial_doc_mm = 0.127, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, traverse_mm = "{{cad.face_b_right_mm}}" },
 ]
 inspection = "Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}} at both ends and mid-length."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["top_face.height", "carrier_seat.height"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -289,7 +302,7 @@ milling_cuts = [
   { name = "width finish", kind = "end", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = 0.127, radial_woc_mm = "{{cad.thickness_min_mm}}", rpm = 1800, feed_mm_min = 177.8, traverse_mm = [0, "{{cad.blank_max_length_mm}}"] },
 ]
 inspection = "Width {{cad.width_min_in:.2f}}–{{cad.width_max_in:.2f}} at both ends and mid-length."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["top_face.width"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -372,7 +385,7 @@ beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], 
 milling_cuts = [
   { name = "right end steps", kind = "side", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.thickness_min_mm}}", radial_woc_mm = 0.508, rpm = 1800, feed_mm_min = 177.8, stations_mm = "{{cad.length_mm}}" },
 ]
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}", requirements = ["top_face.length"] }]
 
 [[setups.operations]]
 speed_kind = "spindle"
@@ -402,7 +415,7 @@ milling_cuts = [
   { name = "P2", kind = "drill", phase = "finish", cutter_dia_mm = 3.2639, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.p2_x_mm}}" },
 ]
 inspection = "Before unclamping, P2 on the DRO {{cad.p2_x_min_in:.2f}}–{{cad.p2_x_max_in:.2f}} from ZERO END. P1 {{cad.p1_x_min_in:.2dot}}–{{cad.p1_x_max_in:.2dot}} from ZERO END; P1, P2 {{cad.stop_row_min_in:.2dot}}–{{cad.stop_row_max_in:.2dot}} from ZERO EDGE."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.p2_x_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.p1_x_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.stop_row_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.p2_x_band_mm}}", requirements = ["stop_hole_2.station"] }, { gauge = "calipers", band_mm = "{{cad.p1_x_band_mm}}", requirements = ["stop_hole_1.station"] }, { gauge = "calipers", band_mm = "{{cad.stop_row_band_mm}}", requirements = ["stop_hole_1.height", "stop_hole_2.height"] }]
 
 [[setups.operations]]
 instruction = "Off the vise: break edges, ends and both ends of P1/P2 R{{cad.edge_break_in:.3dot}} or chamfer {{cad.chamfer_max_in:.3dot}} max. To assembly step 11."
@@ -527,7 +540,7 @@ milling_cuts = [
   { name = "R1-R4 countersinks", kind = "drill", phase = "finish", cutter_dia_mm = 6.35, flutes = 2, feed_per_tooth_mm = 0.0127, stations_mm = "{{cad.screw_y_mm}}" },
 ]
 inspection = "Countersink Ø{{cad.csk_dia_min_in:.2dot}}–{{cad.csk_dia_max_in:.2dot}}."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.csk_dia_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.csk_dia_band_mm}}", requirements = ["screw_hole_1_countersink.dia", "screw_hole_2_countersink.dia", "screw_hole_3_countersink.dia", "screw_hole_4_countersink.dia"] }]
 
 [[setups.operations]]
 instruction = "Break the new holes' edges R{{cad.edge_break_in:.3dot}} or chamfer {{cad.chamfer_max_in:.3dot}} max. To assembly step 11E."

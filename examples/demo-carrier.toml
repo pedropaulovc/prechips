@@ -128,6 +128,15 @@ spot_projection_mm = 27.0        # Archive center-drills-lms-4859 #2, drill chuc
 # length bounds its projection from the drill chuck.
 reamer_oal_mm = 177.8
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["riser_tap_1.dia", "riser_tap_2.dia", "riser_tap_3.dia", "riser_tap_4.dia", "cl_tap_1.dia", "cr_tap_1.dia", "lever_tap_1.dia", "lever_tap_2.dia"]
+reason = "The tap drills' sizes (#43, #29, F: Ops 80–100, tool_sizing), then tapped (Ops 140–160); not gauged."
+
+[[process_held]]
+requirements = ["hub_tap_1.dia"]
+reason = "HUB is drilled and tapped at assembly (step 10), not in this traveler."
+
 [[tools]]
 id = "saw"
 name = "Evolution miter saw"
@@ -249,7 +258,7 @@ milling_cuts = [
   { name = "back edge finish .010", kind = "side", phase = "finish", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, traverse_mm = [0, "{{cad.blank_length_mm}}"] },
 ]
 inspection = "Width {{cad.width_min_in:.1f}}–{{cad.width_max_in:.1f}} at both ends and mid-length."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.width_band_mm}}", requirements = ["top_face.width"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -284,7 +293,7 @@ milling_cuts = [
   { name = "right end last .010 to length", kind = "side", phase = "finish", cutter_dia_mm = 12.7, flutes = 2, axial_doc_mm = "{{cad.blank_thickness_mm}}", radial_woc_mm = 0.254, rpm = 1250, feed_mm_min = 152.4, stations_mm = "{{cad.blank_length_mm}}" },
 ]
 inspection = "Length {{cad.length_min_in:.1f}}–{{cad.length_max_in:.1f}} on the DRO from ZERO END."
-gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}" }]
+gauge_checks = [{ gauge = "mill-x-dro", band_mm = "{{cad.length_band_mm}}", requirements = ["top_face.length"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -334,7 +343,7 @@ milling_cuts = [
   { name = "edge-strap footprints, last pass .010", kind = "end", phase = "finish", cutter_dia_mm = 19.05, flutes = 4, axial_doc_mm = 0.254, radial_woc_mm = 15.24, rpm = 850, feed_mm_min = 172.72, stations_mm = "{{cad.end_block_x_mm}}" },
 ]
 inspection = "Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}} at the four corners and mid-length."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}" }]
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["bottom_face.height"] }]
 
 [[setups]]
 machine_kind = "other"
@@ -473,13 +482,35 @@ feed = "hand"
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = "{{cad.block_span_mm}}", section_mm = { y = "{{cad.width_mm}}", z = "{{cad.thickness_mm}}" } }
 milling_cuts = [{ name = "ream A1, A2, B1, B2 at .004 in/rev", kind = "drill", phase = "finish", cutter_dia_mm = 9.5504, flutes = 2, feed_per_tooth_mm = 0.0508, stations_mm = "{{cad.pin_x_mm}}" }]
 inspection = "Ø{{cad.pin_dia_min_in:.4dot}}–{{cad.pin_dia_max_in:.4dot}}: the .376 GO pin enters full depth, the .377 NO-GO does not start, each hole."
-gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.pin_dia_band_mm}}" }]
+gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.pin_dia_band_mm}}", requirements = ["pin_hole_a1.dia", "pin_hole_b1.dia", "pin_hole_a2.dia", "pin_hole_b2.dia"] }]
 
 [[setups.operations]]
 instruction = "Before tapping or unclamping: a pin in each hole (GO pin in the reams, the largest pin gauge that enters each drilled hole). Centre the DTI on each pin: X = mean of its two side flanks, Y = mean of front and back. Keep the corner zero. All values from A1: X = reading − A1's; Y_line = Y − (B1's Y × X / {{cad.b1_station_in:.3f}}). A1 from the corner by calipers over its GO pin from ZERO END and ZERO EDGE, less half the pin. L1, L2: X = A1's caliper X + (their DRO X − A1's); Y by calipers from ZERO EDGE over the pin."
 instruction_detailed = "Leave the plate clamped and do this before any tap goes in. Put the GO pin in each reamed hole and, in each drilled hole, the largest pin gauge that enters. With the DTI in the spindle, centre on each pin: touch its left and right flanks at the same indicator reading and take the DRO X halfway between; do the same front and back for Y. Do not re-zero: the taps go back to the table's X/Y. Write down A1's DRO centre and take every other hole's X and Y from A1 as its reading minus A1's. B1's Y tilts the A1–B1 line, so for each hole take Y_line = Y − (B1's Y × X / {{cad.b1_station_in:.3f}}): that is its height above the line. Compare each hole with the table. A1 is located from the corner, and the DRO only repeats the edge-find that placed it, so measure it apart from the DRO: calipers from ZERO END to the GO pin's far side, less half the pin, is its X; the same from ZERO EDGE is its Y. L1 and L2 are also located from the corner: their X is A1's caliper X plus their DRO X minus A1's DRO X, and their Y is calipers from ZERO EDGE to the pin's far side, less half the pin."
 inspection = "A1 from the corner (calipers) X {{cad.a1_station_min_in:.3f}}–{{cad.a1_station_max_in:.3f}}, Y {{cad.a1_row_min_in:.3f}}–{{cad.a1_row_max_in:.3f}}. Every row inside its limits: X from A1, Y from the A1–B1 line. L1, L2 X {{cad.l1_station_min_in:.3f}}–{{cad.l1_station_max_in:.3f}}; Y L1 {{cad.l1_row_min_in:.3dot}}–{{cad.l1_row_max_in:.3dot}}, L2 {{cad.l2_row_min_in:.3dot}}–{{cad.l2_row_max_in:.3dot}} from ZERO EDGE."
-gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.a1_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.a1_height_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.b1_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.b2_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.a2_offset_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.cl_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.cr_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.r1_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.r2_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.r3_station_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.r4_station_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.outer_row_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.cl_height_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.cr_height_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.r1_height_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.r2_height_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.r3_height_band_mm}}" }, { gauge = "mill-y-dro", band_mm = "{{cad.r4_height_band_mm}}" }, { gauge = "mill-x-dro", band_mm = "{{cad.l1_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.l1_row_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.l2_row_band_mm}}" }]
+gauge_checks = [
+  { gauge = "calipers", band_mm = "{{cad.a1_station_band_mm}}", requirements = ["pin_hole_a1.station"] },
+  { gauge = "calipers", band_mm = "{{cad.a1_height_band_mm}}", requirements = ["pin_hole_a1.height"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.b1_station_band_mm}}", requirements = ["pin_hole_b1.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.b2_station_band_mm}}", requirements = ["pin_hole_b2.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.a2_offset_band_mm}}", requirements = ["pin_hole_a2.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.cl_station_band_mm}}", requirements = ["cl_tap_1.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.cr_station_band_mm}}", requirements = ["cr_tap_1.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.r1_station_band_mm}}", requirements = ["riser_tap_1.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.r2_station_band_mm}}", requirements = ["riser_tap_2.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.r3_station_band_mm}}", requirements = ["riser_tap_3.station"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.r4_station_band_mm}}", requirements = ["riser_tap_4.station"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.outer_row_band_mm}}", requirements = ["pin_hole_a2.height", "pin_hole_b2.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.cl_height_band_mm}}", requirements = ["cl_tap_1.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.cr_height_band_mm}}", requirements = ["cr_tap_1.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.r1_height_band_mm}}", requirements = ["riser_tap_1.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.r2_height_band_mm}}", requirements = ["riser_tap_2.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.r3_height_band_mm}}", requirements = ["riser_tap_3.height"] },
+  { gauge = "mill-y-dro", band_mm = "{{cad.r4_height_band_mm}}", requirements = ["riser_tap_4.height"] },
+  { gauge = "mill-x-dro", band_mm = "{{cad.l1_station_band_mm}}", requirements = ["lever_tap_1.station", "lever_tap_2.station"] },
+  { gauge = "calipers", band_mm = "{{cad.l1_row_band_mm}}", requirements = ["lever_tap_1.height"] },
+  { gauge = "calipers", band_mm = "{{cad.l2_row_band_mm}}", requirements = ["lever_tap_2.height"] },
+]
 
 [setups.operations.table]
 columns = ["Hole", "X from A1", "Y from the A1–B1 line"]

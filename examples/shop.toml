@@ -67,6 +67,13 @@ resolution_mm = 0.0127
 range_mm = [0.0, 76.2]
 resolution_mm = 0.00254
 
+# Telescoping gauge set, a transfer tool read on the micrometers (no
+# resolution of its own). Range: Starrett S579HZ six-gauge set, 579A–F,
+# 5/16–6 in (checkout.starrett.com/s579hz-telescoping-gage-set); the owned
+# set's make is not recorded.
+[gauges.telescoping-gauges]
+range_mm = [7.9375, 152.4]
+
 [gauges.pin-gauges]
 range_mm = [0.28, 12.7]
 resolution_mm = 0.0254

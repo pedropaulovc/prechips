@@ -364,6 +364,27 @@ gauge_checks = [{ gauge = "micrometers", band_mm = ["{{cad.bearing_dia_min}}", "
 
 `gauge` names a `[gauges]` record. Its `range_mm` must contain both ends of `band_mm`, and its `resolution_mm` must not exceed the band width (high − low); a one-sided MAX limit is the band `[0, max]`. Text that mixes dimensional and non-dimensional limits declares only the dimensional ones (the Ra above). Gauge kind, datum and reading method, check timing, GO/NO-GO pairs and roughness ranges are not checked, and the inspection text is not parsed.
 
+A bore read through a transfer tool names it with `transfer`, another `[gauges]` record (a telescoping or small-hole gauge needs only `range_mm`). Its range must also contain both band ends; the resolution rule stays with the reading gauge, since the transfer tool has no reading of its own:
+
+```toml
+gauge_checks = [{ gauge = "micrometers", transfer = "telescoping-gauges", band_mm = "{{cad.hub_dia_band_mm}}", requirements = ["hub_hole.dia"] }]
+```
+
+### Requirement coverage
+
+`requirement_coverage` (`src/prechips/coverage.py`) refuses a plan that drops a CAD requirement. Every requirement band of the loaded manifest (a feature's `requirements` entry whose value is a two-number `[low, high]` list; thread specs, `thru`, finishes and nominal angles are not bands) must be bound by name, `"<feature>.<requirement>"`, in one of two places:
+
+- a `gauge_checks` entry's `requirements`: the bands that reading accepts. Its `band_mm` must lie within each named band (a band wholly at or below zero, such as a station left of the origin, is compared by magnitude, the distance a gauge reads). A degree band (`*_deg`) cannot be named there. Several entries may gauge the same band;
+- the plan's top-level `process_held`, with the reason the band is held without a gauge reading (drill or cutter size, an interpolated path, an index setting, assembly transfer):
+
+```toml
+[[process_held]]
+requirements = ["top_arc.radius", "bottom_arc.radius"]
+reason = "RS04_outline's interpolated path (Ops 100–140); not gauged."
+```
+
+A name that is not a band of the manifest, a band both gauged and held, or one held twice also refuses. Plans without CAD have no bands and may name none. The check reads names, never inspection prose, and does not judge a reason.
+
 ### Lathe holding
 
 `lathe_holding` checks each lathe setup's grip and unsupported stick-out. Every setup declares `machine_kind`; every lathe setup declares `lathe_hold`, either `"other"` (explicit opt-out, e.g. faceplate work) or:
@@ -459,7 +480,7 @@ features = ["setup_diagrams", "detailed_instructions"]
 enforce = []  # Explicitly skip every check; allow missing diagrams.
 ```
 
-Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`, `drill_pecking`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text or steps (and the spaced step layout), regardless of profile name or diagram selection. Unknown keys are errors.
+Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `requirement_coverage`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`, `drill_pecking`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text or steps (and the spaced step layout), regardless of profile name or diagram selection. Unknown keys are errors.
 
 ## Shared tools and cutting settings
 

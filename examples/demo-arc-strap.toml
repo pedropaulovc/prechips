@@ -103,6 +103,11 @@ half_mill_projection_max_mm = 50.8
 eighth_mill_projection_min_mm = 12.0
 eighth_mill_projection_max_mm = 12.7
 
+# requirement_coverage: requirement bands no gauge_checks entry reads.
+[[process_held]]
+requirements = ["top_arc.radius", "bottom_arc.radius", "tip_land_pos_x.land_angle_deg", "tip_land_neg_x.land_angle_deg"]
+reason = "RS04_outline's interpolated path (Ops 100–140); not gauged, the edge heights, corners and feet are (Setup 6)."
+
 [[tools]]
 id = "em-half"
 name = "1/2 in carbide end mill"
@@ -223,7 +228,7 @@ sizing = "other"
 instruction = "Run RS03_finish_face_2_hub (T1, 2650): the face at Z {{cad.thickness_in:.4dot}}. At its M0, before any other tool: mic the thickness at both ends and the middle."
 settings = "arc-strap-em-half-1018-cf"
 inspection = "Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}} at both ends and mid-length (out: stop, the blank is scrap or goes back for a skim)."
-gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.thickness_band_mm}}" }]
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["broad_face_pos_z.thickness", "broad_face_neg_z.thickness"] }]
 milling_cuts = [
   { name = "face finish", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", axial_doc_mm = "{{cad.face_finish_doc_mm}}", radial_woc_mm = "{{process.face_stepover_mm}}", traverse_mm = [0, "{{cad.blank_length_mm}}"] },
 ]
@@ -265,7 +270,7 @@ instruction = "Same file, M6 T5: ream through, .4000 reamer in the drill chuck; 
 rpm = 400
 feed = "{{process.hub_ream_feed_per_min_mm:in.1f}} in/min, in and out"
 inspection = "Hub hole Ø{{cad.hub_dia_min_in:.4dot}}–{{cad.hub_dia_max_in:.4dot}}, telescoping gauge read on the micrometer; both edges sharp, no burr."
-gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.hub_dia_band_mm}}" }]
+gauge_checks = [{ gauge = "micrometers", transfer = "telescoping-gauges", band_mm = "{{cad.hub_dia_band_mm}}", requirements = ["hub_hole.dia"] }]
 beam = { axis = "x", hold = "between", extent_mm = [0, "{{cad.blank_length_mm}}"], supports_mm = "{{cad.hub_relief_x_mm}}", section_mm = { y = "{{cad.blank_width_mm}}", z = "{{cad.thickness_mm}}" } }
 milling_cuts = [
   { name = "hub ream", kind = "drill", phase = "finish", cutter_dia_mm = "{{process.hub_reamer_dia_mm}}", flutes = 2, rpm = 400, feed_mm_min = "{{process.hub_ream_feed_per_min_mm}}", stations_mm = "{{process.hub_x_mm}}" },
@@ -358,12 +363,12 @@ vise_hold = "other"
 beam = "other"
 inspection = ["Thickness {{cad.thickness_min_in:.3dot}}–{{cad.thickness_max_in:.3dot}}. From the hub hole's centre: top edge {{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} above, bottom edge {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}} below; corners {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}} and end-face feet {{cad.foot_station_min_in:.2f}}–{{cad.foot_station_max_in:.2f}} each side; tip lands {{cad.tip_length_min_in:.2f}}–{{cad.tip_length_max_in:.2f}} long. Not gauged, the program's interpolated path: arc radii R{{cad.top_radius_min_in:.1f}}–{{cad.top_radius_max_in:.1f}} top and R{{cad.bottom_radius_min_in:.1f}}–{{cad.bottom_radius_max_in:.1f}} bottom, tip-land angle {{cad.tip_angle_min_deg:.1f}}–{{cad.tip_angle_max_deg:.1f}}°."]
 gauge_checks = [
-  { gauge = "micrometers", band_mm = "{{cad.thickness_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.top_height_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.bottom_height_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.corner_station_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.foot_station_band_mm}}" },
-  { gauge = "calipers", band_mm = "{{cad.tip_length_band_mm}}" },
+  { gauge = "micrometers", band_mm = "{{cad.thickness_band_mm}}", requirements = ["broad_face_pos_z.thickness", "broad_face_neg_z.thickness"] },
+  { gauge = "calipers", band_mm = "{{cad.top_height_band_mm}}", requirements = ["top_arc.height_above_pivot"] },
+  { gauge = "calipers", band_mm = "{{cad.bottom_height_band_mm}}", requirements = ["bottom_arc.height_below_pivot"] },
+  { gauge = "calipers", band_mm = "{{cad.corner_station_band_mm}}", requirements = ["tip_land_pos_x.corner_station", "tip_land_neg_x.corner_station"] },
+  { gauge = "calipers", band_mm = "{{cad.foot_station_band_mm}}", requirements = ["end_face_pos_x.foot_station", "end_face_neg_x.foot_station"] },
+  { gauge = "calipers", band_mm = "{{cad.tip_length_band_mm}}", requirements = ["tip_land_pos_x.land_length", "tip_land_neg_x.land_length"] },
 ]
 
 [[setups.operations]]

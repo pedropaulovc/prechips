@@ -25,14 +25,16 @@ def positive_mm(value: object, where: str) -> float:
 class Check:
     """One enforcement key; ``module`` exposes ``check(plan: LoadedPlan) -> None``.
 
-    The named fields are accepted by the plan reader and keep exact numbers from
-    whole-field bindings. Their contents are validated by the owning check.
+    The named fields are accepted by the plan reader (``plan_fields`` at the
+    plan's top level) and keep exact numbers from whole-field bindings. Their
+    contents are validated by the owning check.
     ``config`` names the coefficient file the check reads: ``"none"``, or
     ``"turning"`` to also receive the turning config the CLI parsed once
     (packaged defaults with any override).
     """
 
     module: str
+    plan_fields: frozenset[str] = frozenset()
     tool_fields: frozenset[str] = frozenset()
     setup_fields: frozenset[str] = frozenset()
     operation_fields: frozenset[str] = frozenset()
@@ -55,6 +57,10 @@ CHECKS: dict[str, Check] = {
         module="prechips.gauges",
         setup_fields=frozenset({"gauge_checks"}),
         operation_fields=frozenset({"gauge_checks"}),
+    ),
+    # Reads gauge_checks[].requirements (fields owned by gauge_capability).
+    "requirement_coverage": Check(
+        module="prechips.coverage", plan_fields=frozenset({"process_held"})
     ),
     "lathe_holding": Check(
         module="prechips.lathe", setup_fields=frozenset({"lathe_hold"})
@@ -83,7 +89,7 @@ CHECKS: dict[str, Check] = {
 
 
 def fields(kind: str) -> frozenset[str]:
-    """Plan fields of one kind (tool, setup or operation) owned by any check."""
+    """Plan fields of one kind (plan, tool, setup or operation) owned by any check."""
     return frozenset().union(
         *(getattr(check, f"{kind}_fields") for check in CHECKS.values())
     )
