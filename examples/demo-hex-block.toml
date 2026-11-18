@@ -134,7 +134,7 @@ speed_kind = "spindle"
 tool = "em-half"
 drilling = "none"
 sizing = "other"
-instruction = "Run MC01_bottom (M6 T1, 1/2 in end mill; set 2800): face the bottom end at Z0, {{process.bottom_skim_mm:in.3dot}} off the high point, two passes. At the M6 T2 stop: the whole end must be faced; a sawn patch left: abort, re-touch Z on the faced end (G10 L20 P1 Z0.559 at the leaf) and run MC01 again. No chamfer or spotface at this end: it is the mating rod's shoulder seat."
+instruction = "Run MC01_bottom (M6 T1, 1/2 in end mill; set 2800): face the bottom end at Z0, {{process.bottom_skim_mm:in.3dot}} off the high point, two passes. At the M6 T2 stop: the whole end must be faced; a sawn patch left: abort, set Z0 {{process.bottom_skim_mm:in.3dot}} below the faced end and run MC01 again. No chamfer or spotface at this end: it is the mating rod's shoulder seat."
 settings = "hex-block-em-half-brass"
 milling_cuts = [
   { name = "bottom face", kind = "end", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", axial_doc_mm = "{{process.bottom_skim_mm}}", radial_woc_mm = "{{process.face_stepover_mm}}", stations_mm = "{{process.upright_top_max_mm}}" },

@@ -53,6 +53,8 @@ def test_the_corner_down_seat_between_two_parallels():
         load_hex_block(SOURCE, HOLD | {"cross_parallel_end_mm": 17.0}, "hex-block")
     with pytest.raises(CadError, match="leave no gap"):
         load_hex_block(SOURCE, HOLD | {"parallel_thickness_mm": 6.35}, "hex-block")
+    # A least blank equal to the longest finished block is not short.
+    load_hex_block(SOURCE, BLANK | {"blank_length_min_in": 1.17}, "hex-block")
     with pytest.raises(CadError, match="shorter than the longest finished block"):
         load_hex_block(SOURCE, BLANK | {"blank_length_min_in": 1.162}, "hex-block")
     with pytest.raises(CadError, match="also need cross_parallel_end_mm"):
@@ -76,10 +78,11 @@ def test_the_corner_down_seat_between_two_parallels():
             '"tap_reach" = [10.7, 14.0]',
             "stop short of the bore's far wall",
         ),
-        # Full thread through a wall up to 6.642 mm needs the point 9.817 in.
+        # Full thread through a wall up to 6.863 mm at the hole's edge needs
+        # the point 10.038 in.
         (
             '"tap_reach" = [10.685823607061101, 11.285176392938897]',
-            '"tap_reach" = [9.5, 11.0]',
+            '"tap_reach" = [9.9, 11.0]',
             "full thread through the wall",
         ),
         # Full thread plus the tap's lead must fit the least drilled depth.

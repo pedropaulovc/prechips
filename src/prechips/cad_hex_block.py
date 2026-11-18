@@ -61,7 +61,9 @@ def _window(feature: dict, key: str, where: str) -> tuple[float, float]:
 
 def _nominal(feature: dict, band: tuple[float, float], where: str) -> float:
     """The depth the program drills to, inside its band."""
-    nominal = _positive(feature.get("drill_depth_nominal"), f"{where}.drill_depth")
+    nominal = _positive(
+        feature.get("drill_depth_nominal"), f"{where}.drill_depth_nominal"
+    )
     if not band[0] <= nominal <= band[1]:
         raise CadError(f"{where}.drill_depth_nominal: outside its band")
     return nominal
@@ -202,16 +204,20 @@ def _holes(features: dict, values: dict, height: float, af: float) -> None:
     # into the bore and the deepest stop short of its far wall.
     depth = _band(thumb, "drill_depth", "thumb_tap")
     tall = values["block_height_band_mm"]
-    # The thickest wall above the bore: the highest top less the lowest
-    # bore's top. The nearest far wall: the lowest top less the highest bore's
-    # bottom, taken where the smallest bore meets the hole's edge.
-    wall = tall[1] - station[0] - dia[0] / 2
+    # The wall above the bore at its thickest: the highest top less the
+    # lowest bore's top, on the axis (crown, what the drill must pass) and at
+    # the hole's edge (wall, what full thread must pass). The nearest far
+    # wall: the lowest top less the highest bore's bottom, at the hole's edge.
+    if drill[1] >= dia[0]:
+        raise CadError("thumb_tap.dia: no smaller than the bore")
     chord = math.sqrt((dia[0] / 2) ** 2 - (drill[1] / 2) ** 2)
+    crown = tall[1] - station[0] - dia[0] / 2
+    wall = tall[1] - station[0] - chord
     far = tall[0] - station[1] + chord
-    if depth[0] <= wall or depth[1] + point >= far:
+    if depth[0] <= crown or depth[1] + point >= far:
         raise CadError(
             f"thumb_tap.drill_depth: {depth[0]:g}..{depth[1]:g} mm must pass the "
-            f"wall above the bore (up to {wall:.3f} mm thick) and its "
+            f"wall above the bore (up to {crown:.3f} mm thick) and its "
             f"{point:.3f} mm point stop short of the bore's far wall (as near "
             f"as {far:.3f} mm)"
         )
@@ -272,7 +278,7 @@ def load_hex_block(path: Path, parameters: dict, part: str) -> CadData:
         low, high = (_positive(parameters[key], f"process.{key}") for key in _BLANK)
         if low > high:
             raise CadError("process.blank_length_min_in: over blank_length_max_in")
-        if low < values["block_height_max_in"]:
+        if low < values["block_height_max_in"] - _TOLERANCE:
             raise CadError(
                 "process.blank_length_min_in: shorter than the longest finished block"
             )

@@ -91,7 +91,7 @@ def _saw(groups: Groups, values: dict, parameters: dict) -> Layout:
         bottom + 22,
         "Blank {{process.blank_length_min_in:.2dot}}–{{process.blank_length_max_in:.2dot}} long:"
         " {{cad.face_stock_min_in:.2dot}}–{{cad.face_stock_max_in:.2dot}} comes off"
-        " the two ends together, to {{cad.block_height_in:.2f}}.",
+        " the two ends together, to {{cad.block_height_min_in:.2dot}}–{{cad.block_height_max_in:.2dot}}.",
     )
     return _finish(groups, bottom + 28)
 
