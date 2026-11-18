@@ -172,7 +172,7 @@ def test_strap_pictures_land_leaders_on_features_and_key_roles_truthfully():
     ]
     svg = "{http://www.w3.org/2000/svg}"
     words = " ".join(text.text for text in key.iter(f"{svg}text"))
-    assert "vise jaw, gripper" in words and "tape, bond" in words
+    assert "vise jaw, work holder" in words and "tape, bond" in words
     assert not {"strap", "clamp", "hold-down"} & set(re.split(r"[ ,]+", words))
 
     def group(root, role):
