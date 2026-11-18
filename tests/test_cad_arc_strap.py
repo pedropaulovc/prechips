@@ -37,6 +37,16 @@ def test_limits_envelope_and_facing_heights():
     assert values["top_height_band_mm"] == [8.0, 8.508]
     assert values["bottom_height_band_mm"] == [7.492, 8.0]
     assert values["width_mm"] == pytest.approx(16.0)
+    # Stations run along the strap; calipers from the hub read the slant to a
+    # corner standing .625 (top) or .122 (bottom) above the hub centre.
+    assert values["corner_station_band_mm"] == pytest.approx([145.796, 146.304])
+    assert values["corner_rise_in"] == pytest.approx(0.6255, abs=1e-4)
+    slants = [
+        values[f"{name}_slant_{end}_in"]
+        for name in ("corner", "foot")
+        for end in ("min", "max")
+    ]
+    assert slants == pytest.approx([5.7740, 5.7939, 5.2114, 5.2314], abs=1e-4)
     # Length corner to corner, bounding height across, finished thickness.
     required = {axis.name: axis.required_mm for axis in cad.stock_requirement.axes}
     assert required == pytest.approx(

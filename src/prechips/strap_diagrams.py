@@ -343,6 +343,7 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     )
     # The hub leader leaves the hole's rim clear of the centre line, which
     # the bottom-edge leader continues.
+    foot = page(outline["foot"])
     items = [
         (
             hub[0] - radius,
@@ -357,19 +358,36 @@ def _inspect(groups: Groups, values: dict) -> Layout:
             low,
             [
                 "bottom edge {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}}",
-                "from the hub centre, on its centre line",
+                "on the hub centre line",
+            ],
+        ),
+        (
+            foot[0],
+            foot[1],
+            [
+                "bottom corner",
+                "{{cad.foot_slant_min_in:.3f}}–{{cad.foot_slant_max_in:.3f}} slant",
             ],
         ),
         (
             right[0],
             right[1],
             [
-                "corner {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}}",
-                "from the hub centre",
+                "top corner",
+                "{{cad.corner_slant_min_in:.3f}}–{{cad.corner_slant_max_in:.3f}} slant",
             ],
         ),
     ]
-    return _finish(groups, _callouts(groups, items, low + 46, above=False))
+    bottom = _callouts(groups, items, low + 46, above=False)
+    # The drawing's corner stations run along the strap; calipers from the
+    # hub read the slant, so that is what the picture prints.
+    _label(
+        groups,
+        40,
+        bottom + 22,
+        "Slant: straight from the hub centre to the corner, as calipers read it.",
+    )
+    return _finish(groups, bottom + 28)
 
 
 def _plate_strap(values: dict, parameters: dict, root: ElementTree.Element) -> Layout:
