@@ -80,4 +80,4 @@ def test_a_fixture_plate_and_its_edge_clamps_draw_by_role_and_enter_the_key():
     assert clamp.get("fill") == ROLES["clamp"]["fill"]
     entries = [entry for entry in LEGEND if entry[0] in {"fixture-plate", "clamp"}]
     key = legend_svg(entries).decode("utf-8")
-    assert "fixture plate, fence" in key and "vise jaw, hold-down" in key
+    assert "fixture plate, fence" in key and "vise jaw, gripper" in key
