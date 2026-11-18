@@ -158,6 +158,7 @@ inspection = "Ø{{cad.hole_dia_min_in:.4dot}}–{{cad.hole_dia_max_in:.4dot}}; s
 gauge_checks = [{ gauge = "pin-gauges", band_mm = "{{cad.hole_dia_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_1_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.hole_2_station_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.row_band_mm}}" }]
 hole_depth_mm = "{{cad.thickness_mm}}"
 peck = "none"
+hole_exit = { tip_z_mm = "{{process.drill_tip_z_mm}}" }
 milling_cuts = [
   { name = "H1–H2", kind = "drill", phase = "finish", cutter_dia_mm = 8.7313, flutes = 2, feed_per_tooth_mm = 0.0254, stations_mm = "{{cad.hole_x_mm}}" },
 ]
