@@ -33,9 +33,9 @@ Groups = dict[str, list[Element]]
 
 _TITLES = {
     "saw": "Side view, bar end at the left",
-    "upright": "Looking along the jaws: block upright on parallels",
+    "upright": "Looking along the jaws: part upright on parallels",
     "cross": "Corner down for the cross bore: end view, and plan",
-    "inspect": "Finished block, looking along the cross bore",
+    "inspect": "Finished part, looking along the cross bore",
 }
 _ENDS = ("bottom", "top")
 _WORK = ("drill", "tap")
@@ -127,13 +127,13 @@ def _upright(
         groups["holes"].append(_el("circle", cx=centre, cy=seat - bore, r=radius))
     tool_top = top - 48
     groups["cutter"].append(
-        _rect(centre - drill / 2, tool_top, drill, 48 + depth * 0.6)
+        _rect(centre - drill / 2, tool_top, drill, 48 + depth * 0.3)
     )
     items = [
         (
             left + thick / 2,
             seat + rise / 2,
-            ["parallels, one against", "each jaw, block on both"],
+            ["parallels, one against", "each jaw, part on both"],
         ),
         (
             right + _JAW / 2,
@@ -164,9 +164,12 @@ def _upright(
             "tap drill",
             f"{{{{cad.{hole}_drill_depth_min_in:.2dot}}}}–{{{{cad.{hole}_drill_depth_max_in:.2dot}}}} deep",
         ]
+        mark = top + depth
         if end == "top":
             text[1] += ", into the bore"
-        items.append((centre + drill / 2, top + depth, text))
+            # On the hole itself, in the wall above the bore.
+            mark = top + (seat - bore - radius - top) * 0.75
+        items.append((centre + drill / 2, mark, text))
     return _finish(groups, _callouts(groups, items, bed + 34, above=False))
 
 
