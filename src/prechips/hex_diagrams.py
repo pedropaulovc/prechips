@@ -324,7 +324,8 @@ def _inspect(groups: Groups, values: dict) -> Layout:
             low,
             [
                 "all three axes {{cad.tap_location_min_in:.2dot}}–{{cad.tap_location_max_in:.2dot}}",
-                "from this flat",
+                "from this flat,",
+                "parallel to the bore",
             ],
         ),
         (
