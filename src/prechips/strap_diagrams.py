@@ -16,7 +16,7 @@ import math
 from xml.etree import ElementTree
 
 from prechips.cad import CadError, _shorthand
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _cad, _dim, _el, _line, _rect, _text
 from prechips.jig_diagrams import (
     _datum_label,
     _finish,
@@ -151,7 +151,10 @@ def _fixture(
     _datum_label(groups, right, back - 8, "Y0: fence face", "end")
     groups["datum"].append(_line(plan.px(0), plan.y0, plan.px(0), plan.front))
     _datum_label(groups, plan.px(0) + 4, back - 8, "X0: end stop", "start")
-    groups["clamp"].append(_rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP))
+    # The end stop is a stop block on the plate, not a clamp.
+    groups["fixture-support"].append(
+        _rect(plan.px(0) - _CLAMP, plan.y0, _CLAMP, _CLAMP)
+    )
     for station in clamps:
         groups["clamp"].append(
             _rect(plan.px(station) - _CLAMP / 2, plan.front, _CLAMP, _CLAMP)
@@ -239,7 +242,10 @@ def _outline_plan(
     groups["part-kept"].append(_el("path", d=_path(inner)))
     (x, y), _ = _hub(plan, values)
     flange = _param(parameters, "bushing_flange_dia_mm") * plan.scale / 2
-    groups["clamp"].append(_el("circle", cx=x, cy=y, r=flange))
+    # Hardware, not a clamp; drawn in a group above the strap so it shows.
+    groups["clamp"].append(
+        _el("circle", cx=x, cy=y, r=flange, **{"class": "part-rest"})
+    )
     tip = plan.px(sum(notches[1]) / 2)
     items = [
         (
@@ -282,11 +288,14 @@ def _saw(groups: Groups, parameters: dict) -> Layout:
 
 
 def _inspect(groups: Groups, values: dict) -> Layout:
+    """The finished strap. The drawing defines the edge heights on the hub's
+    vertical centre line and the corner stations along X from it, so both are
+    dimensioned from that line, not by point-to-point leaders."""
     outline = _outline(values)
     points = _loop(outline)
     half = outline["corner"][0]
     scale = 620 / (2 * half)
-    top = 96.0
+    top = 110.0
 
     def page(point: Point) -> Point:
         x, y = point
@@ -296,17 +305,56 @@ def _inspect(groups: Groups, values: dict) -> Layout:
     hub = page((0.0, outline["hub_y"]))
     radius = values["hub_dia_band_mm"][0] * scale / 2
     groups["holes"].append(_el("circle", cx=hub[0], cy=hub[1], r=radius))
-    groups["centre-line"].append(_line(hub[0], top - 14, hub[0], hub[1] + 40))
     left, right = page((-half, outline["corner"][1])), page(outline["corner"])
+    high = page((0.0, outline["centre_y"] - outline["top_radius"]))[1]
     low = page((0.0, outline["bottom_y"]))[1]
+    station = top - 16
+    groups["centre-line"].append(_line(hub[0], station - 6, hub[0], hub[1] + 40))
     _dimension(
         groups,
         left[0],
         right[0],
-        top - 30,
+        top - 46,
         left[1],
         f"({_shorthand(_cad(values, 'overall_length_in'), 2)})",
     )
+    # Corner station: along X from the centre line, which is its extension.
+    groups["dims"] += [
+        _line(right[0], right[1] - 2, right[0], station - 4),
+        _dim(hub[0], station, right[0], station),
+    ]
+    groups["label"].append(
+        _text(
+            (hub[0] + right[0]) / 2,
+            station - 5,
+            "{{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}}",
+            text_anchor="middle",
+        )
+    )
+    # Edge heights: a chain on the centre line, hub centre to each edge, each
+    # band printed outside the strap past the edge it reaches.
+    rail = hub[0] - 40
+    groups["dims"] += [
+        _line(hub[0] - 2, high, rail - 4, high),
+        _line(hub[0] - radius - 2, hub[1], rail - 4, hub[1]),
+        _line(hub[0] - 2, low, rail - 4, low),
+        _dim(rail, high, rail, hub[1]),
+        _dim(rail, hub[1], rail, low),
+    ]
+    groups["label"] += [
+        _text(
+            rail - 4,
+            high - 9,
+            "{{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}}",
+            text_anchor="end",
+        ),
+        _text(
+            rail - 4,
+            low + 15,
+            "{{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}}",
+            text_anchor="end",
+        ),
+    ]
     items = [
         (
             hub[0],
@@ -314,22 +362,6 @@ def _inspect(groups: Groups, values: dict) -> Layout:
             [
                 "hub Ø{{cad.hub_dia_min_in:.4dot}}–{{cad.hub_dia_max_in:.4dot}}",
                 "reamed through",
-            ],
-        ),
-        (
-            hub[0] + 90,
-            low + 4,
-            [
-                "edges from the hub centre:",
-                "{{cad.top_height_min_in:.3dot}}–{{cad.top_height_max_in:.3dot}} above, {{cad.bottom_height_min_in:.3dot}}–{{cad.bottom_height_max_in:.3dot}} below",
-            ],
-        ),
-        (
-            right[0] - 4,
-            right[1],
-            [
-                "corner {{cad.corner_station_min_in:.2f}}–{{cad.corner_station_max_in:.2f}}",
-                "from the hub centre",
             ],
         ),
     ]
