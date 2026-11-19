@@ -286,12 +286,9 @@ tap_drill_mm = 3.4544
 [tools.jig-tap-8-32-bottoming]
 description = "8-32 UNC bottoming tap (1–2 chamfered threads); T-handle wrench"
 tap_drill_mm = 3.4544
-# Demo status: exercises the tooling list's "to order" mark (this demo treats
-# the index's 11/32 member as missing); not an inventory fact.
 [tools.jig-drill-11-32]
 description = "11/32 (.3438 in) drill, 115-piece index"
 diameter_mm = 8.73125
-status = "to_order"
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
 
@@ -300,7 +297,6 @@ description = "10 in mill second-cut and 8 in smooth files; bench vise with soft
 [stock.jig-6061-half-by-1]
 name = "1/2 × 1 × 24 in 6061 bar"
 description = "6061-T6511 aluminium bar, 1/2 × 1 × 24 in (OnlineMetals 1165)"
-status = "on_hand"
 
 # Jig-part end mill (owner ruling 2026-11-16, prechips
 # #436; the riser's Setups 3-4 since #435; the blocks at 7 in/min, owner

@@ -3,7 +3,7 @@
 import base64
 import re
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from html import escape
 from math import isfinite
@@ -11,11 +11,11 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from prechips import indexing, palette, speeds
-from prechips import shop as shop_records
 from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
+from prechips.shop import STATUSES
 
 
 class PlanError(ValueError):
@@ -165,44 +165,58 @@ def _turning_cuts(operation: dict, where: str) -> None:
         _turning_numbers(cut, numbers, cut_where)
 
 
-def shop_files(path: Path) -> list[Path]:
-    """A shop file, or every ``*.toml`` directly in a shop directory."""
-    if path.is_dir():
-        return sorted(file for file in path.glob("*.toml") if file.is_file())
-    return [path]
+def _shop_toml(file: Path) -> dict:
+    try:
+        with file.open("rb") as source:
+            return tomllib.load(source)
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        raise PlanError(f"shop {file}: {error}") from error
 
 
-def load_shop(path: Path) -> dict:
-    """Read one shop file, or merge a directory's files by section.
+def load_shop(path: Path) -> tuple[dict, list[Path]]:
+    """Read one shop file, or merge a directory's files; return data and files.
 
-    A record key, or a ``limits`` key, defined in two files is refused.
+    A directory merges every ``*.toml`` directly in it, skipping names that
+    start with ``.``, by section. A record key, a ``limits`` key or a top-level
+    value defined in two files is refused; everything else is used as one file
+    would be.
     """
-    files = shop_files(path)
+    if not path.is_dir():
+        return _shop_toml(path), [path]
+    files = sorted(
+        file
+        for file in path.glob("*.toml")
+        if file.is_file() and not file.name.startswith(".")
+    )
     if not files:
         raise PlanError(f"shop {path}: no .toml files in the directory")
     shop: dict = {}
-    origin: dict[tuple[str, str], Path] = {}
+    first: dict[tuple, Path] = {}
+
+    def define(name: tuple, file: Path) -> None:
+        if name in first:
+            raise PlanError(
+                f"shop.{'.'.join(name)}: defined in both "
+                f"{first[name].name} and {file.name}"
+            )
+        first[name] = file
+
     for file in files:
-        try:
-            with file.open("rb") as source:
-                data = tomllib.load(source)
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
-            raise PlanError(f"shop {file}: {error}") from error
-        if file == path:
-            return data
-        for section, records in data.items():
-            if not isinstance(records, dict):
-                raise PlanError(f"shop {file}: {section}: expected a table")
+        for section, value in _shop_toml(file).items():
+            merging = isinstance(value, dict) and isinstance(
+                shop.get(section, {}), dict
+            )
+            if not merging:
+                # A non-table value is checked where it is read, as in one file.
+                define((section,), file)
+                shop[section] = value
+                continue
+            first.setdefault((section,), file)
             merged = shop.setdefault(section, {})
-            for key, record in records.items():
-                if (section, key) in origin:
-                    raise PlanError(
-                        f"shop.{section}.{key}: defined in both "
-                        f"{origin[section, key].name} and {file.name}"
-                    )
-                origin[section, key] = file
+            for key, record in value.items():
+                define((section, key), file)
                 merged[key] = record
-    return shop
+    return shop, files
 
 
 @dataclass
@@ -213,6 +227,8 @@ class LoadedPlan:
     parameters: dict
     shop: Path | None
     shop_data: dict
+    # The files read for ``shop``: the file itself, or a directory's files.
+    shop_files: list[Path] = field(default_factory=list)
 
 
 def load_plan(path: Path) -> LoadedPlan:
@@ -278,9 +294,10 @@ def load_plan(path: Path) -> LoadedPlan:
         raise PlanError(str(error)) from error
     shop_path = None
     shop = {}
+    shop_files = []
     if "shop" in plan:
         shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
-        shop = load_shop(shop_path)
+        shop, shop_files = load_shop(shop_path)
         plan.pop("shop")
     material_key = _text(plan, "material_key", "plan", optional=True)
     plan.pop("material_key", None)
@@ -326,7 +343,7 @@ def load_plan(path: Path) -> LoadedPlan:
             _keys(shared, {"name", "description", "status"}, shared_where)
             _text(shared, "description", shared_where)
             _text(shared, "name", shared_where, optional=True)
-            _choice(shared, "status", set(shop_records.STATUSES), shared_where)
+            _choice(shared, "status", set(STATUSES), shared_where)
             stock.append(shared)
         # The printed stock text stays the authority; the records add marks.
         plan["stock_refs"] = stock
@@ -335,7 +352,11 @@ def load_plan(path: Path) -> LoadedPlan:
     tool_refs = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
-        _keys(tool, {"id", "name", "description", "ref"} | check_fields("tool"), where)
+        _keys(
+            tool,
+            {"id", "name", "description", "status", "ref"} | check_fields("tool"),
+            where,
+        )
         tool_id = _text(tool, "id", where)
         if "ref" in tool:
             ref = _text(tool, "ref", where)
@@ -348,7 +369,7 @@ def load_plan(path: Path) -> LoadedPlan:
                 {"name", "description", "status"} | check_fields("tool"),
                 shared_where,
             )
-            _choice(shared, "status", set(shop_records.STATUSES), shared_where)
+            _choice(shared, "status", set(STATUSES), shared_where)
             _text(shared, "description", shared_where)
             _text(shared, "name", shared_where, optional=True)
             for key in shared:
@@ -357,6 +378,7 @@ def load_plan(path: Path) -> LoadedPlan:
             tool_refs[tool_id] = tool.pop("ref")
         _text(tool, "name", where, optional=True)
         _text(tool, "description", where)
+        _choice(tool, "status", set(STATUSES), where)
         if tool_id in tool_ids:
             raise PlanError(f"{where}.id: duplicate tool {tool_id!r}")
         tool_ids.add(tool_id)
@@ -522,7 +544,9 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path, shop)
+    return LoadedPlan(
+        plan, path.resolve(), cad, parameters, shop_path, shop, shop_files
+    )
 
 
 CSS = """
@@ -781,27 +805,25 @@ def _diagram_html(
     return figure, drawn
 
 
-# Shop items not yet in hand are marked where they print; "on_hand" and an
-# unrecorded status add nothing.
-_STATUS_MARKS = {
-    "to_order": "to order",
-    "not_received": "not received",
-    "to_make": "to make",
-}
+def _status_mark(item: dict) -> str:
+    """A shop item not in hand prints its status ("to order"); "on_hand" and an
+    unrecorded status print nothing."""
+    status = item.get("status", "on_hand")
+    return "" if status == "on_hand" else status.replace("_", " ")
 
 
 def _stock_html(plan: dict) -> str:
     marks = [
-        f" <strong>({_STATUS_MARKS[record['status']]}: "
+        f" <strong>({_status_mark(record)}: "
         f"{_html(record.get('name') or record['description'])})</strong>"
         for record in plan.get("stock_refs", [])
-        if record.get("status") in _STATUS_MARKS
+        if _status_mark(record)
     ]
     return f"{_html(plan['stock'])}{''.join(marks)}"
 
 
 def _tool_html(tool: dict) -> str:
-    mark = _STATUS_MARKS.get(tool.get("status"))
+    mark = _status_mark(tool)
     status = f" <strong>({mark})</strong>" if mark else ""
     return f"{_html(tool['description'])}{status}"
 

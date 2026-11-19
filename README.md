@@ -469,7 +469,7 @@ Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also
 
 ## Shared tools, stock and cutting settings
 
-Plans can reference one shop: a file, or a directory whose `*.toml` files (directly in it, not in subdirectories) are merged by section (`tools`, `stock`, `settings`, `machines`, `workholding`, `gauges`, `limits`, ...). A record key, or a `limits` key, defined in two of the directory's files is refused, naming both files. The base-bar, end-bracket, feed-lever, shaft and bracket examples use `examples/shop.toml`; the T-nut example uses the split directory `examples/comparison/shop-t-nuts/`. Mixed-tool operations and unspecified settings remain inline.
+Plans can reference one shop: a file, or a directory whose `*.toml` files (directly in it, not in subdirectories; names starting with `.`, such as editor or `._` resource-fork files, are skipped) are merged by section (`tools`, `stock`, `settings`, `machines`, `workholding`, `gauges`, `limits`, ...). A record key, a `limits` key or a top-level value defined in two of the directory's files is refused, naming both files; everything else is read as one file would be. The output may not be a `.toml` file in a referenced shop directory. The base-bar, end-bracket, feed-lever, shaft and bracket examples use `examples/shop.toml`; the T-nut example uses the split directory `examples/comparison/shop-t-nuts/`. Mixed-tool operations and unspecified settings remain inline.
 
 ```toml
 # In the plan, before any tables:
@@ -507,7 +507,7 @@ rpm = 1200
 feed = "0.02 mm/rev"
 ```
 
-Tool `name` and `description` overrides are independent, as are operation `rpm` and `feed` overrides. A referenced setting must match the tool's shared identity and the plan's `material_key`, even when both cutting fields are overridden. These identities are explicit; printed material descriptions are not parsed.
+Tool `name`, `description` and `status` overrides are independent, as are operation `rpm` and `feed` overrides. A referenced setting must match the tool's shared identity and the plan's `material_key`, even when both cutting fields are overridden. These identities are explicit; printed material descriptions are not parsed.
 
 A shop `[tools.<key>]`, `[gauges.<key>]`, `[workholding.<key>]` or `[stock.<key>]` record may record ownership with `status`: `"on_hand"`, `"not_received"`, `"to_order"` or `"to_make"` (a shop-made item not yet made); any other value is refused, and an absent `status` means not recorded. A plan names the stock it needs with `stock_refs`, a nonempty array of `[stock]` keys; it requires `shop`, and unknown or repeated keys are refused. A stock record takes `description` (required), `name` and `status`, nothing else. The plan's `material` and `stock` text stay required and remain what the sheet prints. A tool whose status is not `on_hand` is marked beside its tooling-list entry, **(to order)**, **(not received)** or **(to make)**, and each such referenced stock record adds **(to order: name)**, **(not received: name)** or **(to make: name)** to the stock line (its `description` when it has no `name`). `on_hand` and an unrecorded status print nothing, so those sheets are unchanged. Gauge and workholding status is never printed.
 

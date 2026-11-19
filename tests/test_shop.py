@@ -353,6 +353,11 @@ def test_status_and_stock_refs_mark_what_is_not_on_hand(tmp_path):
         on_hand = on_hand.replace(status, "on_hand")
     plan, _, _ = prepare(tmp_path, text, on_hand)
     assert "<strong>(" not in render_traveler(load_plan(plan))
+    local = text.replace(
+        'ref = "shaft-blade"', 'ref = "shaft-blade"\nstatus = "on_hand"'
+    )
+    plan, _, _ = prepare(tmp_path, local, shop_text)
+    assert "blade <strong>(to order)" not in render_traveler(load_plan(plan))
     for plan_text, shared, message in (
         (text.replace('"rod"', '"tube"'), shop_text, "unknown shared stock"),
         (text.replace('"rod"', '"bar"'), shop_text, "duplicate stock reference"),
@@ -374,24 +379,42 @@ def test_status_and_stock_refs_mark_what_is_not_on_hand(tmp_path):
         record(gauges, "gauges", "pins", "op 10")
 
 
-def test_split_shop_directory_merges_sections_and_refuses_repeats(tmp_path):
+def test_split_shop_directory_merges_sections_and_refuses_repeats(tmp_path, capsys):
     tools, settings = SHOP.split("\n\n")
-    plan, shop, _ = prepare(tmp_path, PLAN.replace('"shop.toml"', '"shop"'))
+    plan, shop, profile = prepare(tmp_path, PLAN.replace('"shop.toml"', '"shop"'))
     shop.unlink()
     split = tmp_path / "shop"
     split.mkdir()
-    (split / "tools.toml").write_text(tools, encoding="utf-8")
+    (split / "tools.toml").write_text("stray = 1\n" + tools, encoding="utf-8")
     (split / "settings.toml").write_text(settings, encoding="utf-8")
     (split / "notes.txt").write_text("not read", encoding="utf-8")
+    (split / "._tools.toml").write_bytes(b"\x00\x05\x16\x07 resource fork")
+    (split / ".tools.toml").write_text(tools, encoding="utf-8")
     loaded = load_plan(plan)
     assert loaded.shop == split.resolve()
+    split = split.resolve()
+    assert loaded.shop_files == [split / "settings.toml", split / "tools.toml"]
     assert loaded.data["tools"][0]["description"] == "Authored parting blade"
     assert operation(loaded)["rpm"] == 1200
-    (split / "more.toml").write_text(tools, encoding="utf-8")
-    message = "shop.tools.shaft-blade: defined in both more.toml and tools.toml"
-    with pytest.raises(PlanError, match=re.escape(message)):
-        load_plan(plan)
+    assert loaded.shop_data["stray"] == 1
+    out = split / "traveler.toml"
+    args = ["traveler", str(plan), "--out", str(out), "--profile", str(profile)]
+    assert main(args) == 2
+    assert ".toml file in the shop directory" in capsys.readouterr().err
+    assert not out.exists()
+    for more, message in (
+        (tools, "shop.tools.shaft-blade: defined in both more.toml and tools.toml"),
+        ("[limits]\na = 1\n", None),
+        ("stray = 2\n", "shop.stray: defined in both more.toml and tools.toml"),
+        ("[stray]\nb = 1\n", "shop.stray: defined in both more.toml and tools.toml"),
+    ):
+        (split / "more.toml").write_text(more, encoding="utf-8")
+        if message is None:
+            load_plan(plan)
+            continue
+        with pytest.raises(PlanError, match=re.escape(message)):
+            load_plan(plan)
+    (split / "settings.toml").write_text(settings + "\n[limits]\na = 2\n", "utf-8")
     (split / "more.toml").write_text("[limits]\na = 1\n", encoding="utf-8")
-    (split / "tools.toml").write_text(tools + "\n[limits]\na = 2\n", encoding="utf-8")
     with pytest.raises(PlanError, match="shop.limits.a: defined in both"):
         load_plan(plan)
