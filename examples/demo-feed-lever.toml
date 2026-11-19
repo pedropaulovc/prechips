@@ -17,6 +17,7 @@ part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
 material = "6061-T6511 aluminium"
 stock = "{{process.blank_thickness_in:fraction}} × {{process.blank_width_in:fraction}} × 24 in bar (OnlineMetals 1165, shared with the end brackets); {{process.quantity:d}} × {{process.blank_length_in:.2f}} in blank."
+stock_refs = ["jig-6061-half-by-1"]
 note = "Inches. Only the ends, two holes and two grip-end corners are machined; 1/2 and 1 in faces as bought. All spindle work on the low belt; no belt change."
 shop = "shop.toml"
 material_key = "6061-t6511"

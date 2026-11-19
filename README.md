@@ -310,7 +310,7 @@ stickout_ld_max = 4.0
 tool_change_clearance_mm = 25.0
 ```
 
-Lathes also take `swing_over_bed_mm`, `swing_over_cross_slide_mm` and `between_centres_mm`; dividing heads take `worm_ratio`, `plate_holes` and `direct_index_positions`.
+Lathes also take `swing_over_bed_mm`, `swing_over_cross_slide_mm` and `between_centres_mm`; dividing heads take `worm_ratio`, `plate_holes` and `direct_index_positions`. Workholding and gauge records may record ownership with `status` (see [Shared tools, stock and cutting settings](#shared-tools-stock-and-cutting-settings)); it is validated when a check reads the record but never printed, since the traveler does not list normal shop equipment.
 
 ### Cutting speeds
 
@@ -467,14 +467,15 @@ enforce = []  # Explicitly skip every check; allow missing diagrams.
 
 Add `"setup_diagrams"` to `enforce` to require one for every setup; it must also appear in `features`. Add `"stock_fit"` to require CAD and fitting blank dimensions independently of diagrams; add `"turning_deflection"` to enforce the declared longitudinal-turning screen. These and the declared-input keys (`cutting_speeds`, `tool_sizing`, `indexing`, `gauge_capability`, `lathe_holding`, `vise_holding`, `milling_deflection`, `machine_capacity`, `drill_pecking`) are the supported enforcement keys. Feature keys are `setup_diagrams` and `detailed_instructions`: custom profiles must explicitly enable the latter to select detailed operation text or steps (and the spaced step layout), regardless of profile name or diagram selection. Unknown keys are errors.
 
-## Shared tools and cutting settings
+## Shared tools, stock and cutting settings
 
-Plans can reference one shop file. The base-bar, end-bracket, feed-lever, shaft, bracket and T-nut examples use `examples/shop.toml`; mixed-tool operations and unspecified settings remain inline.
+Plans can reference one shop: a file, or a directory whose `*.toml` files (directly in it, not in subdirectories) are merged by section (`tools`, `stock`, `settings`, `machines`, `workholding`, `gauges`, `limits`, ...). A record key, or a `limits` key, defined in two of the directory's files is refused, naming both files. The base-bar, end-bracket, feed-lever, shaft and bracket examples use `examples/shop.toml`; the T-nut example uses the split directory `examples/comparison/shop-t-nuts/`. Mixed-tool operations and unspecified settings remain inline.
 
 ```toml
 # In the plan, before any tables:
-shop = "../shop.toml"  # Relative to this plan.
+shop = "../shop.toml"  # Relative to this plan: a file or a shop directory.
 material_key = "shaft-1018-cold-finished"
+stock_refs = ["rod-1018-quarter"]  # Optional; keys under [stock] in the shop file.
 
 [[tools]]
 id = "blade"
@@ -492,6 +493,12 @@ instruction = "Plunge south relief to Ø5.70."
 # In the shop file:
 [tools.shaft-blade]
 description = "M2 square blade"
+status = "to_order"  # Optional: "on_hand", "not_received", "to_order" or "to_make".
+
+[stock.rod-1018-quarter]
+name = "1/4 in 1018 rod"  # Optional.
+description = "1018 cold-finished round, 1/4 in × 36 in"
+status = "on_hand"  # Optional, as for tools.
 
 [settings.shaft-relief-1018]
 tool = "shaft-blade"
@@ -502,7 +509,9 @@ feed = "0.02 mm/rev"
 
 Tool `name` and `description` overrides are independent, as are operation `rpm` and `feed` overrides. A referenced setting must match the tool's shared identity and the plan's `material_key`, even when both cutting fields are overridden. These identities are explicit; printed material descriptions are not parsed.
 
-Shared strings are literal. Plan-owned overrides retain CAD/process bindings. Missing references, mismatched identities and invalid selected records fail before output. Inline-only plans remain supported, and the shared input file cannot be used as the output. This is an authored library, not tool selection; the only calculation is a setting's declared surface speed and feed rate (see [Cutting speeds](#cutting-speeds)).
+A shop `[tools.<key>]`, `[gauges.<key>]`, `[workholding.<key>]` or `[stock.<key>]` record may record ownership with `status`: `"on_hand"`, `"not_received"`, `"to_order"` or `"to_make"` (a shop-made item not yet made); any other value is refused, and an absent `status` means not recorded. A plan names the stock it needs with `stock_refs`, a nonempty array of `[stock]` keys; it requires `shop`, and unknown or repeated keys are refused. A stock record takes `description` (required), `name` and `status`, nothing else. The plan's `material` and `stock` text stay required and remain what the sheet prints. A tool whose status is not `on_hand` is marked beside its tooling-list entry, **(to order)**, **(not received)** or **(to make)**, and each such referenced stock record adds **(to order: name)**, **(not received: name)** or **(to make: name)** to the stock line (its `description` when it has no `name`). `on_hand` and an unrecorded status print nothing, so those sheets are unchanged. Gauge and workholding status is never printed.
+
+Shared strings are literal. Plan-owned overrides retain CAD/process bindings. Missing references, mismatched identities and invalid selected records fail before output. Inline-only plans remain supported, and no shared input file (each `*.toml` of a shop directory) can be used as the output. This is an authored library, not tool selection; the only calculation is a setting's declared surface speed and feed rate (see [Cutting speeds](#cutting-speeds)).
 
 ## Process TOML
 

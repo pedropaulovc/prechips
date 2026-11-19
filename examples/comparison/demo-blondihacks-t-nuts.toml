@@ -12,7 +12,7 @@ revision = "BH-TN-EXAMPLE / catalog-design-1"
 material = "1018 steel"
 stock = "1 × 5/8 × 5 in flat bar; four finished nuts"
 note = "Inches unless marked. Conventional milling. Flood: squaring, separation, end facing. Cutting oil: shoulders, drilling, tapping."
-shop = "../shop.toml"
+shop = "shop-t-nuts"  # A split shop directory.
 material_key = "tnuts-1018-annealed-hb120"
 
 [[tools]]

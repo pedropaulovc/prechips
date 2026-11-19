@@ -261,36 +261,6 @@ material = "bracket-plain-carbon-steel"
 rpm = 900
 feed = "90 mm/min; any in-stock plunge 45 mm/min"
 
-# Source: comparison/demo-blondihacks-t-nuts.toml; archive/pre-v0.10-2026-11-08
-# (6603afbc), blondihacks-t-nuts inventory/cutting-data and expected traveler.
-# HB120 annealed stock and these numeric settings are source-author selections.
-# Matching rpm/feed does not equate the shoulder rougher and flat-end finisher.
-[tools.tnuts-face]
-description = "3/4-in HSS TiCN square-end mill, 4 flutes"
-[tools.tnuts-rough]
-description = "1/2-in HSS shoulder rougher, 4 flutes"
-[tools.tnuts-finish]
-description = "1/2-in HSS flat-end finisher, 4 flutes"
-[tools.tnuts-saw]
-description = "2-in HSS, 36T; .125 kerf / .120 body; 1/2-in bore"
-[tools.tnuts-spot]
-description = "#3 HSS centre drill"
-[tools.tnuts-drill]
-description = "5/16-in HSS jobber drill, 118° point"
-[tools.tnuts-tap]
-description = "3/8-16 RH HSS taper tap; spring follower"
-
-[settings.tnuts-rough-1018]
-tool = "tnuts-rough"
-material = "tnuts-1018-annealed-hb120"
-rpm = 750
-feed = "3 in/min"
-[settings.tnuts-finish-1018]
-tool = "tnuts-finish"
-material = "tnuts-1018-annealed-hb120"
-rpm = 750
-feed = "3 in/min"
-
 # Source: demo-end-bracket.toml and demo-feed-lever.toml; hand travelers dated
 # 2026-11-02 (end bracket and feed lever, v47), the v48 manifest notes (#29 tap
 # drill, plug-start then bottoming-finish taps) and the archived
@@ -316,11 +286,21 @@ tap_drill_mm = 3.4544
 [tools.jig-tap-8-32-bottoming]
 description = "8-32 UNC bottoming tap (1–2 chamfered threads); T-handle wrench"
 tap_drill_mm = 3.4544
+# Demo status: exercises the tooling list's "to order" mark (this demo treats
+# the index's 11/32 member as missing); not an inventory fact.
 [tools.jig-drill-11-32]
 description = "11/32 (.3438 in) drill, 115-piece index"
 diameter_mm = 8.73125
+status = "to_order"
 [tools.jig-files]
 description = "10 in mill second-cut and 8 in smooth files; bench vise with soft jaws"
+
+# Stock the plans reference with stock_refs; their material and stock text
+# stays the printed authority. Source: demo-feed-lever.toml's stock line.
+[stock.jig-6061-half-by-1]
+name = "1/2 × 1 × 24 in 6061 bar"
+description = "6061-T6511 aluminium bar, 1/2 × 1 × 24 in (OnlineMetals 1165)"
+status = "on_hand"
 
 # Jig-part end mill (owner ruling 2026-11-16, prechips
 # #436; the riser's Setups 3-4 since #435; the blocks at 7 in/min, owner

@@ -1,0 +1,12 @@
+# Source: as tools.toml. HB120 annealed stock and these numeric settings are
+# source-author selections.
+[settings.tnuts-rough-1018]
+tool = "tnuts-rough"
+material = "tnuts-1018-annealed-hb120"
+rpm = 750
+feed = "3 in/min"
+[settings.tnuts-finish-1018]
+tool = "tnuts-finish"
+material = "tnuts-1018-annealed-hb120"
+rpm = 750
+feed = "3 in/min"

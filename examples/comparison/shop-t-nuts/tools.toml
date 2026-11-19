@@ -1,0 +1,19 @@
+# A split shop directory: the plan's `shop` names this directory, and every
+# *.toml directly in it is merged by section.
+# Source: comparison/demo-blondihacks-t-nuts.toml; archive/pre-v0.10-2026-11-08
+# (6603afbc), blondihacks-t-nuts inventory/cutting-data and expected traveler.
+# Matching rpm/feed does not equate the shoulder rougher and flat-end finisher.
+[tools.tnuts-face]
+description = "3/4-in HSS TiCN square-end mill, 4 flutes"
+[tools.tnuts-rough]
+description = "1/2-in HSS shoulder rougher, 4 flutes"
+[tools.tnuts-finish]
+description = "1/2-in HSS flat-end finisher, 4 flutes"
+[tools.tnuts-saw]
+description = "2-in HSS, 36T; .125 kerf / .120 body; 1/2-in bore"
+[tools.tnuts-spot]
+description = "#3 HSS centre drill"
+[tools.tnuts-drill]
+description = "5/16-in HSS jobber drill, 118° point"
+[tools.tnuts-tap]
+description = "3/8-16 RH HSS taper tap; spring follower"

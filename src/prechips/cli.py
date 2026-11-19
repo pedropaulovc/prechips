@@ -9,7 +9,13 @@ from pathlib import Path
 from prechips import checks
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
-from prechips.traveler import PlanError, load_plan, render_traveler, used_diagrams
+from prechips.traveler import (
+    PlanError,
+    load_plan,
+    render_traveler,
+    shop_files,
+    used_diagrams,
+)
 from prechips.turning import (
     DEFAULT_CONFIG,
     TurningError,
@@ -65,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         if plan.cad is not None:
             inputs.append(plan.cad.source)
         if plan.shop is not None:
-            inputs.append(plan.shop)
+            inputs.extend(shop_files(plan.shop))
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning, milling and drill pecking read the same packaged/override file.
