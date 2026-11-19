@@ -64,8 +64,17 @@ def main(argv: list[str] | None = None) -> int:
         inputs = []
         if plan.cad is not None:
             inputs.append(plan.cad.source)
-        if plan.shop is not None:
-            inputs.append(plan.shop)
+        inputs.extend(plan.shop_files)
+        # A new .toml beside a shop directory's files would join that shop.
+        folder = args.out.resolve().parent
+        if (
+            plan.shop is not None
+            and plan.shop.is_dir()
+            and args.out.suffix.lower() == ".toml"
+            and folder.exists()
+            and folder.samefile(plan.shop)
+        ):
+            raise PlanError("output must not be a .toml file in the shop directory")
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning, milling and drill pecking read the same packaged/override file.

@@ -3,7 +3,7 @@
 import base64
 import re
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from html import escape
 from math import isfinite
@@ -15,6 +15,7 @@ from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
+from prechips.shop import STATUSES
 
 
 class PlanError(ValueError):
@@ -164,6 +165,60 @@ def _turning_cuts(operation: dict, where: str) -> None:
         _turning_numbers(cut, numbers, cut_where)
 
 
+def _shop_toml(file: Path) -> dict:
+    try:
+        with file.open("rb") as source:
+            return tomllib.load(source)
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        raise PlanError(f"shop {file}: {error}") from error
+
+
+def load_shop(path: Path) -> tuple[dict, list[Path]]:
+    """Read one shop file, or merge a directory's files; return data and files.
+
+    A directory merges every ``*.toml`` directly in it, skipping names that
+    start with ``.``, by section. A record key, a ``limits`` key or a top-level
+    value defined in two files is refused; everything else is used as one file
+    would be.
+    """
+    if not path.is_dir():
+        return _shop_toml(path), [path]
+    files = sorted(
+        file
+        for file in path.glob("*.toml")
+        if file.is_file() and not file.name.startswith(".")
+    )
+    if not files:
+        raise PlanError(f"shop {path}: no .toml files in the directory")
+    shop: dict = {}
+    first: dict[tuple, Path] = {}
+
+    def define(name: tuple, file: Path) -> None:
+        if name in first:
+            raise PlanError(
+                f"shop.{'.'.join(name)}: defined in both "
+                f"{first[name].name} and {file.name}"
+            )
+        first[name] = file
+
+    for file in files:
+        for section, value in _shop_toml(file).items():
+            merging = isinstance(value, dict) and isinstance(
+                shop.get(section, {}), dict
+            )
+            if not merging:
+                # A non-table value is checked where it is read, as in one file.
+                define((section,), file)
+                shop[section] = value
+                continue
+            first.setdefault((section,), file)
+            merged = shop.setdefault(section, {})
+            for key, record in value.items():
+                define((section, key), file)
+                merged[key] = record
+    return shop, files
+
+
 @dataclass
 class LoadedPlan:
     data: dict
@@ -172,6 +227,8 @@ class LoadedPlan:
     parameters: dict
     shop: Path | None
     shop_data: dict
+    # The files read for ``shop``: the file itself, or a directory's files.
+    shop_files: list[Path] = field(default_factory=list)
 
 
 def load_plan(path: Path) -> LoadedPlan:
@@ -237,13 +294,10 @@ def load_plan(path: Path) -> LoadedPlan:
         raise PlanError(str(error)) from error
     shop_path = None
     shop = {}
+    shop_files = []
     if "shop" in plan:
         shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
-        try:
-            with shop_path.open("rb") as source:
-                shop = tomllib.load(source)
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
-            raise PlanError(f"shop {shop_path}: {error}") from error
+        shop, shop_files = load_shop(shop_path)
         plan.pop("shop")
     material_key = _text(plan, "material_key", "plan", optional=True)
     plan.pop("material_key", None)
@@ -255,6 +309,7 @@ def load_plan(path: Path) -> LoadedPlan:
             "revision",
             "material",
             "stock",
+            "stock_refs",
             "note",
             "tools",
             "setups",
@@ -268,12 +323,40 @@ def load_plan(path: Path) -> LoadedPlan:
     _text(plan, "note", "plan", optional=True)
     _text(plan, "turning_material", "plan", optional=True)
     _text(plan, "milling_material", "plan", optional=True)
+    if "stock_refs" in plan:
+        refs = plan["stock_refs"]
+        if (
+            not isinstance(refs, list)
+            or not refs
+            or any(not isinstance(ref, str) or not ref.strip() for ref in refs)
+        ):
+            raise PlanError("plan.stock_refs: expected a nonempty array of strings")
+        if shop_path is None:
+            raise PlanError("plan.stock_refs: requires plan.shop")
+        stock = []
+        for index, ref in enumerate(refs, 1):
+            where = f"stock_refs[{index}]"
+            if ref in refs[: index - 1]:
+                raise PlanError(f"{where}: duplicate stock reference {ref!r}")
+            shared = _shop_record(shop, "stock", ref, where)
+            shared_where = f"shop.stock.{ref}"
+            _keys(shared, {"name", "description", "status"}, shared_where)
+            _text(shared, "description", shared_where)
+            _text(shared, "name", shared_where, optional=True)
+            _choice(shared, "status", set(STATUSES), shared_where)
+            stock.append(shared)
+        # The printed stock text stays the authority; the records add marks.
+        plan["stock_refs"] = stock
 
     tool_ids = set()
     tool_refs = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
-        _keys(tool, {"id", "name", "description", "ref"} | check_fields("tool"), where)
+        _keys(
+            tool,
+            {"id", "name", "description", "status", "ref"} | check_fields("tool"),
+            where,
+        )
         tool_id = _text(tool, "id", where)
         if "ref" in tool:
             ref = _text(tool, "ref", where)
@@ -281,7 +364,12 @@ def load_plan(path: Path) -> LoadedPlan:
                 raise PlanError(f"{where}.ref: requires plan.shop")
             shared = _shop_record(shop, "tools", ref, f"{where}.ref")
             shared_where = f"shop.tools.{ref}"
-            _keys(shared, {"name", "description"} | check_fields("tool"), shared_where)
+            _keys(
+                shared,
+                {"name", "description", "status"} | check_fields("tool"),
+                shared_where,
+            )
+            _choice(shared, "status", set(STATUSES), shared_where)
             _text(shared, "description", shared_where)
             _text(shared, "name", shared_where, optional=True)
             for key in shared:
@@ -290,6 +378,7 @@ def load_plan(path: Path) -> LoadedPlan:
             tool_refs[tool_id] = tool.pop("ref")
         _text(tool, "name", where, optional=True)
         _text(tool, "description", where)
+        _choice(tool, "status", set(STATUSES), where)
         if tool_id in tool_ids:
             raise PlanError(f"{where}.id: duplicate tool {tool_id!r}")
         tool_ids.add(tool_id)
@@ -455,7 +544,9 @@ def load_plan(path: Path) -> LoadedPlan:
                     raise PlanError(
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
-    return LoadedPlan(plan, path.resolve(), cad, parameters, shop_path, shop)
+    return LoadedPlan(
+        plan, path.resolve(), cad, parameters, shop_path, shop, shop_files
+    )
 
 
 CSS = """
@@ -714,6 +805,29 @@ def _diagram_html(
     return figure, drawn
 
 
+def _status_mark(item: dict) -> str:
+    """A shop item not in hand prints its status ("to order"); "on_hand" and an
+    unrecorded status print nothing."""
+    status = item.get("status", "on_hand")
+    return "" if status == "on_hand" else status.replace("_", " ")
+
+
+def _stock_html(plan: dict) -> str:
+    marks = [
+        f" <strong>({_status_mark(record)}: "
+        f"{_html(record.get('name') or record['description'])})</strong>"
+        for record in plan.get("stock_refs", [])
+        if _status_mark(record)
+    ]
+    return f"{_html(plan['stock'])}{''.join(marks)}"
+
+
+def _tool_html(tool: dict) -> str:
+    mark = _status_mark(tool)
+    status = f" <strong>({mark})</strong>" if mark else ""
+    return f"{_html(tool['description'])}{status}"
+
+
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     """Render a loaded plan; source paths remain relative to its TOML file."""
     plan = loaded.data
@@ -732,7 +846,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         f"<h1>{_html(plan['title'])}</h1>",
         '<div class="meta">',
         (f"<p>{_html(plan['part'])}; {_html(plan['revision'])}</p>"),
-        (f"<p><strong>{_html(plan['material'])}.</strong> {_html(plan['stock'])}</p>"),
+        (f"<p><strong>{_html(plan['material'])}.</strong> {_stock_html(plan)}</p>"),
         "</div>",
     ]
     if "note" in plan:
@@ -744,7 +858,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     for start in range(0, len(tool_list), 2):
         lines.append("<tr>")
         for tool in tool_list[start : start + 2]:
-            lines.append(f'<td class="text">{_html(tool["description"])}</td>')
+            lines.append(f'<td class="text">{_tool_html(tool)}</td>')
         if len(tool_list[start : start + 2]) == 1:
             lines.append("<td></td>")
         lines.append("</tr>")

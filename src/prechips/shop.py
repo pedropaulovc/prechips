@@ -83,6 +83,10 @@ def _choice(*choices: str):
     return validate
 
 
+# Ownership of a shop item: tools, gauges, workholding and stock may record it
+# ("to_make": a shop-made item not yet made). Absent means not recorded.
+STATUSES = ("on_hand", "not_received", "to_order", "to_make")
+
 _RECORDS = {
     "machines": {
         "kind": _choice("mill", "lathe", "dividing_head"),
@@ -106,10 +110,12 @@ _RECORDS = {
         "jaw_height_mm": _positive,
         "opening_mm": _positive,
         "bed_height_mm": _positive,
+        "status": _choice(*STATUSES),
     },
     "gauges": {
         "range_mm": _pair,
         "resolution_mm": _positive,
+        "status": _choice(*STATUSES),
     },
 }
 _LIMITS = {
