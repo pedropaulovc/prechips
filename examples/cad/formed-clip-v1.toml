@@ -1,0 +1,107 @@
+# Demo manifest in the CAD export format: a clip bent 90 degrees from a strip of half-hard brass, a base and an upright leg, demo identity, no source citations.
+"part" = "formed-clip"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "formed-clip.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-FORMED-CLIP"
+"revision" = "v1"
+
+["material"]
+"spec" = "C26000 half-hard brass strip, .032 in"
+"name" = "C26000 BRASS, HALF-HARD"
+"finish" = "bright"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. RADII TO THE INSIDE SURFACE."]
+"process" = "cut from .032 in brass strip and bent once"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+# The straight strip the clip is bent from: its length through the bend
+# (on the mid-plane, K = 0.5 for R/T over 1) and its section.
+["features"."strip"]
+"kind" = "blank"
+"frame" = "model"
+"requirements" = ["thickness"]
+"section" = "strip"
+"developed_length" = 43.03
+"width" = 12.7
+"thickness" = 0.8128
+"k_factor" = 0.5
+"callout" = "(.032) STRIP AS SUPPLIED"
+"faces" = ["strip_1"]
+
+["features"."base_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+"faces" = ["base_face_1"]
+
+["features"."base_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"length" = [18.796, 19.304]
+"length_nominal" = 19.05
+"length_from" = "leg_face"
+"precision" = { "length" = 2 }
+"faces" = ["base_end_1"]
+
+["features"."leg_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 19.05 }
+"faces" = ["leg_face_1"]
+
+["features"."leg_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 25.4 }
+"height" = [25.146, 25.654]
+"height_nominal" = 25.4
+"height_from" = "base_face"
+"precision" = { "height" = 2 }
+"faces" = ["leg_end_1"]
+
+["features"."bend"]
+"kind" = "bend"
+"frame" = "model"
+"requirements" = ["radius", "angle"]
+"radius" = [0.762, 1.27]
+"radius_nominal" = 1.016
+"angle" = [89.0, 91.0]
+"angle_nominal" = 90.0
+"precision" = { "radius" = 2 }
+"faces" = ["bend_1"]
+
