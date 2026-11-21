@@ -69,7 +69,9 @@ def _saw(groups: Groups, parameters: dict) -> Layout:
     high = _param(parameters, "blank_length_max_in")
     kerf = _param(parameters, "kerf_in")
     section = _param(parameters, "blank_section_in")
-    scale = 150.0  # px per inch: a short blank drawn large
+    # Px per inch: a short blank drawn large, a long one still leaving a
+    # stub of bar beyond the kerf.
+    scale = min(150.0, 400.0 / (high + kerf))
     x, top = 60.0, 78.0
     height = section * scale
     x1 = x + high * scale
@@ -128,7 +130,7 @@ def _ear_text(values: dict, drill: bool = False) -> list[str]:
     return ["2X {{cad.ear_thread}}", "thru"]
 
 
-def _section(values: dict, parameters: dict) -> float:
+def _section(parameters: dict) -> float:
     """The raw bar's side, mm: what the jaws hold before a face is sized."""
     return _param(parameters, "blank_section_in") * 25.4
 
@@ -158,7 +160,7 @@ def _half(
     if work == "tap" and not back:
         raise CadError("clamp-half: only the back's ears are tapped")
     s = 4.0 if up == "end" else _S
-    section = _section(values, parameters)
+    section = _section(parameters)
     height = _cad(values, "height_mm")
     depth = _cad(values, "bore_axis_depth_mm")
     # Across the jaws and upright, mm, as the part stands in this setup.
@@ -465,9 +467,15 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
     groups["fixture-support"].append(_rect(bore - block / 2, face, block, stub))
     groups["clamp"].append(_rect(x0 - 24, face + stub, wide + 48, 22))
     # Parallels under the pair: along the front against the block, and
-    # along the back against the fixed jaw, stopped short of the bore.
+    # along the back against the fixed jaw, stopped short of the bore when
+    # the plan stops it.
     thick = _param(parameters, "parallel_thickness_mm") * s
-    end = bore - _param(parameters, "back_parallel_end_mm") * s
+    stopped = "back_parallel_end_mm" in parameters
+    end = (
+        bore - _param(parameters, "back_parallel_end_mm") * s
+        if stopped
+        else x0 + wide + 16
+    )
     groups["fixture-support"] += [
         _rect(x0 - 16, face - thick, wide + 32, thick),
         _rect(x0 - 16, y0, end - x0 + 16, thick),
@@ -485,14 +493,12 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
     groups["datum"].append(_line(x0, y0 - 40, x0, face + 10))
     _label(groups, x0 + wide + 28, y0 - 6, "fixed jaw", "start")
     _label(groups, x0 + wide + 28, face + stub + 16, "moving jaw", "start")
-    own = "{{cad.bore_axis_depth_min_in:.3dot}}–{{cad.bore_axis_depth_max_in:.3dot}}"
-    back = values.get("half") == "back"
     _vdim(
         groups,
         x0 + wide + 20,
         y0,
         split,
-        own if back else "{{cad.pair_back_depth_in:.3dot}}",
+        "{{cad.pair_back_depth_min_in:.3dot}}–{{cad.pair_back_depth_max_in:.3dot}}",
         witness=(x0 + wide, x0 + wide),
         place=DimText.ALONG_LEFT,
     )
@@ -501,7 +507,7 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
         x0 + wide + 20,
         split,
         face,
-        "{{cad.pair_front_depth_in:.3dot}}" if back else own,
+        "{{cad.pair_front_depth_min_in:.3dot}}–{{cad.pair_front_depth_max_in:.3dot}}",
         witness=(x0 + wide, x0 + wide),
         place=DimText.ALONG_LEFT,
     )
@@ -513,15 +519,19 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
         y0,
         "{{cad.bore_location_min_in:.3dot}}–{{cad.bore_location_max_in:.3dot}}",
     )
-    items = [
-        (
-            end,
-            y0 + thick,
-            [
-                "parallel under the back",
-                "ends {{process.back_parallel_end_mm:in.3dot}} from the axis",
-            ],
-        ),
+    items = []
+    if stopped:
+        items.append(
+            (
+                end,
+                y0 + thick,
+                [
+                    "parallel under the back",
+                    "ends {{process.back_parallel_end_mm:in.3dot}} from the axis",
+                ],
+            )
+        )
+    items += [
         (
             bore - radius * 0.7,
             split + radius * 0.7,

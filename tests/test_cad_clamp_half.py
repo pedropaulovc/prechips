@@ -15,9 +15,11 @@ BLANK = {
     "blank_length_max_in": 2.05,
     "blank_section_in": 0.75,
 }
+# The back's plan: the front's bored depth band, .680–.690.
 PAIR = {
     "parallel_thickness_mm": 3.175,
-    "other_half_depth_mm": 17.399,
+    "other_half_depth_min_mm": 17.272,
+    "other_half_depth_max_mm": 17.526,
     "screw_length_mm": 31.75,
     "spacer_block_width_mm": 25.4,
     "screw_head_dia_mm": 6.858,
@@ -54,11 +56,19 @@ def test_both_halves_bind_the_envelope_bore_and_ears():
     # Least ear wall at the extremes: .685 − .200/2 − 1.012/2 = .079 ≥ .072.
     assert front["ear_wall_worst_in"] == pytest.approx(0.079, abs=1e-4)
     assert front["ear_wall_min_in"] == pytest.approx(0.072)
+    # The greatest wall: .693 − .196/2 − 1.004/2 = .093.
+    assert front["ear_wall_best_in"] == pytest.approx(0.093, abs=1e-4)
+    assert front["finish"].startswith("black enamel")
     assert back["ear_thread"] == "#8-32 UNC-2B"
-    # The back is sized .020 deeper than drawn, then faced back after the bore.
+    # The tapped ears' edge is the #8 major, .164: .685 − .082 − .506 = .097.
+    assert back["ear_wall_worst_in"] == pytest.approx(0.097, abs=1e-4)
+    assert back["ear_edge_wall_worst_in"] == pytest.approx(0.219, abs=1e-4)
+    # The back is sized .020 deeper than drawn, then faced back after the bore,
+    # so its ears are drilled through the deeper half.
     assert back["grip_offset_band_mm"] == [0.381, 0.635]
     assert back["pre_face_depth_band_mm"] == pytest.approx([15.24, 15.748])
     assert back["bore_axis_depth_mm"] == pytest.approx(15.494)
+    assert back["ear_depth_in"] == pytest.approx(0.61)
     required = {
         axis.name: axis.required_mm
         for axis in load_clamp_half(BACK, {}, "clamp-back").stock_requirement.axes
@@ -70,22 +80,41 @@ def test_both_halves_bind_the_envelope_bore_and_ears():
 
 def test_the_pair_and_its_holds():
     values = load_clamp_half(BACK, PAIR, "clamp-back").values
+    assert values["pair_depth_band_mm"] == pytest.approx([32.512, 33.274])
     assert values["pair_depth_in"] == pytest.approx(1.295)
-    # A 1-1/4 screw stops .045 short of the back face.
-    assert values["screw_short_in"] == pytest.approx(0.045)
+    # A 1-1/4 screw stops .030 short of the back face of the thinnest pair.
+    assert values["screw_short_in"] == pytest.approx(0.030)
     # A 1 in block between heads Ø.270 at .685 least: .050 clear each side.
     assert values["block_head_clear_in"] == pytest.approx(0.050)
     assert values["back_parallel_clear_in"] == pytest.approx(0.119, abs=1e-6)
     for change, message in (
         # The back's wall behind the bore is .094 at the extremes.
-        ({"back_parallel_end_mm": 12.8}, "lies under the"),
-        ({"screw_length_mm": 33.0}, "reaches the back face"),
+        ({"back_parallel_end_mm": 12.8}, "must clear the"),
+        # Past the near side, the parallel is not under the back at all.
+        ({"back_parallel_end_mm": 24.0}, "still reach under the back"),
+        # 32.8 mm passes the nominal 32.893 but not the least 32.512.
+        ({"screw_length_mm": 32.8}, "reaches the back face of the thinnest"),
         ({"spacer_block_width_mm": 28.0}, "reaches the"),
-        # The back's ears come within .231 of its bottom and top faces.
-        ({"parallel_thickness_mm": 6.0}, "reach the ear holes"),
+        # The back's threads come within .219 of its bottom and top faces.
+        ({"parallel_thickness_mm": 5.7}, "reach the ear holes"),
+        ({"other_half_depth_min_mm": 17.6}, "over other_half_depth_max_mm"),
     ):
         with pytest.raises(CadError, match=message):
             load_clamp_half(BACK, PAIR | change, "clamp-back")
+    # The same pair judged from the front's plan, the back's band authored:
+    # a 2.5 mm parallel reaches the back's bore at its 15.24 mm least depth.
+    front = PAIR | {
+        "other_half_depth_min_mm": 15.24,
+        "other_half_depth_max_mm": 15.748,
+        "parallel_thickness_mm": 2.5,
+    }
+    del front["back_parallel_end_mm"]
+    with pytest.raises(CadError, match="stop it short with back_parallel_end_mm"):
+        load_clamp_half(FRONT, front, "clamp-front")
+    with pytest.raises(CadError, match="also need other_half_depth_max_mm"):
+        load_clamp_half(BACK, {"other_half_depth_min_mm": 17.272}, "clamp-back")
+    with pytest.raises(CadError, match="under the largest bored depth, 0.690"):
+        load_clamp_half(FRONT, BLANK | {"blank_section_in": 0.65}, "clamp-front")
     without = {
         key: value for key, value in PAIR.items() if key != "back_parallel_end_mm"
     }
@@ -118,6 +147,14 @@ def test_the_pair_and_its_holds():
             '"grip_offset_nominal" = 0.508',
             '"grip_offset_nominal" = 0.6',
             "grip offset behind the bore axis",
+        ),
+        # Clamped, the gap is the grip offset less the clearance: .010 at
+        # least against .012 most closes the halves on each other.
+        (
+            BACK,
+            '"grip_offset" = [0.381, 0.635]',
+            '"grip_offset" = [0.254, 0.635]',
+            "would close before gripping the column",
         ),
         (
             BACK,
@@ -156,7 +193,12 @@ def _picture(cad, parameters, **attrs: str) -> str:
 
 def test_every_picture_binds_for_both_halves():
     halves = (
-        (FRONT, "clamp-front", PAIR | {"other_half_depth_mm": 15.494}),
+        (
+            FRONT,
+            "clamp-front",
+            PAIR
+            | {"other_half_depth_min_mm": 15.24, "other_half_depth_max_mm": 15.748},
+        ),
         (BACK, "clamp-back", PAIR),
     )
     holds = [
@@ -193,6 +235,15 @@ def test_every_picture_binds_for_both_halves():
     pair = _picture(back, PICTURES | PAIR, step="pair")
     assert "ends .625 from the axis" in pair
     assert ".050 clear each side" in pair
+    # A back parallel thin enough to run full length draws without a stop.
+    thin = PAIR | {"parallel_thickness_mm": 2.0}
+    del thin["back_parallel_end_mm"]
+    whole = load_clamp_half(BACK, PICTURES | thin, "clamp-back")
+    assert "from the axis" not in _picture(whole, PICTURES | thin, step="pair")
+    # A long blank still fits the saw picture, with bar left beyond the kerf.
+    long = PICTURES | {"blank_length_max_in": 4.5}
+    saw = _picture(load_clamp_half(BACK, long, "clamp-back"), long, step="saw")
+    assert not re.search(r'width="-', saw)
     front = load_clamp_half(FRONT, PICTURES, "clamp-front")
     with pytest.raises(CadError, match="only the back's mating face"):
         _picture(front, PICTURES, step="half", up="mating", work="face-off")

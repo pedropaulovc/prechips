@@ -12,6 +12,7 @@ toward +X; Y the height; Z the width, the near side at +Z; the bore axis
 along Y. The front's outside face is its bar face, the back's its back face.
 """
 
+import re
 from pathlib import Path
 
 from .cad import (
@@ -40,7 +41,19 @@ _HALVES = {
     "back": ("back_face", ("ear_tap_1", "ear_tap_2"), "threaded_hole", -1),
 }
 _BLANK = ("blank_length_min_in", "blank_length_max_in")
+_OTHER = ("other_half_depth_min_mm", "other_half_depth_max_mm")
 _TOLERANCE = 1e-6
+# ASME B1.1: a numbered inch thread's basic major diameter is .060 + .013 N in.
+_NUMBERED = re.compile(r"#(\d+)-\d+ UN[CF]-[123]B")
+
+
+def _thread_major(thread: str, where: str) -> float:
+    """An internal numbered thread's basic major diameter, mm: the least
+    diameter its crests reach."""
+    match = _NUMBERED.fullmatch(thread)
+    if match is None:
+        raise CadError(f"{where}: expected a numbered internal thread, #N-TPI UNC-2B")
+    return (0.060 + 0.013 * int(match[1])) * 25.4
 
 
 def _close(found: float, expected: float) -> bool:
@@ -239,13 +252,14 @@ def _ears(
     values["ear_station_mm"] = nominal
     values["ear_height_mm"] = rise
     # Common-zero coordinates: from the near side, from the bore axis, and up
-    # from the bottom face; each ear runs through the finished depth.
+    # from the bottom face; each ear is drilled through the depth the half has
+    # then (the back's before its face-off).
     for key, value in (
         ("ear_near_x", near - nominal),
         ("ear_far_x", near + nominal),
         ("ear_offset_x", nominal),
         ("ear_y", rise),
-        ("ear_depth", values["depth_mm"]),
+        ("ear_depth", values["bore_axis_depth_mm"]),
     ):
         values[f"{key}_mm"] = value
         values[f"{key}_in"] = value / 25.4
@@ -263,30 +277,40 @@ def _ears(
         wall_min = _positive(lowest.pop(), f"{names[0]}.web_to_bore_min")
         values["ear_wall_min_mm"] = wall_min
         values["ear_wall_min_in"] = wall_min / 25.4
+        # A drilled hole's edge is its diameter band.
+        smallest, largest = dia
     else:
         threads = {ear.get("thread") for ear in ears}
         if len(threads) != 1:
             raise CadError(f"{names[1]}.thread: disagrees with {names[0]}")
-        values["ear_thread"] = _string(ears[0].get("thread"), f"{names[0]}.thread")
+        thread = _string(ears[0].get("thread"), f"{names[0]}.thread")
+        values["ear_thread"] = thread
         wall_min = 0.0
+        # A tapped hole's edge is its thread's major diameter, not the drill.
+        smallest = largest = _thread_major(thread, f"{names[0]}.thread")
+        values["ear_thread_major_mm"] = largest
     # Least walls at the band extremes: to the bore, to the bottom or top
     # face and to the nearer end.
-    wall = first[0] - dia[1] / 2 - radius
+    wall = first[0] - largest / 2 - radius
     if wall < wall_min - _TOLERANCE or wall <= 0:
         raise CadError(
-            f"{names[0]}: at station {first[0]:g} mm a Ø{dia[1]:g} mm hole leaves "
+            f"{names[0]}: at station {first[0]:g} mm a Ø{largest:g} mm hole leaves "
             f"{wall:.3f} mm to a Ø{2 * radius:g} mm bore, under the "
             f"{wall_min:g} mm least ear wall"
         )
     values["ear_wall_worst_mm"] = wall
     values["ear_wall_worst_in"] = wall / 25.4
+    # The greatest wall, at the other extremes: the band the wall is gauged to.
+    best = first[1] - smallest / 2 - values["bore_dia_band_mm"][0] / 2
+    values["ear_wall_best_mm"] = best
+    values["ear_wall_best_in"] = best / 25.4
     tall = values["height_band_mm"]
-    edge = min(height[0], tall[0] - height[1]) - dia[1] / 2
+    edge = min(height[0], tall[0] - height[1]) - largest / 2
     location = values["bore_location_band_mm"]
     end = (
         min(location[0], values["width_band_mm"][0] - location[1])
         - first[1]
-        - dia[1] / 2
+        - largest / 2
     )
     for where, worst in (("the bottom or top face", edge), ("an end", end)):
         if worst <= 0:
@@ -302,9 +326,7 @@ def _optional(parameters: dict, key: str) -> float | None:
     return _positive(parameters[key], f"process.{key}")
 
 
-def _holds(
-    values: dict, parameters: dict, half: str, axis_depth: float, radius: float
-) -> None:
+def _holds(values: dict, parameters: dict, half: str, radius: float) -> None:
     """The authored holds: the half lying on parallels for its ears, and the
     pair screwed together for the bore. Each check runs once its parameters
     are authored."""
@@ -316,29 +338,32 @@ def _holds(
             f"jaws reach the ear holes, which come as near as {edge:.3f} mm to the "
             "bottom and top faces"
         )
-    other = _optional(parameters, "other_half_depth_mm")
-    if other is None:
+    if not _all_or_none(parameters, _OTHER, "the other half's bored depth"):
         return
     # The pair across the split, each half's outside face to the bore axis:
-    # this half's nominal from its manifest, the other half's as authored.
-    front, back = (axis_depth, other) if half == "front" else (other, axis_depth)
-    pair = front + back
-    for key, value in (
+    # this half's band from its manifest, the other half's as authored.
+    other = tuple(_positive(parameters[key], f"process.{key}") for key in _OTHER)
+    if other[0] > other[1]:
+        raise CadError("process.other_half_depth_min_mm: over other_half_depth_max_mm")
+    own = tuple(values["bore_axis_depth_band_mm"])
+    front, back = (own, other) if half == "front" else (other, own)
+    pair = (front[0] + back[0], front[1] + back[1])
+    for key, band in (
         ("pair_depth", pair),
         ("pair_front_depth", front),
         ("pair_back_depth", back),
     ):
-        values[f"{key}_mm"] = value
-        values[f"{key}_in"] = value / 25.4
+        _inch_limits(values, key, band)
+        values[f"{key}_mm"] = values[f"{key}_in"] * 25.4
     length = _optional(parameters, "screw_length_mm")
     if length is not None:
-        if length >= pair:
+        if length >= pair[0]:
             raise CadError(
                 f"process.screw_length_mm: a {length:g} mm screw reaches the back "
-                f"face of a {pair:.3f} mm pair"
+                f"face of the thinnest pair, {pair[0]:.3f} mm"
             )
-        values["screw_short_mm"] = pair - length
-        values["screw_short_in"] = (pair - length) / 25.4
+        values["screw_short_mm"] = pair[0] - length
+        values["screw_short_in"] = (pair[0] - length) / 25.4
     block = _optional(parameters, "spacer_block_width_mm")
     head = _optional(parameters, "screw_head_dia_mm")
     if (block is None) != (head is None):
@@ -357,13 +382,10 @@ def _holds(
         values["block_head_clear_in"] = clear / 25.4
     if thick is None:
         return
-    # Parallels against the jaws under the pair stop short of the bore: the
-    # front's along its whole band, the back's only clear of the bore's end.
-    own = values["bore_axis_depth_band_mm"][0]
-    walls = {
-        "front": (own if half == "front" else front) - radius,
-        "back": (own if half == "back" else back) - radius,
-    }
+    # Parallels against the jaws under the pair stop short of the bore, at
+    # each half's least depth: the front's along its whole band, the back's
+    # only clear of the bore's end.
+    walls = {"front": front[0] - radius, "back": back[0] - radius}
     if thick >= walls["front"]:
         raise CadError(
             f"process.parallel_thickness_mm: a {thick:g} mm parallel against the "
@@ -378,10 +400,12 @@ def _holds(
                 "in; stop it short with back_parallel_end_mm"
             )
         return
-    if end <= radius:
+    near = values["bore_location_band_mm"][0]
+    if not radius < end < near:
         raise CadError(
             f"process.back_parallel_end_mm: a parallel ending {end:g} mm from the "
-            f"bore axis lies under the Ø{2 * radius:g} mm bore"
+            f"bore axis must clear the Ø{2 * radius:g} mm bore and still reach "
+            f"under the back, whose near side is as near as {near:g} mm"
         )
     values["back_parallel_clear_mm"] = end - radius
     values["back_parallel_clear_in"] = (end - radius) / 25.4
@@ -398,10 +422,22 @@ def load_clamp_half(path: Path, parameters: dict, part: str) -> CadData:
     if not isinstance(material, dict):
         raise CadError("cad.material: expected a table")
     values["material_spec"] = _string(material.get("spec"), "cad.material.spec")
+    values["finish"] = _string(material.get("finish"), "cad.material.finish")
     bottom = _height(features, values)
     near = _width(features, values)
     axis_depth = _depth(features, values, half)
     radius = _bore(features, values, near)
+    if half == "back":
+        # Clamped on the column the halves stand apart by the grip offset less
+        # the diametral clearance: the least offset must exceed the most
+        # clearance, or the mating faces meet before the bore grips.
+        clearance = values["bore_clearance_max_in"] * 25.4
+        if values["grip_offset_band_mm"][0] <= clearance + _TOLERANCE:
+            raise CadError(
+                f"mating_face.grip_offset: {values['grip_offset_band_mm'][0]:g} mm "
+                f"at least does not exceed the bore's {clearance:g} mm diametral "
+                "clearance: the halves would close before gripping the column"
+            )
     _ears(features, values, half, near, bottom, radius)
     _edge_breaks(raw, values)
     if _all_or_none(parameters, _BLANK, "the sawn blank"):
@@ -419,10 +455,20 @@ def load_clamp_half(path: Path, parameters: dict, part: str) -> CadData:
         values["end_stock_max_in"] = high - values["width_min_in"]
     if "blank_section_in" in parameters:
         section = _positive(parameters["blank_section_in"], "process.blank_section_in")
+        # The bar must cover the half's largest height and bored depth.
+        for name, band in (
+            ("height", values["height_band_mm"]),
+            ("bored depth", values["bore_axis_depth_band_mm"]),
+        ):
+            if section * 25.4 < band[1] - _TOLERANCE:
+                raise CadError(
+                    f"process.blank_section_in: under the largest {name}, "
+                    f"{band[1] / 25.4:.3f} in"
+                )
         values["blank_section_mm"] = section * 25.4
         values["section_stock_height_in"] = section - values["height_mm"] / 25.4
         values["section_stock_depth_in"] = section - axis_depth / 25.4
-    _holds(values, parameters, half, axis_depth, radius)
+    _holds(values, parameters, half, radius)
     envelope = (
         StockAxis("length", "blank_length_min_in", values["width_mm"]),
         StockAxis("height", "blank_section_in", values["height_mm"]),
