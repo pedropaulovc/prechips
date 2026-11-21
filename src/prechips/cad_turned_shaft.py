@@ -151,13 +151,15 @@ def _basic_major(thread: object) -> float:
 
 
 def _inward_limits(values: dict, key: str, band: tuple[float, float]) -> None:
-    """Bind a band the adapter derives, rounded inward to .001 in (min up,
-    max down) so a .3dot print never reads outside the drawing's limits."""
+    """Bind a band the adapter derives: ``_band_mm`` exact (what checks
+    read), ``_min_in``/``_max_in`` rounded inward to .001 in (min up, max
+    down) so a .3dot print never reads outside it; exact when the band is
+    too narrow to hold a .001 in reading."""
+    _inch_limits(values, key, band)
     low = math.ceil(band[0] / 25.4 * 1000 - 1e-6) / 1000
     high = math.floor(band[1] / 25.4 * 1000 + 1e-6) / 1000
-    if low > high:
-        raise CadError(f"cad.{key}: the band holds no .001 in reading")
-    _inch_limits(values, key, (low * 25.4, high * 25.4))
+    if low <= high:
+        values[f"{key}_min_in"], values[f"{key}_max_in"] = low, high
 
 
 def _cap(radius: float, root: float) -> float:
@@ -204,13 +206,21 @@ def _dome(
         height = station if end == "datum_end" else length - station
     else:
         height = cap
-    if band is not None and given in ([], ["root_station"]):
-        # A shop checks a radius by the height it gives on the diameter.
-        if band[0] < root - _TOLERANCE:
-            raise CadError(
-                f"{end}.radius: the least R{band[0]:.3f} is under the "
-                f"R{root:.3f} it domes"
-            )
+    if band is not None and given == [] and band[0] < root - _TOLERANCE:
+        raise CadError(
+            f"{end}.radius: the least R{band[0]:.3f} is under the R{root:.3f} it domes"
+        )
+    # A shop checks a radius by the height it gives on the diameter: the
+    # radius band's caps, unless a root station sets the height (a far
+    # root station over a REF length sets none a shop can measure).
+    caps = band is not None and (
+        given == []
+        or given == ["root_station"]
+        and end == "far_end"
+        and "length_band_mm" not in values
+        and band[0] >= root - _TOLERANCE
+    )
+    if caps:
         _inward_limits(
             values, f"{prefix}_height", (_cap(band[1], root), _cap(band[0], root))
         )
@@ -224,9 +234,7 @@ def _dome(
     values[f"{prefix}_height_mm"] = height
     # Every height source binds its nominal and limits in inches: a band, a
     # root-station band, a radius band's heights, or the REF or cap alone.
-    if f"{prefix}_height_band_mm" in values:
-        low, high = values[f"{prefix}_height_band_mm"]
-    elif "root_station" in given:
+    if f"{prefix}_height_band_mm" not in values and "root_station" in given:
         _inward_limits(
             values,
             f"{prefix}_height",
@@ -234,14 +242,11 @@ def _dome(
             if end == "datum_end"
             else (length - stations[1], length - stations[0]),
         )
-        low, high = values[f"{prefix}_height_band_mm"]
-    else:
-        low = high = height
-    values[f"{prefix}_height_band_mm"] = [low, high]
-    values[f"{prefix}_height_min_in"], values[f"{prefix}_height_max_in"] = (
-        low / 25.4,
-        high / 25.4,
-    )
+    elif f"{prefix}_height_band_mm" not in values:
+        values[f"{prefix}_height_band_mm"] = [height, height]
+        values[f"{prefix}_height_min_in"] = values[f"{prefix}_height_max_in"] = (
+            height / 25.4
+        )
     values[f"{prefix}_height_in"] = height / 25.4
     values[f"{prefix}_root_dia_mm"] = 2 * root
     inward = 1 if end == "datum_end" else -1
@@ -378,8 +383,13 @@ def _faced(values: dict) -> None:
             root = values["dome_far_root_dia_mm"] / 2
             radii = values["dome_far_radius_band_mm"]
             short, tall = (_cap(r, min(root, r)) for r in reversed(radii))
-        bands.append([least + tall, most + short])
         nominal = values["dome_far_root_z_mm"] + height
+        if not least + tall - _STATION <= nominal <= most + short + _STATION:
+            raise CadError(
+                "far_end: the radius band's caps leave no faced length that "
+                "keeps the dome's root inside its root_station band"
+            )
+        bands.append([least + tall, most + short])
     if not bands:
         return
     low, high = max(b[0] for b in bands), min(b[1] for b in bands)

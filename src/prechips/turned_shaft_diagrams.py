@@ -692,9 +692,9 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
             )
             < 1e-3
         ):
-            return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}}"]
+            return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
         return [
-            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}},",
+            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",
             "at the root",
         ]
@@ -734,13 +734,13 @@ def _inspect(
     _title(groups, 20, 24, title + _exaggerated(scale, radial))
     top_profile = _meridian(values, made, flats=True)
     groups["part-kept"].append(_outline(view, top_profile, _meridian(values, made)))
-    groups["centre-line"].append(
-        _line(80.0 - 30, _AXIS, 80.0 + length * scale + 30, _AXIS)
-    )
+    # The x0 end at the left, the other at the right.
+    left, right = sorted((view.x(0.0), view.x(length)))
+    groups["centre-line"].append(_line(left - 30, _AXIS, right + 30, _AXIS))
     largest = max(r for _, r in top_profile)
     top, bottom = view.up(largest), view.down(largest)
-    groups["datum"].append(_line(80.0, top - 10, 80.0, bottom + 10))
-    _datum_label(groups, 80.0 - 6, bottom + 24, f"{x0} end", "end")
+    groups["datum"].append(_line(left, top - 10, left, bottom + 10))
+    _datum_label(groups, left - 6, bottom + 24, f"{x0} end", "end")
     # Seen across the flats' normal (drawn up): a hole along the line of
     # sight is a circle.
     flats = _names(values, "flat_", "_across_mm")
@@ -816,8 +816,8 @@ def _inspect(
         )
     _dimension(
         groups,
-        80.0,
-        80.0 + length * scale,
+        left,
+        right,
         top - 22,
         top - 2,
         f"length {_left_length(values, parameters, made)}",
