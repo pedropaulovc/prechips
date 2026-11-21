@@ -45,6 +45,8 @@ from .cad import (
 from .cad_turned_bush import (
     _AXES,
     _BAR,
+    _BAR_LENGTH,
+    _PULL,
     _TOLERANCE,
     _as_supplied,
     _bar,
@@ -458,7 +460,9 @@ def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
     _lathe_z(values, name)
 
 
-def _cross_hole(item: dict, name: str, frame: tuple, values: dict) -> None:
+def _cross_hole(
+    item: dict, name: str, frame: tuple, values: dict, turned: list
+) -> None:
     if item.get("kind") != "hole":
         raise CadError(f"{name}: expected a model-frame hole")
     if item.get("thru") is not True:
@@ -469,6 +473,16 @@ def _cross_hole(item: dict, name: str, frame: tuple, values: dict) -> None:
     values[f"{name}_z_mm"] = z
     band = _limits(item, "dia", name, f"{name}_dia", values)
     values[f"{name}_dia_mm"] = _nominal(item, "nominal_dia", band, name)
+    crossed = [
+        d
+        for d in turned
+        if values[f"{d}_z0_mm"] - _TOLERANCE <= z <= values[f"{d}_z1_mm"] + _TOLERANCE
+    ]
+    if not crossed:
+        raise CadError(f"{name}.at: not on a diameter")
+    least = min(_least(values, d) for d in crossed)
+    if band[1] >= least:
+        raise CadError(f"{name}.dia: not under the Ø{least:.3f} diameter it crosses")
     made_at = item.get("made_at")
     if made_at == "assembly":
         if "process" in item:
@@ -487,7 +501,9 @@ def _cross_hole(item: dict, name: str, frame: tuple, values: dict) -> None:
         values[f"{name}_callout"] = _string(item["callout"], f"{name}.callout")
 
 
-def _flat(item: dict, name: str, frame: tuple, values: dict, turned: list) -> None:
+def _flat(
+    item: dict, name: str, frame: tuple, values: dict, turned: list, parameters: dict
+) -> None:
     if item.get("kind") != "flat":
         raise CadError(f"{name}: expected a model-frame flat")
     values[f"{name}_normal"] = _radial(item, "normal", name, frame)
@@ -512,7 +528,8 @@ def _flat(item: dict, name: str, frame: tuple, values: dict, turned: list) -> No
     _inch_limits(values, f"{name}_depth", (low - across[1], high - across[0]))
     values[f"{name}_depth_mm"] = nominal_dia - nominal
     radius = nominal_dia / 2
-    values[f"{name}_width_mm"] = 2 * math.sqrt(radius**2 - (nominal - radius) ** 2)
+    width = 2 * math.sqrt(radius**2 - (nominal - radius) ** 2)
+    values[f"{name}_width_mm"] = width
     lengths = _limits(item, "length", name, f"{name}_length", values)
     length = _nominal(item, "length_nominal", lengths, name)
     values[f"{name}_length_mm"] = length
@@ -523,15 +540,32 @@ def _flat(item: dict, name: str, frame: tuple, values: dict, turned: list) -> No
     values[f"{name}_from_datum_mm"] = [z0, z1]
     values[f"{name}_from_far_mm"] = [whole - z1, whole - z0]
     values[f"{name}_on"] = dia
+    if "flat_cutter_dia_mm" in parameters:
+        # An end mill's face sweeps the flat in one pass: its centre runs a
+        # cutter radius inside each end.
+        cutter = _positive(
+            parameters["flat_cutter_dia_mm"], "process.flat_cutter_dia_mm"
+        )
+        if cutter > length + _STATION:
+            raise CadError(f"{name}: longer than process.flat_cutter_dia_mm")
+        if cutter < width:
+            raise CadError(f"{name}: wider than process.flat_cutter_dia_mm")
+        path = [z0 + cutter / 2, z1 - cutter / 2]
+        values[f"{name}_path_mm"] = path
+        values[f"{name}_path_z0_mm"], values[f"{name}_path_z1_mm"] = path
 
 
 def _fillet(item: dict, name: str, frame: tuple, values: dict, turned: list) -> None:
     if item.get("kind") != "fillet":
         raise CadError(f"{name}: expected a model-frame fillet")
     z = _point(item, name, frame)
-    steps = {values[f"{d}_z0_mm"] for d in turned} & {
-        values[f"{d}_z1_mm"] for d in turned
-    }
+    # A step: one diameter ends where another starts, within the tiling's tolerance.
+    steps = [
+        values[f"{a}_z1_mm"]
+        for a in turned
+        for b in turned
+        if abs(values[f"{a}_z1_mm"] - values[f"{b}_z0_mm"]) <= _STATION
+    ]
     if not any(abs(z - step) <= _STATION for step in steps):
         raise CadError(f"{name}.at: not at a step between two diameters")
     values[f"{name}_z_mm"] = z
@@ -547,17 +581,25 @@ def _fillet(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
 
 
 def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
-    """turned_bush's diameter; a threaded one's model may sit at the basic
-    major above its class 2A band, so its nominal may lie outside the band
-    (the band's middle is the turned size, as for a press fit)."""
+    """turned_bush's diameter; a threaded one's model may sit at the thread's
+    basic major above its class 2A band, so its nominal is either inside the
+    band or that major (the band's middle is then the turned size)."""
     band = item.get("dia")
     nominal = item.get("dia_nominal")
     if "thread" not in item or not isinstance(band, list) or len(band) != 2:
         return _diameter(item, name, frame, values)
     low, high = (_number(v, f"{name}.dia") for v in band)
-    inside = min(max(_positive(nominal, f"{name}.dia_nominal"), low), high)
+    given = _positive(nominal, f"{name}.dia_nominal")
+    if (
+        not low <= given <= high
+        and abs(given - _basic_major(item["thread"])) > _STATION
+    ):
+        raise CadError(
+            f"{name}.dia_nominal: neither in its band nor the thread's major"
+        )
+    inside = min(max(given, low), high)
     least = _diameter(item | {"dia_nominal": inside}, name, frame, values)
-    values[f"{name}_nominal_mm"] = nominal
+    values[f"{name}_nominal_mm"] = given
     return least
 
 
@@ -656,9 +698,9 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         elif name.startswith("groove"):
             _groove(item, name, frame, values, turned)
         elif name.startswith("cross_hole"):
-            _cross_hole(item, name, frame, values)
+            _cross_hole(item, name, frame, values, turned)
         elif name.startswith("flat_"):
-            _flat(item, name, frame, values, turned)
+            _flat(item, name, frame, values, turned, parameters)
         elif name.startswith("fillet_"):
             _fillet(item, name, frame, values, turned)
     _edge_breaks(raw, values)
@@ -668,7 +710,8 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     least_bar = max(sizes.values())
     axes: list[StockAxis] = []
     if "blank_length_in" in parameters:
-        if {"face_allowance_in", "part_kerf_in"} & set(parameters):
+        bar_only = {"face_allowance_in", "part_kerf_in", "regrip_allowance_in"}
+        if (bar_only | set(_BAR_LENGTH) | set(_PULL)) & set(parameters):
             raise CadError("process: round bar and a sawn blank are exclusive")
         _all_or_none(parameters, _BLANK, "the sawn blank")
         axes = _blank(values, parameters, least_bar, turned)

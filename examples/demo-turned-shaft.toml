@@ -33,11 +33,12 @@ dome_steps = 4
 rough_radial_doc_mm = 0.35
 turn_feed_mm_rev = 0.0508
 turn_start_z_mm = 0.5
-cutter_dia_mm = 4.7625
+# The 3/16 end mill: its face sweeps a flat in one pass.
+flat_cutter_dia_mm = 4.7625
 # The 6 in vise (shop workholding.vise-pm-6): the left jaw side 5 mm in from
 # the datum end; 1-1/2 in parallels leave the rod's top just under the jaws.
-vise_jaw_width_mm = 158.6738
 vise_jaw_from_datum_mm = 5.0
+vise_jaw_to_datum_mm = 163.6738
 parallel_height_mm = 38.1
 vise_bed_height_mm = 73.3044
 r8_collet_gauge_mm = 6.3
@@ -174,22 +175,23 @@ machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
 holding = "Rod along X on 1-1/2 in parallels; the datum end {{process.vise_jaw_from_datum_mm:g}} mm past the left jaw side."
-datum = "X0 the datum end's apex (cutter-side touch); Z0 the rod's top."
+datum = "X0 the datum end's apex; Z0 the rod's top."
 diagram = { file = "diagrams/demo-turned-shaft/flats.svg", alt = "Top view: the shaft in the vise, both flats up, their stations from the datum end and the hemisphere's root; end view of the hold." }
-envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.cutter_dia_mm}}"], y_span_mm = ["{{cad.outer_dia_mm}}", "{{process.cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.outer_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.flat_a_across_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
+envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.outer_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.outer_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.flat_a_across_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.outer_dia_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.outer_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.vise_jaw_from_datum_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
-beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{process.vise_jaw_from_datum_mm}}", 163.6738], section_mm = { diameter = "{{cad.outer_dia_mm}}" }, vise_left = "start" }
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{process.vise_jaw_from_datum_mm}}", "{{process.vise_jaw_to_datum_mm}}"], section_mm = { diameter = "{{cad.outer_dia_mm}}" }, vise_left = "start" }
 
 [[setups.operations]]
 speed_kind = "spindle"
 tool = "em"
 drilling = "none"
 sizing = "other"
-instruction = "X0 on the datum apex (X = −D/2), Z0 on the rod's top. Flat A: X{{cad.flat_a_z0_mm:in.3dot}} to X{{cad.flat_a_z1_mm:in.3dot}} at Z−{{cad.flat_a_depth_mm:in.4dot}}."
+instruction = "Flat A: cutter centre X{{cad.flat_a_path_z0_mm:in.3dot}} to X{{cad.flat_a_path_z1_mm:in.3dot}} at Z−{{cad.flat_a_depth_mm:in.4dot}}."
+instruction_detailed = "Touch the cutter's side on the datum apex and set X = −{{process.flat_cutter_dia_mm:in.4dot}}/2, so the DRO reads the cutter centre; touch the rod's top and set Z0. Flat A: plunge at X{{cad.flat_a_path_z0_mm:in.3dot}}, traverse to X{{cad.flat_a_path_z1_mm:in.3dot}} at Z−{{cad.flat_a_depth_mm:in.4dot}}: the cutter's face sweeps the flat from X{{cad.flat_a_z0_mm:in.3dot}} to X{{cad.flat_a_z1_mm:in.3dot}}."
 settings = "turned-shaft-em-3-16-1018"
-cut_diameter_mm = "{{process.cutter_dia_mm}}"
+cut_diameter_mm = "{{process.flat_cutter_dia_mm}}"
 milling_cuts = [
-  { name = "flat A", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_a_depth_mm}}", radial_woc_mm = "{{process.cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_a_from_datum_mm}}" },
+  { name = "flat A", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_a_depth_mm}}", radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_a_path_mm}}" },
 ]
 inspection = "Across {{cad.flat_a_across_min_in:.3dot}}–{{cad.flat_a_across_max_in:.3dot}}; {{cad.flat_a_length_min_in:.3dot}}–{{cad.flat_a_length_max_in:.3dot}} long; edge {{cad.flat_a_station_min_in:.3dot}}–{{cad.flat_a_station_max_in:.3dot}} from the datum end."
 gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.flat_a_across_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_a_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_a_station_band_mm}}" }]
@@ -199,11 +201,11 @@ speed_kind = "spindle"
 tool = "em"
 drilling = "none"
 sizing = "other"
-instruction = "Flat B: X{{cad.flat_b_z0_mm:in.3dot}} to X{{cad.flat_b_z1_mm:in.3dot}} at Z−{{cad.flat_b_depth_mm:in.4dot}}, on flat A's clock."
+instruction = "Flat B: cutter centre X{{cad.flat_b_path_z0_mm:in.3dot}} to X{{cad.flat_b_path_z1_mm:in.3dot}} at Z−{{cad.flat_b_depth_mm:in.4dot}}, on flat A's clock."
 settings = "turned-shaft-em-3-16-1018"
-cut_diameter_mm = "{{process.cutter_dia_mm}}"
+cut_diameter_mm = "{{process.flat_cutter_dia_mm}}"
 milling_cuts = [
-  { name = "flat B", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_b_depth_mm}}", radial_woc_mm = "{{process.cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_b_from_datum_mm}}" },
+  { name = "flat B", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_b_depth_mm}}", radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_b_path_mm}}" },
 ]
 inspection = "Across {{cad.flat_b_across_min_in:.3dot}}–{{cad.flat_b_across_max_in:.3dot}}; {{cad.flat_b_length_min_in:.3dot}}–{{cad.flat_b_length_max_in:.3dot}} long; edge {{cad.flat_b_station_min_in:.3dot}}–{{cad.flat_b_station_max_in:.3dot}} from the hemisphere's root."
 gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.flat_b_across_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_b_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_b_station_band_mm}}" }]

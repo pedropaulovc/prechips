@@ -13,8 +13,8 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
 - ``regrip``: the part turned round, the jaws on its ``data-grip`` diameter
   (``outer`` by default) over a shim wrap;
 - ``vise``: a top view in the milling vise, the flats up, the jaws from
-  ``process.vise_jaw_from_datum_mm`` (the left jaw side's station from the
-  datum end) for ``process.vise_jaw_width_mm``, the flats' stations
+  ``process.vise_jaw_from_datum_mm`` to ``process.vise_jaw_to_datum_mm``
+  (the jaw sides' stations from the datum end, as a beam clamps), the flats' stations
   dimensioned from the ends their drawing states, and an end view of the
   hold;
 - ``inspect``: the finished part with its printed sizes.
@@ -219,8 +219,10 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-shaft: the vise mills flats only")
     if hold in ("bar", "blank", "regrip") and "flat" in work:
         raise CadError("turned-shaft: flats are milled in the vise")
-    if hold == "bar" and "pitch_mm" not in values:
-        raise CadError("turned-shaft: a bar hold needs the bar-fed cycle")
+    if hold in ("bar", "regrip") and "pitch_mm" not in values:
+        raise CadError(f"turned-shaft: a {hold} hold needs the bar-fed cycle")
+    if "part" in work and hold != "bar":
+        raise CadError("turned-shaft: parts are parted off in a bar hold")
     if hold == "blank" and "end_stickout_mm" not in values:
         raise CadError("turned-shaft: a blank hold needs process.end_stickout_in")
     if "steps" in work and not ("dome" in work and "dome_steps" in parameters):
@@ -276,8 +278,6 @@ def _lathe(
             face = float(values.get("regrip_allowance_mm", 0.0))
         z0, z1 = values[f"{grip}_z0_mm"], values[f"{grip}_z1_mm"]
         held_mm = float(values.get("regrip_grip_mm", math.inf))
-        near = z0 if out == "datum" else z1
-        far_side = min(z1, z0 + held_mm) if out == "datum" else max(z0, z1 - held_mm)
         if out == "datum":
             near = max(z0, z1 - held_mm)
             far_side = z1
@@ -353,7 +353,7 @@ def _lathe(
                 )
         _removed(groups, values, view, work, made, z_of, shift, stock, out)
     if hold == "regrip":
-        _, r_grip = values[f"{grip}_z0_mm"], values[f"{grip}_dia_mm"] / 2
+        r_grip = values[f"{grip}_dia_mm"] / 2
         _chuck(groups, view, view.x(zmin) + 2, view.x(jaw) - 2, r_grip, _SHIM)
         above.append(
             (
@@ -363,16 +363,12 @@ def _lathe(
             )
         )
     if face:
-        out_station = 0.0 if out == "datum" else length
-        radius = (
-            stock
-            if hold != "regrip"
-            else next(
-                r
-                for s, r in sorted(station, key=lambda p: abs(p[0] - out_station))
-                if r > 0
-            )
-        )
+        # The out end arrives at the bar's size, or turned in an earlier setup.
+        radius = stock
+        if hold == "regrip" and "turn" in made and "turn" not in work:
+            end = _diameters(values)
+            end.sort(key=lambda n: values[f"{n}_z0_mm"], reverse=out == "far")
+            radius = values[f"{end[0]}_dia_mm"] / 2
         if hold == "regrip":
             groups["part-arriving"].append(
                 _rect(view.x(0), view.up(radius), face * scale, 2 * radius * scale)
@@ -384,10 +380,11 @@ def _lathe(
     bottom = view.down(largest)
     groups["datum"].append(_line(view.x(0), top - 10, view.x(0), bottom + 10))
     _datum_label(groups, view.x(0) - 4, bottom + 24, "Z0", "end")
+    # The stickout runs to the arriving end; a blank's to its faced end.
     _dimension(
         groups,
         view.x(jaw),
-        view.x(0),
+        view.x(0 if hold == "blank" else face),
         bottom + 44,
         bottom + 2,
         _stickout(values, hold, out, grip),
@@ -458,13 +455,13 @@ def _removed(
     """Hatch what this setup cuts off one part."""
     length = values["length_mm"]
 
-    def band(s0: float, s1: float, r_out: float, r_in: float) -> None:
+    def band(s0: float, s1: float, r_out: float, r_in: float, role="part-removed"):
         a, b = sorted((z_of(s0) - shift, z_of(s1) - shift))
         a = max(a, view.z0)
         if b <= a or r_out <= r_in + 1e-9:
             return
         w, h = (b - a) * view.scale, (r_out - r_in) * view.radial
-        groups["part-removed"] += [
+        groups[role] += [
             _rect(view.x(a), view.up(r_out), w, h),
             _rect(view.x(a), view.down(r_in), w, h),
         ]
@@ -481,12 +478,12 @@ def _removed(
             )
     if "groove" in work:
         for g in _names(values, "groove", "_width_mm"):
-            under = next(
+            g0, g1 = values[f"{g}_z0_mm"], values[f"{g}_z1_mm"]
+            # The diameter the groove cuts into (the adapter checks one does).
+            under = max(
                 values[f"{n}_dia_mm"] / 2
                 for n in _diameters(values)
-                if values[f"{n}_z0_mm"] - 1e-6
-                <= values[f"{g}_z0_mm"]
-                <= values[f"{n}_z1_mm"]
+                if values[f"{n}_z0_mm"] < g1 and values[f"{n}_z1_mm"] > g0
             )
             band(
                 values[f"{g}_z0_mm"],
@@ -512,9 +509,13 @@ def _removed(
     if "thread" in work and "thread_z0_mm" in values:
         radius = values[f"{values['thread_on']}_dia_mm"] / 2
         depth = min(0.6 * values["thread_pitch_mm"], radius / 3)
-        band(values["thread_z0_mm"], values["thread_z1_mm"], radius, radius - depth)
-        groups["part-threads"] += groups["part-removed"][-2:]
-        del groups["part-removed"][-2:]
+        band(
+            values["thread_z0_mm"],
+            values["thread_z1_mm"],
+            radius,
+            radius - depth,
+            "part-threads",
+        )
 
 
 def _labels(
@@ -626,7 +627,19 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
     top, bottom = view.up(largest), view.down(largest)
     groups["datum"].append(_line(view.x(0), top - 10, view.x(0), bottom + 10))
     _datum_label(groups, view.x(0) - 6, bottom + 24, "datum end", "end")
-    _holes(groups, values, view, None)
+    # Seen across the flats' normal (drawn up): a hole along the line of
+    # sight is a circle.
+    flats = _names(values, "flat_", "_across_mm")
+    sight = None
+    if flats:
+        axis = [float(c == values["axis"]) for c in "xyz"]
+        up = values[f"{flats[0]}_normal"]
+        sight = [
+            axis[1] * up[2] - axis[2] * up[1],
+            axis[2] * up[0] - axis[0] * up[2],
+            axis[0] * up[1] - axis[1] * up[0],
+        ]
+    _holes(groups, values, view, sight)
     above, below = [], []
     for prefix, apex, inward in (("dome_datum", 0.0, 1), ("dome_far", length, -1)):
         if f"{prefix}_height_mm" in values:
@@ -638,7 +651,7 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
                     _dome_text(values, prefix),
                 )
             )
-    for f in _names(values, "flat_", "_across_mm"):
+    for f in flats:
         a, b = view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])
         dia = values[f"{values[f'{f}_on']}_dia_mm"]
         above.append(
@@ -691,7 +704,7 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
         top - 2,
         f"length {_length_text(values)}",
     )
-    head = _callouts(groups, above, top - 44, above=True)
+    head = _callouts(groups, above, top - 44, above=True) if above else 34
     if head < 34:
         raise CadError("turned-shaft: labels run off the top of the picture")
     return _finish(groups, _callouts(groups, below, bottom + 30, above=False))
@@ -754,7 +767,9 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set) -> Layout:
     if any(values[f"{f}_normal"] != normal for f in flats):
         raise CadError("turned-shaft: the vise picture draws flats on one clock")
     jaw_from = float(parameters.get("vise_jaw_from_datum_mm", 0.0))
-    jaw_width = _param(parameters, "vise_jaw_width_mm")
+    jaw_width = _param(parameters, "vise_jaw_to_datum_mm") - jaw_from
+    if jaw_width <= 0:
+        raise CadError("turned-shaft: the vise jaws end before they start")
     left, right = min(0.0, jaw_from), max(length, jaw_from + jaw_width)
     scale, radial = _slender(values, right - left, 470.0)
     view = _View(60.0, left, scale, radial)

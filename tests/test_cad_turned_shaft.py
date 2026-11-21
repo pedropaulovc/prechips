@@ -89,10 +89,9 @@ def test_sawn_blank_face_stock_and_stock_requirement():
     )
     with pytest.raises(CadError, match="blank_length_in: shorter than the part"):
         load_turned_shaft(SHAFT, BLANK | {"blank_length_in": 6.9}, "demo-turned-shaft")
-    with pytest.raises(CadError, match="exclusive"):
-        load_turned_shaft(
-            SHAFT, BLANK | {"face_allowance_in": 0.02}, "demo-turned-shaft"
-        )
+    for bar_only in ({"face_allowance_in": 0.02}, {"bar_length_in": 12.0}):
+        with pytest.raises(CadError, match="exclusive"):
+            load_turned_shaft(SHAFT, BLANK | bar_only, "demo-turned-shaft")
     with pytest.raises(CadError, match="must lie inside its band"):
         load_turned_shaft(SHAFT, BLANK | {"stock_dia_in": 0.26}, "demo-turned-shaft")
     # A blank already inside the length band is faced nowhere.
@@ -151,6 +150,20 @@ def test_pin_thread_groove_and_dome_height_from_its_radius_band():
             "off the R3.1750 cap",
         ),
         (PIN, '"dia" = [1.93, 2.13]', '"dia" = [1.93, 2.9]', "not under the"),
+        # A cross hole that cuts the rod in two.
+        (
+            SHAFT,
+            ('"dia" = [1.5875, 1.6891]', '"nominal_dia" = 1.5875'),
+            ('"dia" = [9.0, 9.5]', '"nominal_dia" = 9.0'),
+            "diameter it crosses",
+        ),
+        # A threaded nominal neither in its band nor at the basic major.
+        (
+            PIN,
+            '"dia_nominal" = 2.8194',
+            '"dia_nominal" = 2.5',
+            "nor the thread's major",
+        ),
         (
             PIN,
             '"thread" = "#4-40 UNC-2A"',
@@ -167,6 +180,24 @@ def test_refusals(tmp_path, path, old, new, message):
     part = "demo-turned-shaft" if path == SHAFT else "demo-turned-pin"
     with pytest.raises(CadError, match=message):
         load_turned_shaft(source, {}, part)
+
+
+def test_a_fillet_sits_at_a_step_that_tiles_within_tolerance(tmp_path):
+    source = _edited(
+        tmp_path, PIN, '"span" = [6.35, 12.7]', '"span" = [6.3500004, 12.7]'
+    )
+    values = load_turned_shaft(source, {}, "demo-turned-pin").values
+    assert values["fillet_shoulder_z_mm"] == pytest.approx(6.35)
+
+
+def test_flat_cutter_path_runs_a_cutter_radius_inside_each_end():
+    parameters = BLANK | {"flat_cutter_dia_mm": 4.7625}
+    values = load_turned_shaft(SHAFT, parameters, "demo-turned-shaft").values
+    assert values["flat_a_path_mm"] == pytest.approx([12.7 + 2.38125, 22.225 - 2.38125])
+    with pytest.raises(CadError, match="wider than"):
+        load_turned_shaft(
+            SHAFT, BLANK | {"flat_cutter_dia_mm": 3.0}, "demo-turned-shaft"
+        )
 
 
 def test_an_assembly_hole_may_omit_its_station(tmp_path):
@@ -187,8 +218,11 @@ def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():
         render_cad_svg(_svg(hold="collet"), cad, BLANK)
     with pytest.raises(CadError, match="milled in the vise"):
         render_cad_svg(_svg(hold="blank", work="flat"), cad, BLANK)
-    with pytest.raises(CadError, match="bar-fed cycle"):
-        render_cad_svg(_svg(hold="bar", work="face"), cad, BLANK)
+    for hold in ("bar", "regrip"):
+        with pytest.raises(CadError, match="bar-fed cycle"):
+            render_cad_svg(_svg(hold=hold, work="face"), cad, BLANK)
+    with pytest.raises(CadError, match="parted off in a bar hold"):
+        render_cad_svg(_svg(hold="blank", work="part"), cad, BLANK)
 
 
 @pytest.mark.parametrize("plan", ["demo-turned-shaft", "demo-turned-pin"])
