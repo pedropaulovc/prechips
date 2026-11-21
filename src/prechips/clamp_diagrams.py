@@ -14,9 +14,11 @@
   the fixed jaw; ``drill`` faces to depth and drills the ears, ``tap`` taps
   the back's).
 
-A lying ``half`` draws the near side (X0) at the left; ``data-x0="right"``
-draws it at the right, stations measured leftward, for holds that put the
-near side at the operator's right.
+A lying ``half`` with the bottom face on the fixed jaw (``mating`` or
+``outside`` up) draws the near side (X0) at the end the hold puts it, from
+the model frame: at the right when the face up looks toward +X (the front's
+outside face, the back's mating face), at the left otherwise; turning the
+half over about its height swaps the ends.
 
 ``pair``: the two halves screwed together for the bore, from above: the
 back's outside face on the fixed jaw, a block between the screw heads on the
@@ -148,12 +150,9 @@ def _half(
     up: str,
     work: str,
     end: str | None,
-    mirror: bool,
 ) -> Layout:
     """One half in the vise, seen along the jaws, with a plan from above
     for the lying holds."""
-    if mirror and up == "end":
-        raise CadError("clamp-half: data-x0 goes with a lying hold, not data-up end")
     if work not in _HALF[up]:
         raise CadError(
             f"clamp-half: with data-up {up!r}, data-work must be one of "
@@ -180,7 +179,7 @@ def _half(
             if end == "first"
             else _cad(values, "width_mm")
         )
-        grip = ["jaws on two", "sawn sides"]
+        grip = ["jaws on two", "cold-finished faces"]
         rest = "parallel_height_mm"
     elif up in ("bottom", "top"):
         across = section
@@ -276,6 +275,11 @@ def _half(
     low = _callouts(groups, items, cut + 24, above=False)
     if up == "end":
         return _finish(groups, low)
+    # Bottom face on the fixed jaw: the face up looking toward +X puts the
+    # near side at the right.
+    mirror = up in ("mating", "outside") and (values.get("half") == "front") == (
+        up == "outside"
+    )
     return _plan(groups, values, up, work, across, low, mirror)
 
 
@@ -399,12 +403,13 @@ def _inspect(groups: Groups, values: dict, bored: bool) -> Layout:
         )
     _label(groups, x0 - 8, y0 + 12, "OUTSIDE", "end")
     _label(groups, x0 - 8, face, "MATING", "end")
-    _label(groups, x0 - 8, (y0 + face) / 2 + 5, "NEAR SIDE", "end")
+    # N names the near side end, above it, not a row like the faces.
+    _label(groups, x0 - 8, y0 - 14, "N: near side", "end")
     _dimension(
         groups,
         x0,
         x0 + wide,
-        y0 - (48 if bored else 56),
+        y0 - 48,
         y0,
         "{{cad.width_min_in:.2dot}}–{{cad.width_max_in:.2dot}}",
     )
@@ -432,7 +437,7 @@ def _inspect(groups: Groups, values: dict, bored: bool) -> Layout:
                 [_BORE_REF, "on the bore axis,", *_BORE_FIT],
             ),
             (
-                bore + station + hole / 2,
+                bore + station,
                 face - deep / 2,
                 [
                     "2X {{cad.ear_station_min_in:.3dot}}–{{cad.ear_station_max_in:.3dot}}",
@@ -441,12 +446,14 @@ def _inspect(groups: Groups, values: dict, bored: bool) -> Layout:
             ),
         ]
     else:
-        # No bore yet: the ears from the near side, where the program put them.
-        for x, y, key in (
-            (bore - station, y0 - 16, "ear_near_x"),
-            (bore + station, y0 - 34, "ear_far_x"),
+        # No bore yet: the ears from the near side, where the program put them;
+        # the short near one below the part, its text beside it.
+        for x, y, start, key in (
+            (bore - station, face + 20, face, "ear_near_x"),
+            (bore + station, y0 - 24, y0, "ear_far_x"),
         ):
-            _dimension(groups, x0, x, y, y0, f"{{{{cad.{key}_in:.3dot}}}}")
+            text = f"{{{{cad.{key}_min_in:.3dot}}}}–{{{{cad.{key}_max_in:.3dot}}}}"
+            _dimension(groups, x0, x, y, start, text, beside=y > face)
         items = []
     if back and bored:
         items.append(
@@ -495,7 +502,7 @@ def _inspect(groups: Groups, values: dict, bored: bool) -> Layout:
     )
     text = [
         *_ear_text(values),
-        "{{cad.ear_height_min_in:.3dot}}–{{cad.ear_height_max_in:.3dot}} up",
+        "{{cad.ear_height_min_in:.3dot}}–{{cad.ear_height_max_in:.3dot}} up from BOTTOM",
     ]
     if not bored:
         text = ["drill exits: deburr", *text]
@@ -632,16 +639,11 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     up = root.attrib.pop("data-up", None)
     work = root.attrib.pop("data-work", None)
     end = root.attrib.pop("data-end", None)
-    x0 = root.attrib.pop("data-x0", "left")
     bored = root.attrib.pop("data-bored", "yes")
     if step not in _TITLES:
         raise CadError(
             f"clamp-half: data-step must be one of {', '.join(_TITLES)}, not {step!r}"
         )
-    if x0 not in ("left", "right"):
-        raise CadError(f"clamp-half: data-x0 must be left or right, not {x0!r}")
-    if x0 == "right" and step != "half":
-        raise CadError("clamp-half: data-x0 goes with the half step")
     if bored not in ("yes", "no"):
         raise CadError(f"clamp-half: data-bored must be yes or no, not {bored!r}")
     if bored == "no" and step != "inspect":
@@ -661,7 +663,7 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
         raise CadError(
             f"clamp-half: the half step needs data-up ({', '.join(_HALF)}), not {up!r}"
         )
-    return _half(groups, values, parameters, up, work, end, x0 == "right")
+    return _half(groups, values, parameters, up, work, end)
 
 
 CLAMP_LAYOUTS = {"clamp-half": _clamp_half}
