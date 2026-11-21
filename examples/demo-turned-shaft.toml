@@ -37,8 +37,8 @@ turn_start_z_mm = 0.5
 flat_cutter_dia_mm = 4.7625
 # The 6 in vise (shop workholding.vise-pm-6): the left jaw side 5 mm in from
 # the datum end; 1-1/2 in parallels leave the rod's top just under the jaws.
-vise_jaw_from_datum_mm = 5.0
-vise_jaw_to_datum_mm = 163.6738
+vise_jaw_from_x0_mm = 5.0
+vise_jaw_to_x0_mm = 163.6738
 parallel_height_mm = 38.1
 vise_bed_height_mm = 73.3044
 r8_collet_gauge_mm = 6.3
@@ -174,12 +174,12 @@ title = "Set-screw flats"
 machine = "PM-30MV / 6 in vise"
 indexing = "none"
 machine_ref = "pm-30mv"
-holding = "Rod along X on 1-1/2 in parallels; the datum end {{process.vise_jaw_from_datum_mm:g}} mm past the left jaw side."
+holding = "Rod along X on 1-1/2 in parallels; the datum end {{process.vise_jaw_from_x0_mm:g}} mm past the left jaw side."
 datum = "X0 the datum end's apex; Z0 the rod's top."
 diagram = { file = "diagrams/demo-turned-shaft/flats.svg", alt = "Top view: the shaft in the vise, both flats up, their stations from the datum end and the hemisphere's root; end view of the hold." }
 envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.outer_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.outer_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.flat_a_across_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
-vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.outer_dia_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.outer_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.vise_jaw_from_datum_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
-beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{process.vise_jaw_from_datum_mm}}", "{{process.vise_jaw_to_datum_mm}}"], section_mm = { diameter = "{{cad.outer_dia_mm}}" }, vise_left = "start" }
+vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.outer_dia_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.outer_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.vise_jaw_from_x0_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{process.vise_jaw_from_x0_mm}}", "{{process.vise_jaw_to_x0_mm}}"], section_mm = { diameter = "{{cad.outer_dia_mm}}" }, vise_left = "start" }
 
 [[setups.operations]]
 speed_kind = "spindle"

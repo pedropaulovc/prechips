@@ -12,11 +12,12 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   ``cad.face_stock_per_end_mm`` on its out end;
 - ``regrip``: the part turned round, the jaws on its ``data-grip`` diameter
   (``outer`` by default) over a shim wrap;
-- ``vise``: a top view in the milling vise, the flats up, the jaws from
-  ``process.vise_jaw_from_datum_mm`` to ``process.vise_jaw_to_datum_mm``
-  (the jaw sides' stations from the datum end, as a beam clamps), the flats' stations
-  dimensioned from the ends their drawing states, and an end view of the
-  hold;
+- ``vise``: a top view in the milling vise, the flats up, the ``data-x0`` end
+  (``datum``, the default, or ``far``: the end the mill's X0 is set on) at the
+  left, the jaws from ``process.vise_jaw_from_x0_mm`` to
+  ``process.vise_jaw_to_x0_mm`` (the jaw sides' distances from that end, as a
+  beam clamps), the flats' stations dimensioned from the ends their drawing
+  states, and an end view of the hold;
 - ``inspect``: the finished part with its printed sizes.
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
@@ -69,14 +70,18 @@ _ARC = 12  # points per dome meridian
 
 @dataclass(frozen=True)
 class _View:
-    """Z maps right from ``x0`` at ``z0``; radii scale by ``radial``."""
+    """Z maps right from ``x0`` at ``z0``; radii scale by ``radial``. With
+    ``flip`` set, station z is drawn at ``flip - z`` (the far end at left)."""
 
     x0: float
     z0: float
     scale: float
     radial: float
+    flip: float | None = None
 
     def x(self, z: float) -> float:
+        if self.flip is not None:
+            z = self.flip - z
         return self.x0 + (z - self.z0) * self.scale
 
     def up(self, radius: float) -> float:
@@ -201,6 +206,9 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     work = set(root.attrib.pop("data-work", "").split())
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
+    x0 = root.attrib.pop("data-x0", "datum")
+    if x0 not in _OUTS or (x0 != "datum" and hold != "vise"):
+        raise CadError("turned-shaft: data-x0 is datum or far, on a vise hold")
     if hold not in _HOLDS:
         raise CadError(
             f"turned-shaft: data-hold must be one of {', '.join(_HOLDS)}, not {hold!r}"
@@ -233,7 +241,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     if hold in ("vise", "inspect"):
         made = {"turn", "groove", "thread", "dome-datum", "dome-far"}
         if hold == "vise":
-            return _vise(groups, values, parameters, made)
+            return _vise(groups, values, parameters, made, x0)
         return _inspect(groups, values, made)
     _title(groups, 20, 24, _TITLES[hold])
     made = done | (work & {"turn", "groove", "thread"})
@@ -757,7 +765,7 @@ def values_on(values: dict, station: float) -> str:
     return _diameters(values)[0]
 
 
-def _vise(groups: Groups, values: dict, parameters: dict, made: set) -> Layout:
+def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) -> Layout:
     """Top view in the vise, flats up; an end view of the hold at the right."""
     length = _cad(values, "length_mm")
     flats = _names(values, "flat_", "_across_mm")
@@ -766,29 +774,33 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set) -> Layout:
     normal = values[f"{flats[0]}_normal"]
     if any(values[f"{f}_normal"] != normal for f in flats):
         raise CadError("turned-shaft: the vise picture draws flats on one clock")
-    jaw_from = float(parameters.get("vise_jaw_from_datum_mm", 0.0))
-    jaw_width = _param(parameters, "vise_jaw_to_datum_mm") - jaw_from
+    # The jaws' sides from the X0 end, the end drawn at the left.
+    jaw_from = float(parameters.get("vise_jaw_from_x0_mm", 0.0))
+    jaw_width = _param(parameters, "vise_jaw_to_x0_mm") - jaw_from
     if jaw_width <= 0:
         raise CadError("turned-shaft: the vise jaws end before they start")
     left, right = min(0.0, jaw_from), max(length, jaw_from + jaw_width)
     scale, radial = _slender(values, right - left, 470.0)
-    view = _View(60.0, left, scale, radial)
+    view = _View(60.0, left, scale, radial, length if x0 == "far" else None)
+
+    def px(x: float) -> float:
+        """X along the vise from the X0 end, in px."""
+        return 60.0 + (x - left) * scale
+
     _title(groups, 20, 24, _TITLES["vise"] + _exaggerated(scale, radial))
     profile = _meridian(values, made)
     groups["part-kept"].append(_outline(view, profile))
     largest = max(r for _, r in profile)
     top, bottom = view.up(largest), view.down(largest)
-    groups["centre-line"].append(
-        _line(view.x(left) - 10, _AXIS, view.x(right) + 10, _AXIS)
-    )
+    groups["centre-line"].append(_line(px(left) - 10, _AXIS, px(right) + 10, _AXIS))
     groups["clamp"] += [
-        _rect(view.x(jaw_from), top - 14, jaw_width * scale, 14),
-        _rect(view.x(jaw_from), bottom, jaw_width * scale, 14),
+        _rect(px(jaw_from), top - 14, jaw_width * scale, 14),
+        _rect(px(jaw_from), bottom, jaw_width * scale, 14),
     ]
-    above = [(view.x(jaw_from + jaw_width) - 30, top - 14, ["fixed jaw"])]
+    above = [(px(jaw_from + jaw_width) - 30, top - 14, ["fixed jaw"])]
     below_y = bottom + 14
     for f in flats:
-        a, b = view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])
+        a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
         half = values[f"{f}_width_mm"] / 2 * radial
         groups["part-removed"].append(_rect(a, _AXIS - half, b - a, 2 * half))
         groups["active-face"].append(_rect(a, _AXIS - half, b - a, 2 * half))
@@ -803,8 +815,9 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set) -> Layout:
             )
         )
     _holes(groups, values, view, normal)
-    groups["datum"].append(_line(view.x(0), top - 24, view.x(0), bottom + 24))
-    _datum_label(groups, view.x(0) + 4, top - 28, "X0 datum end", "start")
+    end = view.x(0.0 if x0 == "datum" else length)
+    groups["datum"].append(_line(end, top - 24, end, bottom + 24))
+    _datum_label(groups, end + 4, top - 28, f"X0 {x0} end", "start")
     # The flats' stations, each from the end its drawing states.
     origins = {
         "datum_end": 0.0,
