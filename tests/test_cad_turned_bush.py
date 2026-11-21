@@ -195,12 +195,18 @@ def test_clearance_fits_are_screened_at_their_smallest_turned_size():
     assert values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
 
 
-def test_pictures_refuse_unknown_holds_and_turning_on_a_regrip():
+def test_pictures_refuse_unknown_holds_and_turning_inside_the_regrip_jaws():
     cad = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="data-hold"):
         render_cad_svg(_svg(hold="collet"), cad, BAR)
-    with pytest.raises(CadError, match="does not turn"):
-        render_cad_svg(_svg(hold="regrip", grip="step", work="turn"), cad, BAR)
+    # Gripped on the whole spigot, the head out: the spigot is the diameter
+    # under the largest, and it is inside the jaws.
+    with pytest.raises(CadError, match="turns step in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="datum", grip="step", work="turn"), cad, BAR
+        )
+    with pytest.raises(CadError, match="data-turn 'neck'"):
+        render_cad_svg(_svg(hold="bar", work="turn", turn="neck"), cad, BAR)
     with pytest.raises(CadError, match="data-grip 'neck'"):
         render_cad_svg(_svg(hold="regrip", grip="neck", work="centre"), cad, BAR)
 
@@ -457,3 +463,35 @@ def test_a_through_hole_is_drawn_past_the_parting_line():
     assert hidden.count("<rect") == 2 * 2
     assert "tailstock, in turn:" in picture
     assert "drill the Ø.161–.165 hole" in picture
+
+
+def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():
+    params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # Head end in the jaws, .3 in of it held; Z0 the faced spigot end.
+    assert cad.values["outer_regrip_jaw_z_far_mm"] == pytest.approx(7.62 - 25.908)
+    # Spigot in the jaws, head out: the jaws stand where the spigot's held
+    # .3 in starts.
+    assert cad.values["step_regrip_jaw_z_datum_mm"] == pytest.approx(7.62 - 25.908)
+    whole = load_turned_bush(PLUG, BAR | {"regrip_allowance_in": 0.02}, "turned-plug")
+    assert whole.values["step_regrip_jaw_z_datum_mm"] == pytest.approx(-15.24)
+    assert whole.values["outer_regrip_jaw_z_far_mm"] == pytest.approx(-10.668)
+    picture = render_cad_svg(
+        _svg(hold="regrip", out="far", grip="outer", work="face turn"), cad, params
+    ).decode()
+    assert "turn to its measured mate" in picture
+    assert "turn Ø" not in picture
+
+
+def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
+    params = BAR | {"regrip_allowance_in": 0.02}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    head_only = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn part", turn="outer"), cad, params
+    ).decode()
+    both = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn part"), cad, params
+    ).decode()
+    assert "turn Ø.490–.510" in head_only
+    assert "measured mate" not in head_only
+    assert "measured mate" in both
