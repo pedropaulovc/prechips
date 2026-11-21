@@ -1,0 +1,167 @@
+# Demo manifest in the CAD export format: an L bracket with an arched ear, a reamed cross bore, a drilled foot hole and a tapped hole through the arch into the bore, demo identity, no source citations.
+"part" = "drilled-bracket"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "drilled-bracket.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-DRILLED-BRACKET"
+"revision" = "v51"
+
+["material"]
+"spec" = "AISI 1018 cold-finished steel bar"
+"name" = "AISI 1018 cold-finished steel bar"
+"finish" = "black oxide"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "Milled L foot and arched ear from bar; reamed cross bore; drilled foot hole; tapped through the arch apex into the bore."
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."ear_back"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0 }
+
+["features"."ear_front"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 8.128 }
+"thickness" = [8.0264, 8.2296]
+"thickness_nominal" = 8.128
+"thickness_from" = "ear_back"
+"callout" = "THRUST FACES ON DEMO-PIN"
+"precision" = { "thickness" = 3 }
+
+["features"."foot_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 17.78 }
+"length" = [17.526, 18.034]
+"length_nominal" = 17.78
+"length_from" = "ear_back"
+"precision" = { "length" = 2 }
+
+["features"."bottom_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0 }
+
+["features"."foot_top"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["thickness"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 6.096 }
+"thickness" = [5.842, 6.35]
+"thickness_nominal" = 6.096
+"thickness_from" = "bottom_face"
+"precision" = { "thickness" = 2 }
+
+["features"."near_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 8.128 }
+
+["features"."far_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["width"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = -8.128 }
+"width" = [16.002, 16.51]
+"width_nominal" = 16.256
+"width_from" = "near_side"
+"precision" = { "width" = 2 }
+
+["features"."top_arc"]
+"kind" = "arc"
+"frame" = "model"
+"requirements" = ["radius"]
+"center" = [0.0, 26.924, 0.0]
+"axis" = [1, 0, 0]
+"apex" = [0, 1, 0]
+"radius" = [7.874, 8.382]
+"radius_nominal" = 8.128
+"precision" = { "radius" = 2 }
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "height"]
+"at" = [0.0, 25.146, 0.0]
+"axis" = [1, 0, 0]
+"dia" = [6.5024, 6.604]
+"nominal_dia" = 6.5024
+"process" = "ream"
+"thru" = true
+"height" = [24.892, 25.4]
+"height_nominal" = 25.146
+"height_from" = "bottom_face"
+"callout" = "REAM THRU\\nSLIDING FIT ON DEMO-PIN"
+"precision" = { "dia" = 3, "height" = 2 }
+
+["features"."foot_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station"]
+"at" = [12.446, 6.096, 0.0]
+"axis" = [0, -1, 0]
+"dia" = [4.572, 4.6736]
+"nominal_dia" = 4.572
+"process" = "drill"
+"thru" = true
+"station" = [12.192, 12.7]
+"station_nominal" = 12.446
+"station_from" = "ear_back"
+"precision" = { "dia" = 3, "station" = 2 }
+
+["features"."top_tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "station"]
+"at" = [4.064, 35.052, 0.0]
+"axis" = [0, -1, 0]
+"thread" = "#4-40 UNC-2B"
+"dia" = [2.2606, 2.3622]
+"into" = "bore"
+"station" = [3.81, 4.318]
+"station_nominal" = 4.064
+"station_from" = "ear_back"
+"precision" = { "dia" = 3, "station" = 2 }
+
+["features"."inside_corner"]
+"kind" = "fillet"
+"frame" = "model"
+"requirements" = ["radius"]
+"radius" = [0.0, 0.508]
+"precision" = { "radius" = 2 }

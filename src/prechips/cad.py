@@ -113,6 +113,27 @@ def _mid(band: tuple[float, float]) -> float:
     return band[0] / 2 + band[1] / 2
 
 
+# ASME B1.1 internal inch threads: numbered (#N-TPI) and fractional or whole
+# inch sizes (a/b-TPI, N-TPI), UNC, UNF or UNEF, classes 1B-3B.
+_INCH_THREAD = re.compile(
+    r"(#\d+|[1-9]\d*/[1-9]\d*|[1-9]\d*)-([1-9]\d*) UN(?:C|F|EF)-[123]B"
+)
+
+
+def inch_thread(thread: str, where: str) -> tuple[float, int, bool]:
+    """An internal inch thread's basic major diameter (mm), threads per inch
+    and whether it is a numbered size; a numbered size's major is
+    .060 + .013 N in."""
+    match = _INCH_THREAD.fullmatch(thread)
+    if match is None:
+        raise CadError(
+            f"{where}: expected an internal inch thread, #N-TPI or a/b-TPI UNC-2B"
+        )
+    size, numbered = match[1], match[1].startswith("#")
+    major = 0.060 + 0.013 * int(size[1:]) if numbered else float(Fraction(size))
+    return major * 25.4, int(match[2]), numbered
+
+
 def _inch_limits(values: dict, key: str, band: tuple[float, float]) -> None:
     """Bind one positive drawing band as `<key>_in`/`_min_in`/`_max_in`/`_band_mm`."""
     low, high = band
@@ -251,6 +272,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_clamp_half import load_clamp_half
 
         return load_clamp_half(path, parameters, part)
+    if adapter == "drilled_block":
+        from prechips.cad_drilled_block import load_drilled_block
+
+        return load_drilled_block(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
