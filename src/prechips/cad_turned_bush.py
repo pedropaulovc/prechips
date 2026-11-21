@@ -11,7 +11,8 @@ supply ``length_min``) from the datum end. Optional features:
 - ``outer``, ``step`` and member ``outer_<member>``: kind ``diameter``, each
   with a ``span`` along the axis and one acceptance: a ``dia`` band, a
   ``stock`` diameter left as bought (``dia_ref``), or a ``dia_ref`` turned to
-  a measured mate with a ``diametral_clearance`` (a ``dia`` band may add a
+  a measured mate with a ``diametral_clearance`` or a press fit's
+  ``diametral_interference`` (a ``dia`` band may add a
   ``diametral_interference``);
 - ``bore``: a ``hole`` through, a ``dia`` band and its ``process``;
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
@@ -179,21 +180,34 @@ def _shoulder(item: dict, frame: tuple, values: dict) -> None:
     values["shoulder_mm"] = nominal
 
 
-def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
-    """Bind one turned diameter; return the least bar that makes it."""
+_FITS = frozenset({"diametral_clearance", "diametral_interference"})
+
+
+def _diameter(
+    item: dict, name: str, frame: tuple, values: dict, *, press_ref: bool = False
+) -> float:
+    """Bind one turned diameter; return the least bar that makes it.
+
+    ``press_ref`` admits a REF turned over its measured mate for a
+    ``diametral_interference`` (turned_bush's matched press); other callers
+    keep refusing it."""
     if item.get("kind") != "diameter":
         raise CadError(f"{name}: expected a model-frame diameter")
     _on_axis(item, name, frame[0])
     _span(item, name, frame, values)
-    requirements = item.get("requirements", [])
+    requirements = set(item.get("requirements", []))
     # One acceptance per diameter: a dia band (with an optional fit on its
     # mate, printed beside it), a stock size, or a REF turned to a mate.
-    if "stock" in requirements and {
-        "dia",
-        "diametral_clearance",
-        "diametral_interference",
-    } & set(requirements):
+    if "stock" in requirements and ({"dia"} | _FITS) & requirements:
         raise CadError(f"{name}: a stock size takes no dia band or fit")
+    if _FITS <= requirements:
+        raise CadError(f"{name}: a fit is a clearance or a press, not both")
+    press = "dia" not in requirements and "diametral_interference" in requirements
+    if press and not press_ref:
+        raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
+    for fit in _FITS & requirements:
+        _limits(item, fit, name, f"{name}_{fit.split('_')[1]}", values)
+        values[f"{name}_mate"] = _string(item.get("mate"), f"{name}.mate")
     if "dia" in requirements:
         band = _limits(item, "dia", name, f"{name}_dia", values)
         nominal = _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -207,12 +221,27 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         # A bar over the band is turned down to it; one left as supplied
         # inside the band (``as_supplied``) is admitted in load_turned_bush.
         least_bar = band[1]
-    elif "stock" in requirements or "diametral_clearance" in requirements:
+    elif "stock" in requirements or _FITS & requirements:
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
         values[f"{name}_dia_mm"], values[f"{name}_ref_in"] = ref, ref / 25.4
-        # Turned under a measured mate, the REF bounds it: the mate is the
-        # REF size and the least clearance comes off it.
         least_bar = ref
+        if "diametral_clearance" in requirements:
+            # Turned under a measured mate: the smallest it is turned is the
+            # mate at its REF less the most clearance (the turning screen's
+            # stiffness size). The screen assumes the mate measures at or
+            # over its REF; a smaller mate turns the part smaller than
+            # screened.
+            least = ref - values[f"{name}_clearance_band_mm"][1]
+            values[f"{name}_turn_min_mm"] = least
+        elif press:
+            # A press turned over its measured mate: the smallest it is
+            # turned is the mate at its REF plus the least interference (the
+            # screen assumes the mate at or over its REF, as above). The bar
+            # must reach the REF plus the most; a mate measuring over its REF
+            # needs that much more, which the bar chosen must allow.
+            interference = values[f"{name}_interference_band_mm"]
+            values[f"{name}_turn_min_mm"] = ref + interference[0]
+            least_bar = ref + interference[1]
     else:
         raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
     values[f"{name}_stock"] = "stock" in requirements
@@ -221,18 +250,6 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         least = _positive(item["stock_dia_min"], f"{name}.stock_dia_min")
         values[f"{name}_stock_dia_min_in"] = least / 25.4
         values[f"{name}_stock_dia_min_mm"] = least
-    for fit in ("diametral_clearance", "diametral_interference"):
-        if fit in requirements:
-            _limits(item, fit, name, f"{name}_{fit.split('_')[1]}", values)
-            values[f"{name}_mate"] = _string(item.get("mate"), f"{name}.mate")
-    if "dia" not in requirements and "diametral_clearance" in requirements:
-        # The smallest it is turned: the mate at its REF less the most
-        # clearance (the turning screen's stiffness size). The screen
-        # assumes the mate measures at or over its REF; a smaller mate
-        # turns the part smaller than screened.
-        values[f"{name}_turn_min_mm"] = (
-            values[f"{name}_dia_mm"] - values[f"{name}_clearance_band_mm"][1]
-        )
     return least_bar
 
 
@@ -568,7 +585,10 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         for name in (*_DIAMETERS, *(f"outer_{m}" for m in members))
         if name in features
     ]
-    sizes = {name: _diameter(features[name], name, frame, values) for name in turned}
+    sizes = {
+        name: _diameter(features[name], name, frame, values, press_ref=True)
+        for name in turned
+    }
     _tiles(values, [name for name in _DIAMETERS if name in sizes])
     for name in turned:
         if name.startswith("outer_"):

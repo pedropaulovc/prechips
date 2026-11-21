@@ -344,6 +344,56 @@ def test_a_press_fit_band_may_sit_above_its_nominal(tmp_path):
     assert values["outer_mate"] == "DEMO-HOLE"
 
 
+def test_a_ref_turned_over_its_measured_mate_takes_a_press_fit(tmp_path):
+    text = PLUG.read_text(encoding="utf-8")
+    old = '"requirements" = ["dia"]\n"axis" = [1.0, 0.0, 0.0]'
+    new = (
+        '"requirements" = ["diametral_interference"]\n'
+        '"diametral_interference" = [0.01016, 0.03302]\n'
+        '"dia_ref" = 12.7\n"mate" = "DEMO-HOLE"\n"axis" = [1.0, 0.0, 0.0]'
+    )
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace(old, new), encoding="utf-8")
+    cad = load_turned_bush(source, BAR, "turned-plug")
+    values = cad.values
+    assert values["outer_ref_in"] == pytest.approx(0.5)
+    assert values["outer_interference_min_in"] == pytest.approx(0.0004)
+    assert values["outer_interference_max_in"] == pytest.approx(0.0013)
+    assert values["outer_mate"] == "DEMO-HOLE"
+    # Screened at the mate's REF plus the least interference; the bar must
+    # reach the REF plus the most.
+    assert values["outer_turn_min_mm"] == pytest.approx(0.5004 * 25.4)
+    assert "outer_dia_min_in" not in values
+    assert cad.stock_requirement.axes[0].required_mm == pytest.approx(0.5013 * 25.4)
+    # Roughed a side's .002 over its smallest turned size, and the bar must
+    # reach that too.
+    rough = load_turned_bush(
+        source, BAR | {"finish_allowance_in": 0.002}, "turned-plug"
+    )
+    assert rough.values["outer_rough_dia_mm"] == pytest.approx(0.5044 * 25.4)
+    assert rough.stock_requirement.axes[0].required_mm == pytest.approx(0.5044 * 25.4)
+    picture = render_cad_svg(_svg(hold="inspect"), cad, BAR).decode()
+    assert "to its measured mate," in picture
+    assert ".0004–.0013 over" in picture
+    for both in (
+        new.replace(
+            '["diametral_interference"]',
+            '["diametral_clearance", "diametral_interference"]\n'
+            '"diametral_clearance" = [0.01, 0.02]',
+        ),
+        old.replace(
+            '["dia"]',
+            '["dia", "diametral_clearance", "diametral_interference"]\n'
+            '"diametral_clearance" = [0.01, 0.02]\n'
+            '"diametral_interference" = [0.01016, 0.03302]\n"mate" = "DEMO-HOLE"',
+        ),
+    ):
+        source.write_text(text.replace(old, both), encoding="utf-8")
+        with pytest.raises(CadError, match="clearance or a press, not both"):
+            load_turned_bush(source, {}, "turned-plug")
+
+
 def test_spans_and_frames_stay_inside_the_part(tmp_path):
     text = PLUG.read_text(encoding="utf-8")
     cases = [
