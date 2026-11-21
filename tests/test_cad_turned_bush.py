@@ -459,3 +459,14 @@ def test_a_through_hole_is_drawn_past_the_parting_line():
     assert hidden.count("<rect") == 2 * 2
     assert "tailstock, in turn:" in picture
     assert "drill the Ø.161–.165 hole" in picture
+
+
+def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():
+    params = BAR | {"stock_dia_in": 0.49, "as_supplied_outer": 1}
+    # A bar exactly at the band's low end, through inch-to-mm noise.
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    assert cad.values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
+    # Roughed to .49 + 2 x .015 = .52, over the .51 band top: the bar must
+    # reach the rough size.
+    rough = load_turned_bush(PLUG, BAR | {"finish_allowance_in": 0.015}, "turned-plug")
+    assert rough.stock_requirement.axes[0].required_mm == pytest.approx(0.52 * 25.4)

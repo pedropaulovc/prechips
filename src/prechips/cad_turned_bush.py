@@ -392,13 +392,15 @@ def _bar(
             )
         if values.get(f"{name}_as_supplied"):
             low, high = values[f"{name}_dia_band_mm"]
-            if not low <= bar_mm <= high:
+            # The slack absorbs inch-to-mm conversion noise at the edges.
+            if not low - _TOLERANCE <= bar_mm <= high + _TOLERANCE:
                 raise CadError(
                     f"process.{key}: {name} is left as supplied, so its bar must "
                     f"lie inside its band {low / 25.4:.4f}-{high / 25.4:.4f} in"
                 )
-            # Not turned: the diameter is the bar's.
+            # Not turned: the diameter, and the least it is cut, are the bar's.
             values[f"{name}_dia_mm"] = bar_mm
+            values[f"{name}_turn_min_mm"] = bar_mm
     length = values["length_mm"]
     values["face_allowance_mm"] = face * 25.4
     values["regrip_allowance_mm"] = regrip * 25.4
@@ -529,8 +531,6 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
             supplied.append(name)
             values[f"{name}_as_supplied"] = True
             sizes[name] = values[f"{name}_dia_band_mm"][0]
-    # The default member's bar or blank: the other members bring their own.
-    least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
     members_found, members_outer = [], []
     for name in turned:
         configuration = features[name].get("configuration")
@@ -579,6 +579,10 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
                 values[f"{name}_rough_dia_mm"] = (
                     values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
                 )
+                # The bar must also reach the rough size it is roughed to.
+                sizes[name] = max(sizes[name], values[f"{name}_rough_dia_mm"])
+    # The default member's bar or blank: the other members bring their own.
+    least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
     axes: list[StockAxis] = []
     # Round bar is named by its diameter; the facing allowance and kerf may
     # also serve a squared blank's pictures.
