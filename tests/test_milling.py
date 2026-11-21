@@ -18,7 +18,7 @@ from prechips.milling import (
     pinned_mm,
     section_inertia_mm4,
 )
-from prechips.turning import LBF_N, load_config, table_factor
+from prechips.turning import LBF_N, TurningError, load_config, table_factor
 
 # The former base-bar Setup 3 (examples/demo-base-bar.toml before the 2026-11-14
 # traveler review, which moved the squaring into the vise): the bar stays on
@@ -155,6 +155,15 @@ def test_drill_thrust_matches_the_handbook_example_with_packaged_tables():
         0.875 * 25.4,
     )
     assert thrust / LBF_N == pytest.approx(2313, abs=1)
+
+
+def test_a_sixteenth_drill_reads_table_11s_first_row():
+    # Table 11's first row is 1/16 in, printed .063: an exact 1/16 drill is in
+    # range and takes that row's FT; anything smaller is still refused.
+    pairs = load_config(None)["drilling"]["diameter_factors"]
+    assert table_factor(0.0625, pairs, "diameter", "in", "FT") == 0.110
+    with pytest.raises(TurningError, match="no extrapolation"):
+        table_factor(0.0595, pairs, "diameter", "in", "FT")
 
 
 # The vise-fix squaring cut on its own, for declaration edge cases.
