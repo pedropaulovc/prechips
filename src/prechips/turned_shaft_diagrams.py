@@ -704,7 +704,16 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
         radius = f"R{{{{cad.{prefix}_radius_ref_in:.3dot}}}} REF,"
     low, high = values[f"{prefix}_height_band_mm"]
     if high > low:
-        return [radius, f"{_band(f'{prefix}_height')} high", "at the root"]
+        least, most = (values[f"{prefix}_height_{e}_in"] for e in ("min", "max"))
+        if abs(most - least) < 1e-9:
+            # Rounded inward to one .001 in reading.
+            text = f"{{{{cad.{prefix}_height_min_in:.3dot}}}}"
+        elif abs(least * 1000 - round(least * 1000)) > 1e-6:
+            # Too narrow for a .001 in reading: its exact limits.
+            text = _band(f"{prefix}_height", 4)
+        else:
+            text = _band(f"{prefix}_height")
+        return [radius, f"{text} high", "at the root"]
     return [radius, f"{{{{cad.{prefix}_height_in:.3dot}}}} high", "at the root REF"]
 
 

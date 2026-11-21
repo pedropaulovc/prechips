@@ -150,16 +150,21 @@ def _basic_major(thread: object) -> float:
     return float(Fraction(size)) * 25.4
 
 
-def _inward_limits(values: dict, key: str, band: tuple[float, float]) -> None:
+def _inward_limits(
+    values: dict, key: str, band: tuple[float, float], *, strict: bool = False
+) -> None:
     """Bind a band the adapter derives: ``_band_mm`` exact (what checks
     read), ``_min_in``/``_max_in`` rounded inward to .001 in (min up, max
-    down) so a .3dot print never reads outside it; exact when the band is
-    too narrow to hold a .001 in reading."""
+    down) so a .3dot print never reads outside it. A band too narrow to hold
+    a .001 in reading is refused when ``strict``, else its limits stay exact
+    (print them at .4dot)."""
     _inch_limits(values, key, band)
     low = math.ceil(band[0] / 25.4 * 1000 - 1e-6) / 1000
     high = math.floor(band[1] / 25.4 * 1000 + 1e-6) / 1000
     if low <= high:
         values[f"{key}_min_in"], values[f"{key}_max_in"] = low, high
+    elif strict:
+        raise CadError(f"cad.{key}: the band holds no .001 in reading")
 
 
 def _cap(radius: float, root: float) -> float:
@@ -218,11 +223,13 @@ def _dome(
         or given == ["root_station"]
         and end == "far_end"
         and "length_band_mm" not in values
-        and band[0] >= root - _TOLERANCE
     )
     if caps:
         _inward_limits(
-            values, f"{prefix}_height", (_cap(band[1], root), _cap(band[0], root))
+            values,
+            f"{prefix}_height",
+            # Under the root an R's cap is R itself (a full hemisphere).
+            (_cap(band[1], min(root, band[1])), _cap(band[0], min(root, band[0]))),
         )
     # The declared height must be a cap of R somewhere on the diameter's range.
     least, most = (_cap(radius, min(r, radius)) for r in roots)
@@ -398,7 +405,7 @@ def _faced(values: dict) -> None:
             f"far_end: no faced length within both the {key} and body bands at "
             f"{nominal:.4f}"
         )
-    _inward_limits(values, "faced_length", (low, high))
+    _inward_limits(values, "faced_length", (low, high), strict=True)
     # The nominal to .001 in, inside the printed band.
     low_in, high_in = values["faced_length_min_in"], values["faced_length_max_in"]
     nominal_in = min(max(round(nominal / 25.4, 3), low_in), high_in)
@@ -703,6 +710,9 @@ def _blank(values: dict, parameters: dict, least_bar: float, turned: list) -> li
         key = "faced_length"
     made = values[f"{key}_mm"]
     low, high = values.get(f"{key}_band_mm", [made, made])
+    if key == "faced_length":
+        # Judged against the band the sheet prints.
+        low, high = (values[f"faced_length_{e}_in"] * 25.4 for e in ("min", "max"))
     values["blank_length_mm"] = blank * 25.4
     if blank * 25.4 < low - _TOLERANCE:
         raise CadError("process.blank_length_in: shorter than the part")
