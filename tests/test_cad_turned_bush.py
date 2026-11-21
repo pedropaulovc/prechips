@@ -403,6 +403,22 @@ def test_a_band_with_a_fit_prints_both():
     assert ".0020–.0060 under its mate" in picture
 
 
+def test_an_inspect_dimension_too_narrow_for_its_label_prints_it_beside():
+    def labels(source: Path, part: str) -> dict[str, str]:
+        cad = load_turned_bush(source, {}, part)
+        picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
+        found = re.findall(r"<text ([^>]*)>((?:length|shoulder) [^<]*)</text>", picture)
+        return {text.split()[0]: attrs for attrs, text in found}
+
+    # The .34 cup is narrower than "length .330–.350": the label sits past
+    # the far end's extension line, not centred across it.
+    assert "text-anchor" not in labels(CUP, "turned-cup")["length"]
+    # The 1.02 plug's spans take their labels centred above the lines.
+    plug = labels(PLUG, "turned-plug")
+    assert 'text-anchor="middle"' in plug["length"]
+    assert 'text-anchor="middle"' in plug["shoulder"]
+
+
 def test_regrip_grip_length_sets_the_stickout_and_the_jaws():
     params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
     cad = load_turned_bush(PLUG, params, "turned-plug")
