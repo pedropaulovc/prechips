@@ -24,7 +24,10 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   wide parallel when given;
 - ``inspect``: the finished part with its printed sizes, its ``data-x0``
   end (``datum`` or ``far``: the end its lengths are read from) at the left,
-  marked "<end> end" or ``data-x0-label`` (the plan's own name for that end).
+  marked "<end> end" or ``data-end-label`` (the plan's own name for it).
+
+``data-end-label`` names the one end a picture names, in the plan's words:
+the inspection's x0 end, or a turned-round blank's out end in its caption.
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
 or ``far``) the part's end toward the tailstock. ``data-work`` lists what the
@@ -241,9 +244,15 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError(
             "turned-shaft: data-x0 is datum or far, on a vise or inspect hold"
         )
-    x0_label = root.attrib.pop("data-x0-label", f"{x0} end")
-    if not x0_label.strip() or (x0_label != f"{x0} end" and hold != "inspect"):
-        raise CadError("turned-shaft: data-x0-label is a non-blank label, on inspect")
+    end_label = root.attrib.pop("data-end-label", None)
+    if end_label is not None and (
+        not end_label.strip() or not (hold == "inspect" or (hold == "blank" and done))
+    ):
+        raise CadError(
+            "turned-shaft: data-end-label is a non-blank label, on inspect"
+            " or a turned-round blank"
+        )
+    x0_label = end_label or f"{x0} end"
     wrap = root.attrib.pop("data-wrap", "none")
     if wrap not in ("none", "shim") or (
         wrap == "shim" and hold not in ("bar", "blank")
@@ -300,7 +309,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         )
     title = _TITLES[hold]
     if hold == "blank" and done:
-        title = f"Turned round, the {out} end out, seen from the operator's side"
+        named = end_label or f"{out} end"
+        title = f"Turned round, the {named} out, seen from the operator's side"
     _title(groups, 20, 24, title)
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
@@ -775,7 +785,7 @@ def _inspect(
     top, bottom = view.up(largest), view.down(largest)
     groups["datum"].append(_line(left, top - 10, left, bottom + 10))
     if len(_bound(x0_label)) * CHAR > left - 6:
-        raise CadError("turned-shaft: data-x0-label runs off the picture")
+        raise CadError("turned-shaft: data-end-label runs off the picture")
     _datum_label(groups, left - 6, bottom + 24, x0_label, "end")
     # Seen across the flats' normal (drawn up): a hole along the line of
     # sight is a circle.
