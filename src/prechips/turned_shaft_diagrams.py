@@ -701,7 +701,7 @@ def _inspect(
             axis[2] * up[0] - axis[0] * up[2],
             axis[0] * up[1] - axis[1] * up[0],
         ]
-    _holes(groups, values, view, sight)
+    _holes(groups, values, view, sight, assembly=not as_left)
     above, below = [], []
     for prefix, apex, inward in (("dome_datum", 0.0, 1), ("dome_far", length, -1)):
         if f"{prefix}_height_mm" in values and f"dome-{prefix[5:]}" in made:
@@ -737,6 +737,8 @@ def _inspect(
             )
         )
     for h in _names(values, "cross_hole", "_z_mm"):
+        if as_left and values[f"{h}_made_at"] == "assembly":
+            continue
         text = [f"Ø{{{{cad.{h}_dia_min_in:.4dot}}}}"]
         if values[f"{h}_made_at"] == "assembly":
             text.append("at assembly")
@@ -786,10 +788,15 @@ def _exaggerated(scale: float, radial: float) -> str:
     return f" (diameters ×{radial / scale:.1f})" if radial > scale * 1.05 else ""
 
 
-def _holes(groups: Groups, values: dict, view: _View, normal: list | None) -> None:
+def _holes(
+    groups: Groups, values: dict, view: _View, normal: list | None, *, assembly: bool
+) -> None:
     """Cross holes: a circle seen along its axis, else its edges through the
-    part; dashed (hidden) when made at assembly."""
+    part; those made at assembly dashed (hidden), or left out when
+    ``assembly`` is false (the part as it leaves this traveler)."""
     for h in _names(values, "cross_hole", "_z_mm"):
+        if not assembly and values[f"{h}_made_at"] == "assembly":
+            continue
         x = view.x(values[f"{h}_z_mm"])
         half = values[f"{h}_dia_mm"] / 2 * view.scale
         role = "hidden" if values[f"{h}_made_at"] == "assembly" else "holes"
@@ -868,7 +875,7 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
                 ],
             )
         )
-    _holes(groups, values, view, normal)
+    _holes(groups, values, view, normal, assembly=False)
     end = view.x(0.0 if x0 == "datum" else length)
     groups["datum"].append(_line(end, top - 24, end, bottom + 24))
     # Left of its line, clear of the flats' leaders.
