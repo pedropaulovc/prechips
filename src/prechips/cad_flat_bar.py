@@ -1,32 +1,38 @@
 """Bindings for a part milled from one length of flat or square bar.
 
 The part is whatever its drawing declares: faces, bosses, profiles, holes,
-notches and slots, each a model-frame feature whose `requirements` name its
-printed bands. This adapter knows no layout. It binds every declared
-requirement by its feature and field name, checks each band against its
-nominal, checks that every `*_from` names a declared feature, and takes the
-part's finished envelope from the declared planes and `extent_<axis>` spans.
+threaded holes, notches and slots, each a model-frame feature whose
+`requirements` name its printed values. This adapter knows no layout. It
+binds every declared value by its feature and field name, checks each band
+against its nominal, checks that every `*_from` names a declared feature,
+and takes the part's finished envelope from the declared face planes and
+`extent_<axis>` spans. Every binding is new: a feature/field pair that joins
+to a key already bound (another feature's, or the loader's own) refuses.
 
 Per feature `F` and listed requirement `R`:
 
 - a two-number band binds `F_R_in`/`_min_in`/`_max_in`/`_band_mm` and
-  `F_R_mm`, the nominal (`R_nominal` or `nominal_R`) when declared, else
-  the band's middle; a declared nominal also binds `F_R_nominal_in`;
-- `plane` binds `F_plane_mm` from the face's `plane` table;
-- `thru` must be true; `process` binds `F_process`;
+  `F_R_mm`, the nominal (`R_nominal` or `nominal_R`) when declared, refused
+  outside the band, else the band's middle; a nominal also binds
+  `F_R_nominal_in`;
+- `plane` binds `F_plane_mm` from the feature's `plane` table;
+- `thru` must be true;
 - `finish_ra` binds `F_finish_ra_um` and `F_finish_ra_uin`;
-- any other single number (a `*_max` limit, a BASIC distance, a position
-  zone) binds `F_R_mm` and `F_R_in`.
+- a string (`process`, `thread`...) binds `F_R`; a point as below; any
+  other single number (a `*_max` limit, a BASIC distance, a position zone)
+  binds `F_R_mm` and `F_R_in`.
 
-Other fields bind too: strings as `F_field`, `at` as `F_x_mm`/`_y_mm`/
-`_z_mm` (and `_in`), other points as `F_field_x_mm`..., `axis` as `F_axis`
-(`+X`...), lone numbers as `F_field_mm`/`_in` and string lists joined
-with `|`.
+Other fields bind too: strings as `F_field`; `axis` as `F_axis` (`+X`...);
+every three-number point (`at`, `tip_at`...) as `F_field_x_mm`/`_y_mm`/
+`_z_mm` and `_in`; a two-number list as `F_field_band_mm`; a lone number
+as `F_field_mm`/`_in`; string lists joined with `|`. `extent_<axis>` spans
+are not bound: they only widen the envelope.
 
 The envelope is the union, per model axis, of every face's plane and every
-`extent_<axis>` span ([low, high] mm, covered material). Its longest axis is
-the blank's length, the shortest its thickness: the stock requirement reads
-`blank_length_in`, `blank_width_in` and `blank_thickness_in`.
+`extent_<axis>` span ([low, high] mm, covered material). The plan names
+the bar's axes, `blank_length_axis` and `blank_thickness_axis` (0, 1, 2 for
+model X, Y, Z; width is the third): the stock requirement then reads
+`blank_length_in`, `blank_width_in` and `blank_thickness_in` along them.
 """
 
 import re
@@ -38,10 +44,10 @@ from .cad import (
     CadError,
     StockAxis,
     StockRequirement,
+    _all_or_none,
     _band,
-    _blank_mm,
     _edge_breaks,
-    _inch_limits,
+    _mid,
     _model_frame,
     _number,
     _positive,
@@ -49,12 +55,28 @@ from .cad import (
     _string,
 )
 
-_KINDS = {"face", "boss", "profile", "hole", "notch", "slot"}
+_KINDS = {"face", "boss", "profile", "hole", "threaded_hole", "notch", "slot"}
 _AXES = ("x", "y", "z")
+_ROLES = ("length", "width", "thickness")
 _NAME = re.compile(r"[a-z][a-z0-9_]*")
 # Manifest bookkeeping and fields the requirement pass binds itself.
 _SKIP = {"kind", "frame", "requirements", "cite", "faces", "precision", "plane"}
 _TOLERANCE = 1e-6
+
+
+def _bind(values: dict, key: str, value: object) -> None:
+    """Bind one new key; a key already bound is a name collision."""
+    if key in values:
+        raise CadError(f"cad.{key}: bound twice (feature and field names collide)")
+    values[key] = value
+
+
+def _limits(values: dict, key: str, band: tuple[float, float]) -> None:
+    """`_inch_limits` for any band, a location from a datum included."""
+    _bind(values, f"{key}_in", _mid(band) / 25.4)
+    _bind(values, f"{key}_min_in", band[0] / 25.4)
+    _bind(values, f"{key}_max_in", band[1] / 25.4)
+    _bind(values, f"{key}_band_mm", [band[0], band[1]])
 
 
 def _nominal(feature: dict, key: str, where: str) -> float | None:
@@ -75,19 +97,35 @@ def _plane_value(feature: dict, where: str) -> tuple[int, float]:
     return _AXES.index(plane["axis"]), _number(plane.get("value"), f"{where}.plane")
 
 
-def _point(value: object, where: str) -> list[float]:
-    if not isinstance(value, list) or len(value) != 3:
-        raise CadError(f"{where}: expected an [x, y, z] point")
-    return [_number(item, where) for item in value]
+def _is_point(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == 3
+        and all(type(item) in (int, float) for item in value)
+    )
+
+
+def _point(values: dict, prefix: str, value: list, where: str) -> None:
+    for axis, item in zip(_AXES, value, strict=True):
+        coordinate = _number(item, where)
+        _bind(values, f"{prefix}_{axis}_mm", coordinate)
+        _bind(values, f"{prefix}_{axis}_in", coordinate / 25.4)
 
 
 def _axis(value: object, where: str) -> str:
-    vector = _point(value, where)
-    nonzero = [index for index, item in enumerate(vector) if item]
-    if len(nonzero) != 1 or abs(vector[nonzero[0]]) != 1.0:
+    if not _is_point(value):
+        raise CadError(f"{where}: expected a unit model axis")
+    nonzero = [index for index, item in enumerate(value) if item]
+    if len(nonzero) != 1 or abs(value[nonzero[0]]) != 1.0:
         raise CadError(f"{where}: expected a unit model axis")
     index = nonzero[0]
-    return ("+" if vector[index] > 0 else "-") + _AXES[index].upper()
+    return ("+" if value[index] > 0 else "-") + _AXES[index].upper()
+
+
+def _number_binding(values: dict, prefix: str, value: object, where: str) -> None:
+    number = _number(value, where)
+    _bind(values, f"{prefix}_mm", number)
+    _bind(values, f"{prefix}_in", number / 25.4)
 
 
 def _requirement(values: dict, feature: dict, name: str, key: str) -> None:
@@ -95,65 +133,66 @@ def _requirement(values: dict, feature: dict, name: str, key: str) -> None:
     prefix = f"{name}_{key}"
     if key == "plane":
         return
+    if key.startswith("extent_"):
+        raise CadError(f"{where}: an extent widens the envelope; it is not printed")
+    if key not in feature:
+        raise CadError(f"{where}: missing drawing requirement")
+    value = feature[key]
     if key == "thru":
-        if feature.get("thru") is not True:
+        if value is not True:
             raise CadError(f"{where}: expected true")
         return
-    if key == "process":
-        values[prefix] = _string(feature.get(key), where)
-        return
-    value = feature.get(key)
     if key == "finish_ra":
         grade = _positive(value, where)
         if grade not in _RA_UIN:
             raise CadError(f"{where}: {grade:g} um is not a preferred Ra grade")
-        values[f"{prefix}_um"] = grade
-        values[f"{prefix}_uin"] = _RA_UIN[grade]
+        _bind(values, f"{prefix}_um", grade)
+        _bind(values, f"{prefix}_uin", _RA_UIN[grade])
+        return
+    if isinstance(value, str):
+        _bind(values, prefix, _string(value, where))
+        return
+    if _is_point(value):
+        _point(values, prefix, value, where)
         return
     if isinstance(value, list):
         band = _band(feature, key, name)
-        _inch_limits(values, prefix, band)
+        _limits(values, prefix, band)
         nominal = _nominal(feature, key, name)
         if nominal is None:
-            values[f"{prefix}_mm"] = band[0] / 2 + band[1] / 2
+            _bind(values, f"{prefix}_mm", _mid(band))
             return
         if not band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE:
             raise CadError(f"{where}: nominal {nominal:g} mm lies outside its band")
-        values[f"{prefix}_mm"] = nominal
-        values[f"{prefix}_nominal_in"] = nominal / 25.4
+        _bind(values, f"{prefix}_mm", nominal)
+        _bind(values, f"{prefix}_nominal_in", nominal / 25.4)
         return
-    if value is None or key not in feature:
-        raise CadError(f"{where}: missing drawing requirement")
-    number = _positive(value, where)
-    values[f"{prefix}_mm"] = number
-    values[f"{prefix}_in"] = number / 25.4
+    _number_binding(values, prefix, value, where)
 
 
 def _field(values: dict, name: str, key: str, value: object) -> None:
     where = f"{name}.{key}"
     prefix = f"{name}_{key}"
     if isinstance(value, str):
-        values[prefix] = _string(value, where)
+        _bind(values, prefix, _string(value, where))
     elif isinstance(value, bool):
-        values[prefix] = value
+        _bind(values, prefix, value)
     elif key == "axis":
-        values[f"{name}_axis"] = _axis(value, where)
-    elif key == "at" or (
-        isinstance(value, list) and len(value) == 3 and key.endswith("_at")
-    ):
-        point = _point(value, where)
-        head = name if key == "at" else prefix
-        for axis, coordinate in zip(_AXES, point, strict=True):
-            values[f"{head}_{axis}_mm"] = coordinate
-            values[f"{head}_{axis}_in"] = coordinate / 25.4
+        _bind(values, prefix, _axis(value, where))
+    elif _is_point(value):
+        _point(values, prefix, value, where)
     elif isinstance(value, list) and value and all(isinstance(i, str) for i in value):
-        values[prefix] = "|".join(_string(item, where) for item in value)
+        _bind(values, prefix, "|".join(_string(item, where) for item in value))
     elif isinstance(value, list):
-        values[f"{prefix}_mm"] = [_number(item, where) for item in value]
+        if len(value) != 2:
+            raise CadError(f"{where}: expected a point, a band or strings")
+        _bind(values, f"{prefix}_band_mm", [_number(item, where) for item in value])
     else:
-        number = _number(value, where)
-        values[f"{prefix}_mm"] = number
-        values[f"{prefix}_in"] = number / 25.4
+        _number_binding(values, prefix, value, where)
+
+
+def _widen(span: list, index: int, low: float, high: float) -> None:
+    span[index] = [min(span[index][0], low), max(span[index][1], high)]
 
 
 def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
@@ -175,33 +214,76 @@ def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
         raise CadError(f"{name}.requirements: expected a nonempty list of names")
     if "plane" in feature:
         index, value = _plane_value(feature, name)
-        values[f"{name}_plane_mm"] = value
-        span[index] = [min(span[index][0], value), max(span[index][1], value)]
+        _bind(values, f"{name}_plane_mm", value)
+        if feature["kind"] == "face":
+            _widen(span, index, value, value)
     elif "plane" in requirements:
         raise CadError(f"{name}.plane: missing drawing requirement")
-    if feature["kind"] == "hole":
-        for key in ("at", "axis", "dia"):
+    if feature["kind"] in ("hole", "threaded_hole"):
+        for key in ("at", "axis"):
             if key not in feature:
                 raise CadError(f"{name}.{key}: a hole needs its {key}")
     for key in requirements:
         _requirement(values, feature, name, key)
+    # A listed band's nominal binds with it.
+    nominals = {f"{key}_nominal" for key in requirements} | {
+        f"nominal_{key}" for key in requirements
+    }
     for key, value in feature.items():
-        if key in _SKIP or key in requirements:
+        if key in _SKIP or key in requirements or key in nominals:
             continue
-        if key.endswith("_from") and value not in features:
+        if key.endswith("_from") and (
+            not isinstance(value, str) or value not in features
+        ):
             raise CadError(f"{name}.{key}: {value!r} is not a declared feature")
-        extent = key.removeprefix("extent_")
-        if extent in _AXES:
+        if key.startswith("extent_"):
+            axis = key.removeprefix("extent_")
+            if axis not in _AXES:
+                raise CadError(f"{name}.{key}: expected extent_x, extent_y or extent_z")
             low, high = _band({"requirements": [key], key: value}, key, name)
-            index = _AXES.index(extent)
-            span[index] = [min(span[index][0], low), max(span[index][1], high)]
+            _widen(span, _AXES.index(axis), low, high)
             continue
         _field(values, name, key, value)
 
 
+def _stock(values: dict, parameters: dict, sizes: list[float]) -> StockRequirement:
+    """The stock axes along the bar the plan names; refuses a short blank."""
+    keys = ("blank_length_axis", "blank_thickness_axis")
+    if not _all_or_none(parameters, keys, "the bar's axes"):
+        raise CadError(
+            "process: flat_bar needs blank_length_axis and blank_thickness_axis "
+            "(0, 1, 2 for model X, Y, Z)"
+        )
+    length, thickness = (parameters[key] for key in keys)
+    if length not in (0, 1, 2) or thickness not in (0, 1, 2) or length == thickness:
+        raise CadError(
+            "process.blank_length_axis, blank_thickness_axis: expected two "
+            "different model axes, 0, 1 or 2"
+        )
+    width = 3 - length - thickness
+    axes = []
+    for role, index in zip(_ROLES, (length, width, thickness), strict=True):
+        size = sizes[index]
+        _bind(values, f"envelope_{role}_mm", size)
+        _bind(values, f"envelope_{role}_in", size / 25.4)
+        _bind(values, f"envelope_{role}_axis", _AXES[index].upper())
+        key = f"blank_{role}_in"
+        if key in parameters:
+            blank = _positive(parameters[key], f"process.{key}")
+            if blank * 25.4 < size - _TOLERANCE:
+                raise CadError(
+                    f"process.{key}: {blank:g} in is under the part's "
+                    f"{size / 25.4:.4f} in along model {_AXES[index].upper()}"
+                )
+            _bind(values, f"blank_{role}_mm", blank * 25.4)
+            _bind(values, f"stock_{role}_in", blank - size / 25.4)
+        axes.append(StockAxis(role, key, size))
+    return StockRequirement("in", tuple(axes))
+
+
 def load_flat_bar(path: Path, parameters: dict, part: str) -> CadData:
-    """Bind every declared feature's requirements, the envelope and, from
-    authored parameters, the blank."""
+    """Bind every declared feature's values, the envelope and, from authored
+    parameters, the bar's axes and the blank."""
     raw, values, features = _read_manifest(path, part, "flat_bar")
     _model_frame(raw)
     if not features:
@@ -221,36 +303,14 @@ def load_flat_bar(path: Path, parameters: dict, part: str) -> CadData:
     span = [[inf, -inf] for _axis in _AXES]
     for name in features:
         _bind_feature(values, features, name, span)
-    extents = []
+    sizes = []
     for axis, (low, high) in zip(_AXES, span, strict=True):
         if not low < high:
             raise CadError(
-                f"cad.features: no declared plane or extent_{axis} bounds the "
-                f"part along {axis.upper()}"
+                f"cad.features: no face plane or extent_{axis} bounds the part "
+                f"along {axis.upper()}"
             )
-        values[f"envelope_{axis}_mm"] = [low, high]
-        extents.append((high - low, axis))
-    (thickness, thin), (width, mid), (length, long) = sorted(extents)
-    for role, size, axis in (
-        ("length", length, long),
-        ("width", width, mid),
-        ("thickness", thickness, thin),
-    ):
-        values[f"envelope_{role}_mm"] = size
-        values[f"envelope_{role}_in"] = size / 25.4
-        values[f"envelope_{role}_axis"] = axis.upper()
-        if f"blank_{role}_in" in parameters:
-            blank = _positive(
-                parameters[f"blank_{role}_in"], f"process.blank_{role}_in"
-            )
-            values[f"stock_{role}_in"] = blank - size / 25.4
-    _blank_mm(values, parameters)
-    stock = StockRequirement(
-        "in",
-        (
-            StockAxis("length", "blank_length_in", length),
-            StockAxis("width", "blank_width_in", width),
-            StockAxis("thickness", "blank_thickness_in", thickness),
-        ),
-    )
+        _bind(values, f"envelope_{axis}_mm", [low, high])
+        sizes.append(high - low)
+    stock = _stock(values, parameters, sizes) if parameters else None
     return CadData(values, stock, path.resolve())
