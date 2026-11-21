@@ -45,7 +45,9 @@ empty) is what the part leaves with: square ends where no dome is done, and
 the faced length (both ends faced) or ``process.blank_length_in``. A feature
 not yet made is drawn at the size it arrives at. A form-cut dome
 (``process.dome_form_radius_in``) is labelled with the tool's R and its
-height at the root (``SR`` alone for a full hemisphere) and the form tool is
+height at the root (its range when formed per part on
+``process.dome_form_dia_min_in``–``_max_in``; ``SR`` alone for a full
+hemisphere) and the form tool is
 drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
@@ -718,7 +720,19 @@ def _left_length(values: dict, parameters: dict, made: set) -> str:
 
 def _dome_text(values: dict, prefix: str) -> list[str]:
     """A dome's radius and its height at the root: the form tool's when
-    form-cut, ``SR`` alone for a full hemisphere."""
+    form-cut (the range over the part's diameter when the plan forms it per
+    part), ``SR`` alone for a full hemisphere."""
+    if f"{prefix}_form_height_min_in" in values:
+        # Formed per part: no one height (nor a hemisphere on every part).
+        return [
+            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
+            (
+                f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
+                f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
+            ),
+            "at the root,",
+            "by the turned Ø",
+        ]
     if f"{prefix}_form_radius_in" in values:
         if (
             abs(

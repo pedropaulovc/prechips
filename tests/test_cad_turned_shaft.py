@@ -3,13 +3,14 @@ import math
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from prechips.cad import CadError
 from prechips.cad_diagrams import render_cad_svg
-from prechips.cad_turned_shaft import load_turned_shaft
+from prechips.cad_turned_shaft import _faced, load_turned_shaft
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples/cad/turned-shaft-v51.toml"
@@ -364,6 +365,52 @@ def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
     ):
         with pytest.raises(CadError, match=message):
             render_cad_svg(svg, cad, form)
+
+
+def test_a_dome_formed_per_part_prints_its_height_range():
+    plan = tomllib.loads((ROOT / "examples/demo-turned-pin.toml").read_text("utf-8"))
+    form = plan["parameters"] | {"dome_form_radius_in": 0.1}
+    per_part = form | {"dome_form_dia_min_in": 0.1102, "dome_form_dia_max_in": 0.112}
+    cad = load_turned_shaft(PIN, per_part, "demo-turned-pin")
+    # R.100 full on each pin's own Ø: the caps at the band's two ends.
+    low, high = (0.1 - math.sqrt(0.1**2 - (d / 2) ** 2) for d in (0.1102, 0.112))
+    assert cad.values["dome_datum_form_height_min_in"] == pytest.approx(low)
+    assert cad.values["dome_datum_form_height_max_in"] == pytest.approx(high)
+    # Every picture that labels the dome fits the four-line label.
+    for attrs in (
+        {"hold": "regrip", "out": "datum", "work": "face dome"},
+        {"hold": "bar", "out": "datum", "work": "face dome"},
+        {"hold": "inspect"},
+    ):
+        ranged = render_cad_svg(_svg(**attrs), cad, per_part).decode()
+        assert f"{low:.4f}–{high:.4f}".replace("0.", ".") + " high" in ranged
+    # Formed at nominal alone, the label keeps its one height.
+    svg = _svg(hold="regrip", out="datum", work="face dome")
+    single = render_cad_svg(svg, load_turned_shaft(PIN, form, "demo-turned-pin"), form)
+    assert "by the turned" not in single.decode()
+    band = {"dome_form_dia_min_in": 0.1102, "dome_form_dia_max_in": 0.112}
+    for parameters, message in (
+        (form | {"dome_form_dia_min_in": 0.1102}, "also need"),
+        (form | band | {"dome_form_dia_min_in": 0.105}, "must hold the nominal"),
+        (form | band | {"dome_form_dia_min_in": 0.1115}, "must hold the nominal"),
+        (plan["parameters"] | band, "bind only with dome_form_radius_in"),
+    ):
+        with pytest.raises(CadError, match=message):
+            load_turned_shaft(PIN, parameters, "demo-turned-pin")
+
+
+def test_a_dome_formed_per_part_narrows_the_faced_window():
+    # Faced = body + cap: the tallest cap on the low end, the shallowest high.
+    values = {
+        "length_mm": 100.0,
+        "body_length_band_mm": [98.5, 99.5],
+        "body_length_mm": 99.0,
+        "dome_far_form_height_mm": 1.0,
+        "dome_far_form_height_min_mm": 0.9,
+        "dome_far_form_height_max_mm": 1.1,
+    }
+    _faced(values)
+    assert values["faced_length_band_mm"] == pytest.approx([99.6, 100.4])
 
 
 def test_inspect_lands_a_diameter_leader_clear_of_the_holes_through_it():
