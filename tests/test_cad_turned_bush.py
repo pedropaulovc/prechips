@@ -401,6 +401,9 @@ def test_a_band_with_a_fit_prints_both():
     picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
     assert "Ø.417–.427" in picture
     assert ".0020–.0060 under its mate" in picture
+    # The cup's through hole is drilled: labelled a hole, not a bore.
+    assert "hole</text>" in picture
+    assert "bore</text>" not in picture
 
 
 def test_an_inspect_dimension_too_narrow_for_its_label_prints_it_beside():
