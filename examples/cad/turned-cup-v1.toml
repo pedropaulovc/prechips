@@ -1,0 +1,143 @@
+# Demo manifest in the CAD export format: a turned cup, its body turned to a measured counterbore, a pocket bored to a measured screw head, a drilled floor hole and two chamfers; demo identity, no source citations.
+"part" = "turned-cup"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-cup.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-CUP"
+"revision" = "v1"
+
+["material"]
+"spec" = "AISI 12L14 or 1018 cold-finished steel rod, 1/2 in"
+"name" = "AISI 12L14 or 1018 CF rod, 1/2 in"
+"finish" = "bright turned, oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. POCKET FOR DEMO-SCREW PIVOT SCREW HEAD: BORE TO THE", "   MEASURED HEAD, RUNNING FIT (CLEARANCE .008-.016).", "2. BODY: BONDED FIT IN DEMO-HANDLE CRANK HANDLE, EPOXY:", "   TURN TO THE MEASURED COUNTERBORE (CLEARANCE .002-.006)."]
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"outward" = [1.0, 0.0, 0.0]
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = -8.636 }
+"outward" = [-1.0, 0.0, 0.0]
+"length" = [8.382, 8.89]
+"length_nominal" = 8.636
+"length_from" = "datum_end"
+"precision" = { "length" = 2 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "diametral_clearance"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [-8.636, 0.0]
+"dia" = [10.5918, 10.8458]
+"dia_nominal" = 10.7188
+"diametral_clearance" = [0.0508, 0.1524]
+"mate" = "DEMO-HANDLE COUNTERBORE"
+"callout" = "SEE NOTE 2"
+"precision" = { "dia" = 3 }
+"faces" = ["F1"]
+
+["features"."pocket"]
+"kind" = "counterbore"
+"frame" = "model"
+"requirements" = ["diametral_clearance", "dia_max", "depth", "corner_radius_max"]
+"axis" = [-1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [-5.5118, 0.0]
+"dia_ref" = 6.2992
+"dia_max" = 6.5278
+"diametral_clearance" = [0.2032, 0.4064]
+"mate" = "DEMO-SCREW PIVOT SCREW HEAD"
+"depth" = [5.3848, 5.6388]
+"depth_nominal" = 5.5118
+"depth_from" = "datum_end"
+"corner_radius_max" = 0.1016
+"wall_min" = 1.524
+"callout" = "SEE NOTE 1\nWALL .060 MIN"
+"precision" = { "dia_ref" = 3, "depth" = 3, "corner_radius_max" = 3 }
+"faces" = ["F1"]
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru"]
+"axis" = [-1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [-8.636, -5.5118]
+"dia" = [4.0894, 4.191]
+"nominal_dia" = 4.0894
+"thru" = true
+"process" = "drill"
+"callout" = "DRILL THRU"
+"precision" = { "dia" = 3 }
+"faces" = ["F1"]
+
+["features"."chamfer_far"]
+"kind" = "chamfer"
+"frame" = "model"
+"requirements" = ["leg"]
+"leg" = [0.3048, 0.5588]
+"leg_nominal" = 0.4318
+"angle_deg" = 45.0
+"edge_of" = "outer"
+"at_end" = "far_end"
+"callout" = "X 45°\nCLEARS DEMO-HANDLE\nCOUNTERBORE CORNER"
+"precision" = { "leg" = 3 }
+"faces" = ["F1"]
+
+["features"."chamfer_bore"]
+"kind" = "chamfer"
+"frame" = "model"
+"requirements" = ["leg"]
+"leg" = [0.127, 0.254]
+"leg_nominal" = 0.1905
+"angle_deg" = 45.0
+"edge_of" = "bore"
+"at_end" = "pocket"
+"detail" = "B"
+"callout" = "X 45°\nCLEARS DEMO-SCREW\nUNDER-HEAD RADIUS"
+"precision" = { "leg" = 3 }
+"faces" = ["F1"]

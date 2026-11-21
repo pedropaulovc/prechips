@@ -1,0 +1,125 @@
+# Demo manifest in the CAD export format: a turned plug, a head and a spigot turned to a measured tube bore, tapped in its head end; demo identity, no source citations.
+"part" = "turned-plug"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-plug.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-PLUG"
+"revision" = "v1"
+
+["material"]
+"spec" = "AISI 1018 cold-drawn round, 5/8 in"
+"name" = "Plain Carbon Steel"
+"finish" = "bare, oiled (no plating)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. TURN SPIGOT TO MEASURED DEMO-TUBE BORE, CLEARANCE .004-.009,", "   FOR ITS LOCTITE 638 BOND INTO DEMO-TUBE AT DEMO-ASSY"]
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"outward" = [-1.0, 0.0, 0.0]
+"faces" = ["F1"]
+
+["features"."shoulder"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 15.239999999999998 }
+"outward" = [1.0, 0.0, 0.0]
+"station" = [14.986, 15.494]
+"station_nominal" = 15.239999999999998
+"station_from" = "datum_end"
+"precision" = { "station" = 2 }
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 25.907999999999998 }
+"outward" = [1.0, 0.0, 0.0]
+"length" = [25.654, 26.162]
+"length_nominal" = 25.907999999999998
+"length_from" = "datum_end"
+"precision" = { "length" = 2 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 15.239999999999998]
+"dia" = [12.446, 12.954]
+"dia_nominal" = 12.7
+"precision" = { "dia" = 2 }
+"faces" = ["F1"]
+
+["features"."step"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["diametral_clearance"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [15.239999999999998, 25.907999999999998]
+"dia_ref" = 9.220199999999998
+"diametral_clearance" = [0.1016, 0.2286]
+"mate" = "DEMO-TUBE BORE"
+"callout" = "SEE NOTE 1"
+"precision" = { "dia_ref" = 3 }
+"faces" = ["F1"]
+
+["features"."tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "thread_depth", "drill_depth"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"thread" = "#10-24 UNC-2B"
+"dia" = [3.797, 3.8986]
+"nominal_dia" = 3.797
+"thread_depth" = [10.922, 11.43]
+"thread_depth_nominal" = 11.176
+"drill_depth" = [13.97, 14.478]
+"drill_depth_nominal" = 14.224
+"depth_from" = "datum_end"
+"tap" = "bottoming"
+"engagement_min" = 5.600699999999998
+"mates" = "DEMO-SCREW"
+"callout" = "FOR DEMO-SCREW\nENGAGEMENT .220 MIN (1.16D)"
+"precision" = { "dia" = 3, "thread_depth" = 2, "drill_depth" = 2 }
+"faces" = ["F1"]
