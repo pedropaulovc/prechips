@@ -457,6 +457,8 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     if not isinstance(material, dict):
         raise CadError("cad.material: expected a table")
     values["material_spec"] = _string(material.get("spec"), "cad.material.spec")
+    # What the drawing's MATERIAL cell prints (as fence_plate binds it).
+    values["material_name"] = _string(material.get("name"), "cad.material.name")
     values["finish"] = _string(material.get("finish"), "cad.material.finish")
     _edge_breaks(raw, values)
     shape = _Shape()
