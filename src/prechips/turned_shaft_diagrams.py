@@ -45,7 +45,9 @@ empty) is what the part leaves with: square ends where no dome is done, and
 the faced length (both ends faced) or ``process.blank_length_in``. A feature
 not yet made is drawn at the size it arrives at. A form-cut dome
 (``process.dome_form_radius_in``) is labelled with the tool's R and its
-height at the root (``SR`` alone for a full hemisphere) and the form tool is
+height at the root (``SR`` alone for a full hemisphere; over a banded blank,
+the heights it leaves on the least and greatest Ø, "by the blank's Ø") and
+the form tool is
 drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
@@ -718,8 +720,17 @@ def _left_length(values: dict, parameters: dict, made: set) -> str:
 
 def _dome_text(values: dict, prefix: str) -> list[str]:
     """A dome's radius and its height at the root: the form tool's when
-    form-cut, ``SR`` alone for a full hemisphere."""
+    form-cut (over a banded blank, the heights it leaves on its least and
+    greatest Ø), ``SR`` alone for a full hemisphere."""
     if f"{prefix}_form_radius_in" in values:
+        low, high = values.get(f"{prefix}_form_height_band_mm", (0.0, 0.0))
+        if (high - low) / 25.4 > 1e-4:
+            # A banded blank: the height the tool leaves follows its Ø.
+            return [
+                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
+                f"{_band(f'{prefix}_form_height', 4)} high",
+                "by the blank's Ø",
+            ]
         if (
             abs(
                 values[f"{prefix}_form_radius_mm"] - values[f"{prefix}_root_dia_mm"] / 2
@@ -727,17 +738,6 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
             < 1e-3
         ):
             return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
-        low, high = values.get(f"{prefix}_form_height_band_mm", (0.0, 0.0))
-        if (high - low) / 25.4 > 1e-4:
-            # A banded blank: the height the tool leaves follows its Ø.
-            return [
-                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
-                (
-                    f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
-                    f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
-                ),
-                "by the blank's Ø",
-            ]
         return [
             f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",

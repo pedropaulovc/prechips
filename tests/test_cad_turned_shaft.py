@@ -293,13 +293,16 @@ def test_pictures_take_a_shim_wrap_and_read_lengths_from_the_far_end():
         render_cad_svg(_svg(hold="inspect", wrap="shim"), cad, BLANK)
 
 
-@pytest.mark.parametrize("form", [0.08, 0.12])
-def test_a_form_tool_at_either_end_of_the_radius_band_is_accepted(form):
-    # Its cap is checked against the exact band, not the inward-printed one.
-    values = load_turned_shaft(
-        PIN, BAR | {"dome_form_radius_in": form}, "demo-turned-pin"
-    ).values
-    assert values["dome_datum_form_radius_in"] == form
+def test_a_form_tool_is_checked_on_every_blank_against_the_exact_band():
+    # R.0815 leaves up to .0223 on the greatest Ø.1120 blank: inside the
+    # exact .0136-.0224 the R.080-.120 band gives at nominal, outside its
+    # inward-printed .014-.022.
+    form = BAR | {"dome_form_radius_in": 0.0815}
+    values = load_turned_shaft(PIN, form, "demo-turned-pin").values
+    assert values["dome_datum_form_height_max_in"] > 0.022
+    # R.080 on the greatest blank cuts over the band's top.
+    with pytest.raises(CadError, match="outside the drawing's height band"):
+        load_turned_shaft(PIN, BAR | {"dome_form_radius_in": 0.08}, "demo-turned-pin")
 
 
 def test_a_band_too_narrow_for_a_thousandth_prints_exact(tmp_path):

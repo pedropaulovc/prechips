@@ -285,27 +285,29 @@ def _form(
         return
     form = _positive(parameters["dome_form_radius_in"], "process.dome_form_radius_in")
     radius = form * 25.4
-    if radius < root - _TOLERANCE:
+    if radius < roots[1] - _TOLERANCE:
         raise CadError(
-            f"process.dome_form_radius_in: R{form:.4f} is under the "
-            f"Ø{2 * root / 25.4:.4f} it domes"
+            f"process.dome_form_radius_in: R{form:.4f} is under the greatest "
+            f"Ø{2 * roots[1] / 25.4:.4f} it domes"
         )
-    height = _cap(radius, min(root, radius))
+    height = _cap(radius, root)
+    # The caps it leaves on the least and greatest blank.
+    caps = [_cap(radius, r) for r in roots]
     low, high = values[f"{prefix}_height_band_mm"]
-    if low < high and not low - _STATION <= height <= high + _STATION:
+    if low < high and not (low - _STATION <= caps[0] and caps[1] <= high + _STATION):
         raise CadError(
-            f"process.dome_form_radius_in: its {height / 25.4:.4f} high {prefix} "
-            "is outside the drawing's height band"
+            f"process.dome_form_radius_in: its {caps[0] / 25.4:.4f}-"
+            f"{caps[1] / 25.4:.4f} high {prefix} is outside the drawing's "
+            "height band"
         )
     values[f"{prefix}_form_radius_mm"] = radius
     values[f"{prefix}_form_radius_in"] = form
     values[f"{prefix}_form_height_mm"] = height
     values[f"{prefix}_form_height_in"] = height / 25.4
     if roots[1] > roots[0]:
-        low, high = (_cap(radius, min(r, radius)) for r in roots)
-        values[f"{prefix}_form_height_band_mm"] = [low, high]
-        values[f"{prefix}_form_height_min_in"] = low / 25.4
-        values[f"{prefix}_form_height_max_in"] = high / 25.4
+        values[f"{prefix}_form_height_band_mm"] = caps
+        values[f"{prefix}_form_height_min_in"] = caps[0] / 25.4
+        values[f"{prefix}_form_height_max_in"] = caps[1] / 25.4
 
 
 def _steps(values: dict, parameters: dict) -> None:
@@ -783,7 +785,10 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         roots = (low / 2, max(high / 2, radius, major / 2))
         _dome(features[side], side, values, radius, roots)
         if "dome_form_radius_in" in parameters:
-            _form(values, parameters, _DOMES[side], radius, (low / 2, high / 2))
+            # The blank's range, its nominal included (a thread's may sit at
+            # the basic major above the band).
+            blank = (min(low / 2, radius), max(high / 2, radius))
+            _form(values, parameters, _DOMES[side], radius, blank)
         if side == "datum_end":
             start = values["dome_datum_root_z_mm"]
         else:
