@@ -63,10 +63,11 @@ _DRILL_POINT = 0.5 / math.tan(math.radians(59))
 
 
 def _least_length(values: dict) -> float:
-    """The shortest the part may be: its length band's low end or supply minimum."""
+    """The shortest the part may be: its length band's low end, supply minimum
+    or, for a REF length, the length itself."""
     if "length_band_mm" in values:
         return values["length_band_mm"][0]
-    return values["length_min_mm"]
+    return values.get("length_min_mm", values["length_mm"])
 
 
 def _frame(features: dict) -> tuple[int, float, float]:
@@ -349,6 +350,77 @@ def _chamfer(item: dict, name: str, features: dict, values: dict) -> None:
             raise CadError(f"{name}.{key}: expected a feature of this part")
 
 
+def _bar_size(values: dict, name: str, bar_mm: float, key: str) -> None:
+    """Check a diameter left as bought or as supplied against its bar."""
+    if values[f"{name}_stock"] and abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
+        raise CadError(
+            f"process.{key}: {name} is left as bought at "
+            f"{values[f'{name}_ref_in']:.4f} in, not this bar"
+        )
+    if values.get(f"{name}_as_supplied"):
+        low, high = values[f"{name}_dia_band_mm"]
+        # The slack absorbs inch-to-mm conversion noise at the edges.
+        if not low - _TOLERANCE <= bar_mm <= high + _TOLERANCE:
+            raise CadError(
+                f"process.{key}: {name} is left as supplied, so its bar must "
+                f"lie inside its band {low / 25.4:.4f}-{high / 25.4:.4f} in"
+            )
+        # Not turned: the diameter, and the least it is cut, are the bar's.
+        values[f"{name}_dia_mm"] = bar_mm
+        values[f"{name}_turn_min_mm"] = bar_mm
+
+
+def _lathe_z(values: dict, name: str) -> None:
+    """The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
+    away from the chuck), with either end of the part out."""
+    z0, z1, length = (
+        values[f"{name}_z0_mm"],
+        values[f"{name}_z1_mm"],
+        values["length_mm"],
+    )
+    values[f"{name}_datum_out_near_z_mm"] = -z0
+    values[f"{name}_datum_out_far_z_mm"] = -z1
+    values[f"{name}_far_out_near_z_mm"] = z1 - length
+    values[f"{name}_far_out_far_z_mm"] = z0 - length
+
+
+def _as_supplied(parameters: dict, sizes: dict, values: dict) -> list[str]:
+    """``as_supplied_<name> = 1``: a banded diameter the bar already lies
+    inside, left as supplied, so the bar need reach only the band's low end
+    (checked in _bar_size). Plan parameters are numbers, hence the 0/1 flag."""
+    supplied = []
+    for key in sorted(k for k in parameters if k.startswith("as_supplied_")):
+        name = key.removeprefix("as_supplied_")
+        if parameters[key] not in (0, 1) or isinstance(parameters[key], bool):
+            raise CadError(f"process.{key}: expected 0 or 1")
+        if name not in sizes or f"{name}_dia_band_mm" not in values:
+            raise CadError(f"process.{key}: {name!r} is not a banded diameter")
+        if parameters[key]:
+            supplied.append(name)
+            values[f"{name}_as_supplied"] = True
+            sizes[name] = values[f"{name}_dia_band_mm"][0]
+    return supplied
+
+
+def _rough_sizes(
+    parameters: dict, values: dict, sizes: dict, turned: list[str], supplied: list
+) -> None:
+    """With ``finish_allowance_in``, each turned diameter's rough size."""
+    if "finish_allowance_in" not in parameters:
+        return
+    allowance = _positive(
+        parameters["finish_allowance_in"], "process.finish_allowance_in"
+    )
+    for name in turned:
+        if f"{name}_turn_min_mm" in values and name not in supplied:
+            # Roughed to this, a side's allowance over its smallest size.
+            values[f"{name}_rough_dia_mm"] = (
+                values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
+            )
+            # The bar must also reach the rough size it is roughed to.
+            sizes[name] = max(sizes[name], values[f"{name}_rough_dia_mm"])
+
+
 def _count(parameters: dict, key: str) -> int:
     value = _positive(parameters[key], f"process.{key}")
     if value != int(value):
@@ -385,22 +457,7 @@ def _bar(
             axes.append(StockAxis(f"{name} diameter", key, sizes[name]))
         # The plan parameter naming this diameter's bar, for its pictures.
         values[f"{name}_stock_key"] = key
-        if values[f"{name}_stock"] and abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
-            raise CadError(
-                f"process.{key}: {name} is left as bought at "
-                f"{values[f'{name}_ref_in']:.4f} in, not this bar"
-            )
-        if values.get(f"{name}_as_supplied"):
-            low, high = values[f"{name}_dia_band_mm"]
-            # The slack absorbs inch-to-mm conversion noise at the edges.
-            if not low - _TOLERANCE <= bar_mm <= high + _TOLERANCE:
-                raise CadError(
-                    f"process.{key}: {name} is left as supplied, so its bar must "
-                    f"lie inside its band {low / 25.4:.4f}-{high / 25.4:.4f} in"
-                )
-            # Not turned: the diameter, and the least it is cut, are the bar's.
-            values[f"{name}_dia_mm"] = bar_mm
-            values[f"{name}_turn_min_mm"] = bar_mm
+        _bar_size(values, name, bar_mm, key)
     length = values["length_mm"]
     values["face_allowance_mm"] = face * 25.4
     values["regrip_allowance_mm"] = regrip * 25.4
@@ -424,12 +481,7 @@ def _bar(
         values[f"{name}_stickout_far_mm"] = (
             length - min(z1, z0 + grip_mm) + regrip * 25.4
         )
-        # The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
-        # away from the chuck), with either end of the part out.
-        values[f"{name}_datum_out_near_z_mm"] = -z0
-        values[f"{name}_datum_out_far_z_mm"] = -z1
-        values[f"{name}_far_out_near_z_mm"] = z1 - length
-        values[f"{name}_far_out_far_z_mm"] = z0 - length
+        _lathe_z(values, name)
     clear = 0.0
     if _all_or_none(parameters, _PULL, "the parts out of the jaws"):
         pull = _count(parameters, "parts_per_pull")
@@ -517,20 +569,7 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     for name in turned:
         if name.startswith("outer_"):
             _tiles(values, [name, *(["step"] if "step" in sizes else [])])
-    # ``as_supplied_<name> = 1``: a banded diameter the bar already lies
-    # inside, left as supplied, so the bar need reach only the band's low end
-    # (checked in _bar). Plan parameters are numbers, hence the 0/1 flag.
-    supplied = []
-    for key in sorted(k for k in parameters if k.startswith("as_supplied_")):
-        name = key.removeprefix("as_supplied_")
-        if parameters[key] not in (0, 1) or isinstance(parameters[key], bool):
-            raise CadError(f"process.{key}: expected 0 or 1")
-        if name not in sizes or f"{name}_dia_band_mm" not in values:
-            raise CadError(f"process.{key}: {name!r} is not a banded diameter")
-        if parameters[key]:
-            supplied.append(name)
-            values[f"{name}_as_supplied"] = True
-            sizes[name] = values[f"{name}_dia_band_mm"][0]
+    supplied = _as_supplied(parameters, sizes, values)
     members_found, members_outer = [], []
     for name in turned:
         configuration = features[name].get("configuration")
@@ -569,18 +608,7 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
     _edge_breaks(raw, values)
-    if "finish_allowance_in" in parameters:
-        allowance = _positive(
-            parameters["finish_allowance_in"], "process.finish_allowance_in"
-        )
-        for name in turned:
-            if f"{name}_turn_min_mm" in values and name not in supplied:
-                # Roughed to this, a side's allowance over its smallest size.
-                values[f"{name}_rough_dia_mm"] = (
-                    values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
-                )
-                # The bar must also reach the rough size it is roughed to.
-                sizes[name] = max(sizes[name], values[f"{name}_rough_dia_mm"])
+    _rough_sizes(parameters, values, sizes, turned, supplied)
     # The default member's bar or blank: the other members bring their own.
     least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
     axes: list[StockAxis] = []
