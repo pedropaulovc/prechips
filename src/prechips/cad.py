@@ -251,6 +251,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_clamp_half import load_clamp_half
 
         return load_clamp_half(path, parameters, part)
+    if adapter == "drilled_block":
+        from prechips.cad_drilled_block import load_drilled_block
+
+        return load_drilled_block(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

@@ -1,0 +1,97 @@
+# Demo manifest in the CAD export format: a turned disc with an eccentric reamed bore and a radial tapped hole into it, demo identity, no source citations.
+"part" = "drilled-disc"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "drilled-disc.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-DRILLED-DISC"
+"revision" = "v51"
+
+["material"]
+"spec" = "1018 cold-finished steel"
+"name" = "1018 cold-finished steel"
+"finish" = "bright machined; oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "Turned from round bar; eccentric bore reamed; radial hole drilled and tapped into the bore."
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."back_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0 }
+
+["features"."front_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 8.89 }
+
+["features"."outside"]
+"kind" = "outside_cylinder"
+"frame" = "model"
+"requirements" = ["dia", "length"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [0, 0, 1]
+"dia" = [14.5542, 14.6558]
+"nominal_dia" = 14.605
+"length" = [8.636, 9.144]
+"length_nominal" = 8.89
+"precision" = { "dia" = 3, "length" = 2 }
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "wall"]
+"at" = [0.0, -2.1082, 8.89]
+"axis" = [0, 0, -1]
+"dia" = [6.3754, 6.3881]
+"nominal_dia" = 6.3754
+"process" = "ream"
+"thru" = true
+"wall" = [1.9558, 2.0574]
+"wall_nominal" = 2.0066
+"precision" = { "dia" = 4, "wall" = 3 }
+
+["features"."radial_tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "station"]
+"at" = [0.0, -7.3025, 4.064]
+"axis" = [0, 1, 0]
+"thread" = "#2-56 UNC-2B"
+"dia" = [1.778, 1.8796]
+"into" = "bore"
+"station" = [3.81, 4.318]
+"station_nominal" = 4.064
+"station_from" = "back_face"
+"precision" = { "dia" = 3, "station" = 2 }
