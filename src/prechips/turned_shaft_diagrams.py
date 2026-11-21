@@ -179,8 +179,10 @@ def _meridian(values: dict, made: set, *, flats: bool = False) -> Profile:
 
 
 def _cap(values: dict, prefix: str, apex: float, inward: int) -> Profile:
-    """A dome's meridian from its apex to its root, as stations."""
-    radius, height = values[f"{prefix}_radius_mm"], values[f"{prefix}_height_mm"]
+    """A dome's meridian from its apex to its root, as stations; a form-cut
+    dome's is the tool's."""
+    radius = values.get(f"{prefix}_form_radius_mm", values[f"{prefix}_radius_mm"])
+    height = values.get(f"{prefix}_form_height_mm", values[f"{prefix}_height_mm"])
     return [
         (apex + inward * s, math.sqrt(max(s * (2 * radius - s), 0.0)))
         for s in (height * i / _ARC for i in range(_ARC + 1))
@@ -415,6 +417,20 @@ def _lathe(
         x = view.x(face) + 4
         groups["cutter"].append(
             _el("path", d=f"M{x:.2f} {bottom + 6:.2f}l18 5v28h-18z")
+        )
+    prefix = f"dome_{out}"
+    if "dome" in work and f"{prefix}_form_radius_mm" in values:
+        # The form tool, its concave face standing off the dome it cuts.
+        apex = 0.0 if out == "datum" else length
+        cap = _cap(values, prefix, apex, 1 if out == "datum" else -1)
+        gap = face * scale + 8
+        top_side = [(view.x(z_of(s)) + gap, view.up(r)) for s, r in reversed(cap)]
+        bottom_side = [(view.x(z_of(s)) + gap, view.down(r)) for s, r in cap]
+        back = max(x for x, _ in top_side) + 24
+        corners = [(back, bottom_side[-1][1]), (back, top_side[0][1])]
+        points = top_side + bottom_side + corners
+        groups["cutter"].append(
+            _el("path", d="M" + "L".join(_pt(*p) for p in points) + "Z")
         )
     if "part" in work:
         line = -length - float(values.get("regrip_allowance_mm", 0.0))
@@ -819,11 +835,11 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
         raise CadError("turned-shaft: the vise jaws end before they start")
     left, right = min(0.0, jaw_from), max(length, jaw_from + jaw_width)
     scale, radial = _slender(values, right - left, 470.0)
-    view = _View(60.0, left, scale, radial, length if x0 == "far" else None)
+    view = _View(100.0, left, scale, radial, length if x0 == "far" else None)
 
     def px(x: float) -> float:
         """X along the vise from the X0 end, in px."""
-        return 60.0 + (x - left) * scale
+        return 100.0 + (x - left) * scale
 
     _title(groups, 20, 24, _TITLES["vise"] + _exaggerated(scale, radial))
     profile = _meridian(values, made)
@@ -855,7 +871,8 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     _holes(groups, values, view, normal)
     end = view.x(0.0 if x0 == "datum" else length)
     groups["datum"].append(_line(end, top - 24, end, bottom + 24))
-    _datum_label(groups, end + 4, top - 28, f"X0 {x0} end", "start")
+    # Left of its line, clear of the flats' leaders.
+    _datum_label(groups, end - 4, top - 28, f"X0 {x0} end", "end")
     # The flats' stations, each from the end its drawing states.
     origins = {
         "datum_end": 0.0,

@@ -56,7 +56,7 @@ def test_shaft_domes_flats_and_cross_hole():
     assert (values["outer_z0_mm"], values["outer_z1_mm"]) == pytest.approx(
         (3.175, 177.396722)
     )
-    assert values["faced_length_band_mm"] == [177.546, 178.054]
+    assert values["faced_length_band_mm"] == pytest.approx([177.546, 178.054])
     # Four steps in five equal Z steps, each shoulder corner on the sphere.
     assert values["dome_datum_step_1_z_in"] == pytest.approx(0.1)
     assert values["dome_datum_step_3_dia_in"] == pytest.approx(0.2)

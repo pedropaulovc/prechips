@@ -365,9 +365,16 @@ def _faced(values: dict) -> None:
             f"far_end: no faced length within both the {key} and body bands at "
             f"{nominal:.4f}"
         )
-    _inch_limits(values, "faced_length", (low, high))
-    values["faced_length_mm"] = nominal
-    values["faced_length_in"] = nominal / 25.4
+    # Printed at .001 in: the band rounded inward and the nominal to .001,
+    # so what the operator reads is inside both bands.
+    low_in = math.ceil(low / 25.4 * 1000 - 1e-6) / 1000
+    high_in = math.floor(high / 25.4 * 1000 + 1e-6) / 1000
+    if low_in > high_in:
+        raise CadError("far_end: the faced length band holds no .001 in reading")
+    nominal_in = min(max(round(nominal / 25.4, 3), low_in), high_in)
+    _inch_limits(values, "faced_length", (low_in * 25.4, high_in * 25.4))
+    values["faced_length_mm"] = nominal_in * 25.4
+    values["faced_length_in"] = nominal_in
 
 
 def _thread(item: dict, name: str, values: dict, start: float, end: float) -> None:
