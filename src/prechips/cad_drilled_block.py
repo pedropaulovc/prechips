@@ -130,6 +130,10 @@ def _bands(name: str, feature: dict, values: dict) -> None:
         if not _is_band(value):
             if isinstance(value, (str, bool)) or type(value) in (int, float):
                 _bind(values, f"{name}_{key}", value)
+            # A one-sided limit (a least wall, a largest corner radius) is a
+            # length: it prints in either unit, as a band's ends do.
+            if type(value) in (int, float) and key.endswith(("_min", "_max")):
+                _bind_mm(values, f"{name}_{key}", float(value))
             continue
         band = _band(feature, key, name)
         _bind(values, f"{name}_{key}_in", _mid(band) / 25.4)

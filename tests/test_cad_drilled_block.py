@@ -337,3 +337,18 @@ def test_an_axis_no_outside_face_bounds_is_refused(tmp_path):
         CadError, match="^cad.features: no outside face or round bounds x$"
     ):
         load_drilled_block(path, {}, "drilled-bracket")
+
+
+def test_a_one_sided_limit_binds_in_both_units(tmp_path):
+    path = _variant(
+        tmp_path,
+        DISC,
+        '"requirements" = ["dia", "thru", "wall"]',
+        '"requirements" = ["dia", "thru", "wall", "thin_wall_min"]',
+        '"wall_nominal" = 2.0066',
+        '"wall_nominal" = 2.0066\n"thin_wall_min" = 2.02438',
+    )
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    assert values["bore_thin_wall_min"] == 2.02438
+    assert values["bore_thin_wall_min_mm"] == 2.02438
+    assert values["bore_thin_wall_min_in"] == pytest.approx(0.0797)
