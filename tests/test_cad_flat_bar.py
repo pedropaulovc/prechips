@@ -88,6 +88,7 @@ def test_the_plan_names_the_bar_not_the_ranking(tmp_path):
         ({"quantity": 1}, "needs blank_length_axis and blank_thickness_axis"),
         ({"blank_length_axis": 1}, "also need blank_thickness_axis"),
         ({"blank_length_axis": 1, "blank_thickness_axis": 1}, "two different"),
+        ({"blank_length_axis": 1.0, "blank_thickness_axis": 2}, "two different"),
         ({**BAR, "blank_length_in": 5.9}, "under the part's 6.0000 in along model Y"),
     ],
 )

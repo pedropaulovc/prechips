@@ -255,7 +255,10 @@ def _stock(values: dict, parameters: dict, sizes: list[float]) -> StockRequireme
             "(0, 1, 2 for model X, Y, Z)"
         )
     length, thickness = (parameters[key] for key in keys)
-    if length not in (0, 1, 2) or thickness not in (0, 1, 2) or length == thickness:
+    axes_ok = all(
+        type(value) is int and value in (0, 1, 2) for value in (length, thickness)
+    )
+    if not axes_ok or length == thickness:
         raise CadError(
             "process.blank_length_axis, blank_thickness_axis: expected two "
             "different model axes, 0, 1 or 2"
