@@ -823,10 +823,39 @@ def _inspect(
                 [f"{f.removeprefix('flat_')}: {_band(f'{f}_across')} across"],
             )
         )
+    holes = [
+        h
+        for h in _names(values, "cross_hole", "_z_mm")
+        if not (as_left and values[f"{h}_made_at"] == "assembly")
+    ]
+    # A diameter's leader lands on its outline clear of every hole through
+    # it: at its middle when that is clear, else the middle of the longest
+    # clear stretch (the middle again when no stretch is clear).
+    spans = [
+        (view.x(values[f"{h}_z_mm"]), values[f"{h}_dia_mm"] / 2 * scale + 6)
+        for h in holes
+    ]
     for name in _diameters(values):
-        a, b = view.x(values[f"{name}_z0_mm"]), view.x(values[f"{name}_z1_mm"])
+        a, b = sorted(
+            (view.x(values[f"{name}_z0_mm"]), view.x(values[f"{name}_z1_mm"]))
+        )
+        clear = [(a, b)]
+        for hx, reach in spans:
+            clear = [
+                (lo, hi)
+                for start, end in clear
+                for lo, hi in (
+                    (start, min(end, hx - reach)),
+                    (max(start, hx + reach), end),
+                )
+                if hi > lo
+            ]
+        x = (a + b) / 2
+        if clear and not any(lo <= x <= hi for lo, hi in clear):
+            lo, hi = max(clear, key=lambda s: s[1] - s[0])
+            x = (lo + hi) / 2
         text = _size(values, name)
-        below.append(((a + b) / 2, view.down(values[f"{name}_dia_mm"] / 2), text))
+        below.append((x, view.down(values[f"{name}_dia_mm"] / 2), text))
     for g in _names(values, "groove", "_width_mm"):
         a, b = view.x(values[f"{g}_z0_mm"]), view.x(values[f"{g}_z1_mm"])
         below.append(
@@ -836,9 +865,7 @@ def _inspect(
                 [f"groove Ø{_band(f'{g}_dia')}"],
             )
         )
-    for h in _names(values, "cross_hole", "_z_mm"):
-        if as_left and values[f"{h}_made_at"] == "assembly":
-            continue
+    for h in holes:
         text = [f"Ø{{{{cad.{h}_dia_min_in:.4dot}}}}"]
         if values[f"{h}_made_at"] == "assembly":
             text.append("at assembly")

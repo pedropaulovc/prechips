@@ -364,3 +364,26 @@ def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
     ):
         with pytest.raises(CadError, match=message):
             render_cad_svg(svg, cad, form)
+
+
+def test_inspect_lands_a_diameter_leader_clear_of_the_holes_through_it():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    values = cad.values
+    mid = (values["outer_z0_mm"] + values["outer_z1_mm"]) / 2
+    for stations in ([mid], [mid, mid + 8.0]):
+        for n, z in enumerate(stations):
+            name = "cross_hole" if n == 0 else f"cross_hole{n + 1}"
+            for key in [k for k in list(values) if k.startswith("cross_hole_")]:
+                values[name + key.removeprefix("cross_hole")] = values[key]
+            values[f"{name}_z_mm"] = z
+        svg = render_cad_svg(_svg(hold="inspect"), cad, BLANK).decode()
+        dots = [
+            (float(x), float(y))
+            for x, y in re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="1.8"', svg)
+        ]
+        holes = [x for x, y in dots if y == 276.0]
+        # Each hole keeps its own leader from below; the O.D.'s (the lowest
+        # dot) lands on the rod's outline, clear of every hole's edge.
+        assert len(holes) == len(stations)
+        od = max(dots, key=lambda d: d[1])[0]
+        assert 80 < od < 640 and min(abs(od - x) for x in holes) > 8.5
