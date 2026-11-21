@@ -157,16 +157,27 @@ def _holes(groups: Groups, values: dict, page: _Page, shift: float, holes: set) 
 
 
 def _chuck(
-    groups: Groups, page: _Page, x0: float, x1: float, radius: float, shim: float
+    groups: Groups,
+    page: _Page,
+    x0: float,
+    x1: float,
+    radius: float,
+    shim: float,
+    back: float = 0.0,
 ) -> None:
-    """Chuck body and the upper and lower jaws gripping ``radius`` from x0 to x1."""
+    """Chuck body and the upper and lower jaws gripping ``radius`` from x0 to x1.
+
+    ``back`` stands the body that far behind x0, the jaws running out to the
+    grip: nothing behind the part seats it.
+    """
     top, bottom = page.up(radius) - shim, 2 * _AXIS - page.up(radius) + shim
+    body = x0 - back
     groups["fixture-vise"].append(
-        _rect(x0 - _CHUCK, top - _JAW - 8, _CHUCK, bottom - top + 2 * _JAW + 16)
+        _rect(body - _CHUCK, top - _JAW - 8, _CHUCK, bottom - top + 2 * _JAW + 16)
     )
     groups["clamp"] += [
-        _rect(x0, top - _JAW, x1 - x0, _JAW),
-        _rect(x0, bottom, x1 - x0, _JAW),
+        _rect(body, top - _JAW, x1 - body, _JAW),
+        _rect(body, bottom, x1 - body, _JAW),
     ]
     if shim:
         # Shims are work holders too (the palette's ``clamp``); a callout
