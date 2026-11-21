@@ -35,6 +35,8 @@ jaw_clearance_in = 0.1
 tap_lead_in = 0.0625
 rough_radial_doc_mm = 0.5
 finish_radial_doc_mm = 0.05
+# Left a side on the spigot for its finish passes.
+finish_allowance_in = 0.005
 turn_feed_mm_rev = 0.1016
 turn_start_z_mm = 0.5
 
@@ -78,7 +80,7 @@ machine_ref = "pm-1127vf-lb"
 holding = "3-jaw on the bar; {{cad.stickout_in:.2dot}} in out of the jaws."
 datum = "Z0 the spigot end faced square; the head end is made in Setup 2."
 diagram = { file = "diagrams/demo-turned-plug/bar.svg", alt = "The bar in the 3-jaw, spigot end out: the end faced, the head and the spigot turned, the part parted off long at the head end." }
-lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.step_dia_mm}}", support = "none" }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.step_turn_min_mm}}", support = "none" }
 turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.jaw_z_mm}}" }
 
 [[setups.operations]]
@@ -98,7 +100,7 @@ cut_diameter_mm = "{{cad.stock_dia_mm}}"
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Head", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.run_end_z_mm}}", kept_start_z_mm = "{{cad.outer_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.kept_end_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.outer_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}" },
+  { name = "Head", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.run_end_z_mm}}", kept_start_z_mm = "{{cad.outer_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.kept_end_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.outer_turn_min_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.outer_turn_min_mm}}" },
 ]
 speed_kind = "spindle"
 tool = "ar"
@@ -113,13 +115,14 @@ gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.outer_dia_band_mm}}" }
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Spigot", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_dia_mm}}", end_diameter_mm = "{{cad.step_dia_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_dia_mm}}" },
+  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_rough_dia_mm}}" },
+  { name = "Spigot finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_turn_min_mm}}" },
 ]
 speed_kind = "spindle"
 tool = "ar"
 drilling = "none"
 sizing = "other"
-instruction = "Turn the spigot to the measured bore less the clearance, from the end to the shoulder at Z{{cad.step_far_out_far_z_mm:in.3dot}}."
+instruction = "Rough the spigot to Ø{{cad.step_rough_dia_mm:in.3dot}}, then finish it to the measured bore less the clearance, from the end to the shoulder at Z{{cad.step_far_out_far_z_mm:in.3dot}}."
 settings = "shaft-face-carbide-1018"
 cut_diameter_mm = "{{cad.step_dia_mm}}"
 inspection = "Spigot: the bore less {{cad.step_clearance_min_in:.4dot}}–{{cad.step_clearance_max_in:.4dot}}."
@@ -144,7 +147,7 @@ machine_ref = "pm-1127vf-lb"
 holding = "3-jaw on the spigot over a shim wrap, the shoulder against the jaws."
 datum = "Z0 the head end, faced in this setup."
 diagram = { file = "diagrams/demo-turned-plug/regrip.svg", alt = "The part turned round, gripped on the spigot over a shim wrap; the head end faced to length, centre drilled, drilled and tapped from the tailstock." }
-lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.step_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.step_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}", support = "none" }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.step_turn_min_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.step_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}", support = "none" }
 
 [[setups.operations]]
 cut_kind = "other"

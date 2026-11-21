@@ -8,7 +8,8 @@ names how the work is held:
   default) out past the jaws, each a ``cad.pitch_mm`` along the bar;
 - ``block``: a squared blank (``process.blank_side_in``) in the 4-jaw;
 - ``regrip``: the parted part turned round, the jaws on its ``data-grip``
-  diameter over a shim wrap, ``process.face_allowance_in`` on its out end;
+  diameter over a shim wrap, ``cad.regrip_allowance_mm`` (left on by the
+  parting) on its out end to face;
 - ``mandrel``: the squared blank on a bolt through its bore, the bolt in the
   chuck, a washer and nut on each face;
 - ``inspect``: the finished part alone with its printed sizes.
@@ -16,7 +17,9 @@ names how the work is held:
 ``data-out`` (``datum`` or ``far``) names the part's end toward the
 tailstock; ``data-work`` lists what the setup does, from ``face``,
 ``centre``, ``drill``, ``turn``, ``pocket``, ``tap``, ``chamfer`` and
-``part``; ``data-chuck`` (``3-jaw`` or ``4-jaw``) names the chuck. Part
+``part``; ``data-chuck`` (``3-jaw`` or ``4-jaw``) names the chuck;
+``data-member`` draws a member on its own bar (the default member when
+omitted or named). Part
 sizes come from the adapter; chuck, jaws, tools, bolt and nut are schematic
 symbols. Material arriving is dashed, material removed in the setup hatched,
 material kept solid, holes made by now dashed as hidden edges.
@@ -51,8 +54,9 @@ _SHIM = 3.0  # shim wrap under regrip jaws, px
 _AXIS = 270.0  # spindle axis, page px
 
 
-def _segments(values: dict) -> list[tuple[str, float, float, float]]:
-    """``(name, z0, z1, radius)`` of the default member's turned diameters."""
+def _segments(values: dict, outer: str) -> list[tuple[str, float, float, float]]:
+    """``(name, z0, z1, radius)`` of the turned diameters; ``outer`` names the
+    member's outer (``outer`` for the default member)."""
     return [
         (
             name,
@@ -60,7 +64,7 @@ def _segments(values: dict) -> list[tuple[str, float, float, float]]:
             _cad(values, f"{name}_z1_mm"),
             _cad(values, f"{name}_dia_mm") / 2,
         )
-        for name in ("outer", "step")
+        for name in (outer, "step")
         if f"{name}_dia_mm" in values
     ]
 
@@ -76,10 +80,10 @@ def _size(values: dict, name: str) -> list[str]:
     """The printed acceptance of one turned diameter, on two lines."""
     if values.get(f"{name}_stock"):
         return [f"Ø{{{{cad.{name}_ref_in:.4dot}}}}", "bar as bought"]
-    if f"{name}_clearance_min_in" in values:
-        return ["to its measured mate,", f"{_band(f'{name}_clearance', 4)} under"]
-    spread = values[f"{name}_dia_max_in"] - values[f"{name}_dia_min_in"]
-    return [f"Ø{_band(f'{name}_dia', 4 if spread < 0.002 else 3)}"]
+    if f"{name}_dia_min_in" in values:
+        spread = values[f"{name}_dia_max_in"] - values[f"{name}_dia_min_in"]
+        return [f"Ø{_band(f'{name}_dia', 4 if spread < 0.002 else 3)}"]
+    return ["to its measured mate,", f"{_band(f'{name}_clearance', 4)} under"]
 
 
 def _length_text(values: dict) -> str:
@@ -184,6 +188,15 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     holes = set(root.attrib.pop("data-holes", "").split())
     chuck = root.attrib.pop("data-chuck", "4-jaw" if hold == "block" else "3-jaw")
     grip = root.attrib.pop("data-grip", "outer")
+    member = root.attrib.pop("data-member", None)
+    outer = "outer"
+    if member is not None and member not in values["members"][:1]:
+        # A member drawn on its own bar: its outer and its own stock.
+        outer = f"outer_{member.lower()}"
+        if f"{outer}_dia_mm" not in values:
+            raise CadError(f"turned-bush: data-member {member!r} is not a member")
+    if grip == "outer":
+        grip = outer
     if hold not in _HOLDS:
         raise CadError(
             f"turned-bush: data-hold must be one of {', '.join(_HOLDS)}, not {hold!r}"
@@ -209,11 +222,13 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     groups = _groups(root)
     _title(groups, 20, 24, _TITLES[hold])
     if hold == "inspect":
-        return _inspect(groups, values)
+        return _inspect(groups, values, outer)
     if "drill" in work:
         holes.add("bore" if "bore_dia_mm" in values else "tap")
     holes |= work & {"pocket", "tap"}
-    return _setup(groups, values, parameters, hold, out, work, holes, chuck, grip)
+    return _setup(
+        groups, values, parameters, hold, out, work, holes, chuck, grip, outer
+    )
 
 
 def _setup(
@@ -226,16 +241,18 @@ def _setup(
     holes: set,
     chuck: str,
     grip: str,
+    outer: str,
 ) -> Layout:
     length = _cad(values, "length_mm")
-    segments = _segments(values)
+    segments = _segments(values, outer)
+    stock_key = "stock_dia_in" if outer == "outer" else f"stock_dia{outer[5:]}_in"
     largest = max(seg[3] for seg in segments)
     count = 1
     if hold == "bar" and "parts_per_pull" in parameters:
         count = int(_param(parameters, "parts_per_pull"))
     pitch = float(values.get("pitch_mm", length))
     if hold == "bar":
-        stock = _param(parameters, "stock_dia_in") * 12.7
+        stock = _param(parameters, stock_key) * 12.7
     elif hold in ("block", "mandrel"):
         stock = _param(parameters, "blank_side_in") * 12.7
     else:
@@ -290,7 +307,9 @@ def _setup(
         groups["part-arriving"].append(_rect(back, y, x_tail - back, low - y))
         _chuck(groups, page, _LEFT, x_jaw, stock, 0.0)
         bar = (
-            "bar Ø{{process.stock_dia_in:.4dot}}" if hold == "bar" else "squared blank"
+            f"bar Ø{{{{process.{stock_key}:.4dot}}}}"
+            if hold == "bar"
+            else "squared blank"
         )
         above.append((_LEFT + 4, y - _JAW, [f"{chuck} chuck,", f"jaws on {bar}"]))
     elif hold == "regrip":
@@ -445,10 +464,10 @@ def _setup(
     return _finish(groups, bottom)
 
 
-def _inspect(groups: Groups, values: dict) -> Layout:
+def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
     """The finished part, datum end at the left, its printed sizes."""
     length = _cad(values, "length_mm")
-    segments = _segments(values)
+    segments = _segments(values, outer)
     largest = max(seg[3] for seg in segments)
     scale = min(14.0, 360.0 / length, 170.0 / (2 * largest))
     page = _Page(200.0 + length * scale, scale, length, "far")
