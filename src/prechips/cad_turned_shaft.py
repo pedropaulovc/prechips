@@ -244,6 +244,33 @@ def _dome(
     values[f"{prefix}_made_at"] = made_at or "traveler"
 
 
+def _form(values: dict, parameters: dict, prefix: str, root: float) -> None:
+    """``dome_form_radius_in``: the dome cut by a form tool of that radius,
+    full to the centre on the end's diameter at nominal (radius ``root``); its
+    height is the cap the tool leaves there. A dome made at assembly is not
+    this traveler's to cut."""
+    if values[f"{prefix}_made_at"] == "assembly":
+        return
+    form = _positive(parameters["dome_form_radius_in"], "process.dome_form_radius_in")
+    radius = form * 25.4
+    if radius < root - _TOLERANCE:
+        raise CadError(
+            f"process.dome_form_radius_in: R{form:.4f} is under the "
+            f"Ø{2 * root / 25.4:.4f} it domes"
+        )
+    height = _cap(radius, min(root, radius))
+    low, high = values[f"{prefix}_height_band_mm"]
+    if low < high and not low - _STATION <= height <= high + _STATION:
+        raise CadError(
+            f"process.dome_form_radius_in: its {height / 25.4:.4f} high {prefix} "
+            "is outside the drawing's height band"
+        )
+    values[f"{prefix}_form_radius_mm"] = radius
+    values[f"{prefix}_form_radius_in"] = form
+    values[f"{prefix}_form_height_mm"] = height
+    values[f"{prefix}_form_height_in"] = height / 25.4
+
+
 def _steps(values: dict, parameters: dict) -> None:
     """``dome_steps`` = N: a stepped-turning table per dome.
 
@@ -310,21 +337,29 @@ def _faced(values: dict) -> None:
     length for a part cut at assembly, else the length) within the body
     length band plus the dome heights at nominal, else the far dome's root
     station band (from the datum end, so it holds a datum dome already) plus
-    its height."""
-    heights = sum(values.get(f"{p}_height_mm", 0.0) for p in _DOMES.values())
+    its height. A form-cut dome counts the height its tool leaves."""
+
+    def cut(prefix: str) -> float:
+        return values.get(
+            f"{prefix}_form_height_mm", values.get(f"{prefix}_height_mm", 0.0)
+        )
+
+    heights = sum(cut(p) for p in _DOMES.values())
     key = "supply_length" if "supply_length_band_mm" in values else "length"
     bands = []
+    nominal = values[f"{key}_mm"]
     if "body_length_band_mm" in values and key == "length":
         bands.append([v + heights for v in values["body_length_band_mm"]])
+        nominal = values["body_length_mm"] + heights
     if f"{key}_band_mm" in values:
         bands.append(values[f"{key}_band_mm"])
     elif "dome_far_root_station_band_mm" in values:
-        height = values["dome_far_height_mm"]
+        height = cut("dome_far")
         bands.append([v + height for v in values["dome_far_root_station_band_mm"]])
+        nominal = values["dome_far_root_z_mm"] + height
     if not bands:
         return
     low, high = max(b[0] for b in bands), min(b[1] for b in bands)
-    nominal = values[f"{key}_mm"]
     if not low - _STATION <= nominal <= high + _STATION:
         raise CadError(
             f"far_end: no faced length within both the {key} and body bands at "
@@ -684,6 +719,8 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         major = _basic_major(features[name].get("thread"))
         roots = (low / 2, max(high / 2, radius, major / 2))
         _dome(features[side], side, values, radius, roots)
+        if "dome_form_radius_in" in parameters:
+            _form(values, parameters, _DOMES[side], radius)
         if side == "datum_end":
             start = values["dome_datum_root_z_mm"]
         else:

@@ -245,7 +245,10 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         if hold == "vise":
             return _vise(groups, values, parameters, made, x0)
         return _inspect(groups, values, parameters, done if as_left else made, as_left)
-    _title(groups, 20, 24, _TITLES[hold])
+    title = _TITLES[hold]
+    if hold == "blank" and done:
+        title = "Part turned round in the chuck, seen from the operator's side"
+    _title(groups, 20, 24, title)
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
         made.add(f"dome-{out}")
@@ -425,8 +428,8 @@ def _lathe(
         groups["fixture-vise"].append(_rect(x + 14, _AXIS - 12, 40, 24))
         above.append(
             (
-                x + 30,
-                _AXIS - 12,
+                x + 7,
+                view.up(radius) - 16,
                 [
                     "die from the tailstock:",
                     "{{cad.thread_designation}}",
@@ -619,7 +622,13 @@ def _left_length(values: dict, parameters: dict, made: set) -> str:
 
 
 def _dome_text(values: dict, prefix: str) -> list[str]:
-    """A dome's radius and height, on two lines."""
+    """A dome's radius and height, on two lines: the form tool's and the
+    height it leaves when the dome is form-cut."""
+    if f"{prefix}_form_radius_in" in values:
+        return [
+            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form",
+            f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",
+        ]
     if f"{prefix}_radius_min_in" in values:
         radius = f"R{_band(f'{prefix}_radius')}"
     else:
