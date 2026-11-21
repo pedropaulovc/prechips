@@ -11,9 +11,13 @@ names how the work is held:
   diameter over a shim wrap, ``cad.regrip_allowance_mm`` (left on by the
   parting) on its out end to face; it may turn what stands out of the
   jaws, never a diameter inside them, and then marks Z0 on its out end;
+  ``data-z0="out"`` marks Z0 there without turning (a DRO set from a
+  measured length), and ``data-seat="none"`` draws the chuck body clear of
+  the part's end, nothing behind it (default ``chuck``: seated on the body);
 - ``mandrel``: the squared blank on a bolt through its bore, the bolt in the
   chuck, a washer and nut on each face;
-- ``inspect``: the finished part alone with its printed sizes.
+- ``inspect``: the finished part alone with its printed sizes, its datum end
+  labelled ``data-datum`` (default "Z0 datum end").
 
 ``data-out`` (``datum`` or ``far``) names the part's end toward the
 tailstock; ``data-work`` lists what the setup does, from ``face``,
@@ -45,6 +49,8 @@ Groups = dict[str, list[Element]]
 
 _HOLDS = ("bar", "block", "regrip", "mandrel", "inspect")
 _OUTS = ("datum", "far")
+_Z0S = ("datum", "out")
+_SEATS = ("chuck", "none")
 _WORK = ("face", "centre", "drill", "turn", "pocket", "tap", "chamfer", "part")
 _CHUCKS = ("3-jaw", "4-jaw")
 _TITLES = {
@@ -58,6 +64,7 @@ _LEFT = 70.0  # chuck face of the body, page px
 _CHUCK = 40.0  # schematic chuck body width, px
 _JAW = 22.0  # schematic jaw depth, px
 _SHIM = 3.0  # shim wrap under regrip jaws, px
+_GAP = 14.0  # an unseated regrip: chuck body behind the part's end, px
 _AXIS = 270.0  # spindle axis, page px
 
 
@@ -157,16 +164,27 @@ def _holes(groups: Groups, values: dict, page: _Page, shift: float, holes: set) 
 
 
 def _chuck(
-    groups: Groups, page: _Page, x0: float, x1: float, radius: float, shim: float
+    groups: Groups,
+    page: _Page,
+    x0: float,
+    x1: float,
+    radius: float,
+    shim: float,
+    back: float = 0.0,
 ) -> None:
-    """Chuck body and the upper and lower jaws gripping ``radius`` from x0 to x1."""
+    """Chuck body and the upper and lower jaws gripping ``radius`` from x0 to x1.
+
+    ``back`` stands the body that far behind x0, the jaws running out to the
+    grip: nothing behind the part seats it.
+    """
     top, bottom = page.up(radius) - shim, 2 * _AXIS - page.up(radius) + shim
+    body = x0 - back
     groups["fixture-vise"].append(
-        _rect(x0 - _CHUCK, top - _JAW - 8, _CHUCK, bottom - top + 2 * _JAW + 16)
+        _rect(body - _CHUCK, top - _JAW - 8, _CHUCK, bottom - top + 2 * _JAW + 16)
     )
     groups["clamp"] += [
-        _rect(x0, top - _JAW, x1 - x0, _JAW),
-        _rect(x0, bottom, x1 - x0, _JAW),
+        _rect(body, top - _JAW, x1 - body, _JAW),
+        _rect(body, bottom, x1 - body, _JAW),
     ]
     if shim:
         # Shims are work holders too (the palette's ``clamp``); a callout
@@ -201,6 +219,9 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     member = root.attrib.pop("data-member", None)
     turn = root.attrib.pop("data-turn", None)
     chamfer_names = root.attrib.pop("data-chamfers", None)
+    seat = root.attrib.pop("data-seat", None)
+    z0 = root.attrib.pop("data-z0", None)
+    datum_label = root.attrib.pop("data-datum", None)
     outer = "outer"
     if member is not None:
         # A member drawn on its own bar: its outer and its own stock.
@@ -236,10 +257,24 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError(
             "turned-bush: a regrip that turns names its diameters in data-turn"
         )
+    for name, value, allowed in (("seat", seat, _SEATS), ("z0", z0, _Z0S)):
+        if value is not None and value not in allowed:
+            raise CadError(
+                f"turned-bush: data-{name} must be {' or '.join(allowed)}, not {value!r}"
+            )
+        if value is not None and hold != "regrip":
+            raise CadError(f"turned-bush: data-{name} is for a regrip")
+    if z0 == "datum" and "turn" in work and out == "far":
+        raise CadError("turned-bush: a regrip that turns marks Z0 on its out end")
+    # Where the regrip marks Z0: its out end when it turns (the regrip_jaw_z
+    # bindings' frame) or when told, else the datum end.
+    z0 = "out" if z0 == "out" or "turn" in work else "datum"
+    if datum_label is not None and (hold != "inspect" or not datum_label.strip()):
+        raise CadError("turned-bush: data-datum labels the inspect picture's datum end")
     groups = _groups(root)
     _title(groups, 20, 24, _TITLES[hold])
     if hold == "inspect":
-        return _inspect(groups, values, outer)
+        return _inspect(groups, values, outer, datum_label or "Z0 datum end")
     if "drill" in work:
         holes.add("bore" if "bore_dia_mm" in values else "tap")
     holes |= work & {"pocket", "tap"}
@@ -281,6 +316,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         outer,
         turned,
         chamfers,
+        seat or "chuck",
+        z0,
     )
 
 
@@ -297,6 +334,8 @@ def _setup(
     outer: str,
     turned: set,
     chamfers: list,
+    seat: str,
+    z0_at: str,
 ) -> Layout:
     length = _cad(values, "length_mm")
     segments = _segments(values, outer)
@@ -397,15 +436,22 @@ def _setup(
                 inside = a0 < z1 - 1e-6 and a1 > z0 + 1e-6
                 if name in turned and inside:
                     raise CadError(f"turned-bush: the regrip turns {name} in its jaws")
+        if seat == "none":
+            # Nothing behind the part: the grip must reach its chuck-side end,
+            # else the diameter behind it would run into the drawn body.
+            end = z0 if out == "far" else length - z1
+            if end > 1e-6:
+                raise CadError(
+                    "turned-bush: data-seat none needs the grip at the part's"
+                    " chuck-side end"
+                )
         x0, x1 = page.span(z0, z1)
-        _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM)
-        above.append(
-            (
-                x1 - 6,
-                page.up(radius) - _SHIM - _JAW,
-                [f"{chuck} chuck, jaws", "on a shim wrap"],
-            )
-        )
+        back = _GAP if seat == "none" else 0.0
+        _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM, back)
+        lines = [f"{chuck} chuck, jaws", "on a shim wrap"]
+        if seat == "none":
+            lines.append("nothing behind the part")
+        above.append((x1 - 6, page.up(radius) - _SHIM - _JAW, lines))
     else:
         bolt = values["bore_dia_mm"] / 2
         a, b = page.span(0.0, length)
@@ -492,9 +538,10 @@ def _setup(
         )
     if not (hold in ("bar", "block") and (out == "far" or "face" not in work)):
         datum_x = page.x(0.0)
-        if hold == "regrip" and "turn" in work:
-            # A regrip that turns sets its DRO Z0 on the faced out end (the
-            # regrip_jaw_z bindings' frame), not the end in the jaws.
+        if hold == "regrip" and z0_at == "out":
+            # A regrip that turns, or one set by data-z0="out", sets its DRO
+            # Z0 on the faced out end (the regrip_jaw_z bindings' frame), not
+            # the end in the jaws.
             datum_x = page.x_out
         low = 2 * _AXIS - page.up(largest)
         groups["datum"].append(_line(datum_x, page.up(largest) - 10, datum_x, low + 10))
@@ -567,7 +614,7 @@ def _setup(
     return _finish(groups, bottom)
 
 
-def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
+def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layout:
     """The finished part, datum end at the left, its printed sizes."""
     length = _cad(values, "length_mm")
     segments = _segments(values, outer)
@@ -580,7 +627,9 @@ def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
     datum = page.x(0.0)
     low = 2 * _AXIS - page.up(largest)
     groups["datum"].append(_line(datum, page.up(largest) - 10, datum, low + 10))
-    _datum_label(groups, datum - 6, low + 24, "Z0 datum end", "end")
+    if len(_bound(datum_label)) * CHAR + 6 > datum:
+        raise CadError(f"turned-bush: data-datum {datum_label!r} runs off the page")
+    _datum_label(groups, datum - 6, low + 24, datum_label, "end")
     top = page.up(largest)
 
     def dimension(x1: float, y: float, text: str) -> None:

@@ -473,6 +473,60 @@ def test_regrip_grip_length_sets_the_stickout_and_the_jaws():
         assert held[1] / full[1] == pytest.approx(7.62 / span, rel=1e-3)
 
 
+def test_an_unseated_regrip_sets_z0_on_its_out_end_and_inspect_names_its_datum():
+    params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+
+    def group(svg: bytes, role: str) -> bytes:
+        return re.search(
+            rb'class="' + role.encode() + rb'"[^>]*>(.*?)</g>', svg, re.DOTALL
+        )[1]
+
+    def body_right(svg: bytes) -> float:
+        x, width = re.search(
+            rb'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"',
+            group(svg, "fixture-vise"),
+        ).groups()
+        return float(x) + float(width)
+
+    def datum_x(svg: bytes) -> float:
+        return float(re.search(rb'x1="([\d.]+)"', group(svg, "datum"))[1])
+
+    regrip = {"hold": "regrip", "out": "far", "work": "face"}
+    seated = render_cad_svg(_svg(**regrip), cad, params)
+    floating = render_cad_svg(_svg(**regrip, seat="none", z0="out"), cad, params)
+    # Nothing behind the part: the chuck body stands clear of its end and a
+    # callout says so; Z0 moves from the end in the jaws to the faced end.
+    assert body_right(floating) == pytest.approx(body_right(seated) - 14.0)
+    assert b"nothing behind the part" in floating
+    assert b"nothing behind the part" not in seated
+    assert datum_x(floating) > datum_x(seated)
+    inspect = render_cad_svg(_svg(hold="inspect", datum="head-end face"), cad, params)
+    assert b"head-end face" in inspect and b"Z0 datum end" not in inspect
+    for hold in ("bar", "inspect"):
+        with pytest.raises(CadError, match="data-seat is for a regrip"):
+            render_cad_svg(_svg(hold=hold, work="face", seat="chuck"), cad, params)
+    with pytest.raises(CadError, match="data-seat must be chuck or none"):
+        render_cad_svg(_svg(**regrip, seat="floating"), cad, params)
+    with pytest.raises(CadError, match="marks Z0 on its out end"):
+        render_cad_svg(
+            _svg(**regrip | {"work": "turn"}, turn="step", z0="datum"), cad, params
+        )
+    # Datum end out: the datum end is the out end, so Z0 there is the same.
+    datum_out = {"hold": "regrip", "out": "datum", "grip": "step", "work": "turn"}
+    render_cad_svg(_svg(**datum_out, turn="outer", z0="datum"), cad, params)
+    # Gripped on the head with the spigot behind it: nothing seats it, but the
+    # spigot would run into the drawn chuck body.
+    with pytest.raises(CadError, match="grip at the part's chuck-side end"):
+        render_cad_svg(
+            _svg(hold="regrip", out="datum", work="face", seat="none"), cad, params
+        )
+    with pytest.raises(CadError, match="data-datum"):
+        render_cad_svg(_svg(**regrip, datum="head end"), cad, params)
+    with pytest.raises(CadError, match="runs off the page"):
+        render_cad_svg(_svg(hold="inspect", datum="x" * 40), cad, params)
+
+
 def test_a_bar_inside_its_band_is_left_as_supplied():
     params = BAR | {"stock_dia_in": 0.5, "as_supplied_outer": 1}
     cad = load_turned_bush(PLUG, params | {"finish_allowance_in": 0.005}, "turned-plug")
