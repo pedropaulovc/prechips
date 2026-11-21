@@ -515,16 +515,20 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     for name in turned:
         if name.startswith("outer_"):
             _tiles(values, [name, *(["step"] if "step" in sizes else [])])
-    supplied = parameters.get("as_supplied", [])
-    if not isinstance(supplied, list) or not all(isinstance(n, str) for n in supplied):
-        raise CadError("process.as_supplied: expected a list of diameter names")
-    for name in supplied:
-        # A banded diameter the bar already lies inside: left as supplied,
-        # so the bar need reach only the band's low end (checked in _bar).
+    # ``as_supplied_<name> = 1``: a banded diameter the bar already lies
+    # inside, left as supplied, so the bar need reach only the band's low end
+    # (checked in _bar). Plan parameters are numbers, hence the 0/1 flag.
+    supplied = []
+    for key in sorted(k for k in parameters if k.startswith("as_supplied_")):
+        name = key.removeprefix("as_supplied_")
+        if parameters[key] not in (0, 1) or isinstance(parameters[key], bool):
+            raise CadError(f"process.{key}: expected 0 or 1")
         if name not in sizes or f"{name}_dia_band_mm" not in values:
-            raise CadError(f"process.as_supplied: {name!r} is not a banded diameter")
-        values[f"{name}_as_supplied"] = True
-        sizes[name] = values[f"{name}_dia_band_mm"][0]
+            raise CadError(f"process.{key}: {name!r} is not a banded diameter")
+        if parameters[key]:
+            supplied.append(name)
+            values[f"{name}_as_supplied"] = True
+            sizes[name] = values[f"{name}_dia_band_mm"][0]
     # The default member's bar or blank: the other members bring their own.
     least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
     members_found, members_outer = [], []
