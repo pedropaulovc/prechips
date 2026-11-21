@@ -727,6 +727,17 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
             < 1e-3
         ):
             return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
+        low, high = values.get(f"{prefix}_form_height_band_mm", (0.0, 0.0))
+        if (high - low) / 25.4 > 1e-4:
+            # A banded blank: the height the tool leaves follows its Ø.
+            return [
+                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
+                (
+                    f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
+                    f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
+                ),
+                "by the blank's Ø",
+            ]
         return [
             f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",

@@ -269,11 +269,18 @@ def _dome(
     values[f"{prefix}_made_at"] = made_at or "traveler"
 
 
-def _form(values: dict, parameters: dict, prefix: str, root: float) -> None:
+def _form(
+    values: dict,
+    parameters: dict,
+    prefix: str,
+    root: float,
+    roots: tuple[float, float],
+) -> None:
     """``dome_form_radius_in``: the dome cut by a form tool of that radius,
     full to the centre on the end's diameter at nominal (radius ``root``); its
-    height is the cap the tool leaves there. A dome made at assembly is not
-    this traveler's to cut."""
+    height is the cap the tool leaves there, and over the diameter's band
+    (radii ``roots``) the caps it leaves on the least and greatest blank. A
+    dome made at assembly is not this traveler's to cut."""
     if values[f"{prefix}_made_at"] == "assembly":
         return
     form = _positive(parameters["dome_form_radius_in"], "process.dome_form_radius_in")
@@ -294,6 +301,11 @@ def _form(values: dict, parameters: dict, prefix: str, root: float) -> None:
     values[f"{prefix}_form_radius_in"] = form
     values[f"{prefix}_form_height_mm"] = height
     values[f"{prefix}_form_height_in"] = height / 25.4
+    if roots[1] > roots[0]:
+        low, high = (_cap(radius, min(r, radius)) for r in roots)
+        values[f"{prefix}_form_height_band_mm"] = [low, high]
+        values[f"{prefix}_form_height_min_in"] = low / 25.4
+        values[f"{prefix}_form_height_max_in"] = high / 25.4
 
 
 def _steps(values: dict, parameters: dict) -> None:
@@ -771,7 +783,7 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         roots = (low / 2, max(high / 2, radius, major / 2))
         _dome(features[side], side, values, radius, roots)
         if "dome_form_radius_in" in parameters:
-            _form(values, parameters, _DOMES[side], radius)
+            _form(values, parameters, _DOMES[side], radius, (low / 2, high / 2))
         if side == "datum_end":
             start = values["dome_datum_root_z_mm"]
         else:

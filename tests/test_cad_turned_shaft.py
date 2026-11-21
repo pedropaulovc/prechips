@@ -261,13 +261,21 @@ def test_inspect_draws_the_part_as_it_leaves_when_data_done_is_given():
 
 
 def test_a_form_cut_dome_takes_the_height_its_tool_leaves():
-    values = load_turned_shaft(
-        PIN, BAR | {"dome_form_radius_in": 0.1}, "demo-turned-pin"
-    ).values
+    form = BAR | {"dome_form_radius_in": 0.1}
+    cad = load_turned_shaft(PIN, form, "demo-turned-pin")
+    values = cad.values
     # R.100 full to the centre on the Ø.111 blank at nominal.
     radius = 2.8194 / 2 / 25.4
     expected = 0.1 - (0.1**2 - radius**2) ** 0.5
     assert values["dome_datum_form_height_in"] == pytest.approx(expected)
+    # Over the Ø.1102-.1120 blank it leaves the caps on its least and
+    # greatest Ø, and the picture labels that band.
+    caps = [0.1 - (0.1**2 - (d / 2 / 25.4) ** 2) ** 0.5 for d in (2.79908, 2.8448)]
+    assert values["dome_datum_form_height_band_mm"] == pytest.approx(
+        [c * 25.4 for c in caps]
+    )
+    svg = render_cad_svg(_svg(hold="inspect"), cad, form)
+    assert ".0165–.0172 high".encode() in svg
     # The shaft's crown is printed .010-.020 high: an R.125 tool cuts .125.
     with pytest.raises(CadError, match="outside the drawing's height band"):
         load_turned_shaft(
