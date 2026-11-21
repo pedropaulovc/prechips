@@ -344,6 +344,36 @@ def test_a_press_fit_band_may_sit_above_its_nominal(tmp_path):
     assert values["outer_mate"] == "DEMO-HOLE"
 
 
+def test_a_ref_turned_over_its_measured_mate_takes_a_press_fit(tmp_path):
+    text = PLUG.read_text(encoding="utf-8")
+    old = '"requirements" = ["dia"]\n"axis" = [1.0, 0.0, 0.0]'
+    new = (
+        '"requirements" = ["diametral_interference"]\n'
+        '"diametral_interference" = [0.01016, 0.03302]\n'
+        '"dia_ref" = 12.7\n"mate" = "DEMO-HOLE"\n"axis" = [1.0, 0.0, 0.0]'
+    )
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace(old, new), encoding="utf-8")
+    params = BAR | {"finish_allowance_in": 0.002}
+    values = load_turned_bush(source, params, "turned-plug").values
+    assert values["outer_ref_in"] == pytest.approx(0.5)
+    assert values["outer_interference_min_in"] == pytest.approx(0.0004)
+    assert values["outer_interference_max_in"] == pytest.approx(0.0013)
+    assert values["outer_mate"] == "DEMO-HOLE"
+    # Screened at the mate's REF plus the least interference.
+    assert values["outer_turn_min_mm"] == pytest.approx(0.5004 * 25.4)
+    assert "outer_dia_min_in" not in values
+    both = new.replace(
+        '["diametral_interference"]',
+        '["diametral_clearance", "diametral_interference"]\n'
+        '"diametral_clearance" = [0.01, 0.02]',
+    )
+    source.write_text(text.replace(old, both), encoding="utf-8")
+    with pytest.raises(CadError, match="clearance or a press, not both"):
+        load_turned_bush(source, {}, "turned-plug")
+
+
 def test_spans_and_frames_stay_inside_the_part(tmp_path):
     text = PLUG.read_text(encoding="utf-8")
     cases = [

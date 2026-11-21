@@ -11,7 +11,8 @@ supply ``length_min``) from the datum end. Optional features:
 - ``outer``, ``step`` and member ``outer_<member>``: kind ``diameter``, each
   with a ``span`` along the axis and one acceptance: a ``dia`` band, a
   ``stock`` diameter left as bought (``dia_ref``), or a ``dia_ref`` turned to
-  a measured mate with a ``diametral_clearance`` (a ``dia`` band may add a
+  a measured mate with a ``diametral_clearance`` or a press fit's
+  ``diametral_interference`` (a ``dia`` band may add a
   ``diametral_interference``);
 - ``bore``: a ``hole`` through, a ``dia`` band and its ``process``;
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
@@ -207,11 +208,16 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         # A bar over the band is turned down to it; one left as supplied
         # inside the band (``as_supplied``) is admitted in load_turned_bush.
         least_bar = band[1]
-    elif "stock" in requirements or "diametral_clearance" in requirements:
+    elif "stock" in requirements or {
+        "diametral_clearance",
+        "diametral_interference",
+    } & set(requirements):
+        if {"diametral_clearance", "diametral_interference"} <= set(requirements):
+            raise CadError(f"{name}: a matched fit is a clearance or a press, not both")
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
         values[f"{name}_dia_mm"], values[f"{name}_ref_in"] = ref, ref / 25.4
-        # Turned under a measured mate, the REF bounds it: the mate is the
-        # REF size and the least clearance comes off it.
+        # Turned to a measured mate, the REF bounds it: the mate is the REF
+        # size and the fit comes off it.
         least_bar = ref
     else:
         raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
@@ -233,6 +239,14 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         values[f"{name}_turn_min_mm"] = (
             values[f"{name}_dia_mm"] - values[f"{name}_clearance_band_mm"][1]
         )
+    if "dia" not in requirements and "diametral_interference" in requirements:
+        # A press turned over its measured mate: the mate at its REF plus the
+        # least interference is the smallest it is turned, and the bar must
+        # reach the REF plus the most. Both assume the mate measures at or
+        # over its REF, as the clearance case does.
+        interference = values[f"{name}_interference_band_mm"]
+        values[f"{name}_turn_min_mm"] = values[f"{name}_dia_mm"] + interference[0]
+        least_bar = values[f"{name}_dia_mm"] + interference[1]
     return least_bar
 
 

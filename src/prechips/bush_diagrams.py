@@ -100,6 +100,8 @@ def _size(values: dict, name: str) -> list[str]:
         band = [f"Ø{_band(f'{name}_dia', 4 if spread < 0.002 else 3)}"]
         # A band with a fit on its mate prints both: the fit holds too.
         return band + fit if f"{name}_clearance_min_in" in values else band
+    if f"{name}_interference_min_in" in values:
+        return ["to its measured mate,", f"{_band(f'{name}_interference', 4)} over"]
     return ["to its measured mate,", f"{_band(f'{name}_clearance', 4)} under"]
 
 
