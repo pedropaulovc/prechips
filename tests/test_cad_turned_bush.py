@@ -421,7 +421,7 @@ def test_regrip_grip_length_sets_the_stickout_and_the_jaws():
 
 
 def test_a_bar_inside_its_band_is_left_as_supplied():
-    params = BAR | {"stock_dia_in": 0.5, "as_supplied": ["outer"]}
+    params = BAR | {"stock_dia_in": 0.5, "as_supplied_outer": 1}
     cad = load_turned_bush(PLUG, params | {"finish_allowance_in": 0.005}, "turned-plug")
     required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
     # The head band is .49-.51: the bar need reach only .49, and the head is
@@ -435,12 +435,14 @@ def test_a_bar_inside_its_band_is_left_as_supplied():
     with pytest.raises(CadError, match="must lie inside its band"):
         load_turned_bush(PLUG, params | {"stock_dia_in": 0.52}, "turned-plug")
     with pytest.raises(CadError, match="'step' is not a banded diameter"):
-        load_turned_bush(PLUG, params | {"as_supplied": ["step"]}, "turned-plug")
-    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1, "as_supplied": ["outer"]}
+        load_turned_bush(PLUG, params | {"as_supplied_step": 1}, "turned-plug")
+    with pytest.raises(CadError, match="expected 0 or 1"):
+        load_turned_bush(PLUG, params | {"as_supplied_outer": 2}, "turned-plug")
+    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1, "as_supplied_outer": 1}
     with pytest.raises(CadError, match="a squared blank is always turned"):
         load_turned_bush(PLUG, block, "turned-plug")
     with pytest.raises(CadError, match="needs round bar"):
-        load_turned_bush(PLUG, {"as_supplied": ["outer"]}, "turned-plug")
+        load_turned_bush(PLUG, {"as_supplied_outer": 1}, "turned-plug")
 
 
 def test_member_names_must_differ_in_more_than_case(tmp_path):
@@ -499,3 +501,14 @@ def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
     assert "turn Ø.490–.510" in head_only
     assert "measured mate" not in head_only
     assert "measured mate" in both
+
+
+def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():
+    params = BAR | {"stock_dia_in": 0.49, "as_supplied_outer": 1}
+    # A bar exactly at the band's low end, through inch-to-mm noise.
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    assert cad.values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
+    # Roughed to .49 + 2 x .015 = .52, over the .51 band top: the bar must
+    # reach the rough size.
+    rough = load_turned_bush(PLUG, BAR | {"finish_allowance_in": 0.015}, "turned-plug")
+    assert rough.stock_requirement.axes[0].required_mm == pytest.approx(0.52 * 25.4)

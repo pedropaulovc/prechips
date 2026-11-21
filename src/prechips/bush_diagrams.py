@@ -421,10 +421,13 @@ def _setup(
             and "bore" in holes
             and "bore_dia_mm" in values
         ):
-            # A through hole is drilled past the parting line: it runs on
-            # through any regrip allowance and the kerf.
+            # A through hole is drilled past the parting line: from the
+            # bore's chuck-side end it runs on through any regrip allowance
+            # and the kerf.
             radius = values["bore_dia_mm"] / 2
-            x_end = page.x(length if out == "datum" else 0.0, shift)
+            x_end = page.x(
+                values["bore_z1_mm" if out == "datum" else "bore_z0_mm"], shift
+            )
             x_cut = page.x(beyond, shift) - kerf * scale
             a, b = sorted((x_end, x_cut))
             groups["hidden"].append(_rect(a, page.up(radius), b - a, page.size(radius)))
