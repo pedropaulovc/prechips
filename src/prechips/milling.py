@@ -578,6 +578,13 @@ def _forces(
         if "drill_kd" not in material:
             raise CheckError(f"{where}: material {name!r} has no drill_kd")
         drilling = config["drilling"]
+        # FT rises with diameter through Table 11, so a drill or plunging
+        # cutter below the table's first row (1/16 in; a .062 miniature end
+        # mill) is checked at that row: an upper bound on its thrust, no
+        # factor invented. Above the table it is still refused.
+        sizes = drilling["diameter_factors"]
+        inches = diameter / INCH_MM
+        bounded = inches < sizes[0][0]
         thrust = drill_thrust_n(
             material["drill_kd"],
             table_factor(
@@ -588,8 +595,8 @@ def _forces(
                 "drilling feed-factor",
             ),
             table_factor(
-                diameter / INCH_MM,
-                drilling["diameter_factors"],
+                sizes[0][0] if bounded else inches,
+                sizes,
                 "diameter",
                 "in",
                 "drill diameter-factor",
@@ -597,9 +604,12 @@ def _forces(
             drilling["chisel_thrust_b"],
             drilling["chisel_thrust_j"],
             drilling["wear"],
-            diameter,
+            sizes[0][0] * INCH_MM if bounded else diameter,
         )
-        return {_SPINDLE: (thrust, f"drill thrust {thrust:.3g} N")}
+        text = f"drill thrust {thrust:.3g} N"
+        if bounded:
+            text += f" (bounded at the {sizes[0][0]:g} in table row)"
+        return {_SPINDLE: (thrust, text)}
     for key in ("axial_doc_mm", "radial_woc_mm"):
         if key not in cut:
             raise CheckError(f"{where}: missing {key}")
