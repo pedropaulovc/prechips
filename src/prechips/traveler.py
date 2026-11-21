@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 
 from prechips import indexing, palette, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
-from prechips.checks import CheckError
+from prechips.checks import CheckError, positive_mm
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
 from prechips.shop import STATUSES
@@ -175,9 +175,10 @@ def _turning_step(operation: dict, where: str) -> None:
     numbers = {"length_mm", "load_diameter_mm"}
     _keys(step, numbers, where)
     for key in sorted(numbers):
-        value = step.get(key)
-        if type(value) not in (int, float) or not isfinite(value) or value <= 0:
-            raise PlanError(f"{where}.{key}: expected a positive number")
+        try:
+            positive_mm(step.get(key), f"{where}.{key}")
+        except CheckError as error:
+            raise PlanError(str(error)) from error
 
 
 def _turning_step_html(length_mm: float) -> str:

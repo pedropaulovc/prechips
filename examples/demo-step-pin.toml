@@ -37,8 +37,8 @@ jaw_clearance_in = 0.1
 finish_allowance_in = 0.0025
 rough_radial_doc_mm = 0.6096
 finish_radial_doc_mm = 0.0635
-rough_feed_mm_rev = 0.0508
-finish_feed_mm_rev = 0.0254
+rough_feed_per_rev_mm = 0.0508
+finish_feed_per_rev_mm = 0.0254
 turn_start_z_mm = 0.5
 # The spigot's axial step, .125 in: the length its turning screen judges.
 step_mm = 3.175
@@ -81,8 +81,8 @@ load_diameter_mm = "{{cad.stock_dia_mm}}"
 cut_kind = "longitudinal_turning"
 turning_step = { length_mm = "{{process.step_mm}}", load_diameter_mm = "{{cad.stock_dia_mm}}" }
 turning_cuts = [
-  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.rough_feed_mm_rev}}" },
-  { name = "Spigot finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.finish_feed_mm_rev}}" },
+  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.rough_feed_per_rev_mm}}" },
+  { name = "Spigot finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.finish_feed_per_rev_mm}}" },
 ]
 speed_kind = "spindle"
 tool = "ar"
@@ -90,6 +90,7 @@ drilling = "none"
 sizing = "other"
 instruction = "Turn the spigot Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}} from the end to the shoulder at Z{{cad.step_far_out_far_z_mm:in.3dot}}, roughing each step to Ø{{cad.step_rough_dia_mm:in.4dot}}."
 settings = "step-pin-turn-c360"
+feed = "Rough {{process.rough_feed_per_rev_mm:in.3dot}}, finish {{process.finish_feed_per_rev_mm:in.3dot}} in/rev"
 cut_diameter_mm = "{{cad.step_dia_mm}}"
 inspection = "Spigot Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}}."
 gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.step_dia_band_mm}}" }]

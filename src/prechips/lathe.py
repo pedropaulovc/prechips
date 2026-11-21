@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from math import isfinite
+from math import inf, isfinite
 from typing import TYPE_CHECKING
 
 from prechips import shop
 from prechips.checks import CheckError, positive_mm
+from prechips.turning import step_sequence
 
 if TYPE_CHECKING:
     from prechips.traveler import LoadedPlan
@@ -109,9 +110,14 @@ def hold(shop_data: dict, setup: dict, where: str) -> dict | None:
 
 
 def _number(value: object, where: str) -> float:
-    if type(value) not in (int, float) or not isfinite(value):
-        raise CheckError(f"{where}: expected a finite number")
-    return float(value)
+    if type(value) in (int, float):
+        try:
+            number = float(value)
+        except OverflowError:  # TOML integers are unbounded
+            number = inf
+        if isfinite(number):
+            return number
+    raise CheckError(f"{where}: expected a finite number")
 
 
 def _turning_load(operation: dict, load: float, chuck_z: float, at: str) -> None:
@@ -136,6 +142,9 @@ def _turning_load(operation: dict, load: float, chuck_z: float, at: str) -> None
                 f"{at}: turning_step loads Ø{section:g} mm, under the hold's "
                 f"Ø{load:g} mm load section"
             )
+        problem = step_sequence(cuts, section)
+        if problem is not None:
+            raise CheckError(f"{at}.{problem}")
     for index, cut in enumerate(cuts, 1):
         if not isinstance(cut, dict):
             raise CheckError(f"{at}, cut {index}: expected a table")

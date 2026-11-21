@@ -153,7 +153,13 @@ def _step_setup(*operations, **hold):
         "cut_kind": "longitudinal_turning",
         "turning_step": {"length_mm": 2.032, "load_diameter_mm": 6.35},
         "turning_cuts": [
-            {"name": "spigot", "start_z_mm": 30.7, "end_z_mm": 12.92},
+            {
+                "name": "spigot",
+                "start_z_mm": 30.7,
+                "end_z_mm": 12.92,
+                "start_diameter_mm": 6.35,
+                "end_diameter_mm": 1.4732,
+            },
         ],
     }
     face = {"cut_kind": "other", "tool": "ar", "load_diameter_mm": 6.35}
@@ -230,6 +236,24 @@ def _cuts_again(change):
                 lambda ops: ops[1]["turning_step"].update(load_diameter_mm=5.0)
             ),
             r"turning_step loads Ø5 mm",
+        ),
+        # A later step operation re-turning the finished spigot from Ø1.4732.
+        (
+            _cuts_again(
+                lambda ops: ops.append(
+                    {
+                        **ops[1],
+                        "turning_cuts": [
+                            {
+                                **ops[1]["turning_cuts"][0],
+                                "start_diameter_mm": 1.4732,
+                                "end_diameter_mm": 1.45,
+                            }
+                        ],
+                    }
+                )
+            ),
+            r"Op 50\.turning_step\.load_diameter_mm: Ø6\.35 mm is over the Ø1\.4732",
         ),
         (
             _cuts_again(lambda ops: ops[1].update(load_diameter_mm=6.35)),

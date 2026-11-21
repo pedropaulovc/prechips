@@ -290,6 +290,49 @@ def _turning_step(value: object) -> dict:
     }
 
 
+def step_sequence(cuts: list, load: float) -> str | None:
+    """Why a step operation's cuts are not one stepped sequence, or None.
+
+    Every step takes each cut in order before the tool moves toward the
+    chuck, so the cuts share one traverse, the first starts from at least
+    the load section (what lies beyond the step being cut) and each later cut
+    starts where the one before it ended. A pass over a length already
+    finished, or from a section thinner than the load, is not a step.
+    """
+    values = []
+    for index, cut in enumerate(cuts, 1):
+        keys = ("start_z_mm", "end_z_mm", "start_diameter_mm", "end_diameter_mm")
+        numbers = []
+        if isinstance(cut, dict) and all(
+            type(cut.get(key)) in (int, float) for key in keys
+        ):
+            try:
+                numbers = [float(cut[key]) for key in keys]
+            except OverflowError:  # TOML integers are unbounded
+                numbers = []
+        if len(numbers) != len(keys) or not all(map(math.isfinite, numbers)):
+            return f"turning_step: cut {index} needs finite {', '.join(keys)}"
+        values.append((cut.get("name", index), *numbers))
+    (name, start, end, first, _), *_ = values
+    if load > first + 1e-6:
+        return (
+            f"turning_step.load_diameter_mm: Ø{load:.6g} mm is over the Ø{first:.6g}"
+            f" mm the first cut ({name!r}) starts from"
+        )
+    for (_, _, _, _, ended), (later, z0, z1, began, _) in pairwise(values):
+        if abs(z0 - start) > 1e-6 or abs(z1 - end) > 1e-6:
+            return (
+                f"turning_step: cut {later!r} runs Z {z0:.6g}..{z1:.6g} mm, not "
+                f"the operation's one traverse Z {start:.6g}..{end:.6g} mm"
+            )
+        if abs(began - ended) > 1e-6:
+            return (
+                f"turning_step: cut {later!r} starts from Ø{began:.6g} mm, not "
+                f"the Ø{ended:.6g} mm the cut before it leaves"
+            )
+    return None
+
+
 def _stepped_bending(
     per_doc: float,
     x: float,
@@ -589,6 +632,10 @@ def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
                             "follower would load the finished length outboard of "
                             "the tool"
                         )
+                if step is not None:
+                    problem = step_sequence(cuts, step["load_diameter_mm"])
+                    if problem is not None:
+                        raise TurningError(f"{op_where}.{problem}")
                 for cut_index, cut in enumerate(cuts, 1):
                     cut = _table(cut, f"{op_where}, cut {cut_index}")
                     cut_name = cut.get("name")
@@ -602,13 +649,5 @@ def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
                         raise TurningError(
                             f"{op_where}, cut {cut_name!r}: {error}"
                         ) from error
-                if step is not None:
-                    stock = max(cut["start_diameter_mm"] for cut in cuts)
-                    if step["load_diameter_mm"] > stock:
-                        raise TurningError(
-                            f"{op_where}.turning_step.load_diameter_mm: "
-                            f"Ø{step['load_diameter_mm']:.6g} mm is over the "
-                            f"Ø{stock:.6g} mm the operation starts from"
-                        )
     except TurningError as error:
         raise TurningError(f"turning_deflection: {error}. {_DISABLE}") from error

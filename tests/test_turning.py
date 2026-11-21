@@ -558,6 +558,11 @@ def test_issue_515_step_turning_passes_where_the_finished_section_refuses():
             check_turning_deflection(plain, config)
 
 
+def _pair(**changes):
+    """The step operation's rough and finish cuts, each with ``changes``."""
+    return [_spigot("rough", **changes), _spigot("finish", **changes)]
+
+
 @pytest.mark.parametrize(
     ("cuts", "step", "message"),
     [
@@ -565,30 +570,62 @@ def test_issue_515_step_turning_passes_where_the_finished_section_refuses():
         (
             [_spigot("finish", start_diameter_mm=6.35, max_radial_doc_mm=2.4384)],
             None,
-            r"estimated radial bending 0\.1",
+            r"spigot finish': estimated radial bending 0\.17",
         ),
         # The issue's .10 in steps: the finish pass sees .10 in of Ø1.60 ahead.
         (
-            [_spigot("rough"), _spigot("finish")],
+            _pair(),
             {"length_mm": 2.54, "load_diameter_mm": 6.35},
-            "0.00518",
+            r"spigot finish': estimated radial bending 0\.00518",
         ),
         # A thinner load section (the head turned first) refuses the rough.
-        ([_spigot("rough")], {"length_mm": 2.032, "load_diameter_mm": 5.5}, "Ø5.5"),
+        (
+            _pair(),
+            {"length_mm": 2.032, "load_diameter_mm": 5.5},
+            r"spigot rough': estimated .* load section Ø5\.5 mm",
+        ),
         # A return pass, away from the chuck, cuts the finished length again.
         (
-            [_spigot("finish", start_z_mm=12.92, end_z_mm=30.7)],
+            _pair(start_z_mm=12.92, end_z_mm=30.7),
             None,
-            "must run toward the chuck",
+            "turning_step: the traverse must run toward the chuck",
         ),
-        ([_spigot("finish")], {"length_mm": 18.0, "load_diameter_mm": 6.35}, "exceeds"),
-        ([_spigot("finish", minimum_diameter_mm=6.35)], None, "no minimum_diameter_mm"),
-        ([_spigot("finish")], {"length_mm": 2.0, "load_diameter_mm": 7.0}, "over the"),
-        ([_spigot("finish")], {"length_mm": 2.0}, "load_diameter_mm"),
         (
-            [_spigot("finish")],
+            _pair(),
+            {"length_mm": 18.0, "load_diameter_mm": 6.35},
+            r"turning_step\.length_mm 18 mm exceeds the 17\.78 mm traverse",
+        ),
+        (
+            [_spigot("rough"), _spigot("finish", minimum_diameter_mm=6.35)],
+            None,
+            "a step-turned cut takes no minimum_diameter_mm",
+        ),
+        # Not one stepped sequence: a load over the first cut's start, a skim
+        # over the finished spigot behind a head cut from the bar (its own
+        # traverse), and a cut that does not start where the one before ended.
+        (
+            _pair(),
+            {"length_mm": 2.0, "load_diameter_mm": 7.0},
+            r"Ø7 mm is over the Ø6\.35 mm the first cut \('spigot rough'\)",
+        ),
+        (
+            [
+                _spigot("rough", start_z_mm=12.92, end_z_mm=5, end_diameter_mm=6.1),
+                _spigot("finish", start_diameter_mm=6.1, end_diameter_mm=1.45),
+            ],
+            None,
+            r"cut 'spigot finish' runs Z 30\.7\.\.12\.92 mm, not the operation's",
+        ),
+        (
+            [_spigot("rough"), _spigot("finish", start_diameter_mm=1.4732)],
+            None,
+            r"starts from Ø1\.4732 mm, not the Ø1\.6002 mm the cut before it leaves",
+        ),
+        (_pair(), {"length_mm": 2.0}, r"turning_step\.load_diameter_mm: expected"),
+        (
+            _pair(),
             {"length_mm": 2.0, "load_diameter_mm": 6.35, "x": 1},
-            "x",
+            r"turning_step: unknown field\(s\): x",
         ),
     ],
 )
