@@ -19,8 +19,10 @@ names how the work is held:
 tailstock; ``data-work`` lists what the setup does, from ``face``,
 ``centre``, ``drill``, ``turn``, ``pocket``, ``tap``, ``chamfer`` and
 ``part``; ``data-turn`` names the diameters a setup with ``turn`` turns
-(``outer``, ``step``; all by default), the others drawn at the largest of
-them, as an earlier or later setup turns them; ``data-chamfers`` names the
+(``outer``, ``step``; all by default on the bar or blank, required in a
+regrip): on the bar or blank another diameter stands at the largest turned
+here where those passes run over it, else as it arrived, for a later setup;
+in a regrip the others are finished already; ``data-chamfers`` names the
 chamfers a setup with ``chamfer`` cuts (all by default); ``data-chuck``
 (``3-jaw`` or ``4-jaw``) names the chuck;
 ``data-member`` draws a member on its own bar (the default member when
@@ -228,6 +230,12 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
     if hold == "mandrel" and "bore_dia_mm" not in values:
         raise CadError("turned-bush: a mandrel hold needs the part's bore")
+    if turn is not None and "turn" not in work:
+        raise CadError("turned-bush: data-turn needs turn in data-work")
+    if hold == "regrip" and "turn" in work and turn is None:
+        raise CadError(
+            "turned-bush: a regrip that turns names its diameters in data-turn"
+        )
     groups = _groups(root)
     _title(groups, 20, 24, _TITLES[hold])
     if hold == "inspect":
@@ -294,14 +302,6 @@ def _setup(
     segments = _segments(values, outer)
     stock_key = values.get(f"{outer}_stock_key", "stock_dia_in")
     largest = max(seg[3] for seg in segments)
-    if "turn" in work and turned != {seg[0] for seg in segments}:
-        # A diameter turned in another setup stands here at the largest
-        # diameter this setup turns (or its own, when larger).
-        left = max(seg[3] for seg in segments if seg[0] in turned)
-        segments = [
-            seg if seg[0] in turned else (*seg[:3], max(seg[3], left))
-            for seg in segments
-        ]
     count = 1
     if hold == "bar" and "parts_per_pull" in parameters:
         count = int(_param(parameters, "parts_per_pull"))
@@ -310,8 +310,23 @@ def _setup(
         stock = _param(parameters, stock_key) * 12.7
     elif hold in ("block", "mandrel"):
         stock = _param(parameters, "blank_side_in") * 12.7
+    elif "turn" in work and any(
+        seg[3] >= largest - 1e-6 for seg in segments if seg[0] in turned
+    ):
+        # A regrip turning the largest diameter turns it from the bar.
+        stock = _param(parameters, stock_key) * 12.7
     else:
         stock = largest
+    if "turn" in work and hold != "regrip" and turned != {s[0] for s in segments}:
+        # On the bar or blank a diameter another (later) setup turns stands
+        # at the smallest this setup's passes over it leave, the largest
+        # diameter turned here, or as arrived when larger than that. In a
+        # regrip the others are finished already and drawn so.
+        left = max(seg[3] for seg in segments if seg[0] in turned)
+        segments = [
+            seg if seg[0] in turned else (*seg[:3], left if seg[3] < left else stock)
+            for seg in segments
+        ]
     face = 0.0
     if "face" in work and hold == "regrip":
         # The regrip faces off what the parting left on the parted end.
@@ -378,9 +393,9 @@ def _setup(
                 z1 = min(z1, z0 + held_mm)
         if "turn" in work:
             # A regrip turns only what stands out of its jaws.
-            for name, a0, a1, r in segments:
+            for name, a0, a1, _ in segments:
                 inside = a0 < z1 - 1e-6 and a1 > z0 + 1e-6
-                if name in turned and r < stock - 1e-6 and inside:
+                if name in turned and inside:
                     raise CadError(f"turned-bush: the regrip turns {name} in its jaws")
         x0, x1 = page.span(z0, z1)
         _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM)
@@ -419,8 +434,10 @@ def _setup(
         shift = index * pitch
         groups["part-kept"].append(_profile(page, segments, shift))
         if "turn" in work:
-            for _, z0, z1, radius in segments:
-                if radius < stock - 1e-6:
+            for name, z0, z1, radius in segments:
+                # In a regrip only the named diameters are cut here.
+                cut = name in turned or hold != "regrip"
+                if cut and radius < stock - 1e-6:
                     a, b = page.span(z0, z1, shift)
                     groups["part-removed"] += [
                         _rect(a, page.up(stock), b - a, (stock - radius) * scale),

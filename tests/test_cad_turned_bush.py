@@ -199,14 +199,27 @@ def test_pictures_refuse_unknown_holds_and_turning_inside_the_regrip_jaws():
     cad = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="data-hold"):
         render_cad_svg(_svg(hold="collet"), cad, BAR)
-    # Gripped on the whole spigot, the head out: the spigot is the diameter
-    # under the largest, and it is inside the jaws.
+    # A diameter in the regrip's jaws cannot be turned there, the largest
+    # included (the head, held whole while the spigot stands out).
     with pytest.raises(CadError, match="turns step in its jaws"):
         render_cad_svg(
-            _svg(hold="regrip", out="datum", grip="step", work="turn"), cad, BAR
+            _svg(hold="regrip", out="datum", grip="step", work="turn", turn="step"),
+            cad,
+            BAR,
         )
+    with pytest.raises(CadError, match="turns outer in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="far", grip="outer", work="turn", turn="outer"),
+            cad,
+            BAR,
+        )
+    with pytest.raises(CadError, match="names its diameters in data-turn"):
+        render_cad_svg(_svg(hold="regrip", grip="outer", work="turn"), cad, BAR)
     with pytest.raises(CadError, match="data-turn 'neck'"):
         render_cad_svg(_svg(hold="bar", work="turn", turn="neck"), cad, BAR)
+    for hold, work in (("inspect", ""), ("bar", "face")):
+        with pytest.raises(CadError, match="data-turn needs turn"):
+            render_cad_svg(_svg(hold=hold, work=work, turn="outer"), cad, BAR)
     with pytest.raises(CadError, match="data-grip 'neck'"):
         render_cad_svg(_svg(hold="regrip", grip="neck", work="centre"), cad, BAR)
 
@@ -479,7 +492,9 @@ def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():
     assert whole.values["step_regrip_jaw_z_datum_mm"] == pytest.approx(-15.24)
     assert whole.values["outer_regrip_jaw_z_far_mm"] == pytest.approx(-10.668)
     picture = render_cad_svg(
-        _svg(hold="regrip", out="far", grip="outer", work="face turn"), cad, params
+        _svg(hold="regrip", out="far", grip="outer", work="face turn", turn="step"),
+        cad,
+        params,
     ).decode()
     assert "turn to its measured mate" in picture
     assert "turn Ø" not in picture
@@ -501,6 +516,34 @@ def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
     assert "turn Ø.490–.510" in head_only
     assert "measured mate" not in head_only
     assert "measured mate" in both
+
+
+def _removed(picture: str) -> int:
+    group = re.search(r'class="part-removed"[^>]*>(.*?)</g>', picture, re.DOTALL)
+    return group[1].count("<rect") if group else 0
+
+
+def test_data_turn_hatches_only_what_the_setup_cuts():
+    params = BAR | {"regrip_allowance_in": 0.02}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # On the bar, turning only the spigot: the head is left at the bar, so
+    # only the spigot's two hatches (above and below the axis) are cut.
+    spigot = render_cad_svg(
+        _svg(hold="bar", out="far", work="turn", turn="step"), cad, params
+    ).decode()
+    both = render_cad_svg(_svg(hold="bar", out="far", work="turn"), cad, params)
+    assert _removed(spigot) == 2
+    assert _removed(both.decode()) == 4
+    # Gripped on the finished spigot, the head out and turned from the bar:
+    # the head is hatched and labelled, the spigot neither.
+    head = render_cad_svg(
+        _svg(hold="regrip", out="datum", grip="step", work="turn", turn="outer"),
+        cad,
+        params,
+    ).decode()
+    assert _removed(head) == 2
+    assert "turn Ø.490–.510" in head
+    assert "measured mate" not in head
 
 
 def test_data_chamfers_labels_only_the_chamfers_the_setup_cuts():
