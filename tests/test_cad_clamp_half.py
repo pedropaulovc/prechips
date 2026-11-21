@@ -50,6 +50,16 @@ def test_both_halves_bind_the_envelope_bore_and_ears():
         # One common zero at the near side: the ears at .256 and 1.634.
         assert values["ear_near_x_in"] == pytest.approx(0.256)
         assert values["ear_far_x_in"] == pytest.approx(1.634)
+        # Drilled before the bore: the station band about its nominal location.
+        for key, band in (
+            ("ear_near_x", (0.252, 0.260)),
+            ("ear_far_x", (1.630, 1.638)),
+        ):
+            assert values[f"{key}_min_in"] == pytest.approx(band[0], abs=1e-4)
+            assert values[f"{key}_max_in"] == pytest.approx(band[1], abs=1e-4)
+            assert values[f"{key}_band_mm"] == pytest.approx(
+                [band[0] * 25.4, band[1] * 25.4], abs=1e-3
+            )
         assert values["ear_y_in"] == pytest.approx(0.315)
         assert values["end_stock_min_in"] == pytest.approx(0.05)
     assert front["depth_band_mm"] == [17.272, 17.526]
