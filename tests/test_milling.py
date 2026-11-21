@@ -166,6 +166,22 @@ def test_a_sixteenth_drill_reads_table_11s_first_row():
         table_factor(0.0595, pairs, "diameter", "in", "FT")
 
 
+def test_a_cutter_below_table_11_is_bounded_at_its_first_row():
+    # A .062 miniature end mill plunged: FT and the chisel term rise with
+    # diameter, so it is checked as a 1/16 in (.0625) drill, never below.
+    config = load_config(None)
+    brass = ("brass", config["materials"]["brass"])
+    small = milling._forces(
+        {}, "plunge", brass, config, (1.5748, 3, 0.00762), None, "c"
+    )
+    sixteenth = milling._forces(
+        {}, "plunge", brass, config, (1.5875, 3, 0.00762), None, "c"
+    )
+    assert small[milling._SPINDLE][0] == pytest.approx(sixteenth[milling._SPINDLE][0])
+    assert "bounded at the 0.0625 in table row" in small[milling._SPINDLE][1]
+    assert "bounded" not in sixteenth[milling._SPINDLE][1]
+
+
 # The vise-fix squaring cut on its own, for declaration edge cases.
 SETUP = {
     "title": "Square both ends",
