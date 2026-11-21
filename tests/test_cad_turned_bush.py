@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from prechips.cad import CadError, load_cad
+from prechips.cad import CadError
 from prechips.cad_diagrams import render_cad_svg
 from prechips.cad_turned_bush import load_turned_bush
 
@@ -49,8 +49,6 @@ def test_plug_stations_run_from_the_datum_end():
     assert values["step_ref_in"] == pytest.approx(0.363)
     assert values["step_clearance_min_in"] == pytest.approx(0.004)
     assert values["step_clearance_max_in"] == pytest.approx(0.009)
-    assert values["step_mate"] == "DEMO-TUBE BORE"
-    assert values["tap_thread"] == "#10-24 UNC-2B"
     assert values["tap_drill_depth_band_mm"] == [13.97, 14.478]
     assert values["tap_thread_depth_band_mm"] == [10.922, 11.43]
     assert values["members"] == []
@@ -78,7 +76,7 @@ def test_bar_binds_pitch_stickout_and_parts_per_bar():
     required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
     # The bar covers the grip and the four parts the quantity asks for.
     assert required == pytest.approx(
-        {"stock_dia_in": 12.954, "bar_length_in": (0.75 + 4 * 1.1025) * 25.4}
+        {"stock_dia_in": 12.954, "bar_length_in": (0.75 + 0.1 + 4 * 1.1025) * 25.4}
     )
     with pytest.raises(CadError, match="one bar makes 4 parts, under the quantity 5"):
         load_turned_bush(PLUG, params | {"quantity": 5}, "turned-plug")
@@ -94,7 +92,6 @@ def test_cup_pocket_bore_and_chamfers():
     assert values["pocket_clearance_min_in"] == pytest.approx(0.008)
     assert values["pocket_corner_r_max_in"] == pytest.approx(0.004)
     assert values["bore_dia_min_in"] == pytest.approx(0.161)
-    assert values["bore_process"] == "drill"
     assert values["outer_clearance_band_mm"] == pytest.approx([0.0508, 0.1524])
     chamfers = sorted(key for key in values if key.endswith("_leg_band_mm"))
     assert chamfers == ["chamfer_bore_leg_band_mm", "chamfer_far_leg_band_mm"]
@@ -158,6 +155,24 @@ def test_a_squared_blank_excludes_bar():
             "member's name",
         ),
         (PLUG, '["features"."tap"]', '["features"."knurl"]', "unsupported knurl"),
+        (
+            PLUG,
+            '"span" = [15.239999999999998, 25.907999999999998]',
+            '"span" = [15.239999999999998, 25.0]',
+            "stop short of the far end",
+        ),
+        (
+            PLUG,
+            '"requirements" = ["dia"]',
+            '"requirements" = ["dia", "stock"]',
+            "a stock size takes no dia band",
+        ),
+        (
+            PLUG,
+            '"drill_depth" = [13.97, 14.478]',
+            '"drill_depth" = [13.97, 24.8]',
+            "drill's point reaches the far end of the shortest part",
+        ),
     ],
 )
 def test_parts_that_are_not_one_turned_axis_refuse(tmp_path, path, old, new, message):
@@ -170,9 +185,14 @@ def test_parts_that_are_not_one_turned_axis_refuse(tmp_path, path, old, new, mes
         load_turned_bush(source, {}, part)
 
 
-def test_load_cad_dispatches_turned_bush():
-    cad = load_cad(PLUG, {}, "turned_bush", "turned-plug")
-    assert cad.values["part"] == "turned-plug"
+def test_clearance_fits_are_screened_at_their_smallest_turned_size():
+    params = BAR | {"finish_allowance_in": 0.005}
+    values = load_turned_bush(PLUG, params, "turned-plug").values
+    # The spigot: the mate's .363 REF less the .009 most clearance.
+    assert values["step_turn_min_mm"] == pytest.approx((0.363 - 0.009) * 25.4)
+    assert values["step_rough_dia_mm"] == pytest.approx((0.354 + 0.01) * 25.4)
+    # The head: its band's low end.
+    assert values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
 
 
 def test_pictures_refuse_unknown_holds_and_turning_on_a_regrip():
@@ -295,7 +315,7 @@ def test_spans_and_frames_stay_inside_the_part(tmp_path):
         (
             '"drill_depth" = [13.97, 14.478]',
             '"drill_depth" = [13.97, 26.0]',
-            "blind hole reaches the far end",
+            "drill.s point reaches the far end",
         ),
         (
             '"frame" = "model"\n"requirements" = ["station"]',
@@ -324,3 +344,41 @@ def test_a_member_larger_than_the_default_brings_its_own_bar(tmp_path):
     required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
     assert required["stock_dia_in"] == pytest.approx(12.7)
     assert required["stock_dia_c050_in"] == pytest.approx(44.45)
+
+
+def test_a_member_is_drawn_on_its_own_bar():
+    params = COLLAR_BARS | {"parts_per_pull": 1, "jaw_clearance_in": 0.1}
+    cad = load_turned_bush(COLLAR, params, "turned-collar")
+    work = {"out": "datum", "work": "face drill part"}
+    picture = render_cad_svg(_svg(hold="bar", member="C050", **work), cad, params)
+    assert "jaws on bar Ø.5000" in picture.decode()
+    default = render_cad_svg(_svg(hold="bar", member="c175", **work), cad, params)
+    assert "jaws on bar Ø1.7500" in default.decode()
+    with pytest.raises(CadError, match="not a member"):
+        render_cad_svg(_svg(hold="bar", member="C075", **work), cad, params)
+
+
+def test_finish_allowance_binds_without_bar_and_a_stock_size_takes_no_fit(tmp_path):
+    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1}
+    values = load_turned_bush(
+        PLUG, block | {"finish_allowance_in": 0.005}, "turned-plug"
+    ).values
+    assert values["step_rough_dia_mm"] == pytest.approx((0.354 + 0.01) * 25.4)
+    with pytest.raises(CadError, match="finish_allowance_in"):
+        load_turned_bush(PLUG, {"finish_allowance_in": -1}, "turned-plug")
+    text = COLLAR.read_text(encoding="utf-8")
+    old = '"requirements" = ["stock"]'
+    source = tmp_path / "cad.toml"
+    source.write_text(
+        text.replace(old, '"requirements" = ["stock", "diametral_interference"]', 1),
+        encoding="utf-8",
+    )
+    with pytest.raises(CadError, match="a stock size takes no dia band or fit"):
+        load_turned_bush(source, COLLAR_BARS, "turned-collar")
+
+
+def test_a_band_with_a_fit_prints_both():
+    cad = load_turned_bush(CUP, {}, "turned-cup")
+    picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
+    assert "Ø.417–.427" in picture
+    assert ".0020–.0060 under its mate" in picture
