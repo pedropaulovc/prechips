@@ -57,7 +57,9 @@ CHECKS: dict[str, Check] = {
         operation_fields=frozenset({"gauge_checks"}),
     ),
     "lathe_holding": Check(
-        module="prechips.lathe", setup_fields=frozenset({"lathe_hold"})
+        module="prechips.lathe",
+        setup_fields=frozenset({"lathe_hold"}),
+        operation_fields=frozenset({"load_diameter_mm"}),
     ),
     "vise_holding": Check(
         module="prechips.vise", setup_fields=frozenset({"vise_hold"})

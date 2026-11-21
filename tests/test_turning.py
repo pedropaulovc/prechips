@@ -10,6 +10,7 @@ from prechips.turning import (
     TurningError,
     _bending_factor,
     _follower_factor,
+    _stepped_bending,
     check_turning_deflection,
     load_config,
     table_factor,
@@ -468,5 +469,188 @@ def test_other_classification_rejects_contradictory_physics(
     setup["operations"] = [operation]
     if not support:
         setup.pop("turning_support")
+    with pytest.raises(TurningError, match="contradicts"):
+        check_turning_deflection(plan, load_config(None))
+
+
+def _step_plan(*cuts, step=None, support=None):
+    """Issue #515: Ø1/4 in brass bar, a Ø.058 in spigot step-turned 0.70 in
+    back from the free end, 30.7 mm out of the jaws (chuck Z0), no tailstock."""
+    plan = _plan(support=support)
+    plan.data["turning_material"] = "brass"
+    operation = plan.data["setups"][0]["operations"][0]
+    operation["turning_cuts"] = list(cuts)
+    operation["turning_step"] = step or {"length_mm": 2.032, "load_diameter_mm": 6.35}
+    return plan
+
+
+def _spigot(phase, **changes):
+    rough = phase == "rough"
+    cut = {
+        "name": f"spigot {phase}",
+        "phase": phase,
+        "start_z_mm": 30.7,
+        "end_z_mm": 30.7 - 0.70 * 25.4,
+        "start_diameter_mm": 6.35 if rough else 1.6002,
+        "end_diameter_mm": 1.6002 if rough else 1.4732,
+        "max_radial_doc_mm": 0.024 * 25.4 if rough else 0.0025 * 25.4,
+        "feed_mm_rev": 0.002 * 25.4 if rough else 0.001 * 25.4,
+    }
+    cut.update(changes)
+    cut.setdefault("kept_start_z_mm", cut["start_z_mm"])
+    cut.setdefault("kept_end_z_mm", cut["end_z_mm"])
+    return cut
+
+
+def test_step_bending_reduces_to_closed_form_cantilevers():
+    # 100 N per mm DOC at 1 mm DOC, E=200000, x=50: no step ahead is the
+    # load-section cantilever; a step as long as the cantilever is the thin
+    # cantilever at end + 2 DOC; between them the two segments add.
+    per_doc, x, modulus = 100.0, 50.0, 200000.0
+
+    def cantilever(length, diameter):
+        return 100 * length**3 / (3 * modulus * math.pi * diameter**4 / 64)
+
+    bend, depth = _stepped_bending(per_doc, x, 0.0, 10.0, 2.0, 1.0, modulus)
+    assert (bend, depth) == (pytest.approx(cantilever(50, 10)), 1.0)
+    bend, _ = _stepped_bending(per_doc, x, x, 10.0, 6.0, 1.0, modulus)
+    assert bend == pytest.approx(cantilever(50, 8))
+    bend, _ = _stepped_bending(per_doc, x, 5.0, 10.0, 6.0, 1.0, modulus)
+    expected = cantilever(50, 10) - cantilever(5, 10) + cantilever(5, 8)
+    assert bend == pytest.approx(expected)
+
+
+def test_step_bending_finds_a_shallower_worse_pass():
+    # A long thin step ahead: a pass shallower than the max DOC meets a
+    # thinner step and bends more; no sampled pass depth bends more.
+    per_doc, x, ahead, load, end, doc, modulus = 100, 40, 30, 12, 2, 3, 200000
+
+    def bend_at(t):
+        load_side = (x**3 - ahead**3) / (3 * modulus * math.pi * load**4 / 64)
+        step_side = ahead**3 / (3 * modulus * math.pi * (end + 2 * t) ** 4 / 64)
+        return per_doc * t * (load_side + step_side)
+
+    bend, depth = _stepped_bending(per_doc, x, ahead, load, end, doc, modulus)
+    assert end / 6 < depth < end / 3
+    assert bend > 5 * bend_at(doc)
+    samples = [bend_at(doc * i / 20000) for i in range(1, 20001)]
+    assert max(samples) <= bend * (1 + 1e-12)
+    assert max(samples) == pytest.approx(bend, rel=1e-6)
+
+
+def test_issue_515_step_turning_passes_where_the_finished_section_refuses():
+    config = load_config(None)
+    check_turning_deflection(_step_plan(_spigot("rough"), _spigot("finish")), config)
+    for index, (phase, expected) in enumerate((("rough", 0.0909), ("finish", 0.00487))):
+        assert expected < config["limits"][f"{phase}_mm"]
+        cuts = [_spigot("rough"), _spigot("finish")]
+        # Just under and over the estimate: the estimate itself, per phase.
+        cuts[index]["max_deflection_mm"] = expected * 0.99
+        with pytest.raises(TurningError, match=f"spigot {phase}.*steps of 2.032 mm"):
+            check_turning_deflection(_step_plan(*cuts), config)
+        cuts[index]["max_deflection_mm"] = expected * 1.01
+        check_turning_deflection(_step_plan(*cuts), config)
+        # Without turning_step the same cut bends at the finished Ø over the
+        # whole 30.7 mm: refused by an order of magnitude.
+        plain = _plan(dict(_spigot(phase), minimum_diameter_mm=1.4732))
+        plain.data["turning_material"] = "brass"
+        with pytest.raises(TurningError, match="model diameter 1.4732"):
+            check_turning_deflection(plain, config)
+
+
+def _pair(**changes):
+    """The step operation's rough and finish cuts, each with ``changes``."""
+    return [_spigot("rough", **changes), _spigot("finish", **changes)]
+
+
+@pytest.mark.parametrize(
+    ("cuts", "step", "message"),
+    [
+        # One full-depth .096 in pass in a step: about 0.18 mm against 0.005.
+        (
+            [_spigot("finish", start_diameter_mm=6.35, max_radial_doc_mm=2.4384)],
+            None,
+            r"spigot finish': estimated radial bending 0\.17",
+        ),
+        # The issue's .10 in steps: the finish pass sees .10 in of Ø1.60 ahead.
+        (
+            _pair(),
+            {"length_mm": 2.54, "load_diameter_mm": 6.35},
+            r"spigot finish': estimated radial bending 0\.00518",
+        ),
+        # A thinner load section (the head turned first) refuses the rough.
+        (
+            _pair(),
+            {"length_mm": 2.032, "load_diameter_mm": 5.5},
+            r"spigot rough': estimated .* load section Ø5\.5 mm",
+        ),
+        # A return pass, away from the chuck, cuts the finished length again.
+        (
+            _pair(start_z_mm=12.92, end_z_mm=30.7),
+            None,
+            "turning_step: the traverse must run toward the chuck",
+        ),
+        (
+            _pair(),
+            {"length_mm": 18.0, "load_diameter_mm": 6.35},
+            r"turning_step\.length_mm 18 mm exceeds the 17\.78 mm traverse",
+        ),
+        (
+            [_spigot("rough"), _spigot("finish", minimum_diameter_mm=6.35)],
+            None,
+            "a step-turned cut takes no minimum_diameter_mm",
+        ),
+        # Not one stepped sequence: a load over the first cut's start, a skim
+        # over the finished spigot behind a head cut from the bar (its own
+        # traverse), and a cut that does not start where the one before ended.
+        (
+            _pair(),
+            {"length_mm": 2.0, "load_diameter_mm": 7.0},
+            r"Ø7 mm is over the Ø6\.35 mm the first cut \('spigot rough'\)",
+        ),
+        (
+            [
+                _spigot("rough", start_z_mm=12.92, end_z_mm=5, end_diameter_mm=6.1),
+                _spigot("finish", start_diameter_mm=6.1, end_diameter_mm=1.45),
+            ],
+            None,
+            r"cut 'spigot finish' runs Z 30\.7\.\.12\.92 mm, not the operation's",
+        ),
+        (
+            [_spigot("rough"), _spigot("finish", start_diameter_mm=1.4732)],
+            None,
+            r"starts from Ø1\.4732 mm, not the Ø1\.6002 mm the cut before it leaves",
+        ),
+        (_pair(), {"length_mm": 2.0}, r"turning_step\.load_diameter_mm: expected"),
+        (
+            _pair(),
+            {"length_mm": 2.0, "load_diameter_mm": 6.35, "x": 1},
+            r"turning_step: unknown field\(s\): x",
+        ),
+    ],
+)
+def test_declared_step_turning_still_refuses_failing_numbers(cuts, step, message):
+    with pytest.raises(TurningError, match=message):
+        check_turning_deflection(_step_plan(*cuts, step=step), load_config(None))
+
+
+@pytest.mark.parametrize("kind", ["tailstock", "follower"])
+def test_step_turning_needs_chuck_only_support(kind):
+    support = {"kind": kind, "chuck_z_mm": 0, "centre_z_mm": 40}
+    with pytest.raises(TurningError, match="needs chuck_only support"):
+        check_turning_deflection(
+            _step_plan(_spigot("rough"), support=support), load_config(None)
+        )
+
+
+@pytest.mark.parametrize("machine", ["lathe", "other"])
+def test_turning_step_outside_longitudinal_turning_contradicts(machine):
+    plan = _plan()
+    setup = plan.data["setups"][0]
+    setup["machine_kind"] = machine
+    setup.pop("turning_support")
+    setup["operations"] = [
+        {"cut_kind": "other", "turning_step": {"length_mm": 1, "load_diameter_mm": 6}}
+    ]
     with pytest.raises(TurningError, match="contradicts"):
         check_turning_deflection(plan, load_config(None))

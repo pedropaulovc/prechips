@@ -1,0 +1,110 @@
+# Demo: a brass pin from 1/4 in C36000 bar on the manual lathe, spigot end
+# out. The head is the bar left as bought; the slender spigot (L/D 8) is
+# turned in short steps toward the chuck, each step roughed and finished
+# before the next, so every cut loads the full bar between the jaws and the
+# tool and the finished spigot outboard of it is never cut again. Parted off
+# to length. Sizes and stations come from the manifest through the
+# turned_bush adapter; the pictures are its turned-bush templates. Step
+# length, allowances, kerf and the spigot's DOCs and feeds are authored demo
+# choices.
+title = "Demo step pin"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "C36000 free-cutting brass round, 1/4 in"
+stock = "Ø{{process.stock_dia_in:.3dot}} in bar, {{process.bar_length_in:g}} in; one part takes {{cad.pitch_in:.4dot}} in."
+note = "Inches. Lathe speeds on the PM-1127VF-LB (70–380 and 380–2000 rpm). Brass dry."
+shop = "shop.toml"
+material_key = "step-pin-c360"
+# Medium brass: the packaged screen's only brass row, a higher unit power
+# than free-cutting brass.
+turning_material = "brass"
+
+[cad]
+file = "cad/step-pin-v1.toml"
+adapter = "turned_bush"
+part = "step-pin"
+
+[parameters]
+quantity = 1
+stock_dia_in = 0.25
+bar_length_in = 6.0
+chuck_grip_in = 0.75
+face_allowance_in = 0.02
+part_kerf_in = 0.0625
+parts_per_pull = 1
+jaw_clearance_in = 0.1
+# Left a side on each spigot step for its finish pass.
+finish_allowance_in = 0.0025
+rough_radial_doc_mm = 0.6096
+finish_radial_doc_mm = 0.0635
+rough_feed_per_rev_mm = 0.0508
+finish_feed_per_rev_mm = 0.0254
+turn_start_z_mm = 0.5
+# The spigot's axial step, .125 in: the length its turning screen judges.
+step_mm = 3.175
+
+[[tools]]
+id = "ar"
+name = "AR"
+ref = "shaft-ar"
+
+[[tools]]
+id = "blade"
+name = "Blade"
+ref = "shaft-blade"
+description = "1/16 in M2 parting blade"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Bar: spigot end out, step-turn the spigot, part off"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the bar; {{cad.stickout_in:.3dot}} in out of the jaws."
+datum = "Z0 the spigot end faced square."
+diagram = { file = "diagrams/demo-step-pin/bar.svg", alt = "The bar in the 3-jaw, spigot end out: the end faced, the spigot turned in steps toward the chuck, the part parted off at the head end." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.step_turn_min_mm}}", support = "none", load_diameter_mm = "{{cad.stock_dia_mm}}" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.jaw_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end square to Z0, {{process.face_allowance_in:.3dot}} in off."
+settings = "step-pin-face-c360"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+load_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_step = { length_mm = "{{process.step_mm}}", load_diameter_mm = "{{cad.stock_dia_mm}}" }
+turning_cuts = [
+  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.rough_feed_per_rev_mm}}" },
+  { name = "Spigot finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.finish_feed_per_rev_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Turn the spigot Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}} from the end to the shoulder at Z{{cad.step_far_out_far_z_mm:in.3dot}}, roughing each step to Ø{{cad.step_rough_dia_mm:in.4dot}}."
+settings = "step-pin-turn-c360"
+feed = "Rough {{process.rough_feed_per_rev_mm:in.3dot}}, finish {{process.finish_feed_per_rev_mm:in.3dot}} in/rev"
+cut_diameter_mm = "{{cad.step_dia_mm}}"
+inspection = "Spigot Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.step_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Part off {{cad.part_off_in:.3dot}} in from the faced end."
+settings = "step-pin-parting-c360"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+load_diameter_mm = "{{cad.stock_dia_mm}}"
+inspection = "Length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}; shoulder {{cad.shoulder_min_in:.3dot}}–{{cad.shoulder_max_in:.3dot}} from the head end."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.shoulder_band_mm}}" }]
+diagram = { file = "diagrams/demo-step-pin/inspect.svg", alt = "The finished pin: the head left at the bar's size, the shoulder and the slender spigot." }

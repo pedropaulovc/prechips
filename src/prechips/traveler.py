@@ -6,13 +6,13 @@ import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
 from html import escape
-from math import isfinite
+from math import floor, isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
 from prechips import indexing, palette, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
-from prechips.checks import CheckError
+from prechips.checks import CheckError, positive_mm
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
 from prechips.shop import STATUSES
@@ -165,6 +165,36 @@ def _turning_cuts(operation: dict, where: str) -> None:
         _turning_numbers(cut, numbers, cut_where)
 
 
+def _turning_step(operation: dict, where: str) -> None:
+    if "turning_step" not in operation:
+        return
+    step = operation["turning_step"]
+    where = f"{where}.turning_step"
+    if not isinstance(step, dict):
+        raise PlanError(f"{where}: expected a table")
+    numbers = {"length_mm", "load_diameter_mm"}
+    _keys(step, numbers, where)
+    for key in sorted(numbers):
+        try:
+            positive_mm(step.get(key), f"{where}.{key}")
+        except CheckError as error:
+            raise PlanError(str(error)) from error
+
+
+def _turning_step_html(length_mm: float) -> str:
+    """The step length the turning screen used, as the machinist's limit.
+
+    Rounded down, so the printed limit never exceeds the screened one.
+    """
+    millimetres = floor(length_mm * 100 + 1e-9) / 100
+    inches = f"{floor(length_mm / 25.4 * 1000 + 1e-9) / 1000:.3f}".removeprefix("0")
+    return (
+        f'<div class="text"><strong>Steps:</strong> at most {millimetres:.2f} mm '
+        f"({inches} in), toward the chuck; rough and finish each step before "
+        "the next.</div>"
+    )
+
+
 def _shop_toml(file: Path) -> dict:
     try:
         with file.open("rb") as source:
@@ -274,7 +304,7 @@ def load_plan(path: Path) -> LoadedPlan:
         native = {
             "tools": check_fields("tool"),
             "setups": {"turning_support"} | check_fields("setup"),
-            "operations": {"turning_cuts"} | check_fields("operation"),
+            "operations": {"turning_cuts", "turning_step"} | check_fields("operation"),
         }
 
         def keep_numbers(table: dict, kind: str) -> None:
@@ -439,12 +469,14 @@ def load_plan(path: Path) -> LoadedPlan:
                     "diagram",
                     "cut_kind",
                     "turning_cuts",
+                    "turning_step",
                 }
                 | check_fields("operation"),
                 op_where,
             )
             _choice(operation, "cut_kind", {"longitudinal_turning", "other"}, op_where)
             _turning_cuts(operation, op_where)
+            _turning_step(operation, op_where)
             _cutting_settings(operation, op_where)
             _diagram(operation, op_where)
             tool_id = _text(operation, "tool", op_where, optional=True)
@@ -965,6 +997,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 f'{reopen}<tr><td class="op-number">{operation_number}</td><td>{work}'
             )
             body = "rows"
+            if "turning_step" in operation:
+                lines.append(_turning_step_html(operation["turning_step"]["length_mm"]))
             if "inspection" in operation:
                 lines.append(
                     '<div class="text"><strong>Check:</strong> '
