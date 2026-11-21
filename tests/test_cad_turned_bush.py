@@ -58,11 +58,19 @@ def test_plug_stations_run_from_the_datum_end():
 
 def test_bar_binds_pitch_stickout_and_parts_per_bar():
     params = BAR | {"bar_length_in": 6.0, "chuck_grip_in": 0.75, "quantity": 4}
-    cad = load_turned_bush(PLUG, params | {"parts_per_pull": 1}, "turned-plug")
+    pull = {"parts_per_pull": 2, "jaw_clearance_in": 0.1}
+    cad = load_turned_bush(PLUG, params | pull, "turned-plug")
     values = cad.values
     # 1.02 long + .02 to face + .0625 kerf.
     assert values["pitch_in"] == pytest.approx(1.1025)
-    assert values["stickout_in"] == pytest.approx(1.1225)
+    # Two parts out: the second part's kerf ends .02 short of two pitches
+    # back from Z0, the jaws .1 beyond, the arriving end .02 out at Z+.
+    assert values["run_end_z_mm"] == pytest.approx(-2.185 * 25.4)
+    assert values["jaw_z_mm"] == pytest.approx(-2.285 * 25.4)
+    assert values["kept_end_z_mm"] == pytest.approx(-2.1225 * 25.4)
+    assert values["stickout_in"] == pytest.approx(2.305)
+    with pytest.raises(CadError, match="jaw_clearance_in"):
+        load_turned_bush(PLUG, params | {"parts_per_pull": 1}, "turned-plug")
     assert values["parts_per_bar"] == 4
     assert values["bar_used_in"] == pytest.approx(0.75 + 4 * 1.1025)
     # The head: the 5/8 bar turned down to .490–.510, .0575 off a side.
@@ -181,10 +189,8 @@ def test_pictures_refuse_unknown_holds_and_turning_on_a_regrip():
 
 
 def test_bar_picture_hatches_the_turned_and_parted_material():
-    cad = load_turned_bush(
-        CUP, BAR | {"stock_dia_in": 0.5, "parts_per_pull": 2}, "turned-cup"
-    )
-    params = BAR | {"stock_dia_in": 0.5, "parts_per_pull": 2}
+    params = BAR | {"stock_dia_in": 0.5, "parts_per_pull": 2, "jaw_clearance_in": 0.1}
+    cad = load_turned_bush(CUP, params, "turned-cup")
     picture = render_cad_svg(
         _svg(hold="bar", out="datum", work="face turn centre drill pocket part"),
         cad,

@@ -249,7 +249,10 @@ def _setup(
     elif hold == "mandrel":
         reach = length + 16.0
     else:
-        reach = (count - 1) * pitch + length + kerf + face + held
+        clear = 0.0
+        if hold == "bar" and "jaw_clearance_in" in parameters:
+            clear = _param(parameters, "jaw_clearance_in") * 25.4
+        reach = (count - 1) * pitch + length + kerf + face + clear + held
     scale = min(14.0, 420.0 / reach, 150.0 / (2 * stock))
     if hold == "regrip":
         page = _Page(_LEFT + 20 + length * scale, scale, length, out)

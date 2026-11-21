@@ -28,6 +28,7 @@ chuck_grip_in = 0.75
 face_allowance_in = 0.02
 part_kerf_in = 0.0625
 parts_per_pull = 1
+jaw_clearance_in = 0.1
 
 [[tools]]
 id = "ar"

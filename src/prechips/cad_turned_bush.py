@@ -55,6 +55,7 @@ _DIAMETERS = ("outer", "step")
 _OPTIONAL = {"shoulder", "bore", "pocket", "tap"}
 _BAR = ("stock_dia_in", "face_allowance_in", "part_kerf_in")
 _BAR_LENGTH = ("bar_length_in", "chuck_grip_in")
+_PULL = ("parts_per_pull", "jaw_clearance_in")
 _BLOCK = ("blank_side_in", "blank_axial_in")
 _TOLERANCE = 1e-6
 
@@ -190,6 +191,10 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
     values[f"{name}_stock"] = "stock" in requirements
     if "stock" in requirements:
         values[f"{name}_stock_text"] = _string(item.get("stock"), f"{name}.stock")
+        if "stock_dia_min" in item:
+            # The least bar the drawing accepts as supplied.
+            least = _positive(item["stock_dia_min"], f"{name}.stock_dia_min")
+            values[f"{name}_stock_dia_min_in"] = least / 25.4
     for fit in ("diametral_clearance", "diametral_interference"):
         if fit in requirements:
             _limits(item, fit, name, f"{name}_{fit.split('_')[1]}", values)
@@ -332,16 +337,27 @@ def _bar(
         values[f"{name}_stickout_far_mm"] = (
             values["length_mm"] - values[f"{name}_z1_mm"] + face * 25.4
         )
-    if "parts_per_pull" in parameters:
+    if _all_or_none(parameters, _PULL, "the parts out of the jaws"):
         pull = _positive(parameters["parts_per_pull"], "process.parts_per_pull")
         if pull != int(pull):
             raise CadError("process.parts_per_pull: expected a whole number")
-        values["stickout_in"] = pull * values["pitch_in"] + face
+        clear = _positive(parameters["jaw_clearance_in"], "process.jaw_clearance_in")
+        # Z0 the end faced first, Z+ away from the chuck: the arriving end
+        # stands the facing allowance out at Z+; part k runs back from
+        # -k × pitch; the last part's kerf ends one facing allowance short of
+        # a whole number of pitches, and the jaws stand the clearance beyond.
+        run = pull * values["pitch_in"] - face
+        values["stickout_in"] = run + clear + face
         values["stickout_mm"] = values["stickout_in"] * 25.4
+        values["run_end_z_mm"] = -run * 25.4
+        values["jaw_z_mm"] = -(run + clear) * 25.4
+        values["kept_end_z_mm"] = -(
+            (pull - 1) * values["pitch_mm"] + values["length_mm"]
+        )
         cut = [
             values[f"{name}_dia_mm"] for name in turned if not values[f"{name}_stock"]
         ]
-        values["stickout_ratio"] = values["stickout_in"] * 25.4 / min(cut or [stock_mm])
+        values["stickout_ratio"] = values["stickout_mm"] / min(cut or [stock_mm])
     if _all_or_none(parameters, _BAR_LENGTH, "the bar's parts count"):
         bar, grip = (
             _positive(parameters[key], f"process.{key}") for key in _BAR_LENGTH
