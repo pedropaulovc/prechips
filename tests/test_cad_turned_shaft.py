@@ -334,3 +334,33 @@ def test_a_far_root_station_over_a_radius_band_faces_to_the_window(tmp_path):
     )
     # Over a REF length the height a shop checks is the radius band's.
     assert values["dome_far_height_band_mm"] == pytest.approx([short, tall])
+
+
+def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
+    form = BAR | {"dome_form_radius_in": 0.1, "dome_steps": 3}
+    cad = load_turned_shaft(PIN, form, "demo-turned-pin")
+    label = {"end-label": "thread end"}
+    cut = render_cad_svg(
+        _svg(hold="regrip", out="datum", work="face dome steps"), cad, form
+    ).decode()
+    # One dome label, its leader ending on the form tool, with the steps line.
+    assert cut.count("R.100 form") == 1 and "step-turn 3 steps" in cut
+    named = render_cad_svg(
+        _svg(hold="inspect", x0="far", **{"end-label": "end B"}), cad, form
+    ).decode()
+    assert "end B" in named and "far end" not in named
+    blank = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    turned = render_cad_svg(
+        _svg(hold="blank", out="far", work="face", done="face-datum", **label),
+        blank,
+        BLANK,
+    ).decode()
+    assert "Turned round, the thread end out" in turned
+    for svg, message in (
+        (_svg(hold="inspect", **{"end-label": " "}), "non-blank"),
+        (_svg(hold="regrip", work="face", **label), "on inspect"),
+        (_svg(hold="blank", work="face", **label), "turned-round blank"),
+        (_svg(hold="inspect", **{"end-label": "the head end, A"}), "runs off"),
+    ):
+        with pytest.raises(CadError, match=message):
+            render_cad_svg(svg, cad, form)
