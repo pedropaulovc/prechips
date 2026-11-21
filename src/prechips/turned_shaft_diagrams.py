@@ -241,7 +241,12 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     if hold == "saw":
         return _saw(groups, values, parameters)
     if hold in ("vise", "inspect"):
-        made = {"turn", "groove", "thread", "dome-datum", "dome-far"}
+        # Everything this traveler makes; a dome made at assembly is not.
+        made = {"turn", "groove", "thread", "face-datum", "face-far"} | {
+            f"dome-{end}"
+            for end in _OUTS
+            if values.get(f"dome_{end}_made_at", "traveler") != "assembly"
+        }
         if hold == "vise":
             return _vise(groups, values, parameters, made, x0)
         return _inspect(groups, values, parameters, done if as_left else made, as_left)
@@ -875,8 +880,8 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     y = below_y + 22
     for _, origin, edge, f, source in sorted(runs, reverse=True):
         text = f"{_band(f'{f}_station')} from the {names[source]}"
-        x0, x1 = sorted((view.x(origin), view.x(edge)))
-        _dimension(groups, x0, x1, y, _AXIS, text, beside=x1 + 270 < 710)
+        left_x, right_x = sorted((view.x(origin), view.x(edge)))
+        _dimension(groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710)
         y += 24
     # End view: the part between the jaws on a parallel, the cutter above.
     cx, cy = 640.0, _AXIS

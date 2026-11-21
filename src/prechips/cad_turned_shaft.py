@@ -479,6 +479,8 @@ def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
     z0, z1 = _span(item, name, frame, values)
     band = _limits(item, "dia", name, f"{name}_dia", values)
     values[f"{name}_dia_mm"] = _nominal(item, "dia_nominal", band, name)
+    # The least size it is cut to, to screen a hold's stickout by.
+    values[f"{name}_dia_min_mm"] = band[0]
     widths = _limits(item, "width", name, f"{name}_width", values)
     width = _nominal(item, "width_nominal", widths, name)
     values[f"{name}_width_mm"] = width
@@ -589,7 +591,7 @@ def _flat(
             parameters["flat_cutter_dia_mm"], "process.flat_cutter_dia_mm"
         )
         if cutter > length + _STATION:
-            raise CadError(f"{name}: longer than process.flat_cutter_dia_mm")
+            raise CadError(f"{name}: shorter than process.flat_cutter_dia_mm")
         # The flat is widest on the largest diameter cut to the least across.
         most = high / 2
         widest = 2 * math.sqrt(most**2 - (across[0] - most) ** 2)
@@ -763,6 +765,8 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         _all_or_none(parameters, _BLANK, "the sawn blank")
         axes = _blank(values, parameters, least_bar, turned)
     elif "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
+        if "supply_length_mm" in values:
+            raise CadError("process: a part cut to fit at assembly takes a sawn blank")
         axes = _bar(values, parameters, sizes, least_bar, turned)
         for name in turned:
             # The regrip's jaw faces in lathe Z, Z0 the faced out end.

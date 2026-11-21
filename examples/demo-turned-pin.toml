@@ -27,7 +27,8 @@ stock_dia_in = 0.1875
 bar_length_in = 12.0
 chuck_grip_in = 0.75
 face_allowance_in = 0.02
-regrip_allowance_in = 0.02
+# Left on the parted thread end to face to length in the regrip.
+regrip_allowance_in = 0.012
 part_kerf_in = 0.0625
 parts_per_pull = 1
 jaw_clearance_in = 0.05
@@ -113,7 +114,7 @@ machine_ref = "pm-1127vf-lb"
 holding = "3-jaw on the head over a shim wrap, {{process.regrip_grip_in:.3dot}} of it in the jaws, the jaw faces clear of the shoulder."
 datum = "Z0 the thread end, faced in this setup; it stays the dome's apex."
 diagram = { file = "diagrams/demo-turned-pin/regrip.svg", alt = "The part turned round, gripped on the head over a shim wrap: the thread end faced to length, the blank turned, the groove cut, the end domed and threaded with the die." }
-lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.groove_relief_dia_mm}}", support = "none" }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.groove_relief_dia_min_mm}}", support = "none" }
 turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.outer_regrip_jaw_datum_out_z_mm}}" }
 
 [[setups.operations]]
