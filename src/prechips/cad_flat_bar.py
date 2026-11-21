@@ -162,7 +162,10 @@ def _requirement(values: dict, feature: dict, name: str, key: str) -> None:
         if nominal is None:
             _bind(values, f"{prefix}_mm", _mid(band))
             return
-        if not band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE:
+        # A unilateral fit (.3750 +.0015/+.0010) has its nominal size outside
+        # its band; any other nominal lies in it.
+        inside = band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE
+        if key != "dia" and not inside:
             raise CadError(f"{where}: nominal {nominal:g} mm lies outside its band")
         _bind(values, f"{prefix}_mm", nominal)
         _bind(values, f"{prefix}_nominal_in", nominal / 25.4)

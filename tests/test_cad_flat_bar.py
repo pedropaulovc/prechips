@@ -124,6 +124,9 @@ def test_locations_from_a_datum_threads_and_points_bind(tmp_path):
     # A tapped hole is a declared kind.
     kind = _variant(tmp_path, '"kind" = "hole"', '"kind" = "threaded_hole"')
     assert load_flat_bar(kind, {}, "notched-bar").values["cross_hole_dia_mm"] == 3.175
+    # A reamed running fit's band lies above its nominal size.
+    fit = _variant(tmp_path, '"dia" = [3.175, 3.1877]', '"dia" = [3.2004, 3.2131]')
+    assert load_flat_bar(fit, {}, "notched-bar").values["cross_hole_dia_mm"] == 3.175
 
 
 @pytest.mark.parametrize(
