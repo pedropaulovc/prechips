@@ -554,7 +554,7 @@ def _setup(
             (
                 page.x_out - 4,
                 2 * _AXIS - page.up(largest),
-                ["break edges:"]
+                ["chamfer:"]
                 + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
             )
         )
