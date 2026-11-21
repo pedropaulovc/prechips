@@ -419,6 +419,32 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     assert "<svg" not in html
 
 
+class RowGroups(HTMLParser):
+    """The operations table's row groups as (tbody class, [row kind]); a row
+    kind is its class, or "op" for an operation row."""
+
+    def __init__(self, html):
+        super().__init__()
+        self.tables = []
+        self.groups = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "table":
+            self.tables.append(attrs.get("class"))
+        if self.tables[-1:] != ["operations"]:
+            return
+        if tag == "tbody":
+            self.groups.append((attrs.get("class"), []))
+        if tag == "tr" and self.groups:
+            self.groups[-1][1].append(attrs.get("class", "op"))
+
+    def handle_endtag(self, tag):
+        if tag == "table":
+            self.tables.pop()
+
+
 def with_operation_diagram(text, file="op.svg"):
     return text.replace(
         'tool = "internal-mill-id"',
@@ -451,25 +477,28 @@ def test_operation_diagram_prints_before_its_row_and_is_optional(tmp_path):
     assert html.count('class="setup-diagram"') == 1
     assert 'alt="Op &lt;view&gt;"' in html
     assert "Picture key: hole" in html  # The operation picture's roles count.
-    # No empty row group sits between the header and a first-op group, or
-    # after a last-op group.
-    empty = re.compile(r"<tbody[^>]*>\s*</tbody>")
-    assert not empty.search(html)
-    assert '</thead>\n<tbody class="op-group">' in html
-    # Between plain rows, the group closes the plain tbody and reopens one.
+    # A first- and last-op group is the only row group: no empty tbody
+    # before or after it.
+    assert RowGroups(html).groups == [("op-group", ["op-diagram", "op"])]
+    # Between plain rows, the group closes the plain tbody; its op's data
+    # table opens the next one, right after the group.
     middle = PLAN.replace(
         "[[setups.operations]]",
         '[[setups.operations]]\ninstruction = "Before."\n\n[[setups.operations]]',
         1,
     )
-    middle += '\n[[setups.operations]]\ninstruction = "After."\n'
+    middle += (
+        '\n[setups.operations.table]\ncolumns = ["Hole", "X"]\nrows = [["A", "1.0"]]\n'
+        '\n[[setups.operations]]\ninstruction = "After."\n'
+    )
     middle = with_operation_diagram(with_diagram(middle, file="setup.svg"))
     result, out = run_cli(tmp_path, middle, "--profile", required)
     assert result.returncode == 0, result.stderr
-    html = out.read_text(encoding="utf-8")
-    assert not empty.search(html)
-    assert '</td></tr>\n</tbody><tbody class="op-group">' in html
-    assert '</tbody>\n<tbody><tr><td class="op-number">30</td>' in html
+    assert RowGroups(out.read_text(encoding="utf-8")).groups == [
+        (None, ["op"]),
+        ("op-group", ["op-diagram", "op"]),
+        (None, ["data-row", "op"]),
+    ]
     # The profile requires the setup picture only; an operation picture
     # cannot stand in for it.
     result, out = run_cli(tmp_path, with_operation_diagram(PLAN), "--profile", required)
