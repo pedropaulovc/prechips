@@ -366,6 +366,28 @@ def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
             render_cad_svg(svg, cad, form)
 
 
+def test_a_dome_formed_per_part_prints_its_height_range():
+    form = BAR | {"dome_form_radius_in": 0.1}
+    per_part = form | {"dome_form_dia_min_in": 0.1102, "dome_form_dia_max_in": 0.112}
+    cad = load_turned_shaft(PIN, per_part, "demo-turned-pin")
+    # R.100 full on each pin's own Ø: the caps at the band's two ends.
+    low, high = (0.1 - math.sqrt(0.1**2 - (d / 2) ** 2) for d in (0.1102, 0.112))
+    assert cad.values["dome_datum_form_height_min_in"] == pytest.approx(low)
+    assert cad.values["dome_datum_form_height_max_in"] == pytest.approx(high)
+    svg = _svg(hold="regrip", out="datum", work="face dome")
+    ranged = render_cad_svg(svg, cad, per_part).decode()
+    assert f"{low:.4f}–{high:.4f}".replace("0.", ".") + " high" in ranged
+    # Formed at nominal alone, the label keeps its one height.
+    single = render_cad_svg(svg, load_turned_shaft(PIN, form, "demo-turned-pin"), form)
+    assert "by the turned" not in single.decode()
+    for extra, message in (
+        ({"dome_form_dia_min_in": 0.1102}, "also need"),
+        ({"dome_form_dia_min_in": 0.105, "dome_form_dia_max_in": 0.112}, "outside"),
+    ):
+        with pytest.raises(CadError, match=message):
+            load_turned_shaft(PIN, form | extra, "demo-turned-pin")
+
+
 def test_inspect_lands_a_diameter_leader_clear_of_the_holes_through_it():
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
     values = cad.values

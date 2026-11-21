@@ -269,31 +269,62 @@ def _dome(
     values[f"{prefix}_made_at"] = made_at or "traveler"
 
 
-def _form(values: dict, parameters: dict, prefix: str, root: float) -> None:
+def _form(
+    values: dict,
+    parameters: dict,
+    prefix: str,
+    root: float,
+    roots: tuple[float, float],
+) -> None:
     """``dome_form_radius_in``: the dome cut by a form tool of that radius,
     full to the centre on the end's diameter at nominal (radius ``root``); its
-    height is the cap the tool leaves there. A dome made at assembly is not
-    this traveler's to cut."""
+    height is the cap the tool leaves there. With ``dome_form_dia_min_in`` and
+    ``_max_in`` the tool cuts full on each part's own diameter, anywhere in
+    that band (within ``roots``, the least and greatest it may be), so the
+    height goes by the part: ``_form_height_min_*``/``_max_*`` are the caps at
+    the band's ends. A dome made at assembly is not this traveler's to cut."""
     if values[f"{prefix}_made_at"] == "assembly":
         return
     form = _positive(parameters["dome_form_radius_in"], "process.dome_form_radius_in")
     radius = form * 25.4
-    if radius < root - _TOLERANCE:
+    keys = ("dome_form_dia_min_in", "dome_form_dia_max_in")
+    if _all_or_none(parameters, keys, "process.dome_form_dia band"):
+        least, most = (
+            _positive(parameters[k], f"process.{k}") * 25.4 / 2 for k in keys
+        )
+        if least > most:
+            raise CadError("process.dome_form_dia_min_in: above its _max_in")
+        if least < roots[0] - _TOLERANCE or most > roots[1] + _TOLERANCE:
+            raise CadError(
+                f"process.dome_form_dia band: Ø{2 * least / 25.4:.4f}–"
+                f"Ø{2 * most / 25.4:.4f} is outside the Ø{2 * roots[0] / 25.4:.4f}–"
+                f"Ø{2 * roots[1] / 25.4:.4f} it domes"
+            )
+        sizes = (least, most)
+    else:
+        sizes = (root, root)
+    if radius < sizes[1] - _TOLERANCE:
         raise CadError(
             f"process.dome_form_radius_in: R{form:.4f} is under the "
-            f"Ø{2 * root / 25.4:.4f} it domes"
+            f"Ø{2 * sizes[1] / 25.4:.4f} it domes"
         )
     height = _cap(radius, min(root, radius))
     low, high = values[f"{prefix}_height_band_mm"]
-    if low < high and not low - _STATION <= height <= high + _STATION:
-        raise CadError(
-            f"process.dome_form_radius_in: its {height / 25.4:.4f} high {prefix} "
-            "is outside the drawing's height band"
-        )
+    for cap in {height, *(_cap(radius, min(s, radius)) for s in sizes)}:
+        if low < high and not low - _STATION <= cap <= high + _STATION:
+            raise CadError(
+                f"process.dome_form_radius_in: its {cap / 25.4:.4f} high {prefix} "
+                "is outside the drawing's height band"
+            )
     values[f"{prefix}_form_radius_mm"] = radius
     values[f"{prefix}_form_radius_in"] = form
     values[f"{prefix}_form_height_mm"] = height
     values[f"{prefix}_form_height_in"] = height / 25.4
+    if "dome_form_dia_min_in" in parameters:
+        for end, size in zip(("min", "max"), sizes, strict=True):
+            cap = _cap(radius, min(size, radius))
+            values[f"{prefix}_form_height_{end}_mm"] = cap
+            values[f"{prefix}_form_height_{end}_in"] = cap / 25.4
 
 
 def _steps(values: dict, parameters: dict) -> None:
@@ -771,7 +802,7 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         roots = (low / 2, max(high / 2, radius, major / 2))
         _dome(features[side], side, values, radius, roots)
         if "dome_form_radius_in" in parameters:
-            _form(values, parameters, _DOMES[side], radius)
+            _form(values, parameters, _DOMES[side], radius, roots)
         if side == "datum_end":
             start = values["dome_datum_root_z_mm"]
         else:
