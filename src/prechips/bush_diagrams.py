@@ -318,6 +318,13 @@ def _setup(
         above.append((_LEFT + 4, y - _JAW, [f"{chuck} chuck,", f"jaws on {bar}"]))
     elif hold == "regrip":
         _, z0, z1, radius = named[grip]
+        if "regrip_grip_mm" in values:
+            # The jaws take only the stated length from the chuck-side end.
+            held_mm = _cad(values, "regrip_grip_mm")
+            if out == "datum":
+                z0 = max(z0, z1 - held_mm)
+            else:
+                z1 = min(z1, z0 + held_mm)
         x0, x1 = page.span(z0, z1)
         _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM)
         above.append(
@@ -378,6 +385,23 @@ def _setup(
                 _rect(a, page.up(radius), b - a, page.size(radius))
             )
         _holes(groups, values, page, shift, holes)
+        if (
+            kerf
+            and hold in ("bar", "block")
+            and {"drill", "part"} <= work
+            and "bore" in holes
+            and "bore_dia_mm" in values
+        ):
+            # A through hole is drilled past the parting line: from the
+            # bore's chuck-side end it runs on through any regrip allowance
+            # and the kerf.
+            radius = values["bore_dia_mm"] / 2
+            x_end = page.x(
+                values["bore_z1_mm" if out == "datum" else "bore_z0_mm"], shift
+            )
+            x_cut = page.x(beyond, shift) - kerf * scale
+            a, b = sorted((x_end, x_cut))
+            groups["hidden"].append(_rect(a, page.up(radius), b - a, page.size(radius)))
     top_y = page.up(stock)
     if face:
         radius = stock
@@ -435,15 +459,14 @@ def _setup(
         _tailstock(groups, x_tail + 14)
         lines = {
             "centre": "centre drill",
-            "drill": "drill Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}"
+            "drill": "drill the Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}} hole"
             if "bore_dia_mm" in values
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
             "pocket": "pocket {{cad.pocket_depth_min_in:.3dot}}–{{cad.pocket_depth_max_in:.3dot}} deep",
             "tap": "tap {{cad.tap_thread}}",
         }
-        above.append(
-            (x_tail + 40, _AXIS - 5, ["tailstock:", *(lines[t] for t in hole_work)])
-        )
+        head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
+        above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
     if "chamfer" in work:
         chamfers = sorted(
             key.removesuffix("_leg_min_in")

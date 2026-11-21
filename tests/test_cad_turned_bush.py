@@ -382,3 +382,91 @@ def test_a_band_with_a_fit_prints_both():
     picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
     assert "Ø.417–.427" in picture
     assert ".0020–.0060 under its mate" in picture
+
+
+def test_regrip_grip_length_sets_the_stickout_and_the_jaws():
+    params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # The spigot is 10.668 long: the jaws take .3 in of it from the far end.
+    assert cad.values["step_stickout_datum_mm"] == pytest.approx(25.908 - 7.62 + 0.508)
+    # Gripped on the head, its datum end in the chuck: the head is 15.24
+    # long, so .3 in of it is held.
+    assert cad.values["outer_stickout_far_mm"] == pytest.approx(25.908 - 7.62 + 0.508)
+    whole = load_turned_bush(PLUG, BAR | {"regrip_allowance_in": 0.02}, "turned-plug")
+    assert whole.values["step_stickout_datum_mm"] == pytest.approx(15.24 + 0.508)
+    with pytest.raises(CadError, match="regrip_grip_in: binds only with round bar"):
+        load_turned_bush(PLUG, {"regrip_grip_in": 0.3}, "turned-plug")
+
+    def jaws(values: dict, **attrs: str) -> tuple[float, float]:
+        svg = render_cad_svg(_svg(hold="regrip", work="face", **attrs), values, params)
+        clamp = re.search(rb'class="clamp"[^>]*>(.*?)</g>', svg, re.DOTALL)[1]
+        x, width = re.search(
+            rb'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', clamp
+        ).groups()
+        return float(x), float(width) + 4  # _chuck insets the jaws 2 each side
+
+    # Each out: the jaws keep the chuck-side edge and take .3 in of the
+    # gripped diameter's length (spigot 10.668, head 15.24).
+    for out, grip, span in (("datum", "step", 10.668), ("far", "outer", 15.24)):
+        held = jaws(cad, out=out, grip=grip)
+        full = jaws(whole, out=out, grip=grip)
+        assert held[0] == pytest.approx(full[0])
+        assert held[1] / full[1] == pytest.approx(7.62 / span, rel=1e-3)
+
+
+def test_a_bar_inside_its_band_is_left_as_supplied():
+    params = BAR | {"stock_dia_in": 0.5, "as_supplied_outer": 1}
+    cad = load_turned_bush(PLUG, params | {"finish_allowance_in": 0.005}, "turned-plug")
+    required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
+    # The head band is .49-.51: the bar need reach only .49, and the head is
+    # the bar's, never roughed.
+    assert required["stock_dia_in"] == pytest.approx(12.446)
+    assert cad.values["outer_dia_mm"] == pytest.approx(12.7)
+    assert "outer_rough_dia_mm" not in cad.values
+    # Without as_supplied the bar must clear the band to be turned down to it.
+    turned = load_turned_bush(PLUG, BAR, "turned-plug").stock_requirement.axes
+    assert turned[0].required_mm == pytest.approx(12.954)
+    with pytest.raises(CadError, match="must lie inside its band"):
+        load_turned_bush(PLUG, params | {"stock_dia_in": 0.52}, "turned-plug")
+    with pytest.raises(CadError, match="'step' is not a banded diameter"):
+        load_turned_bush(PLUG, params | {"as_supplied_step": 1}, "turned-plug")
+    with pytest.raises(CadError, match="expected 0 or 1"):
+        load_turned_bush(PLUG, params | {"as_supplied_outer": 2}, "turned-plug")
+    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1, "as_supplied_outer": 1}
+    with pytest.raises(CadError, match="a squared blank is always turned"):
+        load_turned_bush(PLUG, block, "turned-plug")
+    with pytest.raises(CadError, match="needs round bar"):
+        load_turned_bush(PLUG, {"as_supplied_outer": 1}, "turned-plug")
+
+
+def test_member_names_must_differ_in_more_than_case(tmp_path):
+    text = COLLAR.read_text(encoding="utf-8")
+    assert text.count('"member" = "C175"') == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace('"member" = "C175"', '"member" = "c100"'), "utf-8")
+    with pytest.raises(CadError, match="differ in more than case"):
+        load_turned_bush(source, {}, "turned-collar")
+
+
+def test_a_through_hole_is_drawn_past_the_parting_line():
+    params = BAR | {"stock_dia_in": 0.5, "parts_per_pull": 2, "jaw_clearance_in": 0.1}
+    cad = load_turned_bush(CUP, params, "turned-cup")
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre drill part"), cad, params
+    ).decode()
+    hidden = re.search(r'class="hidden"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    # Per part: the bore through it, then on through the kerf behind it.
+    assert hidden.count("<rect") == 2 * 2
+    assert "tailstock, in turn:" in picture
+    assert "drill the Ø.161–.165 hole" in picture
+
+
+def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():
+    params = BAR | {"stock_dia_in": 0.49, "as_supplied_outer": 1}
+    # A bar exactly at the band's low end, through inch-to-mm noise.
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    assert cad.values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
+    # Roughed to .49 + 2 x .015 = .52, over the .51 band top: the bar must
+    # reach the rough size.
+    rough = load_turned_bush(PLUG, BAR | {"finish_allowance_in": 0.015}, "turned-plug")
+    assert rough.stock_requirement.axes[0].required_mm == pytest.approx(0.52 * 25.4)
