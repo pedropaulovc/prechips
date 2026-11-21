@@ -204,6 +204,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     hold = root.attrib.pop("data-hold", None)
     out = root.attrib.pop("data-out", "datum")
     work = set(root.attrib.pop("data-work", "").split())
+    # On an inspection, data-done (when given) is what the part leaves with.
+    as_left = "data-done" in root.attrib
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
     x0 = root.attrib.pop("data-x0", "datum")
@@ -242,7 +244,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         made = {"turn", "groove", "thread", "dome-datum", "dome-far"}
         if hold == "vise":
             return _vise(groups, values, parameters, made, x0)
-        return _inspect(groups, values, made)
+        return _inspect(groups, values, parameters, done if as_left else made, as_left)
     _title(groups, 20, 24, _TITLES[hold])
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
@@ -600,6 +602,22 @@ def _length_text(values: dict) -> str:
     return "({{cad.length_ref_in:.2dot}}) REF"
 
 
+def _left_length(values: dict, parameters: dict, made: set) -> str:
+    """The length the part leaves at: the drawing's once its domes are made;
+    before, the faced length when both ends are faced, else the blank's."""
+    domed = [end for end in ("datum", "far") if f"dome_{end}_height_mm" in values]
+    if all(f"dome-{end}" in made for end in domed):
+        return _length_text(values)
+    if {"face-datum", "face-far"} <= made and "faced_length_min_in" in values:
+        return _band("faced_length")
+    if "blank_length_in" not in parameters:
+        raise CadError(
+            "turned-shaft: a part leaving before its domes needs both ends "
+            "faced or process.blank_length_in"
+        )
+    return "{{process.blank_length_in:.3dot}}"
+
+
 def _dome_text(values: dict, prefix: str) -> list[str]:
     """A dome's radius and height, on two lines."""
     if f"{prefix}_radius_min_in" in values:
@@ -620,12 +638,16 @@ def _slender(values: dict, length: float, width: float) -> tuple[float, float]:
     return scale, min(max(scale, 24.0 / largest), 70.0 / largest)
 
 
-def _inspect(groups: Groups, values: dict, made: set) -> Layout:
-    """The finished part, datum end at the left, its printed sizes."""
+def _inspect(
+    groups: Groups, values: dict, parameters: dict, made: set, as_left: bool
+) -> Layout:
+    """The part as it leaves, datum end at the left, its printed sizes: the
+    finished part unless data-done says what this traveler made."""
     length = _cad(values, "length_mm")
     scale, radial = _slender(values, length, 560.0)
     view = _View(80.0, 0.0, scale, radial)
-    _title(groups, 20, 24, _TITLES["inspect"] + _exaggerated(scale, radial))
+    title = "Part as it leaves, seen from the side" if as_left else _TITLES["inspect"]
+    _title(groups, 20, 24, title + _exaggerated(scale, radial))
     top_profile = _meridian(values, made, flats=True)
     groups["part-kept"].append(_outline(view, top_profile, _meridian(values, made)))
     groups["centre-line"].append(
@@ -638,6 +660,8 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
     # Seen across the flats' normal (drawn up): a hole along the line of
     # sight is a circle.
     flats = _names(values, "flat_", "_across_mm")
+    if any(values[f"{f}_normal"] != values[f"{flats[0]}_normal"] for f in flats):
+        raise CadError("turned-shaft: the inspect picture draws flats on one clock")
     sight = None
     if flats:
         axis = [float(c == values["axis"]) for c in "xyz"]
@@ -650,7 +674,7 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
     _holes(groups, values, view, sight)
     above, below = [], []
     for prefix, apex, inward in (("dome_datum", 0.0, 1), ("dome_far", length, -1)):
-        if f"{prefix}_height_mm" in values:
+        if f"{prefix}_height_mm" in values and f"dome-{prefix[5:]}" in made:
             mid = apex + inward * values[f"{prefix}_height_mm"] / 3
             above.append(
                 (
@@ -689,7 +713,7 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
         below.append(
             (view.x(values[f"{h}_z_mm"]), view.down(values[f"{h}_dia_mm"] / 2), text)
         )
-    if "thread_z0_mm" in values:
+    if "thread_z0_mm" in values and "thread" in made:
         a, b = view.x(values["thread_z0_mm"]), view.x(values["thread_z1_mm"])
         radius = values[f"{values['thread_on']}_dia_mm"] / 2
         depth = min(0.6 * values["thread_pitch_mm"], radius / 3)
@@ -710,7 +734,7 @@ def _inspect(groups: Groups, values: dict, made: set) -> Layout:
         view.x(length),
         top - 22,
         top - 2,
-        f"length {_length_text(values)}",
+        f"length {_left_length(values, parameters, made)}",
     )
     head = _callouts(groups, above, top - 44, above=True) if above else 34
     if head < 34:
@@ -865,9 +889,14 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
             d=f"M{_pt(cx - half, flat_y)}A{r} {r} 0 0 1 {_pt(cx + half, flat_y)}Z",
         )
     )
+    # The jaw tops stand process.jaw_top_over_od_mm over the rod's top when
+    # given (the rod on parallels), else a little over its centre.
+    jaw_top = cy - 4
+    if "jaw_top_over_od_mm" in parameters:
+        jaw_top = cy - r - _param(parameters, "jaw_top_over_od_mm") * k
     groups["clamp"] += [
-        _rect(cx - r - 16, cy - 4, 16, r + 30),
-        _rect(cx + r, cy - 4, 16, r + 30),
+        _rect(cx - r - 16, jaw_top, 16, cy + r + 26 - jaw_top),
+        _rect(cx + r, jaw_top, 16, cy + r + 26 - jaw_top),
     ]
     groups["fixture-support"].append(_rect(cx - r, cy + r, 2 * r, 22))
     groups["cutter"].append(_rect(cx - r * 0.75, flat_y - 46, 1.5 * r, 40))

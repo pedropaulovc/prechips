@@ -306,23 +306,30 @@ def _body(far: dict, values: dict) -> None:
 
 def _faced(values: dict) -> None:
     """The length a domed part is faced flat to before its domes are formed
-    (each apex stays on its faced plane): the body length band plus the dome
-    heights at nominal, else the length band, else the far dome's root
+    (each apex stays on its faced plane): the made length band (the supply
+    length for a part cut at assembly, else the length) within the body
+    length band plus the dome heights at nominal, else the far dome's root
     station band (from the datum end, so it holds a datum dome already) plus
     its height."""
     heights = sum(values.get(f"{p}_height_mm", 0.0) for p in _DOMES.values())
-    if "body_length_band_mm" in values:
-        low, high = (v + heights for v in values["body_length_band_mm"])
-        nominal = values["body_length_mm"] + heights
-    elif "length_band_mm" in values:
-        low, high = values["length_band_mm"]
-        nominal = values["length_mm"]
+    key = "supply_length" if "supply_length_band_mm" in values else "length"
+    bands = []
+    if "body_length_band_mm" in values and key == "length":
+        bands.append([v + heights for v in values["body_length_band_mm"]])
+    if f"{key}_band_mm" in values:
+        bands.append(values[f"{key}_band_mm"])
     elif "dome_far_root_station_band_mm" in values:
         height = values["dome_far_height_mm"]
-        low, high = (v + height for v in values["dome_far_root_station_band_mm"])
-        nominal = values["dome_far_root_z_mm"] + height
-    else:
+        bands.append([v + height for v in values["dome_far_root_station_band_mm"]])
+    if not bands:
         return
+    low, high = max(b[0] for b in bands), min(b[1] for b in bands)
+    nominal = values[f"{key}_mm"]
+    if not low - _STATION <= nominal <= high + _STATION:
+        raise CadError(
+            f"far_end: no faced length within both the {key} and body bands at "
+            f"{nominal:.4f}"
+        )
     _inch_limits(values, "faced_length", (low, high))
     values["faced_length_mm"] = nominal
     values["faced_length_in"] = nominal / 25.4
@@ -548,7 +555,10 @@ def _flat(
         )
         if cutter > length + _STATION:
             raise CadError(f"{name}: longer than process.flat_cutter_dia_mm")
-        if cutter < width:
+        # The flat is widest on the largest diameter cut to the least across.
+        most = high / 2
+        widest = 2 * math.sqrt(most**2 - (across[0] - most) ** 2)
+        if cutter < widest:
             raise CadError(f"{name}: wider than process.flat_cutter_dia_mm")
         path = [z0 + cutter / 2, z1 - cutter / 2]
         values[f"{name}_path_mm"] = path
@@ -717,6 +727,12 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         axes = _blank(values, parameters, least_bar, turned)
     elif "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
         axes = _bar(values, parameters, sizes, least_bar, turned)
+        for name in turned:
+            # The regrip's jaw faces in lathe Z, Z0 the faced out end.
+            regrip = values["regrip_allowance_mm"]
+            for out in ("datum", "far"):
+                held = values[f"{name}_stickout_{out}_mm"] - regrip
+                values[f"{name}_regrip_jaw_{out}_out_z_mm"] = -held
     if "end_stickout_in" in parameters and "blank_length_mm" not in values:
         raise CadError("process.end_stickout_in: binds only with a sawn blank")
     if "regrip_grip_in" in parameters and "pitch_mm" not in values:

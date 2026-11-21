@@ -39,6 +39,8 @@ flat_cutter_dia_mm = 4.7625
 # the datum end; 1-1/2 in parallels leave the rod's top just under the jaws.
 vise_jaw_from_x0_mm = 5.0
 vise_jaw_to_x0_mm = 163.6738
+# The rod's top stands this far under the jaw tops on its parallels.
+jaw_top_over_od_mm = 0.5
 parallel_height_mm = 38.1
 vise_bed_height_mm = 73.3044
 r8_collet_gauge_mm = 6.3
@@ -89,7 +91,7 @@ title = "Datum end out: face and dome the hemisphere"
 machine = "PM-1127VF-LB lathe"
 indexing = "none"
 machine_ref = "pm-1127vf-lb"
-holding = "3-jaw on the rod; {{process.end_stickout_in:.3dot}} in out of the jaws."
+holding = "3-jaw on the rod over a paper wrap (the ground O.D. is the finished size); {{process.end_stickout_in:.3dot}} in out of the jaws."
 datum = "Z0 the datum end faced; it stays the hemisphere's apex."
 diagram = { file = "diagrams/demo-turned-shaft/datum-end.svg", alt = "The blank in the 3-jaw, datum end out: the end faced, the hemisphere step-turned and filed." }
 lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.end_stickout_mm}}", minimum_diameter_mm = "{{cad.dome_datum_step_4_dia_mm}}", support = "none" }

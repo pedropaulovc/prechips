@@ -245,3 +245,14 @@ def test_demos_render_both_profiles_with_every_picture_bound(tmp_path, plan):
     ]
     assert len(pictures) >= 4
     assert not any("{{" in picture for picture in pictures)
+
+
+def test_inspect_draws_the_part_as_it_leaves_when_data_done_is_given():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    faced = render_cad_svg(_svg(hold="inspect", done="face-datum face-far"), cad, BLANK)
+    # No domes yet: square ends at the faced length, no dome callouts.
+    assert b"Part as it leaves" in faced
+    assert "length 6.990–7.010".encode() in faced
+    assert b"R.125" not in faced
+    sawn = render_cad_svg(_svg(hold="inspect", done=""), cad, BLANK)
+    assert b"length 7.125" in sawn
