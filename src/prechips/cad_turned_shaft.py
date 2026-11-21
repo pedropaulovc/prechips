@@ -150,6 +150,16 @@ def _basic_major(thread: object) -> float:
     return float(Fraction(size)) * 25.4
 
 
+def _inward_limits(values: dict, key: str, band: tuple[float, float]) -> None:
+    """Bind a band the adapter derives, rounded inward to .001 in (min up,
+    max down) so a .3dot print never reads outside the drawing's limits."""
+    low = math.ceil(band[0] / 25.4 * 1000 - 1e-6) / 1000
+    high = math.floor(band[1] / 25.4 * 1000 + 1e-6) / 1000
+    if low > high:
+        raise CadError(f"cad.{key}: the band holds no .001 in reading")
+    _inch_limits(values, key, (low * 25.4, high * 25.4))
+
+
 def _cap(radius: float, root: float) -> float:
     """A spherical cap's height on a diameter of radius ``root``."""
     return radius - math.sqrt(max(radius**2 - root**2, 0.0))
@@ -194,16 +204,16 @@ def _dome(
         height = station if end == "datum_end" else length - station
     else:
         height = cap
-        if band is not None:
-            # A shop checks a radius by the height it gives on the diameter.
-            if band[0] < root - _TOLERANCE:
-                raise CadError(
-                    f"{end}.radius: the least R{band[0]:.3f} is under the "
-                    f"R{root:.3f} it domes"
-                )
-            _inch_limits(
-                values, f"{prefix}_height", (_cap(band[1], root), _cap(band[0], root))
+    if band is not None and given in ([], ["root_station"]):
+        # A shop checks a radius by the height it gives on the diameter.
+        if band[0] < root - _TOLERANCE:
+            raise CadError(
+                f"{end}.radius: the least R{band[0]:.3f} is under the "
+                f"R{root:.3f} it domes"
             )
+        _inward_limits(
+            values, f"{prefix}_height", (_cap(band[1], root), _cap(band[0], root))
+        )
     # The declared height must be a cap of R somewhere on the diameter's range.
     least, most = (_cap(radius, min(r, radius)) for r in roots)
     if not least - _STATION <= height <= most + _STATION:
@@ -217,14 +227,14 @@ def _dome(
     if f"{prefix}_height_band_mm" in values:
         low, high = values[f"{prefix}_height_band_mm"]
     elif "root_station" in given:
-        low, high = (
+        _inward_limits(
+            values,
+            f"{prefix}_height",
             stations
             if end == "datum_end"
-            else (
-                length - stations[1],
-                length - stations[0],
-            )
+            else (length - stations[1], length - stations[0]),
         )
+        low, high = values[f"{prefix}_height_band_mm"]
     else:
         low = high = height
     values[f"{prefix}_height_band_mm"] = [low, high]
@@ -340,7 +350,9 @@ def _faced(values: dict) -> None:
     length for a part cut at assembly, else the length) within the body
     length band plus the dome heights at nominal, else the far dome's root
     station band (from the datum end, so it holds a datum dome already) plus
-    its height. A form-cut dome counts the height its tool leaves."""
+    its height: a form-cut dome's tool height, or over a radius band the
+    window that keeps the root in its band for any R in it (the least
+    station plus the tallest cap, the greatest plus the shallowest)."""
 
     def cut(prefix: str) -> float:
         return values.get(
@@ -358,7 +370,15 @@ def _faced(values: dict) -> None:
         bands.append(values[f"{key}_band_mm"])
     elif "dome_far_root_station_band_mm" in values:
         height = cut("dome_far")
-        bands.append([v + height for v in values["dome_far_root_station_band_mm"]])
+        least, most = values["dome_far_root_station_band_mm"]
+        tall = short = height
+        if "dome_far_form_height_mm" not in values and (
+            "dome_far_radius_band_mm" in values
+        ):
+            root = values["dome_far_root_dia_mm"] / 2
+            radii = values["dome_far_radius_band_mm"]
+            short, tall = (_cap(r, min(root, r)) for r in reversed(radii))
+        bands.append([least + tall, most + short])
         nominal = values["dome_far_root_z_mm"] + height
     if not bands:
         return
@@ -368,14 +388,10 @@ def _faced(values: dict) -> None:
             f"far_end: no faced length within both the {key} and body bands at "
             f"{nominal:.4f}"
         )
-    # Printed at .001 in: the band rounded inward and the nominal to .001,
-    # so what the operator reads is inside both bands.
-    low_in = math.ceil(low / 25.4 * 1000 - 1e-6) / 1000
-    high_in = math.floor(high / 25.4 * 1000 + 1e-6) / 1000
-    if low_in > high_in:
-        raise CadError("far_end: the faced length band holds no .001 in reading")
+    _inward_limits(values, "faced_length", (low, high))
+    # The nominal to .001 in, inside the printed band.
+    low_in, high_in = values["faced_length_min_in"], values["faced_length_max_in"]
     nominal_in = min(max(round(nominal / 25.4, 3), low_in), high_in)
-    _inch_limits(values, "faced_length", (low_in * 25.4, high_in * 25.4))
     values["faced_length_mm"] = nominal_in * 25.4
     values["faced_length_in"] = nominal_in
 

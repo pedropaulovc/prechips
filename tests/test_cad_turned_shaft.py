@@ -108,9 +108,10 @@ def test_pin_thread_groove_and_dome_height_from_its_radius_band():
     assert values["thread_pitch_mm"] == pytest.approx(0.635)
     assert values["thread_on"] == "step"
     assert values["thread_z1_mm"] == pytest.approx(0.427100 + 3.81, abs=1e-6)
-    # R.080-.120 on the Ø.111 blank: the heights a shop checks.
-    assert values["dome_datum_height_min_in"] == pytest.approx(0.013606, abs=1e-6)
-    assert values["dome_datum_height_max_in"] == pytest.approx(0.022383, abs=1e-6)
+    # R.080-.120 on the Ø.111 blank: the heights a shop checks, .013606-.022383
+    # rounded inward to the .001 in they print at.
+    assert values["dome_datum_height_min_in"] == pytest.approx(0.014)
+    assert values["dome_datum_height_max_in"] == pytest.approx(0.022)
     assert values["groove_relief_dia_max_in"] == pytest.approx(2.13 / 25.4)
     assert values["groove_relief_datum_out_far_z_mm"] == pytest.approx(-6.35)
     assert values["fillet_shoulder_radius_max_in"] == pytest.approx(0.01)
@@ -271,3 +272,13 @@ def test_a_form_cut_dome_takes_the_height_its_tool_leaves():
         load_turned_shaft(
             SHAFT, BLANK | {"dome_form_radius_in": 0.125}, "demo-turned-shaft"
         )
+
+
+def test_pictures_take_a_shim_wrap_and_read_lengths_from_the_far_end():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    wrapped = render_cad_svg(_svg(hold="blank", work="face", wrap="shim"), cad, BLANK)
+    assert b"jaws over a shim wrap" in wrapped
+    far = render_cad_svg(_svg(hold="inspect", x0="far"), cad, BLANK)
+    assert b"far end" in far
+    with pytest.raises(CadError, match="data-wrap"):
+        render_cad_svg(_svg(hold="inspect", wrap="shim"), cad, BLANK)
