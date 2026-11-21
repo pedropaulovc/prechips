@@ -103,6 +103,22 @@ def test_sawn_blank_face_stock_and_stock_requirement():
     assert inside.values["face_stock_in"] == 0
 
 
+def test_a_shaft_refuses_a_ref_turned_for_a_press(tmp_path):
+    # turned_bush's matched press on a REF is its own: a shaft's flats, domes
+    # and pictures read a REF as the exact size.
+    text = PIN.read_text(encoding="utf-8")
+    old = '"requirements" = ["stock"]'
+    new = (
+        '"requirements" = ["diametral_interference"]\n'
+        '"diametral_interference" = [0.01016, 0.03302]\n"mate" = "DEMO-HOLE"'
+    )
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace(old, new), encoding="utf-8")
+    with pytest.raises(CadError, match="expected a dia band, a stock size"):
+        load_turned_shaft(source, BAR, "demo-turned-pin")
+
+
 def test_pin_thread_groove_and_dome_height_from_its_radius_band():
     values = load_turned_shaft(PIN, BAR, "demo-turned-pin").values
     assert values["thread_designation"] == "#4-40 UNC-2A"
