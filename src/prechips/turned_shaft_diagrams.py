@@ -17,7 +17,10 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   left, the jaws from ``process.vise_jaw_from_x0_mm`` to
   ``process.vise_jaw_to_x0_mm`` (the jaw sides' distances from that end, as a
   beam clamps), the flats' stations dimensioned from the ends their drawing
-  states, and an end view of the hold;
+  states, and an end view of the hold: the jaw tops
+  ``process.jaw_top_over_od_mm`` over the rod (the end view drops to keep
+  them under the callouts), the rod on a ``process.parallel_thickness_mm``
+  wide parallel when given;
 - ``inspect``: the finished part with its printed sizes.
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
@@ -27,12 +30,18 @@ setup does: ``face``, ``turn``, ``dome`` (the out end's), ``groove``,
 ``steps`` labels the out end's dome with the adapter's stepped-turning table
 (``process.dome_steps``);
 ``data-done`` what earlier setups made (``turn``, ``groove``, ``thread``,
-``dome-datum``, ``dome-far``, ``face-datum``, ``face-far``); the vise and the inspection assume every
-lathe feature made. A feature not yet made is drawn at the size it arrives
-at. Lathe pictures are to scale; the vise and inspection pictures are to
+``dome-datum``, ``dome-far``, ``face-datum``, ``face-far``). The vise and
+the inspection assume every lathe feature this traveler makes made (a dome
+made at assembly is not); on an inspection, ``data-done`` (when given, even
+empty) is what the part leaves with: square ends where no dome is done, and
+the faced length (both ends faced) or ``process.blank_length_in``. A feature
+not yet made is drawn at the size it arrives at. A form-cut dome
+(``process.dome_form_radius_in``) is labelled with the tool's R and height
+and the form tool is drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
-hatched, the part solid; holes made at assembly are dashed.
+hatched, the part solid; cross holes made at assembly are dashed on the
+finished inspection and left out of the vise and an as-left inspection.
 """
 
 from __future__ import annotations
@@ -178,11 +187,15 @@ def _meridian(values: dict, made: set, *, flats: bool = False) -> Profile:
     return points
 
 
-def _cap(values: dict, prefix: str, apex: float, inward: int) -> Profile:
-    """A dome's meridian from its apex to its root, as stations; a form-cut
-    dome's is the tool's."""
-    radius = values.get(f"{prefix}_form_radius_mm", values[f"{prefix}_radius_mm"])
-    height = values.get(f"{prefix}_form_height_mm", values[f"{prefix}_height_mm"])
+def _cap(
+    values: dict, prefix: str, apex: float, inward: int, *, form: bool = False
+) -> Profile:
+    """A dome's meridian from its apex to its root, as stations: the
+    drawing's (whose root the diameters and stations meet), or with ``form``
+    the form tool's."""
+    kind = "_form" if form else ""
+    radius = values[f"{prefix}{kind}_radius_mm"]
+    height = values[f"{prefix}{kind}_height_mm"]
     return [
         (apex + inward * s, math.sqrt(max(s * (2 * radius - s), 0.0)))
         for s in (height * i / _ARC for i in range(_ARC + 1))
@@ -422,7 +435,7 @@ def _lathe(
     if "dome" in work and f"{prefix}_form_radius_mm" in values:
         # The form tool, its concave face standing off the dome it cuts.
         apex = 0.0 if out == "datum" else length
-        cap = _cap(values, prefix, apex, 1 if out == "datum" else -1)
+        cap = _cap(values, prefix, apex, 1 if out == "datum" else -1, form=True)
         gap = face * scale + 8
         top_side = [(view.x(z_of(s)) + gap, view.up(r)) for s, r in reversed(cap)]
         bottom_side = [(view.x(z_of(s)) + gap, view.down(r)) for s, r in cap]

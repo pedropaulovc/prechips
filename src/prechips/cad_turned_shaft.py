@@ -128,9 +128,12 @@ def _length(far: dict, frame: tuple, values: dict) -> None:
     values["length_mm"] = nominal
     values["length_nominal_in"] = nominal / 25.4
     if "supply_length" in requirements:
+        # Cut to fit at assembly, it can only be shortened: every supply
+        # length must reach the part's longest.
+        longest = values.get("length_band_mm", [nominal, nominal])[1]
         band = _limits(far, "supply_length", "far_end", "supply_length", values)
         supply = _nominal(far, "supply_length_nominal", band, "far_end")
-        if supply < nominal - _TOLERANCE:
+        if band[0] < longest - _TOLERANCE:
             raise CadError("far_end.supply_length: shorter than the part it is cut to")
         values["supply_length_mm"] = supply
 
@@ -667,8 +670,11 @@ def _blank(values: dict, parameters: dict, least_bar: float, turned: list) -> li
         _lathe_z(values, name)
     if "quantity" in parameters:
         _count(parameters, "quantity")
-    # The length this traveler makes: the supply length when cut at assembly.
+    # The length this traveler makes: the faced band when bound (the made
+    # length within the body band), else the supply or finished length.
     key = "supply_length" if "supply_length_mm" in values else "length"
+    if "faced_length_band_mm" in values:
+        key = "faced_length"
     made = values[f"{key}_mm"]
     low, high = values.get(f"{key}_band_mm", [made, made])
     values["blank_length_mm"] = blank * 25.4
