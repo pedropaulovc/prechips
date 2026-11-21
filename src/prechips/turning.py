@@ -5,7 +5,9 @@ error it leaves is about twice that. The tangential component is reported but
 moves the work along the cutting direction, a second-order diameter effect. All
 empirical coefficients and authored numerical assumptions live in turning.toml.
 Ideal supports and a solid uniform minimum section omit machine compliance,
-dynamics, heat and axial-force effects; this is not certification.
+dynamics, heat and axial-force effects; this is not certification. An
+operation's ``turning_step`` replaces the uniform section with a stepped
+cantilever for diameters turned in steps toward the chuck.
 """
 
 from __future__ import annotations
@@ -278,7 +280,121 @@ def _bending_factor(
     return max(candidates, key=lambda candidate: candidate[0])
 
 
-def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
+def _turning_step(value: object) -> dict:
+    """An operation's step turning toward the chuck: step length, load section."""
+    step = _table(value, "turning_step")
+    _keys(step, {"length_mm", "load_diameter_mm"}, "turning_step")
+    return {
+        key: _positive(step.get(key), f"turning_step.{key}")
+        for key in ("length_mm", "load_diameter_mm")
+    }
+
+
+def step_sequence(cuts: list, load: float) -> str | None:
+    """Why a step operation's cuts are not one stepped sequence, or None.
+
+    Every step takes each cut in order before the tool moves toward the
+    chuck, so the cuts share one traverse, the first starts from at least
+    the load section (what lies beyond the step being cut) and each later cut
+    starts where the one before it ended. A pass over a length already
+    finished, or from a section thinner than the load, is not a step.
+    """
+    values = []
+    for index, cut in enumerate(cuts, 1):
+        keys = ("start_z_mm", "end_z_mm", "start_diameter_mm", "end_diameter_mm")
+        numbers = []
+        if isinstance(cut, dict) and all(
+            type(cut.get(key)) in (int, float) for key in keys
+        ):
+            try:
+                numbers = [float(cut[key]) for key in keys]
+            except OverflowError:  # TOML integers are unbounded
+                numbers = []
+        if len(numbers) != len(keys) or not all(map(math.isfinite, numbers)):
+            return f"turning_step: cut {index} needs finite {', '.join(keys)}"
+        values.append((cut.get("name", index), *numbers))
+    (name, start, end, first, _), *_ = values
+    if load > first + 1e-6:
+        return (
+            f"turning_step.load_diameter_mm: Ø{load:.6g} mm is over the Ø{first:.6g}"
+            f" mm the first cut ({name!r}) starts from"
+        )
+    for (_, _, _, _, ended), (later, z0, z1, began, _) in pairwise(values):
+        if abs(z0 - start) > 1e-6 or abs(z1 - end) > 1e-6:
+            return (
+                f"turning_step: cut {later!r} runs Z {z0:.6g}..{z1:.6g} mm, not "
+                f"the operation's one traverse Z {start:.6g}..{end:.6g} mm"
+            )
+        if abs(began - ended) > 1e-6:
+            return (
+                f"turning_step: cut {later!r} starts from Ø{began:.6g} mm, not "
+                f"the Ø{ended:.6g} mm the cut before it leaves"
+            )
+    return None
+
+
+def _stepped_bending(
+    per_doc: float,
+    x: float,
+    ahead: float,
+    load_diameter: float,
+    end_diameter: float,
+    doc: float,
+    modulus: float,
+) -> tuple[float, float]:
+    """Worst radial bending and its pass depth, the tool ``x`` mm from the chuck.
+
+    The finished length outboard of the tool carries no load. Between the
+    tool and the chuck lie ``ahead`` mm of the step being cut, which earlier
+    passes of that step have turned: a pass ``t`` deep meets it at no less
+    than end + 2t (exactly the start diameter for a single pass). The rest,
+    to the jaws, is the load section. Over every pass depth up to ``doc``,
+    g(t) = t (A + B / (e + 2t)^4): its slope A + B (e - 6t) / (e + 2t)^5 is
+    positive below e/6, falls to e/3 and rises towards A after, so the
+    maximum is at ``doc`` or at the slope's first root.
+    """
+    chuck_side = (x**3 - ahead**3) / (3 * modulus * math.pi * load_diameter**4 / 64)
+    step_side = 64 * ahead**3 / (3 * modulus * math.pi)
+
+    def bend(t: float) -> float:
+        return per_doc * t * (chuck_side + step_side / (end_diameter + 2 * t) ** 4)
+
+    def slope(t: float) -> float:
+        return (
+            chuck_side
+            + step_side * (end_diameter - 6 * t) / (end_diameter + 2 * t) ** 5
+        )
+
+    depths = [doc]
+    low, high = end_diameter / 6, min(doc, end_diameter / 3)
+    if high > low and slope(high) < 0:
+        for _ in range(200):
+            middle = (low + high) / 2
+            if slope(middle) >= 0:
+                low = middle
+            else:
+                high = middle
+        depths += [low, high]
+    return max((bend(t), t) for t in depths)
+
+
+def _check_cut(
+    cut: dict, support: dict, material: dict, config: dict, step: dict | None = None
+) -> None:
+    if step is not None and "minimum_diameter_mm" in cut:
+        raise TurningError(
+            "a step-turned cut takes no minimum_diameter_mm: "
+            "turning_step.load_diameter_mm is the section between the holding "
+            "and the step"
+        )
+    numeric = {
+        "start_diameter_mm",
+        "end_diameter_mm",
+        "max_radial_doc_mm",
+        "feed_mm_rev",
+    }
+    if step is None:
+        numeric.add("minimum_diameter_mm")
     _keys(
         cut,
         {
@@ -286,11 +402,7 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
             "phase",
             "start_z_mm",
             "end_z_mm",
-            "start_diameter_mm",
-            "end_diameter_mm",
-            "max_radial_doc_mm",
-            "feed_mm_rev",
-            "minimum_diameter_mm",
+            *numeric,
             "max_deflection_mm",
             "kept_start_z_mm",
             "kept_end_z_mm",
@@ -311,6 +423,7 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
             "feed_mm_rev",
             "minimum_diameter_mm",
         )
+        if key in numeric
     }
     phase_limit = config["limits"][f"{phase}_mm"]
     limit = min(
@@ -347,6 +460,21 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     # Bound every permitted schedule at the final minimum diameter. Authors
     # can declare individual pass records when a tighter bound is needed.
     doc = min(numbers["max_radial_doc_mm"], total_removal)
+    if step is not None:
+        _check_stepped(
+            step,
+            support,
+            (start_z, end_z),
+            kept,
+            worst_z,
+            tangential_per_doc * force_config["radial_ratio"],
+            tangential_per_doc,
+            numbers["end_diameter_mm"],
+            doc,
+            modulus,
+            limit,
+        )
+        return
     diameter = min(numbers["end_diameter_mm"], numbers["minimum_diameter_mm"])
     inertia = math.pi * diameter**4 / 64
     tangential = tangential_per_doc * doc
@@ -374,6 +502,67 @@ def _check_cut(cut: dict, support: dict, material: dict, config: dict) -> None:
     )
 
 
+def _check_stepped(
+    step: dict,
+    support: dict,
+    traverse: tuple[float, float],
+    kept: tuple[float, float],
+    worst_z: float,
+    radial_per_doc: float,
+    tangential_per_doc: float,
+    end_diameter: float,
+    doc: float,
+    modulus: float,
+    limit: float,
+) -> None:
+    """Bend a cut turned in steps toward the chuck, each step finished first.
+
+    Bending only grows as the tool moves out, so the worst step is the one at
+    the farthest kept Z; within it, the step ahead of the tool is as long as
+    it can be there, no longer than the declared step nor than the traverse
+    left toward the chuck.
+    """
+    chuck = support["chuck_z_mm"]
+    start_z, end_z = traverse
+    near, far = abs(end_z - chuck), abs(start_z - chuck)
+    if far <= near:
+        raise TurningError(
+            "turning_step: the traverse must run toward the chuck (start_z_mm "
+            "farther from it than end_z_mm), the finished length outboard of the tool"
+        )
+    length = step["length_mm"]
+    if length > far - near:
+        raise TurningError(
+            f"turning_step.length_mm {length:.6g} mm exceeds the "
+            f"{far - near:.6g} mm traverse"
+        )
+    load = step["load_diameter_mm"]
+    results = []
+    for x in (abs(worst_z - chuck), far):
+        ahead = min(length, x - near)
+        bending, depth = _stepped_bending(
+            radial_per_doc, x, ahead, load, end_diameter, doc, modulus
+        )
+        if not math.isfinite(bending):
+            raise TurningError("numerical range exceeded in bending estimate")
+        results.append((bending, depth, ahead))
+    (deflection, depth, ahead), (whole, _, _) = results
+    if deflection <= limit:
+        return
+    force = radial_per_doc * depth
+    raise TurningError(
+        f"estimated radial bending {deflection:.6g} mm (about {2 * deflection:.6g} mm "
+        f"on diameter) exceeds limit {limit:.6g} mm at Z {worst_z:.6g} mm "
+        f"(chuck only, steps of {length:.6g} mm toward the chuck) over kept Z "
+        f"{kept[0]:.6g}..{kept[1]:.6g} mm; whole traverse {whole:.6g} mm at Z "
+        f"{start_z:.6g} mm; radial force {force:.6g} N, tangential "
+        f"{tangential_per_doc * depth:.6g} N, radial DOC {depth:.6g} mm, load "
+        f"section Ø{load:.6g} mm, {ahead:.6g} mm of step ahead of the tool at "
+        f"Ø{end_diameter + 2 * depth:.6g} mm or more; static estimate, not "
+        "measured diameter error"
+    )
+
+
 def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
     """Refuse missing declared coverage or excessive bending; emit nothing on pass.
 
@@ -395,7 +584,11 @@ def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
                 op_where = f"{where}, Op {operation_number}"
                 kind = operation.get("cut_kind")
                 if machine == "other":
-                    if kind == "longitudinal_turning" or "turning_cuts" in operation:
+                    if (
+                        kind == "longitudinal_turning"
+                        or "turning_cuts" in operation
+                        or "turning_step" in operation
+                    ):
                         raise TurningError(
                             f"{op_where}: machine_kind other contradicts "
                             "longitudinal turning data"
@@ -406,10 +599,11 @@ def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
                         f"{op_where}: cut_kind must declare longitudinal_turning or other"
                     )
                 if kind == "other":
-                    if "turning_cuts" in operation:
-                        raise TurningError(
-                            f"{op_where}: cut_kind other contradicts turning_cuts"
-                        )
+                    for key in ("turning_cuts", "turning_step"):
+                        if key in operation:
+                            raise TurningError(
+                                f"{op_where}: cut_kind other contradicts {key}"
+                            )
                     continue
                 cuts = operation.get("turning_cuts")
                 if not isinstance(cuts, list) or not cuts:
@@ -425,13 +619,32 @@ def check_turning_deflection(plan: LoadedPlan, config: dict) -> None:
                         f"{op_where}: turning_material {name!r} must select a "
                         "configured material"
                     )
+                step = None
+                if "turning_step" in operation:
+                    try:
+                        step = _turning_step(operation["turning_step"])
+                    except TurningError as error:
+                        raise TurningError(f"{op_where}.{error}") from error
+                    if support.get("kind") != "chuck_only":
+                        raise TurningError(
+                            f"{op_where}.turning_step: step turning toward the "
+                            "chuck needs chuck_only support; a tailstock or "
+                            "follower would load the finished length outboard of "
+                            "the tool"
+                        )
+                if step is not None:
+                    problem = step_sequence(cuts, step["load_diameter_mm"])
+                    if problem is not None:
+                        raise TurningError(f"{op_where}.{problem}")
                 for cut_index, cut in enumerate(cuts, 1):
                     cut = _table(cut, f"{op_where}, cut {cut_index}")
                     cut_name = cut.get("name")
                     if not isinstance(cut_name, str) or not cut_name.strip():
                         raise TurningError(f"{op_where}, cut {cut_index}: missing name")
                     try:
-                        _check_cut(cut, support, config["materials"][name], config)
+                        _check_cut(
+                            cut, support, config["materials"][name], config, step
+                        )
                     except (TurningError, ArithmeticError) as error:
                         raise TurningError(
                             f"{op_where}, cut {cut_name!r}: {error}"

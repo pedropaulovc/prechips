@@ -37,9 +37,9 @@ from __future__ import annotations
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _bound, _cad, _el, _line, _rect
 from prechips.jig_diagrams import _datum_label, _finish, _groups, _param, _title
-from prechips.shaft_diagrams import _break, _callouts, _dimension
+from prechips.shaft_diagrams import CHAR, _break, _callouts, _dimension
 
 Groups = dict[str, list[Element]]
 
@@ -582,14 +582,18 @@ def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
     groups["datum"].append(_line(datum, page.up(largest) - 10, datum, low + 10))
     _datum_label(groups, datum - 6, low + 24, "Z0 datum end", "end")
     top = page.up(largest)
-    _dimension(groups, datum, page.x(length), top - 18, top - 2, _length_text(values))
+
+    def dimension(x1: float, y: float, text: str) -> None:
+        # A label wider than its span would sit across the extension lines:
+        # it goes past the span's far end instead.
+        beside = len(_bound(text)) * CHAR + 8 > x1 - datum
+        _dimension(groups, datum, x1, y, top - 2, text, beside=beside)
+
+    dimension(page.x(length), top - 18, _length_text(values))
     if "shoulder_mm" in values:
-        _dimension(
-            groups,
-            datum,
+        dimension(
             page.x(values["shoulder_mm"]),
             top - 44,
-            top - 2,
             "shoulder {{cad.shoulder_min_in:.3dot}}–{{cad.shoulder_max_in:.3dot}}",
         )
     items = []
@@ -602,7 +606,9 @@ def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
                 page.x(values["bore_z1_mm"]) - 6,
                 _AXIS + values["bore_dia_mm"] / 2 * scale,
                 [
-                    "bore",
+                    # A drilled hole is a hole: "bore" would also name a
+                    # pocket a boring bar opens on the same sheet.
+                    "hole" if values.get("bore_process") == "drill" else "bore",
                     "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}",
                 ],
             )

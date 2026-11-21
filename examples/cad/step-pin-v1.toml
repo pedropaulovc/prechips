@@ -1,0 +1,103 @@
+# Demo manifest in the CAD export format: a brass pin, a head left at the bar's size and a slender spigot; demo identity, no source citations.
+"part" = "step-pin"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "step-pin.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-STEP-PIN"
+"revision" = "v1"
+
+["material"]
+"spec" = "C36000 free-cutting brass round, 1/4 in"
+"name" = "Brass"
+"finish" = "bare"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.005 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.127
+"chamfer_max" = 0.127
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"outward" = [-1.0, 0.0, 0.0]
+"faces" = ["F1"]
+
+["features"."shoulder"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 6.35 }
+"outward" = [1.0, 0.0, 0.0]
+"station" = [6.223, 6.477]
+"station_nominal" = 6.35
+"station_from" = "datum_end"
+"precision" = { "station" = 3 }
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 19.05 }
+"outward" = [1.0, 0.0, 0.0]
+"length" = [18.923, 19.177]
+"length_nominal" = 19.05
+"length_from" = "datum_end"
+"precision" = { "length" = 3 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["stock"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 6.35]
+"stock" = "STOCK OK"
+"callout" = "STOCK OK"
+"dia_ref" = 6.35
+"precision" = { "dia_ref" = 3 }
+"faces" = ["F1"]
+
+["features"."step"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [6.35, 19.05]
+"dia" = [1.5621, 1.6129]
+"dia_nominal" = 1.5875
+"precision" = { "dia" = 4 }
+"faces" = ["F1"]

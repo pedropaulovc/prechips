@@ -788,6 +788,19 @@ def test_output_cannot_replace_active_turning_config(
         ('cut_kind = "longitudinal_turning"', 'cut_kind = "facing"', "cut_kind"),
         ('phase = "finish"', 'phase = "polish"', "phase"),
         ('kind = "chuck_only"', 'kind = "steady"', "kind"),
+        (
+            'cut_kind = "longitudinal_turning"',
+            'cut_kind = "longitudinal_turning"\nturning_step = { length_mm = 0 }',
+            "turning_step.length_mm: expected a positive number",
+        ),
+        (
+            'cut_kind = "longitudinal_turning"',
+            (
+                'cut_kind = "longitudinal_turning"\n'
+                f"turning_step = {{ length_mm = 1{'0' * 400}, load_diameter_mm = 6 }}"
+            ),
+            "turning_step.length_mm: expected a positive number",
+        ),
     ],
 )
 def test_turning_schema_enums_apply_even_when_check_is_disabled(

@@ -601,3 +601,26 @@ rpm = 2800
 chip_load_mm_per_tooth = 0.0254
 flutes = 2
 feed_unit = "in/min"
+
+# --- Demo step pin (examples/demo-step-pin.toml) ---
+# C36000 free-cutting brass. Speeds: LittleMachineShop "Cutting Speeds",
+# Turning, row Brass (C36000 listed): 300-350 ft/min HSS, 1170 ft/min
+# carbide (littlemachineshop.com/pages/cutting-speeds, read 2026-11-21). On
+# the 1/4 in bar or less both are over the lathe's 2000 rpm, so 2000. The
+# page has no parting row: the HSS blade takes the HSS turning row's low end.
+# The facing feed is the page's .004 in/rev basis. The spigot's feeds are the
+# plan's: its operation prints the parameters its turning screen reads.
+[settings.step-pin-face-c360]
+tool = "shaft-ar"
+material = "step-pin-c360"
+sfm = 1170
+feed = ".004 in/rev"
+[settings.step-pin-turn-c360]
+tool = "shaft-ar"
+material = "step-pin-c360"
+sfm = 1170
+[settings.step-pin-parting-c360]
+tool = "shaft-blade"
+material = "step-pin-c360"
+sfm = 300
+feed = "Hand plunge"
