@@ -9,7 +9,8 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
 - ``bar``: round bar in the chuck, ``process.parts_per_pull`` parts (one by
   default) out past the jaws, each a ``cad.pitch_mm`` along the bar;
 - ``blank``: a sawn blank in the chuck, ``cad.end_stickout_mm`` out, the
-  ``cad.face_stock_per_end_mm`` on its out end;
+  ``cad.face_stock_per_end_mm`` on its out end (``data-wrap="shim"`` on a
+  bar or blank draws the jaws over a shim wrap);
 - ``regrip``: the part turned round, the jaws on its ``data-grip`` diameter
   (``outer`` by default) over a shim wrap;
 - ``vise``: a top view in the milling vise, the flats up, the ``data-x0`` end
@@ -21,12 +22,15 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   ``process.jaw_top_over_od_mm`` over the rod (the end view drops to keep
   them under the callouts), the rod on a ``process.parallel_thickness_mm``
   wide parallel when given;
-- ``inspect``: the finished part with its printed sizes.
+- ``inspect``: the finished part with its printed sizes, its ``data-x0``
+  end (``datum`` or ``far``: the end its lengths are read from) at the left.
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
 or ``far``) the part's end toward the tailstock. ``data-work`` lists what the
 setup does: ``face``, ``turn``, ``dome`` (the out end's), ``groove``,
-``thread``, ``chamfer``, ``part`` (lathe holds) and ``flat`` (the vise);
+``thread`` (a die from the tailstock, or a single-point bit for
+``thread_process = "single_point"``), ``chamfer``, ``part`` (lathe holds)
+and ``flat`` (the vise);
 ``steps`` labels the out end's dome with the adapter's stepped-turning table
 (``process.dome_steps``);
 ``data-done`` what earlier setups made (``turn``, ``groove``, ``thread``,
@@ -36,8 +40,9 @@ made at assembly is not); on an inspection, ``data-done`` (when given, even
 empty) is what the part leaves with: square ends where no dome is done, and
 the faced length (both ends faced) or ``process.blank_length_in``. A feature
 not yet made is drawn at the size it arrives at. A form-cut dome
-(``process.dome_form_radius_in``) is labelled with the tool's R and height
-and the form tool is drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
+(``process.dome_form_radius_in``) is labelled with the tool's R and its
+height at the root (``SR`` alone for a full hemisphere) and the form tool is
+drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
 hatched, the part solid; cross holes made at assembly are dashed on the
@@ -224,8 +229,17 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
     x0 = root.attrib.pop("data-x0", "datum")
-    if x0 not in _OUTS or (x0 != "datum" and hold != "vise"):
-        raise CadError("turned-shaft: data-x0 is datum or far, on a vise hold")
+    if x0 not in _OUTS or (x0 != "datum" and hold not in ("vise", "inspect")):
+        raise CadError(
+            "turned-shaft: data-x0 is datum or far, on a vise or inspect hold"
+        )
+    wrap = root.attrib.pop("data-wrap", "none")
+    if wrap not in ("none", "shim") or (
+        wrap == "shim" and hold not in ("bar", "blank")
+    ):
+        raise CadError(
+            "turned-shaft: data-wrap is none or shim, on a bar or blank hold"
+        )
     if hold not in _HOLDS:
         raise CadError(
             f"turned-shaft: data-hold must be one of {', '.join(_HOLDS)}, not {hold!r}"
@@ -264,15 +278,17 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         }
         if hold == "vise":
             return _vise(groups, values, parameters, made, x0)
-        return _inspect(groups, values, parameters, done if as_left else made, as_left)
+        return _inspect(
+            groups, values, parameters, done if as_left else made, as_left, x0
+        )
     title = _TITLES[hold]
     if hold == "blank" and done:
-        title = "Part turned round in the chuck, seen from the operator's side"
+        title = f"Turned round, the {out} end out, seen from the operator's side"
     _title(groups, 20, 24, title)
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
         made.add(f"dome-{out}")
-    return _lathe(groups, values, parameters, hold, out, work, made, grip)
+    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap)
 
 
 def _lathe(
@@ -284,6 +300,7 @@ def _lathe(
     work: set,
     made: set,
     grip: str,
+    wrap: str,
 ) -> Layout:
     length = _cad(values, "length_mm")
     names = _diameters(values)
@@ -341,8 +358,11 @@ def _lathe(
             if hold == "bar"
             else "jaws on the blank"
         )
-        _chuck(groups, view, view.x(zmin), view.x(jaw), stock, 0.0)
-        above.append((view.x(zmin) + 4, y0 - _JAW, ["3-jaw chuck,", bar]))
+        shim = _SHIM if wrap == "shim" else 0.0
+        if shim:
+            bar = bar.replace("jaws on", "jaws over a shim wrap on")
+        _chuck(groups, view, view.x(zmin), view.x(jaw), stock, shim)
+        above.append((view.x(zmin) + 4, y0 - shim - _JAW, ["3-jaw chuck,", bar]))
     for k in range(count):
         shift = k * pitch
         # The meridian runs datum to far; lathe Z ascends toward the out end.
@@ -454,23 +474,30 @@ def _lathe(
         )
     if "thread" in work and "thread_z0_mm" in values:
         radius = values[f"{values['thread_on']}_dia_mm"] / 2
-        x = view.x(face) + 40
-        groups["cutter"] += [
-            _rect(x, view.up(radius) - 16, 14, 16),
-            _rect(x, view.down(radius), 14, 16),
-        ]
-        groups["fixture-vise"].append(_rect(x + 14, _AXIS - 12, 40, 24))
-        above.append(
-            (
-                x + 7,
-                view.up(radius) - 16,
-                [
-                    "die from the tailstock:",
-                    "{{cad.thread_designation}}",
-                    f"{_band('thread_length', 3)} long",
-                ],
+        lines = ["{{cad.thread_designation}}", f"{_band('thread_length', 3)} long"]
+        if values["thread_process"] == "single_point":
+            # A 60° threading bit on the thread's top, from the cross slide.
+            a = view.x(z_of(values["thread_z0_mm"]))
+            b = view.x(z_of(values["thread_z1_mm"]))
+            x, y = (a + b) / 2, view.up(radius)
+            groups["cutter"].append(
+                _el(
+                    "path",
+                    d=f"M{_pt(x, y)}L{_pt(x + 7, y - 12)}V{y - 40:.2f}"
+                    f"H{x - 7:.2f}V{y - 12:.2f}Z",
+                )
             )
-        )
+            above.append((x, y - 40, ["single-point threading bit:", *lines]))
+        else:
+            x = view.x(face) + 40
+            groups["cutter"] += [
+                _rect(x, view.up(radius) - 16, 14, 16),
+                _rect(x, view.down(radius), 14, 16),
+            ]
+            groups["fixture-vise"].append(_rect(x + 14, _AXIS - 12, 40, 24))
+            above.append(
+                (x + 7, view.up(radius) - 16, ["die from the tailstock:", *lines])
+            )
     head = _callouts(groups, above, top - 34, above=True)
     if head < 34:
         raise CadError("turned-shaft: labels run off the top of the picture")
@@ -656,21 +683,38 @@ def _left_length(values: dict, parameters: dict, made: set) -> str:
 
 
 def _dome_text(values: dict, prefix: str) -> list[str]:
-    """A dome's radius and height, on two lines: the form tool's and the
-    height it leaves when the dome is form-cut."""
+    """A dome's radius and its height at the root: the form tool's when
+    form-cut, ``SR`` alone for a full hemisphere."""
     if f"{prefix}_form_radius_in" in values:
+        if (
+            abs(
+                values[f"{prefix}_form_radius_mm"] - values[f"{prefix}_root_dia_mm"] / 2
+            )
+            < 1e-3
+        ):
+            return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
         return [
-            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form",
+            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",
+            "at the root",
         ]
     if f"{prefix}_radius_min_in" in values:
-        radius = f"R{_band(f'{prefix}_radius')}"
+        radius = f"R{_band(f'{prefix}_radius')},"
     else:
-        radius = f"R{{{{cad.{prefix}_radius_ref_in:.3dot}}}} REF"
+        radius = f"R{{{{cad.{prefix}_radius_ref_in:.3dot}}}} REF,"
     low, high = values[f"{prefix}_height_band_mm"]
     if high > low:
-        return [radius, f"{_band(f'{prefix}_height')} high"]
-    return [radius, f"{{{{cad.{prefix}_height_in:.3dot}}}} high REF"]
+        least, most = (values[f"{prefix}_height_{e}_in"] for e in ("min", "max"))
+        if abs(most - least) < 1e-9:
+            # Rounded inward to one .001 in reading.
+            text = f"{{{{cad.{prefix}_height_min_in:.3dot}}}}"
+        elif abs(least * 1000 - round(least * 1000)) > 1e-6:
+            # Too narrow for a .001 in reading: its exact limits.
+            text = _band(f"{prefix}_height", 4)
+        else:
+            text = _band(f"{prefix}_height")
+        return [radius, f"{text} high", "at the root"]
+    return [radius, f"{{{{cad.{prefix}_height_in:.3dot}}}} high", "at the root REF"]
 
 
 def _slender(values: dict, length: float, width: float) -> tuple[float, float]:
@@ -682,24 +726,30 @@ def _slender(values: dict, length: float, width: float) -> tuple[float, float]:
 
 
 def _inspect(
-    groups: Groups, values: dict, parameters: dict, made: set, as_left: bool
+    groups: Groups,
+    values: dict,
+    parameters: dict,
+    made: set,
+    as_left: bool,
+    x0: str,
 ) -> Layout:
-    """The part as it leaves, datum end at the left, its printed sizes: the
-    finished part unless data-done says what this traveler made."""
+    """The part as it leaves, its ``data-x0`` end (the end lengths are read
+    from) at the left, its printed sizes: the finished part unless data-done
+    says what this traveler made."""
     length = _cad(values, "length_mm")
     scale, radial = _slender(values, length, 560.0)
-    view = _View(80.0, 0.0, scale, radial)
+    view = _View(80.0, 0.0, scale, radial, length if x0 == "far" else None)
     title = "Part as it leaves, seen from the side" if as_left else _TITLES["inspect"]
     _title(groups, 20, 24, title + _exaggerated(scale, radial))
     top_profile = _meridian(values, made, flats=True)
     groups["part-kept"].append(_outline(view, top_profile, _meridian(values, made)))
-    groups["centre-line"].append(
-        _line(view.x(0) - 30, _AXIS, view.x(length) + 30, _AXIS)
-    )
+    # The x0 end at the left, the other at the right.
+    left, right = sorted((view.x(0.0), view.x(length)))
+    groups["centre-line"].append(_line(left - 30, _AXIS, right + 30, _AXIS))
     largest = max(r for _, r in top_profile)
     top, bottom = view.up(largest), view.down(largest)
-    groups["datum"].append(_line(view.x(0), top - 10, view.x(0), bottom + 10))
-    _datum_label(groups, view.x(0) - 6, bottom + 24, "datum end", "end")
+    groups["datum"].append(_line(left, top - 10, left, bottom + 10))
+    _datum_label(groups, left - 6, bottom + 24, f"{x0} end", "end")
     # Seen across the flats' normal (drawn up): a hole along the line of
     # sight is a circle.
     flats = _names(values, "flat_", "_across_mm")
@@ -727,7 +777,7 @@ def _inspect(
                 )
             )
     for f in flats:
-        a, b = view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])
+        a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
         dia = values[f"{values[f'{f}_on']}_dia_mm"]
         above.append(
             (
@@ -759,7 +809,7 @@ def _inspect(
             (view.x(values[f"{h}_z_mm"]), view.down(values[f"{h}_dia_mm"] / 2), text)
         )
     if "thread_z0_mm" in values and "thread" in made:
-        a, b = view.x(values["thread_z0_mm"]), view.x(values["thread_z1_mm"])
+        a, b = sorted((view.x(values["thread_z0_mm"]), view.x(values["thread_z1_mm"])))
         radius = values[f"{values['thread_on']}_dia_mm"] / 2
         depth = min(0.6 * values["thread_pitch_mm"], radius / 3)
         groups["part-threads"] += [
@@ -775,8 +825,8 @@ def _inspect(
         )
     _dimension(
         groups,
-        view.x(0),
-        view.x(length),
+        left,
+        right,
         top - 22,
         top - 2,
         f"length {_left_length(values, parameters, made)}",

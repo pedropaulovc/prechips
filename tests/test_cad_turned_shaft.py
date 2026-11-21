@@ -1,4 +1,5 @@
 import base64
+import math
 import re
 import subprocess
 import sys
@@ -108,9 +109,10 @@ def test_pin_thread_groove_and_dome_height_from_its_radius_band():
     assert values["thread_pitch_mm"] == pytest.approx(0.635)
     assert values["thread_on"] == "step"
     assert values["thread_z1_mm"] == pytest.approx(0.427100 + 3.81, abs=1e-6)
-    # R.080-.120 on the Ø.111 blank: the heights a shop checks.
-    assert values["dome_datum_height_min_in"] == pytest.approx(0.013606, abs=1e-6)
-    assert values["dome_datum_height_max_in"] == pytest.approx(0.022383, abs=1e-6)
+    # R.080-.120 on the Ø.111 blank: the heights a shop checks, .013606-.022383
+    # rounded inward to the .001 in they print at.
+    assert values["dome_datum_height_min_in"] == pytest.approx(0.014)
+    assert values["dome_datum_height_max_in"] == pytest.approx(0.022)
     assert values["groove_relief_dia_max_in"] == pytest.approx(2.13 / 25.4)
     assert values["groove_relief_datum_out_far_z_mm"] == pytest.approx(-6.35)
     assert values["fillet_shoulder_radius_max_in"] == pytest.approx(0.01)
@@ -271,3 +273,64 @@ def test_a_form_cut_dome_takes_the_height_its_tool_leaves():
         load_turned_shaft(
             SHAFT, BLANK | {"dome_form_radius_in": 0.125}, "demo-turned-shaft"
         )
+
+
+def test_pictures_take_a_shim_wrap_and_read_lengths_from_the_far_end():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    wrapped = render_cad_svg(_svg(hold="blank", work="face", wrap="shim"), cad, BLANK)
+    assert b"jaws over a shim wrap" in wrapped
+    far = render_cad_svg(_svg(hold="inspect", x0="far"), cad, BLANK)
+    assert b"far end" in far
+    with pytest.raises(CadError, match="data-wrap"):
+        render_cad_svg(_svg(hold="inspect", wrap="shim"), cad, BLANK)
+
+
+@pytest.mark.parametrize("form", [0.08, 0.12])
+def test_a_form_tool_at_either_end_of_the_radius_band_is_accepted(form):
+    # Its cap is checked against the exact band, not the inward-printed one.
+    values = load_turned_shaft(
+        PIN, BAR | {"dome_form_radius_in": form}, "demo-turned-pin"
+    ).values
+    assert values["dome_datum_form_radius_in"] == form
+
+
+def test_a_band_too_narrow_for_a_thousandth_prints_exact(tmp_path):
+    source = _edited(
+        tmp_path, PIN, '"radius" = [2.032, 3.048]', '"radius" = [2.53, 2.55]'
+    )
+    values = load_turned_shaft(source, {}, "demo-turned-pin").values
+    low, high = values["dome_datum_height_band_mm"]
+    assert (values["dome_datum_height_min_in"], values["dome_datum_height_max_in"]) == (
+        pytest.approx(low / 25.4),
+        pytest.approx(high / 25.4),
+    )
+
+
+def test_a_far_root_station_over_a_radius_band_faces_to_the_window(tmp_path):
+    source = _edited(
+        tmp_path,
+        SHAFT,
+        '"requirements" = ["plane", "length", "height"]',
+        '"requirements" = ["plane", "radius", "root_station"]',
+        '"length" = [177.546, 178.054]',
+        '"length_ref" = 177.8',
+        '"length_nominal" = 177.8',
+        '"root_station_nominal" = 177.396722124208',
+        '"radius_ref" = 12.7',
+        '"radius" = [12.0, 14.0]',
+        '"height" = [0.254, 0.508]',
+        '"radius_nominal" = 12.7',
+        '"height_nominal" = 0.403277875791451',
+        '"root_station" = [177.3, 177.5]',
+    )
+    values = load_turned_shaft(source, {}, "demo-turned-shaft").values
+    # The root stays in its band for any R: least + tallest cap, greatest +
+    # shallowest, rounded inward to .001 in.
+    tall, short = (r - math.sqrt(r**2 - 3.175**2) for r in (12.0, 14.0))
+    low, high = (177.3 + tall) / 25.4, (177.5 + short) / 25.4
+    assert values["faced_length_min_in"] == pytest.approx(math.ceil(low * 1000) / 1000)
+    assert values["faced_length_max_in"] == pytest.approx(
+        math.floor(high * 1000) / 1000
+    )
+    # Over a REF length the height a shop checks is the radius band's.
+    assert values["dome_far_height_band_mm"] == pytest.approx([short, tall])
