@@ -6,6 +6,7 @@ import pytest
 from prechips.cad import CadError
 from prechips.cad_clamp_half import load_clamp_half
 from prechips.cad_diagrams import render_cad_svg
+from prechips.shaft_diagrams import CHAR
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / "examples/cad/clamp-front-v51.toml"
@@ -49,6 +50,16 @@ def test_both_halves_bind_the_envelope_bore_and_ears():
         # One common zero at the near side: the ears at .256 and 1.634.
         assert values["ear_near_x_in"] == pytest.approx(0.256)
         assert values["ear_far_x_in"] == pytest.approx(1.634)
+        # Drilled before the bore: the station band about its nominal location.
+        for key, band in (
+            ("ear_near_x", (0.252, 0.260)),
+            ("ear_far_x", (1.630, 1.638)),
+        ):
+            assert values[f"{key}_min_in"] == pytest.approx(band[0], abs=1e-4)
+            assert values[f"{key}_max_in"] == pytest.approx(band[1], abs=1e-4)
+            assert values[f"{key}_band_mm"] == pytest.approx(
+                [band[0] * 25.4, band[1] * 25.4], abs=1e-3
+            )
         assert values["ear_y_in"] == pytest.approx(0.315)
         assert values["end_stock_min_in"] == pytest.approx(0.05)
     assert front["depth_band_mm"] == [17.272, 17.526]
@@ -205,6 +216,7 @@ def test_every_picture_binds_for_both_halves():
         {"step": "saw"},
         {"step": "pair"},
         {"step": "inspect"},
+        {"step": "inspect", "bored": "no"},
         {"step": "half", "up": "end", "work": "face", "end": "first"},
         {"step": "half", "up": "end", "work": "face", "end": "length"},
         {"step": "half", "up": "bottom", "work": "face"},
@@ -222,10 +234,9 @@ def test_every_picture_binds_for_both_halves():
                     _picture(cad, parameters, **attrs)
                 continue
             assert "{{" not in _picture(cad, parameters, **attrs)
-        text = "".join(
-            re.findall(r">([^<]+)</text>", _picture(cad, parameters, step="inspect"))
-        )
-        assert "Ø1.004–1.012" in text
+        # The bore is a REF size with its fit, not a size band, once cut.
+        assert "REF" in _picture(cad, parameters, step="inspect")
+        assert "REF" not in _picture(cad, parameters, step="inspect", bored="no")
     back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
     drill = _picture(back, PICTURES, step="half", up="outside", work="drill")
     assert "#8-32 UNC-2B tap drill" in drill
@@ -249,3 +260,47 @@ def test_every_picture_binds_for_both_halves():
         _picture(front, PICTURES, step="half", up="mating", work="face-off")
     with pytest.raises(CadError, match="data-work must be one of drill, tap"):
         _picture(front, PICTURES, step="half", up="outside", work="face")
+
+
+def _text_x(svg: str, text: str) -> float:
+    return float(re.search(rf'<text x="([-\d.]+)"[^>]*>{re.escape(text)}<', svg)[1])
+
+
+def _datum_x(svg: str) -> float:
+    return float(re.search(r'<g class="datum"><line x1="([-\d.]+)"', svg)[1])
+
+
+def test_lying_holds_put_the_near_side_where_the_hold_does():
+    front = load_clamp_half(FRONT, PICTURES, "clamp-front")
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+    width = back.values["width_mm"] * 6
+
+    def hold(cad, up, work):
+        return _picture(cad, PICTURES, step="half", up=up, work=work)
+
+    # Bottom face on the fixed jaw: the face up looking toward +X (the
+    # front's outside, the back's mating face) puts the near side at the right.
+    for cad, left, right in (
+        (front, ("mating", "face"), ("outside", "drill")),
+        (back, ("outside", "drill"), ("mating", "face")),
+    ):
+        plain, mirror = hold(cad, *left), hold(cad, *right)
+        assert _datum_x(mirror) >= _datum_x(plain) + width - 0.01
+        assert _text_x(mirror, "X0: near side") > _datum_x(mirror)
+        # The jaw label, now ending left of the part, stays on the page at
+        # the pictures' conservative glyph width.
+        label = "fixed jaw: BOTTOM face"
+        assert _text_x(mirror, label) > len(label) * CHAR
+    assert _datum_x(hold(back, "mating", "face-off")) == _datum_x(
+        hold(back, "mating", "face")
+    )
+    # The stations run away from the near side.
+    plain, mirror = hold(back, "outside", "drill"), hold(front, "outside", "drill")
+    assert _text_x(plain, ".256") < _text_x(plain, "1.634")
+    assert _text_x(mirror, ".256") > _text_x(mirror, "1.634")
+    for attrs, message in (
+        ({"step": "pair", "bored": "no"}, "data-bored goes with the inspect step"),
+        ({"step": "inspect", "bored": "maybe"}, "data-bored must be yes or no"),
+    ):
+        with pytest.raises(CadError, match=message):
+            _picture(back, PICTURES, **attrs)

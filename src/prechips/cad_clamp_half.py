@@ -253,7 +253,11 @@ def _ears(
     values["ear_height_mm"] = rise
     # Common-zero coordinates: from the near side, from the bore axis, and up
     # from the bottom face; each ear is drilled through the depth the half has
-    # then (the back's before its face-off).
+    # then (the back's before its face-off). Drilled before the bore, an ear's
+    # X from the near side carries the station band about the bore's nominal
+    # location (the bore is then interpolated at that location).
+    _inch_limits(values, "ear_near_x", (near - first[1], near - first[0]))
+    _inch_limits(values, "ear_far_x", (near + first[0], near + first[1]))
     for key, value in (
         ("ear_near_x", near - nominal),
         ("ear_far_x", near + nominal),
