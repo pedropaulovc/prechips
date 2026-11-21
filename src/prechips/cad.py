@@ -276,6 +276,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_drilled_block import load_drilled_block
 
         return load_drilled_block(path, parameters, part)
+    if adapter == "turned_bush":
+        from prechips.cad_turned_bush import load_turned_bush
+
+        return load_turned_bush(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

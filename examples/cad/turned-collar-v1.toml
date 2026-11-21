@@ -1,0 +1,138 @@
+# Demo manifest in the CAD export format: drilled collars in three members, each outside diameter the bar as bought; demo identity, no source citations.
+"part" = "turned-collar"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-collar.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["member_steps"]
+
+["member_steps"."C100"]
+"step" = "turned-collar--c100.STEP"
+"step_sha256" = "unknown"
+
+["member_steps"."C050"]
+"step" = "turned-collar--c050.STEP"
+"step_sha256" = "unknown"
+
+["drawing"]
+"number" = "DEMO-TURNED-COLLAR"
+"revision" = "v1"
+
+["material"]
+"spec" = "low-carbon cold-finished steel round, 1/2, 1 and 1-3/4 in, ASTM A108 (12L14 or 1018)"
+"name" = "LOW-CARBON STEEL, E.G. 12L14 CF"
+"finish" = "as machined"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+"outward" = [0.0, 0.0, -1.0]
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 8.382 }
+"outward" = [0.0, 0.0, 1.0]
+"length" = [8.128, 8.636]
+"length_nominal" = 8.382
+"length_from" = "datum_end"
+"precision" = { "length" = 2 }
+"faces" = ["F1"]
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 8.382]
+"dia" = [7.366, 7.4676]
+"nominal_dia" = 7.365999999999999
+"thru" = true
+"process" = "drill"
+"callout" = "DRILL THRU"
+"precision" = { "dia" = 3 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["stock"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 8.382]
+"stock" = "STOCK OK"
+"callout" = "STOCK OK"
+"dia_ref" = 44.449999999999996
+"member" = "C175"
+"quantity" = 1
+"precision" = { "dia_ref" = 2 }
+"faces" = ["F1"]
+
+["features"."outer_c100"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["stock"]
+"configuration" = "C100"
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 8.382]
+"stock" = "STOCK OK"
+"callout" = "STOCK OK"
+"dia_ref" = 25.4
+"member" = "C100"
+"quantity" = 1
+"precision" = { "dia_ref" = 2 }
+"faces" = ["F1"]
+
+["features"."outer_c050"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["stock"]
+"configuration" = "C050"
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 8.382]
+"stock" = "STOCK OK"
+"callout" = "STOCK OK"
+"dia_ref" = 12.7
+"member" = "C050"
+"quantity" = 1
+"precision" = { "dia_ref" = 2 }
+"faces" = ["F1"]

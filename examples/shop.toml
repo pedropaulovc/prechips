@@ -558,3 +558,25 @@ feed = "9.6 in/min"
 [gauges.hex-block-bore-drill-shanks]
 range_mm = [6.5024, 6.6294]
 resolution_mm = 0.00254
+
+# Source: demo-turned-plug.toml, authored demo choices for the turned_bush
+# adapter: a #25 tap drill and 10-24 taps for the plug's head hole. The
+# drill's setting is the LittleMachineShop "Cutting Speeds" HSS drilling row
+# for low-carbon steel, 80 ft/min:
+# https://littlemachineshop.com/pages/cutting-speeds
+# At Ø.1495 in that is 2044 rpm, so the lathe's 2000 top speed; the
+# quill is fed by hand, pecking.
+[tools.bush-drill-25]
+description = "#25 (.1495 in) jobber drill"
+diameter_mm = 3.7973
+[tools.bush-tap-10-24-plug]
+description = "10-24 UNC plug tap; T-handle wrench, tailstock tap guide"
+tap_drill_mm = 3.7973
+[tools.bush-tap-10-24-bottoming]
+description = "10-24 UNC bottoming tap; T-handle wrench, tailstock tap guide"
+tap_drill_mm = 3.7973
+[settings.bush-drill-25-1018]
+tool = "bush-drill-25"
+material = "shaft-1018-cold-finished"
+sfm = 80
+feed = "Hand quill, pecking"

@@ -1,0 +1,200 @@
+# Demo: a turned plug from 5/8 in 1018 bar on the manual lathe. A head and a
+# spigot are turned with the spigot end out and the part parted off long;
+# turned round and gripped on the spigot over a shim wrap, the head end is
+# faced to length, drilled and tapped 10-24 from the tailstock. The spigot is
+# turned to its measured mating tube's bore with a diametral clearance, so
+# the tube is measured first. Sizes, bands and stations come from the
+# manifest through the turned_bush adapter; the pictures are its turned-bush
+# templates. Speeds, kerf and allowances are authored demo choices.
+title = "Demo turned plug"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "AISI 1018 cold-drawn round, 5/8 in"
+stock = "Ø{{process.stock_dia_in:.3dot}} in bar, {{process.bar_length_in:g}} in; one part takes {{cad.pitch_in:.3dot}} in."
+note = "Inches. Lathe speeds on the PM-1127VF-LB (70–380 and 380–2000 rpm). Cutting oil on steel."
+shop = "shop.toml"
+material_key = "shaft-1018-cold-finished"
+turning_material = "steel_1018"
+
+[cad]
+file = "cad/turned-plug-v1.toml"
+adapter = "turned_bush"
+part = "turned-plug"
+
+[parameters]
+quantity = 1
+stock_dia_in = 0.625
+bar_length_in = 6.0
+chuck_grip_in = 0.75
+face_allowance_in = 0.02
+regrip_allowance_in = 0.02
+part_kerf_in = 0.0625
+parts_per_pull = 1
+jaw_clearance_in = 0.1
+# The bottoming tap's lead: about 1.5 threads at 24 per inch.
+tap_lead_in = 0.0625
+rough_radial_doc_mm = 0.5
+finish_radial_doc_mm = 0.05
+turn_feed_mm_rev = 0.1016
+turn_start_z_mm = 0.5
+
+[[tools]]
+id = "ar"
+name = "AR"
+ref = "shaft-ar"
+
+[[tools]]
+id = "centre"
+name = "#2 centre"
+ref = "shaft-centre"
+
+[[tools]]
+id = "blade"
+name = "Blade"
+ref = "shaft-blade"
+description = "1/16 in M2 parting blade"
+
+[[tools]]
+id = "drill-25"
+name = "#25 drill"
+ref = "bush-drill-25"
+
+[[tools]]
+id = "tap-plug"
+name = "10-24 plug tap"
+ref = "bush-tap-10-24-plug"
+
+[[tools]]
+id = "tap-bottoming"
+name = "10-24 bottoming tap"
+ref = "bush-tap-10-24-bottoming"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Bar: spigot end out, turn the head and spigot, part off"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the bar; {{cad.stickout_in:.2dot}} in out of the jaws."
+datum = "Z0 the spigot end faced square; the head end is made in Setup 2."
+diagram = { file = "diagrams/demo-turned-plug/bar.svg", alt = "The bar in the 3-jaw, spigot end out: the end faced, the head and the spigot turned, the part parted off long at the head end." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.step_dia_mm}}", support = "none" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.jaw_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+instruction = "Measure the mating tube's bore and write it down: the spigot is that bore less {{cad.step_clearance_min_in:.4dot}}–{{cad.step_clearance_max_in:.4dot}}."
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end square to Z0, {{process.face_allowance_in:.3dot}} in off."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Head", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.run_end_z_mm}}", kept_start_z_mm = "{{cad.outer_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.kept_end_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.outer_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Turn the head Ø{{cad.outer_dia_min_in:.3dot}}–{{cad.outer_dia_max_in:.3dot}} from the end back through the parting line, Z{{cad.run_end_z_mm:in.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+inspection = "Head Ø{{cad.outer_dia_min_in:.3dot}}–{{cad.outer_dia_max_in:.3dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.outer_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Spigot", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_dia_mm}}", end_diameter_mm = "{{cad.step_dia_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_dia_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Turn the spigot to the measured bore less the clearance, from the end to the shoulder at Z{{cad.step_far_out_far_z_mm:in.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.step_dia_mm}}"
+inspection = "Spigot: the bore less {{cad.step_clearance_min_in:.4dot}}–{{cad.step_clearance_max_in:.4dot}}."
+gauge_checks = "other"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Part off {{cad.part_off_in:.3dot}} in from the faced end, the regrip allowance left on the head end."
+settings = "shaft-parting-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Turned round: face the head end to length, drill and tap"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the spigot over a shim wrap, the shoulder against the jaws."
+datum = "Z0 the head end, faced in this setup."
+diagram = { file = "diagrams/demo-turned-plug/regrip.svg", alt = "The part turned round, gripped on the spigot over a shim wrap; the head end faced to length, centre drilled, drilled and tapped from the tailstock." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.step_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.step_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}", support = "none" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the head end to length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+inspection = "Length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}; shoulder {{cad.shoulder_min_in:.3dot}}–{{cad.shoulder_max_in:.3dot}} from the head end."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.shoulder_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "centre"
+drilling = "none"
+sizing = "other"
+instruction = "Centre-drill the axis."
+settings = "shaft-centre-drill-1018"
+cut_diameter_mm = 1.98
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "drill-25"
+drilling = "twist_drill"
+sizing = { kind = "tap_drill", tap = "tap-plug" }
+instruction = "Drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep to the full diameter, pecking."
+settings = "bush-drill-25-1018"
+cut_diameter_mm = "{{cad.tap_drill_dia_mm}}"
+hole_depth_mm = "{{cad.tap_drill_depth_mm}}"
+peck = { step_mm = 3.0, retract = "full" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "tap-plug"
+drilling = "none"
+sizing = "other"
+instruction = "Start {{cad.tap_thread}} with the plug tap, guided from the tailstock."
+feed = "hand"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "tap-bottoming"
+drilling = "none"
+sizing = "other"
+instruction = "Finish with the bottoming tap until its point is {{cad.tap_reach_min_in:.3dot}}–{{cad.tap_reach_max_in:.3dot}} deep: full thread {{cad.tap_thread_depth_min_in:.2dot}}–{{cad.tap_thread_depth_max_in:.2dot}}."
+feed = "hand"
+diagram = { file = "diagrams/demo-turned-plug/inspect.svg", alt = "The finished plug: head, shoulder, spigot and the tapped hole in the head end." }
