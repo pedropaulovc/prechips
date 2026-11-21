@@ -227,3 +227,24 @@ def test_demo_renders_both_profiles_with_every_picture_bound(tmp_path):
     assert any("face to" in p and "length 1.010–1.030" in p for p in pictures)
     assert any("tap #10-24 UNC-2B" in picture for picture in pictures)
     assert any("shoulder .590–.610" in picture for picture in pictures)
+
+
+def test_a_press_fit_band_may_sit_above_its_nominal(tmp_path):
+    text = PLUG.read_text(encoding="utf-8")
+    old = '"requirements" = ["dia"]\n"axis" = [1.0, 0.0, 0.0]'
+    new = (
+        '"requirements" = ["dia", "diametral_interference"]\n'
+        '"diametral_interference" = [0.01016, 0.03302]\n'
+        '"mate" = "DEMO-HOLE"\n"axis" = [1.0, 0.0, 0.0]'
+    )
+    assert text.count(old) == 1
+    text = text.replace(old, new).replace(
+        '"dia_nominal" = 12.7', '"dia_nominal" = 12.4'
+    )
+    source = tmp_path / "cad.toml"
+    source.write_text(text, encoding="utf-8")
+    values = load_turned_bush(source, {}, "turned-plug").values
+    assert values["outer_dia_mm"] == pytest.approx(12.7)
+    assert values["outer_nominal_mm"] == pytest.approx(12.4)
+    assert values["outer_interference_min_in"] == pytest.approx(0.0004)
+    assert values["outer_mate"] == "DEMO-HOLE"

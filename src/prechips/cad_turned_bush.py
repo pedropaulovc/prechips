@@ -180,7 +180,13 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
     largest = 0.0
     if "dia" in requirements:
         band = _limits(item, "dia", name, f"{name}_dia", values)
-        values[f"{name}_dia_mm"] = _nominal(item, "dia_nominal", band, name)
+        nominal = _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
+        if "diametral_interference" not in requirements:
+            nominal = _nominal(item, "dia_nominal", band, name)
+        # A press fit's band sits above its mate's nominal size: the turned
+        # size is the band's middle, the nominal is bound beside it.
+        values[f"{name}_dia_mm"] = (band[0] + band[1]) / 2
+        values[f"{name}_nominal_mm"] = nominal
         largest = band[1]
     elif "stock" in requirements or "diametral_clearance" in requirements:
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
