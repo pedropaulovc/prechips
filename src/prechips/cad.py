@@ -83,6 +83,15 @@ def _feature(features: dict, name: str, kind: str) -> dict:
     return item
 
 
+def _plane(features: dict, name: str, axis: str) -> tuple[dict, float]:
+    """A face and where its plane lies along ``axis``."""
+    face = _feature(features, name, "face")
+    plane = face.get("plane")
+    if not isinstance(plane, dict) or plane.get("axis") != axis:
+        raise CadError(f"{name}.plane: expected a plane on {axis}")
+    return face, _number(plane.get("value"), f"{name}.plane.value")
+
+
 def _required(feature: dict, key: str, where: str) -> None:
     requirements = feature.get("requirements")
     if not isinstance(requirements, list) or key not in requirements:
@@ -238,6 +247,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_hex_block import load_hex_block
 
         return load_hex_block(path, parameters, part)
+    if adapter == "clamp_half":
+        from prechips.cad_clamp_half import load_clamp_half
+
+        return load_clamp_half(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 

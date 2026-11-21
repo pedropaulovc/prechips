@@ -1,0 +1,161 @@
+# Demo manifest in the CAD export format: the back half of a split clamp block round a column, demo identity, no source citations.
+"part" = "clamp-back"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "clamp-back.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-CLAMP-BACK"
+"revision" = "v51"
+
+["material"]
+"spec" = "LOW-CARBON STEEL OR GRAY IRON"
+"name" = "LOW-CARBON STEEL OR GRAY IRON"
+"finish" = "black enamel; bore + tapped ear holes masked, bare surfaces oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. KEEPS A GAP TO DEMO-CLAMP-FRONT WHEN CLAMPED.", "2. SLIDING FIT ON DEMO-COLUMN, DIAMETRAL CLEARANCE .004-.012."]
+"process" = "machined from solid stock or casting"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."mating_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["grip_offset"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = -0.508 }
+"grip_offset" = [0.381, 0.635]
+"grip_offset_nominal" = 0.508
+"grip_offset_from" = "bore"
+"callout" = "SEE NOTE 1"
+"note" = "KEEPS A GAP TO DEMO-CLAMP-FRONT WHEN CLAMPED."
+"precision" = { "grip_offset" = 3 }
+
+["features"."back_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["depth"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = -15.494 }
+"depth" = [14.732, 15.24]
+"depth_nominal" = 14.986
+"depth_from" = "mating_face"
+"precision" = { "depth" = 2 }
+
+["features"."bottom_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = -8.001 }
+"height" = [15.748, 16.256]
+"height_nominal" = 16.002
+"precision" = { "height" = 2 }
+
+["features"."top_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 8.001 }
+"height" = [15.748, 16.256]
+"height_nominal" = 16.002
+"precision" = { "height" = 2 }
+
+["features"."near_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 24.003 }
+
+["features"."far_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["width"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = -24.003 }
+"width" = [47.752, 48.26]
+"width_nominal" = 48.006
+"width_from" = "near_side"
+"precision" = { "width" = 2 }
+
+["features"."bore"]
+"kind" = "half_bore"
+"frame" = "model"
+"requirements" = ["diametral_clearance", "location_from_near_side"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [0.0, 1.0, 0.0]
+"thru" = true
+"open_to" = "mating_face"
+"dia_ref" = 25.6032
+"dimension_type" = "reference"
+"diametral_clearance" = [0.1016, 0.3048]
+"mate" = "DEMO-COLUMN"
+"mate_od_nominal" = 25.4
+"callout" = "SEE NOTE 2"
+"note" = "SLIDING FIT ON DEMO-COLUMN, DIAMETRAL CLEARANCE .004-.012."
+"location_from_near_side" = [23.749, 24.257]
+"location_nominal" = 24.003
+"location_from" = "near_side"
+"precision" = { "dia_ref" = 3, "location_from_near_side" = 3 }
+
+["features"."ear_tap_1"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "thru", "station", "height"]
+"at" = [-15.494, 0.0, 17.5006]
+"axis" = [1.0, 0.0, 0.0]
+"thread" = "#8-32 UNC-2B"
+"dia" = [3.454, 3.5556]
+"tap_drill_nominal" = 3.454
+"thru" = true
+"thread_length_nominal" = 14.986
+"station" = [17.399, 17.6022]
+"station_nominal" = 17.5006
+"station_from" = "bore"
+"height" = [7.8994, 8.1026]
+"height_nominal" = 8.001
+"height_from" = "bottom_face"
+"mates" = "MATCHES DEMO-CLAMP-FRONT EAR HOLES"
+"precision" = { "dia" = 3, "station" = 3, "height" = 3 }
+
+["features"."ear_tap_2"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "thru", "station", "height"]
+"at" = [-15.494, 0.0, -17.5006]
+"axis" = [1.0, 0.0, 0.0]
+"thread" = "#8-32 UNC-2B"
+"dia" = [3.454, 3.5556]
+"tap_drill_nominal" = 3.454
+"thru" = true
+"thread_length_nominal" = 14.986
+"station" = [-17.6022, -17.399]
+"station_nominal" = -17.5006
+"station_from" = "bore"
+"height" = [7.8994, 8.1026]
+"height_nominal" = 8.001
+"height_from" = "bottom_face"
+"mates" = "MATCHES DEMO-CLAMP-FRONT EAR HOLES"
+"precision" = { "dia" = 3, "station" = 3, "height" = 3 }
