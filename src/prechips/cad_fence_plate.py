@@ -23,6 +23,7 @@ from .cad import (
     _inch_limits,
     _model_frame,
     _number,
+    _plane,
     _positive,
     _read_manifest,
     _required,
@@ -45,15 +46,6 @@ _FIXED = (
     "hub_tap",
 )
 _UP = [0, 0, 1]
-
-
-def _plane(features: dict, name: str, axis: str) -> tuple[dict, float]:
-    """A face and where its plane lies along ``axis``."""
-    face = _feature(features, name, "face")
-    plane = face.get("plane")
-    if not isinstance(plane, dict) or plane.get("axis") != axis:
-        raise CadError(f"{name}.plane: expected a plane on {axis}")
-    return face, _number(plane.get("value"), f"{name}.plane.value")
 
 
 def _datum(features: dict, name: str, axis: str) -> None:

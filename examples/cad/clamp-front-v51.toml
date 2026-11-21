@@ -1,0 +1,161 @@
+# Demo manifest in the CAD export format: the front half of a split clamp block round a column, demo identity, no source citations.
+"part" = "clamp-front"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "clamp-front.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-CLAMP-FRONT"
+"revision" = "v51"
+
+["material"]
+"spec" = "LOW-CARBON STEEL OR GRAY IRON"
+"name" = "LOW-CARBON STEEL OR GRAY IRON"
+"finish" = "black enamel; bore, 2X drilled holes + bar-seat face (opposite the bore) masked, bare surfaces oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. MIN EAR WALL .072.", "2. EAR TO DEMO-CLAMP-BACK TAP OFFSET UP TO .003 OVER #8 SCREW CLEARANCE."]
+"process" = "machined from solid stock or casting"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."mating_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+
+["features"."bar_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["depth"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 17.399 }
+"depth" = [17.272, 17.526]
+"depth_nominal" = 17.399
+"depth_from" = "mating_face"
+"callout" = "SETS SCREW ENGAGEMENT\nIN DEMO-CLAMP-BACK"
+"precision" = { "depth" = 3 }
+
+["features"."bottom_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = -8.001 }
+"height" = [15.748, 16.256]
+"height_nominal" = 16.002
+"precision" = { "height" = 2 }
+
+["features"."top_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["height"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 8.001 }
+"height" = [15.748, 16.256]
+"height_nominal" = 16.002
+"precision" = { "height" = 2 }
+
+["features"."near_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 24.003 }
+
+["features"."far_side"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["width"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = -24.003 }
+"width" = [47.752, 48.26]
+"width_nominal" = 48.006
+"width_from" = "near_side"
+"precision" = { "width" = 2 }
+
+["features"."bore"]
+"kind" = "half_bore"
+"frame" = "model"
+"requirements" = ["diametral_clearance", "location_from_near_side"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [0.0, 1.0, 0.0]
+"thru" = true
+"open_to" = "mating_face"
+"dia_ref" = 25.6032
+"dimension_type" = "reference"
+"diametral_clearance" = [0.1016, 0.3048]
+"mate" = "DEMO-COLUMN"
+"mate_od_nominal" = 25.4
+"callout" = "SLIDING FIT ON DEMO-COLUMN\nCLEARANCE .004-.012 DIAMETRAL"
+"location_from_near_side" = [23.749, 24.257]
+"location_nominal" = 24.003
+"location_from" = "near_side"
+"precision" = { "dia_ref" = 3, "location_from_near_side" = 3 }
+
+["features"."ear_hole_1"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station", "height"]
+"at" = [17.399, 0.0, 17.5006]
+"axis" = [-1.0, 0.0, 0.0]
+"dia" = [4.978, 5.0796]
+"nominal_dia" = 4.978
+"clearance_for" = "#8"
+"thru" = true
+"process" = "drill"
+"station" = [17.399, 17.6022]
+"station_nominal" = 17.5006
+"station_from" = "bore"
+"height" = [7.8994, 8.1026]
+"height_nominal" = 8.001
+"height_from" = "bottom_face"
+"mates" = "MATCHES DEMO-CLAMP-BACK TAPS"
+"web_to_bore_min" = 1.8288
+"web_note" = "MIN EAR WALL .072"
+"screw_line_note" = "EAR TO DEMO-CLAMP-BACK TAP OFFSET UP TO .003 OVER #8 SCREW CLEARANCE"
+"precision" = { "dia" = 3, "station" = 3, "height" = 3 }
+
+["features"."ear_hole_2"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station", "height"]
+"at" = [17.399, 0.0, -17.5006]
+"axis" = [-1.0, 0.0, 0.0]
+"dia" = [4.978, 5.0796]
+"nominal_dia" = 4.978
+"clearance_for" = "#8"
+"thru" = true
+"process" = "drill"
+"station" = [-17.6022, -17.399]
+"station_nominal" = -17.5006
+"station_from" = "bore"
+"height" = [7.8994, 8.1026]
+"height_nominal" = 8.001
+"height_from" = "bottom_face"
+"mates" = "MATCHES DEMO-CLAMP-BACK TAPS"
+"web_to_bore_min" = 1.8288
+"web_note" = "MIN EAR WALL .072"
+"screw_line_note" = "EAR TO DEMO-CLAMP-BACK TAP OFFSET UP TO .003 OVER #8 SCREW CLEARANCE"
+"precision" = { "dia" = 3, "station" = 3, "height" = 3 }
