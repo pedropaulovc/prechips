@@ -393,12 +393,20 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
     values["part_off_mm"] = values["part_off_in"] * 25.4
     values["pitch_in"] = face + values["part_off_in"] + kerf
     values["pitch_mm"] = values["pitch_in"] * 25.4
+    grip = math.inf
+    if "regrip_grip_in" in parameters:
+        # How much of the gripped diameter the regrip's jaws take, from its
+        # chuck-side end; the whole diameter when not stated.
+        grip = _positive(parameters["regrip_grip_in"], "process.regrip_grip_in")
+        values["regrip_grip_mm"] = grip * 25.4
     for name in turned:
         z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
         # Turned round and gripped on this diameter after parting: what
         # stands out of the jaws, the regrip allowance still on the out end.
-        values[f"{name}_stickout_datum_mm"] = z0 + regrip * 25.4
-        values[f"{name}_stickout_far_mm"] = length - z1 + regrip * 25.4
+        values[f"{name}_stickout_datum_mm"] = max(z0, z1 - grip * 25.4) + regrip * 25.4
+        values[f"{name}_stickout_far_mm"] = (
+            length - min(z1, z0 + grip * 25.4) + regrip * 25.4
+        )
         # The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
         # away from the chuck), with either end of the part out.
         values[f"{name}_datum_out_near_z_mm"] = -z0

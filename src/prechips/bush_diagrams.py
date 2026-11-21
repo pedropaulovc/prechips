@@ -318,6 +318,13 @@ def _setup(
         above.append((_LEFT + 4, y - _JAW, [f"{chuck} chuck,", f"jaws on {bar}"]))
     elif hold == "regrip":
         _, z0, z1, radius = named[grip]
+        if "regrip_grip_mm" in values:
+            # The jaws take only the stated length from the chuck-side end.
+            held_mm = _cad(values, "regrip_grip_mm")
+            if out == "datum":
+                z0 = max(z0, z1 - held_mm)
+            else:
+                z1 = min(z1, z0 + held_mm)
         x0, x1 = page.span(z0, z1)
         _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM)
         above.append(

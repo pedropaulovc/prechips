@@ -382,3 +382,16 @@ def test_a_band_with_a_fit_prints_both():
     picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
     assert "Ø.417–.427" in picture
     assert ".0020–.0060 under its mate" in picture
+
+
+def test_regrip_grip_length_sets_the_stickout_and_the_jaws():
+    params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # The spigot is 10.668 long: the jaws take .3 in of it from the far end.
+    assert cad.values["step_stickout_datum_mm"] == pytest.approx(25.908 - 7.62 + 0.508)
+    # Gripped on the head, its datum end in the chuck: the head is 15.24
+    # long, so .3 in of it is held.
+    assert cad.values["outer_stickout_far_mm"] == pytest.approx(25.908 - 7.62 + 0.508)
+    whole = load_turned_bush(PLUG, BAR | {"regrip_allowance_in": 0.02}, "turned-plug")
+    assert whole.values["step_stickout_datum_mm"] == pytest.approx(15.24 + 0.508)
+    render_cad_svg(_svg(hold="regrip", grip="step", work="face"), cad, params)
