@@ -823,10 +823,29 @@ def _inspect(
                 [f"{f.removeprefix('flat_')}: {_band(f'{f}_across')} across"],
             )
         )
+    holes = [
+        h
+        for h in _names(values, "cross_hole", "_z_mm")
+        if not (as_left and values[f"{h}_made_at"] == "assembly")
+    ]
+    # A diameter's leader lands on its outline clear of any hole through it
+    # (the hole's label leads to the hole from above).
+    spans = [
+        (view.x(values[f"{h}_z_mm"]), values[f"{h}_dia_mm"] / 2 * scale + 6)
+        for h in holes
+    ]
     for name in _diameters(values):
-        a, b = view.x(values[f"{name}_z0_mm"]), view.x(values[f"{name}_z1_mm"])
+        a, b = sorted(
+            (view.x(values[f"{name}_z0_mm"]), view.x(values[f"{name}_z1_mm"]))
+        )
+        x = (a + b) / 2
+        for hx, reach in spans:
+            if a < hx < b and abs(x - hx) < reach:
+                # The middle of the longer stretch beside the hole.
+                lo, hi = (a, hx - reach) if hx - a > b - hx else (hx + reach, b)
+                x = (lo + hi) / 2
         text = _size(values, name)
-        below.append(((a + b) / 2, view.down(values[f"{name}_dia_mm"] / 2), text))
+        below.append((x, view.down(values[f"{name}_dia_mm"] / 2), text))
     for g in _names(values, "groove", "_width_mm"):
         a, b = view.x(values[f"{g}_z0_mm"]), view.x(values[f"{g}_z1_mm"])
         below.append(
@@ -836,14 +855,12 @@ def _inspect(
                 [f"groove Ø{_band(f'{g}_dia')}"],
             )
         )
-    for h in _names(values, "cross_hole", "_z_mm"):
-        if as_left and values[f"{h}_made_at"] == "assembly":
-            continue
+    for h in holes:
         text = [f"Ø{{{{cad.{h}_dia_min_in:.4dot}}}}"]
         if values[f"{h}_made_at"] == "assembly":
             text.append("at assembly")
-        below.append(
-            (view.x(values[f"{h}_z_mm"]), view.down(values[f"{h}_dia_mm"] / 2), text)
+        above.append(
+            (view.x(values[f"{h}_z_mm"]), view.up(values[f"{h}_dia_mm"] / 2), text)
         )
     if "thread_z0_mm" in values and "thread" in made:
         a, b = sorted((view.x(values["thread_z0_mm"]), view.x(values["thread_z1_mm"])))

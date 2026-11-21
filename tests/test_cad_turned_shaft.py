@@ -364,3 +364,15 @@ def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
     ):
         with pytest.raises(CadError, match=message):
             render_cad_svg(svg, cad, form)
+
+
+def test_inspect_leads_to_a_hole_from_above_and_its_diameter_clear_of_it():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    values = cad.values
+    values["cross_hole_z_mm"] = (values["outer_z0_mm"] + values["outer_z1_mm"]) / 2
+    svg = render_cad_svg(_svg(hold="inspect"), cad, BLANK).decode()
+    hole = re.search(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="[\d.]+" />', svg)
+    dots = re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="1.8"', svg)
+    at_hole = [float(y) for x, y in dots if abs(float(x) - float(hole[1])) < 8]
+    # One leader at the hole, from above; the O.D.'s lands clear of it.
+    assert len(at_hole) == 1 and at_hole[0] < float(hole[2])
