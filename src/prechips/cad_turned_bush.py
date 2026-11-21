@@ -520,6 +520,8 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         if members_found
         else []
     )
+    if len({m.lower() for m in values["members"]}) != len(values["members"]):
+        raise CadError("cad.features: member names must differ in more than case")
     # Each member's outer feature, for pictures that draw one member.
     values["member_outers"] = (
         dict(zip(values["members"], ["outer", *members_outer], strict=True))
@@ -538,9 +540,6 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
     _edge_breaks(raw, values)
-    axes: list[StockAxis] = []
-    # Round bar is named by its diameter; the facing allowance and kerf may
-    # also serve a squared blank's pictures.
     if "finish_allowance_in" in parameters:
         allowance = _positive(
             parameters["finish_allowance_in"], "process.finish_allowance_in"
@@ -551,6 +550,9 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
                 values[f"{name}_rough_dia_mm"] = (
                     values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
                 )
+    axes: list[StockAxis] = []
+    # Round bar is named by its diameter; the facing allowance and kerf may
+    # also serve a squared blank's pictures.
     if "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
         axes = _bar(values, parameters, largest, turned)
     if _all_or_none(parameters, _BLOCK, "the squared blank"):
