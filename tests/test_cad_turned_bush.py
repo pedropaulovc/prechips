@@ -74,9 +74,10 @@ def test_bar_binds_pitch_stickout_and_parts_per_bar():
     # out of the jaws (no regrip allowance here).
     assert values["step_stickout_datum_mm"] == pytest.approx(15.24)
     required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
-    # The bar covers the grip and the four parts the quantity asks for.
+    # The bar covers the grip and the four parts the quantity asks for; its
+    # diameter need only reach the head band's low end.
     assert required == pytest.approx(
-        {"stock_dia_in": 12.954, "bar_length_in": (0.75 + 0.1 + 4 * 1.1025) * 25.4}
+        {"stock_dia_in": 12.446, "bar_length_in": (0.75 + 0.1 + 4 * 1.1025) * 25.4}
     )
     with pytest.raises(CadError, match="one bar makes 4 parts, under the quantity 5"):
         load_turned_bush(PLUG, params | {"quantity": 5}, "turned-plug")

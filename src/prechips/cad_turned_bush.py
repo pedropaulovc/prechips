@@ -179,7 +179,7 @@ def _shoulder(item: dict, frame: tuple, values: dict) -> None:
 
 
 def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
-    """Bind one turned diameter; return the largest size it can be."""
+    """Bind one turned diameter; return the least bar that makes it."""
     if item.get("kind") != "diameter":
         raise CadError(f"{name}: expected a model-frame diameter")
     _on_axis(item, name, frame[0])
@@ -203,7 +203,9 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         values[f"{name}_dia_mm"] = (band[0] + band[1]) / 2
         values[f"{name}_nominal_mm"] = nominal
         values[f"{name}_turn_min_mm"] = band[0]
-        largest = band[1]
+        # A bar at or over the band's low end makes it: inside the band it is
+        # left as supplied, over it it is turned down.
+        largest = band[0]
     elif "stock" in requirements or "diametral_clearance" in requirements:
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
         values[f"{name}_dia_mm"], values[f"{name}_ref_in"] = ref, ref / 25.4
