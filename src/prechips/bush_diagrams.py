@@ -20,8 +20,9 @@ tailstock; ``data-work`` lists what the setup does, from ``face``,
 ``centre``, ``drill``, ``turn``, ``pocket``, ``tap``, ``chamfer`` and
 ``part``; ``data-turn`` names the diameters a setup with ``turn`` turns
 (``outer``, ``step``; all by default), the others drawn at the largest of
-them, as an earlier or later setup turns them; ``data-chuck`` (``3-jaw`` or
-``4-jaw``) names the chuck;
+them, as an earlier or later setup turns them; ``data-chamfers`` names the
+chamfers a setup with ``chamfer`` cuts (all by default); ``data-chuck``
+(``3-jaw`` or ``4-jaw``) names the chuck;
 ``data-member`` draws a member on its own bar (the default member when
 omitted or named). Part
 sizes come from the adapter; chuck, jaws, tools, bolt and nut are schematic
@@ -197,6 +198,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     grip = root.attrib.pop("data-grip", "outer")
     member = root.attrib.pop("data-member", None)
     turn = root.attrib.pop("data-turn", None)
+    chamfer_names = root.attrib.pop("data-chamfers", None)
     outer = "outer"
     if member is not None:
         # A member drawn on its own bar: its outer and its own stock.
@@ -244,8 +246,33 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
                 f"turned-bush: data-turn {turn!r} must name turned diameters"
                 f" ({', '.join(names)})"
             )
+    chamfers = sorted(
+        key.removesuffix("_leg_min_in")
+        for key in values
+        if key.startswith("chamfer_") and key.endswith("_leg_min_in")
+    )
+    if chamfer_names is not None:
+        # data-chamfers names the chamfers this setup cuts, by feature name.
+        named = chamfer_names.split()
+        if not named or set(named) - set(chamfers):
+            raise CadError(
+                f"turned-bush: data-chamfers {chamfer_names!r} must name chamfers"
+                f" ({', '.join(chamfers)})"
+            )
+        chamfers = sorted(named)
     return _setup(
-        groups, values, parameters, hold, out, work, holes, chuck, grip, outer, turned
+        groups,
+        values,
+        parameters,
+        hold,
+        out,
+        work,
+        holes,
+        chuck,
+        grip,
+        outer,
+        turned,
+        chamfers,
     )
 
 
@@ -261,6 +288,7 @@ def _setup(
     grip: str,
     outer: str,
     turned: set,
+    chamfers: list,
 ) -> Layout:
     length = _cad(values, "length_mm")
     segments = _segments(values, outer)
@@ -504,21 +532,15 @@ def _setup(
         }
         head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
         above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
-    if "chamfer" in work:
-        chamfers = sorted(
-            key.removesuffix("_leg_min_in")
-            for key in values
-            if key.startswith("chamfer_") and key.endswith("_leg_min_in")
-        )
-        if chamfers:
-            below.append(
-                (
-                    page.x_out - 4,
-                    2 * _AXIS - page.up(largest),
-                    ["break edges:"]
-                    + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
-                )
+    if "chamfer" in work and chamfers:
+        below.append(
+            (
+                page.x_out - 4,
+                2 * _AXIS - page.up(largest),
+                ["break edges:"]
+                + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
             )
+        )
     top = _callouts(groups, above, top_y - 30, above=True)
     if top < 34:
         raise CadError("turned-bush: labels run off the top of the picture")

@@ -503,6 +503,21 @@ def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
     assert "measured mate" in both
 
 
+def test_data_chamfers_labels_only_the_chamfers_the_setup_cuts():
+    params = BAR | {"stock_dia_in": 0.5, "regrip_allowance_in": 0.02}
+    cad = load_turned_bush(CUP, params, "turned-cup")
+    attrs = {"hold": "regrip", "out": "far", "grip": "outer", "work": "face chamfer"}
+    both = render_cad_svg(_svg(**attrs), cad, params).decode()
+    far = render_cad_svg(_svg(**attrs, chamfers="chamfer_far"), cad, params).decode()
+    bore, outer = "× 45°", cad.values
+    assert both.count(bore) == 2
+    assert far.count(bore) == 1
+    low, high = outer["chamfer_far_leg_min_in"], outer["chamfer_far_leg_max_in"]
+    assert f"{low:.3f}".lstrip("0") in far and f"{high:.3f}".lstrip("0") in far
+    with pytest.raises(CadError, match="data-chamfers 'chamfer_neck'"):
+        render_cad_svg(_svg(**attrs, chamfers="chamfer_neck"), cad, params)
+
+
 def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():
     params = BAR | {"stock_dia_in": 0.49, "as_supplied_outer": 1}
     # A bar exactly at the band's low end, through inch-to-mm noise.
