@@ -23,7 +23,8 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   them under the callouts), the rod on a ``process.parallel_thickness_mm``
   wide parallel when given;
 - ``inspect``: the finished part with its printed sizes, its ``data-x0``
-  end (``datum`` or ``far``: the end its lengths are read from) at the left.
+  end (``datum`` or ``far``: the end its lengths are read from) at the left,
+  marked "<end> end" or ``data-x0-label`` (the plan's own name for that end).
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
 or ``far``) the part's end toward the tailstock. ``data-work`` lists what the
@@ -58,9 +59,16 @@ from xml.etree import ElementTree
 
 from prechips.bush_diagrams import _AXIS, _JAW, _SHIM, _chuck
 from prechips.cad import CadError
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _bound, _cad, _el, _line, _rect
 from prechips.jig_diagrams import _datum_label, _finish, _groups, _param, _title
-from prechips.shaft_diagrams import _break, _callouts, _clip, _dimension, _pt
+from prechips.shaft_diagrams import (
+    CHAR,
+    _break,
+    _callouts,
+    _clip,
+    _dimension,
+    _pt,
+)
 
 Groups = dict[str, list[Element]]
 Profile = list[tuple[float, float]]  # (Z, radius) along the upper meridian
@@ -233,6 +241,9 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError(
             "turned-shaft: data-x0 is datum or far, on a vise or inspect hold"
         )
+    x0_label = root.attrib.pop("data-x0-label", f"{x0} end")
+    if not x0_label.strip() or (x0_label != f"{x0} end" and hold != "inspect"):
+        raise CadError("turned-shaft: data-x0-label is a non-blank label, on inspect")
     wrap = root.attrib.pop("data-wrap", "none")
     if wrap not in ("none", "shim") or (
         wrap == "shim" and hold not in ("bar", "blank")
@@ -279,7 +290,13 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         if hold == "vise":
             return _vise(groups, values, parameters, made, x0)
         return _inspect(
-            groups, values, parameters, done if as_left else made, as_left, x0
+            groups,
+            values,
+            parameters,
+            done if as_left else made,
+            as_left,
+            x0,
+            x0_label,
         )
     title = _TITLES[hold]
     if hold == "blank" and done:
@@ -465,6 +482,11 @@ def _lathe(
         groups["cutter"].append(
             _el("path", d="M" + "L".join(_pt(*p) for p in points) + "Z")
         )
+        # Its label's leader ends on the tool body, just under its top edge.
+        text = _dome_text(values, prefix)
+        if "steps" in work:
+            text.append("step-turn {{process.dome_steps:d}} steps, file")
+        above.append((back - 12, top_side[0][1] + 4, text))
     if "part" in work:
         line = -length - float(values.get("regrip_allowance_mm", 0.0))
         x = view.x(line - kerf)
@@ -627,7 +649,9 @@ def _labels(
                 text.append("thread blank")
             above.append((mid, view.up(values[f"{name}_dia_mm"] / 2), text))
     prefix = f"dome_{out}"
-    if "dome" in work and f"{prefix}_height_mm" in values:
+    # A form-cut dome is labelled on its tool (drawn by _lathe).
+    formed = f"{prefix}_form_radius_mm" in values
+    if "dome" in work and f"{prefix}_height_mm" in values and not formed:
         apex = 0.0 if out == "datum" else length
         inward = 1 if out == "datum" else -1
         mid = apex + inward * values[f"{prefix}_height_mm"] / 2
@@ -732,10 +756,11 @@ def _inspect(
     made: set,
     as_left: bool,
     x0: str,
+    x0_label: str,
 ) -> Layout:
     """The part as it leaves, its ``data-x0`` end (the end lengths are read
-    from) at the left, its printed sizes: the finished part unless data-done
-    says what this traveler made."""
+    from) at the left, marked ``x0_label``, its printed sizes: the finished
+    part unless data-done says what this traveler made."""
     length = _cad(values, "length_mm")
     scale, radial = _slender(values, length, 560.0)
     view = _View(80.0, 0.0, scale, radial, length if x0 == "far" else None)
@@ -749,7 +774,9 @@ def _inspect(
     largest = max(r for _, r in top_profile)
     top, bottom = view.up(largest), view.down(largest)
     groups["datum"].append(_line(left, top - 10, left, bottom + 10))
-    _datum_label(groups, left - 6, bottom + 24, f"{x0} end", "end")
+    if len(_bound(x0_label)) * CHAR > left - 6:
+        raise CadError("turned-shaft: data-x0-label runs off the picture")
+    _datum_label(groups, left - 6, bottom + 24, x0_label, "end")
     # Seen across the flats' normal (drawn up): a hole along the line of
     # sight is a circle.
     flats = _names(values, "flat_", "_across_mm")
