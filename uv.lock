@@ -40,7 +40,7 @@ wheels = [
 
 [[package]]
 name = "prechips"
-version = "0.11.25"
+version = "0.11.26"
 source = { editable = "." }
 
 [package.dev-dependencies]
