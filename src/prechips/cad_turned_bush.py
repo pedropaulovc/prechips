@@ -203,15 +203,15 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         values[f"{name}_dia_mm"] = (band[0] + band[1]) / 2
         values[f"{name}_nominal_mm"] = nominal
         values[f"{name}_turn_min_mm"] = band[0]
-        # A bar at or over the band's low end makes it: inside the band it is
-        # left as supplied, over it it is turned down.
-        largest = band[0]
+        # A bar over the band is turned down to it; one left as supplied
+        # inside the band (``as_supplied``) is admitted in load_turned_bush.
+        least_bar = band[1]
     elif "stock" in requirements or "diametral_clearance" in requirements:
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
         values[f"{name}_dia_mm"], values[f"{name}_ref_in"] = ref, ref / 25.4
         # Turned under a measured mate, the REF bounds it: the mate is the
         # REF size and the least clearance comes off it.
-        largest = ref
+        least_bar = ref
     else:
         raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
     values[f"{name}_stock"] = "stock" in requirements
@@ -232,7 +232,7 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
         values[f"{name}_turn_min_mm"] = (
             values[f"{name}_dia_mm"] - values[f"{name}_clearance_band_mm"][1]
         )
-    return largest
+    return least_bar
 
 
 def _tiles(values: dict, names: list[str]) -> None:
@@ -356,7 +356,9 @@ def _count(parameters: dict, key: str) -> int:
     return int(value)
 
 
-def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> list:
+def _bar(
+    values: dict, parameters: dict, sizes: dict, least_bar: float, turned: list[str]
+) -> list:
     """The round bar the part is turned and parted from.
 
     Each part takes, from its bar end: the facing allowance, the part, the
@@ -373,14 +375,14 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
         )
     stock_mm = stock * 25.4
     values["stock_dia_mm"] = stock_mm
-    axes = [StockAxis("diameter", "stock_dia_in", largest)]
+    axes = [StockAxis("diameter", "stock_dia_in", least_bar)]
     for name in turned:
         bar_mm, key = stock_mm, "stock_dia_in"
         if name.startswith("outer_"):
             key = f"stock_dia_{name.removeprefix('outer_').lower()}_in"
             bar_mm = _positive(parameters.get(key), f"process.{key}") * 25.4
             values[f"{name}_stock_dia_mm"] = bar_mm
-            axes.append(StockAxis(f"{name} diameter", key, values[f"{name}_dia_mm"]))
+            axes.append(StockAxis(f"{name} diameter", key, sizes[name]))
         # The plan parameter naming this diameter's bar, for its pictures.
         values[f"{name}_stock_key"] = key
         if values[f"{name}_stock"] and abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
@@ -388,6 +390,15 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
                 f"process.{key}: {name} is left as bought at "
                 f"{values[f'{name}_ref_in']:.4f} in, not this bar"
             )
+        if values.get(f"{name}_as_supplied"):
+            low, high = values[f"{name}_dia_band_mm"]
+            if not low <= bar_mm <= high:
+                raise CadError(
+                    f"process.{key}: {name} is left as supplied, so its bar must "
+                    f"lie inside its band {low / 25.4:.4f}-{high / 25.4:.4f} in"
+                )
+            # Not turned: the diameter is the bar's.
+            values[f"{name}_dia_mm"] = bar_mm
     length = values["length_mm"]
     values["face_allowance_mm"] = face * 25.4
     values["regrip_allowance_mm"] = regrip * 25.4
@@ -395,19 +406,21 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
     values["part_off_mm"] = values["part_off_in"] * 25.4
     values["pitch_in"] = face + values["part_off_in"] + kerf
     values["pitch_mm"] = values["pitch_in"] * 25.4
-    grip = math.inf
+    grip_mm = math.inf
     if "regrip_grip_in" in parameters:
         # How much of the gripped diameter the regrip's jaws take, from its
         # chuck-side end; the whole diameter when not stated.
-        grip = _positive(parameters["regrip_grip_in"], "process.regrip_grip_in")
-        values["regrip_grip_mm"] = grip * 25.4
+        grip_mm = (
+            _positive(parameters["regrip_grip_in"], "process.regrip_grip_in") * 25.4
+        )
+        values["regrip_grip_mm"] = grip_mm
     for name in turned:
         z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
         # Turned round and gripped on this diameter after parting: what
         # stands out of the jaws, the regrip allowance still on the out end.
-        values[f"{name}_stickout_datum_mm"] = max(z0, z1 - grip * 25.4) + regrip * 25.4
+        values[f"{name}_stickout_datum_mm"] = max(z0, z1 - grip_mm) + regrip * 25.4
         values[f"{name}_stickout_far_mm"] = (
-            length - min(z1, z0 + grip * 25.4) + regrip * 25.4
+            length - min(z1, z0 + grip_mm) + regrip * 25.4
         )
         # The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
         # away from the chuck), with either end of the part out.
@@ -457,7 +470,7 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
     return axes
 
 
-def _block(values: dict, parameters: dict, largest: float) -> list:
+def _block(values: dict, parameters: dict, least_bar: float) -> list:
     """A squared blank turned round in the 4-jaw chuck."""
     side, axial = (_positive(parameters[key], f"process.{key}") for key in _BLOCK)
     values["blank_side_mm"], values["blank_axial_mm"] = side * 25.4, axial * 25.4
@@ -465,7 +478,7 @@ def _block(values: dict, parameters: dict, largest: float) -> list:
     if values["face_stock_in"] < 0:
         raise CadError("process.blank_axial_in: shorter than the finished length")
     return [
-        StockAxis("square side", "blank_side_in", largest),
+        StockAxis("square side", "blank_side_in", least_bar),
         StockAxis("along the axis", "blank_axial_in", values["length_mm"]),
     ]
 
@@ -502,8 +515,18 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     for name in turned:
         if name.startswith("outer_"):
             _tiles(values, [name, *(["step"] if "step" in sizes else [])])
+    supplied = parameters.get("as_supplied", [])
+    if not isinstance(supplied, list) or not all(isinstance(n, str) for n in supplied):
+        raise CadError("process.as_supplied: expected a list of diameter names")
+    for name in supplied:
+        # A banded diameter the bar already lies inside: left as supplied,
+        # so the bar need reach only the band's low end (checked in _bar).
+        if name not in sizes or f"{name}_dia_band_mm" not in values:
+            raise CadError(f"process.as_supplied: {name!r} is not a banded diameter")
+        values[f"{name}_as_supplied"] = True
+        sizes[name] = values[f"{name}_dia_band_mm"][0]
     # The default member's bar or blank: the other members bring their own.
-    largest = max(sizes[name] for name in _DIAMETERS if name in sizes)
+    least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
     members_found, members_outer = [], []
     for name in turned:
         configuration = features[name].get("configuration")
@@ -547,7 +570,7 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
             parameters["finish_allowance_in"], "process.finish_allowance_in"
         )
         for name in turned:
-            if f"{name}_turn_min_mm" in values:
+            if f"{name}_turn_min_mm" in values and name not in supplied:
                 # Roughed to this, a side's allowance over its smallest size.
                 values[f"{name}_rough_dia_mm"] = (
                     values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
@@ -556,10 +579,16 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     # Round bar is named by its diameter; the facing allowance and kerf may
     # also serve a squared blank's pictures.
     if "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
-        axes = _bar(values, parameters, largest, turned)
+        axes = _bar(values, parameters, sizes, least_bar, turned)
+    elif "regrip_grip_in" in parameters:
+        raise CadError("process.regrip_grip_in: binds only with round bar")
     if _all_or_none(parameters, _BLOCK, "the squared blank"):
         if axes:
             raise CadError("process: round bar and a squared blank are exclusive")
-        axes = _block(values, parameters, largest)
+        if supplied:
+            raise CadError("process.as_supplied: a squared blank is always turned")
+        axes = _block(values, parameters, least_bar)
+    if supplied and "stock_dia_mm" not in values:
+        raise CadError("process.as_supplied: needs round bar")
     requirement = StockRequirement("in", tuple(axes)) if axes else None
     return CadData(values, requirement, path.resolve())

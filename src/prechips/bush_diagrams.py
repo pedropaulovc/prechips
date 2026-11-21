@@ -385,6 +385,20 @@ def _setup(
                 _rect(a, page.up(radius), b - a, page.size(radius))
             )
         _holes(groups, values, page, shift, holes)
+        if (
+            kerf
+            and hold in ("bar", "block")
+            and {"drill", "part"} <= work
+            and "bore" in holes
+            and "bore_dia_mm" in values
+        ):
+            # A through hole is drilled past the parting line: it runs on
+            # through any regrip allowance and the kerf.
+            radius = values["bore_dia_mm"] / 2
+            x_end = page.x(length if out == "datum" else 0.0, shift)
+            x_cut = page.x(beyond, shift) - kerf * scale
+            a, b = sorted((x_end, x_cut))
+            groups["hidden"].append(_rect(a, page.up(radius), b - a, page.size(radius)))
     top_y = page.up(stock)
     if face:
         radius = stock
@@ -442,15 +456,14 @@ def _setup(
         _tailstock(groups, x_tail + 14)
         lines = {
             "centre": "centre drill",
-            "drill": "drill Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}"
+            "drill": "drill the Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}} hole"
             if "bore_dia_mm" in values
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
             "pocket": "pocket {{cad.pocket_depth_min_in:.3dot}}–{{cad.pocket_depth_max_in:.3dot}} deep",
             "tap": "tap {{cad.tap_thread}}",
         }
-        above.append(
-            (x_tail + 40, _AXIS - 5, ["tailstock:", *(lines[t] for t in hole_work)])
-        )
+        head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
+        above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
     if "chamfer" in work:
         chamfers = sorted(
             key.removesuffix("_leg_min_in")
