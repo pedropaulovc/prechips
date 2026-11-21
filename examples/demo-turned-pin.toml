@@ -115,7 +115,7 @@ holding = "3-jaw on the head over a shim wrap, {{process.regrip_grip_in:.3dot}} 
 datum = "Z0 the thread end, faced in this setup; it stays the dome's apex."
 diagram = { file = "diagrams/demo-turned-pin/regrip.svg", alt = "The part turned round, gripped on the head over a shim wrap: the thread end faced to length, the blank turned, the groove cut, the end domed and threaded with the die." }
 lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.groove_relief_dia_min_mm}}", support = "none" }
-turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.outer_regrip_jaw_datum_out_z_mm}}" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.outer_regrip_jaw_z_datum_mm}}" }
 
 [[setups.operations]]
 cut_kind = "other"

@@ -768,12 +768,6 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         if "supply_length_mm" in values:
             raise CadError("process: a part cut to fit at assembly takes a sawn blank")
         axes = _bar(values, parameters, sizes, least_bar, turned)
-        for name in turned:
-            # The regrip's jaw faces in lathe Z, Z0 the faced out end.
-            regrip = values["regrip_allowance_mm"]
-            for out in ("datum", "far"):
-                held = values[f"{name}_stickout_{out}_mm"] - regrip
-                values[f"{name}_regrip_jaw_{out}_out_z_mm"] = -held
     if "end_stickout_in" in parameters and "blank_length_mm" not in values:
         raise CadError("process.end_stickout_in: binds only with a sawn blank")
     if "regrip_grip_in" in parameters and "pitch_mm" not in values:
