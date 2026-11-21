@@ -182,7 +182,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     out = root.attrib.pop("data-out", "datum")
     work = set(root.attrib.pop("data-work", "").split())
     holes = set(root.attrib.pop("data-holes", "").split())
-    chuck = root.attrib.pop("data-chuck", "3-jaw")
+    chuck = root.attrib.pop("data-chuck", "4-jaw" if hold == "block" else "3-jaw")
     grip = root.attrib.pop("data-grip", "outer")
     if hold not in _HOLDS:
         raise CadError(
@@ -200,6 +200,10 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         )
     if chuck not in _CHUCKS:
         raise CadError("turned-bush: data-chuck must be 3-jaw or 4-jaw")
+    if hold == "block" and chuck != "4-jaw":
+        raise CadError("turned-bush: a squared blank is held in the 4-jaw")
+    if hold == "mandrel" and "bore_dia_mm" not in values:
+        raise CadError("turned-bush: a mandrel hold needs the part's bore")
     if hold == "regrip" and "turn" in work:
         raise CadError("turned-bush: a regrip setup faces and drills; it does not turn")
     groups = _groups(root)
@@ -237,9 +241,16 @@ def _setup(
     else:
         stock = largest
     face = 0.0
-    if "face" in work and hold != "mandrel":
+    if "face" in work and hold == "regrip":
+        # The regrip faces off what the parting left on the parted end.
+        face = _cad(values, "regrip_allowance_mm")
+    elif "face" in work and hold != "mandrel":
         face = _param(parameters, "face_allowance_in") * 25.4
     kerf = _param(parameters, "part_kerf_in") * 25.4 if "part" in work else 0.0
+    # The parting line: past the part's chuck-side end by what a regrip
+    # will face off, as a station from the datum end.
+    regrip = float(values.get("regrip_allowance_mm", 0.0))
+    beyond = length + regrip if out == "datum" else -regrip
     held = 10.0  # mm of bar or blank drawn in the jaws
     if hold == "regrip":
         named = {seg[0]: seg for seg in segments}
@@ -252,7 +263,7 @@ def _setup(
         clear = 0.0
         if hold == "bar" and "jaw_clearance_in" in parameters:
             clear = _param(parameters, "jaw_clearance_in") * 25.4
-        reach = (count - 1) * pitch + length + kerf + face + clear + held
+        reach = (count - 1) * pitch + length + regrip + kerf + face + clear + held
     scale = min(14.0, 420.0 / reach, 150.0 / (2 * stock))
     if hold == "regrip":
         page = _Page(_LEFT + 20 + length * scale, scale, length, out)
@@ -266,10 +277,7 @@ def _setup(
     above: list[tuple[float, float, list[str]]] = []
     below: list[tuple[float, float, list[str]]] = []
     if hold in ("bar", "block"):
-        end = (
-            page.x(length if out == "datum" else 0.0, (count - 1) * pitch)
-            - kerf * scale
-        )
+        end = page.x(beyond, (count - 1) * pitch) - kerf * scale
         y, low = page.up(stock), 2 * _AXIS - page.up(stock)
         back = 10.0
         groups["part-rest"].append(
@@ -332,9 +340,19 @@ def _setup(
                         _rect(a, page.up(-radius), b - a, (stock - radius) * scale),
                     ]
         if kerf:
-            a = page.x(length if out == "datum" else 0.0, shift)
+            a = page.x(beyond, shift)
             groups["part-removed"].append(
                 _rect(a - kerf * scale, page.up(stock), kerf * scale, page.size(stock))
+            )
+        if regrip and hold in ("bar", "block"):
+            # Left on the parted end for the regrip to face off.
+            end_station = length if out == "datum" else 0.0
+            radius = next(
+                seg[3] for seg in segments if seg[1] <= end_station <= seg[2] + 1e-6
+            )
+            a, b = sorted((page.x(beyond, shift), page.x(end_station, shift)))
+            groups["part-kept"].append(
+                _rect(a, page.up(radius), b - a, page.size(radius))
             )
         _holes(groups, values, page, shift, holes)
     top_y = page.up(stock)
@@ -346,12 +364,7 @@ def _setup(
                 seg[3] for seg in segments if seg[1] <= end_station <= seg[2] + 1e-6
             )
             groups["part-arriving"].append(
-                _rect(
-                    page.x(length if out == "datum" else 0.0),
-                    page.up(radius),
-                    x_tail - page.x(length if out == "datum" else 0.0),
-                    page.size(radius),
-                )
+                _rect(page.x_out, page.up(radius), face * scale, page.size(radius))
             )
         groups["part-removed"].append(
             _rect(page.x_out, page.up(radius), face * scale, page.size(radius))
@@ -383,7 +396,7 @@ def _setup(
             _el("path", d=f"M{page.x_out:.2f} {2 * _AXIS - top_y + 6:.2f}l18 5v44h-18z")
         )
     if "part" in work:
-        a = page.x(length if out == "datum" else 0.0) - kerf * scale
+        a = page.x(beyond) - kerf * scale
         groups["cutter"].append(_rect(a, 2 * _AXIS - top_y + 4, kerf * scale, 46))
         below.append(
             (

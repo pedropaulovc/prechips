@@ -104,6 +104,8 @@ def _span(item: dict, name: str, frame: tuple, values: dict) -> tuple[float, flo
     low, high = sorted(_station(frame, _number(v, f"{name}.span")) for v in span)
     if low < -_TOLERANCE or high - low <= 0:
         raise CadError(f"{name}.span: expected a run inside the part")
+    if high > values["length_mm"] + _TOLERANCE:
+        raise CadError(f"{name}.span: runs past the far end")
     values[f"{name}_z0_mm"], values[f"{name}_z1_mm"] = low, high
     return low, high
 
@@ -159,14 +161,11 @@ def _shoulder(item: dict, frame: tuple, values: dict) -> None:
     plane = item.get("plane")
     if not isinstance(plane, dict) or plane.get("axis") != _AXES[frame[0]]:
         raise CadError("shoulder.plane: expected a plane on the datum end's axis")
-    if (
-        abs(
-            _station(frame, _number(plane.get("value"), "shoulder.plane.value"))
-            - nominal
-        )
-        > _TOLERANCE
-    ):
+    station = _station(frame, _number(plane.get("value"), "shoulder.plane.value"))
+    if abs(station - nominal) > _TOLERANCE:
         raise CadError("shoulder.plane: not the nominal station from the datum end")
+    if band[1] >= values["length_mm"]:
+        raise CadError("shoulder.station: reaches the far end")
     values["shoulder_mm"] = nominal
 
 
@@ -177,7 +176,6 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
     _on_axis(item, name, frame[0])
     _span(item, name, frame, values)
     requirements = item.get("requirements", [])
-    largest = 0.0
     if "dia" in requirements:
         band = _limits(item, "dia", name, f"{name}_dia", values)
         nominal = _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
@@ -191,33 +189,20 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
     elif "stock" in requirements or "diametral_clearance" in requirements:
         ref = _positive(item.get("dia_ref"), f"{name}.dia_ref")
         values[f"{name}_dia_mm"], values[f"{name}_ref_in"] = ref, ref / 25.4
+        # Turned under a measured mate, the REF bounds it: the mate is the
+        # REF size and the least clearance comes off it.
         largest = ref
     else:
         raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
     values[f"{name}_stock"] = "stock" in requirements
-    if "stock" in requirements:
-        values[f"{name}_stock_text"] = _string(item.get("stock"), f"{name}.stock")
-        if "stock_dia_min" in item:
-            # The least bar the drawing accepts as supplied.
-            least = _positive(item["stock_dia_min"], f"{name}.stock_dia_min")
-            values[f"{name}_stock_dia_min_in"] = least / 25.4
+    if "stock" in requirements and "stock_dia_min" in item:
+        # The least bar the drawing accepts as supplied.
+        least = _positive(item["stock_dia_min"], f"{name}.stock_dia_min")
+        values[f"{name}_stock_dia_min_in"] = least / 25.4
     for fit in ("diametral_clearance", "diametral_interference"):
         if fit in requirements:
             _limits(item, fit, name, f"{name}_{fit.split('_')[1]}", values)
             values[f"{name}_mate"] = _string(item.get("mate"), f"{name}.mate")
-            if fit == "diametral_clearance":
-                # Turned under the measured mate: the largest it can be is
-                # the mate less the least clearance; bound by the REF here.
-                largest = max(largest, values[f"{name}_dia_mm"])
-    if "diametral_clearance_ref" in item:
-        _inch_limits(
-            values,
-            f"{name}_clearance_ref",
-            tuple(
-                _positive(v, f"{name}.diametral_clearance_ref")
-                for v in item["diametral_clearance_ref"]
-            ),
-        )
     return largest
 
 
@@ -232,13 +217,15 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     band = _limits(item, "dia", "bore", "bore_dia", values)
     values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
     values["bore_process"] = _string(item.get("process"), "bore.process")
+    # The drawing's least wall and a bonded bore's clearance on its mate
+    # are printed acceptances the traveler states.
     if "wall_min" in item:
         values["bore_wall_min_in"] = _positive(item["wall_min"], "bore.wall_min") / 25.4
     if "diametral_clearance_ref" in item:
-        low, high = (
-            _positive(v, "bore.diametral_clearance_ref")
-            for v in item["diametral_clearance_ref"]
-        )
+        clearance = item["diametral_clearance_ref"]
+        if not isinstance(clearance, list) or len(clearance) != 2:
+            raise CadError("bore.diametral_clearance_ref: expected a band")
+        low, high = (_positive(v, "bore.diametral_clearance_ref") for v in clearance)
         _inch_limits(values, "bore_clearance_ref", (low, high))
         values["bore_mate"] = _string(item.get("mate"), "bore.mate")
 
@@ -260,17 +247,21 @@ def _pocket(item: dict, frame: tuple, values: dict) -> None:
     values["pocket_mate"] = _string(item.get("mate"), "pocket.mate")
     band = _limits(item, "depth", "pocket", "pocket_depth", values)
     values["pocket_depth_mm"] = _nominal(item, "depth_nominal", band, "pocket")
+    if band[1] >= values["length_mm"]:
+        raise CadError("pocket.depth: reaches the far end")
     _required(item, "corner_radius_max", "pocket")
     values["pocket_corner_r_max_in"] = (
         _positive(item.get("corner_radius_max"), "pocket.corner_radius_max") / 25.4
     )
-    if "wall_min" in item:
-        values["pocket_wall_min_in"] = (
-            _positive(item["wall_min"], "pocket.wall_min") / 25.4
-        )
 
 
-def _tap(item: dict, frame: tuple, values: dict) -> None:
+def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
+    """A blind tapped hole from the datum end.
+
+    With the plan's ``tap_lead_in`` (the finishing tap's lead, its point past
+    full thread) it binds the tap point's reach, full thread plus the lead,
+    capped at the least drilled depth so a tap run to it cannot bottom.
+    """
     if item.get("kind") != "threaded_hole" or item.get("depth_from") != "datum_end":
         raise CadError("tap: expected a threaded hole from datum_end")
     _on_axis(item, "tap", frame[0])
@@ -284,11 +275,19 @@ def _tap(item: dict, frame: tuple, values: dict) -> None:
     values["tap_thread_depth_mm"] = _nominal(
         item, "thread_depth_nominal", thread, "tap"
     )
+    if drill[1] >= values["length_mm"]:
+        raise CadError("tap.drill_depth: a blind hole reaches the far end")
     if thread[1] >= drill[0]:
         raise CadError("tap: the deepest thread reaches the shallowest drilled depth")
-    if "engagement_min" in item:
-        values["tap_engagement_min_in"] = (
-            _positive(item["engagement_min"], "tap.engagement_min") / 25.4
+    if "tap_lead_in" in parameters:
+        lead = _positive(parameters["tap_lead_in"], "process.tap_lead_in") * 25.4
+        if thread[0] + lead > drill[0]:
+            raise CadError(
+                f"process.tap_lead_in: full thread {thread[0]:.3f} mm plus the "
+                f"{lead:.3f} mm lead passes the {drill[0]:.3f} mm least drilled depth"
+            )
+        _inch_limits(
+            values, "tap_reach", (thread[0] + lead, min(thread[1] + lead, drill[0]))
         )
 
 
@@ -302,15 +301,28 @@ def _chamfer(item: dict, name: str, features: dict, values: dict) -> None:
             raise CadError(f"{name}.{key}: expected a feature of this part")
 
 
-def _bar(
-    values: dict, parameters: dict, largest: float, turned: list[str]
-) -> list[StockAxis]:
+def _count(parameters: dict, key: str) -> int:
+    value = _positive(parameters[key], f"process.{key}")
+    if value != int(value):
+        raise CadError(f"process.{key}: expected a whole number")
+    return int(value)
+
+
+def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> list:
     """The round bar the part is turned and parted from.
 
-    A member's outside diameter left as bought comes off its own bar,
+    Each part takes, from its bar end: the facing allowance, the part, the
+    regrip allowance (``regrip_allowance_in``, left on the parted end to face
+    in a second chucking; none by default) and the parting kerf. A member's
+    outside diameter left as bought comes off its own bar,
     ``stock_dia_<member>_in``; every other diameter off ``stock_dia_in``.
     """
     stock, face, kerf = (_positive(parameters[key], f"process.{key}") for key in _BAR)
+    regrip = 0.0
+    if "regrip_allowance_in" in parameters:
+        regrip = _positive(
+            parameters["regrip_allowance_in"], "process.regrip_allowance_in"
+        )
     stock_mm = stock * 25.4
     values["stock_dia_mm"] = stock_mm
     axes = [StockAxis("diameter", "stock_dia_in", largest)]
@@ -321,78 +333,73 @@ def _bar(
             bar_mm = _positive(parameters.get(key), f"process.{key}") * 25.4
             values[f"{name}_stock_dia_mm"] = bar_mm
             axes.append(StockAxis(f"{name} diameter", key, values[f"{name}_dia_mm"]))
-        if values[f"{name}_stock"]:
-            if abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
-                raise CadError(
-                    f"process.{key}: {name} is left as bought at "
-                    f"{values[f'{name}_ref_in']:.4f} in, not this bar"
-                )
-            continue
-        if f"{name}_dia_band_mm" in values:
-            low, high = values[f"{name}_dia_band_mm"]
-            # A bar inside the band is the finished diameter as bought.
-            values[f"{name}_from_bar"] = low <= bar_mm <= high
-            values[f"{name}_turn_off_in"] = max(bar_mm - high, 0.0) / 25.4 / 2
-    values["pitch_in"] = values["length_nominal_in"] + face + kerf
-    values["pitch_mm"] = values["pitch_in"] * 25.4
+        if values[f"{name}_stock"] and abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
+            raise CadError(
+                f"process.{key}: {name} is left as bought at "
+                f"{values[f'{name}_ref_in']:.4f} in, not this bar"
+            )
+    length = values["length_mm"]
     values["face_allowance_mm"] = face * 25.4
+    values["regrip_allowance_mm"] = regrip * 25.4
+    values["part_off_in"] = values["length_nominal_in"] + regrip
+    values["part_off_mm"] = values["part_off_in"] * 25.4
+    values["pitch_in"] = face + values["part_off_in"] + kerf
+    values["pitch_mm"] = values["pitch_in"] * 25.4
     for name in turned:
-        # Turned round and gripped on this diameter: what stands out of the
-        # jaws, with the facing allowance still on the out end.
-        values[f"{name}_stickout_datum_mm"] = values[f"{name}_z0_mm"] + face * 25.4
-        values[f"{name}_stickout_far_mm"] = (
-            values["length_mm"] - values[f"{name}_z1_mm"] + face * 25.4
-        )
+        # Turned round and gripped on this diameter after parting: what
+        # stands out of the jaws, the regrip allowance still on the out end.
+        z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
+        values[f"{name}_stickout_datum_mm"] = z0 + regrip * 25.4
+        values[f"{name}_stickout_far_mm"] = length - z1 + regrip * 25.4
+    for name in turned:
+        # The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
+        # away from the chuck), with either end of the part out.
+        z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
+        values[f"{name}_datum_out_near_z_mm"] = -z0
+        values[f"{name}_datum_out_far_z_mm"] = -z1
+        values[f"{name}_far_out_near_z_mm"] = z1 - length
+        values[f"{name}_far_out_far_z_mm"] = z0 - length
     if _all_or_none(parameters, _PULL, "the parts out of the jaws"):
-        pull = _positive(parameters["parts_per_pull"], "process.parts_per_pull")
-        if pull != int(pull):
-            raise CadError("process.parts_per_pull: expected a whole number")
+        pull = _count(parameters, "parts_per_pull")
         clear = _positive(parameters["jaw_clearance_in"], "process.jaw_clearance_in")
-        # Z0 the end faced first, Z+ away from the chuck: the arriving end
-        # stands the facing allowance out at Z+; part k runs back from
-        # -k × pitch; the last part's kerf ends one facing allowance short of
-        # a whole number of pitches, and the jaws stand the clearance beyond.
+        # The arriving end stands the facing allowance out at Z+; part k runs
+        # back from -k × pitch; the last part's kerf ends one facing
+        # allowance short of a whole number of pitches, and the jaws stand
+        # the clearance beyond.
         run = pull * values["pitch_in"] - face
         values["stickout_in"] = run + clear + face
         values["stickout_mm"] = values["stickout_in"] * 25.4
         values["run_end_z_mm"] = -run * 25.4
         values["jaw_z_mm"] = -(run + clear) * 25.4
         values["kept_end_z_mm"] = -(
-            (pull - 1) * values["pitch_mm"] + values["length_mm"]
+            (pull - 1) * values["pitch_mm"] + values["part_off_mm"]
         )
-        cut = [
-            values[f"{name}_dia_mm"] for name in turned if not values[f"{name}_stock"]
-        ]
-        values["stickout_ratio"] = values["stickout_mm"] / min(cut or [stock_mm])
     if _all_or_none(parameters, _BAR_LENGTH, "the bar's parts count"):
         bar, grip = (
             _positive(parameters[key], f"process.{key}") for key in _BAR_LENGTH
         )
         values["parts_per_bar"] = math.floor((bar - grip) / values["pitch_in"])
-        if values["parts_per_bar"] < 1:
-            raise CadError("process.bar_length_in: no part fits past the chuck grip")
-        if "quantity" in parameters:
-            quantity = _positive(parameters["quantity"], "process.quantity")
-            if quantity > values["parts_per_bar"]:
-                raise CadError(
-                    f"process.bar_length_in: one bar makes {values['parts_per_bar']} "
-                    f"parts, under the quantity {quantity:g}"
-                )
-            values["bar_used_in"] = grip + quantity * values["pitch_in"]
+        quantity = _count(parameters, "quantity") if "quantity" in parameters else 1
+        if quantity > values["parts_per_bar"]:
+            raise CadError(
+                f"process.bar_length_in: one bar makes {values['parts_per_bar']} "
+                f"parts, under the quantity {quantity}"
+            )
         axes.append(
-            StockAxis("length", "bar_length_in", (grip + values["pitch_in"]) * 25.4)
+            StockAxis(
+                "length", "bar_length_in", (grip + quantity * values["pitch_in"]) * 25.4
+            )
         )
     return axes
 
 
-def _block(values: dict, parameters: dict, largest: float) -> list[StockAxis]:
+def _block(values: dict, parameters: dict, largest: float) -> list:
     """A squared blank turned round in the 4-jaw chuck."""
     side, axial = (_positive(parameters[key], f"process.{key}") for key in _BLOCK)
     values["blank_side_mm"], values["blank_axial_mm"] = side * 25.4, axial * 25.4
     values["face_stock_in"] = axial - values["length_nominal_in"]
     if values["face_stock_in"] < 0:
         raise CadError("process.blank_axial_in: shorter than the finished length")
-    values["blank_corner_in"] = side * math.sqrt(2)
     return [
         StockAxis("square side", "blank_side_in", largest),
         StockAxis("along the axis", "blank_axial_in", values["length_mm"]),
@@ -403,6 +410,9 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the part's length, diameters, bore, pocket, tap and chamfers."""
     raw, values, features = _read_manifest(path, part, "turned_bush")
     _model_frame(raw)
+    for name, item in features.items():
+        if not isinstance(item, dict) or item.get("frame") != "model":
+            raise CadError(f"{name}: expected a model-frame feature")
     frame = _frame(features)
     values["axis"] = _AXES[frame[0]]
     _length(features, frame, values)
@@ -423,7 +433,9 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         for name in (*_DIAMETERS, *(f"outer_{m}" for m in members))
         if name in features
     ]
-    largest = max(_diameter(features[name], name, frame, values) for name in turned)
+    sizes = {name: _diameter(features[name], name, frame, values) for name in turned}
+    # The default member's bar or blank: the other members bring their own.
+    largest = max(sizes[name] for name in _DIAMETERS if name in sizes)
     members_found = []
     for name in turned:
         configuration = features[name].get("configuration")
@@ -436,16 +448,11 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
             members_found.append(configuration)
         elif configuration is not None:
             raise CadError(f"{name}.configuration: the default member owns it")
-        if "quantity" in features[name]:
-            values[f"{name}_quantity"] = int(
-                _positive(features[name]["quantity"], f"{name}.quantity")
-            )
     values["members"] = (
         [_string(features["outer"].get("member"), "outer.member"), *members_found]
         if members_found
         else []
     )
-    values["largest_dia_mm"] = largest
     if "shoulder" in features:
         _shoulder(features["shoulder"], frame, values)
     if "bore" in features:
@@ -453,13 +460,15 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     if "pocket" in features:
         _pocket(features["pocket"], frame, values)
     if "tap" in features:
-        _tap(features["tap"], frame, values)
+        _tap(features["tap"], frame, values, parameters)
     for name in sorted(features):
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
     _edge_breaks(raw, values)
     axes: list[StockAxis] = []
-    if _all_or_none(parameters, _BAR, "round bar"):
+    # Round bar is named by its diameter; the facing allowance and kerf may
+    # also serve a squared blank's pictures.
+    if "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
         axes = _bar(values, parameters, largest, turned)
     if _all_or_none(parameters, _BLOCK, "the squared blank"):
         if axes:

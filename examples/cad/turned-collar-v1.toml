@@ -10,11 +10,11 @@
 ["member_steps"]
 
 ["member_steps"."C100"]
-"step" = "dt-cone-gear-tl-arbor-collar--c100.STEP"
+"step" = "turned-collar--c100.STEP"
 "step_sha256" = "unknown"
 
 ["member_steps"."C050"]
-"step" = "dt-cone-gear-tl-arbor-collar--c050.STEP"
+"step" = "turned-collar--c050.STEP"
 "step_sha256" = "unknown"
 
 ["drawing"]

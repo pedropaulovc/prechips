@@ -72,16 +72,13 @@ def test_bar_binds_pitch_stickout_and_parts_per_bar():
     with pytest.raises(CadError, match="jaw_clearance_in"):
         load_turned_bush(PLUG, params | {"parts_per_pull": 1}, "turned-plug")
     assert values["parts_per_bar"] == 4
-    assert values["bar_used_in"] == pytest.approx(0.75 + 4 * 1.1025)
-    # The head: the 5/8 bar turned down to .490–.510, .0575 off a side.
-    assert values["outer_from_bar"] is False
-    assert values["outer_turn_off_in"] == pytest.approx(0.0575)
-    # Gripped on the spigot, the head end out: the shoulder station plus
-    # the facing allowance stands out of the jaws.
-    assert values["step_stickout_datum_mm"] == pytest.approx(15.24 + 0.508)
+    # Gripped on the spigot, the head end out: the shoulder station stands
+    # out of the jaws (no regrip allowance here).
+    assert values["step_stickout_datum_mm"] == pytest.approx(15.24)
     required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
+    # The bar covers the grip and the four parts the quantity asks for.
     assert required == pytest.approx(
-        {"stock_dia_in": 12.954, "bar_length_in": (0.75 + 1.1025) * 25.4}
+        {"stock_dia_in": 12.954, "bar_length_in": (0.75 + 4 * 1.1025) * 25.4}
     )
     with pytest.raises(CadError, match="one bar makes 4 parts, under the quantity 5"):
         load_turned_bush(PLUG, params | {"quantity": 5}, "turned-plug")
@@ -185,7 +182,7 @@ def test_pictures_refuse_unknown_holds_and_turning_on_a_regrip():
     with pytest.raises(CadError, match="does not turn"):
         render_cad_svg(_svg(hold="regrip", grip="step", work="turn"), cad, BAR)
     with pytest.raises(CadError, match="data-grip 'neck'"):
-        render_cad_svg(_svg(hold="regrip", grip="neck", work="face"), cad, BAR)
+        render_cad_svg(_svg(hold="regrip", grip="neck", work="centre"), cad, BAR)
 
 
 def test_bar_picture_hatches_the_turned_and_parted_material():
@@ -196,12 +193,49 @@ def test_bar_picture_hatches_the_turned_and_parted_material():
         cad,
         params,
     ).decode()
-    removed = re.search(r'data-cad-group="part-removed".*?</g>', picture, re.DOTALL)
-    assert removed is None  # groups are filled in place, not left as markers
+    removed = re.search(r'class="part-removed"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    # Per part: the turned-off stock above and below, and its kerf; then the
+    # facing allowance on the out end.
+    assert removed.count("<rect") == 2 * 3 + 1
     kept = re.search(r'class="part-kept"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
     assert kept.count("<path") == 2  # two parts out of the jaws
     for words in ("jaws on bar Ø.5000", "pocket .212–.222 deep", "part off", "to Z0"):
         assert words in picture
+
+
+def test_block_and_mandrel_pictures():
+    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1}
+    params = block | {"face_allowance_in": 0.02, "part_kerf_in": 0.0625}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    picture = render_cad_svg(
+        _svg(hold="block", out="far", work="face turn part"), cad, params
+    ).decode()
+    assert "4-jaw chuck," in picture
+    with pytest.raises(CadError, match="held in the 4-jaw"):
+        render_cad_svg(_svg(hold="block", chuck="3-jaw", work="face"), cad, params)
+    # The plug has no bore for a mandrel.
+    with pytest.raises(CadError, match="needs the part's bore"):
+        render_cad_svg(_svg(hold="mandrel", work="turn"), cad, params)
+
+
+def test_tap_lead_caps_the_tap_reach_at_the_drilled_depth():
+    values = load_turned_bush(PLUG, {"tap_lead_in": 0.0625}, "turned-plug").values
+    # Full thread .43–.45 plus .0625 lead: .4925–.5125, under the .55 drill.
+    assert values["tap_reach_min_in"] == pytest.approx(0.4925)
+    assert values["tap_reach_max_in"] == pytest.approx(0.5125)
+    with pytest.raises(CadError, match="lead passes the 13.970 mm least drilled"):
+        load_turned_bush(PLUG, {"tap_lead_in": 0.13}, "turned-plug")
+
+
+def test_regrip_allowance_lengthens_the_pitch_and_the_parting_line():
+    params = BAR | {"regrip_allowance_in": 0.02}
+    values = load_turned_bush(PLUG, params, "turned-plug").values
+    assert values["part_off_in"] == pytest.approx(1.04)
+    assert values["pitch_in"] == pytest.approx(0.02 + 1.04 + 0.0625)
+    assert values["step_stickout_datum_mm"] == pytest.approx(15.24 + 0.508)
+    # The spigot end out of the bar: the spigot from Z0 back to the shoulder.
+    assert values["step_far_out_near_z_mm"] == pytest.approx(0)
+    assert values["step_far_out_far_z_mm"] == pytest.approx(15.24 - 25.908)
 
 
 def test_demo_renders_both_profiles_with_every_picture_bound(tmp_path):
@@ -248,3 +282,45 @@ def test_a_press_fit_band_may_sit_above_its_nominal(tmp_path):
     assert values["outer_nominal_mm"] == pytest.approx(12.4)
     assert values["outer_interference_min_in"] == pytest.approx(0.0004)
     assert values["outer_mate"] == "DEMO-HOLE"
+
+
+def test_spans_and_frames_stay_inside_the_part(tmp_path):
+    text = PLUG.read_text(encoding="utf-8")
+    cases = [
+        (
+            '"span" = [15.239999999999998, 25.907999999999998]',
+            '"span" = [15.239999999999998, 30.0]',
+            "runs past the far end",
+        ),
+        (
+            '"drill_depth" = [13.97, 14.478]',
+            '"drill_depth" = [13.97, 26.0]',
+            "blind hole reaches the far end",
+        ),
+        (
+            '"frame" = "model"\n"requirements" = ["station"]',
+            '"frame" = "setup"\n"requirements" = ["station"]',
+            "shoulder: expected a model-frame",
+        ),
+    ]
+    for old, new, message in cases:
+        assert text.count(old) == 1
+        source = tmp_path / "cad.toml"
+        source.write_text(text.replace(old, new), encoding="utf-8")
+        with pytest.raises(CadError, match=message):
+            load_turned_bush(source, {}, "turned-plug")
+
+
+def test_a_member_larger_than_the_default_brings_its_own_bar(tmp_path):
+    # Swap the default and the 1/2 in member: the default bar is then 1/2 in.
+    text = COLLAR.read_text(encoding="utf-8")
+    text = text.replace('"dia_ref" = 44.449999999999996', '"dia_ref" = 99.0')
+    text = text.replace('"dia_ref" = 12.7', '"dia_ref" = 44.449999999999996')
+    text = text.replace('"dia_ref" = 99.0', '"dia_ref" = 12.7')
+    source = tmp_path / "cad.toml"
+    source.write_text(text, encoding="utf-8")
+    params = COLLAR_BARS | {"stock_dia_in": 0.5, "stock_dia_c050_in": 1.75}
+    cad = load_turned_bush(source, params, "turned-collar")
+    required = {axis.parameter: axis.required_mm for axis in cad.stock_requirement.axes}
+    assert required["stock_dia_in"] == pytest.approx(12.7)
+    assert required["stock_dia_c050_in"] == pytest.approx(44.45)
