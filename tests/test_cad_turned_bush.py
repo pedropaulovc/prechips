@@ -302,6 +302,27 @@ def test_demo_renders_both_profiles_with_every_picture_bound(tmp_path):
     assert any("shoulder .590–.610" in picture for picture in pictures)
 
 
+def test_step_pin_demo_prints_its_screened_step_in_both_profiles(tmp_path):
+    # The spigot's turning_step (3.175 mm) prints rounded down, never over.
+    line = (
+        "<strong>Steps:</strong> at most 3.17 mm (.125 in), toward the chuck; "
+        "rough and finish each step before the next."
+    )
+    for profile in ("pro", "hobby"):
+        target = tmp_path / f"{profile}.html"
+        result = subprocess.run(
+            [sys.executable, "-m", "prechips", "traveler"]
+            + ["examples/demo-step-pin.toml", "--profile", profile]
+            + ["--out", str(target)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert target.read_text(encoding="utf-8").count(line) == 1
+
+
 def test_a_press_fit_band_may_sit_above_its_nominal(tmp_path):
     text = PLUG.read_text(encoding="utf-8")
     old = '"requirements" = ["dia"]\n"axis" = [1.0, 0.0, 0.0]'

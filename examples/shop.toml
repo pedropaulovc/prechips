@@ -580,3 +580,28 @@ tool = "bush-drill-25"
 material = "shaft-1018-cold-finished"
 sfm = 80
 feed = "Hand quill, pecking"
+
+# --- Demo step pin (examples/demo-step-pin.toml) ---
+# C36000 free-cutting brass. Speeds: LittleMachineShop "Cutting Speeds",
+# Turning, row Brass (C36000 listed): 300-350 ft/min HSS, 1170 ft/min
+# carbide (littlemachineshop.com/pages/cutting-speeds, read 2026-11-21). On
+# the 1/4 in bar or less both are over the lathe's 2000 rpm, so 2000. The
+# page has no parting row: the HSS blade takes the HSS turning row's low end.
+# The facing feed is the page's .004 in/rev basis; the spigot's .002 rough
+# and .001 finish are authored demo choices, the feeds its turning screen
+# reads.
+[settings.step-pin-face-c360]
+tool = "shaft-ar"
+material = "step-pin-c360"
+sfm = 1170
+feed_mm_rev = 0.1016
+[settings.step-pin-turn-c360]
+tool = "shaft-ar"
+material = "step-pin-c360"
+sfm = 1170
+feed = "Rough .002, finish .001 in/rev"
+[settings.step-pin-parting-c360]
+tool = "shaft-blade"
+material = "step-pin-c360"
+sfm = 300
+feed = "Hand plunge"

@@ -36,6 +36,8 @@ uv run prechips traveler examples/demo-hex-block.toml --profile pro --out out/he
 uv run prechips traveler examples/demo-hex-block.toml --profile hobby --out out/hex-block-hobby.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile pro --out out/turned-plug-pro.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile hobby --out out/turned-plug-hobby.html
+uv run prechips traveler examples/demo-step-pin.toml --profile pro --out out/step-pin-pro.html
+uv run prechips traveler examples/demo-step-pin.toml --profile hobby --out out/step-pin-hobby.html
 uv run prechips traveler examples/comparison/demo-pivot-shaft.toml --profile hobby --disable-check turning_deflection --disable-check lathe_holding --out out/pivot-shaft-hobby.html
 ```
 
@@ -172,6 +174,20 @@ For numeric analysis fields, use exact whole-field bindings without formatting, 
 Supports are `chuck_only` (`chuck_z_mm`), `tailstock` (also `centre_z_mm`), or `follower` (also `engage_z_mm`, `offset_mm`, `pad_width_mm`). Follower credit requires a toward-chuck traverse and a whole pad band on already-turned continuous cylindrical land produced by the declared pass; before engagement the model uses chuck/centre supports. It checks the declared pad footprint and both sides of engagement, not STEP gaps, actual pad contact/capacity or machine compliance.
 
 Each cut declares `name`, `phase = "rough" | "finish"`, `start_z_mm`, `end_z_mm` (the full tool traverse), `kept_start_z_mm`, `kept_end_z_mm` (the retained feature inside that traverse), `start_diameter_mm`, `end_diameter_mm`, `max_radial_doc_mm`, `feed_mm_rev`, and `minimum_diameter_mm` (the smallest existing section elsewhere). An optional `max_deflection_mm` may tighten, but not relax, that cut's configured phase limit. The model conservatively bounds the declared maximum radial DOC at the final diameter, using the smaller of that diameter and the declared minimum section for bending stiffness. It does not assume a particular rough-pass order.
+
+**Step turning toward the chuck.** A slender diameter turned to size in short axial steps from its free end, each step roughed and finished before the tool moves toward the jaws, is declared on the operation, not per cut:
+
+```toml
+turning_step = { length_mm = 2.0, load_diameter_mm = 6.35 }
+turning_cuts = [
+  { name = "Spigot rough", phase = "rough", start_z_mm = 30.7, end_z_mm = 12.92, kept_start_z_mm = 30.7, kept_end_z_mm = 12.92, start_diameter_mm = 6.35, end_diameter_mm = 1.6002, max_radial_doc_mm = 0.6096, feed_mm_rev = 0.0508 },
+  { name = "Spigot finish", phase = "finish", start_z_mm = 30.7, end_z_mm = 12.92, kept_start_z_mm = 30.7, kept_end_z_mm = 12.92, start_diameter_mm = 1.6002, end_diameter_mm = 1.4732, max_radial_doc_mm = 0.0635, feed_mm_rev = 0.0254 },
+]
+```
+
+`length_mm` is the longest axial step; `load_diameter_mm` is the smallest section between the jaws and the step being cut (the bar, or a diameter turned before), at most the largest `start_diameter_mm` of the operation. The finished length outboard of the tool carries no cutting load, so every cut bends as a cantilever from the jaws to the tool: `load_diameter_mm` up to the step, then the step ahead of the tool, which earlier passes of that step have turned and a pass `t` deep meets at no less than `end_diameter_mm` + 2t (the worst pass depth up to the declared DOC is taken; a single finish pass meets its start diameter). The worst step is the farthest kept one. Rough and finish cuts are judged separately against their usual limits, so a declared step whose numbers fail still refuses. Step cuts must run toward the chuck (`start_z_mm` farther from `chuck_z_mm` than `end_z_mm`), on `chuck_only` support (a tailstock or follower would load the finished length), with `length_mm` no longer than the traverse; they take no `minimum_diameter_mm`. Both profiles print the step length as the operator's limit, rounded down: "Steps: at most 2.00 mm (.078 in), toward the chuck; rough and finish each step before the next." Operations without `turning_step` are unchanged.
+
+With the packaged brass data, a Ø1/4 in bar 30.7 mm out of the jaws, a Ø.058 in spigot stepped back .70 in from the free end in .080 in (2.032 mm) steps estimates 0.091 mm rough (.024 in DOC, .002 in/rev) and 0.0049 mm finish (.0025 in, .001 in/rev); .10 in steps refuse the finish (0.0052 mm), and the same cuts without `turning_step` (the finished Ø over the whole span) refuse by more than ten times. [`examples/demo-step-pin.toml`](examples/demo-step-pin.toml) turns a Ø1/16 in spigot this way.
 
 The limit applies over the kept range only, so sacrificial stubs, run-in in waste and parted-off ends are traversed but not held to it. Both bounds are required and must lie inside the traverse; when the whole traverse is kept, bind them to the same values as `start_z_mm`/`end_z_mm`. The screen cannot tell what is waste on its own and deliberately assumes nothing, so bind the bounds from CAD/process values rather than typing them. Support validation (in-span, no chuck crossing, follower band on turned land) always covers the whole traverse, and a refusal reports both the kept maximum and the whole-traverse maximum.
 
@@ -386,6 +402,8 @@ lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = 10.0, stock_diameter_m
 ```
 
 `chuck` names a `[workholding]` record with `kind = "chuck"` or `"collet"`; any other kind refuses. `grip_diameter_mm` must lie inside a chuck's inclusive `grip_range_mm`, or equal (within 1e-6 mm) one of a collet's `grip_sizes_mm`. `stock_diameter_mm` is the largest swung diameter and must be at least the grip and minimum diameters. With `support = "none"`, `stickout_mm` (jaw fronts to free end) must not exceed `limits.stickout_ld_max` × `minimum_diameter_mm`, the smallest diameter in the exposed span; equality passes. `support = "tailstock"` or `"steady_rest"` lifts that limit. A setup with `turning_support` must agree: `chuck_only` ↔ `none`, `tailstock`/`follower` → `tailstock`. Non-lathe setups must not carry `lathe_hold`. Not checked: jaw depth or clamping force, runout, supported bending, spindle-bore clearance, or whether the declared support is installed.
+
+A step-turned hold (slender lengths turned in steps toward the chuck, see `turning_step`) adds `load_diameter_mm`, the smallest section between the jaws and every cut of the setup; the stick-out limit is then `stickout_ld_max` × `load_diameter_mm`. It needs `support = "none"`, `turning_support` `chuck_only`, and `minimum_diameter_mm` ≤ `load_diameter_mm` ≤ `stock_diameter_mm`. Every operation must then keep the load on that section, or the hold refuses: a `turning_step` operation must declare at least that `load_diameter_mm` and run every cut toward the chuck (a return pass refuses); a plain turning pass is judged at the smaller of its end and minimum diameters (a pass over the finished length refuses); every other operation with a tool declares its own `load_diameter_mm`, the smallest section between the jaws and its cut, so a later chamfer or single-point thread on the finished length refuses. `load_diameter_mm` on an operation is refused outside a step-turned hold.
 
 The shaft's first three setups pass (the reversed hold is 22 mm against 4 × Ø5.7 = 22.8 mm). The fit-scribe setup refuses: its stick-out follows the actual scribe, bound as the largest expected reading plus the 16 mm attachment-clearance jaw offset (`fit_stickout_max` = 17.33 + 16 = 33.33 mm), against 4 × Ø6.35 = 25.4 mm on the unsupported bearing. That is a finding about the plan; render it with `--disable-check lathe_holding`.
 
