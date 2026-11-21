@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from prechips.cad import CadError, load_cad
+from prechips.cad import CadError, bind_text, load_cad
 from prechips.cad_drilled_block import load_drilled_block
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -339,16 +339,19 @@ def test_an_axis_no_outside_face_bounds_is_refused(tmp_path):
         load_drilled_block(path, {}, "drilled-bracket")
 
 
-def test_a_one_sided_limit_binds_in_both_units(tmp_path):
+def test_a_one_sided_limit_binds_in_mm_beside_a_band_of_its_stem(tmp_path):
+    # A `wall` band and a least `wall_min` on one feature: the limit binds
+    # `_mm` (printed in inches by the `in` format), the band its own ends.
     path = _variant(
         tmp_path,
         DISC,
         '"requirements" = ["dia", "thru", "wall"]',
-        '"requirements" = ["dia", "thru", "wall", "thin_wall_min"]',
+        '"requirements" = ["dia", "thru", "wall", "wall_min"]',
         '"wall_nominal" = 2.0066',
-        '"wall_nominal" = 2.0066\n"thin_wall_min" = 2.02438',
+        '"wall_nominal" = 2.0066\n"wall_min" = 2.02438',
     )
-    values = load_drilled_block(path, {}, "drilled-disc").values
-    assert values["bore_thin_wall_min"] == 2.02438
-    assert values["bore_thin_wall_min_mm"] == 2.02438
-    assert values["bore_thin_wall_min_in"] == pytest.approx(0.0797)
+    cad = load_drilled_block(path, {}, "drilled-disc")
+    assert cad.values["bore_wall_min"] == 2.02438
+    assert cad.values["bore_wall_min_mm"] == 2.02438
+    assert cad.values["bore_wall_min_in"] == pytest.approx(0.077)
+    assert bind_text("{{cad.bore_wall_min_mm:in.4dot}}", cad, {}) == ".0797"
