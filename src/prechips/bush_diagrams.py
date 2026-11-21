@@ -10,7 +10,7 @@ names how the work is held:
 - ``regrip``: the parted part turned round, the jaws on its ``data-grip``
   diameter over a shim wrap, ``cad.regrip_allowance_mm`` (left on by the
   parting) on its out end to face; it may turn what stands out of the
-  jaws, never a diameter inside them;
+  jaws, never a diameter inside them, and then marks Z0 on its out end;
 - ``mandrel``: the squared blank on a bolt through its bore, the bolt in the
   chuck, a washer and nut on each face;
 - ``inspect``: the finished part alone with its printed sizes.
@@ -444,6 +444,10 @@ def _setup(
         )
     if not (hold in ("bar", "block") and (out == "far" or "face" not in work)):
         datum_x = page.x(0.0)
+        if hold == "regrip" and "turn" in work:
+            # A regrip that turns sets its DRO Z0 on the faced out end (the
+            # regrip_jaw_z bindings' frame), not the end in the jaws.
+            datum_x = page.x_out
         low = 2 * _AXIS - page.up(largest)
         groups["datum"].append(_line(datum_x, page.up(largest) - 10, datum_x, low + 10))
         _datum_label(groups, datum_x - 4, low + 24, "Z0", "end")

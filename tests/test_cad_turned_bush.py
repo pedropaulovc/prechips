@@ -481,6 +481,10 @@ def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():
     ).decode()
     assert "turn to its measured mate" in picture
     assert "turn Ø" not in picture
+    # Z0 marks the out end, where the facing tool stands, not the head end.
+    datum = re.search(r'class="datum"[^>]*>.*?x1="([\d.]+)"', picture, re.DOTALL)[1]
+    cutter = re.search(r'class="cutter"[^>]*>.*?d="M([\d.]+) ', picture, re.DOTALL)[1]
+    assert float(datum) == pytest.approx(float(cutter))
 
 
 def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
