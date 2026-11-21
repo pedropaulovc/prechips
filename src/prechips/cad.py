@@ -284,6 +284,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_turned_shaft import load_turned_shaft
 
         return load_turned_shaft(path, parameters, part)
+    if adapter == "flat_bar":
+        from prechips.cad_flat_bar import load_flat_bar
+
+        return load_flat_bar(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
