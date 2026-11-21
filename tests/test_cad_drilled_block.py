@@ -26,6 +26,7 @@ def test_the_bracket_binds_every_band_its_holes_and_envelope():
     values = cad.values
     assert values["drawing_number"] == "DEMO-DRILLED-BRACKET"
     assert values["material_spec"] == "AISI 1018 cold-finished steel bar"
+    assert values["material_name"] == "AISI 1018 cold-finished steel bar"
     # The envelope: the foot's length, the arch's top, the width.
     assert values["envelope_x_in"] == pytest.approx(0.70)
     assert values["envelope_y_in"] == pytest.approx(1.38)
