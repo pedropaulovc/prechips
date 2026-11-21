@@ -130,6 +130,13 @@ def _bands(name: str, feature: dict, values: dict) -> None:
         if not _is_band(value):
             if isinstance(value, (str, bool)) or type(value) in (int, float):
                 _bind(values, f"{name}_{key}", value)
+            # A listed one-sided limit (a least wall, a largest corner radius)
+            # is a length in the manifest's millimetres by contract; a limit
+            # in any other unit ends with that unit (`point_angle_max_deg`,
+            # `engagement_min_turns`). It binds `_mm` only, which the `in`
+            # format prints in inches; a band's `_min_in`/`_max_in` stay its own.
+            if type(value) in (int, float) and key.endswith(("_min", "_max")):
+                _bind(values, f"{name}_{key}_mm", float(value))
             continue
         band = _band(feature, key, name)
         _bind(values, f"{name}_{key}_in", _mid(band) / 25.4)
