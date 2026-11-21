@@ -1,0 +1,138 @@
+# Demo manifest in the CAD export format: a 3/8 in square bar with a notch across one end and a reamed cross hole through its cheeks, demo identity, no source citations.
+"part" = "notched-bar"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "notched-bar.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+
+["drawing"]
+"number" = "DEMO-NOTCHED-BAR"
+"revision" = "v51"
+
+["material"]
+"spec" = "low-carbon cold-finished steel, 3/8 in sq"
+"name" = "LOW-CARBON STEEL CF, 3/8 in sq"
+"finish" = "oil all over"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. PRESS FIT ON DEMO PIN."]
+"process" = "machined from 3/8 in square cold-finish bar"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."back_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+"faces" = ["back_face_1"]
+
+["features"."front_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["section"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 9.525 }
+"section" = [9.4742, 9.525]
+"section_nominal" = 9.525
+"section_from" = "back_face"
+"dimension_type" = "reference"
+"callout" = "3/8 SQ STOCK"
+"precision" = { "section" = 3 }
+"faces" = ["front_face_1"]
+
+["features"."left_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"faces" = ["left_face_1"]
+
+["features"."right_face"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 9.525 }
+"faces" = ["right_face_1"]
+
+["features"."foot_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"faces" = ["foot_end_1"]
+
+["features"."top_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 152.4 }
+"length" = [152.146, 152.654]
+"length_nominal" = 152.4
+"length_from" = "foot_end"
+"precision" = { "length" = 2 }
+"faces" = ["top_end_1", "top_end_2"]
+
+["features"."top_notch"]
+"kind" = "notch"
+"frame" = "model"
+"requirements" = ["width", "ledge", "depth", "root_radius_max"]
+"open_to" = "top_end"
+"thru" = true
+"width" = [3.175, 3.302]
+"width_nominal" = 3.175
+"ledge" = [3.1242, 3.2258]
+"ledge_nominal" = 3.175
+"ledge_from" = "right_face"
+"depth" = [12.446, 12.954]
+"depth_nominal" = 12.7
+"depth_from" = "top_end"
+"root_radius_max" = 0.381
+"width_callout" = "RUNNING FIT ON DEMO LINK"
+"depth_callout" = "ROOT R.015 MAX"
+"precision" = { "width" = 3, "ledge" = 3, "depth" = 2 }
+"faces" = ["top_notch_1", "top_notch_2", "top_notch_3"]
+
+["features"."cross_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "process", "location_from_back", "drop", "finish_ra"]
+"at" = [0.0, 146.05, 4.7625]
+"axis" = [1.0, 0.0, 0.0]
+"dia" = [3.175, 3.1877]
+"nominal_dia" = 3.175
+"thru" = true
+"process" = "ream"
+"finish_ra" = 1.6
+"location_from_back" = [4.6355, 4.8895]
+"location_from_back_nominal" = 4.7625
+"location_from" = "back_face"
+"drop" = [6.096, 6.604]
+"drop_nominal" = 6.35
+"drop_from" = "top_end"
+"callout" = "REAM THRU\nSEE NOTE 1"
+"precision" = { "dia" = 4, "location_from_back" = 3, "drop" = 2, "finish_ra" = 1 }
+"faces" = ["cross_hole_1", "cross_hole_2"]
