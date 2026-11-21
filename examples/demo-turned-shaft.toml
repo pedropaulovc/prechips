@@ -1,0 +1,222 @@
+# Demo: a 7 in shaft from 1/4 in ground 1018 rod, its O.D. left as supplied.
+# A blank is sawn long; each end is faced in the 3-jaw and domed (a full
+# hemisphere step-turned to the adapter's dome table and filed, then a shallow
+# crown filed on the other end); the two set-screw flats are milled in the
+# vise. The cross hole is drilled at assembly through its hub, not here.
+# Sizes, bands and stations come from the manifest through the turned_shaft
+# adapter; the pictures are its turned-shaft templates. Speeds, stickouts and
+# allowances are authored demo choices.
+title = "Demo turned shaft"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "AISI 1018 ground round, 1/4 in"
+stock = "Ø{{process.stock_dia_in:.3dot}} ground rod; one blank {{process.blank_length_in:.3dot}} in."
+note = "Inches. Lathe speeds on the PM-1127VF-LB (70–380 and 380–2000 rpm); flats on the PM-30MV. Cutting oil on steel."
+shop = "shop.toml"
+material_key = "shaft-1018-cold-finished"
+turning_material = "steel_1018"
+milling_material = "steel_1018"
+
+[cad]
+file = "cad/turned-shaft-v51.toml"
+adapter = "turned_shaft"
+part = "demo-turned-shaft"
+
+[parameters]
+quantity = 1
+stock_dia_in = 0.25
+blank_length_in = 7.125
+# The ground O.D. is inside its band: never turned.
+as_supplied_outer = 1
+end_stickout_in = 0.5
+dome_steps = 4
+rough_radial_doc_mm = 0.35
+turn_feed_mm_rev = 0.0508
+turn_start_z_mm = 0.5
+# The 3/16 end mill: its face sweeps a flat in one pass.
+flat_cutter_dia_mm = 4.7625
+# The 6 in vise (shop workholding.vise-pm-6): the left jaw side 5 mm in from
+# the datum end; 1-1/2 in parallels leave the rod's top just under the jaws.
+vise_jaw_from_x0_mm = 5.0
+vise_jaw_to_x0_mm = 163.6738
+# The rod's top stands this far under the jaw tops on its parallels.
+jaw_top_over_od_mm = 0.5
+parallel_height_mm = 38.1
+vise_bed_height_mm = 73.3044
+r8_collet_gauge_mm = 6.3
+small_mill_projection_min_mm = 25.0
+small_mill_projection_max_mm = 38.0
+
+[[tools]]
+id = "saw"
+name = "Saw"
+ref = "saw-evolution-14"
+
+[[tools]]
+id = "ar"
+name = "AR"
+ref = "shaft-ar"
+
+[[tools]]
+id = "files"
+name = "Files"
+ref = "jig-files"
+
+[[tools]]
+id = "em"
+name = "3/16 in end mill"
+ref = "turned-shaft-em-3-16"
+
+[[setups]]
+machine_kind = "other"
+title = "Saw the blank"
+machine = "Saw"
+indexing = "none"
+envelope = "other"
+vise_hold = "other"
+beam = "other"
+diagram = { file = "diagrams/demo-turned-shaft/saw.svg", alt = "The ground rod with the saw cut one blank length from its end." }
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "saw"
+drilling = "none"
+sizing = "other"
+instruction = "Saw a blank {{process.blank_length_in:.3dot}} long from the rod's end."
+feed = "hand"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Datum end out: face and dome the hemisphere"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the rod over a paper wrap (the ground O.D. is the finished size); {{process.end_stickout_in:.3dot}} in out of the jaws."
+datum = "Z0 the datum end faced; it stays the hemisphere's apex."
+diagram = { file = "diagrams/demo-turned-shaft/datum-end.svg", alt = "The blank in the 3-jaw, datum end out: the end faced, the hemisphere step-turned and filed." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.end_stickout_mm}}", minimum_diameter_mm = "{{cad.dome_datum_step_4_dia_mm}}", support = "none" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.end_jaw_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end square to Z0, {{cad.face_stock_per_end_in:.3dot}} off."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Step 1", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.dome_datum_step_1_end_z_mm}}", kept_start_z_mm = 0, kept_end_z_mm = "{{cad.dome_datum_step_1_end_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.dome_datum_step_1_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.dome_datum_step_1_dia_mm}}" },
+  { name = "Step 2", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.dome_datum_step_2_end_z_mm}}", kept_start_z_mm = 0, kept_end_z_mm = "{{cad.dome_datum_step_2_end_z_mm}}", start_diameter_mm = "{{cad.dome_datum_step_1_dia_mm}}", end_diameter_mm = "{{cad.dome_datum_step_2_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.dome_datum_step_2_dia_mm}}" },
+  { name = "Step 3", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.dome_datum_step_3_end_z_mm}}", kept_start_z_mm = 0, kept_end_z_mm = "{{cad.dome_datum_step_3_end_z_mm}}", start_diameter_mm = "{{cad.dome_datum_step_2_dia_mm}}", end_diameter_mm = "{{cad.dome_datum_step_3_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.dome_datum_step_3_dia_mm}}" },
+  { name = "Step 4", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.dome_datum_step_4_end_z_mm}}", kept_start_z_mm = 0, kept_end_z_mm = "{{cad.dome_datum_step_4_end_z_mm}}", start_diameter_mm = "{{cad.dome_datum_step_3_dia_mm}}", end_diameter_mm = "{{cad.dome_datum_step_4_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.dome_datum_step_4_dia_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Step-turn from Z0, each step from the end back to its shoulder: Ø{{cad.dome_datum_step_1_dia_in:.4dot}} to Z−{{cad.dome_datum_step_1_z_in:.3dot}}; Ø{{cad.dome_datum_step_2_dia_in:.4dot}} to Z−{{cad.dome_datum_step_2_z_in:.3dot}}; Ø{{cad.dome_datum_step_3_dia_in:.4dot}} to Z−{{cad.dome_datum_step_3_z_in:.3dot}}; Ø{{cad.dome_datum_step_4_dia_in:.4dot}} to Z−{{cad.dome_datum_step_4_z_in:.3dot}}."
+instruction_detailed = "Touch the faced end and zero the carriage Z. Turn each step from the end back to its shoulder, largest first: Ø{{cad.dome_datum_step_1_dia_in:.4dot}} to Z−{{cad.dome_datum_step_1_z_in:.3dot}}; Ø{{cad.dome_datum_step_2_dia_in:.4dot}} to Z−{{cad.dome_datum_step_2_z_in:.3dot}}; Ø{{cad.dome_datum_step_3_dia_in:.4dot}} to Z−{{cad.dome_datum_step_3_z_in:.3dot}}; Ø{{cad.dome_datum_step_4_dia_in:.4dot}} to Z−{{cad.dome_datum_step_4_z_in:.3dot}}. Each shoulder's corner lies on the R{{cad.dome_datum_radius_ref_in:.3dot}} sphere, so the steps leave metal outside the dome only, for the file to take off; leave Z0 standing, the apex stays on the faced plane."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+instruction = "File the steps off to a full R{{cad.dome_datum_radius_ref_in:.3dot}} hemisphere, apex on Z0."
+inspection = "Dome {{cad.dome_datum_height_min_in:.3dot}}–{{cad.dome_datum_height_max_in:.3dot}} high from where the rod's Ø ends."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.dome_datum_height_band_mm}}" }]
+feed = "hand"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Far end out: face to length and file the crown"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the rod over a paper wrap; {{process.end_stickout_in:.3dot}} in out of the jaws, the hemisphere in the spindle bore."
+datum = "Z0 the far end, faced to length in this setup."
+diagram = { file = "diagrams/demo-turned-shaft/far-end.svg", alt = "The blank turned round, far end out: the end faced to length and the shallow crown filed." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.end_stickout_mm}}", minimum_diameter_mm = "{{cad.stock_dia_mm}}", support = "none" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.end_jaw_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end to length {{cad.faced_length_min_in:.3dot}}–{{cad.faced_length_max_in:.3dot}}, apex to apex."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+inspection = "Length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}, upright in the V-block on the surface plate, hemisphere down."
+gauge_checks = [{ gauge = "height-gauge", band_mm = "{{cad.length_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+instruction = "File the R{{cad.dome_far_radius_ref_in:.3dot}} crown, the apex left on the faced end."
+inspection = "Crown {{cad.dome_far_height_min_in:.3dot}}–{{cad.dome_far_height_max_in:.3dot}} high at the rim."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.dome_far_height_band_mm}}" }]
+feed = "hand"
+
+[[setups]]
+machine_kind = "other"
+title = "Set-screw flats"
+machine = "PM-30MV / 6 in vise"
+indexing = "none"
+machine_ref = "pm-30mv"
+holding = "Rod along X on 1-1/2 in parallels; the datum end {{process.vise_jaw_from_x0_mm:g}} mm past the left jaw side."
+datum = "X0 the datum end's apex; Z0 the rod's top."
+diagram = { file = "diagrams/demo-turned-shaft/flats.svg", alt = "Top view: the shaft in the vise, both flats up, their stations from the datum end and the hemisphere's root; end view of the hold." }
+envelope = { x_span_mm = ["{{cad.length_mm}}", "{{process.flat_cutter_dia_mm}}"], y_span_mm = ["{{cad.outer_dia_mm}}", "{{process.flat_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.outer_dia_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.parallel_height_mm}}", "{{cad.flat_a_across_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.small_mill_projection_min_mm}}"] }
+vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.outer_dia_mm}}", along_jaws_mm = "{{cad.length_mm}}", part_height_mm = "{{cad.outer_dia_mm}}", parallel_height_mm = "{{process.parallel_height_mm}}", overhang_mm = ["{{process.vise_jaw_from_x0_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "as_bought", moving_jaw_face = "as_bought", moving_jaw_contact = "flat" }
+beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.length_mm}}"], clamp_mm = ["{{process.vise_jaw_from_x0_mm}}", "{{process.vise_jaw_to_x0_mm}}"], section_mm = { diameter = "{{cad.outer_dia_mm}}" }, vise_left = "start" }
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "em"
+drilling = "none"
+sizing = "other"
+instruction = "Flat A: cutter centre X{{cad.flat_a_path_z0_mm:in.3dot}} to X{{cad.flat_a_path_z1_mm:in.3dot}} at Z−{{cad.flat_a_depth_mm:in.4dot}}."
+instruction_detailed = "Touch the cutter's side on the datum apex and set X = −{{process.flat_cutter_dia_mm:in.4dot}}/2, so the DRO reads the cutter centre; touch the rod's top and set Z0. Flat A: plunge at X{{cad.flat_a_path_z0_mm:in.3dot}}, traverse to X{{cad.flat_a_path_z1_mm:in.3dot}} at Z−{{cad.flat_a_depth_mm:in.4dot}}: the cutter's face sweeps the flat from X{{cad.flat_a_z0_mm:in.3dot}} to X{{cad.flat_a_z1_mm:in.3dot}}."
+settings = "turned-shaft-em-3-16-1018"
+cut_diameter_mm = "{{process.flat_cutter_dia_mm}}"
+milling_cuts = [
+  { name = "flat A", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_a_depth_mm}}", radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_a_path_mm}}" },
+]
+inspection = "Across {{cad.flat_a_across_min_in:.3dot}}–{{cad.flat_a_across_max_in:.3dot}}; {{cad.flat_a_length_min_in:.3dot}}–{{cad.flat_a_length_max_in:.3dot}} long; edge {{cad.flat_a_station_min_in:.3dot}}–{{cad.flat_a_station_max_in:.3dot}} from the datum end."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.flat_a_across_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_a_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_a_station_band_mm}}" }]
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "em"
+drilling = "none"
+sizing = "other"
+instruction = "Flat B: cutter centre X{{cad.flat_b_path_z0_mm:in.3dot}} to X{{cad.flat_b_path_z1_mm:in.3dot}} at Z−{{cad.flat_b_depth_mm:in.4dot}}, on flat A's clock."
+settings = "turned-shaft-em-3-16-1018"
+cut_diameter_mm = "{{process.flat_cutter_dia_mm}}"
+milling_cuts = [
+  { name = "flat B", kind = "slot", phase = "finish", cutter_dia_mm = "{{process.flat_cutter_dia_mm}}", flutes = 2, axial_doc_mm = "{{cad.flat_b_depth_mm}}", radial_woc_mm = "{{process.flat_cutter_dia_mm}}", feed_per_tooth_mm = 0.0254, traverse_mm = "{{cad.flat_b_path_mm}}" },
+]
+inspection = "Across {{cad.flat_b_across_min_in:.3dot}}–{{cad.flat_b_across_max_in:.3dot}}; {{cad.flat_b_length_min_in:.3dot}}–{{cad.flat_b_length_max_in:.3dot}} long; edge {{cad.flat_b_station_min_in:.3dot}}–{{cad.flat_b_station_max_in:.3dot}} from the hemisphere's root."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.flat_b_across_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_b_length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.flat_b_station_band_mm}}" }]
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+instruction = "Deburr the flats. The Ø{{cad.cross_hole_dia_min_in:.4dot}} cross hole is drilled at assembly, {{cad.cross_hole_station_min_in:.3dot}}–{{cad.cross_hole_station_max_in:.3dot}} from the far end: not here."
+feed = "hand"
+diagram = { file = "diagrams/demo-turned-shaft/inspect.svg", alt = "The finished shaft: hemisphere and crown, the two flats on one clock, the cross hole made at assembly dashed." }

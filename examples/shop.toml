@@ -581,6 +581,27 @@ material = "shaft-1018-cold-finished"
 sfm = 80
 feed = "Hand quill, pecking"
 
+# Source: demo-turned-shaft.toml and demo-turned-pin.toml, authored demo
+# choices for the turned_shaft adapter. The 3/16 in end mill cuts the shaft's
+# set-screw flats between the vise jaws: Ø.1875 clears the jaw faces at the
+# rod's Ø.250. Carbide on cold-finished 1018 at the mill's 2800 rpm cap and
+# .001 in/tooth, the arc strap's 1/8 in cutter's load (the floor of the
+# milling feed-factor table). No helix is stated, so the configured
+# axial_ratio applies. The die cuts the pin's #4-40 by hand, the die holder
+# guided from the tailstock.
+[tools.turned-shaft-em-3-16]
+description = "3/16 in 2-flute uncoated carbide square end mill"
+diameter_mm = 4.7625
+[tools.turned-pin-die-4-40]
+description = "#4-40 UNC 13/16 in round adjustable die; tailstock die holder"
+[settings.turned-shaft-em-3-16-1018]
+tool = "turned-shaft-em-3-16"
+material = "shaft-1018-cold-finished"
+rpm = 2800
+chip_load_mm_per_tooth = 0.0254
+flutes = 2
+feed_unit = "in/min"
+
 # --- Demo step pin (examples/demo-step-pin.toml) ---
 # C36000 free-cutting brass. Speeds: LittleMachineShop "Cutting Speeds",
 # Turning, row Brass (C36000 listed): 300-350 ft/min HSS, 1170 ft/min
