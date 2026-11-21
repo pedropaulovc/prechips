@@ -901,11 +901,16 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
         _dimension(groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710)
         y += 24
     # End view: the part between the jaws on a parallel, the cutter above.
-    cx, cy = 640.0, _AXIS
+    # It sits low enough that its jaw tops stay under the top view's
+    # callouts.
     r = 24.0
     f = flats[0]
     dia = values[f"{values[f'{f}_on']}_dia_mm"]
     k = r / (dia / 2)
+    over = 4.0 - r
+    if "jaw_top_over_od_mm" in parameters:
+        over = _param(parameters, "jaw_top_over_od_mm") * k
+    cx, cy = 640.0, max(_AXIS, top - 10 + r + over)
     flat_y = cy - (values[f"{f}_across_mm"] - dia / 2) * k
     half = math.sqrt(max(r**2 - (cy - flat_y) ** 2, 0.0))
     groups["part-kept"].append(
@@ -921,15 +926,17 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
         )
     )
     # The jaw tops stand process.jaw_top_over_od_mm over the rod's top when
-    # given (the rod on parallels), else a little over its centre.
-    jaw_top = cy - 4
-    if "jaw_top_over_od_mm" in parameters:
-        jaw_top = cy - r - _param(parameters, "jaw_top_over_od_mm") * k
+    # given (the rod on a parallel), else a little over its centre; the
+    # parallel is process.parallel_thickness_mm wide when given.
+    jaw_top = cy - r - over
     groups["clamp"] += [
         _rect(cx - r - 16, jaw_top, 16, cy + r + 26 - jaw_top),
         _rect(cx + r, jaw_top, 16, cy + r + 26 - jaw_top),
     ]
-    groups["fixture-support"].append(_rect(cx - r, cy + r, 2 * r, 22))
+    width = 2 * r
+    if "parallel_thickness_mm" in parameters:
+        width = min(_param(parameters, "parallel_thickness_mm") * k, 2 * r)
+    groups["fixture-support"].append(_rect(cx - width / 2, cy + r, width, 22))
     groups["cutter"].append(_rect(cx - r * 0.75, flat_y - 46, 1.5 * r, 40))
     groups["label"].append(
         _el("text", "end view", x=cx, y=cy + r + 40, text_anchor="middle")
