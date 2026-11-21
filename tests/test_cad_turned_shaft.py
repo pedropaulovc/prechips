@@ -366,13 +366,24 @@ def test_a_form_cut_dome_is_labelled_on_its_tool_and_ends_by_their_names():
             render_cad_svg(svg, cad, form)
 
 
-def test_inspect_leads_to_a_hole_from_above_and_its_diameter_clear_of_it():
+def test_inspect_lands_a_diameter_leader_clear_of_the_holes_through_it():
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
     values = cad.values
-    values["cross_hole_z_mm"] = (values["outer_z0_mm"] + values["outer_z1_mm"]) / 2
-    svg = render_cad_svg(_svg(hold="inspect"), cad, BLANK).decode()
-    hole = re.search(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="[\d.]+" />', svg)
-    dots = re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="1.8"', svg)
-    at_hole = [float(y) for x, y in dots if abs(float(x) - float(hole[1])) < 8]
-    # One leader at the hole, from above; the O.D.'s lands clear of it.
-    assert len(at_hole) == 1 and at_hole[0] < float(hole[2])
+    mid = (values["outer_z0_mm"] + values["outer_z1_mm"]) / 2
+    for stations in ([mid], [mid, mid + 8.0]):
+        for n, z in enumerate(stations):
+            name = "cross_hole" if n == 0 else f"cross_hole{n + 1}"
+            for key in [k for k in list(values) if k.startswith("cross_hole_")]:
+                values[name + key.removeprefix("cross_hole")] = values[key]
+            values[f"{name}_z_mm"] = z
+        svg = render_cad_svg(_svg(hold="inspect"), cad, BLANK).decode()
+        dots = [
+            (float(x), float(y))
+            for x, y in re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)" r="1.8"', svg)
+        ]
+        holes = [x for x, y in dots if y == 276.0]
+        # Each hole keeps its own leader from below; the O.D.'s (the lowest
+        # dot) lands on the rod's outline, clear of every hole's edge.
+        assert len(holes) == len(stations)
+        od = max(dots, key=lambda d: d[1])[0]
+        assert 80 < od < 640 and min(abs(od - x) for x in holes) > 8.5
