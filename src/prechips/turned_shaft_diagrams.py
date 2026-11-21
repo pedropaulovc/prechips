@@ -722,6 +722,17 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
     """A dome's radius and its height at the root: the form tool's when
     form-cut (the range over the part's diameter when the plan forms it per
     part), ``SR`` alone for a full hemisphere."""
+    if f"{prefix}_form_height_min_in" in values:
+        # Formed per part: no one height (nor a hemisphere on every part).
+        return [
+            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
+            (
+                f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
+                f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
+            ),
+            "at the root,",
+            "by the turned Ø",
+        ]
     if f"{prefix}_form_radius_in" in values:
         if (
             abs(
@@ -730,16 +741,6 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
             < 1e-3
         ):
             return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
-        if f"{prefix}_form_height_min_in" in values:
-            return [
-                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
-                (
-                    f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
-                    f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
-                ),
-                "at the root,",
-                "by the turned Ø",
-            ]
         return [
             f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",
