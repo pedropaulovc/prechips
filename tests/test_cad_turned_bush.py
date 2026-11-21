@@ -352,7 +352,33 @@ def test_a_member_is_drawn_on_its_own_bar():
     work = {"out": "datum", "work": "face drill part"}
     picture = render_cad_svg(_svg(hold="bar", member="C050", **work), cad, params)
     assert "jaws on bar Ø.5000" in picture.decode()
-    default = render_cad_svg(_svg(hold="bar", member="C175", **work), cad, params)
+    default = render_cad_svg(_svg(hold="bar", member="c175", **work), cad, params)
     assert "jaws on bar Ø1.7500" in default.decode()
     with pytest.raises(CadError, match="not a member"):
         render_cad_svg(_svg(hold="bar", member="C075", **work), cad, params)
+
+
+def test_finish_allowance_binds_without_bar_and_a_stock_size_takes_no_fit(tmp_path):
+    block = {"blank_side_in": 0.75, "blank_axial_in": 1.1}
+    values = load_turned_bush(
+        PLUG, block | {"finish_allowance_in": 0.005}, "turned-plug"
+    ).values
+    assert values["step_rough_dia_mm"] == pytest.approx((0.354 + 0.01) * 25.4)
+    with pytest.raises(CadError, match="finish_allowance_in"):
+        load_turned_bush(PLUG, {"finish_allowance_in": -1}, "turned-plug")
+    text = COLLAR.read_text(encoding="utf-8")
+    old = '"requirements" = ["stock"]'
+    source = tmp_path / "cad.toml"
+    source.write_text(
+        text.replace(old, '"requirements" = ["stock", "diametral_interference"]', 1),
+        encoding="utf-8",
+    )
+    with pytest.raises(CadError, match="a stock size takes no dia band or fit"):
+        load_turned_bush(source, COLLAR_BARS, "turned-collar")
+
+
+def test_a_band_with_a_fit_prints_both():
+    cad = load_turned_bush(CUP, {}, "turned-cup")
+    picture = render_cad_svg(_svg(hold="inspect"), cad, {}).decode()
+    assert "Ø.417–.427" in picture
+    assert ".0020–.0060 under its mate" in picture

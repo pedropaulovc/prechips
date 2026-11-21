@@ -187,9 +187,11 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
     requirements = item.get("requirements", [])
     # One acceptance per diameter: a dia band (with an optional fit on its
     # mate, printed beside it), a stock size, or a REF turned to a mate.
-    if "stock" in requirements and (
-        "dia" in requirements or "diametral_clearance" in requirements
-    ):
+    if "stock" in requirements and {
+        "dia",
+        "diametral_clearance",
+        "diametral_interference",
+    } & set(requirements):
         raise CadError(f"{name}: a stock size takes no dia band or fit")
     if "dia" in requirements:
         band = _limits(item, "dia", name, f"{name}_dia", values)
@@ -222,7 +224,9 @@ def _diameter(item: dict, name: str, frame: tuple, values: dict) -> float:
             values[f"{name}_mate"] = _string(item.get("mate"), f"{name}.mate")
     if "dia" not in requirements and "diametral_clearance" in requirements:
         # The smallest it is turned: the mate at its REF less the most
-        # clearance (the turning screen's stiffness size).
+        # clearance (the turning screen's stiffness size). The screen
+        # assumes the mate measures at or over its REF; a smaller mate
+        # turns the part smaller than screened.
         values[f"{name}_turn_min_mm"] = (
             values[f"{name}_dia_mm"] - values[f"{name}_clearance_band_mm"][1]
         )
@@ -375,6 +379,8 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
             bar_mm = _positive(parameters.get(key), f"process.{key}") * 25.4
             values[f"{name}_stock_dia_mm"] = bar_mm
             axes.append(StockAxis(f"{name} diameter", key, values[f"{name}_dia_mm"]))
+        # The plan parameter naming this diameter's bar, for its pictures.
+        values[f"{name}_stock_key"] = key
         if values[f"{name}_stock"] and abs(bar_mm - values[f"{name}_dia_mm"]) > 0.0254:
             raise CadError(
                 f"process.{key}: {name} is left as bought at "
@@ -399,16 +405,6 @@ def _bar(values: dict, parameters: dict, largest: float, turned: list[str]) -> l
         values[f"{name}_datum_out_far_z_mm"] = -z1
         values[f"{name}_far_out_near_z_mm"] = z1 - length
         values[f"{name}_far_out_far_z_mm"] = z0 - length
-    if "finish_allowance_in" in parameters:
-        allowance = _positive(
-            parameters["finish_allowance_in"], "process.finish_allowance_in"
-        )
-        for name in turned:
-            if f"{name}_turn_min_mm" in values:
-                # Roughed to this, a side's allowance over its smallest size.
-                values[f"{name}_rough_dia_mm"] = (
-                    values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
-                )
     clear = 0.0
     if _all_or_none(parameters, _PULL, "the parts out of the jaws"):
         pull = _count(parameters, "parts_per_pull")
@@ -498,7 +494,7 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
             _tiles(values, [name, *(["step"] if "step" in sizes else [])])
     # The default member's bar or blank: the other members bring their own.
     largest = max(sizes[name] for name in _DIAMETERS if name in sizes)
-    members_found = []
+    members_found, members_outer = [], []
     for name in turned:
         configuration = features[name].get("configuration")
         if name.startswith("outer_"):
@@ -508,12 +504,19 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
             ):
                 raise CadError(f"{name}.configuration: expected its member's name")
             members_found.append(configuration)
+            members_outer.append(name)
         elif configuration is not None:
             raise CadError(f"{name}.configuration: the default member owns it")
     values["members"] = (
         [_string(features["outer"].get("member"), "outer.member"), *members_found]
         if members_found
         else []
+    )
+    # Each member's outer feature, for pictures that draw one member.
+    values["member_outers"] = (
+        dict(zip(values["members"], ["outer", *members_outer], strict=True))
+        if members_found
+        else {}
     )
     if "shoulder" in features:
         _shoulder(features["shoulder"], frame, values)
@@ -530,6 +533,16 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     axes: list[StockAxis] = []
     # Round bar is named by its diameter; the facing allowance and kerf may
     # also serve a squared blank's pictures.
+    if "finish_allowance_in" in parameters:
+        allowance = _positive(
+            parameters["finish_allowance_in"], "process.finish_allowance_in"
+        )
+        for name in turned:
+            if f"{name}_turn_min_mm" in values:
+                # Roughed to this, a side's allowance over its smallest size.
+                values[f"{name}_rough_dia_mm"] = (
+                    values[f"{name}_turn_min_mm"] + 2 * allowance * 25.4
+                )
     if "stock_dia_in" in parameters and _all_or_none(parameters, _BAR, "round bar"):
         axes = _bar(values, parameters, largest, turned)
     if _all_or_none(parameters, _BLOCK, "the squared blank"):

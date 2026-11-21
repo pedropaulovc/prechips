@@ -115,7 +115,7 @@ gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.outer_dia_band_mm}}" }
 [[setups.operations]]
 cut_kind = "longitudinal_turning"
 turning_cuts = [
-  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_rough_dia_mm}}" },
+  { name = "Spigot rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_turn_min_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_rough_dia_mm}}" },
   { name = "Spigot finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_turn_min_mm}}" },
 ]
 speed_kind = "spindle"

@@ -80,9 +80,12 @@ def _size(values: dict, name: str) -> list[str]:
     """The printed acceptance of one turned diameter, on two lines."""
     if values.get(f"{name}_stock"):
         return [f"Ø{{{{cad.{name}_ref_in:.4dot}}}}", "bar as bought"]
+    fit = [f"{_band(f'{name}_clearance', 4)} under its mate"]
     if f"{name}_dia_min_in" in values:
         spread = values[f"{name}_dia_max_in"] - values[f"{name}_dia_min_in"]
-        return [f"Ø{_band(f'{name}_dia', 4 if spread < 0.002 else 3)}"]
+        band = [f"Ø{_band(f'{name}_dia', 4 if spread < 0.002 else 3)}"]
+        # A band with a fit on its mate prints both: the fit holds too.
+        return band + fit if f"{name}_clearance_min_in" in values else band
     return ["to its measured mate,", f"{_band(f'{name}_clearance', 4)} under"]
 
 
@@ -190,11 +193,12 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     grip = root.attrib.pop("data-grip", "outer")
     member = root.attrib.pop("data-member", None)
     outer = "outer"
-    if member is not None and member not in values["members"][:1]:
+    if member is not None:
         # A member drawn on its own bar: its outer and its own stock.
-        outer = f"outer_{member.lower()}"
-        if f"{outer}_dia_mm" not in values:
+        by_name = {k.lower(): v for k, v in values.get("member_outers", {}).items()}
+        if member.lower() not in by_name:
             raise CadError(f"turned-bush: data-member {member!r} is not a member")
+        outer = by_name[member.lower()]
     if grip == "outer":
         grip = outer
     if hold not in _HOLDS:
@@ -245,7 +249,7 @@ def _setup(
 ) -> Layout:
     length = _cad(values, "length_mm")
     segments = _segments(values, outer)
-    stock_key = "stock_dia_in" if outer == "outer" else f"stock_dia{outer[5:]}_in"
+    stock_key = values.get(f"{outer}_stock_key", "stock_dia_in")
     largest = max(seg[3] for seg in segments)
     count = 1
     if hold == "bar" and "parts_per_pull" in parameters:
