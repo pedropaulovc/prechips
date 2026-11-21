@@ -1,0 +1,177 @@
+# Demo: a threaded pin from 3/16 in 1018 bar on the manual lathe. The head
+# end is faced and chamfered with the far end out and the part parted off
+# long; turned round and gripped on the head, the thread end is faced to
+# length, its #4-40 blank turned, the relief groove cut at the shoulder, the
+# end domed with the file and the thread cut with a die from the tailstock.
+# Sizes, bands and stations come from the manifest through the turned_shaft
+# adapter; the pictures are its turned-shaft templates. Speeds, kerf and
+# allowances are authored demo choices.
+title = "Demo turned pin"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "AISI 1018 cold-drawn round, 3/16 in"
+stock = "Ø{{process.stock_dia_in:.4dot}} in bar, {{process.bar_length_in:g}} in; one part takes {{cad.pitch_in:.3dot}} in."
+note = "Inches. Lathe speeds on the PM-1127VF-LB (70–380 and 380–2000 rpm). Cutting oil on steel."
+shop = "shop.toml"
+material_key = "shaft-1018-cold-finished"
+turning_material = "steel_1018"
+
+[cad]
+file = "cad/turned-pin-v51.toml"
+adapter = "turned_shaft"
+part = "demo-turned-pin"
+
+[parameters]
+quantity = 4
+stock_dia_in = 0.1875
+bar_length_in = 12.0
+chuck_grip_in = 0.75
+face_allowance_in = 0.02
+regrip_allowance_in = 0.02
+part_kerf_in = 0.0625
+parts_per_pull = 1
+jaw_clearance_in = 0.05
+# Left a side on the thread blank for its finish pass.
+finish_allowance_in = 0.005
+rough_radial_doc_mm = 0.35
+finish_radial_doc_mm = 0.05
+turn_feed_mm_rev = 0.0508
+turn_start_z_mm = 0.5
+
+[[tools]]
+id = "ar"
+name = "AR"
+ref = "shaft-ar"
+
+[[tools]]
+id = "blade"
+name = "Blade"
+ref = "shaft-blade"
+description = "1/16 in M2 parting blade"
+
+[[tools]]
+id = "files"
+name = "Files"
+ref = "jig-files"
+
+[[tools]]
+id = "die"
+name = "#4-40 die"
+ref = "turned-pin-die-4-40"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Bar: head end out, face, chamfer, part off"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the bar; {{cad.stickout_in:.3dot}} in out of the jaws."
+datum = "Z0 the head end faced square; the thread end is made in Setup 2."
+diagram = { file = "diagrams/demo-turned-pin/bar.svg", alt = "The bar in the 3-jaw, head end out: the end faced and chamfered, the part parted off long at the thread end." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.stock_dia_mm}}", support = "none" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.jaw_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end square to Z0, {{process.face_allowance_in:.3dot}} off."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Chamfer the head end {{cad.chamfer_far_leg_min_in:.3dot}}–{{cad.chamfer_far_leg_max_in:.3dot}} × 45°."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Part off {{cad.part_off_in:.3dot}} in from the faced end, the regrip allowance left on the thread end."
+settings = "shaft-parting-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Turned round: face to length, thread blank, groove, dome, die"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the head over a shim wrap, the jaws up to the shoulder."
+datum = "Z0 the thread end, faced in this setup; it stays the dome's apex."
+diagram = { file = "diagrams/demo-turned-pin/regrip.svg", alt = "The part turned round, gripped on the head over a shim wrap: the thread end faced to length, the blank turned, the groove cut, the end domed and threaded with the die." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.groove_relief_dia_mm}}", support = "none" }
+turning_support = { kind = "chuck_only", chuck_z_mm = "{{cad.outer_datum_out_near_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the end to length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+inspection = "Length {{cad.length_min_in:.3dot}}–{{cad.length_max_in:.3dot}}; shoulder {{cad.shoulder_min_in:.3dot}}–{{cad.shoulder_max_in:.3dot}} from the thread end."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.length_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.shoulder_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Blank rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_datum_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_datum_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_datum_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_dia_mm}}", end_diameter_mm = "{{cad.step_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_rough_dia_mm}}" },
+  { name = "Blank finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.step_datum_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_datum_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_datum_out_far_z_mm}}", start_diameter_mm = "{{cad.step_rough_dia_mm}}", end_diameter_mm = "{{cad.step_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_turn_min_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Rough the thread blank to Ø{{cad.step_rough_dia_mm:in.3dot}}, then finish Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}} to the shoulder at Z{{cad.step_datum_out_far_z_mm:in.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.step_dia_mm}}"
+inspection = "Thread blank Ø{{cad.step_dia_min_in:.4dot}}–{{cad.step_dia_max_in:.4dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.step_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Groove Ø{{cad.groove_relief_dia_min_in:.3dot}}–{{cad.groove_relief_dia_max_in:.3dot}}, {{cad.groove_relief_width_min_in:.3dot}}–{{cad.groove_relief_width_max_in:.3dot}} wide against the shoulder; corners R{{cad.groove_relief_corner_r_max_in:.3dot}} max."
+settings = "shaft-relief-1018"
+cut_diameter_mm = "{{cad.step_dia_mm}}"
+inspection = "Groove Ø{{cad.groove_relief_dia_min_in:.3dot}}–{{cad.groove_relief_dia_max_in:.3dot}}, {{cad.groove_relief_width_min_in:.3dot}}–{{cad.groove_relief_width_max_in:.3dot}} wide."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.groove_relief_dia_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.groove_relief_width_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+instruction = "File the end to R{{cad.dome_datum_radius_min_in:.3dot}}–{{cad.dome_datum_radius_max_in:.3dot}}, the apex on Z0."
+inspection = "Dome {{cad.dome_datum_height_min_in:.3dot}}–{{cad.dome_datum_height_max_in:.3dot}} high from where the blank's Ø ends."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.dome_datum_height_band_mm}}" }]
+feed = "hand"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "other"
+tool = "die"
+drilling = "none"
+sizing = "other"
+instruction = "Cut {{cad.thread_designation}} with the die, guided from the tailstock, spindle turned by hand: full thread {{cad.thread_length_min_in:.3dot}}–{{cad.thread_length_max_in:.3dot}} from the root of the dome, run out in the groove."
+inspection = "Full thread {{cad.thread_length_min_in:.3dot}}–{{cad.thread_length_max_in:.3dot}}; a {{cad.thread_designation}} nut runs on to the groove."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thread_length_band_mm}}" }]
+feed = "hand"
+diagram = { file = "diagrams/demo-turned-pin/inspect.svg", alt = "The finished pin: domed thread end, the thread to the groove, shoulder, head and chamfer." }

@@ -1,0 +1,139 @@
+# Demo manifest in the CAD export format: a 1/4 in ground-rod shaft left at its supplied size, a full hemisphere on one end and a shallow crown on the other, two set-screw flats on one clock and a cross hole drilled at assembly; demo identity, no source citations.
+"part" = "demo-turned-shaft"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "demo-turned-shaft.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-SHAFT"
+"revision" = "v51"
+
+["material"]
+"spec" = "AISI 1018 ground round, 1/4 in"
+"name" = "Plain Carbon Steel"
+"finish" = "bare, oiled (no plating)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. GROUND ROD: O.D. AS SUPPLIED.", "2. CROSS HOLE DRILLED AT DEMO-ASSY THROUGH DEMO-HUB."]
+"process" = "sawn from ground rod; ends faced and domed on the lathe; flats milled"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["plane", "height"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"outward" = [-1.0, 0.0, 0.0]
+"radius_ref" = 3.175
+"height" = [3.048, 3.302]
+"height_nominal" = 3.175
+"note" = "FULL R"
+"precision" = { "height" = 3 }
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["plane", "length", "height"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 177.8 }
+"outward" = [1.0, 0.0, 0.0]
+"length" = [177.546, 178.054]
+"length_nominal" = 177.8
+"length_from" = "datum_end"
+"body_length_ref" = 174.22172212420855
+"radius_ref" = 12.7
+"height" = [0.254, 0.508]
+"height_nominal" = 0.403277875791451
+"precision" = { "length" = 3, "height" = 3 }
+"faces" = ["F2"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [3.175, 177.39672212420857]
+"dia" = [6.33730, 6.35]
+"dia_nominal" = 6.35
+"callout" = "SEE NOTE 1"
+"precision" = { "dia" = 4 }
+"faces" = ["F3"]
+
+["features"."flat_a"]
+"kind" = "flat"
+"frame" = "model"
+"requirements" = ["across", "length", "station"]
+"normal" = [0.0, 1.0, 0.0]
+"span" = [12.7, 22.225]
+"across" = [5.715, 5.842]
+"across_nominal" = 5.7785
+"length" = [8.763, 10.287]
+"length_nominal" = 9.525
+"station" = [12.446, 12.954]
+"station_nominal" = 12.7
+"station_from" = "datum_end"
+"mates" = "DEMO-COLLAR SET SCREW"
+"precision" = { "across" = 3, "length" = 2, "station" = 2 }
+"faces" = ["F4"]
+
+["features"."flat_b"]
+"kind" = "flat"
+"frame" = "model"
+"requirements" = ["across", "length", "station"]
+"normal" = [0.0, 1.0, 0.0]
+"span" = [50.8, 60.325]
+"across" = [5.715, 5.842]
+"across_nominal" = 5.7785
+"length" = [8.763, 10.287]
+"length_nominal" = 9.525
+"station" = [47.371, 47.879]
+"station_nominal" = 47.625
+"station_from" = "datum_root"
+"mates" = "DEMO-PULLEY SET SCREW"
+"precision" = { "across" = 3, "length" = 2, "station" = 2 }
+"faces" = ["F5"]
+
+["features"."cross_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "station"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [152.4, 0.0, 0.0]
+"thru" = true
+"dia" = [1.5875, 1.6891]
+"nominal_dia" = 1.5875
+"station" = [25.146, 25.654]
+"station_nominal" = 25.4
+"station_from" = "far_end"
+"made_at" = "assembly"
+"callout" = "Ø1/16 THRU AT DEMO-ASSY, SEE NOTE 2"
+"precision" = { "dia" = 3, "station" = 2 }
+"faces" = ["F6"]

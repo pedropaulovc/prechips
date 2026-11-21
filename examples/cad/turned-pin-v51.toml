@@ -1,0 +1,143 @@
+# Demo manifest in the CAD export format: a 3/16 in pin turned from bar, a #4-40 thread cut with a die on a turned blank, a relief groove at the shoulder and a domed thread end; demo identity, no source citations.
+"part" = "demo-turned-pin"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "demo-turned-pin.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-PIN"
+"revision" = "v51"
+
+["material"]
+"spec" = "AISI 1018 cold-drawn round, 3/16 in"
+"name" = "Plain Carbon Steel"
+"finish" = "bare, oiled (no plating)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. HEAD O.D. AS BOUGHT."]
+"process" = "turned from bar; thread die cut"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["plane", "radius"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+"outward" = [-1.0, 0.0, 0.0]
+"radius" = [2.032, 3.048]
+"radius_nominal" = 2.54
+"precision" = { "radius" = 3 }
+"faces" = ["F1"]
+
+["features"."step"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "thread", "thread_length"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.42710011832079475, 6.35]
+"dia" = [2.79908, 2.8448]
+"dia_nominal" = 2.8194
+"thread" = "#4-40 UNC-2A"
+"thread_length" = [3.556, 4.064]
+"thread_length_nominal" = 3.81
+"thread_end" = "datum_end"
+"thread_process" = "die"
+"thread_incomplete_max" = 1.27
+"precision" = { "dia" = 4, "thread_length" = 2 }
+"faces" = ["F2"]
+
+["features"."groove_relief"]
+"kind" = "groove"
+"frame" = "model"
+"requirements" = ["dia", "width"]
+"span" = [4.7625, 6.35]
+"dia" = [1.93, 2.13]
+"dia_nominal" = 2.03
+"width" = [1.4, 1.8]
+"width_nominal" = 1.5875
+"corner_radius_max" = 0.254
+"precision" = { "dia" = 3, "width" = 3 }
+"faces" = ["F3"]
+
+["features"."shoulder"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 6.35 }
+"outward" = [-1.0, 0.0, 0.0]
+"station" = [6.096, 6.604]
+"station_nominal" = 6.35
+"station_from" = "datum_end"
+"precision" = { "station" = 2 }
+"faces" = ["F4"]
+
+["features"."fillet_shoulder"]
+"kind" = "fillet"
+"frame" = "model"
+"requirements" = ["radius_max"]
+"at" = [6.35, 0.0, 0.0]
+"radius_max" = 0.254
+"faces" = ["F5"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["stock"]
+"axis" = [1.0, 0.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [6.35, 12.7]
+"dia_ref" = 4.7625
+"callout" = "SEE NOTE 1"
+"precision" = { "dia_ref" = 4 }
+"faces" = ["F6"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane", "length"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 12.7 }
+"outward" = [1.0, 0.0, 0.0]
+"length" = [12.446, 12.954]
+"length_nominal" = 12.7
+"length_from" = "datum_end"
+"precision" = { "length" = 2 }
+"faces" = ["F7"]
+
+["features"."chamfer_far"]
+"kind" = "chamfer"
+"frame" = "model"
+"requirements" = ["leg"]
+"leg" = [0.254, 0.508]
+"leg_nominal" = 0.381
+"edge_of" = "outer"
+"at_end" = "far_end"
+"precision" = { "leg" = 3 }
+"faces" = ["F8"]
