@@ -606,7 +606,9 @@ def _inspect(groups: Groups, values: dict, outer: str) -> Layout:
                 page.x(values["bore_z1_mm"]) - 6,
                 _AXIS + values["bore_dia_mm"] / 2 * scale,
                 [
-                    "bore",
+                    # A drilled hole is a hole: "bore" would also name a
+                    # pocket a boring bar opens on the same sheet.
+                    "hole" if values.get("bore_process") == "drill" else "bore",
                     "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}",
                 ],
             )
