@@ -14,10 +14,16 @@
   the fixed jaw; ``drill`` faces to depth and drills the ears, ``tap`` taps
   the back's).
 
+A lying ``half`` draws the near side (X0) at the left; ``data-x0="right"``
+draws it at the right, stations measured leftward, for holds that put the
+near side at the operator's right.
+
 ``pair``: the two halves screwed together for the bore, from above: the
 back's outside face on the fixed jaw, a block between the screw heads on the
 front's, parallels clear of the bore. ``inspect``: the finished half, seen
-along the bore and at its outside face.
+along the bore and at its outside face; ``data-bored="no"`` draws it before
+the bore, at the depth it is bored at and at its mating face with the ears'
+drill exits.
 
 Sizes come from the adapter (envelope, bore, ears, the pair) and from
 authored holding parameters (parallels, jaw height, block, screws). Jaws,
@@ -142,9 +148,12 @@ def _half(
     up: str,
     work: str,
     end: str | None,
+    mirror: bool,
 ) -> Layout:
     """One half in the vise, seen along the jaws, with a plan from above
     for the lying holds."""
+    if mirror and up == "end":
+        raise CadError("clamp-half: data-x0 goes with a lying hold, not data-up end")
     if work not in _HALF[up]:
         raise CadError(
             f"clamp-half: with data-up {up!r}, data-work must be one of "
@@ -267,38 +276,67 @@ def _half(
     low = _callouts(groups, items, cut + 24, above=False)
     if up == "end":
         return _finish(groups, low)
-    return _plan(groups, values, up, work, across, low)
+    return _plan(groups, values, up, work, across, low, mirror)
 
 
 def _plan(
-    groups: Groups, values: dict, up: str, work: str, across: float, low: float
+    groups: Groups,
+    values: dict,
+    up: str,
+    work: str,
+    across: float,
+    low: float,
+    mirror: bool,
 ) -> Layout:
-    """From above: the width along the jaws, the near side at the left."""
+    """From above: the width along the jaws, the near side at the left, or at
+    the right when ``mirror``, the stations measured from it."""
     _label(groups, 40, low + 34, "From above:", "start", **{"class": "title"})
     s = 6.0
-    x0 = 150.0
+    # Mirrored, the jaw label sits left of the part: room for it on the page.
+    x0 = 210.0 if mirror else 150.0
     wide = _cad(values, "width_mm") * s
     deep = across * s
     y0 = low + 110
+    # The near side's x on the page, and the page x of a station from it.
+    near = x0 + wide if mirror else x0
+    step = -s if mirror else s
+
+    def at(key: str) -> float:
+        return near + _cad(values, key) * step
+
     groups["clamp"] += [
         _rect(x0 - 20, y0 - 18, wide + 40, 18),
         _rect(x0 - 20, y0 + deep, wide + 40, 18),
     ]
     groups["part-kept"].append(_rect(x0, y0, wide, deep))
-    _datum_label(groups, x0 - 6, y0 - 26, "X0: near side", "end")
-    groups["datum"].append(_line(x0, y0 - 22, x0, y0 + deep + 22))
+    _datum_label(
+        groups,
+        near + (6 if mirror else -6),
+        y0 - 26,
+        "X0: near side",
+        "start" if mirror else "end",
+    )
+    groups["datum"].append(_line(near, y0 - 22, near, y0 + deep + 22))
+    # The jaw label goes at the end away from the near side.
+    other = x0 if mirror else x0 + wide
     if up in ("mating", "outside"):
-        _label(groups, x0 + wide + 26, y0 - 4, "fixed jaw: BOTTOM face", "start")
+        _label(
+            groups,
+            other + (-26 if mirror else 26),
+            y0 - 4,
+            "fixed jaw: BOTTOM face",
+            "end" if mirror else "start",
+        )
     if work == "face-off":
-        bore = x0 + _cad(values, "bore_location_mm") * s
+        bore = at("bore_location_mm")
         radius = _cad(values, "bore_dia_in") * 25.4 * s / 2
         groups["holes"].append(_rect(bore - radius, y0, 2 * radius, deep))
         groups["centre-line"].append(_line(bore, y0 - 30, bore, y0 + deep + 30))
     if up != "outside":
         _dimension(
             groups,
-            x0,
-            x0 + wide,
+            near,
+            other,
             y0 - 40,
             y0,
             "{{cad.width_min_in:.2dot}}–{{cad.width_max_in:.2dot}}",
@@ -306,38 +344,54 @@ def _plan(
         return _finish(groups, y0 + deep + 40)
     hole = _cad(values, "ear_dia_in") * 25.4 * s
     ear_y = y0 + _cad(values, "ear_height_mm") * s
-    near = x0 + _cad(values, "ear_near_x_mm") * s
-    far = x0 + _cad(values, "ear_far_x_mm") * s
-    for x in (near, far):
+    first, second = at("ear_near_x_mm"), at("ear_far_x_mm")
+    for x in (first, second):
         groups["holes"].append(_el("circle", cx=x, cy=ear_y, r=hole / 2))
-    _dimension(groups, x0, near, y0 - 40, y0, "{{cad.ear_near_x_in:.3dot}}")
-    _dimension(groups, x0, far, y0 - 62, y0, "{{cad.ear_far_x_in:.3dot}}")
+    _dimension(groups, near, first, y0 - 40, y0, "{{cad.ear_near_x_in:.3dot}}")
+    _dimension(groups, near, second, y0 - 62, y0, "{{cad.ear_far_x_in:.3dot}}")
+    # The ears' height from the fixed jaw, beside the end away from X0.
+    side = x0 - 34 if mirror else x0 + wide + 34
     _vdim(
         groups,
-        x0 + wide + 34,
+        side,
         y0,
         ear_y,
         "Y {{cad.ear_y_in:.3dot}}",
-        witness=(x0 + wide, far),
+        witness=(other, second),
+        place=DimText.ALONG_LEFT if mirror else DimText.RIGHT,
     )
     return _finish(groups, y0 + deep + 40)
 
 
-def _inspect(groups: Groups, values: dict) -> Layout:
+# The drawing gives the bore as a reference size with a sliding fit on the
+# column, not a size band.
+_BORE_REF = "Ø({{cad.bore_dia_mm:in.3dot}}) REF"
+_BORE_FIT = [
+    "{{cad.bore_clearance_min_in:.3dot}}–{{cad.bore_clearance_max_in:.3dot}} clearance",
+    "on the column",
+]
+
+
+def _inspect(groups: Groups, values: dict, bored: bool) -> Layout:
+    """The half down its bore axis, then at its outside face; before the bore
+    (``bored`` false), at the depth it is bored at and at its mating face,
+    where the ears' drill exits are."""
     s = 7.0
     x0, y0 = 150.0, 100.0
     wide = _cad(values, "width_mm") * s
-    deep = _cad(values, "depth_mm") * s
+    depth = "depth" if bored else "bore_axis_depth"
+    deep = _cad(values, f"{depth}_mm") * s
     face = y0 + deep
     back = values.get("half") == "back"
-    gap = _cad(values, "grip_offset_mm") * s if back else 0.0
+    gap = _cad(values, "grip_offset_mm") * s if back and bored else 0.0
     bore = x0 + _cad(values, "bore_location_mm") * s
     radius = _cad(values, "bore_dia_in") * 25.4 * s / 2
     station = _cad(values, "ear_station_mm") * s
     hole = _cad(values, "ear_dia_in") * 25.4 * s
     groups["part-kept"].append(_rect(x0, y0, wide, deep))
-    groups["holes"].append(_arc(bore, face, radius, gap, True))
-    groups["centre-line"].append(_line(bore, y0 - 12, bore, face + gap + 16))
+    if bored:
+        groups["holes"].append(_arc(bore, face, radius, gap, True))
+        groups["centre-line"].append(_line(bore, y0 - 12, bore, face + gap + 16))
     for side in (-1, 1):
         groups["hidden"].append(_rect(bore + side * station - hole / 2, y0, hole, deep))
         groups["centre-line"].append(
@@ -350,45 +404,51 @@ def _inspect(groups: Groups, values: dict) -> Layout:
         groups,
         x0,
         x0 + wide,
-        y0 - 48,
+        y0 - (48 if bored else 56),
         y0,
         "{{cad.width_min_in:.2dot}}–{{cad.width_max_in:.2dot}}",
-    )
-    _dimension(
-        groups,
-        x0,
-        bore,
-        y0 - 24,
-        y0,
-        "{{cad.bore_location_min_in:.3dot}}–{{cad.bore_location_max_in:.3dot}}",
     )
     _vdim(
         groups,
         x0 + wide + 20,
         y0,
         face,
-        "{{cad.depth_min_in:.3dot}}–{{cad.depth_max_in:.3dot}}",
+        f"{{{{cad.{depth}_min_in:.3dot}}}}–{{{{cad.{depth}_max_in:.3dot}}}}",
         witness=(x0 + wide, x0 + wide),
     )
-    items = [
-        (
-            bore - radius * 0.7,
-            face - radius * 0.7,
-            [
-                "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}",
-                "on the bore axis",
-            ],
-        ),
-        (
-            bore + station + hole / 2,
-            face - deep / 2,
-            [
-                "2X {{cad.ear_station_min_in:.3dot}}–{{cad.ear_station_max_in:.3dot}}",
-                "from the bore axis",
-            ],
-        ),
-    ]
-    if back:
+    if bored:
+        _dimension(
+            groups,
+            x0,
+            bore,
+            y0 - 24,
+            y0,
+            "{{cad.bore_location_min_in:.3dot}}–{{cad.bore_location_max_in:.3dot}}",
+        )
+        items = [
+            (
+                bore - radius * 0.7,
+                face - radius * 0.7,
+                [_BORE_REF, "on the bore axis,", *_BORE_FIT],
+            ),
+            (
+                bore + station + hole / 2,
+                face - deep / 2,
+                [
+                    "2X {{cad.ear_station_min_in:.3dot}}–{{cad.ear_station_max_in:.3dot}}",
+                    "from the bore axis",
+                ],
+            ),
+        ]
+    else:
+        # No bore yet: the ears from the near side, where the program put them.
+        for x, y, key in (
+            (bore - station, y0 - 16, "ear_near_x"),
+            (bore + station, y0 - 34, "ear_far_x"),
+        ):
+            _dimension(groups, x0, x, y, y0, f"{{{{cad.{key}_in:.3dot}}}}")
+        items = []
+    if back and bored:
         items.append(
             (
                 bore + radius + 12,
@@ -399,10 +459,18 @@ def _inspect(groups: Groups, values: dict) -> Layout:
                 ],
             )
         )
-    # At the outside face: the height and the ears' height.
+    # At the outside face, or before the bore at the mating face (up): the
+    # height and the ears' height.
     top = face + 70
     tall = _cad(values, "height_mm") * s
     groups["part-kept"].append(_rect(x0, top, wide, tall))
+    _label(
+        groups,
+        x0 - 8,
+        top + tall / 2 + 5,
+        "OUTSIDE" if bored else "MATING",
+        "end",
+    )
     for side in (-1, 1):
         groups["holes"].append(
             _el(
@@ -412,10 +480,11 @@ def _inspect(groups: Groups, values: dict) -> Layout:
                 r=hole / 2,
             )
         )
-    groups["hidden"] += [
-        _line(bore - radius, top, bore - radius, top + tall),
-        _line(bore + radius, top, bore + radius, top + tall),
-    ]
+    if bored:
+        groups["hidden"] += [
+            _line(bore - radius, top, bore - radius, top + tall),
+            _line(bore + radius, top, bore + radius, top + tall),
+        ]
     _vdim(
         groups,
         x0 + wide + 20,
@@ -424,14 +493,17 @@ def _inspect(groups: Groups, values: dict) -> Layout:
         "{{cad.height_min_in:.2dot}}–{{cad.height_max_in:.2dot}}",
         witness=(x0 + wide, x0 + wide),
     )
+    text = [
+        *_ear_text(values),
+        "{{cad.ear_height_min_in:.3dot}}–{{cad.ear_height_max_in:.3dot}} up",
+    ]
+    if not bored:
+        text = ["drill exits: deburr", *text]
     items.append(
         (
             bore - station + hole / 2,
             top + tall - _cad(values, "ear_height_mm") * s,
-            [
-                *_ear_text(values),
-                "{{cad.ear_height_min_in:.3dot}}–{{cad.ear_height_max_in:.3dot}} up",
-            ],
+            text,
         )
     )
     return _finish(groups, _callouts(groups, items, top + tall + 20, above=False))
@@ -536,8 +608,9 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
             bore - radius * 0.7,
             split + radius * 0.7,
             [
-                "interpolate Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}",
-                "through, on the split line",
+                f"interpolate {_BORE_REF}",
+                "through, on the split line;",
+                *_BORE_FIT,
             ],
         ),
         (
@@ -559,23 +632,36 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     up = root.attrib.pop("data-up", None)
     work = root.attrib.pop("data-work", None)
     end = root.attrib.pop("data-end", None)
+    x0 = root.attrib.pop("data-x0", "left")
+    bored = root.attrib.pop("data-bored", "yes")
     if step not in _TITLES:
         raise CadError(
             f"clamp-half: data-step must be one of {', '.join(_TITLES)}, not {step!r}"
         )
+    if x0 not in ("left", "right"):
+        raise CadError(f"clamp-half: data-x0 must be left or right, not {x0!r}")
+    if x0 == "right" and step != "half":
+        raise CadError("clamp-half: data-x0 goes with the half step")
+    if bored not in ("yes", "no"):
+        raise CadError(f"clamp-half: data-bored must be yes or no, not {bored!r}")
+    if bored == "no" and step != "inspect":
+        raise CadError("clamp-half: data-bored goes with the inspect step")
     groups = _groups(root)
-    _title(groups, 40, 24, _TITLES[step])
+    title = _TITLES[step]
+    if bored == "no":
+        title = "Half before the bore, down its axis and at its mating face"
+    _title(groups, 40, 24, title)
     if step == "saw":
         return _saw(groups, parameters)
     if step == "inspect":
-        return _inspect(groups, values)
+        return _inspect(groups, values, bored == "yes")
     if step == "pair":
         return _pair(groups, values, parameters)
     if up not in _HALF:
         raise CadError(
             f"clamp-half: the half step needs data-up ({', '.join(_HALF)}), not {up!r}"
         )
-    return _half(groups, values, parameters, up, work, end)
+    return _half(groups, values, parameters, up, work, end, x0 == "right")
 
 
 CLAMP_LAYOUTS = {"clamp-half": _clamp_half}
