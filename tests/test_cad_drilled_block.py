@@ -162,12 +162,28 @@ _BLIND_FOOT_HOLE = (
     '"thru" = true\n"station"',
     '"depth" = [50.0, 51.0]\n"station"',
 )
-_BLIND_BORE = (
-    '"requirements" = ["dia", "thru", "height"]',
-    '"requirements" = ["dia", "depth", "height"]',
-    '"thru" = true\n"height"',
-    '"depth" = [2.0, 2.5]\n"height"',
-)
+
+
+def _blind_bore(depth: str) -> tuple[str, ...]:
+    return (
+        '"requirements" = ["dia", "thru", "height"]',
+        '"requirements" = ["dia", "depth", "height"]',
+        '"thru" = true\n"height"',
+        f'"depth" = {depth}\n"height"',
+    )
+
+
+def test_a_tap_threaded_part_way_into_a_cross_bore_loads(tmp_path):
+    path = _variant(
+        tmp_path,
+        BRACKET,
+        '"requirements" = ["thread", "dia", "station"]',
+        '"requirements" = ["thread", "dia", "station", "thread_depth"]',
+        '"into" = "bore"',
+        '"into" = "bore"\n"thread_depth" = [3.0, 4.0]',
+    )
+    values = load_drilled_block(path, {}, "drilled-bracket").values
+    assert values["top_tap_thread_depth_band_mm"] == [3.0, 4.0]
 
 
 @pytest.mark.parametrize(
@@ -187,7 +203,47 @@ _BLIND_BORE = (
             "unit vector",
         ),
         (BRACKET, ('"into" = "bore"', '"into" = "foot_hole"'), "square to"),
-        (BRACKET, _BLIND_BORE, "bore does not reach its axis"),
+        (BRACKET, _blind_bore("[2.0, 2.5]"), "bore does not reach its axis"),
+        # Drilled to the least of its band, the bore stops short of the tap.
+        (BRACKET, _blind_bore("[3.0, 5.0]"), "bore does not reach its axis"),
+        # A reamed blind hole's pilot point still breaks out of the far end.
+        (BRACKET, _blind_bore("[17.0, 17.5]"), "bore: its blind end breaks out"),
+        (
+            BRACKET,
+            _BLIND_FOOT_HOLE[:3] + ('"depth" = [-3.0, -2.0]\n"station"',),
+            "foot_hole.depth: expected a positive depth band",
+        ),
+        (
+            BRACKET,
+            ('"height" = [24.892, 25.4]', '"height" = [20.0, 20.5]'),
+            "bore.height_nominal: 25.146 mm lies outside its band",
+        ),
+        (
+            BRACKET,
+            (
+                '"station" = [12.192, 12.7]\n"station_nominal" = 12.446\n',
+                '"station" = [-12.7, -12.192]\n',
+            ),
+            (
+                "foot_hole.station: the model puts it 12.4460 mm from ear_back, "
+                "outside its band"
+            ),
+        ),
+        (
+            BRACKET,
+            (
+                '"into" = "bore"',
+                '"into" = "near_side"',
+                '["features"."inside_corner"]',
+                (
+                    '["features"."pin"]\n"kind" = "hole"\n"frame" = "model"\n'
+                    '"requirements" = ["dia"]\n"at" = [4.064, 30.0, 8.128]\n'
+                    '"axis" = [0, 0, -1]\n"dia" = [1.0, 1.1]\n"process" = "drill"\n'
+                    '"into" = "top_tap"\n\n["features"."inside_corner"]'
+                ),
+            ),
+            "top_tap.into: expected another hole, not 'near_side'",
+        ),
         (
             BRACKET,
             ('"thread" = "#4-40 UNC-2B"', '"thread" = "#1-64 UNC-2B"'),
