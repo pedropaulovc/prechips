@@ -7,9 +7,10 @@ Each kind has a geometric meaning:
 
 * ``face``: a plane square to a model axis (``plane``);
 * ``arc``: a round end or arched top about a model axis (``center``,
-  ``radius``);
+  ``axis``, ``radius`` with ``radius_nominal``, and ``apex``, the unit
+  direction in which it bounds the part);
 * ``outside_cylinder``: a turned outside (``at`` one end, ``axis`` along its
-  length, ``dia``, ``length``);
+  length, ``dia`` with ``nominal_dia``, ``length`` with ``length_nominal``);
 * ``hole`` and ``threaded_hole``: drilled, reamed or tapped along a model axis
   from its entry point (``at``, ``axis`` into the part), through, blind or
   running into another hole.
@@ -19,13 +20,12 @@ Every banded drawing requirement binds the same way whatever it is named, and
 a band located from a face or another feature is checked against the model:
 the plan prints what the drawing requires, in the part's own words.
 
-The envelope is the box over every face plane, arc and outside cylinder; a
-manifest must declare every outside face for it to be the part's.
+The envelope is the box over every face plane, each arc's apex and every
+outside cylinder; a manifest must declare every outside face for it to be the
+part's.
 """
 
 import math
-import re
-from fractions import Fraction
 from pathlib import Path
 
 from .cad import (
@@ -33,11 +33,14 @@ from .cad import (
     CadError,
     StockAxis,
     StockRequirement,
+    _band,
     _edge_breaks,
+    _mid,
     _model_frame,
     _number,
     _read_manifest,
     _string,
+    inch_thread,
 )
 
 _AXES = "xyz"
@@ -45,9 +48,20 @@ _AXES = "xyz"
 # CAD values, so they agree far finer than any drawing prints.
 _TOLERANCE = 1e-3
 _HOLES = ("hole", "threaded_hole")
-_SKIP = {"kind", "frame", "requirements", "faces", "cite", "precision", "configuration"}
-# ASME B1.1 internal threads: numbered (#N-TPI) and fractional (a/b-TPI).
-_THREAD = re.compile(r"(#\d+|\d+/\d+|\d+)-(\d+) UN(?:C|F|EF)-[123]B")
+_GEOMETRIC = ("face", "arc", "outside_cylinder", *_HOLES)
+_SKIP = {
+    "kind",
+    "frame",
+    "requirements",
+    "faces",
+    "cite",
+    "precision",
+    "configuration",
+    "nominal_dia",
+}
+# Jobber twist drills' 118° point: a blind drilled hole's point runs past its
+# full-diameter depth.
+_POINT_HALF_ANGLE = math.radians(59.0)
 
 
 def _axis(value: object, where: str) -> tuple[int, int]:
@@ -86,8 +100,25 @@ def _bind_mm(values: dict, key: str, value: float) -> None:
     _bind(values, f"{key}_in", value / 25.4)
 
 
+def _model_feature(name: str, feature: dict) -> None:
+    """Every position the adapter reads is in the model frame."""
+    plane = feature.get("plane")
+    if feature.get("frame") != "model" or (
+        isinstance(plane, dict) and plane.get("frame") != "model"
+    ):
+        raise CadError(f"{name}: expected a model-frame feature")
+
+
+def _nominal(feature: dict, key: str) -> object:
+    """A band's nominal: `<key>_nominal`, or a diameter's `nominal_dia`."""
+    if f"{key}_nominal" in feature:
+        return feature[f"{key}_nominal"]
+    return feature.get("nominal_dia") if key == "dia" else None
+
+
 def _bands(name: str, feature: dict, values: dict) -> None:
-    """Every banded requirement, its nominal and the scalars beside them."""
+    """Every banded requirement, its nominal and the scalars beside them.
+    Signed bands (stations either side of a datum) bind as they are."""
     requirements = feature.get("requirements")
     if not isinstance(requirements, list):
         raise CadError(f"{name}.requirements: expected a list")
@@ -96,26 +127,20 @@ def _bands(name: str, feature: dict, values: dict) -> None:
             continue
         if key not in feature:
             raise CadError(f"{name}.{key}: missing drawing requirement")
-        band = feature[key]
-        if not _is_band(band):
-            if isinstance(band, (str, bool)) or type(band) in (int, float):
-                _bind(values, f"{name}_{key}", band)
+        value = feature[key]
+        if not _is_band(value):
+            if isinstance(value, (str, bool)) or type(value) in (int, float):
+                _bind(values, f"{name}_{key}", value)
             continue
-        low, high = (_number(item, f"{name}.{key}") for item in band)
-        if low > high:
-            raise CadError(f"{name}.{key}: expected [low, high]")
-        _bind(values, f"{name}_{key}_in", (low + high) / 2 / 25.4)
-        _bind(values, f"{name}_{key}_min_in", low / 25.4)
-        _bind(values, f"{name}_{key}_max_in", high / 25.4)
-        _bind(values, f"{name}_{key}_band_mm", [low, high])
-        nominal = feature.get(f"{key}_nominal")
+        band = _band(feature, key, name)
+        _bind(values, f"{name}_{key}_in", _mid(band) / 25.4)
+        _bind(values, f"{name}_{key}_min_in", band[0] / 25.4)
+        _bind(values, f"{name}_{key}_max_in", band[1] / 25.4)
+        _bind(values, f"{name}_{key}_band_mm", list(band))
+        # A unilateral fit (.3750 +.0015/+.0010) has its nominal outside the band.
+        nominal = _nominal(feature, key)
         if nominal is not None:
-            nominal = _number(nominal, f"{name}.{key}_nominal")
-            if not low - 1e-6 <= nominal <= high + 1e-6:
-                raise CadError(
-                    f"{name}.{key}_nominal: {nominal:g} mm lies outside its band"
-                )
-            _bind(values, f"{name}_{key}_mm", nominal)
+            _bind(values, f"{name}_{key}_mm", _number(nominal, f"{name}.{key}_nominal"))
     for key, item in feature.items():
         if key in _SKIP or key in requirements or f"{name}_{key}" in values:
             continue
@@ -130,37 +155,31 @@ def _bands(name: str, feature: dict, values: dict) -> None:
             _bind(values, f"{name}_{key}_band_mm", [float(v) for v in item])
 
 
-def _thread(name: str, feature: dict, values: dict) -> float:
-    """The thread's basic major diameter, mm; binds its pitch."""
-    thread = _string(feature.get("thread"), f"{name}.thread")
-    match = _THREAD.fullmatch(thread)
-    if match is None:
-        raise CadError(
-            f"{name}.thread: expected an internal inch thread, e.g. #4-40 UNC-2B"
-        )
-    size, tpi = match[1], int(match[2])
-    if size.startswith("#"):
-        major = 0.060 + 0.013 * int(size[1:])
-    else:
-        major = float(Fraction(size))
-    _bind(values, f"{name}_thread_major_mm", major * 25.4)
-    _bind(values, f"{name}_thread_pitch_mm", 25.4 / tpi)
-    _bind(values, f"{name}_thread_tpi", tpi)
-    return major * 25.4
-
-
 class _Shape:
-    """Positions (for located bands) and the envelope, accumulated per kind."""
+    """Positions (for located bands), hole ends and the envelope."""
 
     def __init__(self) -> None:
         self.low = [math.inf] * 3
         self.high = [-math.inf] * 3
         self.positions: dict[str, list[float | None]] = {}
         self.planes: dict[str, int] = {}
+        # Per hole: axis index, sign, and how far past its entry it runs
+        # ("thru", ("depth", mm) or ("into", target)).
+        self.holes: dict[str, tuple[int, int, object]] = {}
 
     def extend(self, index: int, low: float, high: float) -> None:
         self.low[index] = min(self.low[index], low)
         self.high[index] = max(self.high[index], high)
+
+    def end(self, name: str) -> float:
+        """Where a hole's full diameter ends along its own axis."""
+        index, sign, run = self.holes[name]
+        entry = self.positions[name][index]
+        if run == "thru":
+            return self.high[index] if sign > 0 else self.low[index]
+        if run[0] == "depth":
+            return entry + sign * run[1]
+        return self.positions[run[1]][index]
 
 
 def _face(name: str, feature: dict, shape: _Shape, bounds: bool = True) -> None:
@@ -178,80 +197,110 @@ def _face(name: str, feature: dict, shape: _Shape, bounds: bool = True) -> None:
     shape.planes[name] = index
 
 
-def _round(name: str, feature: dict, shape: _Shape, kind: str) -> None:
-    """An arc's or outside cylinder's centre line and envelope."""
-    if kind == "arc":
-        centre = _point(feature.get("center"), f"{name}.center")
-        index, _sign = _axis(feature.get("axis"), f"{name}.axis")
-        radius = _number(feature.get("radius_nominal"), f"{name}.radius_nominal")
-        span = None
-    else:
-        centre = _point(feature.get("at"), f"{name}.at")
-        index, sign = _axis(feature.get("axis"), f"{name}.axis")
-        radius = _number(feature.get("nominal_dia"), f"{name}.nominal_dia") / 2
-        length = _number(feature.get("length_nominal"), f"{name}.length_nominal")
-        span = sorted((centre[index], centre[index] + sign * length))
+def _arc(name: str, feature: dict, shape: _Shape) -> None:
+    """A round end or arched top: it bounds the part only at its apex, the
+    radius out from its centre along `apex` (a segmental arch is clipped by
+    the faces beside it)."""
+    centre = _point(feature.get("center"), f"{name}.center")
+    index, _sign = _axis(feature.get("axis"), f"{name}.axis")
+    apex, sign = _axis(feature.get("apex"), f"{name}.apex")
+    if apex == index:
+        raise CadError(f"{name}.apex: expected square to the arc's axis")
+    _band(feature, "radius", name)
+    radius = _number(feature.get("radius_nominal"), f"{name}.radius_nominal")
     if radius <= 0:
-        raise CadError(f"{name}: expected a positive radius")
+        raise CadError(f"{name}.radius_nominal: expected a positive radius")
+    top = centre[apex] + sign * radius
+    shape.extend(apex, top, top)
+    shape.positions[name] = centre
+
+
+def _cylinder(name: str, feature: dict, shape: _Shape) -> None:
+    """A turned outside: its diameter about the axis, its length along it."""
+    centre = _point(feature.get("at"), f"{name}.at")
+    index, sign = _axis(feature.get("axis"), f"{name}.axis")
+    _band(feature, "dia", name)
+    radius = _number(feature.get("nominal_dia"), f"{name}.nominal_dia") / 2
+    length = _number(feature.get("length_nominal"), f"{name}.length_nominal")
+    if radius <= 0 or length <= 0:
+        raise CadError(f"{name}: expected a positive diameter and length")
     for other in range(3):
         if other != index:
             shape.extend(other, centre[other] - radius, centre[other] + radius)
-    if span is not None:
-        shape.extend(index, *span)
+    shape.extend(index, *sorted((centre[index], centre[index] + sign * length)))
+    # A turned outside has no one station along its length: its ends do.
     position: list[float | None] = list(centre)
-    if span is not None:
-        # A turned outside has no one station along its length: its ends do.
-        position[index] = None
+    position[index] = None
     shape.positions[name] = position
 
 
 def _hole(name: str, feature: dict, values: dict, shape: _Shape, kind: str) -> None:
     at = _point(feature.get("at"), f"{name}.at")
-    _axis(feature.get("axis"), f"{name}.axis")
-    dia = feature.get("dia")
-    if not _is_band(dia) or "dia" not in feature.get("requirements", []):
-        raise CadError(f"{name}.dia: expected a drawing band")
-    ends = [key for key in ("thru", "into", "depth", "drill_depth") if key in feature]
+    index, sign = _axis(feature.get("axis"), f"{name}.axis")
+    dia = _band(feature, "dia", name)
+    blind = "drill_depth" if kind == "threaded_hole" else "depth"
+    ends = [key for key in ("thru", "into", blind) if key in feature]
     if feature.get("thru") not in (None, True) or len(ends) != 1:
-        raise CadError(
-            f"{name}: expected exactly one of thru = true, into, "
-            + ("drill_depth" if kind == "threaded_hole" else "depth")
-        )
+        raise CadError(f"{name}: expected exactly one of thru = true, into, {blind}")
     if kind == "hole":
-        if feature.get("process") not in ("drill", "ream"):
+        # A hole made at assembly (transferred, match-drilled) is printed but
+        # not made by this traveler, so it names no process.
+        if feature.get("process") not in ("drill", "ream") and not (
+            feature.get("made_at") == "assembly" and "process" not in feature
+        ):
             raise CadError(f'{name}.process: expected "drill" or "ream"')
         if "drill_depth" in feature:
             raise CadError(f"{name}: a plain hole's blind end is its depth")
     else:
-        major = _thread(name, feature, values)
+        major, tpi, _numbered = inch_thread(
+            _string(feature.get("thread"), f"{name}.thread"), f"{name}.thread"
+        )
+        _bind(values, f"{name}_thread_major_mm", major)
+        _bind(values, f"{name}_thread_pitch_mm", 25.4 / tpi)
+        _bind(values, f"{name}_thread_tpi", tpi)
         if dia[1] >= major:
             raise CadError(
                 f"{name}.dia: the tap drill reaches the thread's major diameter"
             )
         if "depth" in feature:
             raise CadError(f"{name}: a tapped hole's blind end is its drill_depth")
-        if "thread_depth" in feature and "drill_depth" in feature:
-            thread = feature["thread_depth"]
-            drill = feature["drill_depth"]
-            if not (_is_band(thread) and _is_band(drill)) or drill[0] <= thread[1]:
-                raise CadError(f"{name}.drill_depth: must exceed the thread depth")
-        lead = feature.get("plug_tap_lead")
-        if lead is not None and _number(lead, f"{name}.plug_tap_lead") <= 0:
-            raise CadError(f"{name}.plug_tap_lead: expected a positive length")
+        lead = feature.get("plug_tap_lead", 0.0)
+        if _number(lead, f"{name}.plug_tap_lead") < 0:
+            raise CadError(f"{name}.plug_tap_lead: expected a length")
+        if "thread_depth" in feature:
+            thread = _band(feature, "thread_depth", name)
+            if "drill_depth" not in feature:
+                raise CadError(f"{name}.thread_depth: a blind thread needs drill_depth")
+            drill = _band(feature, "drill_depth", name)
+            # A plug tap run to the deepest full thread puts its point the
+            # lead further down: it must not bottom in the shallowest hole.
+            if drill[0] <= thread[1] + lead:
+                raise CadError(
+                    f"{name}.drill_depth: {drill[0]:g} mm at least does not clear "
+                    f"{thread[1]:g} mm of thread plus the tap's {lead:g} mm lead"
+                )
+    if "thru" in feature:
+        run: object = "thru"
+    elif "into" in feature:
+        run = ("into", feature["into"])
+    else:
+        run = ("depth", _band(feature, blind, name)[1])
     shape.positions[name] = at
+    shape.holes[name] = (index, sign, run)
 
 
 def _into(
     name: str, feature: dict, features: dict, values: dict, shape: _Shape
 ) -> None:
     """A hole run into another: square to it, on its axis line, ahead of the
-    entry; binds the entry's distance to that axis."""
+    entry and within the target's length; binds the entry's distance to that
+    axis."""
     target = feature["into"]
     other = features.get(target)
     if not isinstance(other, dict) or other.get("kind") not in _HOLES:
         raise CadError(f"{name}.into: expected another hole, not {target!r}")
-    index, sign = _axis(feature["axis"], f"{name}.axis")
-    other_index, _sign = _axis(other["axis"], f"{target}.axis")
+    index, sign, _run = shape.holes[name]
+    other_index, _other_sign, _other_run = shape.holes[target]
     if index == other_index:
         raise CadError(f"{name}.into: expected square to {target}")
     third = 3 - index - other_index
@@ -261,21 +310,46 @@ def _into(
     reach = sign * (theirs[index] - mine[index])
     if reach <= 0:
         raise CadError(f"{name}.into: {target} lies behind its entry")
+    span = sorted((theirs[other_index], shape.end(target)))
+    if not span[0] - _TOLERANCE <= mine[other_index] <= span[1] + _TOLERANCE:
+        raise CadError(f"{name}.into: {target} does not reach its axis")
     _bind_mm(values, f"{name}_into_axis", reach)
 
 
+def _distance(feature: dict, base: str) -> tuple[float | None, tuple | None]:
+    """What a located band must match: its nominal (or a number given as its
+    reference value), else its band."""
+    nominal = feature.get(f"{base}_nominal")
+    if nominal is None and type(feature.get(base)) in (int, float):
+        nominal = feature[base]
+    if nominal is not None:
+        return abs(_number(nominal, f"{base}_nominal")), None
+    if _is_band(feature.get(base)):
+        low, high = sorted(abs(float(item)) for item in feature[base])
+        if min(feature[base]) < 0 < max(feature[base]):
+            low = 0.0
+        return None, (low, high)
+    return None, None
+
+
 def _located(name: str, feature: dict, features: dict, shape: _Shape) -> None:
-    """Each `<K>_from` with a `<K>_nominal` agrees with the model."""
+    """Each `<K>_from` agrees with the model: its nominal exactly, else its
+    band. A kind with no position (a pocket) is bound, not checked."""
+    position = shape.positions.get(name)
     for key, reference in feature.items():
         if not key.endswith("_from"):
             continue
         base = key[: -len("_from")]
         if not isinstance(reference, str) or reference not in features:
             raise CadError(f"{name}.{key}: expected a feature name, not {reference!r}")
-        nominal = feature.get(f"{base}_nominal")
-        if nominal is None:
+        if position is None:
             continue
-        nominal = abs(_number(nominal, f"{name}.{base}_nominal"))
+        nominal, band = _distance(feature, base)
+        if nominal is None and band is None:
+            raise CadError(
+                f"{name}.{key}: needs {base}_nominal, a reference {base} or a "
+                f"{base} band"
+            )
         if reference in shape.planes:
             index = shape.planes[reference]
             if name in shape.planes and shape.planes[name] != index:
@@ -285,26 +359,35 @@ def _located(name: str, feature: dict, features: dict, shape: _Shape) -> None:
             if axis not in tuple(_AXES):
                 raise CadError(f'{name}.{base}_axis: expected "x", "y" or "z"')
             index = _AXES.index(axis)
-        mine = shape.positions.get(name, [None] * 3)[index]
+        mine = position[index]
         theirs = shape.positions.get(reference, [None] * 3)[index]
         if mine is None or theirs is None:
             raise CadError(f"{name}.{key}: no position along {_AXES[index]}")
-        if abs(abs(mine - theirs) - nominal) > _TOLERANCE:
+        found = abs(mine - theirs)
+        if nominal is not None and abs(found - nominal) > _TOLERANCE:
             raise CadError(
-                f"{name}.{base}: the model puts it {abs(mine - theirs):.4f} mm from "
+                f"{name}.{base}: the model puts it {found:.4f} mm from "
                 f"{reference}, not its {nominal:g} mm nominal"
+            )
+        if band is not None and not (
+            band[0] - _TOLERANCE <= found <= band[1] + _TOLERANCE
+        ):
+            raise CadError(
+                f"{name}.{base}: the model puts it {found:.4f} mm from "
+                f"{reference}, outside its band"
             )
 
 
 def _inside(
     name: str, feature: dict, features: dict, values: dict, shape: _Shape
 ) -> None:
-    """A hole's entry lies in the envelope and its largest diameter breaks out
-    of neither the envelope's sides nor, along it, a turned outside."""
+    """A hole's entry and blind end (with a drill's point) lie in the envelope,
+    and its largest diameter breaks out of neither the envelope's sides nor a
+    turned outside it runs along."""
     at = shape.positions[name]
-    index, _sign = _axis(feature["axis"], f"{name}.axis")
+    index, sign, run = shape.holes[name]
     radius = feature["dia"][1] / 2
-    if feature.get("kind") == "threaded_hole":
+    if feature["kind"] == "threaded_hole":
         radius = max(radius, values[f"{name}_thread_major_mm"] / 2)
     for other in range(3):
         low, high = shape.low[other], shape.high[other]
@@ -314,10 +397,25 @@ def _inside(
             or at[other] + reach > high + _TOLERANCE
         ):
             raise CadError(f"{name}: breaks out of the part along {_AXES[other]}")
+    end = shape.end(name)
+    if run != "thru" and run[0] == "depth":
+        point = 0.0
+        if feature["kind"] == "threaded_hole" or feature.get("process") == "drill":
+            point = feature["dia"][1] / 2 / math.tan(_POINT_HALF_ANGLE)
+        tip = end + sign * point
+        if not shape.low[index] - _TOLERANCE <= tip <= shape.high[index] + _TOLERANCE:
+            raise CadError(f"{name}: its blind end breaks out of the part")
+    extent = sorted((at[index], end))
     for outside, cylinder in features.items():
         if cylinder.get("kind") != "outside_cylinder":
             continue
-        if _axis(cylinder["axis"], f"{outside}.axis")[0] != index:
+        cylinder_index, cylinder_sign = _axis(cylinder["axis"], f"{outside}.axis")
+        if cylinder_index != index:
+            continue
+        start = _point(cylinder["at"], f"{outside}.at")[index]
+        length = _number(cylinder["length_nominal"], f"{outside}.length_nominal")
+        span = sorted((start, start + cylinder_sign * length))
+        if extent[1] <= span[0] + _TOLERANCE or extent[0] >= span[1] - _TOLERANCE:
             continue
         centre = shape.positions[outside]
         offset = math.hypot(*(at[i] - centre[i] for i in range(3) if i != index))
@@ -347,11 +445,14 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
         kind = feature.get("kind")
         if not isinstance(kind, str) or not kind:
             raise CadError(f"{name}.kind: expected a kind")
+        _model_feature(name, feature)
         _bands(name, feature, values)
         if kind == "face":
             _face(name, feature, shape)
-        elif kind in ("arc", "outside_cylinder"):
-            _round(name, feature, shape, kind)
+        elif kind == "arc":
+            _arc(name, feature, shape)
+        elif kind == "outside_cylinder":
+            _cylinder(name, feature, shape)
         elif kind in _HOLES:
             _hole(name, feature, values, shape, kind)
         else:

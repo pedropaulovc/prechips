@@ -109,6 +109,7 @@
 "requirements" = ["radius"]
 "center" = [0.0, 26.924, 0.0]
 "axis" = [1, 0, 0]
+"apex" = [0, 1, 0]
 "radius" = [7.874, 8.382]
 "radius_nominal" = 8.128
 "precision" = { "radius" = 2 }

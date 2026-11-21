@@ -12,7 +12,6 @@ toward +X; Y the height; Z the width, the near side at +Z; the bore axis
 along Y. The front's outside face is its bar face, the back's its back face.
 """
 
-import re
 from pathlib import Path
 
 from .cad import (
@@ -31,6 +30,7 @@ from .cad import (
     _positive,
     _read_manifest,
     _string,
+    inch_thread,
 )
 
 _SHARED = {"mating_face", "bottom_face", "top_face", "near_side", "far_side", "bore"}
@@ -43,17 +43,15 @@ _HALVES = {
 _BLANK = ("blank_length_min_in", "blank_length_max_in")
 _OTHER = ("other_half_depth_min_mm", "other_half_depth_max_mm")
 _TOLERANCE = 1e-6
-# ASME B1.1: a numbered inch thread's basic major diameter is .060 + .013 N in.
-_NUMBERED = re.compile(r"#(\d+)-\d+ UN[CF]-[123]B")
 
 
 def _thread_major(thread: str, where: str) -> float:
     """An internal numbered thread's basic major diameter, mm: the least
     diameter its crests reach."""
-    match = _NUMBERED.fullmatch(thread)
-    if match is None:
+    major, _tpi, numbered = inch_thread(thread, where)
+    if not numbered:
         raise CadError(f"{where}: expected a numbered internal thread, #N-TPI UNC-2B")
-    return (0.060 + 0.013 * int(match[1])) * 25.4
+    return major
 
 
 def _close(found: float, expected: float) -> bool:
