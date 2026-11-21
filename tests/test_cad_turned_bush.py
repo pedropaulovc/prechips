@@ -195,12 +195,31 @@ def test_clearance_fits_are_screened_at_their_smallest_turned_size():
     assert values["outer_turn_min_mm"] == pytest.approx(0.49 * 25.4)
 
 
-def test_pictures_refuse_unknown_holds_and_turning_on_a_regrip():
+def test_pictures_refuse_unknown_holds_and_turning_inside_the_regrip_jaws():
     cad = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="data-hold"):
         render_cad_svg(_svg(hold="collet"), cad, BAR)
-    with pytest.raises(CadError, match="does not turn"):
-        render_cad_svg(_svg(hold="regrip", grip="step", work="turn"), cad, BAR)
+    # A diameter in the regrip's jaws cannot be turned there, the largest
+    # included (the head, held whole while the spigot stands out).
+    with pytest.raises(CadError, match="turns step in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="datum", grip="step", work="turn", turn="step"),
+            cad,
+            BAR,
+        )
+    with pytest.raises(CadError, match="turns outer in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="far", grip="outer", work="turn", turn="outer"),
+            cad,
+            BAR,
+        )
+    with pytest.raises(CadError, match="names its diameters in data-turn"):
+        render_cad_svg(_svg(hold="regrip", grip="outer", work="turn"), cad, BAR)
+    with pytest.raises(CadError, match="data-turn 'neck'"):
+        render_cad_svg(_svg(hold="bar", work="turn", turn="neck"), cad, BAR)
+    for hold, work in (("inspect", ""), ("bar", "face")):
+        with pytest.raises(CadError, match="data-turn needs turn"):
+            render_cad_svg(_svg(hold=hold, work=work, turn="outer"), cad, BAR)
     with pytest.raises(CadError, match="data-grip 'neck'"):
         render_cad_svg(_svg(hold="regrip", grip="neck", work="centre"), cad, BAR)
 
@@ -459,6 +478,87 @@ def test_a_through_hole_is_drawn_past_the_parting_line():
     assert hidden.count("<rect") == 2 * 2
     assert "tailstock, in turn:" in picture
     assert "drill the Ø.161–.165 hole" in picture
+
+
+def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():
+    params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # Head end in the jaws, .3 in of it held; Z0 the faced spigot end.
+    assert cad.values["outer_regrip_jaw_z_far_mm"] == pytest.approx(7.62 - 25.908)
+    # Spigot in the jaws, head out: the jaws stand where the spigot's held
+    # .3 in starts.
+    assert cad.values["step_regrip_jaw_z_datum_mm"] == pytest.approx(7.62 - 25.908)
+    whole = load_turned_bush(PLUG, BAR | {"regrip_allowance_in": 0.02}, "turned-plug")
+    assert whole.values["step_regrip_jaw_z_datum_mm"] == pytest.approx(-15.24)
+    assert whole.values["outer_regrip_jaw_z_far_mm"] == pytest.approx(-10.668)
+    picture = render_cad_svg(
+        _svg(hold="regrip", out="far", grip="outer", work="face turn", turn="step"),
+        cad,
+        params,
+    ).decode()
+    assert "turn to its measured mate" in picture
+    assert "turn Ø" not in picture
+    # Z0 marks the out end, where the facing tool stands, not the head end.
+    datum = re.search(r'class="datum"[^>]*>.*?x1="([\d.]+)"', picture, re.DOTALL)[1]
+    cutter = re.search(r'class="cutter"[^>]*>.*?d="M([\d.]+) ', picture, re.DOTALL)[1]
+    assert float(datum) == pytest.approx(float(cutter))
+
+
+def test_data_turn_leaves_the_other_diameter_for_its_own_setup():
+    params = BAR | {"regrip_allowance_in": 0.02}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    head_only = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn part", turn="outer"), cad, params
+    ).decode()
+    both = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn part"), cad, params
+    ).decode()
+    assert "turn Ø.490–.510" in head_only
+    assert "measured mate" not in head_only
+    assert "measured mate" in both
+
+
+def _removed(picture: str) -> int:
+    group = re.search(r'class="part-removed"[^>]*>(.*?)</g>', picture, re.DOTALL)
+    return group[1].count("<rect") if group else 0
+
+
+def test_data_turn_hatches_only_what_the_setup_cuts():
+    params = BAR | {"regrip_allowance_in": 0.02}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    # On the bar, turning only the spigot: the head is left at the bar, so
+    # only the spigot's two hatches (above and below the axis) are cut.
+    spigot = render_cad_svg(
+        _svg(hold="bar", out="far", work="turn", turn="step"), cad, params
+    ).decode()
+    both = render_cad_svg(_svg(hold="bar", out="far", work="turn"), cad, params)
+    assert _removed(spigot) == 2
+    assert _removed(both.decode()) == 4
+    # Gripped on the finished spigot, the head out and turned from the bar:
+    # the head is hatched and labelled, the spigot neither.
+    head = render_cad_svg(
+        _svg(hold="regrip", out="datum", grip="step", work="turn", turn="outer"),
+        cad,
+        params,
+    ).decode()
+    assert _removed(head) == 2
+    assert "turn Ø.490–.510" in head
+    assert "measured mate" not in head
+
+
+def test_data_chamfers_labels_only_the_chamfers_the_setup_cuts():
+    params = BAR | {"stock_dia_in": 0.5, "regrip_allowance_in": 0.02}
+    cad = load_turned_bush(CUP, params, "turned-cup")
+    attrs = {"hold": "regrip", "out": "far", "grip": "outer", "work": "face chamfer"}
+    both = render_cad_svg(_svg(**attrs), cad, params).decode()
+    far = render_cad_svg(_svg(**attrs, chamfers="chamfer_far"), cad, params).decode()
+    bore, outer = "× 45°", cad.values
+    assert both.count(bore) == 2
+    assert far.count(bore) == 1
+    low, high = outer["chamfer_far_leg_min_in"], outer["chamfer_far_leg_max_in"]
+    assert f"{low:.3f}".lstrip("0") in far and f"{high:.3f}".lstrip("0") in far
+    with pytest.raises(CadError, match="data-chamfers 'chamfer_neck'"):
+        render_cad_svg(_svg(**attrs, chamfers="chamfer_neck"), cad, params)
 
 
 def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():

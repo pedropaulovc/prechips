@@ -424,6 +424,10 @@ def _bar(
         values[f"{name}_stickout_far_mm"] = (
             length - min(z1, z0 + grip_mm) + regrip * 25.4
         )
+        # The regrip's jaw fronts in its Z frame, Z0 on the out end once it
+        # is faced (Z+ away from the chuck): a turning_support chuck_z_mm.
+        values[f"{name}_regrip_jaw_z_datum_mm"] = -max(z0, z1 - grip_mm)
+        values[f"{name}_regrip_jaw_z_far_mm"] = min(z1, z0 + grip_mm) - length
         # The diameter's run in the bar's Z frame (Z0 the end faced first, Z+
         # away from the chuck), with either end of the part out.
         values[f"{name}_datum_out_near_z_mm"] = -z0

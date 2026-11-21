@@ -9,7 +9,8 @@ names how the work is held:
 - ``block``: a squared blank (``process.blank_side_in``) in the 4-jaw;
 - ``regrip``: the parted part turned round, the jaws on its ``data-grip``
   diameter over a shim wrap, ``cad.regrip_allowance_mm`` (left on by the
-  parting) on its out end to face;
+  parting) on its out end to face; it may turn what stands out of the
+  jaws, never a diameter inside them, and then marks Z0 on its out end;
 - ``mandrel``: the squared blank on a bolt through its bore, the bolt in the
   chuck, a washer and nut on each face;
 - ``inspect``: the finished part alone with its printed sizes.
@@ -17,7 +18,13 @@ names how the work is held:
 ``data-out`` (``datum`` or ``far``) names the part's end toward the
 tailstock; ``data-work`` lists what the setup does, from ``face``,
 ``centre``, ``drill``, ``turn``, ``pocket``, ``tap``, ``chamfer`` and
-``part``; ``data-chuck`` (``3-jaw`` or ``4-jaw``) names the chuck;
+``part``; ``data-turn`` names the diameters a setup with ``turn`` turns
+(``outer``, ``step``; all by default on the bar or blank, required in a
+regrip): on the bar or blank another diameter stands at the largest turned
+here where those passes run over it, else as it arrived, for a later setup;
+in a regrip the others are finished already; ``data-chamfers`` names the
+chamfers a setup with ``chamfer`` cuts (all by default); ``data-chuck``
+(``3-jaw`` or ``4-jaw``) names the chuck;
 ``data-member`` draws a member on its own bar (the default member when
 omitted or named). Part
 sizes come from the adapter; chuck, jaws, tools, bolt and nut are schematic
@@ -192,6 +199,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     chuck = root.attrib.pop("data-chuck", "4-jaw" if hold == "block" else "3-jaw")
     grip = root.attrib.pop("data-grip", "outer")
     member = root.attrib.pop("data-member", None)
+    turn = root.attrib.pop("data-turn", None)
+    chamfer_names = root.attrib.pop("data-chamfers", None)
     outer = "outer"
     if member is not None:
         # A member drawn on its own bar: its outer and its own stock.
@@ -221,8 +230,12 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
     if hold == "mandrel" and "bore_dia_mm" not in values:
         raise CadError("turned-bush: a mandrel hold needs the part's bore")
-    if hold == "regrip" and "turn" in work:
-        raise CadError("turned-bush: a regrip setup faces and drills; it does not turn")
+    if turn is not None and "turn" not in work:
+        raise CadError("turned-bush: data-turn needs turn in data-work")
+    if hold == "regrip" and "turn" in work and turn is None:
+        raise CadError(
+            "turned-bush: a regrip that turns names its diameters in data-turn"
+        )
     groups = _groups(root)
     _title(groups, 20, 24, _TITLES[hold])
     if hold == "inspect":
@@ -230,8 +243,44 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     if "drill" in work:
         holes.add("bore" if "bore_dia_mm" in values else "tap")
     holes |= work & {"pocket", "tap"}
+    names = [seg[0] for seg in _segments(values, outer)]
+    turned = set(names)
+    if turn is not None:
+        # data-turn names the diameters this setup turns, by feature name
+        # ("outer" the drawn member's).
+        turned = {outer if name == "outer" else name for name in turn.split()}
+        if not turned or turned - set(names):
+            raise CadError(
+                f"turned-bush: data-turn {turn!r} must name turned diameters"
+                f" ({', '.join(names)})"
+            )
+    chamfers = sorted(
+        key.removesuffix("_leg_min_in")
+        for key in values
+        if key.startswith("chamfer_") and key.endswith("_leg_min_in")
+    )
+    if chamfer_names is not None:
+        # data-chamfers names the chamfers this setup cuts, by feature name.
+        named = chamfer_names.split()
+        if not named or set(named) - set(chamfers):
+            raise CadError(
+                f"turned-bush: data-chamfers {chamfer_names!r} must name chamfers"
+                f" ({', '.join(chamfers)})"
+            )
+        chamfers = sorted(named)
     return _setup(
-        groups, values, parameters, hold, out, work, holes, chuck, grip, outer
+        groups,
+        values,
+        parameters,
+        hold,
+        out,
+        work,
+        holes,
+        chuck,
+        grip,
+        outer,
+        turned,
+        chamfers,
     )
 
 
@@ -246,6 +295,8 @@ def _setup(
     chuck: str,
     grip: str,
     outer: str,
+    turned: set,
+    chamfers: list,
 ) -> Layout:
     length = _cad(values, "length_mm")
     segments = _segments(values, outer)
@@ -259,8 +310,23 @@ def _setup(
         stock = _param(parameters, stock_key) * 12.7
     elif hold in ("block", "mandrel"):
         stock = _param(parameters, "blank_side_in") * 12.7
+    elif "turn" in work and any(
+        seg[3] >= largest - 1e-6 for seg in segments if seg[0] in turned
+    ):
+        # A regrip turning the largest diameter turns it from the bar.
+        stock = _param(parameters, stock_key) * 12.7
     else:
         stock = largest
+    if "turn" in work and hold != "regrip" and turned != {s[0] for s in segments}:
+        # On the bar or blank a diameter another (later) setup turns stands
+        # at the smallest this setup's passes over it leave, the largest
+        # diameter turned here, or as arrived when larger than that. In a
+        # regrip the others are finished already and drawn so.
+        left = max(seg[3] for seg in segments if seg[0] in turned)
+        segments = [
+            seg if seg[0] in turned else (*seg[:3], left if seg[3] < left else stock)
+            for seg in segments
+        ]
     face = 0.0
     if "face" in work and hold == "regrip":
         # The regrip faces off what the parting left on the parted end.
@@ -325,6 +391,12 @@ def _setup(
                 z0 = max(z0, z1 - held_mm)
             else:
                 z1 = min(z1, z0 + held_mm)
+        if "turn" in work:
+            # A regrip turns only what stands out of its jaws.
+            for name, a0, a1, _ in segments:
+                inside = a0 < z1 - 1e-6 and a1 > z0 + 1e-6
+                if name in turned and inside:
+                    raise CadError(f"turned-bush: the regrip turns {name} in its jaws")
         x0, x1 = page.span(z0, z1)
         _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM)
         above.append(
@@ -362,8 +434,10 @@ def _setup(
         shift = index * pitch
         groups["part-kept"].append(_profile(page, segments, shift))
         if "turn" in work:
-            for _, z0, z1, radius in segments:
-                if radius < stock - 1e-6:
+            for name, z0, z1, radius in segments:
+                # In a regrip only the named diameters are cut here.
+                cut = name in turned or hold != "regrip"
+                if cut and radius < stock - 1e-6:
                     a, b = page.span(z0, z1, shift)
                     groups["part-removed"] += [
                         _rect(a, page.up(stock), b - a, (stock - radius) * scale),
@@ -418,12 +492,20 @@ def _setup(
         )
     if not (hold in ("bar", "block") and (out == "far" or "face" not in work)):
         datum_x = page.x(0.0)
+        if hold == "regrip" and "turn" in work:
+            # A regrip that turns sets its DRO Z0 on the faced out end (the
+            # regrip_jaw_z bindings' frame), not the end in the jaws.
+            datum_x = page.x_out
         low = 2 * _AXIS - page.up(largest)
         groups["datum"].append(_line(datum_x, page.up(largest) - 10, datum_x, low + 10))
         _datum_label(groups, datum_x - 4, low + 24, "Z0", "end")
     if "turn" in work:
         for name, z0, z1, radius in segments:
-            if values.get(f"{name}_stock") or radius >= stock - 1e-6:
+            if (
+                name not in turned
+                or values.get(f"{name}_stock")
+                or radius >= stock - 1e-6
+            ):
                 continue
             a, b = page.span(z0, z1)
             lines = _size(values, name)
@@ -467,21 +549,15 @@ def _setup(
         }
         head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
         above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
-    if "chamfer" in work:
-        chamfers = sorted(
-            key.removesuffix("_leg_min_in")
-            for key in values
-            if key.startswith("chamfer_") and key.endswith("_leg_min_in")
-        )
-        if chamfers:
-            below.append(
-                (
-                    page.x_out - 4,
-                    2 * _AXIS - page.up(largest),
-                    ["break edges:"]
-                    + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
-                )
+    if "chamfer" in work and chamfers:
+        below.append(
+            (
+                page.x_out - 4,
+                2 * _AXIS - page.up(largest),
+                ["chamfer:"]
+                + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
             )
+        )
     top = _callouts(groups, above, top_y - 30, above=True)
     if top < 34:
         raise CadError("turned-bush: labels run off the top of the picture")
