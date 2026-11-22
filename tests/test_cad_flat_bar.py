@@ -161,6 +161,16 @@ def test_a_printed_property_binds_true(tmp_path):
         ),
         ('"thru" = true\n"process"', '"thru" = false\n"process"', "cross_hole.thru"),
         ('"finish_ra" = 1.6', '"finish_ra" = 1.5', "not a preferred Ra grade"),
+        (
+            '"finish_ra" = 1.6',
+            '"finish_ra" = true',
+            "finish_ra: expected a finite number",
+        ),
+        (
+            '"width" = [3.175, 3.302]',
+            '"width" = true',
+            "width: expected a finite number",
+        ),
         ('"finish_ra" = 1.6\n', "", "finish_ra: missing drawing requirement"),
         ('"axis" = [1.0, 0.0, 0.0]', '"axis" = [1.0, 1.0, 0.0]', "unit model axis"),
         ('"kind" = "notch"', '"kind" = "groove"', "top_notch: expected a model-frame"),
