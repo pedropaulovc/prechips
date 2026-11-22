@@ -356,3 +356,86 @@ def test_a_one_sided_limit_binds_in_mm_beside_a_band_of_its_stem(tmp_path):
     assert cad.values["bore_wall_min_mm"] == 2.02438
     assert cad.values["bore_wall_min_in"] == pytest.approx(0.077)
     assert bind_text("{{cad.bore_wall_min_mm:in.4dot}}", cad, {}) == ".0797"
+
+
+def _reference_outside(*fit: str) -> tuple[str, ...]:
+    """The disc's outside as a reference size, with an optional fit band."""
+    listed = "".join(f', "{line.split(" = ")[0].strip('"')}"' for line in fit)
+    return (
+        '"requirements" = ["dia", "length"]\n"at" = [0.0, 0.0, 0.0]',
+        f'"requirements" = ["dia_ref", "length"{listed}]\n"at" = [0.0, 0.0, 0.0]',
+        '"dia" = [14.5542, 14.6558]\n"nominal_dia" = 14.605',
+        '"dia_ref" = 14.605' + "".join(f"\n{line}" for line in fit),
+    )
+
+
+def test_a_reference_outside_binds_its_size_and_walls_at_it(tmp_path):
+    # Left as bought: the reference is the least it is.
+    values = load_drilled_block(
+        _variant(tmp_path, DISC, *_reference_outside()), {}, "drilled-disc"
+    ).values
+    assert values["outside_dia_ref_in"] == pytest.approx(0.575)
+    assert values["outside_dia_least_in"] == pytest.approx(0.575)
+    assert values["envelope_x_in"] == pytest.approx(0.575)
+    # .575/2 - .083 - .2515/2 = .07875.
+    assert values["bore_wall_to_outside_worst_in"] == pytest.approx(0.07875, abs=1e-5)
+
+
+@pytest.mark.parametrize(
+    ("fit", "least_in"),
+    [
+        # Under a measured mate: the reference less the most clearance.
+        ('"diametral_clearance" = [0.0254, 0.0508]', 0.573),
+        # Pressed into a measured mate: the reference plus the least.
+        ('"diametral_interference" = [0.01016, 0.03048]', 0.5754),
+    ],
+)
+def test_a_reference_outside_turned_to_a_mate_walls_at_its_least(
+    tmp_path, fit, least_in
+):
+    path = _variant(tmp_path, DISC, *_reference_outside(fit))
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    assert values["outside_dia_least_in"] == pytest.approx(least_in)
+    assert values["outside_dia_ref_mm"] == pytest.approx(14.605)
+    assert values["bore_wall_to_outside_worst_in"] == pytest.approx(
+        least_in / 2 - 0.083 - 0.2515 / 2, abs=1e-5
+    )
+
+
+def test_a_banded_outside_binds_its_least(tmp_path):
+    values = load_drilled_block(DISC, {}, "drilled-disc").values
+    assert values["outside_dia_least_in"] == pytest.approx(0.573)
+    assert "outside_dia_ref_mm" not in values
+
+
+@pytest.mark.parametrize(
+    ("pairs", "message"),
+    [
+        (
+            ('"nominal_dia" = 14.605', '"nominal_dia" = 14.605\n"dia_ref" = 14.605'),
+            "outside.dia_ref: a reference size takes no dia band",
+        ),
+        (
+            (
+                '"nominal_dia" = 14.605',
+                '"nominal_dia" = 14.605\n"diametral_clearance" = [0.0, 0.1]',
+            ),
+            "outside.diametral_clearance: a fit goes with a dia_ref",
+        ),
+        (
+            _reference_outside(
+                '"diametral_clearance" = [0.0, 0.1]',
+                '"diametral_interference" = [0.0, 0.1]',
+            ),
+            "a clearance or a press, not both",
+        ),
+        (
+            _reference_outside('"diametral_interference" = [-0.01, 0.1]'),
+            "outside.diametral_interference: expected a positive band",
+        ),
+    ],
+)
+def test_a_bad_reference_outside_is_refused(tmp_path, pairs, message):
+    path = _variant(tmp_path, DISC, *pairs)
+    with pytest.raises(CadError, match=message):
+        load_drilled_block(path, {}, "drilled-disc")
