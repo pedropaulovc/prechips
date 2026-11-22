@@ -132,6 +132,22 @@ def test_locations_from_a_datum_threads_and_points_bind(tmp_path):
     assert load_flat_bar(fit, {}, "notched-bar").values["cross_hole_dia_mm"] == 3.175
 
 
+def test_a_printed_property_binds_true(tmp_path):
+    """A true-or-false requirement (FLAT BOTTOM) is a property the drawing
+    prints: it binds true, and a false one refuses."""
+    listed = (
+        '"requirements" = ["dia", "thru", "process", "location_from_back", "drop", '
+        '"finish_ra"]'
+    )
+    flat = listed.replace('"finish_ra"]', '"finish_ra", "flat_bottom"]')
+    source = _variant(tmp_path, listed, flat + '\n"flat_bottom" = true')
+    values = load_flat_bar(source, {}, "notched-bar").values
+    assert values["cross_hole_flat_bottom"] is True
+    false = _variant(tmp_path, listed, flat + '\n"flat_bottom" = false')
+    with pytest.raises(CadError, match="cross_hole.flat_bottom: expected true"):
+        load_flat_bar(false, {}, "notched-bar")
+
+
 @pytest.mark.parametrize(
     ("old", "new", "message"),
     [
@@ -145,6 +161,21 @@ def test_locations_from_a_datum_threads_and_points_bind(tmp_path):
         ),
         ('"thru" = true\n"process"', '"thru" = false\n"process"', "cross_hole.thru"),
         ('"finish_ra" = 1.6', '"finish_ra" = 1.5', "not a preferred Ra grade"),
+        (
+            '"finish_ra" = 1.6',
+            '"finish_ra" = true',
+            "finish_ra: expected a finite number",
+        ),
+        (
+            '"width" = [3.175, 3.302]',
+            '"width" = true',
+            "width: expected a finite number",
+        ),
+        (
+            '"drop" = [6.096, 6.604]',
+            '"drop" = true',
+            "cross_hole.drop: expected a finite number",
+        ),
         ('"finish_ra" = 1.6\n', "", "finish_ra: missing drawing requirement"),
         ('"axis" = [1.0, 0.0, 0.0]', '"axis" = [1.0, 1.0, 0.0]', "unit model axis"),
         ('"kind" = "notch"', '"kind" = "groove"', "top_notch: expected a model-frame"),
