@@ -564,10 +564,24 @@ def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
     if item.get("kind") != "groove":
         raise CadError(f"{name}: expected a model-frame groove")
     z0, z1 = _span(item, name, frame, values)
-    band = _limits(item, "dia", name, f"{name}_dia", values)
-    values[f"{name}_dia_mm"] = _nominal(item, "dia_nominal", band, name)
-    # The least size it is cut to, to screen a hold's stickout by.
-    values[f"{name}_dia_min_mm"] = band[0]
+    requirements = item.get("requirements", [])
+    if ("dia" in requirements) == ("dia_max" in requirements):
+        raise CadError(f"{name}: expected one of a dia band or a dia_max limit")
+    if "dia" in requirements:
+        band = _limits(item, "dia", name, f"{name}_dia", values)
+        values[f"{name}_dia_mm"] = _nominal(item, "dia_nominal", band, name)
+        # The least size it is cut to, to screen a hold's stickout by.
+        values[f"{name}_dia_min_mm"] = band[0]
+        most = band[1]
+    else:
+        # A single MAX limit: any floor under it is accepted, so no least
+        # size is bound; the nominal may not exceed it.
+        most = _positive(item.get("dia_max"), f"{name}.dia_max")
+        values[f"{name}_dia_max_mm"], values[f"{name}_dia_max_in"] = most, most / 25.4
+        nominal = _positive(item.get("dia_nominal"), f"{name}.dia_nominal")
+        if nominal > most + _TOLERANCE:
+            raise CadError(f"{name}.dia_nominal: over its dia_max")
+        values[f"{name}_dia_mm"] = nominal
     widths = _limits(item, "width", name, f"{name}_width", values)
     width = _nominal(item, "width_nominal", widths, name)
     values[f"{name}_width_mm"] = width
@@ -582,11 +596,11 @@ def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
     if not cut:
         raise CadError(f"{name}.span: cuts into no diameter")
     least = min(_least(values, d) for d in cut)
-    if band[1] >= least:
+    if most >= least:
         raise CadError(f"{name}.dia: not under the Ø{least:.3f} diameter it cuts into")
     if "corner_radius_max" in item:
-        most = _positive(item["corner_radius_max"], f"{name}.corner_radius_max")
-        values[f"{name}_corner_r_max_in"] = most / 25.4
+        corner = _positive(item["corner_radius_max"], f"{name}.corner_radius_max")
+        values[f"{name}_corner_r_max_in"] = corner / 25.4
     # The groove's run in the lathe's Z frame with either end out.
     _lathe_z(values, name)
 

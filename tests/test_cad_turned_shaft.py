@@ -201,6 +201,42 @@ def test_refusals(tmp_path, path, old, new, message):
         load_turned_shaft(source, {}, part)
 
 
+def _max_relief(tmp_path: Path, nominal: str = "2.13") -> Path:
+    # The relief printed as a single limit, Ø.084 MAX: any floor under it.
+    return _edited(
+        tmp_path,
+        PIN,
+        '"requirements" = ["dia", "width"]\n"span" = [4.7625, 6.35]\n'
+        '"dia" = [1.93, 2.13]\n"dia_nominal" = 2.03',
+        '"requirements" = ["dia_max", "width"]\n"span" = [4.7625, 6.35]\n'
+        f'"dia_max" = 2.13\n"dia_nominal" = {nominal}',
+    )
+
+
+def test_a_groove_may_print_its_diameter_as_a_single_max(tmp_path):
+    cad = load_turned_shaft(_max_relief(tmp_path), BAR, "demo-turned-pin")
+    assert cad.values["groove_relief_dia_max_in"] == pytest.approx(2.13 / 25.4)
+    assert cad.values["groove_relief_dia_mm"] == pytest.approx(2.13)
+    # No floor is printed, so none is bound.
+    assert "groove_relief_dia_min_in" not in cad.values
+    assert "groove_relief_dia_min_mm" not in cad.values
+    picture = render_cad_svg(_svg(hold="inspect"), cad, BAR)
+    assert "groove Ø.084 max".encode() in picture
+
+
+def test_a_groove_takes_one_diameter_acceptance(tmp_path):
+    with pytest.raises(CadError, match="over its dia_max"):
+        load_turned_shaft(_max_relief(tmp_path, "2.2"), BAR, "demo-turned-pin")
+    both = _edited(
+        tmp_path,
+        PIN,
+        '"requirements" = ["dia", "width"]',
+        '"requirements" = ["dia", "dia_max", "width"]\n"dia_max" = 2.13',
+    )
+    with pytest.raises(CadError, match="one of a dia band or a dia_max"):
+        load_turned_shaft(both, BAR, "demo-turned-pin")
+
+
 def test_a_fillet_sits_at_a_step_that_tiles_within_tolerance(tmp_path):
     source = _edited(
         tmp_path, PIN, '"span" = [6.35, 12.7]', '"span" = [6.3500004, 12.7]'
