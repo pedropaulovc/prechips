@@ -370,7 +370,7 @@ def _reference_outside(*fit: str) -> tuple[str, ...]:
 
 
 def test_a_reference_outside_binds_its_size_and_walls_at_it(tmp_path):
-    # Left as bought: the reference is the least it is.
+    # Left as bought, no least size given: walls read at the reference.
     values = load_drilled_block(
         _variant(tmp_path, DISC, *_reference_outside()), {}, "drilled-disc"
     ).values
@@ -382,20 +382,25 @@ def test_a_reference_outside_binds_its_size_and_walls_at_it(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("fit", "least_in"),
+    ("fit", "least_in", "envelope_in"),
     [
-        # Under a measured mate: the reference less the most clearance.
-        ('"diametral_clearance" = [0.0254, 0.0508]', 0.573),
-        # Pressed into a measured mate: the reference plus the least.
-        ('"diametral_interference" = [0.01016, 0.03048]', 0.5754),
+        # Under a measured mate: the reference less the most clearance; the
+        # envelope at the reference, the most it can be.
+        ('"diametral_clearance" = [0.0254, 0.0508]', 0.573, 0.575),
+        # Pressed into a measured mate: the reference plus the least; the
+        # envelope at the reference plus the most.
+        ('"diametral_interference" = [0.01016, 0.03048]', 0.5754, 0.5762),
+        # Bought, arriving as small as its least size.
+        ('"dia_ref_min" = 14.5542', 0.573, 0.575),
     ],
 )
 def test_a_reference_outside_turned_to_a_mate_walls_at_its_least(
-    tmp_path, fit, least_in
+    tmp_path, fit, least_in, envelope_in
 ):
     path = _variant(tmp_path, DISC, *_reference_outside(fit))
     values = load_drilled_block(path, {}, "drilled-disc").values
     assert values["outside_dia_least_in"] == pytest.approx(least_in)
+    assert values["envelope_x_in"] == pytest.approx(envelope_in)
     assert values["outside_dia_ref_mm"] == pytest.approx(14.605)
     assert values["bore_wall_to_outside_worst_in"] == pytest.approx(
         least_in / 2 - 0.083 - 0.2515 / 2, abs=1e-5
@@ -406,6 +411,16 @@ def test_a_banded_outside_binds_its_least(tmp_path):
     values = load_drilled_block(DISC, {}, "drilled-disc").values
     assert values["outside_dia_least_in"] == pytest.approx(0.573)
     assert "outside_dia_ref_mm" not in values
+    # A fit printed beside a band is bound as a band, as turned_bush prints it.
+    path = _variant(
+        tmp_path,
+        DISC,
+        '"nominal_dia" = 14.605',
+        '"nominal_dia" = 14.605\n"diametral_clearance" = [0.0, 0.1]',
+    )
+    fitted = load_drilled_block(path, {}, "drilled-disc").values
+    assert fitted["outside_dia_least_in"] == pytest.approx(0.573)
+    assert fitted["outside_diametral_clearance_band_mm"] == [0.0, 0.1]
 
 
 @pytest.mark.parametrize(
@@ -416,11 +431,26 @@ def test_a_banded_outside_binds_its_least(tmp_path):
             "outside.dia_ref: a reference size takes no dia band",
         ),
         (
-            (
-                '"nominal_dia" = 14.605',
-                '"nominal_dia" = 14.605\n"diametral_clearance" = [0.0, 0.1]',
+            ('"nominal_dia" = 14.605', '"nominal_dia" = 14.605\n"dia_ref_min" = 14.5'),
+            "outside.dia_ref_min: goes with a dia_ref",
+        ),
+        (
+            _reference_outside('"nominal_dia" = 99.0'),
+            "outside.nominal_dia: a reference size takes none",
+        ),
+        (
+            _reference_outside('"dia_ref_min" = 15.0'),
+            "outside.dia_ref_min: over the dia_ref",
+        ),
+        (
+            _reference_outside(
+                '"dia_ref_min" = 14.5', '"diametral_clearance" = [0.0, 0.1]'
             ),
-            "outside.diametral_clearance: a fit goes with a dia_ref",
+            "outside.dia_ref_min: a fit sets the least size",
+        ),
+        (
+            _reference_outside('"diametral_clearance" = [0.0, 20.0]'),
+            "outside: its least diameter is not positive",
         ),
         (
             _reference_outside(
