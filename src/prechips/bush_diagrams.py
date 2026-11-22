@@ -21,8 +21,8 @@ names how the work is held:
 
 ``data-out`` (``datum`` or ``far``) names the part's end toward the
 tailstock; ``data-work`` lists what the setup does, from ``face``,
-``centre``, ``drill``, ``turn``, ``pocket``, ``tap``, ``chamfer`` and
-``part``; ``data-turn`` names the diameters a setup with ``turn`` turns
+``centre``, ``drill``, ``ream``, ``turn``, ``pocket``, ``tap``, ``chamfer``
+and ``part``; ``data-turn`` names the diameters a setup with ``turn`` turns
 (``outer``, ``step``; all by default on the bar or blank, required in a
 regrip): on the bar or blank another diameter stands at the largest turned
 here where those passes run over it, else as it arrived, for a later setup;
@@ -51,7 +51,17 @@ _HOLDS = ("bar", "block", "regrip", "mandrel", "inspect")
 _OUTS = ("datum", "far")
 _Z0S = ("datum", "out")
 _SEATS = ("chuck", "none")
-_WORK = ("face", "centre", "drill", "turn", "pocket", "tap", "chamfer", "part")
+_WORK = (
+    "face",
+    "centre",
+    "drill",
+    "ream",
+    "turn",
+    "pocket",
+    "tap",
+    "chamfer",
+    "part",
+)
 _CHUCKS = ("3-jaw", "4-jaw")
 _TITLES = {
     "bar": "Bar in the chuck, seen from the operator's side",
@@ -88,6 +98,13 @@ def _band(key: str, places: int) -> str:
     return (
         f"{{{{cad.{key}_min_in:.{places}dot}}}}–{{{{cad.{key}_max_in:.{places}dot}}}}"
     )
+
+
+def _bore_band(values: dict) -> str:
+    """``min–max`` tokens of the bore's band: four places on a band under
+    .002 in wide (a reamed fit), as the turned diameters print."""
+    spread = values["bore_dia_max_in"] - values["bore_dia_min_in"]
+    return _band("bore_dia", 4 if spread < 0.002 else 3)
 
 
 def _size(values: dict, name: str) -> list[str]:
@@ -251,6 +268,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: data-chuck must be 3-jaw or 4-jaw")
     if hold == "block" and chuck != "4-jaw":
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
+    if "ream" in work and "bore_dia_mm" not in values:
+        raise CadError("turned-bush: ream needs the part's bore")
     if hold == "mandrel" and "bore_dia_mm" not in values:
         raise CadError("turned-bush: a mandrel hold needs the part's bore")
     if turn is not None and "turn" not in work:
@@ -584,18 +603,24 @@ def _setup(
             )
         )
     hole_work = [
-        token for token in ("centre", "drill", "pocket", "tap") if token in work
+        token for token in ("centre", "drill", "ream", "pocket", "tap") if token in work
     ]
     if hole_work:
         _tailstock(groups, x_tail + 14)
         lines = {
             "centre": "centre drill",
-            "drill": "drill the Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}} hole"
+            # A reamed bore: the drill opens it under the reamer, which
+            # makes the printed size.
+            "drill": "drill under the reamer"
+            if "ream" in work
+            else f"drill the Ø{_bore_band(values)} hole"
             if "bore_dia_mm" in values
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
             "pocket": "pocket {{cad.pocket_depth_min_in:.3dot}}–{{cad.pocket_depth_max_in:.3dot}} deep",
             "tap": "tap {{cad.tap_thread}}",
         }
+        if "ream" in work:
+            lines["ream"] = f"ream the Ø{_bore_band(values)} hole"
         head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
         above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
     if "chamfer" in work and chamfers:
@@ -660,7 +685,7 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
                     # A drilled hole is a hole: "bore" would also name a
                     # pocket a boring bar opens on the same sheet.
                     "hole" if values.get("bore_process") == "drill" else "bore",
-                    "Ø{{cad.bore_dia_min_in:.3dot}}–{{cad.bore_dia_max_in:.3dot}}",
+                    f"Ø{_bore_band(values)}",
                 ],
             )
         )

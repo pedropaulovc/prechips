@@ -714,3 +714,39 @@ def test_as_supplied_binds_the_bar_and_rough_sizes_raise_the_least_bar():
     # reach the rough size.
     rough = load_turned_bush(PLUG, BAR | {"finish_allowance_in": 0.015}, "turned-plug")
     assert rough.stock_requirement.axes[0].required_mm == pytest.approx(0.52 * 25.4)
+
+
+def test_a_reamed_bore_prints_four_places_and_its_reamer(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"dia" = [4.0894, 4.191]\n"nominal_dia" = 4.0894\n"thru" = true\n"process" = "drill"'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.1148, 4.1275]\n"nominal_dia" = 4.1148\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    params = BAR | {"stock_dia_in": 0.5}
+    cad = load_turned_bush(source, params, "turned-cup")
+    # A .0005 band: three places would print .162-.163, a band it is not.
+    reamed = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre drill ream part"), cad, params
+    ).decode()
+    assert "drill under the reamer" in reamed
+    assert "ream the Ø.1620–.1625 hole" in reamed
+    drilled = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre drill part"), cad, params
+    ).decode()
+    assert "drill the Ø.1620–.1625 hole" in drilled
+    inspect = render_cad_svg(_svg(hold="inspect"), cad, params).decode()
+    assert "Ø.1620–.1625" in inspect
+    # A wider band keeps three places (the cup's own .161-.165 drilled hole).
+    wide = load_turned_bush(CUP, params, "turned-cup")
+    picture = render_cad_svg(_svg(hold="inspect"), wide, params).decode()
+    assert "Ø.161–.165" in picture
+    plug = load_turned_bush(PLUG, BAR, "turned-plug")
+    with pytest.raises(CadError, match="ream needs the part's bore"):
+        render_cad_svg(_svg(hold="bar", out="datum", work="face ream part"), plug, BAR)

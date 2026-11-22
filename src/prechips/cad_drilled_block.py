@@ -10,7 +10,14 @@ Each kind has a geometric meaning:
   ``axis``, ``radius`` with ``radius_nominal``, and ``apex``, the unit
   direction in which it bounds the part);
 * ``outside_cylinder``: a turned outside (``at`` one end, ``axis`` along its
-  length, ``dia`` with ``nominal_dia``, ``length`` with ``length_nominal``);
+  length, ``dia`` with ``nominal_dia`` or a ``dia_ref`` reference size with
+  an optional least ``dia_ref_min`` as bought, or at most one
+  ``diametral_clearance`` or ``diametral_interference`` band, ``length``
+  with ``length_nominal``);
+* ``outside_cone``: a tapered outside (a taper pin): ``at`` its large end,
+  ``axis`` toward its small end, the large end's ``dia_ref`` (or ``dia``
+  with ``nominal_dia``), ``small_dia_ref`` and ``length_ref`` (or
+  ``length_nominal``);
 * ``hex_prism``: a length of hex bar (``at`` one end, ``axis`` along its
   length, ``length_nominal``, its size across the flats as an ``af`` band
   with ``af_nominal`` or a stock ``af_ref``, and ``corner``, the unit
@@ -26,9 +33,14 @@ the plan prints what the drawing requires, in the part's own words.
 
 The envelope is the box over every face plane, each arc's apex, every
 outside cylinder and every hex prism's corners and flats; a manifest must
-declare every outside face for it to be the part's. A hole along a hex prism
-is walled to its flats; one across it must enter, and a blind one end, within
-them (its sides are checked against the envelope, as across a cylinder).
+declare every outside face for it to be the part's. On an axis those leave no span, a feature's ``corners`` (a list of
+model points [x, y, z]: the corners of an outside face square to no model
+axis, such as a slant or tapered side) bound it; on an axis they do span,
+each corner must lie within it. A corners-bound axis is the box over the
+corners, so hole checks along it read that box, not the slant itself.
+A hole along a hex prism is walled to its flats; one across it must enter,
+and a blind one end, within them (its sides are checked against the
+envelope, as across a cylinder).
 """
 
 import math
@@ -44,6 +56,7 @@ from .cad import (
     _mid,
     _model_frame,
     _number,
+    _positive,
     _read_manifest,
     _string,
     inch_thread,
@@ -239,12 +252,60 @@ def _arc(name: str, feature: dict, shape: _Shape) -> None:
     shape.positions[name] = centre
 
 
-def _cylinder(name: str, feature: dict, shape: _Shape) -> None:
-    """A turned outside: its diameter about the axis, its length along it."""
+_FITS = ("diametral_clearance", "diametral_interference")
+
+
+def _cylinder(name: str, feature: dict, values: dict, shape: _Shape) -> None:
+    """A turned outside: its diameter about the axis, its length along it.
+
+    The diameter is a `dia` band (a fit printed beside it is bound as a
+    band), or a `dia_ref` reference size: a bought outside left as
+    supplied, with an optional least size `dia_ref_min` it may arrive at, or
+    one turned to a measured mate with at most one fit band
+    (`diametral_clearance` under it, `diametral_interference` over it).
+    Walls read the least it can be: the band's low end, `dia_ref_min` (else
+    the reference), the reference less the most clearance, or plus the least
+    interference (the mate assumed at or over its reference). The envelope
+    reads the most: the nominal, the reference, or the reference plus the
+    most interference."""
     centre = _point(feature.get("at"), f"{name}.at")
     index, sign = _axis(feature.get("axis"), f"{name}.axis")
-    _band(feature, "dia", name)
-    radius = _number(feature.get("nominal_dia"), f"{name}.nominal_dia") / 2
+    fits = [key for key in _FITS if key in feature]
+    if "dia" in feature and "dia_ref" in feature:
+        raise CadError(f"{name}.dia_ref: a reference size takes no dia band")
+    if "dia" not in feature and "dia_ref" not in feature:
+        raise CadError(f"{name}.dia: expected a dia band or a dia_ref")
+    if "dia" in feature:
+        if "dia_ref_min" in feature:
+            raise CadError(f"{name}.dia_ref_min: goes with a dia_ref")
+        least = _band(feature, "dia", name)[0]
+        radius = _number(feature.get("nominal_dia"), f"{name}.nominal_dia") / 2
+    else:
+        ref = _positive(feature.get("dia_ref"), f"{name}.dia_ref")
+        if "nominal_dia" in feature:
+            raise CadError(f"{name}.nominal_dia: a reference size takes none")
+        if len(fits) > 1:
+            raise CadError(f"{name}: a fit is a clearance or a press, not both")
+        least, most = ref, ref
+        if "dia_ref_min" in feature:
+            if fits:
+                raise CadError(f"{name}.dia_ref_min: a fit sets the least size")
+            least = _positive(feature["dia_ref_min"], f"{name}.dia_ref_min")
+            if least > ref:
+                raise CadError(f"{name}.dia_ref_min: over the dia_ref")
+        if fits:
+            fit = _band(feature, fits[0], name)
+            if fit[0] < 0:
+                raise CadError(f"{name}.{fits[0]}: expected a positive band")
+            if fits[0] == _FITS[0]:
+                least = ref - fit[1]
+            else:
+                least, most = ref + fit[0], ref + fit[1]
+        if least <= 0:
+            raise CadError(f"{name}: its least diameter is not positive")
+        radius = most / 2
+        _bind_mm(values, f"{name}_dia_ref", ref)
+    _bind_mm(values, f"{name}_dia_least", least)
     length = _number(feature.get("length_nominal"), f"{name}.length_nominal")
     if radius <= 0 or length <= 0:
         raise CadError(f"{name}: expected a positive diameter and length")
@@ -252,7 +313,7 @@ def _cylinder(name: str, feature: dict, shape: _Shape) -> None:
         if other != index:
             shape.extend(other, centre[other] - radius, centre[other] + radius)
     span = _along(name, centre, index, sign, length, shape)
-    shape.cylinders[name] = (index, span, feature["dia"][0])
+    shape.cylinders[name] = (index, span, least)
 
 
 def _along(
@@ -324,6 +385,37 @@ def _off_flats(at: list, centre: list, corner: int, index: int) -> float:
         abs(dc * math.sqrt(3) / 2 + df / 2),
         abs(dc * math.sqrt(3) / 2 - df / 2),
     )
+
+
+def _cone(name: str, feature: dict, shape: _Shape, values: dict) -> None:
+    """A tapered outside: bounded by its large end across the axis and its
+    length along it; a hole run along it is walled by its small end."""
+    centre = _point(feature.get("at"), f"{name}.at")
+    index, sign = _axis(feature.get("axis"), f"{name}.axis")
+    large_key = "dia_ref" if "dia_ref" in feature else "nominal_dia"
+    large = _number(feature.get(large_key), f"{name}.{large_key}")
+    small = _number(feature.get("small_dia_ref"), f"{name}.small_dia_ref")
+    length_key = "length_ref" if "length_ref" in feature else "length_nominal"
+    length = _number(feature.get(length_key), f"{name}.{length_key}")
+    if not 0 < small < large or length <= 0:
+        raise CadError(
+            f"{name}: expected a small end under a positive large end and a "
+            "positive length"
+        )
+    for other in range(3):
+        if other != index:
+            shape.extend(other, centre[other] - large / 2, centre[other] + large / 2)
+    span = sorted((centre[index], centre[index] + sign * length))
+    shape.extend(index, *span)
+    shape.cylinders[name] = (index, (span[0], span[1]), small)
+    _bind(
+        values,
+        f"{name}_half_angle_deg",
+        math.degrees(math.atan((large - small) / 2 / length)),
+    )
+    position: list[float | None] = list(centre)
+    position[index] = None
+    shape.positions[name] = position
 
 
 def _depth(feature: dict, key: str, name: str) -> tuple[float, float]:
@@ -544,6 +636,36 @@ def _inside(name: str, feature: dict, values: dict, shape: _Shape) -> None:
                 raise CadError(f"{name}: its blind end breaks out of {outside}'s flats")
 
 
+def _corners(name: str, feature: dict) -> list[list[float]]:
+    """A feature's `corners`, model points on the part's outside (a scalar
+    `corners` is an ordinary field and binds as one)."""
+    corners = feature.get("corners")
+    if not isinstance(corners, list):
+        return []
+    if not corners:
+        raise CadError(f"{name}.corners: expected a list of model points")
+    return [_point(corner, f"{name}.corners") for corner in corners]
+
+
+def _bound_corners(corners: list[tuple[str, list[float]]], shape: _Shape) -> None:
+    """Corners bound each axis no face or round spans, and lie within the
+    span of every axis one does."""
+    spanned = [shape.high[index] - shape.low[index] > 0 for index in range(3)]
+    for name, point in corners:
+        for index in range(3):
+            if not spanned[index]:
+                shape.extend(index, point[index], point[index])
+            elif not (
+                shape.low[index] - _TOLERANCE
+                <= point[index]
+                <= shape.high[index] + _TOLERANCE
+            ):
+                raise CadError(
+                    f"{name}.corners: a corner lies outside the faces bounding "
+                    f"{_AXES[index]}"
+                )
+
+
 def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     """Bind every feature's bands and positions, the envelope and, from the
     plan's `blank_<axis>_in`, the blank it is cut from."""
@@ -560,6 +682,7 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     values["finish"] = _string(material.get("finish"), "cad.material.finish")
     _edge_breaks(raw, values)
     shape = _Shape()
+    corners: list[tuple[str, list[float]]] = []
     for name, feature in features.items():
         if not isinstance(feature, dict):
             raise CadError(f"cad.features.{name}: expected a table")
@@ -573,7 +696,9 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
         elif kind == "arc":
             _arc(name, feature, shape)
         elif kind == "outside_cylinder":
-            _cylinder(name, feature, shape)
+            _cylinder(name, feature, values, shape)
+        elif kind == "outside_cone":
+            _cone(name, feature, shape, values)
         elif kind == "hex_prism":
             _hex_prism(name, feature, values, shape)
         elif kind in _HOLES:
@@ -586,10 +711,14 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
             else:
                 if isinstance(feature.get("plane"), dict):
                     _face(name, feature, shape, bounds=False)
+        corners += [(name, point) for point in _corners(name, feature)]
+    _bound_corners(corners, shape)
     for index, axis in enumerate(_AXES):
         low, high = shape.low[index], shape.high[index]
         if not high - low > 0:
-            raise CadError(f"cad.features: no outside face or round bounds {axis}")
+            raise CadError(
+                f"cad.features: no outside face, round or corners span {axis}"
+            )
         _bind_mm(values, f"envelope_{axis}", high - low)
         _bind(values, f"{axis}_min_mm", low)
         _bind(values, f"{axis}_max_mm", high)

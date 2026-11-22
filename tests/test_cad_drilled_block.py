@@ -418,7 +418,42 @@ def test_an_axis_no_outside_face_bounds_is_refused(tmp_path):
         pairs += [old, old.replace('"face"', '"reference_plane"')]
     path = _variant(tmp_path, BRACKET, *pairs)
     with pytest.raises(
-        CadError, match="^cad.features: no outside face or round bounds x$"
+        CadError, match="^cad.features: no outside face, round or corners span x$"
+    ):
+        load_drilled_block(path, {}, "drilled-bracket")
+
+
+_SLANT = """["features"."slant"]
+"kind" = "tapered_side"
+"frame" = "model"
+"requirements" = []
+"corners" = [[0.0, 0.0, -8.128], [0.0, 0.0, 8.128], [17.78, 6.096, %s]]
+
+["features"."bore"]"""
+
+
+def test_corners_bound_an_axis_no_outside_face_bounds(tmp_path):
+    # The z faces become reference planes; a face square to no model axis
+    # declares its corners, and they alone bound z.
+    pairs = [
+        '["features"."bore"]',
+        _SLANT % "8.128",
+    ]
+    for face in ("near_side", "far_side"):
+        old = f'["features"."{face}"]\n"kind" = "face"'
+        pairs += [old, old.replace('"face"', '"reference_plane"')]
+    values = load_drilled_block(
+        _variant(tmp_path, BRACKET, *pairs), {}, "drilled-bracket"
+    ).values
+    assert values["envelope_z_in"] == pytest.approx(0.64)
+    assert values["envelope_x_in"] == pytest.approx(0.70)
+
+
+def test_a_corner_outside_the_faces_on_its_axis_is_refused(tmp_path):
+    # z is spanned by its faces: a corner there must lie between them.
+    path = _variant(tmp_path, BRACKET, '["features"."bore"]', _SLANT % "10.0")
+    with pytest.raises(
+        CadError, match="^slant.corners: a corner lies outside the faces bounding z$"
     ):
         load_drilled_block(path, {}, "drilled-bracket")
 
@@ -439,3 +474,204 @@ def test_a_one_sided_limit_binds_in_mm_beside_a_band_of_its_stem(tmp_path):
     assert cad.values["bore_wall_min_mm"] == 2.02438
     assert cad.values["bore_wall_min_in"] == pytest.approx(0.077)
     assert bind_text("{{cad.bore_wall_min_mm:in.4dot}}", cad, {}) == ".0797"
+
+
+def _reference_outside(*fit: str) -> tuple[str, ...]:
+    """The disc's outside as a reference size, with an optional fit band."""
+    listed = "".join(f', "{line.split(" = ")[0].strip('"')}"' for line in fit)
+    return (
+        '"requirements" = ["dia", "length"]\n"at" = [0.0, 0.0, 0.0]',
+        f'"requirements" = ["dia_ref", "length"{listed}]\n"at" = [0.0, 0.0, 0.0]',
+        '"dia" = [14.5542, 14.6558]\n"nominal_dia" = 14.605',
+        '"dia_ref" = 14.605' + "".join(f"\n{line}" for line in fit),
+    )
+
+
+def test_a_reference_outside_binds_its_size_and_walls_at_it(tmp_path):
+    # Left as bought, no least size given: walls read at the reference.
+    values = load_drilled_block(
+        _variant(tmp_path, DISC, *_reference_outside()), {}, "drilled-disc"
+    ).values
+    assert values["outside_dia_ref_in"] == pytest.approx(0.575)
+    assert values["outside_dia_least_in"] == pytest.approx(0.575)
+    assert values["envelope_x_in"] == pytest.approx(0.575)
+    # .575/2 - .083 - .2515/2 = .07875.
+    assert values["bore_wall_to_outside_worst_in"] == pytest.approx(0.07875, abs=1e-5)
+
+
+@pytest.mark.parametrize(
+    ("fit", "least_in", "envelope_in"),
+    [
+        # Under a measured mate: the reference less the most clearance; the
+        # envelope at the reference, the most it can be.
+        ('"diametral_clearance" = [0.0254, 0.0508]', 0.573, 0.575),
+        # Pressed into a measured mate: the reference plus the least; the
+        # envelope at the reference plus the most.
+        ('"diametral_interference" = [0.01016, 0.03048]', 0.5754, 0.5762),
+        # Bought, arriving as small as its least size.
+        ('"dia_ref_min" = 14.5542', 0.573, 0.575),
+    ],
+)
+def test_a_reference_outside_turned_to_a_mate_walls_at_its_least(
+    tmp_path, fit, least_in, envelope_in
+):
+    path = _variant(tmp_path, DISC, *_reference_outside(fit))
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    assert values["outside_dia_least_in"] == pytest.approx(least_in)
+    assert values["envelope_x_in"] == pytest.approx(envelope_in)
+    assert values["outside_dia_ref_mm"] == pytest.approx(14.605)
+    assert values["bore_wall_to_outside_worst_in"] == pytest.approx(
+        least_in / 2 - 0.083 - 0.2515 / 2, abs=1e-5
+    )
+
+
+def test_a_banded_outside_binds_its_least(tmp_path):
+    values = load_drilled_block(DISC, {}, "drilled-disc").values
+    assert values["outside_dia_least_in"] == pytest.approx(0.573)
+    assert "outside_dia_ref_mm" not in values
+    # A fit printed beside a band is bound as a band, as turned_bush prints it.
+    path = _variant(
+        tmp_path,
+        DISC,
+        '"nominal_dia" = 14.605',
+        '"nominal_dia" = 14.605\n"diametral_clearance" = [0.0, 0.1]',
+    )
+    fitted = load_drilled_block(path, {}, "drilled-disc").values
+    assert fitted["outside_dia_least_in"] == pytest.approx(0.573)
+    assert fitted["outside_diametral_clearance_band_mm"] == [0.0, 0.1]
+
+
+@pytest.mark.parametrize(
+    ("pairs", "message"),
+    [
+        (
+            ('"nominal_dia" = 14.605', '"nominal_dia" = 14.605\n"dia_ref" = 14.605'),
+            "outside.dia_ref: a reference size takes no dia band",
+        ),
+        (
+            ('"nominal_dia" = 14.605', '"nominal_dia" = 14.605\n"dia_ref_min" = 14.5'),
+            "outside.dia_ref_min: goes with a dia_ref",
+        ),
+        (
+            _reference_outside('"nominal_dia" = 99.0'),
+            "outside.nominal_dia: a reference size takes none",
+        ),
+        (
+            _reference_outside('"dia_ref_min" = 15.0'),
+            "outside.dia_ref_min: over the dia_ref",
+        ),
+        (
+            _reference_outside(
+                '"dia_ref_min" = 14.5', '"diametral_clearance" = [0.0, 0.1]'
+            ),
+            "outside.dia_ref_min: a fit sets the least size",
+        ),
+        (
+            _reference_outside('"diametral_clearance" = [0.0, 20.0]'),
+            "outside: its least diameter is not positive",
+        ),
+        (
+            _reference_outside(
+                '"diametral_clearance" = [0.0, 0.1]',
+                '"diametral_interference" = [0.0, 0.1]',
+            ),
+            "a clearance or a press, not both",
+        ),
+        (
+            _reference_outside('"diametral_interference" = [-0.01, 0.1]'),
+            "outside.diametral_interference: expected a positive band",
+        ),
+    ],
+)
+def test_a_bad_reference_outside_is_refused(tmp_path, pairs, message):
+    path = _variant(tmp_path, DISC, *pairs)
+    with pytest.raises(CadError, match=message):
+        load_drilled_block(path, {}, "drilled-disc")
+
+
+_TAPER_PIN = """
+["features"."big_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+
+["features"."small_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 44.45 }
+
+["features"."taper"]
+"kind" = "outside_cone"
+"frame" = "model"
+"requirements" = ["stock"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [1.0, 0.0, 0.0]
+"stock" = "NO. 3 TAPER PIN"
+"dia_ref" = 5.5626
+"small_dia_ref" = 4.6366
+"length_ref" = 44.45
+
+["features"."ring_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station"]
+"at" = [3.81, 0.0, 2.7416]
+"axis" = [0.0, 0.0, -1.0]
+"dia" = [2.0828, 2.1844]
+"nominal_dia" = 2.0828
+"thru" = true
+"process" = "drill"
+"station" = [3.556, 4.064]
+"station_nominal" = 3.81
+"station_from" = "big_end"
+"""
+
+
+def _taper_pin(tmp_path: Path, *pairs: str) -> Path:
+    """The disc's header with a bought taper pin's features, cross-drilled."""
+    header = DISC.read_text(encoding="utf-8").split('["features"."back_face"]')[0]
+    text = header + _TAPER_PIN
+    for old, new in zip(pairs[::2], pairs[1::2], strict=True):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    path = tmp_path / "taper-pin.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_an_outside_cone_bounds_the_part_by_its_large_end(tmp_path):
+    cad = load_drilled_block(_taper_pin(tmp_path), {}, "drilled-disc")
+    values = cad.values
+    assert values["envelope_x_in"] == pytest.approx(1.75)
+    assert values["envelope_y_mm"] == pytest.approx(5.5626)
+    assert values["envelope_z_mm"] == pytest.approx(5.5626)
+    assert values["taper_half_angle_deg"] == pytest.approx(0.5968, abs=1e-4)
+    assert values["taper_stock"] == "NO. 3 TAPER PIN"
+    assert values["ring_hole_station_in"] == pytest.approx(0.15)
+    assert values["ring_hole_x_from_min_in"] == pytest.approx(0.15)
+    # A cross hole is not walled by the cone it crosses.
+    assert "ring_hole_wall_to_taper_worst_mm" not in values
+
+
+def test_a_hole_along_an_outside_cone_is_walled_by_its_small_end(tmp_path):
+    path = _taper_pin(
+        tmp_path,
+        '"at" = [3.81, 0.0, 2.7416]\n"axis" = [0.0, 0.0, -1.0]',
+        '"at" = [44.45, 0.0, 0.0]\n"axis" = [-1.0, 0.0, 0.0]',
+        '"station" = [3.556, 4.064]\n"station_nominal" = 3.81\n'
+        '"station_from" = "big_end"\n',
+        "",
+        '"requirements" = ["dia", "thru", "station"]',
+        '"requirements" = ["dia", "thru"]',
+    )
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    # (4.6366 - 2.1844) / 2: the small end less the hole's largest size.
+    assert values["ring_hole_wall_to_taper_worst_mm"] == pytest.approx(1.2261)
+
+
+def test_an_outside_cone_needs_a_small_end_under_its_large_end(tmp_path):
+    path = _taper_pin(tmp_path, '"small_dia_ref" = 4.6366', '"small_dia_ref" = 5.6')
+    with pytest.raises(CadError, match="^taper: expected a small end under"):
+        load_drilled_block(path, {}, "drilled-disc")
