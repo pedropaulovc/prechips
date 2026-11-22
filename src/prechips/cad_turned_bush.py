@@ -194,28 +194,34 @@ def _shoulder(item: dict, frame: tuple, values: dict) -> None:
 
 
 # A single tolerance zone to a datum feature: an end face's or the
-# shoulder's perpendicularity, a diameter's runout.
-_CONTROLS = {"perpendicularity": "face", "runout": "diameter"}
+# shoulder's perpendicularity, or a diameter's runout, to the part's axis
+# (its bore or a turned diameter); the bore's perpendicularity to a face.
+_CONTROLS = {"perpendicularity": ("face", "hole"), "runout": ("diameter",)}
+_WHERE = {"perpendicularity": "a face or the bore", "runout": "a diameter"}
 
 
 def _controls(name: str, item: dict, features: dict, values: dict) -> None:
     """Bind a feature's ``perpendicularity`` or ``runout`` (mm, listed in its
     requirements) as ``<name>_<control>_in``/``_mm``, to the part feature its
-    ``datum`` names: the part's axis, i.e. its bore or a turned diameter."""
-    for control, kind in _CONTROLS.items():
+    ``datum`` names: a face's or a diameter's to the part's axis (the bore or
+    a turned diameter), the bore's to a face."""
+    for control, kinds in _CONTROLS.items():
         if control not in item.get("requirements", []):
             continue
-        if item.get("kind") != kind:
-            raise CadError(f"{name}.{control}: expected on a {kind}")
+        kind = item.get("kind")
+        if kind not in kinds or (kind == "hole" and name != "bore"):
+            raise CadError(f"{name}.{control}: expected on {_WHERE[control]}")
         zone = _positive(item.get(control), f"{name}.{control}")
         datum = item.get("datum")
-        axis = datum == "bore" or (
-            isinstance(datum, str) and features.get(datum, {}).get("kind") == "diameter"
-        )
-        if not axis or datum == name:
-            raise CadError(
-                f"{name}.datum: expected the part's bore or another turned diameter"
-            )
+        target = features.get(datum, {}) if isinstance(datum, str) else {}
+        if kind == "hole":
+            ok = target.get("kind") == "face"
+            wanted = "an end face or the shoulder"
+        else:
+            ok = datum == "bore" or target.get("kind") == "diameter"
+            wanted = "the part's bore or another turned diameter"
+        if not ok or datum == name:
+            raise CadError(f"{name}.datum: expected {wanted}")
         values[f"{name}_{control}_mm"] = zone
         values[f"{name}_{control}_in"] = zone / 25.4
         values[f"{name}_{control}_datum"] = datum

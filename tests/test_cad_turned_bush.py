@@ -775,6 +775,8 @@ def test_spacer_binds_face_perpendicularity_and_outside_runout():
 def test_flanged_bush_binds_the_shoulder_root_and_an_assembly_bore():
     values = load_turned_bush(FLANGED, {}, "turned-flanged-bush").values
     assert values["shoulder_root_r_max_in"] == pytest.approx(0.005)
+    assert values["bore_perpendicularity_in"] == pytest.approx(0.002)
+    assert values["bore_perpendicularity_datum"] == "shoulder"
     assert values["bore_at_assembly"] is True
     assert values["step_interference_min_in"] == pytest.approx(0.0005)
     assert (values["step_dia_min_in"], values["step_dia_max_in"]) == pytest.approx(
@@ -893,3 +895,16 @@ def test_an_assembly_bore_is_drilled_under_size_never_reamed_on_the_part():
     inspect = render_cad_svg(_svg(hold="inspect"), cad, params).decode()
     assert "reamed at assembly" in inspect
     assert ".2490" not in bar + inspect
+
+
+def test_a_bore_perpendicularity_needs_a_face_datum(tmp_path):
+    edited = _edited(
+        FLANGED,
+        tmp_path,
+        '"datum" = "shoulder"\n"callout"',
+        '"datum" = "outer"\n"callout"',
+    )
+    with pytest.raises(
+        CadError, match="bore.datum: expected an end face or the shoulder"
+    ):
+        load_turned_bush(edited, {}, "turned-flanged-bush")

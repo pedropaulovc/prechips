@@ -108,7 +108,7 @@
 ["features"."bore"]
 "kind" = "hole"
 "frame" = "model"
-"requirements" = ["dia", "thru"]
+"requirements" = ["dia", "thru", "perpendicularity"]
 "axis" = [0.0, 1.0, 0.0]
 "at" = [0.0, 0.0, 0.0]
 "span" = [0.0, 29.0322]
@@ -118,6 +118,8 @@
 "process" = "ream"
 "made_at" = "assembly"
 "wall_min" = 1.7272
+"perpendicularity" = 0.0508
+"datum" = "shoulder"
 "callout" = "REAM THRU AFTER PRESSING IN DEMO-PLATE"
 "precision" = { "dia" = 4 }
 "faces" = ["F1"]
