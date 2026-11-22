@@ -90,9 +90,10 @@ def test_a_hex_prism_bounds_the_part_at_its_corners_and_walls_holes_along_it(
     assert values["envelope_x_in"] == pytest.approx(0.5)
     assert values["envelope_y_in"] == pytest.approx(1 / 3**0.5)
     assert values["envelope_z_in"] == pytest.approx(0.35)
-    # The bore's least wall is to the flats' inscribed circle.
+    # The bore lies 2.1082 toward a corner: its least wall is to the two
+    # flats beside that corner, at 30° to its offset.
     assert values["bore_wall_to_outside_worst_mm"] == pytest.approx(
-        6.35 - 2.1082 - 6.3881 / 2
+        6.35 - 2.1082 * 3**0.5 / 2 - 6.3881 / 2
     )
     # A banded size across the flats walls holes at its least.
     banded = _variant(
@@ -104,8 +105,49 @@ def test_a_hex_prism_bounds_the_part_at_its_corners_and_walls_holes_along_it(
     values = load_drilled_block(banded, {}, "drilled-disc").values
     assert values["outside_af_mm"] == pytest.approx(12.7)
     assert values["bore_wall_to_outside_worst_mm"] == pytest.approx(
-        6.3 - 2.1082 - 6.3881 / 2
+        6.3 - 2.1082 * 3**0.5 / 2 - 6.3881 / 2
     )
+    # Corners on ±X: a cross hole along X from the envelope's side, 2.1082
+    # off the axis, starts in the air beside a slanted flat.
+    in_air = _variant(
+        tmp_path,
+        DISC,
+        *_ROUND_OUTSIDE[:1],
+        _ROUND_OUTSIDE[1].replace("[0, 1, 0]", "[1, 0, 0]"),
+        '"at" = [0.0, -7.3025, 4.064]\n"axis" = [0, 1, 0]',
+        '"at" = [-6.35, -2.1082, 4.064]\n"axis" = [1, 0, 0]',
+    )
+    with pytest.raises(CadError, match="radial_tap: enters in the air off outside"):
+        load_drilled_block(in_air, {}, "drilled-disc")
+    # The export's size across the corners is checked, not bound twice.
+    exported = _variant(
+        tmp_path,
+        DISC,
+        *_ROUND_OUTSIDE,
+        '"af_ref" = 12.7',
+        '"af_ref" = 12.7\n"ac_nominal" = 14.6647',
+    )
+    values = load_drilled_block(exported, {}, "drilled-disc").values
+    assert values["outside_ac_mm"] == pytest.approx(14.6647)
+    assert values["outside_ac_in"] == pytest.approx(1 / 3**0.5)
+    skewed = _variant(
+        tmp_path,
+        DISC,
+        *_ROUND_OUTSIDE,
+        '"af_ref" = 12.7',
+        '"af_ref" = 12.7\n"ac_nominal" = 14.9',
+    )
+    with pytest.raises(CadError, match="not a regular hexagon"):
+        load_drilled_block(skewed, {}, "drilled-disc")
+    banded_ac = _variant(
+        tmp_path,
+        DISC,
+        *_ROUND_OUTSIDE,
+        '"requirements" = []\n"af_ref" = 12.7',
+        '"requirements" = ["ac"]\n"af_ref" = 12.7\n"ac" = [14.6, 14.7]',
+    )
+    values = load_drilled_block(banded_ac, {}, "drilled-disc").values
+    assert values["outside_ac_mm"] == pytest.approx(12.7 * 2 / 3**0.5)
     along = _variant(tmp_path, path, '"corner" = [0, 1, 0]', '"corner" = [0, 0, 1]')
     with pytest.raises(CadError, match="square to the prism's axis"):
         load_drilled_block(along, {}, "drilled-disc")

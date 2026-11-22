@@ -26,7 +26,9 @@ the plan prints what the drawing requires, in the part's own words.
 
 The envelope is the box over every face plane, each arc's apex, every
 outside cylinder and every hex prism's corners and flats; a manifest must
-declare every outside face for it to be the part's.
+declare every outside face for it to be the part's. A hole along a hex prism
+is walled to its flats; one across it must enter, and a blind one end, within
+them (its sides are checked against the envelope, as across a cylinder).
 """
 
 import math
@@ -184,6 +186,9 @@ class _Shape:
         self.holes: dict[str, tuple[int, int, object]] = {}
         # Per outside cylinder: axis index, its span along it, least diameter.
         self.cylinders: dict[str, tuple[int, tuple[float, float], float]] = {}
+        # Per hex prism: axis index, corner axis index, its span along it,
+        # least and nominal size across the flats.
+        self.prisms: dict[str, tuple[int, int, tuple[float, float], float, float]] = {}
 
     def extend(self, index: int, low: float, high: float) -> None:
         self.low[index] = min(self.low[index], low)
@@ -246,18 +251,32 @@ def _cylinder(name: str, feature: dict, shape: _Shape) -> None:
     for other in range(3):
         if other != index:
             shape.extend(other, centre[other] - radius, centre[other] + radius)
-    span = sorted((centre[index], centre[index] + sign * length))
-    shape.extend(index, *span)
-    shape.cylinders[name] = (index, (span[0], span[1]), feature["dia"][0])
-    # A turned outside has no one station along its length: its ends do.
+    span = _along(name, centre, index, sign, length, shape)
+    shape.cylinders[name] = (index, span, feature["dia"][0])
+
+
+def _along(
+    name: str,
+    centre: list[float],
+    index: int,
+    sign: int,
+    length: float,
+    shape: _Shape,
+) -> tuple[float, float]:
+    """An outside's span along its axis, which bounds the part; it has no one
+    station along its length (its ends do)."""
+    low, high = sorted((centre[index], centre[index] + sign * length))
+    shape.extend(index, low, high)
     position: list[float | None] = list(centre)
     position[index] = None
     shape.positions[name] = position
+    return low, high
 
 
 def _hex_prism(name: str, feature: dict, values: dict, shape: _Shape) -> None:
     """A length of hex bar: its corners bound the part along ``corner``, its
-    flats across the third axis; its inscribed circle walls holes along it."""
+    flats across the third axis; its flats wall holes along it and bound the
+    entries and blind ends of holes across it."""
     centre = _point(feature.get("at"), f"{name}.at")
     index, sign = _axis(feature.get("axis"), f"{name}.axis")
     corner, _corner_sign = _axis(feature.get("corner"), f"{name}.corner")
@@ -275,19 +294,36 @@ def _hex_prism(name: str, feature: dict, values: dict, shape: _Shape) -> None:
     if af <= 0 or length <= 0:
         raise CadError(f"{name}: expected a positive size across the flats and length")
     across_corners = 2 * af / math.sqrt(3)
-    _bind_mm(values, f"{name}_ac", across_corners)
+    # An exported or banded size across the corners is a check (the prism is
+    # a regular hexagon); the derived size binds only what it leaves unbound.
+    if abs(values.get(f"{name}_ac_mm", across_corners) - across_corners) > _TOLERANCE:
+        raise CadError(f"{name}.ac: not a regular hexagon's across the corners")
+    values.setdefault(f"{name}_ac_mm", across_corners)
+    values.setdefault(f"{name}_ac_in", across_corners / 25.4)
+    if "ac" in feature.get("requirements", ()):
+        low, high = _band(feature, "ac", name)
+        if not low - _TOLERANCE <= across_corners <= high + _TOLERANCE:
+            raise CadError(f"{name}.ac: not a regular hexagon's across the corners")
     flats = 3 - index - corner
     shape.extend(
         corner, centre[corner] - across_corners / 2, centre[corner] + across_corners / 2
     )
     shape.extend(flats, centre[flats] - af / 2, centre[flats] + af / 2)
-    span = sorted((centre[index], centre[index] + sign * length))
-    shape.extend(index, *span)
-    # The flats' inscribed circle is the least wall a hole along it keeps.
-    shape.cylinders[name] = (index, (span[0], span[1]), least)
-    position: list[float | None] = list(centre)
-    position[index] = None
-    shape.positions[name] = position
+    span = _along(name, centre, index, sign, length, shape)
+    shape.prisms[name] = (index, corner, span, least, af)
+
+
+def _off_flats(at: list, centre: list, corner: int, index: int) -> float:
+    """How far a point lies out from a hex prism's axis toward its farthest
+    flat: the largest of its offset's projections on the three flat normals
+    (one along the flats' axis, two at 30° to the corners')."""
+    flats = 3 - index - corner
+    dc, df = at[corner] - centre[corner], at[flats] - centre[flats]
+    return max(
+        abs(df),
+        abs(dc * math.sqrt(3) / 2 + df / 2),
+        abs(dc * math.sqrt(3) / 2 - df / 2),
+    )
 
 
 def _depth(feature: dict, key: str, name: str) -> tuple[float, float]:
@@ -483,6 +519,29 @@ def _inside(name: str, feature: dict, values: dict, shape: _Shape) -> None:
         if wall <= 0:
             raise CadError(f"{name}: breaks out of {outside} at the band extremes")
         _bind_mm(values, f"{name}_wall_to_{outside}_worst", wall)
+    for outside, (prism_index, corner, span, least_af, af) in shape.prisms.items():
+        centre = shape.positions[outside]
+        if prism_index == index:
+            if extent[1] <= span[0] + _TOLERANCE or extent[0] >= span[1] - _TOLERANCE:
+                continue
+            wall = least_af / 2 - _off_flats(at, centre, corner, index) - radius
+            if wall <= 0:
+                raise CadError(f"{name}: breaks out of {outside} at the band extremes")
+            _bind_mm(values, f"{name}_wall_to_{outside}_worst", wall)
+            continue
+        # A hole across the prism enters through its flats or corners, and a
+        # blind one ends inside them.
+        if not span[0] - _TOLERANCE <= at[prism_index] <= span[1] + _TOLERANCE:
+            continue
+        if _off_flats(at, centre, corner, prism_index) > af / 2 + _TOLERANCE:
+            raise CadError(f"{name}: enters in the air off {outside}'s flats")
+        if run != "thru" and run[0] == "depth":
+            tip_at = list(at)
+            tip_at[index] = end + sign * feature["dia"][1] / 2 / math.tan(
+                _POINT_HALF_ANGLE
+            )
+            if _off_flats(tip_at, centre, corner, prism_index) > af / 2 + _TOLERANCE:
+                raise CadError(f"{name}: its blind end breaks out of {outside}'s flats")
 
 
 def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
