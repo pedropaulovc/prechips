@@ -750,3 +750,81 @@ def test_a_reamed_bore_prints_four_places_and_its_reamer(tmp_path):
     plug = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="ream needs the part's bore"):
         render_cad_svg(_svg(hold="bar", out="datum", work="face ream part"), plug, BAR)
+
+
+SPACER = ROOT / "examples/cad/turned-spacer-v1.toml"
+FLANGED = ROOT / "examples/cad/turned-flanged-bush-v1.toml"
+
+
+def test_spacer_binds_face_perpendicularity_and_outside_runout():
+    values = load_turned_bush(SPACER, {}, "turned-spacer").values
+    for end in ("datum_end", "far_end"):
+        assert values[f"{end}_perpendicularity_in"] == pytest.approx(0.001)
+        assert values[f"{end}_perpendicularity_datum"] == "bore"
+    assert values["outer_runout_in"] == pytest.approx(0.016)
+    assert values["outer_runout_datum"] == "bore"
+    assert values["bore_interference_min_in"] == pytest.approx(0.0005)
+    assert values["bore_interference_max_in"] == pytest.approx(0.002)
+    assert values["bore_mate"] == "DEMO-SCREW SHOULDER"
+    assert values["bore_at_assembly"] is False
+    # A unilateral reamed fit (.1850 +.0010/+.0005): made to the band's middle.
+    assert values["bore_dia_mm"] == pytest.approx((4.7117 + 4.7244) / 2)
+    assert values["bore_nominal_mm"] == pytest.approx(4.699)
+
+
+def test_flanged_bush_binds_the_shoulder_root_and_an_assembly_bore():
+    values = load_turned_bush(FLANGED, {}, "turned-flanged-bush").values
+    assert values["shoulder_root_r_max_in"] == pytest.approx(0.005)
+    assert values["bore_at_assembly"] is True
+    assert values["step_interference_min_in"] == pytest.approx(0.0005)
+    assert (values["step_dia_min_in"], values["step_dia_max_in"]) == pytest.approx(
+        (0.4387, 0.4391)
+    )
+    assert "outer_runout_in" not in values
+
+
+def _edited(path: Path, tmp_path: Path, old: str, new: str) -> Path:
+    text = path.read_text(encoding="utf-8")
+    assert text.count(old) == 1, old
+    edited = tmp_path / path.name
+    edited.write_text(text.replace(old, new), encoding="utf-8")
+    return edited
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "outer"',
+            "outer.datum",
+        ),
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "hub"',
+            "outer.datum",
+        ),
+        (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"faces"',
+            '"perpendicularity" = 0\n"datum" = "bore"\n"faces"',
+            "datum_end.perpendicularity",
+        ),
+        (
+            '"requirements" = ["dia", "runout"]',
+            '"requirements" = ["dia", "perpendicularity"]',
+            "outer.perpendicularity: expected on a face",
+        ),
+    ],
+)
+def test_a_control_needs_another_datum_feature_and_its_kind(
+    tmp_path, old, new, message
+):
+    edited = _edited(SPACER, tmp_path, old, new)
+    with pytest.raises(CadError, match=message):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_is_the_only_made_at(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"made_at" = "assembly"', '"made_at" = "bench"')
+    with pytest.raises(CadError, match='bore.made_at: expected "assembly"'):
+        load_turned_bush(edited, {}, "turned-flanged-bush")

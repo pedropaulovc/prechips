@@ -7,20 +7,27 @@ normal points out of the part, so a station is its distance from that face
 into the part. ``far_end`` is the other end face, with a ``length`` band (or a
 supply ``length_min``) from the datum end. Optional features:
 
-- ``shoulder``: a step face, a ``station`` band from the datum end;
+- ``shoulder``: a step face, a ``station`` band from the datum end, with an
+  optional ``root_radius_max`` (a root limited under the title block's
+  inside corner);
 - ``outer``, ``step`` and member ``outer_<member>``: kind ``diameter``, each
   with a ``span`` along the axis and one acceptance: a ``dia`` band, a
   ``stock`` diameter left as bought (``dia_ref``), or a ``dia_ref`` turned to
   a measured mate with a ``diametral_clearance`` or a press fit's
   ``diametral_interference`` (a ``dia`` band may add a
   ``diametral_interference``);
-- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``;
+- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``, an
+  optional mate's ``diametral_interference`` and ``made_at = "assembly"``
+  (finished after joining: the part's traveler leaves it under size);
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
   measured mate's ``diametral_clearance`` under ``dia_max``, a ``depth`` band
   and a floor ``corner_radius_max``;
 - ``tap``: a ``threaded_hole`` from the datum end, its drill ``dia`` and its
   ``drill_depth`` and ``thread_depth`` bands;
 - ``chamfer_*``: kind ``chamfer``, a ``leg`` band.
+
+An end face or the shoulder may list a ``perpendicularity`` and a diameter a
+``runout``: one tolerance zone in mm to the feature its ``datum`` names.
 
 Bands bind in inches as ``<key>_in``/``_min_in``/``_max_in``/``_band_mm``,
 nominal sizes as ``<key>_mm``, stations as ``<feature>_z0_mm``/``_z1_mm``.
@@ -178,6 +185,35 @@ def _shoulder(item: dict, frame: tuple, values: dict) -> None:
     if band[1] >= _least_length(values):
         raise CadError("shoulder.station: reaches the far end of the shortest part")
     values["shoulder_mm"] = nominal
+    # A root the drawing limits below the title block's inside corner (a
+    # sharp-cornered tool forms it): a single R MAX limit.
+    if "root_radius_max" in item.get("requirements", []):
+        root = _positive(item.get("root_radius_max"), "shoulder.root_radius_max")
+        values["shoulder_root_r_max_mm"] = root
+        values["shoulder_root_r_max_in"] = root / 25.4
+
+
+# A single tolerance zone to a datum feature: an end face's or the
+# shoulder's perpendicularity, a diameter's runout.
+_CONTROLS = {"perpendicularity": "face", "runout": "diameter"}
+
+
+def _controls(name: str, item: dict, features: dict, values: dict) -> None:
+    """Bind a feature's ``perpendicularity`` or ``runout`` (mm, listed in its
+    requirements) as ``<name>_<control>_in``/``_mm``, to the part feature its
+    ``datum`` names."""
+    for control, kind in _CONTROLS.items():
+        if control not in item.get("requirements", []):
+            continue
+        if item.get("kind") != kind:
+            raise CadError(f"{name}.{control}: expected on a {kind}")
+        zone = _positive(item.get(control), f"{name}.{control}")
+        datum = item.get("datum")
+        if not isinstance(datum, str) or datum not in features or datum == name:
+            raise CadError(f"{name}.datum: expected another feature of this part")
+        values[f"{name}_{control}_mm"] = zone
+        values[f"{name}_{control}_in"] = zone / 25.4
+        values[f"{name}_{control}_datum"] = datum
 
 
 _FITS = frozenset({"diametral_clearance", "diametral_interference"})
@@ -276,19 +312,35 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     if item.get("thru") is not True:
         raise CadError("bore.thru: expected a through hole")
     band = _limits(item, "dia", "bore", "bore_dia", values)
-    values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
+    # A unilateral fit (.1850 +.0010/+.0005) prints its nominal outside its
+    # band: the hole is then made to the band's middle.
+    nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
+    inside = band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE
+    values["bore_dia_mm"] = nominal if inside else (band[0] + band[1]) / 2
+    values["bore_nominal_mm"] = nominal
     values["bore_process"] = _string(item.get("process"), "bore.process")
     # The drawing's least wall and a bonded bore's clearance on its mate
     # are printed acceptances the traveler states.
     if "wall_min" in item:
         values["bore_wall_min_in"] = _positive(item["wall_min"], "bore.wall_min") / 25.4
-    if "diametral_clearance_ref" in item:
-        clearance = item["diametral_clearance_ref"]
-        if not isinstance(clearance, list) or len(clearance) != 2:
-            raise CadError("bore.diametral_clearance_ref: expected a band")
-        low, high = (_positive(v, "bore.diametral_clearance_ref") for v in clearance)
-        _inch_limits(values, "bore_clearance_ref", (low, high))
+    for key, binding in (
+        ("diametral_clearance_ref", "bore_clearance_ref"),
+        ("diametral_interference", "bore_interference"),
+    ):
+        if key not in item:
+            continue
+        band = item[key]
+        if not isinstance(band, list) or len(band) != 2:
+            raise CadError(f"bore.{key}: expected a band")
+        low, high = (_positive(v, f"bore.{key}") for v in band)
+        _inch_limits(values, binding, (low, high))
         values["bore_mate"] = _string(item.get("mate"), "bore.mate")
+    # A bore the drawing finishes after joining (reamed in place at
+    # assembly): the part's traveler leaves it under size for that.
+    made_at = item.get("made_at")
+    if made_at not in (None, "assembly"):
+        raise CadError('bore.made_at: expected "assembly"')
+    values["bore_at_assembly"] = made_at == "assembly"
 
 
 def _pocket(item: dict, frame: tuple, values: dict) -> None:
@@ -631,6 +683,9 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     for name in sorted(features):
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
+    for name in ("datum_end", "far_end", "shoulder", *turned):
+        if name in features:
+            _controls(name, features[name], features, values)
     _edge_breaks(raw, values)
     _rough_sizes(parameters, values, sizes, turned, supplied)
     # The default member's bar or blank: the other members bring their own.
