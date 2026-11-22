@@ -880,8 +880,8 @@ def test_a_knurled_knob_binds_its_steps_shoulders_recess_tap_and_countersinks():
         "Ø.800–.820 over",
         "straight knurl",
         "25 TPI",
-        "flange .190–.210",
-        "head .280–.300",
+        "to flange face .190–.210",
+        "to head face .280–.300",
         "× 90°, both ends",
     ):
         assert text in inspect.decode()

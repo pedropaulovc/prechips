@@ -791,7 +791,12 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
         key=lambda name: values[f"{name}_mm"],
     )
     for index, name in enumerate(shoulders):
-        word = "shoulder" if name == "shoulder" else name.removeprefix("shoulder_")
+        # A named shoulder's dimension runs from the datum end to that face.
+        word = (
+            "shoulder"
+            if name == "shoulder"
+            else f"to {name.removeprefix('shoulder_').replace('_', ' ')} face"
+        )
         y = top - 44 - 26 * index
         if y < 34:
             raise CadError("turned-bush: the shoulder dimensions run off the top")
