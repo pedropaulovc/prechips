@@ -1,0 +1,125 @@
+# Demo manifest in the CAD export format: a flanged steel bush, its stub pressed into a measured plate hole, the bore reamed through after pressing at assembly; demo identity, no source citations.
+"part" = "turned-flanged-bush"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-flanged-bush.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-FLANGED-BUSH"
+"revision" = "v1"
+
+["material"]
+"spec" = "AISI 1018 cold-drawn round, 5/8 in"
+"name" = "Plain Carbon Steel"
+"finish" = "bare, oiled (no plating)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"outward" = [0.0, -1.0, 0.0]
+"faces" = ["F1"]
+
+["features"."shoulder"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station", "root_radius_max"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 20.5486 }
+"outward" = [0.0, 1.0, 0.0]
+"station" = [20.5232, 20.574]
+"station_nominal" = 20.5486
+"station_from" = "datum_end"
+"root_radius_max" = 0.127
+"precision" = { "station" = 3, "root_radius_max" = 3 }
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 29.0322 }
+"outward" = [0.0, 1.0, 0.0]
+"length" = [28.9814, 29.083]
+"length_nominal" = 29.0322
+"length_from" = "datum_end"
+"precision" = { "length" = 3 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 20.5486]
+"dia" = [12.954, 13.462]
+"dia_nominal" = 13.208
+"precision" = { "dia" = 2 }
+"faces" = ["F1"]
+
+["features"."step"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "diametral_interference"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [20.5486, 29.0322]
+"dia" = [11.14298, 11.15314]
+"dia_nominal" = 11.1125
+"diametral_interference" = [0.0127, 0.04064]
+"mate" = "DEMO-PLATE HOLE"
+"callout" = "PRESS FIT IN DEMO-PLATE\nTURN TO MEASURED HOLE"
+"precision" = { "dia" = 4 }
+"faces" = ["F1"]
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "perpendicularity"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 29.0322]
+"dia" = [6.3246, 6.3373]
+"nominal_dia" = 6.3246
+"thru" = true
+"process" = "ream"
+"made_at" = "assembly"
+"wall_min" = 1.7272
+"perpendicularity" = 0.0508
+"datum" = "shoulder"
+"callout" = "REAM THRU AFTER PRESSING IN DEMO-PLATE"
+"precision" = { "dia" = 4 }
+"faces" = ["F1"]

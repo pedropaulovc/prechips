@@ -820,3 +820,172 @@ def test_a_single_max_chamfer_binds_its_limit_and_prints_max(tmp_path):
     )
     with pytest.raises(CadError, match="chamfer_far.leg_nominal: over its leg_max"):
         load_turned_bush(source, params, "turned-cup")
+
+
+SPACER = ROOT / "examples/cad/turned-spacer-v1.toml"
+FLANGED = ROOT / "examples/cad/turned-flanged-bush-v1.toml"
+
+
+def test_spacer_binds_face_perpendicularity_and_outside_runout():
+    values = load_turned_bush(SPACER, {}, "turned-spacer").values
+    for end in ("datum_end", "far_end"):
+        assert values[f"{end}_perpendicularity_in"] == pytest.approx(0.001)
+        assert values[f"{end}_perpendicularity_datum"] == "bore"
+    assert values["outer_runout_in"] == pytest.approx(0.016)
+    assert values["outer_runout_datum"] == "bore"
+    assert values["bore_interference_min_in"] == pytest.approx(0.0005)
+    assert values["bore_interference_max_in"] == pytest.approx(0.002)
+    assert values["bore_mate"] == "DEMO-SCREW SHOULDER"
+    assert values["bore_at_assembly"] is False
+    # A unilateral reamed fit (.1850 +.0010/+.0005): made to the band's middle.
+    assert values["bore_dia_mm"] == pytest.approx((4.7117 + 4.7244) / 2)
+    assert values["bore_basic_in"] == pytest.approx(0.185)
+
+
+def test_flanged_bush_binds_the_shoulder_root_and_an_assembly_bore():
+    values = load_turned_bush(FLANGED, {}, "turned-flanged-bush").values
+    assert values["shoulder_root_r_max_in"] == pytest.approx(0.005)
+    assert values["bore_perpendicularity_in"] == pytest.approx(0.002)
+    assert values["bore_perpendicularity_datum"] == "shoulder"
+    assert values["bore_at_assembly"] is True
+    assert values["step_interference_min_in"] == pytest.approx(0.0005)
+    assert (values["step_dia_min_in"], values["step_dia_max_in"]) == pytest.approx(
+        (0.4387, 0.4391)
+    )
+    assert "outer_runout_in" not in values
+
+
+def _edited(path: Path, tmp_path: Path, old: str, new: str) -> Path:
+    text = path.read_text(encoding="utf-8")
+    assert text.count(old) == 1, old
+    edited = tmp_path / path.name
+    edited.write_text(text.replace(old, new), encoding="utf-8")
+    return edited
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "outer"',
+            "outer.datum",
+        ),
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "hub"',
+            "outer.datum",
+        ),
+        (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"precision"',
+            '"perpendicularity" = 0.0254\n"datum" = "datum_end"\n"precision"',
+            "far_end.datum: expected the part's bore",
+        ),
+        (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"faces"',
+            '"perpendicularity" = 0\n"datum" = "bore"\n"faces"',
+            "datum_end.perpendicularity",
+        ),
+        (
+            '"requirements" = ["dia", "runout"]',
+            '"requirements" = ["dia", "perpendicularity"]',
+            "outer.perpendicularity: expected on a face",
+        ),
+    ],
+)
+def test_a_control_needs_another_datum_feature_and_its_kind(
+    tmp_path, old, new, message
+):
+    edited = _edited(SPACER, tmp_path, old, new)
+    with pytest.raises(CadError, match=message):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_is_the_only_made_at(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"made_at" = "assembly"', '"made_at" = "bench"')
+    with pytest.raises(CadError, match='bore.made_at: expected "assembly"'):
+        load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_bore_nominal_over_its_band_is_refused(tmp_path):
+    edited = _edited(SPACER, tmp_path, '"nominal_dia" = 4.699', '"nominal_dia" = 47.0')
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_bore_takes_one_fit(tmp_path):
+    edited = _edited(
+        SPACER,
+        tmp_path,
+        '"diametral_interference" = [0.0127, 0.0508]',
+        '"diametral_interference" = [0.0127, 0.0508]\n"diametral_clearance_ref" = [0.01, 0.02]',
+    )
+    with pytest.raises(CadError, match="a clearance or a press, not both"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_control_on_the_bore_is_refused_not_dropped(tmp_path):
+    text = SPACER.read_text(encoding="utf-8")
+    for old, new in (
+        (
+            '"requirements" = ["dia", "thru"]',
+            '"requirements" = ["dia", "thru", "runout"]',
+        ),
+        (
+            '"diametral_interference" = [0.0127, 0.0508]',
+            '"diametral_interference" = [0.0127, 0.0508]\n"runout" = 0.1\n"datum" = "outer"',
+        ),
+    ):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    edited = tmp_path / SPACER.name
+    edited.write_text(text, encoding="utf-8")
+    with pytest.raises(CadError, match="bore.runout: expected on a diameter"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_may_omit_its_process_and_is_not_reamed_on_the_part(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"process" = "ream"\n', "")
+    values = load_turned_bush(edited, {}, "turned-flanged-bush").values
+    assert values["bore_at_assembly"] is True
+    assert "bore_process" not in values
+
+
+def test_an_assembly_bore_is_drilled_under_size_never_reamed_on_the_part():
+    params = BAR | {"jaw_clearance_in": 0.1, "parts_per_pull": 1}
+    cad = load_turned_bush(FLANGED, params, "turned-flanged-bush")
+    with pytest.raises(CadError, match="reamed at assembly"):
+        render_cad_svg(
+            _svg(hold="bar", out="datum", work="face drill ream part"), cad, params
+        )
+    bar = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face drill part"), cad, params
+    ).decode()
+    assert "drill under the assembly ream" in bar
+    inspect = render_cad_svg(_svg(hold="inspect"), cad, params).decode()
+    assert "reamed at assembly" in inspect
+    assert ".2490" not in bar + inspect
+
+
+def test_a_bore_perpendicularity_needs_a_face_datum(tmp_path):
+    edited = _edited(
+        FLANGED,
+        tmp_path,
+        '"datum" = "shoulder"\n"callout"',
+        '"datum" = "outer"\n"callout"',
+    )
+    with pytest.raises(
+        CadError, match="bore.datum: expected an end face or the shoulder"
+    ):
+        load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_control_datum_must_exist_and_be_turned(tmp_path):
+    edited = _edited(
+        PLUG,
+        tmp_path,
+        '"requirements" = ["plane"]',
+        '"requirements" = ["plane", "perpendicularity"]\n"perpendicularity" = 0.0254\n"datum" = "bore"',
+    )
+    with pytest.raises(CadError, match="datum_end.datum: expected the part's bore"):
+        load_turned_bush(edited, {}, "turned-plug")
