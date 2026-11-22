@@ -784,3 +784,39 @@ def test_a_basic_bore_under_a_plus_band_makes_the_band_middle(tmp_path):
         load_turned_bush(source, {}, "turned-cup")
     # Inside its band the nominal is still the size made (and no basic binds).
     assert "bore_basic_in" not in load_turned_bush(CUP, {}, "turned-cup").values
+
+
+def test_a_single_max_chamfer_binds_its_limit_and_prints_max(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"requirements" = ["leg"]\n"leg" = [0.3048, 0.5588]\n"leg_nominal" = 0.4318'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # ".02 MAX X 45°": any break up to the limit.
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.508',
+        ),
+        "utf-8",
+    )
+    params = BAR | {"stock_dia_in": 0.5}
+    cad = load_turned_bush(source, params, "turned-cup")
+    values = cad.values
+    assert values["chamfer_far_leg_max_in"] == pytest.approx(0.02)
+    assert values["chamfer_far_leg_mm"] == pytest.approx(0.508)
+    assert "chamfer_far_leg_min_in" not in values
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn chamfer part"), cad, params
+    ).decode()
+    assert ".020 max × 45°" in picture
+    # The banded chamfer keeps its band.
+    assert "–" in picture.split("chamfer:", 1)[1].split(".020 max", 1)[0]
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.6',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="chamfer_far.leg_nominal: over its leg_max"):
+        load_turned_bush(source, params, "turned-cup")

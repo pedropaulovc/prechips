@@ -22,7 +22,8 @@ supply ``length_min``) from the datum end. Optional features:
   and a floor ``corner_radius_max``;
 - ``tap``: a ``threaded_hole`` from the datum end, its drill ``dia`` and its
   ``drill_depth`` and ``thread_depth`` bands;
-- ``chamfer_*``: kind ``chamfer``, a ``leg`` band.
+- ``chamfer_*``: kind ``chamfer``, a ``leg`` band or a single ``leg_max``
+  limit (bound as ``<name>_leg_max_*``).
 
 Bands bind in inches as ``<key>_in``/``_min_in``/``_max_in``/``_band_mm``,
 nominal sizes as ``<key>_mm``, stations as ``<feature>_z0_mm``/``_z1_mm``.
@@ -371,8 +372,19 @@ def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
 def _chamfer(item: dict, name: str, features: dict, values: dict) -> None:
     if item.get("kind") != "chamfer":
         raise CadError(f"{name}: expected a model-frame chamfer")
-    band = _limits(item, "leg", name, f"{name}_leg", values)
-    values[f"{name}_leg_mm"] = _nominal(item, "leg_nominal", band, name)
+    if "leg_max" in item.get("requirements", []):
+        # A single MAX limit (".02 MAX X 45°"): any break up to it; the
+        # nominal may not exceed it.
+        most = _positive(item.get("leg_max"), f"{name}.leg_max")
+        nominal = _positive(item.get("leg_nominal"), f"{name}.leg_nominal")
+        if nominal > most + _TOLERANCE:
+            raise CadError(f"{name}.leg_nominal: over its leg_max")
+        values[f"{name}_leg_max_mm"] = most
+        values[f"{name}_leg_max_in"] = most / 25.4
+        values[f"{name}_leg_mm"] = nominal
+    else:
+        band = _limits(item, "leg", name, f"{name}_leg", values)
+        values[f"{name}_leg_mm"] = _nominal(item, "leg_nominal", band, name)
     for key in ("edge_of", "at_end"):
         if item.get(key) not in features:
             raise CadError(f"{name}.{key}: expected a feature of this part")
