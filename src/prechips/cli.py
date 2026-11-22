@@ -64,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         inputs = []
         if plan.cad is not None:
             inputs.append(plan.cad.source)
+        inputs.extend(cad.source for cad, _ in plan.parts.values())
         inputs.extend(plan.shop_files)
         # A new .toml beside a shop directory's files would join that shop.
         folder = args.out.resolve().parent

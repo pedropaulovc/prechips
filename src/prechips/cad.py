@@ -3,7 +3,7 @@
 import math
 import re
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from html import escape
@@ -697,8 +697,10 @@ def _load_base_bar(path: Path, parameters: dict, part: str) -> CadData:
     return CadData(values, StockRequirement("in", tuple(envelope)), path.resolve())
 
 
+# ``{{cad.KEY}}``, or ``{{cad.PART.KEY}}`` in a plan that binds several parts.
 _TOKEN = re.compile(
-    r"\{\{(cad|process|view)\.([A-Za-z_][A-Za-z_0-9]*)(?::([^{}]+))?\}\}"
+    r"\{\{(cad|process|view)\.(?:([a-z][a-z0-9_]*)\.)?([A-Za-z_][A-Za-z_0-9]*)"
+    r"(?::([^{}]+))?\}\}"
 )
 _FORMAT = re.compile(r"(?:[+ -])?(?:[1-9][0-9]?)?(?:\.[0-9])?[fge%]|d")
 # Shop shorthand: fixed places without the leading zero, as in ".4" or ".04".
@@ -732,17 +734,71 @@ def _shorthand(value: float, places: int) -> str:
     return result
 
 
+_ABSENT = object()
+
+
+def _alike(first: object, other: object) -> bool:
+    """Two parts' values for one key, alike as any sheet prints them: numbers
+    of one type equal once denoised, lists alike item by item."""
+    if type(first) is not type(other):
+        return False
+    if isinstance(first, list):
+        return len(first) == len(other) and all(map(_alike, first, other))
+    return _denoised(first) == _denoised(other)
+
+
+class Agreed(Mapping):
+    """The values every part of a family gives alike, for text that names no
+    part: a key the parts give differently (or only some give) is refused,
+    naming the qualified token to write instead."""
+
+    def __init__(self, namespace: str, tables: dict[str, dict]) -> None:
+        self._namespace = namespace
+        self._tables = tables
+
+    def __getitem__(self, key: str) -> object:
+        values = [table.get(key, _ABSENT) for table in self._tables.values()]
+        if all(value is _ABSENT for value in values):
+            raise KeyError(key)
+        first = values[0]
+        if any(value is _ABSENT or not _alike(first, value) for value in values):
+            names = ", ".join(self._tables)
+            raise CadError(
+                f"{self._namespace}.{key} differs between parts ({names}): name "
+                f"one, as in {{{{{self._namespace}.{next(iter(self._tables))}."
+                f"{key}}}}}, or give the setup or operation a part"
+            )
+        return first
+
+    def __iter__(self):
+        return iter({key: None for table in self._tables.values() for key in table})
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+
 def _lookup(
-    match: re.Match, cad: CadData, parameters: dict, extra: dict | None
+    match: re.Match,
+    cad: CadData,
+    parameters: dict,
+    extra: dict | None,
+    parts: dict | None = None,
 ) -> object:
-    namespace, key, _ = match.groups()
+    namespace, part, key, _ = match.groups()
+    name = f"{namespace}.{key}"
+    if part is not None:
+        # A family plan's part by name, whatever part the text belongs to.
+        if namespace == "view" or parts is None or part not in parts:
+            raise CadError(f"unknown binding {namespace}.{part}.{key}")
+        cad, parameters = parts[part]
+        name = f"{namespace}.{part}.{key}"
     source = {
         "cad": cad.values,
         "process": parameters,
         "view": (extra or {}).get("view", {}),
     }[namespace]
     if key not in source:
-        raise CadError(f"unknown binding {namespace}.{key}")
+        raise CadError(f"unknown binding {name}")
     return source[key]
 
 
@@ -753,19 +809,23 @@ def bind_text(
     *,
     extra: dict | None = None,
     xml: bool = False,
+    parts: dict | None = None,
 ) -> str:
-    """Substitute bounded named scalar tokens, without evaluating expressions."""
+    """Substitute bounded named scalar tokens, without evaluating expressions.
+
+    ``parts`` maps a family plan's part ids to their ``(CadData, parameters)``
+    for ``{{cad.PART.KEY}}`` and ``{{process.PART.KEY}}``."""
 
     def replace(match: re.Match) -> str:
-        value = _lookup(match, cad, parameters, extra)
-        spec = match[3]
+        value = _lookup(match, cad, parameters, extra, parts)
+        spec = match[4]
         if type(value) in (int, float):
             _number(value, match[0])
             # ``in`` prefix: a millimetre value printed in inches, so one
             # authored mm number feeds both analysis data and the sheet text.
             # Only ``*_mm`` keys qualify; anything else would print wrongly.
             if spec and spec.startswith("in"):
-                if not match[2].endswith("_mm"):
+                if not match[3].endswith("_mm"):
                     raise CadError(f"{match[0]}: the in prefix needs a *_mm key")
                 value, spec = value / 25.4, spec[2:] or None
             # e prints magnitudes, so it takes the value as computed. Every
@@ -816,27 +876,33 @@ def bind_text(
 
 
 def bind_data(
-    value: object, cad: CadData, parameters: dict, *, scalar_mode: str = "text"
+    value: object,
+    cad: CadData,
+    parameters: dict,
+    *,
+    scalar_mode: str = "text",
+    parts: dict | None = None,
 ) -> object:
     """Bind recursively; native mode preserves exact whole-field numeric tokens."""
     if scalar_mode not in {"text", "native"}:
         raise ValueError(f"unsupported binding scalar mode {scalar_mode!r}")
     if isinstance(value, str):
         token = _TOKEN.fullmatch(value)
-        if token and token[3] is None:
-            result = _lookup(token, cad, parameters, None)
+        if token and token[4] is None:
+            result = _lookup(token, cad, parameters, None, parts)
             if isinstance(result, list) or (
                 scalar_mode == "native" and type(result) in (int, float)
             ):
                 return result
-        return bind_text(value, cad, parameters)
+        return bind_text(value, cad, parameters, parts=parts)
     if isinstance(value, list):
         return [
-            bind_data(item, cad, parameters, scalar_mode=scalar_mode) for item in value
+            bind_data(item, cad, parameters, scalar_mode=scalar_mode, parts=parts)
+            for item in value
         ]
     if isinstance(value, dict):
         return {
-            key: bind_data(item, cad, parameters, scalar_mode=scalar_mode)
+            key: bind_data(item, cad, parameters, scalar_mode=scalar_mode, parts=parts)
             for key, item in value.items()
         }
     return value
