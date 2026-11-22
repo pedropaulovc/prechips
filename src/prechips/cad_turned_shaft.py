@@ -574,6 +574,10 @@ def _shoulder_from(item: dict, frame: tuple, values: dict) -> None:
             raise CadError(f"shoulder.plane: not the nominal station from {source}")
         if not 0 < station < length:
             raise CadError("shoulder.plane: not inside the part")
+        # The band's far limit, from that root, inside the shortest part.
+        reach = origin + inward * band[1]
+        if not 0 < reach < values.get("length_band_mm", [length])[0]:
+            raise CadError(f"shoulder.station: reaches past the part from {source}")
         values["shoulder_mm"] = station
         return
     if abs(length - station - nominal) > _TOLERANCE:
@@ -838,8 +842,16 @@ def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
     basic major above its class 2A band, so its nominal is either inside the
     band or that major (the band's middle is then the turned size). A fit may
     name its mates (``mates``, bound joined as ``<name>_mates``) and its
-    mate's printed limits (``mate_dia``)."""
+    mate's printed limits (``mate_dia``), from which a REF fit's least
+    turned size and least bar follow (``_mate_sizes``)."""
+    fitted = {"diametral_clearance", "diametral_interference"} & set(
+        item.get("requirements", [])
+    )
     if "mates" in item:
+        if "mate" in item:
+            raise CadError(f"{name}: names its mate or its mates, not both")
+        if not fitted:
+            raise CadError(f"{name}.mates: binds only with a fit")
         mates = item["mates"]
         if not isinstance(mates, list) or not mates:
             raise CadError(f"{name}.mates: expected a list of drawing numbers")
@@ -847,9 +859,7 @@ def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
         values[f"{name}_mates"] = joined
         item = {"mate": joined} | item
     if "mate_dia" in item:
-        if not {"diametral_clearance", "diametral_interference"} & set(
-            item.get("requirements", [])
-        ):
+        if not fitted:
             raise CadError(f"{name}.mate_dia: binds only with a fit")
         limits = item["mate_dia"]
         if not isinstance(limits, list) or len(limits) != 2:
@@ -861,7 +871,8 @@ def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
     band = item.get("dia")
     nominal = item.get("dia_nominal")
     if "thread" not in item or not isinstance(band, list) or len(band) != 2:
-        return _diameter(item, name, frame, values, press_ref=True)
+        least = _diameter(item, name, frame, values, press_ref=True)
+        return _mate_sizes(values, name, least)
     low, high = (_number(v, f"{name}.dia") for v in band)
     given = _positive(nominal, f"{name}.dia_nominal")
     if (
@@ -877,6 +888,22 @@ def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
     return least
 
 
+def _mate_sizes(values: dict, name: str, least: float) -> float:
+    """A REF fit with its mate's printed limits: turned_bush screens it at the
+    mate's REF; here its least turned size is the least mate with the least
+    interference (or less the most clearance), and a press's bar must reach
+    the greatest mate with the most interference."""
+    if f"{name}_mate_dia_band_mm" not in values or f"{name}_dia_band_mm" in values:
+        return least
+    low, high = values[f"{name}_mate_dia_band_mm"]
+    if f"{name}_interference_band_mm" in values:
+        fit = values[f"{name}_interference_band_mm"]
+        values[f"{name}_turn_min_mm"] = low + fit[0]
+        return max(least, high + fit[1])
+    values[f"{name}_turn_min_mm"] = low - values[f"{name}_clearance_band_mm"][1]
+    return least
+
+
 _REGRIP_OUT = {"datum": "regrip_stickout_datum_in", "far": "regrip_stickout_far_in"}
 
 
@@ -887,7 +914,9 @@ def _regrip_stickout(values: dict, parameters: dict, turned: list) -> None:
     into the chuck, so a long part may be held near either end. Rebinds
     ``<name>_stickout_<end>_mm`` and ``<name>_regrip_jaw_z_<end>_mm`` on each
     diameter the jaw fronts fall on, with diameter left in the jaws; the
-    others lose them (no regrip on that diameter with that end out)."""
+    others lose them (no regrip on that diameter with that end out). With
+    ``chuck_grip_in``, the jaws' length, a larger diameter within it is
+    refused: the jaws would close on it instead."""
     if "regrip_grip_in" in parameters:
         raise CadError("process.regrip_stickout_*_in: not with regrip_grip_in")
     length = values["length_mm"]
@@ -914,6 +943,21 @@ def _regrip_stickout(values: dict, parameters: dict, turned: list) -> None:
             else:
                 values.pop(f"{name}_stickout_{end}_mm", None)
                 values.pop(f"{name}_regrip_jaw_z_{end}_mm", None)
+        gripped = [n for n in turned if f"{n}_regrip_jaw_z_{end}_mm" in values]
+        if "chuck_grip_in" not in parameters or not gripped:
+            continue
+        reach = _positive(parameters["chuck_grip_in"], "process.chuck_grip_in") * 25.4
+        inner = station + reach if end == "datum" else station - reach
+        low, high = sorted((station, inner))
+        held = max(values[f"{n}_dia_mm"] for n in gripped)
+        for name in turned:
+            z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
+            inside = z0 < high - _STATION and z1 > low + _STATION
+            if inside and values[f"{name}_dia_mm"] > held:
+                raise CadError(
+                    f"process.{key}: the jaws reach {name}, larger than the "
+                    "diameter they grip"
+                )
 
 
 def _blank(values: dict, parameters: dict, least_bar: float, turned: list) -> list:
@@ -1003,8 +1047,12 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
             start = values["dome_datum_root_z_mm"]
         else:
             end = values["dome_far_root_z_mm"]
+    # The shared Ø band binds only where an end this traveler forms reads it
+    # (an end with its own band reads that instead).
     if any(key.startswith("dome_form_dia_") for key in parameters) and not any(
-        f"{prefix}_form_height_min_mm" in values for prefix in _DOMES.values()
+        f"{prefix}_form_radius_mm" in values
+        and _form_keys(parameters, prefix)[1][0] == "dome_form_dia_min_in"
+        for prefix in _DOMES.values()
     ):
         raise CadError(
             "process.dome_form_dia_min_in/_max_in: bind only with "

@@ -157,6 +157,8 @@ def test_headed_pin_steps_press_land_and_stations_from_the_shoulder():
     assert values["step_land_mate_dia_max_in"] == pytest.approx(0.1265)
     assert values["step_land_length_from"] == "shoulder"
     assert values["step_land_length_min_in"] == pytest.approx(0.28)
+    # Screened and barred on the mate's printed limits, not on the REF.
+    assert values["step_land_turn_min_mm"] == pytest.approx((0.126 + 0.0002) * 25.4)
     # The journal's band and its running clearance on three mates.
     assert values["outer_mates"] == "DEMO-SLEEVE, DEMO-BUSH-A, DEMO-BUSH-B"
     assert values["outer_clearance_max_in"] == pytest.approx(0.0017)
@@ -190,6 +192,10 @@ def test_headed_pin_steps_press_land_and_stations_from_the_shoulder():
         ('"length_from" = "shoulder"', '"length_from" = "far_end"', "run from"),
         # The groove measured to its near wall misses its nominal station.
         ('"station_to" = "far_wall"', '"station_to" = "near_wall"', "nominal station"),
+        # A seat band reaching past the part from the dome root.
+        ('"station" = [2.032, 2.54]', '"station" = [2.032, 60.0]', "reaches past"),
+        # One mate or a list of them, never both.
+        ('"mates" = [', '"mate" = "DEMO-X"\n"mates" = [', "mate or its mates"),
     ],
 )
 def test_headed_pin_refusals(tmp_path, old, new, message):
@@ -250,6 +256,31 @@ def test_each_dome_takes_its_own_form_tool_or_the_shared_one():
         load_turned_shaft(
             PIN, BAR | {"dome_far_form_radius_in": 0.1}, "demo-turned-pin"
         )
+    # A shared Ø band no end reads (each end brings its own) is refused.
+    own = {
+        "dome_datum_form_dia_min_in": 0.19,
+        "dome_datum_form_dia_max_in": 0.21,
+        "dome_far_form_dia_min_in": 0.1248,
+        "dome_far_form_dia_max_in": 0.125,
+    }
+    load_turned_shaft(HEADED, HEADED_BAR | own, "demo-headed-pin")
+    with pytest.raises(CadError, match="bind only with"):
+        load_turned_shaft(
+            HEADED,
+            HEADED_BAR | own | {"dome_form_dia_min_in": 9, "dome_form_dia_max_in": 10},
+            "demo-headed-pin",
+        )
+
+
+def test_mates_bind_only_with_a_fit(tmp_path):
+    source = _edited(
+        tmp_path,
+        PIN,
+        '"requirements" = ["stock"]',
+        '"requirements" = ["stock"]\n"mates" = ["DEMO-HOLE"]',
+    )
+    with pytest.raises(CadError, match="mates: binds only with a fit"):
+        load_turned_shaft(source, BAR, "demo-turned-pin")
 
 
 def test_a_regrip_through_the_jaws_stands_the_part_out_by_its_stickout():
@@ -273,6 +304,13 @@ def test_a_regrip_through_the_jaws_stands_the_part_out_by_its_stickout():
         load_turned_shaft(
             HEADED, HEADED_BAR | {"regrip_stickout_far_in": 3.0}, "demo-headed-pin"
         )
+    # The jaws' length reaching the larger head and land behind their fronts.
+    jaws = HEADED_BAR | {"chuck_grip_in": 0.75, "bar_length_in": 12.0}
+    with pytest.raises(CadError, match="the jaws reach step_head, larger"):
+        load_turned_shaft(
+            HEADED, jaws | {"regrip_stickout_far_in": 1.767}, "demo-headed-pin"
+        )
+    load_turned_shaft(HEADED, jaws, "demo-headed-pin")
 
 
 def test_pin_thread_groove_and_dome_height_from_its_radius_band():
