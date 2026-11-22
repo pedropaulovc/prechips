@@ -303,6 +303,31 @@ def test_centre_station_labels_stay_on_the_vise_picture(tmp_path, shift, x0):
     assert all(10 <= start and end <= 710 for start, end in extents), extents
 
 
+def test_a_vise_picture_mills_only_its_setups_flats():
+    # Each flat in its own clamping: flat A now, flat B milled before.
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    both = render_cad_svg(_svg(hold="vise", work="flat"), cad, params)
+    one = render_cad_svg(
+        _svg(hold="vise", work="flat", flats="flat_a", **{"flats-done": "flat_b"}),
+        cad,
+        params,
+    )
+    assert both.count(b"from the datum") == 2
+    assert one.count(b"from the datum") == 1
+    assert one.count(b"across,") == 1
+    # Flat B still shows, outlined as kept, not hatched as cut this setup.
+    assert one.count(b"<rect") == both.count(b"<rect") - 1
+    for attrs, match in (
+        ({"flats": "flat_c"}, "data-flats"),
+        ({"flats": "flat_a", "flats-done": "flat_a"}, "data-flats"),
+    ):
+        with pytest.raises(CadError, match=match):
+            render_cad_svg(_svg(hold="vise", work="flat", **attrs), cad, params)
+    with pytest.raises(CadError, match="on a vise hold"):
+        render_cad_svg(_svg(hold="inspect", flats="flat_a"), cad, BLANK)
+
+
 def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
     with pytest.raises(CadError, match="data-hold"):

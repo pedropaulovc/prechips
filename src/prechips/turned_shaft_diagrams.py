@@ -35,6 +35,9 @@ setup does: ``face``, ``turn``, ``dome`` (the out end's), ``groove``,
 ``thread`` (a die from the tailstock, or a single-point bit for
 ``thread_process = "single_point"``), ``chamfer``, ``part`` (lathe holds)
 and ``flat`` (the vise);
+on a vise hold, ``data-flats`` names the flats this setup mills (default:
+every flat) and ``data-flats-done`` the flats an earlier setup milled (drawn
+as kept, unlabelled; any other flat is not drawn: its O.D. is uncut);
 ``steps`` labels the out end's dome with the adapter's stepped-turning table
 (``process.dome_steps``);
 ``data-done`` what earlier setups made (``turn``, ``groove``, ``thread``,
@@ -242,6 +245,12 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
     x0 = root.attrib.pop("data-x0", "datum")
+    milled = root.attrib.pop("data-flats", None)
+    milled_before = set(root.attrib.pop("data-flats-done", "").split())
+    if (milled is not None or milled_before) and hold != "vise":
+        raise CadError(
+            "turned-shaft: data-flats and data-flats-done are on a vise hold"
+        )
     if x0 not in _OUTS or (x0 != "datum" and hold not in ("vise", "inspect")):
         raise CadError(
             "turned-shaft: data-x0 is datum or far, on a vise or inspect hold"
@@ -299,7 +308,15 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
             if values.get(f"dome_{end}_made_at", "traveler") != "assembly"
         }
         if hold == "vise":
-            return _vise(groups, values, parameters, made, x0)
+            return _vise(
+                groups,
+                values,
+                parameters,
+                made,
+                x0,
+                None if milled is None else milled.split(),
+                milled_before,
+            )
         return _inspect(
             groups,
             values,
@@ -967,15 +984,33 @@ def values_on(values: dict, station: float) -> str:
     return _diameters(values)[0]
 
 
-def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) -> Layout:
-    """Top view in the vise, flats up; an end view of the hold at the right."""
+def _vise(
+    groups: Groups,
+    values: dict,
+    parameters: dict,
+    made: set,
+    x0: str,
+    milled: list | None = None,
+    milled_before: set | None = None,
+) -> Layout:
+    """Top view in the vise, flats up; an end view of the hold at the right.
+    ``milled`` the flats this setup cuts (default every flat),
+    ``milled_before`` those an earlier setup cut."""
     length = _cad(values, "length_mm")
-    flats = _names(values, "flat_", "_across_mm")
-    if not flats:
+    every = _names(values, "flat_", "_across_mm")
+    if not every:
         raise CadError("turned-shaft: a vise hold mills the part's flats")
-    normal = values[f"{flats[0]}_normal"]
-    if any(values[f"{f}_normal"] != normal for f in flats):
+    normal = values[f"{every[0]}_normal"]
+    if any(values[f"{f}_normal"] != normal for f in every):
         raise CadError("turned-shaft: the vise picture draws flats on one clock")
+    flats = every if milled is None else milled
+    before = set(milled_before or ())
+    unknown = (set(flats) | before) - set(every)
+    if unknown or not flats or before & set(flats):
+        raise CadError(
+            "turned-shaft: data-flats names the part's flats this setup mills, "
+            "data-flats-done others an earlier setup milled"
+        )
     # The jaws' sides from the X0 end, the end drawn at the left.
     jaw_from = float(parameters.get("vise_jaw_from_x0_mm", 0.0))
     jaw_width = _param(parameters, "vise_jaw_to_x0_mm") - jaw_from
@@ -1001,6 +1036,10 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     ]
     above = [(px(jaw_from + jaw_width) - 30, top - 14, ["fixed jaw"])]
     below_y = bottom + 14
+    for f in sorted(before):
+        a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
+        half = values[f"{f}_width_mm"] / 2 * radial
+        groups["part-kept"].append(_rect(a, _AXIS - half, b - a, 2 * half))
     for f in flats:
         a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
         half = values[f"{f}_width_mm"] / 2 * radial
