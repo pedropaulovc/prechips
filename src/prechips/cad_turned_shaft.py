@@ -16,12 +16,24 @@ station is a distance from the ``datum_end`` into the part, and ``outer`` and
   ``supply_length`` band (made uncut, cut to fit at assembly);
 - a diameter may carry an external ``thread`` (at most one);
 - ``groove``/``groove_*``, ``cross_hole``/``cross_hole_*``, ``flat_*`` and
-  ``fillet_*``.
+  ``fillet_*``;
+- further diameters ``step_*`` (a head, a land), each with ``outer``'s
+  acceptances, plus a press fit's ``dia_ref`` turned over its measured
+  ``mate`` for a ``diametral_interference`` (``mate_dia`` its mate's printed
+  limits); a fit may name several running ``mates``.
 
-Flats and cross holes are stationed from ``datum_end``, ``far_end`` or a
-domed end's root (``datum_root``, ``far_root``); a flat's station runs to its
-nearer end, or with ``station_to = "centre"`` to its centre. The plan binds either the
-bar-fed cycle (turned_bush's round bar) or a sawn blank of round stock.
+Flats, cross holes, grooves and ``far_end.station`` are stationed from
+``datum_end``, ``far_end``, a domed end's root (``datum_root``,
+``far_root``) or a ``shoulder`` with an ``outward`` normal (its stations run
+that way); a flat's station runs to its nearer end, or with ``station_to =
+"centre"`` to its centre; a groove's to its nearer wall, or with
+``station_to = "far_wall"`` to its farther. The ``shoulder`` itself may be
+stationed from a domed end's root, and a diameter may print a ``length``
+from one of those origins (``length_from``) that it runs from. A domed end
+may be cut by its own form tool (``dome_datum_form_radius_in`` /
+``dome_far_form_radius_in`` and their ``_form_dia_min_in``/``_max_in``) in
+place of the shared ``dome_form_*``. The plan binds either the bar-fed
+cycle (turned_bush's round bar) or a sawn blank of round stock.
 """
 
 import math
@@ -68,7 +80,9 @@ from .cad_turned_bush import (
 
 _DIAMETERS = ("outer", "step")
 _DOMES = {"datum_end": "dome_datum", "far_end": "dome_far"}
-_FAMILIES = ("chamfer_", "groove", "cross_hole", "flat_", "fillet_")
+_FAMILIES = ("chamfer_", "groove", "cross_hole", "flat_", "fillet_", "step_")
+# A groove's station runs to its wall nearer the origin, or the farther.
+_GROOVE_WALLS = ("near_wall", "far_wall")
 _BLANK = ("stock_dia_in", "blank_length_in")
 # Model coordinates against printed nominals and cap geometry, mm.
 _STATION = 1e-3
@@ -270,6 +284,24 @@ def _dome(
     values[f"{prefix}_made_at"] = made_at or "traveler"
 
 
+def _form_keys(parameters: dict, prefix: str) -> tuple[str | None, tuple[str, str]]:
+    """The plan keys of the form tool that cuts ``prefix``'s dome: its own
+    ``<prefix>_form_radius_in`` (with its own ``_form_dia_min_in``/``_max_in``),
+    else the shared ``dome_form_radius_in`` (and ``dome_form_dia_*``); the
+    radius key is None when neither is given."""
+    own = f"{prefix}_form_radius_in"
+    if own in parameters and "dome_form_radius_in" in parameters:
+        raise CadError(
+            f"process.{own}: name one form radius, not dome_form_radius_in too"
+        )
+    own_dias = (f"{prefix}_form_dia_min_in", f"{prefix}_form_dia_max_in")
+    if any(key in parameters for key in own_dias):
+        return (own if own in parameters else "dome_form_radius_in"), own_dias
+    radius = own if own in parameters else "dome_form_radius_in"
+    shared = ("dome_form_dia_min_in", "dome_form_dia_max_in")
+    return (radius if radius in parameters else None), shared
+
+
 def _form(
     values: dict,
     parameters: dict,
@@ -284,12 +316,15 @@ def _form(
     that band (holding the nominal, within ``roots``, the least and greatest
     the diameter may be; every form-cut end shares it), so the height goes by
     the part: ``_form_height_min_*``/``_max_*`` are the caps at the band's
-    ends. A dome made at assembly is not this traveler's to cut."""
+    ends. An end's own ``<prefix>_form_*`` keys take the shared keys' place
+    (``_form_keys``). A dome made at assembly is not this traveler's to cut."""
     if values[f"{prefix}_made_at"] == "assembly":
         return
-    form = _positive(parameters["dome_form_radius_in"], "process.dome_form_radius_in")
+    key, keys = _form_keys(parameters, prefix)
+    if key is None or key not in parameters:
+        raise CadError(f"process.{keys[0]}: binds only with a form radius")
+    form = _positive(parameters[key], f"process.{key}")
     radius = form * 25.4
-    keys = ("dome_form_dia_min_in", "dome_form_dia_max_in")
     per_part = _all_or_none(parameters, keys, "the dome form diameter band")
     if per_part:
         least, most = (
@@ -300,7 +335,7 @@ def _form(
             and root - _TOLERANCE <= most <= roots[1] + _TOLERANCE
         ):
             raise CadError(
-                f"process.dome_form_dia_min_in/_max_in: Ø{2 * least / 25.4:.4f}–"
+                f"process.{keys[0]}/_max_in: Ø{2 * least / 25.4:.4f}–"
                 f"Ø{2 * most / 25.4:.4f} must hold the nominal "
                 f"Ø{2 * root / 25.4:.4f} inside the Ø{2 * roots[0] / 25.4:.4f}–"
                 f"Ø{2 * roots[1] / 25.4:.4f} it domes"
@@ -310,7 +345,7 @@ def _form(
         sizes = (root, root)
     if radius < sizes[1] - _TOLERANCE:
         raise CadError(
-            f"process.dome_form_radius_in: R{form:.4f} is under the "
+            f"process.{key}: R{form:.4f} is under the "
             f"Ø{2 * sizes[1] / 25.4:.4f} it domes"
         )
     # The nominal's cap lies between the band ends' (a cap grows with Ø).
@@ -320,7 +355,7 @@ def _form(
     for cap in caps:
         if low < high and not low - _STATION <= cap <= high + _STATION:
             raise CadError(
-                f"process.dome_form_radius_in: its {cap / 25.4:.4f} high {prefix} "
+                f"process.{key}: its {cap / 25.4:.4f} high {prefix} "
                 "is outside the drawing's height band"
             )
     values[f"{prefix}_form_radius_mm"] = radius
@@ -509,11 +544,19 @@ def _thread(item: dict, name: str, values: dict, start: float, end: float) -> No
 
 
 def _shoulder_from(item: dict, frame: tuple, values: dict) -> None:
-    """turned_bush's shoulder, or one stationed from the far end; either way
-    ``shoulder_mm`` is its station from the datum end."""
+    """turned_bush's shoulder, or one stationed from the far end or a domed
+    end's root; either way ``shoulder_mm`` is its station from the datum end.
+    Its ``outward`` normal, when given, is the way stations from it run
+    (``shoulder_outward``, +1 toward the far end)."""
     source = item.get("station_from")
     values["shoulder_station_from"] = source
-    if source != "far_end":
+    outward = item.get("outward")
+    if outward is not None:
+        expected = [[float(i == frame[0]) * sign for i in range(3)] for sign in (1, -1)]
+        if outward not in expected:
+            raise CadError("shoulder.outward: expected a unit normal along the axis")
+        values["shoulder_outward"] = int(outward[frame[0]] * frame[2])
+    if source not in ("far_end", "datum_root", "far_root"):
         _shoulder(item, frame, values)
         return
     if item.get("kind") != "face":
@@ -525,6 +568,14 @@ def _shoulder_from(item: dict, frame: tuple, values: dict) -> None:
         raise CadError("shoulder.plane: expected a plane on the datum end's axis")
     station = _station(frame, _number(plane.get("value"), "shoulder.plane.value"))
     length = values["length_mm"]
+    if source != "far_end":
+        origin, inward = _origin(item, "shoulder", values)
+        if abs((station - origin) * inward - nominal) > _STATION:
+            raise CadError(f"shoulder.plane: not the nominal station from {source}")
+        if not 0 < station < length:
+            raise CadError("shoulder.plane: not inside the part")
+        values["shoulder_mm"] = station
+        return
     if abs(length - station - nominal) > _TOLERANCE:
         raise CadError("shoulder.plane: not the nominal station from the far end")
     if band[1] >= values.get("length_band_mm", [length])[0]:
@@ -532,18 +583,40 @@ def _shoulder_from(item: dict, frame: tuple, values: dict) -> None:
     values["shoulder_mm"] = station
 
 
-def _origin(item: dict, name: str, values: dict) -> tuple[float, int]:
-    """Where ``station_from`` lies along the part and which way is inward."""
-    source = item.get("station_from")
+def _origin(
+    item: dict, name: str, values: dict, key: str = "station_from"
+) -> tuple[float, int]:
+    """Where ``key`` (``station_from`` or ``length_from``) lies along the part
+    and which way is inward."""
+    source = item.get(key)
     origins = {"datum_end": (0.0, 1), "far_end": (values["length_mm"], -1)}
     if "dome_datum_root_z_mm" in values:
         origins["datum_root"] = (values["dome_datum_root_z_mm"], 1)
     if "dome_far_root_z_mm" in values:
         origins["far_root"] = (values["dome_far_root_z_mm"], -1)
+    if "shoulder_mm" in values and "shoulder_outward" in values and name != "shoulder":
+        origins["shoulder"] = (values["shoulder_mm"], values["shoulder_outward"])
     if source not in origins:
-        raise CadError(f"{name}.station_from: expected one of {', '.join(origins)}")
-    values[f"{name}_station_from"] = source
+        raise CadError(f"{name}.{key}: expected one of {', '.join(origins)}")
+    values[f"{name}_{key}"] = source
     return origins[source]
+
+
+def _run_length(item: dict, name: str, values: dict) -> None:
+    """A diameter's printed ``length`` band, from ``length_from``, which it
+    runs from: one end on that origin, the other its nominal length on."""
+    if "length" not in item.get("requirements", []):
+        return
+    band = _limits(item, "length", name, f"{name}_length", values)
+    nominal = _nominal(item, "length_nominal", band, name)
+    origin, inward = _origin(item, name, values, "length_from")
+    z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
+    near, far = (z0, z1) if inward > 0 else (z1, z0)
+    if abs(near - origin) > _STATION:
+        raise CadError(f"{name}.span: does not run from {item['length_from']}")
+    if abs(abs(far - origin) - nominal) > _STATION:
+        raise CadError(f"{name}.span: not its nominal length")
+    values[f"{name}_length_mm"] = nominal
 
 
 def _located(item: dict, name: str, values: dict, edge: tuple[float, float]) -> float:
@@ -591,6 +664,15 @@ def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
     values[f"{name}_width_mm"] = width
     if abs(z1 - z0 - width) > _STATION:
         raise CadError(f"{name}.span: not its nominal width")
+    if "station" in requirements:
+        to = item.get("station_to", "near_wall")
+        if to not in _GROOVE_WALLS:
+            raise CadError(f'{name}.station_to: expected "near_wall" or "far_wall"')
+        values[f"{name}_station_to"] = to
+        # _located takes (nearer, farther) from the datum end and uses the
+        # one nearer its origin: swapped, it locates the wall farther off.
+        edge = (z0, z1) if to == "near_wall" else (z1, z0)
+        values[f"{name}_station_wall_mm"] = _located(item, name, values, edge)
     cut = [
         d
         for d in turned
@@ -666,6 +748,8 @@ def _flat(
     if not on:
         raise CadError(f"{name}.span: not on one diameter")
     dia = on[0]
+    if _press_ref(values, dia):
+        raise CadError(f"{name}.span: on {dia}, a REF turned to its mate")
     nominal_dia = values.get(f"{dia}_nominal_mm", values[f"{dia}_dia_mm"])
     low, high = values.get(f"{dia}_dia_band_mm", [values[f"{dia}_dia_mm"]] * 2)
     across = _limits(item, "across", name, f"{name}_across", values)
@@ -741,14 +825,43 @@ def _fillet(item: dict, name: str, frame: tuple, values: dict, turned: list) -> 
         values[f"{name}_radius_max_in"] = most / 25.4
 
 
+def _press_ref(values: dict, name: str) -> bool:
+    """A REF turned over its measured mate for a press (no dia band)."""
+    return (
+        f"{name}_interference_band_mm" in values and f"{name}_dia_band_mm" not in values
+    )
+
+
 def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
-    """turned_bush's diameter; a threaded one's model may sit at the thread's
+    """turned_bush's diameter, a press REF turned over its measured mate
+    included; a threaded one's model may sit at the thread's
     basic major above its class 2A band, so its nominal is either inside the
-    band or that major (the band's middle is then the turned size)."""
+    band or that major (the band's middle is then the turned size). A fit may
+    name its mates (``mates``, bound joined as ``<name>_mates``) and its
+    mate's printed limits (``mate_dia``)."""
+    if "mates" in item:
+        mates = item["mates"]
+        if not isinstance(mates, list) or not mates:
+            raise CadError(f"{name}.mates: expected a list of drawing numbers")
+        joined = ", ".join(_string(mate, f"{name}.mates") for mate in mates)
+        values[f"{name}_mates"] = joined
+        item = {"mate": joined} | item
+    if "mate_dia" in item:
+        if not {"diametral_clearance", "diametral_interference"} & set(
+            item.get("requirements", [])
+        ):
+            raise CadError(f"{name}.mate_dia: binds only with a fit")
+        limits = item["mate_dia"]
+        if not isinstance(limits, list) or len(limits) != 2:
+            raise CadError(f"{name}.mate_dia: expected the mate's two limits")
+        low, high = (_positive(v, f"{name}.mate_dia") for v in limits)
+        if low > high:
+            raise CadError(f"{name}.mate_dia: reversed limits")
+        _inch_limits(values, f"{name}_mate_dia", (low, high))
     band = item.get("dia")
     nominal = item.get("dia_nominal")
     if "thread" not in item or not isinstance(band, list) or len(band) != 2:
-        return _diameter(item, name, frame, values)
+        return _diameter(item, name, frame, values, press_ref=True)
     low, high = (_number(v, f"{name}.dia") for v in band)
     given = _positive(nominal, f"{name}.dia_nominal")
     if (
@@ -762,6 +875,45 @@ def _turned(item: dict, name: str, frame: tuple, values: dict) -> float:
     least = _diameter(item | {"dia_nominal": inside}, name, frame, values)
     values[f"{name}_nominal_mm"] = given
     return least
+
+
+_REGRIP_OUT = {"datum": "regrip_stickout_datum_in", "far": "regrip_stickout_far_in"}
+
+
+def _regrip_stickout(values: dict, parameters: dict, turned: list) -> None:
+    """``regrip_stickout_datum_in`` / ``_far_in``: a regrip with that end out
+    standing the part that far out of the jaw fronts (the regrip allowance on
+    the out end included), the gripped diameter running on through the jaws
+    into the chuck, so a long part may be held near either end. Rebinds
+    ``<name>_stickout_<end>_mm`` and ``<name>_regrip_jaw_z_<end>_mm`` on each
+    diameter the jaw fronts fall on, with diameter left in the jaws; the
+    others lose them (no regrip on that diameter with that end out)."""
+    if "regrip_grip_in" in parameters:
+        raise CadError("process.regrip_stickout_*_in: not with regrip_grip_in")
+    length = values["length_mm"]
+    for end, key in _REGRIP_OUT.items():
+        if key not in parameters:
+            continue
+        out_mm = _positive(parameters[key], f"process.{key}") * 25.4
+        front = out_mm - values["regrip_allowance_mm"]
+        if not 0 < front < length:
+            raise CadError(f"process.{key}: the jaw fronts are off the part")
+        values[f"regrip_stickout_{end}_mm"] = out_mm
+        # The jaw fronts' station from the datum end.
+        station = front if end == "datum" else length - front
+        for name in turned:
+            z0, z1 = values[f"{name}_z0_mm"], values[f"{name}_z1_mm"]
+            # The jaws run from their fronts toward the chuck, on this diameter.
+            if end == "datum":
+                on = z0 - _STATION <= station < z1
+            else:
+                on = z0 < station <= z1 + _STATION
+            if on:
+                values[f"{name}_stickout_{end}_mm"] = out_mm
+                values[f"{name}_regrip_jaw_z_{end}_mm"] = -front
+            else:
+                values.pop(f"{name}_stickout_{end}_mm", None)
+                values.pop(f"{name}_regrip_jaw_z_{end}_mm", None)
 
 
 def _blank(values: dict, parameters: dict, least_bar: float, turned: list) -> list:
@@ -828,20 +980,24 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     _length(features["far_end"], frame, values)
     if "outer" not in features:
         raise CadError("outer: a turned part needs its outside diameter")
-    turned = [name for name in _DIAMETERS if name in features]
+    turned = [name for name in _DIAMETERS if name in features] + sorted(
+        name for name in features if name.startswith("step_")
+    )
     sizes = {name: _turned(features[name], name, frame, values) for name in turned}
     ordered = sorted(turned, key=lambda name: values[f"{name}_z0_mm"])
     start, end = 0.0, values["length_mm"]
     for side, name in (("datum_end", ordered[0]), ("far_end", ordered[-1])):
         if features[side]["kind"] != "dome":
             continue
+        if _press_ref(values, name):
+            raise CadError(f"{side}: a dome on {name}, a REF turned to its mate")
         radius = values.get(f"{name}_nominal_mm", values[f"{name}_dia_mm"]) / 2
         low, high = values.get(f"{name}_dia_band_mm", [2 * radius, 2 * radius])
         # A threaded diameter's model may sit at the thread's basic major.
         major = _basic_major(features[name].get("thread"))
         roots = (low / 2, max(high / 2, radius, major / 2))
         _dome(features[side], side, values, radius, roots)
-        if "dome_form_radius_in" in parameters:
+        if _form_keys(parameters, _DOMES[side])[0] is not None:
             _form(values, parameters, _DOMES[side], radius, roots)
         if side == "datum_end":
             start = values["dome_datum_root_z_mm"]
@@ -854,6 +1010,12 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
             "process.dome_form_dia_min_in/_max_in: bind only with "
             "dome_form_radius_in on a dome this traveler forms"
         )
+    for prefix in _DOMES.values():
+        own = [k for k in parameters if k.startswith(f"{prefix}_form_")]
+        if own and f"{prefix}_form_radius_mm" not in values:
+            raise CadError(
+                f"process.{own[0]}: binds only on a dome this traveler forms"
+            )
     _tiles(values, turned, start, end)
     _body(features["far_end"], values)
     _faced(values)
@@ -865,6 +1027,12 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     supplied = _as_supplied(parameters, sizes, values)
     if "shoulder" in features:
         _shoulder_from(features["shoulder"], frame, values)
+    far = features["far_end"]
+    if "station" in far.get("requirements", []):
+        length = values["length_mm"]
+        _located(far, "far_end", values, (length, length))
+    for name in turned:
+        _run_length(features[name], name, values)
     if "tap" in features:
         _tap(features["tap"], frame, values, parameters)
     for name in sorted(features):
@@ -895,6 +1063,10 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
         if "supply_length_mm" in values:
             raise CadError("process: a part cut to fit at assembly takes a sawn blank")
         axes = _bar(values, parameters, sizes, least_bar, turned)
+        if set(_REGRIP_OUT.values()) & set(parameters):
+            _regrip_stickout(values, parameters, turned)
+    if set(_REGRIP_OUT.values()) & set(parameters) and "pitch_mm" not in values:
+        raise CadError("process.regrip_stickout_*_in: binds only with round bar")
     if "end_stickout_in" in parameters and "blank_length_mm" not in values:
         raise CadError("process.end_stickout_in: binds only with a sawn blank")
     if "regrip_grip_in" in parameters and "pitch_mm" not in values:

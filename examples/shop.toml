@@ -627,3 +627,21 @@ tool = "shaft-blade"
 material = "step-pin-c360"
 sfm = 300
 feed = "Hand plunge"
+
+# --- Demo headed pin (examples/demo-headed-pin.toml) ---
+# Form tools whose concave arc cuts each domed end along Z, fed by hand at
+# the parting blade's speed (shaft-parting-1018's authored 70 ft/min).
+[tools.headed-pin-form-r180]
+description = "R.180 dome form tool: concave R.180 arc ground into the end of a 3/8 in HSS blank"
+[tools.headed-pin-form-r070]
+description = "R.070 dome form tool: concave R.070 arc ground into the end of a 3/8 in HSS blank"
+[settings.headed-pin-form-r180-1018]
+tool = "headed-pin-form-r180"
+material = "shaft-1018-cold-finished"
+sfm = 70
+feed = "Hand, along Z"
+[settings.headed-pin-form-r070-1018]
+tool = "headed-pin-form-r070"
+material = "shaft-1018-cold-finished"
+sfm = 70
+feed = "Hand, along Z"

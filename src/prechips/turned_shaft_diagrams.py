@@ -145,10 +145,14 @@ def _names(values: dict, prefix: str, suffix: str) -> list[str]:
 
 
 def _diameters(values: dict) -> list[str]:
-    return sorted(
-        (name for name in ("outer", "step") if f"{name}_dia_mm" in values),
-        key=lambda name: values[f"{name}_z0_mm"],
-    )
+    """The turned diameters (``outer``, ``step``, ``step_*``) by station."""
+    family = {key.removesuffix("_z0_mm") for key in values if key.endswith("_z0_mm")}
+    names = [n for n in ("outer", "step") if f"{n}_dia_mm" in values] + [
+        name
+        for name in family
+        if name.startswith("step_") and f"{name}_dia_mm" in values
+    ]
+    return sorted(names, key=lambda name: values[f"{name}_z0_mm"])
 
 
 def _radius(values: dict, name: str, made: set) -> float:
@@ -399,6 +403,15 @@ def _lathe(
             near = min(z1, z0 + held_mm)
             far_side = z0
         jaw = z_of(near)
+        if f"regrip_stickout_{out}_mm" in values:
+            # The jaws stand the part this far out, the diameter running on
+            # through them into the chuck.
+            key = f"{grip}_regrip_jaw_z_{out}_mm"
+            if key not in values:
+                raise CadError(
+                    f"turned-shaft: the regrip's jaw fronts are not on {grip!r}"
+                )
+            jaw = float(values[key])
         back = z_of(far_side)
     zmin = jaw - _HELD if hold != "regrip" else max(jaw - _HELD, back)
     if hold == "blank":
@@ -691,7 +704,11 @@ def _labels(
             a = view.x(z_of(values[f"{name}_z0_mm"]))
             b = view.x(z_of(values[f"{name}_z1_mm"]))
             mid = (max(min(a, b), view.x0) + max(a, b)) / 2
-            text = [f"turn Ø{_band(f'{name}_dia', 4)}"]
+            text = (
+                [f"turn Ø{_band(f'{name}_dia', 4)}"]
+                if f"{name}_dia_min_in" in values
+                else ["turn to the measured mate,", *_size(values, name)[1:]]
+            )
             if values.get("thread_on") == name:
                 text.append("thread blank")
             above.append((mid, view.up(values[f"{name}_dia_mm"] / 2), text))
@@ -968,6 +985,8 @@ def _size(values: dict, name: str) -> list[str]:
         return [f"Ø{_band(f'{name}_dia', 4)}", "as supplied"]
     if f"{name}_dia_min_in" in values:
         return [f"Ø{_band(f'{name}_dia', 4)}"]
+    if f"{name}_interference_min_in" in values:
+        return ["to its measured mate,", f"{_band(f'{name}_interference', 4)} over"]
     return ["to its measured mate,", f"{_band(f'{name}_clearance', 4)} under"]
 
 

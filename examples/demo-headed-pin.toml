@@ -1,0 +1,237 @@
+# Demo: a headed pin from 1/4 in 1018 bar on the manual lathe. The bar is
+# turned with the tip end out on a tailstock centre in a stub beyond the
+# tip: the head, the press land (turned to its measured mate), the journal
+# and the ring groove stationed from the head seat. The stub is cut off at
+# the tip plane and the pin parted off at the head's apex plane; turned
+# round twice, the jaws on the journal over a shim wrap and the pin running
+# on through them, each dome is cut along Z by its own form tool. Sizes,
+# bands and stations come from the manifest through the turned_shaft
+# adapter; the pictures are its turned-shaft templates. Speeds, kerf and
+# allowances are authored demo choices.
+title = "Demo headed pin"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "AISI 1018 cold-drawn round, 1/4 in"
+stock = "Ø{{process.stock_dia_in:.4dot}} in bar, {{process.bar_length_in:g}} in; one part takes {{cad.pitch_in:.3dot}} in."
+note = "Inches. Lathe speeds on the PM-1127VF-LB (70–380 and 380–2000 rpm). Cutting oil on steel."
+shop = "shop.toml"
+material_key = "shaft-1018-cold-finished"
+turning_material = "steel_1018"
+
+[cad]
+file = "cad/turned-headed-pin-v51.toml"
+adapter = "turned_shaft"
+part = "demo-headed-pin"
+
+[parameters]
+quantity = 1
+stock_dia_in = 0.25
+bar_length_in = 12.0
+chuck_grip_in = 0.75
+# A .20 in centre stub beyond the tip plane, and .02 faced off the bar end.
+face_allowance_in = 0.22
+part_kerf_in = 0.0625
+parts_per_pull = 1
+jaw_clearance_in = 0.1
+# The centre's point in the stub's faced end, Z0 the tip plane.
+centre_z_mm = 5.08
+# Turned round, the pin stands this far out, the journal on through the
+# jaws: the head clear of the land, the tip under 4 × the groove's Ø.
+regrip_stickout_datum_in = 0.45
+regrip_stickout_far_in = 0.35
+dome_datum_form_radius_in = 0.18
+dome_far_form_radius_in = 0.07
+finish_allowance_in = 0.005
+rough_radial_doc_mm = 0.1
+# The slender journal between chuck and centre takes .0003 in finish passes
+# at a fine feed (turning_deflection's finish screen).
+finish_radial_doc_mm = 0.0076
+finish_feed_mm_rev = 0.0254
+turn_start_z_mm = 1.0
+# The head is turned on past its apex plane (Z-2.200) into the part-off kerf.
+head_turn_end_z_mm = -57.5
+turn_feed_mm_rev = 0.0508
+
+[[tools]]
+id = "ar"
+name = "AR"
+ref = "shaft-ar"
+
+[[tools]]
+id = "centre"
+name = "Centre drill"
+ref = "shaft-centre"
+
+[[tools]]
+id = "blade"
+name = "Blade"
+ref = "shaft-blade"
+description = "1/16 in M2 parting blade"
+
+[[tools]]
+id = "form-head"
+name = "R.180 form tool"
+ref = "headed-pin-form-r180"
+
+[[tools]]
+id = "form-tip"
+name = "R.070 form tool"
+ref = "headed-pin-form-r070"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Bar: tip end out on the centre, turn, groove, part off"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw on the bar, {{cad.stickout_in:.3dot}} in out of the jaws; the tailstock centre in the stub beyond the tip."
+datum = "Z0 the tip plane, {{process.centre_z_mm:in.3dot}} in inside the faced bar end."
+diagram = { file = "diagrams/demo-headed-pin/bar.svg", alt = "The bar in the 3-jaw, tip end out on the centre: head, land and journal turned, the groove cut, the pin parted off at the head." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.stock_dia_mm}}", stock_diameter_mm = "{{cad.stock_dia_mm}}", stickout_mm = "{{cad.stickout_mm}}", minimum_diameter_mm = "{{cad.groove_dia_min_mm}}", support = "tailstock" }
+turning_support = { kind = "tailstock", chuck_z_mm = "{{cad.jaw_z_mm}}", centre_z_mm = "{{process.centre_z_mm}}" }
+
+[[setups.operations]]
+cut_kind = "other"
+instruction = "Before turning, read the {{cad.step_land_mate}} hole the land presses into, printed Ø{{cad.step_land_mate_dia_min_in:.4dot}}–{{cad.step_land_mate_dia_max_in:.4dot}}: set a small-hole gauge to it and mike the gauge. That is its reading R."
+inspection = "Hole Ø{{cad.step_land_mate_dia_min_in:.4dot}}–{{cad.step_land_mate_dia_max_in:.4dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.step_land_mate_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Face the bar end square, .02 off; set DRO Z to +{{process.centre_z_mm:in.3dot}} there: Z0 is the tip plane."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "centre"
+drilling = "none"
+sizing = "other"
+instruction = "Centre-drill the faced end and bring the tailstock centre into it."
+settings = "shaft-centre-drill-1018"
+cut_diameter_mm = 1.98
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Journal rough", phase = "rough", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.outer_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.outer_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.outer_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.outer_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.outer_rough_dia_mm}}" },
+  { name = "Land rough", phase = "rough", start_z_mm = "{{cad.step_land_far_out_near_z_mm}}", end_z_mm = "{{cad.step_land_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_land_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_land_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.step_land_rough_dia_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_land_rough_dia_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Rough the journal to Ø{{cad.outer_rough_dia_mm:in.4dot}} and the land to Ø{{cad.step_land_rough_dia_mm:in.4dot}}, square to the seat at Z{{cad.step_land_far_out_far_z_mm:in.3dot}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Head", phase = "finish", start_z_mm = "{{cad.step_head_far_out_near_z_mm}}", end_z_mm = "{{process.head_turn_end_z_mm}}", kept_start_z_mm = "{{cad.step_head_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_head_far_out_far_z_mm}}", start_diameter_mm = "{{cad.stock_dia_mm}}", end_diameter_mm = "{{cad.step_head_turn_min_mm}}", max_radial_doc_mm = "{{process.rough_radial_doc_mm}}", feed_mm_rev = "{{process.turn_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_head_turn_min_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Turn the head Ø{{cad.step_head_dia_min_in:.3dot}}–{{cad.step_head_dia_max_in:.3dot}} from the seat back past the part-off line."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.step_head_dia_mm}}"
+inspection = "Head Ø{{cad.step_head_dia_min_in:.3dot}}–{{cad.step_head_dia_max_in:.3dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.step_head_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Journal finish", phase = "finish", start_z_mm = "{{process.turn_start_z_mm}}", end_z_mm = "{{cad.outer_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.outer_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.outer_far_out_far_z_mm}}", start_diameter_mm = "{{cad.outer_rough_dia_mm}}", end_diameter_mm = "{{cad.outer_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.finish_feed_mm_rev}}", minimum_diameter_mm = "{{cad.outer_turn_min_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Finish the journal Ø{{cad.outer_dia_min_in:.4dot}}–{{cad.outer_dia_max_in:.4dot}}, {{cad.outer_clearance_min_in:.4dot}}–{{cad.outer_clearance_max_in:.4dot}} under {{cad.outer_mates}}."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+inspection = "Journal Ø{{cad.outer_dia_min_in:.4dot}}–{{cad.outer_dia_max_in:.4dot}}."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.outer_dia_band_mm}}" }]
+
+[[setups.operations]]
+cut_kind = "longitudinal_turning"
+turning_cuts = [
+  { name = "Land finish", phase = "finish", start_z_mm = "{{cad.step_land_far_out_near_z_mm}}", end_z_mm = "{{cad.step_land_far_out_far_z_mm}}", kept_start_z_mm = "{{cad.step_land_far_out_near_z_mm}}", kept_end_z_mm = "{{cad.step_land_far_out_far_z_mm}}", start_diameter_mm = "{{cad.step_land_rough_dia_mm}}", end_diameter_mm = "{{cad.step_land_turn_min_mm}}", max_radial_doc_mm = "{{process.finish_radial_doc_mm}}", feed_mm_rev = "{{process.finish_feed_mm_rev}}", minimum_diameter_mm = "{{cad.step_land_turn_min_mm}}" },
+]
+speed_kind = "spindle"
+tool = "ar"
+drilling = "none"
+sizing = "other"
+instruction = "Finish the land to R + {{cad.step_land_interference_min_in:.4dot}}–{{cad.step_land_interference_max_in:.4dot}}, {{cad.step_land_length_min_in:.2dot}}–{{cad.step_land_length_max_in:.2dot}} long from the seat; seat corner R{{cad.fillet_seat_radius_max_in:.3dot}} max."
+settings = "shaft-face-carbide-1018"
+cut_diameter_mm = "{{cad.step_land_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Groove Ø{{cad.groove_dia_min_in:.3dot}}–{{cad.groove_dia_max_in:.3dot}}, {{cad.groove_width_min_in:.3dot}}–{{cad.groove_width_max_in:.3dot}} wide, its tip-side wall {{cad.groove_station_min_in:.3dot}}–{{cad.groove_station_max_in:.3dot}} from the seat."
+settings = "shaft-relief-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "blade"
+drilling = "none"
+sizing = "other"
+instruction = "Cut the stub off at Z0, the tip plane ({{cad.far_end_station_min_in:.2dot}}–{{cad.far_end_station_max_in:.2dot}} from the seat), the centre still in; withdraw the tailstock. Part the pin off at Z-{{cad.part_off_in:.3dot}}, the head's apex plane."
+settings = "shaft-parting-1018"
+cut_diameter_mm = "{{cad.stock_dia_mm}}"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Turned round, head out: form the head dome"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw over a shim wrap on the journal, the head {{cad.outer_stickout_datum_mm:in.3dot}} in out, the pin on through the jaws."
+datum = "DRO Z zeroed where the form tool's arc touches both corners of the head end."
+diagram = { file = "diagrams/demo-headed-pin/head.svg", alt = "The pin turned round, the journal in the jaws over a shim wrap: the head dome formed." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_datum_mm}}", minimum_diameter_mm = "{{cad.outer_dia_mm}}", support = "none" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "form-head"
+drilling = "none"
+sizing = "other"
+instruction = "Feed the R{{cad.dome_datum_form_radius_in:.3dot}} arc along Z to Z-{{cad.dome_datum_form_height_in:.4dot}}: the dome R{{cad.dome_datum_radius_min_in:.2dot}}–{{cad.dome_datum_radius_max_in:.2dot}}, its apex on the parted plane."
+settings = "headed-pin-form-r180-1018"
+cut_diameter_mm = "{{cad.step_head_dia_mm}}"
+
+[[setups]]
+machine_kind = "lathe"
+title = "Turned round, tip out: form the tip dome"
+machine = "PM-1127VF-LB lathe"
+indexing = "none"
+machine_ref = "pm-1127vf-lb"
+holding = "3-jaw over a shim wrap on the journal, the tip {{cad.outer_stickout_far_mm:in.3dot}} in out, the head inside the chuck."
+datum = "DRO Z zeroed where the form tool's arc touches both corners of the tip end."
+diagram = { file = "diagrams/demo-headed-pin/tip.svg", alt = "The pin turned round again, tip out: the tip dome formed." }
+lathe_hold = { chuck = "chuck-3jaw-6", grip_diameter_mm = "{{cad.outer_dia_mm}}", stock_diameter_mm = "{{cad.outer_dia_mm}}", stickout_mm = "{{cad.outer_stickout_far_mm}}", minimum_diameter_mm = "{{cad.groove_dia_min_mm}}", support = "none" }
+
+[[setups.operations]]
+cut_kind = "other"
+speed_kind = "spindle"
+tool = "form-tip"
+drilling = "none"
+sizing = "other"
+instruction = "Feed the R{{cad.dome_far_form_radius_in:.3dot}} arc along Z to Z-{{cad.dome_far_form_height_in:.4dot}}: the dome R{{cad.dome_far_radius_min_in:.2dot}}–{{cad.dome_far_radius_max_in:.2dot}}, its apex on the cut plane."
+settings = "headed-pin-form-r070-1018"
+cut_diameter_mm = "{{cad.outer_dia_mm}}"
+diagram = { file = "diagrams/demo-headed-pin/inspect.svg", alt = "The finished pin: domed head, seat, press land, journal, ring groove and domed tip." }
