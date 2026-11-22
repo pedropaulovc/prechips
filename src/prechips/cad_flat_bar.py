@@ -33,9 +33,28 @@ The envelope is the union, per model axis, of every face's plane and every
 the bar's axes, `blank_length_axis` and `blank_thickness_axis` (0, 1, 2 for
 model X, Y, Z; width is the third): the stock requirement then reads
 `blank_length_in`, `blank_width_in` and `blank_thickness_in` along them.
+
+A built-up part (plates bonded to a strap, say) is several blanks. The plan
+may name `blank_groups = ["<g>", ...]`, each with `<g>_blank_features`, the
+declared features cut from that blank. A grouped feature binds as any other,
+but its planes and extents never widen the bar's envelope; the bar keeps at
+least one feature of its own. A group's blank is sized either from its own
+envelope, bounded on all three axes by its features' planes and extents and
+read along `<g>_blank_length_axis` and `<g>_blank_thickness_axis` (binding
+`<g>_envelope_<axis>_mm` and `<g>_envelope_<role>_axis`), or from
+`<g>_blank_size_fields`, three `<feature>.<field>` requirements of its own
+features in length, width, thickness order (a band's high end or a positive
+number; never `finish_ra`, `plane`, `angle` or a `*_deg`/`*_angle` field),
+for a feature that describes several alike pieces. Those fields are the
+printed sizes of one piece: the group's modelled planes and extents, which
+may span several pieces or the part they bond to, are not checked against
+them. Either way it binds `<g>_envelope_<role>_mm`/`_in` and adds the stock
+axes `<g> <role>` on `<g>_blank_<role>_in`; an optional `<g>_blank_count`
+(identical pieces) binds as it is.
 """
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from .cad import (
@@ -62,6 +81,9 @@ _NAME = re.compile(r"[a-z][a-z0-9_]*")
 # Manifest bookkeeping and fields the requirement pass binds itself.
 _SKIP = {"kind", "frame", "requirements", "cite", "faces", "precision", "plane"}
 _TOLERANCE = 1e-6
+_INF = float("inf")
+# Requirements that are not a length a blank must cover.
+_NOT_LENGTHS = {"finish_ra", "plane", "thru", "angle"}
 
 
 def _bind(values: dict, key: str, value: object) -> None:
@@ -198,27 +220,46 @@ def _widen(span: list, index: int, low: float, high: float) -> None:
     span[index] = [min(span[index][0], low), max(span[index][1], high)]
 
 
-def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
+# A consumer's own fields: which keys it claims, and how it binds one.
+Claims = Callable[[str], bool]
+BindClaimed = Callable[[dict, dict, str, str], None]
+
+
+def _bind_feature(
+    values: dict,
+    features: dict,
+    name: str,
+    span: list | None,
+    *,
+    kinds: frozenset[str] | set[str] = _KINDS,
+    bare_kinds: frozenset[str] = frozenset(),
+    claims: Claims | None = None,
+    bind_claimed: BindClaimed | None = None,
+) -> None:
+    """Bind one feature. `kinds` are the feature kinds accepted, `bare_kinds`
+    those that may list no requirement. A key `claims` accepts (listed or
+    not, its `_nominal` with it) binds through `bind_claimed`. With `span`
+    None the part has no envelope: `extent_<axis>` is refused."""
     feature = features[name]
     if not _NAME.fullmatch(name):
         raise CadError(f"cad.features.{name}: expected a snake_case name")
     if (
         not isinstance(feature, dict)
-        or feature.get("kind") not in _KINDS
+        or feature.get("kind") not in kinds
         or feature.get("frame") != "model"
     ):
-        raise CadError(f"{name}: expected a model-frame {', '.join(sorted(_KINDS))}")
+        raise CadError(f"{name}: expected a model-frame {', '.join(sorted(kinds))}")
     requirements = feature.get("requirements")
     if (
         not isinstance(requirements, list)
-        or not requirements
+        or (not requirements and feature["kind"] not in bare_kinds)
         or not all(isinstance(key, str) for key in requirements)
     ):
         raise CadError(f"{name}.requirements: expected a nonempty list of names")
     if "plane" in feature:
         index, value = _plane_value(feature, name)
         _bind(values, f"{name}_plane_mm", value)
-        if feature["kind"] == "face":
+        if feature["kind"] == "face" and span is not None:
             _widen(span, index, value, value)
     elif "plane" in requirements:
         raise CadError(f"{name}.plane: missing drawing requirement")
@@ -226,20 +267,29 @@ def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
         for key in ("at", "axis"):
             if key not in feature:
                 raise CadError(f"{name}.{key}: a hole needs its {key}")
+    claimed = {key for key in feature if claims is not None and claims(key)}
     for key in requirements:
+        if key in claimed:
+            continue
         _requirement(values, feature, name, key)
-    # A listed band's nominal binds with it.
-    nominals = {f"{key}_nominal" for key in requirements} | {
-        f"nominal_{key}" for key in requirements
+    for key in sorted(claimed):
+        bind_claimed(values, feature, name, key)
+    # A listed or claimed band's nominal binds with it.
+    nominals = {
+        form.format(key)
+        for key in (*requirements, *claimed)
+        for form in ("{}_nominal", "nominal_{}")
     }
     for key, value in feature.items():
-        if key in _SKIP or key in requirements or key in nominals:
+        if key in _SKIP or key in requirements or key in claimed or key in nominals:
             continue
         if key.endswith("_from") and (
             not isinstance(value, str) or value not in features
         ):
             raise CadError(f"{name}.{key}: {value!r} is not a declared feature")
         if key.startswith("extent_"):
+            if span is None:
+                raise CadError(f"{name}.{key}: this part binds no envelope")
             axis = key.removeprefix("extent_")
             if axis not in _AXES:
                 raise CadError(f"{name}.{key}: expected extent_x, extent_y or extent_z")
@@ -249,12 +299,12 @@ def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
         _field(values, name, key, value)
 
 
-def _stock(values: dict, parameters: dict, sizes: list[float]) -> StockRequirement:
-    """The stock axes along the bar the plan names; refuses a short blank."""
-    keys = ("blank_length_axis", "blank_thickness_axis")
-    if not _all_or_none(parameters, keys, "the bar's axes"):
+def _bar_axes(parameters: dict, prefix: str, what: str) -> tuple[int, int, int]:
+    """The length, width and thickness model axes the plan names."""
+    keys = (f"{prefix}blank_length_axis", f"{prefix}blank_thickness_axis")
+    if not _all_or_none(parameters, keys, what):
         raise CadError(
-            "process: flat_bar needs blank_length_axis and blank_thickness_axis "
+            f"process: flat_bar needs {keys[0]} and {keys[1]} "
             "(0, 1, 2 for model X, Y, Z)"
         )
     length, thickness = (parameters[key] for key in keys)
@@ -263,28 +313,170 @@ def _stock(values: dict, parameters: dict, sizes: list[float]) -> StockRequireme
     )
     if not axes_ok or length == thickness:
         raise CadError(
-            "process.blank_length_axis, blank_thickness_axis: expected two "
+            f"process.{keys[0]}, {keys[1]}: expected two "
             "different model axes, 0, 1 or 2"
         )
-    width = 3 - length - thickness
+    return length, 3 - length - thickness, thickness
+
+
+def _blanks(
+    values: dict, parameters: dict, prefix: str, sizes: list[tuple[float, str, str]]
+) -> list[StockAxis]:
+    """Bind each role's required size and authored blank; refuses a short blank.
+
+    ``sizes`` holds, per role, the size in mm, its model axis (empty when the
+    size is a field's) and where the size comes from, for the refusal."""
     axes = []
-    for role, index in zip(_ROLES, (length, width, thickness), strict=True):
-        size = sizes[index]
-        _bind(values, f"envelope_{role}_mm", size)
-        _bind(values, f"envelope_{role}_in", size / 25.4)
-        _bind(values, f"envelope_{role}_axis", _AXES[index].upper())
-        key = f"blank_{role}_in"
+    for role, (size, axis, source) in zip(_ROLES, sizes, strict=True):
+        _bind(values, f"{prefix}envelope_{role}_mm", size)
+        _bind(values, f"{prefix}envelope_{role}_in", size / 25.4)
+        if axis:
+            _bind(values, f"{prefix}envelope_{role}_axis", axis)
+        key = f"{prefix}blank_{role}_in"
         if key in parameters:
             blank = _positive(parameters[key], f"process.{key}")
             if blank * 25.4 < size - _TOLERANCE:
                 raise CadError(
                     f"process.{key}: {blank:g} in is under the part's "
-                    f"{size / 25.4:.4f} in along model {_AXES[index].upper()}"
+                    f"{size / 25.4:.4f} in {source}"
                 )
-            _bind(values, f"blank_{role}_mm", blank * 25.4)
-            _bind(values, f"stock_{role}_in", blank - size / 25.4)
-        axes.append(StockAxis(role, key, size))
-    return StockRequirement("in", tuple(axes))
+            _bind(values, f"{prefix}blank_{role}_mm", blank * 25.4)
+            _bind(values, f"{prefix}stock_{role}_in", blank - size / 25.4)
+        name = f"{prefix.removesuffix('_')} {role}" if prefix else role
+        axes.append(StockAxis(name, key, size))
+    return axes
+
+
+def _stock(values: dict, parameters: dict, sizes: list[float]) -> list[StockAxis]:
+    """The stock axes along the bar the plan names; refuses a short blank."""
+    indices = _bar_axes(parameters, "", "the bar's axes")
+    return _blanks(
+        values,
+        parameters,
+        "",
+        [
+            (sizes[index], _AXES[index].upper(), f"along model {_AXES[index].upper()}")
+            for index in indices
+        ],
+    )
+
+
+def _groups(parameters: dict, features: dict) -> tuple[list[str], dict[str, str]]:
+    """The plan's blank groups and the group each grouped feature is cut in."""
+    if "blank_groups" not in parameters:
+        return [], {}
+    groups = parameters["blank_groups"]
+    if (
+        not isinstance(groups, list)
+        or not groups
+        or not all(
+            isinstance(group, str) and _NAME.fullmatch(group) for group in groups
+        )
+        or len(set(groups)) != len(groups)
+    ):
+        raise CadError(
+            "process.blank_groups: expected a nonempty list of unique snake_case names"
+        )
+    owner: dict[str, str] = {}
+    for group in groups:
+        key = f"{group}_blank_features"
+        names = parameters.get(key)
+        if (
+            not isinstance(names, list)
+            or not names
+            or not all(isinstance(name, str) for name in names)
+        ):
+            raise CadError(f"process.{key}: expected a nonempty list of feature names")
+        for name in names:
+            if name not in features:
+                raise CadError(f"process.{key}: {name!r} is not a declared feature")
+            if name in owner:
+                raise CadError(
+                    f"process.{key}: {name} is already in blank group {owner[name]}"
+                )
+            owner[name] = group
+    if len(owner) == len(features):
+        raise CadError(
+            "process.blank_groups: every feature is in a blank group; the bar "
+            "keeps at least one of its own"
+        )
+    return groups, owner
+
+
+def _size_field(
+    features: dict, owner: dict, group: str, key: str, entry: object
+) -> float:
+    """The size in mm a `<feature>.<field>` names: a band's high end or a number."""
+    name, dot, field = entry.partition(".") if isinstance(entry, str) else ("", "", "")
+    if not dot or name not in features:
+        raise CadError(f"process.{key}: {entry!r} names no declared feature's field")
+    if owner.get(name) != group:
+        raise CadError(f"process.{key}: {name} is not in blank group {group}")
+    feature = features[name]
+    if field not in feature.get("requirements", []) or field not in feature:
+        raise CadError(f"process.{key}: {entry} is not a requirement {name} lists")
+    if field in _NOT_LENGTHS or field.endswith(("_deg", "_angle")):
+        raise CadError(f"process.{key}: {entry} is not a length")
+    if isinstance(feature[field], list):
+        return _positive(_band(feature, field, name)[1], f"{name}.{field}")
+    return _positive(feature[field], f"{name}.{field}")
+
+
+def _group_stock(
+    values: dict,
+    parameters: dict,
+    features: dict,
+    owner: dict,
+    group: str,
+    span: list,
+) -> list[StockAxis]:
+    """One blank group's required sizes and stock axes."""
+    prefix = f"{group}_"
+    count_key = f"{group}_blank_count"
+    if count_key in parameters:
+        count = parameters[count_key]
+        if type(count) is not int or count < 1:
+            raise CadError(f"process.{count_key}: expected a whole number, 1 or more")
+        _bind(values, count_key, count)
+    key = f"{group}_blank_size_fields"
+    if key not in parameters:
+        for axis, (low, high) in zip(_AXES, span, strict=True):
+            if not low < high:
+                raise CadError(
+                    f"process.{group}_blank_features: no face plane or "
+                    f"extent_{axis} bounds blank group {group} along {axis.upper()}"
+                )
+            _bind(values, f"{prefix}envelope_{axis}_mm", [low, high])
+        indices = _bar_axes(parameters, prefix, f"blank group {group}'s axes")
+        sizes = [
+            (
+                span[index][1] - span[index][0],
+                _AXES[index].upper(),
+                f"along model {_AXES[index].upper()} (blank group {group})",
+            )
+            for index in indices
+        ]
+        return _blanks(values, parameters, prefix, sizes)
+    stray = [
+        axis_key
+        for axis_key in (f"{prefix}blank_length_axis", f"{prefix}blank_thickness_axis")
+        if axis_key in parameters
+    ]
+    if stray:
+        raise CadError(
+            f"process.{key}: the fields size the blank; drop {', '.join(stray)}"
+        )
+    entries = parameters[key]
+    if not isinstance(entries, list) or len(entries) != len(_ROLES):
+        raise CadError(
+            f"process.{key}: expected three <feature>.<field> names: length, "
+            "width, thickness"
+        )
+    sizes = [
+        (_size_field(features, owner, group, key, entry), "", f"of {entry}")
+        for entry in entries
+    ]
+    return _blanks(values, parameters, prefix, sizes)
 
 
 def load_flat_bar(path: Path, parameters: dict, part: str) -> CadData:
@@ -305,10 +497,12 @@ def load_flat_bar(path: Path, parameters: dict, part: str) -> CadData:
         values[f"tol_{key}_in"] = (
             _positive(general.get(key), f"general_tolerances.{key}") / 25.4
         )
-    inf = float("inf")
-    span = [[inf, -inf] for _axis in _AXES]
+    groups, owner = _groups(parameters, features)
+    span = [[_INF, -_INF] for _axis in _AXES]
+    group_spans = {group: [[_INF, -_INF] for _axis in _AXES] for group in groups}
     for name in features:
-        _bind_feature(values, features, name, span)
+        group = owner.get(name)
+        _bind_feature(values, features, name, group_spans[group] if group else span)
     sizes = []
     for axis, (low, high) in zip(_AXES, span, strict=True):
         if not low < high:
@@ -318,5 +512,11 @@ def load_flat_bar(path: Path, parameters: dict, part: str) -> CadData:
             )
         _bind(values, f"envelope_{axis}_mm", [low, high])
         sizes.append(high - low)
-    stock = _stock(values, parameters, sizes) if parameters else None
-    return CadData(values, stock, path.resolve())
+    if not parameters:
+        return CadData(values, None, path.resolve())
+    axes = _stock(values, parameters, sizes)
+    for group in groups:
+        axes += _group_stock(
+            values, parameters, features, owner, group, group_spans[group]
+        )
+    return CadData(values, StockRequirement("in", tuple(axes)), path.resolve())

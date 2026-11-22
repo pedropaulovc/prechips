@@ -39,6 +39,10 @@ _SPINDLE = "z"
 _MILLING = ("side", "end", "face", "slot")
 _HELICAL = ("side", "slot")
 _THRUST = ("plunge", "drill")
+# A tool's helix force on the part in side and slot cuts: up (right-hand
+# spiral, right-hand cut: the default), down (left-hand spiral, right-hand
+# cut) or none (straight flutes).
+_DIRECTIONS = ("up", "down", "none")
 _HOLDS = {
     "cantilever": {"clamp_mm", "section_mm"},
     "between": {"supports_mm", "section_mm"},
@@ -550,10 +554,13 @@ def _cutter(
 def _axial_ratio(kind: str, tool: dict | None, config: dict) -> tuple[float, str]:
     """Axial ratio to the tangential force, and where it came from.
 
-    A tool's stated ``axial_ratio`` wins; a stated ``helix_deg`` gives
-    tan(helix) for the helix lift of side and slot cuts; otherwise the
-    configured default.
+    A straight-flute tool (``axial_direction = "none"``) lifts nothing in a
+    side or slot cut. Otherwise a tool's stated ``axial_ratio`` wins; a
+    stated ``helix_deg`` gives tan(helix) for the helix force of side and
+    slot cuts; otherwise the configured default.
     """
+    if tool is not None and tool.get("axial_direction") == "none" and kind in _HELICAL:
+        return 0.0, f"straight flutes of {tool['id']!r}"
     if tool is not None and "axial_ratio" in tool:
         return tool["axial_ratio"], f"tool {tool['id']!r} axial_ratio"
     if tool is not None and "helix_deg" in tool and kind in _HELICAL:
@@ -609,7 +616,7 @@ def _forces(
         text = f"drill thrust {thrust:.3g} N"
         if bounded:
             text += f" (bounded at the {sizes[0][0]:g} in table row)"
-        return {_SPINDLE: (thrust, text)}
+        return {_SPINDLE: (thrust, text), "lifts": False}
     for key in ("axial_doc_mm", "radial_woc_mm"):
         if key not in cut:
             raise CheckError(f"{where}: missing {key}")
@@ -647,7 +654,17 @@ def _forces(
         f"cross-spindle force {across:.3g} N (tangential {tangential:.3g} N × "
         f"√(1 + radial_ratio {milling['radial_ratio']:g}²))"
     )
-    return {_SPINDLE: (along, along_text), "across": (across, across_text)}
+    # Side and slot cuts lift the part on the helix; end and face cuts push
+    # it down, and so does a downcut (left-hand spiral, right-hand cut) tool's
+    # helix.
+    down = tool is not None and tool.get("axial_direction") == "down"
+    if down and kind in _HELICAL:
+        along_text += f", downward: {tool['id']!r} is a downcut"
+    return {
+        _SPINDLE: (along, along_text),
+        "across": (across, across_text),
+        "lifts": kind in _HELICAL and not down,
+    }
 
 
 def _deflection(beam: dict, station: float, force: float, rigidity: float):
@@ -728,11 +745,19 @@ def _plate_span(
 
 
 def _plate_deflection(
-    beam: dict, axis: str, station: float, force: float, modulus: float, kind: str
+    beam: dict,
+    axis: str,
+    station: float,
+    force: float,
+    modulus: float,
+    kind: str,
+    lifts: bool,
 ):
     """Deflection (mm) of a part on a plate and the governing span's description.
 
-    The plate takes a downward push anywhere on the seat. Lift, and side load
+    The plate takes a downward push anywhere on the seat (``lifts`` false:
+    drill and plunge thrust, end and face cuts, a downcut's side and slot
+    cuts). Lift, and side load
     away from the fence, are held only at the clamp stations: a pinned span
     between the two nearest, or an overhang beyond the end pair (the further
     clamps of a continuous part only stiffen it). A cut-out part is held at
@@ -740,7 +765,7 @@ def _plate_deflection(
     load, and the part moves with them.
     """
     low, high = beam["stations"]
-    if axis == _SPINDLE and kind not in _HELICAL:
+    if axis == _SPINDLE and not lifts:
         if not low <= station <= high:
             raise CheckError(
                 f"station {station:g} mm is off the stated seat {low:g}..{high:g} mm"
@@ -904,8 +929,8 @@ def _bonded_cut(
     The cross-spindle force shears each piece's whole bonded area. The lift
     of a side or slot cut acts at the piece's edge, where a rigid footing
     carries four times the mean stress (F/A plus the moment of a load at the
-    edge of a rectangle), on the piece's lift area. A downward push is taken
-    by the plate.
+    edge of a rectangle), on the piece's lift area. A downward push, a
+    downcut tool's helix force included, is taken by the plate.
     """
     unused = sorted({"max_deflection_mm", "finish_cut", "finish_stock_mm"} & cut.keys())
     if unused:
@@ -933,7 +958,7 @@ def _bonded_cut(
                 f"{capacity:.3g} N in shear ({piece['area']:.6g} mm² at the derated "
                 f"{bond['shear']:.3g} MPa); catalogue strength, not a measured hold"
             )
-        if kind not in _HELICAL:
+        if not forces["lifts"]:
             continue
         stress = 4 * lift / piece["lift_area"]
         if stress > bond["tensile"]:
@@ -1005,7 +1030,13 @@ def _check_cut(
             try:
                 if plate:
                     deflection, span = _plate_deflection(
-                        beam, axis, station, force, modulus, kind
+                        beam,
+                        axis,
+                        station,
+                        force,
+                        modulus,
+                        kind,
+                        forces.get("lifts", True),
                     )
                 else:
                     deflection, span = _deflection(
@@ -1031,10 +1062,21 @@ def _check_cut(
 
 
 def _tools(plan: LoadedPlan) -> dict[str, dict]:
-    """Plan tools by id, with any stated helix or axial ratio validated."""
+    """Plan tools by id, with any stated helix, axial ratio or axial force
+    direction validated."""
     tools = {}
     for tool in plan.data.get("tools", []):
         where = f"tool {tool.get('id')!r}"
+        if "axial_direction" in tool and tool["axial_direction"] not in _DIRECTIONS:
+            raise CheckError(
+                f"{where}.axial_direction: expected up, down or none (the flutes' "
+                "helix force on the part: upcut, downcut or straight)"
+            )
+        if tool.get("axial_direction") == "none" and "helix_deg" in tool:
+            raise CheckError(
+                f"{where}: axial_direction none (straight flutes) contradicts its "
+                f"helix_deg {tool['helix_deg']!r}"
+            )
         if "axial_ratio" in tool:
             _positive(tool["axial_ratio"], f"{where}.axial_ratio")
         if (
