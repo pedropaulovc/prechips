@@ -616,7 +616,7 @@ def _forces(
         text = f"drill thrust {thrust:.3g} N"
         if bounded:
             text += f" (bounded at the {sizes[0][0]:g} in table row)"
-        return {_SPINDLE: (thrust, text)}
+        return {_SPINDLE: (thrust, text), "lifts": False}
     for key in ("axial_doc_mm", "radial_woc_mm"):
         if key not in cut:
             raise CheckError(f"{where}: missing {key}")
@@ -654,15 +654,16 @@ def _forces(
         f"cross-spindle force {across:.3g} N (tangential {tangential:.3g} N × "
         f"√(1 + radial_ratio {milling['radial_ratio']:g}²))"
     )
-    # A downcut (left-hand spiral, right-hand cut) tool's helix pushes the
-    # part down onto its seat instead of lifting it.
+    # Side and slot cuts lift the part on the helix; end and face cuts push
+    # it down, and so does a downcut (left-hand spiral, right-hand cut) tool's
+    # helix.
     down = tool is not None and tool.get("axial_direction") == "down"
     if down and kind in _HELICAL:
         along_text += f", downward: {tool['id']!r} is a downcut"
     return {
         _SPINDLE: (along, along_text),
         "across": (across, across_text),
-        "lifts": not (down and kind in _HELICAL),
+        "lifts": kind in _HELICAL and not down,
     }
 
 
@@ -750,12 +751,13 @@ def _plate_deflection(
     force: float,
     modulus: float,
     kind: str,
-    lifts: bool = True,
+    lifts: bool,
 ):
     """Deflection (mm) of a part on a plate and the governing span's description.
 
-    The plate takes a downward push anywhere on the seat, a downcut tool's
-    helix force included (``lifts`` false). Lift, and side load
+    The plate takes a downward push anywhere on the seat (``lifts`` false:
+    drill and plunge thrust, end and face cuts, a downcut's side and slot
+    cuts). Lift, and side load
     away from the fence, are held only at the clamp stations: a pinned span
     between the two nearest, or an overhang beyond the end pair (the further
     clamps of a continuous part only stiffen it). A cut-out part is held at
@@ -763,7 +765,7 @@ def _plate_deflection(
     load, and the part moves with them.
     """
     low, high = beam["stations"]
-    if axis == _SPINDLE and (kind not in _HELICAL or not lifts):
+    if axis == _SPINDLE and not lifts:
         if not low <= station <= high:
             raise CheckError(
                 f"station {station:g} mm is off the stated seat {low:g}..{high:g} mm"
@@ -956,7 +958,7 @@ def _bonded_cut(
                 f"{capacity:.3g} N in shear ({piece['area']:.6g} mm² at the derated "
                 f"{bond['shear']:.3g} MPa); catalogue strength, not a measured hold"
             )
-        if kind not in _HELICAL or not forces.get("lifts", True):
+        if not forces["lifts"]:
             continue
         stress = 4 * lift / piece["lift_area"]
         if stress > bond["tensile"]:
@@ -1069,6 +1071,11 @@ def _tools(plan: LoadedPlan) -> dict[str, dict]:
             raise CheckError(
                 f"{where}.axial_direction: expected up, down or none (the flutes' "
                 "helix force on the part: upcut, downcut or straight)"
+            )
+        if tool.get("axial_direction") == "none" and "helix_deg" in tool:
+            raise CheckError(
+                f"{where}: axial_direction none (straight flutes) contradicts its "
+                f"helix_deg {tool['helix_deg']!r}"
             )
         if "axial_ratio" in tool:
             _positive(tool["axial_ratio"], f"{where}.axial_ratio")

@@ -609,7 +609,14 @@ def _strap(beam: dict, cut: dict, tool: dict | None = None, **setup) -> None:
             "operations": [operation],
             **setup,
         },
-        tools=[{"id": "em", "helix_deg": 30, **(tool or {})}],
+        # A key set to None in ``tool`` drops the default.
+        tools=[
+            {
+                key: value
+                for key, value in {"id": "em", "helix_deg": 30, **(tool or {})}.items()
+                if value is not None
+            }
+        ],
     )
 
 
@@ -750,16 +757,21 @@ def test_a_downcut_or_straight_flute_tool_lifts_no_bonded_piece():
         _strap(BONDED, through, {"axial_direction": "up"})
     _strap(BONDED, through, {"axial_direction": "down"})
     # Straight flutes have no helix force at all.
-    _strap(BONDED, through, {"axial_direction": "none"})
+    straight = {"axial_direction": "none", "helix_deg": None}
+    _strap(BONDED, through, straight)
     # The cross-spindle force is unchanged: shear still refuses a small piece.
     small = copy.deepcopy(BONDED)
     small["bond"]["pieces"][1]["area_mm2"] = 200.0
     small["bond"]["pieces"][0]["width_mm"] = 38.1
-    for direction in ("down", "none"):
+    for tool in ({"axial_direction": "down"}, straight):
         with pytest.raises(CheckError, match="exceeds the bond under 'waste'"):
-            _strap(small, through, {"axial_direction": direction})
+            _strap(small, through, tool)
     with pytest.raises(CheckError, match="axial_direction: expected up, down or none"):
         _strap(BONDED, through, {"axial_direction": "left"})
+    # Straight flutes cannot also have a helix (here inherited from _strap's
+    # helix_deg 30, as a plan tool inherits a shop record's).
+    with pytest.raises(CheckError, match="contradicts its helix_deg 30"):
+        _strap(BONDED, through, {"axial_direction": "none", "helix_deg": 30})
 
 
 def test_a_downcut_bends_a_clamped_plate_part_only_across_the_spindle():
@@ -785,9 +797,12 @@ def test_a_downcut_bends_a_clamped_plate_part_only_across_the_spindle():
         _strap(cantilever, cut)
     with pytest.raises(CheckError) as down:
         _strap(cantilever, cut, {"axial_direction": "down"})
-    assert re.search(r"estimated bending ([0-9.e-]+) mm along z", str(up.value))
     bend = r"estimated bending ([0-9.e-]+) mm along z"
-    assert re.search(bend, str(up.value))[1] == re.search(bend, str(down.value))[1]
+    up_bend, down_bend = (
+        re.search(bend, str(up.value)),
+        re.search(bend, str(down.value)),
+    )
+    assert up_bend and down_bend and up_bend[1] == down_bend[1]
 
 
 @pytest.mark.parametrize(
