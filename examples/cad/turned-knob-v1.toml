@@ -1,0 +1,179 @@
+# Demo manifest in the CAD export format: a knurled brass thumbnut, a flange and waist stepped down to its seat, a dished front face, tapped through and countersunk both ends; demo identity, no source citations.
+"part" = "turned-knob"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-knob.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-KNOB"
+"revision" = "v1"
+
+["material"]
+"spec" = "C36000 free-machining brass"
+"name" = "Brass"
+"finish" = "bright machined, oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "turned from bar (brass): straight-knurl the head, turn the waist and flange, dish the front face, tap #8-32 through, countersink both ends"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 0.0 }
+"outward" = [0.0, -1.0, 0.0]
+"faces" = "unknown"
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 16.002 }
+"outward" = [0.0, 1.0, 0.0]
+"length" = [15.748, 16.256]
+"length_nominal" = 16.002
+"length_from" = "datum_end"
+"precision" = { "length" = 2 }
+"faces" = "unknown"
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "knurl"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [7.366, 16.002]
+"dia" = [20.32, 20.828]
+"dia_nominal" = 20.574
+"callout" = "STRAIGHT KNURL 25 TPI, Ø OVER KNURL"
+"precision" = { "dia" = 2 }
+"faces" = "unknown"
+
+["features"."outer"."knurl"]
+"pattern" = "straight"
+"tpi" = 25
+"tooth_angle_deg" = 90.0
+
+["features"."step_flange"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 5.08]
+"dia" = [12.192, 12.7]
+"dia_nominal" = 12.446
+"precision" = { "dia" = 2 }
+"faces" = "unknown"
+
+["features"."step_waist"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [5.08, 7.366]
+"dia" = [10.668, 11.176]
+"dia_nominal" = 10.922
+"precision" = { "dia" = 2 }
+"faces" = "unknown"
+
+["features"."shoulder_flange"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 5.08 }
+"outward" = [0.0, 1.0, 0.0]
+"station" = [4.826, 5.334]
+"station_nominal" = 5.08
+"station_from" = "datum_end"
+"precision" = { "station" = 2 }
+"faces" = "unknown"
+
+["features"."shoulder_head"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "y", "value" = 7.366 }
+"outward" = [0.0, -1.0, 0.0]
+"station" = [7.112, 7.62]
+"station_nominal" = 7.366
+"station_from" = "datum_end"
+"precision" = { "station" = 2 }
+"faces" = "unknown"
+
+["features"."recess"]
+"kind" = "recess"
+"frame" = "model"
+"requirements" = ["dia", "floor_dia", "depth"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [14.985999999999999, 16.002]
+"dia" = [14.732, 15.24]
+"dia_nominal" = 14.986
+"floor_dia" = [8.636, 9.144]
+"floor_dia_nominal" = 8.89
+"depth" = [0.762, 1.27]
+"depth_nominal" = 1.016
+"depth_from" = "far_end"
+"shape" = "cone_to_flat_floor"
+"precision" = { "dia" = 2, "floor_dia" = 2, "depth" = 2 }
+"faces" = "unknown"
+
+["features"."tap"]
+"kind" = "threaded_hole"
+"frame" = "model"
+"requirements" = ["thread", "dia", "thru"]
+"axis" = [0.0, 1.0, 0.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 16.002]
+"thread" = "#8-32 UNC-2B"
+"dia" = [3.454, 3.5556]
+"nominal_dia" = 3.454
+"thru" = true
+"callout" = "#8-32 UNC THRU ALL"
+"precision" = { "dia" = 3 }
+"faces" = "unknown"
+
+["features"."countersinks"]
+"kind" = "countersink"
+"frame" = "model"
+"requirements" = ["dia_max", "half_angle"]
+"axis" = [0.0, 1.0, 0.0]
+"dia_max" = 4.571999999999999
+"half_angle" = [44.0, 46.0]
+"half_angle_nominal" = 45.0
+"at_ends" = ["datum_end", "recess"]
+"edge_of" = "tap"
+"callout" = "Ø.18 MAX X 90° CSK, BOTH ENDS"
+"precision" = { "half_angle" = 1 }
+"faces" = "unknown"

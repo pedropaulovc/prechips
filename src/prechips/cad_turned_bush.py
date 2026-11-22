@@ -7,13 +7,15 @@ normal points out of the part, so a station is its distance from that face
 into the part. ``far_end`` is the other end face, with a ``length`` band (or a
 supply ``length_min``) from the datum end. Optional features:
 
-- ``shoulder``: a step face, a ``station`` band from the datum end;
-- ``outer``, ``step`` and member ``outer_<member>``: kind ``diameter``, each
-  with a ``span`` along the axis and one acceptance: a ``dia`` band, a
-  ``stock`` diameter left as bought (``dia_ref``), or a ``dia_ref`` turned to
-  a measured mate with a ``diametral_clearance`` or a press fit's
-  ``diametral_interference`` (a ``dia`` band may add a
-  ``diametral_interference``);
+- ``shoulder`` and ``shoulder_*``: a step face, a ``station`` band from the
+  datum end;
+- ``outer``, ``step``, ``step_*`` and member ``outer_<member>``: kind
+  ``diameter``, each with a ``span`` along the axis and one acceptance: a
+  ``dia`` band, a ``stock`` diameter left as bought (``dia_ref``), or a
+  ``dia_ref`` turned to a measured mate with a ``diametral_clearance`` or a
+  press fit's ``diametral_interference`` (a ``dia`` band may add a
+  ``diametral_interference``); a banded diameter may be ``knurl``ed (its
+  ``knurl`` table's ``pattern`` and ``tpi``; the band is over the knurl);
 - ``bore``: a ``hole`` through, a ``dia`` band and its ``process``; a basic
   ``nominal_dia`` under a plus band (a running fit's ream) binds as
   ``bore_basic_*`` and the band's middle is the size made;
@@ -21,7 +23,14 @@ supply ``length_min``) from the datum end. Optional features:
   measured mate's ``diametral_clearance`` under ``dia_max``, a ``depth`` band
   and a floor ``corner_radius_max``;
 - ``tap``: a ``threaded_hole`` from the datum end, its drill ``dia`` and its
-  ``drill_depth`` and ``thread_depth`` bands;
+  ``drill_depth`` and ``thread_depth`` bands, or ``thru`` the part (its drill
+  ``dia`` alone);
+- ``recess``: a ``recess`` in the far end, a cone from its rim ``dia`` band
+  down to a flat floor's ``floor_dia`` band, a ``depth`` band from the far
+  end;
+- ``countersink*``: kind ``countersink`` on the ``edge_of`` hole at each of
+  its ``at_ends`` (``datum_end``, ``far_end`` or ``recess``), a ``dia_max``
+  and an included angle from its ``half_angle`` band;
 - ``chamfer_*``: kind ``chamfer``, a ``leg`` band or a single ``leg_max``
   limit (bound as ``<name>_leg_max_*``).
 
@@ -57,7 +66,9 @@ from .cad import (
 
 _AXES = "xyz"
 _DIAMETERS = ("outer", "step")
-_OPTIONAL = {"shoulder", "bore", "pocket", "tap"}
+_OPTIONAL = {"shoulder", "bore", "pocket", "tap", "recess"}
+# Feature-name families beside the fixed names.
+_FAMILIES = ("chamfer_", "step_", "shoulder_", "countersink")
 _BAR = ("stock_dia_in", "face_allowance_in", "part_kerf_in")
 _BAR_LENGTH = ("bar_length_in", "chuck_grip_in")
 _PULL = ("parts_per_pull", "jaw_clearance_in")
@@ -249,12 +260,41 @@ def _diameter(
     else:
         raise CadError(f"{name}: expected a dia band, a stock size or a matched fit")
     values[f"{name}_stock"] = "stock" in requirements
+    if "knurl" in requirements:
+        _knurl(item, name, values)
     if "stock" in requirements and "stock_dia_min" in item:
         # The least bar the drawing accepts as supplied.
         least = _positive(item["stock_dia_min"], f"{name}.stock_dia_min")
         values[f"{name}_stock_dia_min_in"] = least / 25.4
         values[f"{name}_stock_dia_min_mm"] = least
     return least_bar
+
+
+def _knurl(item: dict, name: str, values: dict) -> None:
+    """A knurled diameter: its band is over the knurl. The blank is turned
+    to the tracking diameter at or under the band's middle (a whole number of
+    the knurl's pitches round it, so the wheels track without double
+    tracking); the knurl's crests rise from it into the band. The blank is
+    then the smallest the diameter is cut (``<name>_turn_min_mm``)."""
+    if f"{name}_dia_band_mm" not in values:
+        raise CadError(f"{name}.knurl: a knurl needs its dia band")
+    knurl = item.get("knurl")
+    if not isinstance(knurl, dict):
+        raise CadError(f"{name}.knurl: expected its pattern and tpi")
+    pattern = _string(knurl.get("pattern"), f"{name}.knurl.pattern")
+    if pattern not in ("straight", "diamond"):
+        raise CadError(f"{name}.knurl.pattern: expected straight or diamond")
+    tpi = _positive(knurl.get("tpi"), f"{name}.knurl.tpi")
+    pitch = 25.4 / tpi
+    low, high = values[f"{name}_dia_band_mm"]
+    teeth = math.floor(math.pi * (low + high) / 2 / pitch + _TOLERANCE)
+    blank = teeth * pitch / math.pi
+    values[f"{name}_turn_min_mm"] = blank
+    values[f"{name}_knurl_pattern"] = pattern
+    values[f"{name}_knurl_tpi"] = int(tpi) if tpi.is_integer() else tpi
+    values[f"{name}_knurl_teeth"] = teeth
+    values[f"{name}_knurl_blank_mm"] = blank
+    values[f"{name}_knurl_blank_in"] = blank / 25.4
 
 
 def _tiles(values: dict, names: list[str]) -> None:
@@ -328,6 +368,21 @@ def _pocket(item: dict, frame: tuple, values: dict) -> None:
     )
 
 
+def _tap_thru(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
+    """A tapped hole through the part: its thread and its drill's band."""
+    if "tap_lead_in" in parameters:
+        raise CadError("process.tap_lead_in: a through tap has no bottom")
+    _on_axis(item, "tap", frame[0])
+    low, high = _span(item, "tap", frame, values)
+    if abs(low) > _TOLERANCE or abs(high - values["length_mm"]) > _TOLERANCE:
+        raise CadError("tap.span: expected to run through the part")
+    _required(item, "thread", "tap")
+    values["tap_thread"] = _string(item.get("thread"), "tap.thread")
+    band = _limits(item, "dia", "tap", "tap_drill_dia", values)
+    values["tap_drill_dia_mm"] = _nominal(item, "nominal_dia", band, "tap")
+    values["tap_thru"] = True
+
+
 def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
     """A blind tapped hole from the datum end.
 
@@ -367,6 +422,101 @@ def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
         _inch_limits(
             values, "tap_reach", (thread[0] + lead, min(thread[1] + lead, drill[0]))
         )
+
+
+def _recess(item: dict, frame: tuple, values: dict, diameters: list[str]) -> None:
+    """A conical recess in the far end down to a flat floor (a dished face)."""
+    if item.get("kind") != "recess" or item.get("depth_from") != "far_end":
+        raise CadError("recess: expected a recess from far_end")
+    if item.get("shape") != "cone_to_flat_floor":
+        raise CadError("recess.shape: expected cone_to_flat_floor")
+    _on_axis(item, "recess", frame[0])
+    low, high = _span(item, "recess", frame, values)
+    rim = _limits(item, "dia", "recess", "recess_dia", values)
+    floor = _limits(item, "floor_dia", "recess", "recess_floor_dia", values)
+    depth = _limits(item, "depth", "recess", "recess_depth", values)
+    rim_mm = values["recess_dia_mm"] = _nominal(item, "dia_nominal", rim, "recess")
+    floor_mm = values["recess_floor_dia_mm"] = _nominal(
+        item, "floor_dia_nominal", floor, "recess"
+    )
+    deep = values["recess_depth_mm"] = _nominal(item, "depth_nominal", depth, "recess")
+    if (
+        abs(high - values["length_mm"]) > _TOLERANCE
+        or abs(high - low - deep) > _TOLERANCE
+    ):
+        raise CadError("recess.span: expected its depth into the far end")
+    if floor[1] >= rim[0]:
+        raise CadError("recess.floor_dia: not under its rim")
+    if depth[1] >= _least_length(values):
+        raise CadError("recess.depth: reaches the datum end of the shortest part")
+    # The diameter the rim opens in: the cone stays inside it, its least
+    # size (a stock diameter's own), over the whole depth.
+    at_far = [n for n in diameters if values[f"{n}_z1_mm"] >= high - _TOLERANCE]
+    if at_far:
+        least = values.get(f"{at_far[0]}_turn_min_mm", values[f"{at_far[0]}_dia_mm"])
+        if rim[1] >= least:
+            raise CadError(f"recess.dia: not inside {at_far[0]}")
+        if values[f"{at_far[0]}_z0_mm"] > values["length_mm"] - depth[1] + _TOLERANCE:
+            raise CadError(
+                f"recess.depth: runs past {at_far[0]} into the next diameter"
+            )
+    for hole, key in (("bore", "bore_dia_band_mm"), ("tap", "tap_drill_dia_band_mm")):
+        if key in values and values[key][1] >= floor[0]:
+            raise CadError(f"recess.floor_dia: not over the {hole}")
+    if "pocket_depth_band_mm" in values and (
+        values["pocket_depth_band_mm"][1] + depth[1] >= _least_length(values)
+    ):
+        raise CadError("recess.depth: meets the datum end's pocket")
+    half = math.degrees(math.atan((rim_mm - floor_mm) / 2 / deep))
+    # The cone's flank: its half angle from the axis, and from the end face
+    # (the compound's setting from the cross slide).
+    values["recess_half_angle_deg"] = half
+    values["recess_flank_deg"] = 90.0 - half
+
+
+def _countersink(item: dict, name: str, features: dict, values: dict) -> None:
+    """A countersink on a hole's edge at one or more of the part's ends."""
+    if item.get("kind") != "countersink":
+        raise CadError(f"{name}: expected a model-frame countersink")
+    hole = item.get("edge_of")
+    if hole not in ("bore", "tap") or hole not in features:
+        raise CadError(f"{name}.edge_of: expected the part's bore or tap")
+    ends = item.get("at_ends")
+    if (
+        not isinstance(ends, list)
+        or not ends
+        or len(set(ends)) != len(ends)
+        or any(end not in ("datum_end", "far_end", "recess") for end in ends)
+        or any(end not in features for end in ends)
+    ):
+        raise CadError(f"{name}.at_ends: expected the part's ends it is cut at")
+    if "far_end" in ends and "recess" in features:
+        raise CadError(
+            f"{name}.at_ends: a recessed far end is countersunk in the recess"
+        )
+    if "datum_end" in ends and "pocket" in features:
+        raise CadError(f"{name}.at_ends: the datum end's hole opens in its pocket")
+    if hole == "tap" and not values.get("tap_thru") and set(ends) - {"datum_end"}:
+        raise CadError(f"{name}.at_ends: a blind tap reaches only the datum end")
+    most = _positive(item.get("dia_max"), f"{name}.dia_max")
+    hole_max = values[
+        "bore_dia_band_mm" if hole == "bore" else "tap_drill_dia_band_mm"
+    ][1]
+    if most <= hole_max:
+        raise CadError(f"{name}.dia_max: not over its hole")
+    if "recess" in ends and most >= values["recess_floor_dia_band_mm"][0]:
+        raise CadError(f"{name}.dia_max: not inside the recess floor")
+    half = _band(item, "half_angle", name)
+    nominal = _positive(item.get("half_angle_nominal"), f"{name}.half_angle_nominal")
+    if not half[0] - _TOLERANCE <= nominal <= half[1] + _TOLERANCE:
+        raise CadError(f"{name}.half_angle_nominal: outside its band")
+    values[f"{name}_dia_max_mm"] = most
+    values[f"{name}_dia_max_in"] = most / 25.4
+    values[f"{name}_angle_deg"] = 2 * nominal
+    values[f"{name}_angle_min_deg"] = 2 * half[0]
+    values[f"{name}_angle_max_deg"] = 2 * half[1]
+    values[f"{name}_edge_of"] = hole
+    values[f"{name}_ends"] = list(ends)
 
 
 def _chamfer(item: dict, name: str, features: dict, values: dict) -> None:
@@ -596,26 +746,26 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     ]
     known = {"datum_end", "far_end", *_DIAMETERS, *_OPTIONAL}
     known |= {f"outer_{member}" for member in members}
-    known |= {name for name in features if name.startswith("chamfer_")}
+    known |= {name for name in features if name.startswith(_FAMILIES)}
     if set(features) - known:
         raise CadError(
             f"cad.features: unsupported {', '.join(sorted(set(features) - known))}"
         )
     if "outer" not in features:
         raise CadError("outer: a turned part needs its outside diameter")
-    turned = [
-        name
-        for name in (*_DIAMETERS, *(f"outer_{m}" for m in members))
-        if name in features
-    ]
+    # The default member's diameters: outer, step and the step_* family.
+    body = [name for name in _DIAMETERS if name in features]
+    body += sorted(name for name in features if name.startswith("step_"))
+    turned = [*body, *(f"outer_{m}" for m in members if f"outer_{m}" in features)]
     sizes = {
         name: _diameter(features[name], name, frame, values, press_ref=True)
         for name in turned
     }
-    _tiles(values, [name for name in _DIAMETERS if name in sizes])
+    _tiles(values, body)
+    values["step_diameters"] = [name for name in body if name.startswith("step_")]
     for name in turned:
         if name.startswith("outer_"):
-            _tiles(values, [name, *(["step"] if "step" in sizes else [])])
+            _tiles(values, [name, *(n for n in body if n != "outer")])
     supplied = _as_supplied(parameters, sizes, values)
     members_found, members_outer = [], []
     for name in turned:
@@ -643,21 +793,28 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         if members_found
         else {}
     )
-    if "shoulder" in features:
-        _shoulder(features["shoulder"], frame, values)
+    for name in sorted(features):
+        if name == "shoulder" or name.startswith("shoulder_"):
+            _shoulder(features[name], frame, values, name)
     if "bore" in features:
         _bore(features["bore"], frame, values)
     if "pocket" in features:
         _pocket(features["pocket"], frame, values)
-    if "tap" in features:
+    if "tap" in features and features["tap"].get("thru") is True:
+        _tap_thru(features["tap"], frame, values, parameters)
+    elif "tap" in features:
         _tap(features["tap"], frame, values, parameters)
+    if "recess" in features:
+        _recess(features["recess"], frame, values, body)
     for name in sorted(features):
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
+        elif name.startswith("countersink"):
+            _countersink(features[name], name, features, values)
     _edge_breaks(raw, values)
     _rough_sizes(parameters, values, sizes, turned, supplied)
     # The default member's bar or blank: the other members bring their own.
-    least_bar = max(sizes[name] for name in _DIAMETERS if name in sizes)
+    least_bar = max(sizes[name] for name in body)
     axes: list[StockAxis] = []
     # Round bar is named by its diameter; the facing allowance and kerf may
     # also serve a squared blank's pictures.
