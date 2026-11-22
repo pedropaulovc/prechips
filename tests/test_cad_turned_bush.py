@@ -752,6 +752,76 @@ def test_a_reamed_bore_prints_four_places_and_its_reamer(tmp_path):
         render_cad_svg(_svg(hold="bar", out="datum", work="face ream part"), plug, BAR)
 
 
+def test_a_basic_bore_under_a_plus_band_makes_the_band_middle(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"dia" = [4.0894, 4.191]\n"nominal_dia" = 4.0894\n"thru" = true\n"process" = "drill"'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # A running fit's ream printed .1600 +.0015/+.0010: the basic size lies
+    # under the band, so the band's middle is the size the reamer makes.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.064\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    values = load_turned_bush(source, {}, "turned-cup").values
+    assert values["bore_basic_in"] == pytest.approx(0.16)
+    assert values["bore_dia_mm"] == pytest.approx(4.09575)
+    assert values["bore_dia_min_in"] == pytest.approx(0.161)
+    # A nominal over its band is still refused.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.2\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(source, {}, "turned-cup")
+    # Inside its band the nominal is still the size made (and no basic binds).
+    assert "bore_basic_in" not in load_turned_bush(CUP, {}, "turned-cup").values
+
+
+def test_a_single_max_chamfer_binds_its_limit_and_prints_max(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"requirements" = ["leg"]\n"leg" = [0.3048, 0.5588]\n"leg_nominal" = 0.4318'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # ".02 MAX X 45°": any break up to the limit.
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.508',
+        ),
+        "utf-8",
+    )
+    params = BAR | {"stock_dia_in": 0.5}
+    cad = load_turned_bush(source, params, "turned-cup")
+    values = cad.values
+    assert values["chamfer_far_leg_max_in"] == pytest.approx(0.02)
+    assert values["chamfer_far_leg_mm"] == pytest.approx(0.508)
+    assert "chamfer_far_leg_min_in" not in values
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn chamfer part"), cad, params
+    ).decode()
+    assert ".020 max × 45°" in picture
+    # The banded chamfer keeps its band.
+    assert "–" in picture.split("chamfer:", 1)[1].split(".020 max", 1)[0]
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.6',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="chamfer_far.leg_nominal: over its leg_max"):
+        load_turned_bush(source, params, "turned-cup")
+
+
 SPACER = ROOT / "examples/cad/turned-spacer-v1.toml"
 FLANGED = ROOT / "examples/cad/turned-flanged-bush-v1.toml"
 
@@ -769,7 +839,7 @@ def test_spacer_binds_face_perpendicularity_and_outside_runout():
     assert values["bore_at_assembly"] is False
     # A unilateral reamed fit (.1850 +.0010/+.0005): made to the band's middle.
     assert values["bore_dia_mm"] == pytest.approx((4.7117 + 4.7244) / 2)
-    assert values["bore_nominal_mm"] == pytest.approx(4.699)
+    assert values["bore_basic_in"] == pytest.approx(0.185)
 
 
 def test_flanged_bush_binds_the_shoulder_root_and_an_assembly_bore():
@@ -837,7 +907,7 @@ def test_an_assembly_bore_is_the_only_made_at(tmp_path):
         load_turned_bush(edited, {}, "turned-flanged-bush")
 
 
-def test_a_bore_nominal_outside_its_band_needs_a_fit_reaching_it(tmp_path):
+def test_a_bore_nominal_over_its_band_is_refused(tmp_path):
     edited = _edited(SPACER, tmp_path, '"nominal_dia" = 4.699', '"nominal_dia" = 47.0')
     with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
         load_turned_bush(edited, {}, "turned-spacer")

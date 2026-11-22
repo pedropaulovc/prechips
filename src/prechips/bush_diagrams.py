@@ -100,6 +100,13 @@ def _band(key: str, places: int) -> str:
     )
 
 
+def _chamfer_leg(values: dict, name: str) -> str:
+    """A chamfer's leg: its band, or its single MAX limit."""
+    if f"{name}_leg_min_in" in values:
+        return _band(f"{name}_leg", 3)
+    return f"{{{{cad.{name}_leg_max_in:.3dot}}}} max"
+
+
 def _bore_band(values: dict) -> str:
     """``min–max`` tokens of the bore's band: four places on a band under
     .002 in wide (a reamed fit), as the turned diameters print."""
@@ -313,9 +320,9 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
                 f" ({', '.join(names)})"
             )
     chamfers = sorted(
-        key.removesuffix("_leg_min_in")
+        key.removesuffix("_leg_mm")
         for key in values
-        if key.startswith("chamfer_") and key.endswith("_leg_min_in")
+        if key.startswith("chamfer_") and key.endswith("_leg_mm")
     )
     if chamfer_names is not None:
         # data-chamfers names the chamfers this setup cuts, by feature name.
@@ -634,7 +641,7 @@ def _setup(
                 page.x_out - 4,
                 2 * _AXIS - page.up(largest),
                 ["chamfer:"]
-                + [f"{_band(f'{name}_leg', 3)} × 45°" for name in chamfers],
+                + [f"{_chamfer_leg(values, name)} × 45°" for name in chamfers],
             )
         )
     top = _callouts(groups, above, top_y - 30, above=True)

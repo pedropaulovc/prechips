@@ -16,15 +16,19 @@ supply ``length_min``) from the datum end. Optional features:
   a measured mate with a ``diametral_clearance`` or a press fit's
   ``diametral_interference`` (a ``dia`` band may add a
   ``diametral_interference``);
-- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``, an
-  optional mate's ``diametral_interference`` and ``made_at = "assembly"``
-  (finished after joining: the part's traveler leaves it under size);
+- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``; a basic
+  ``nominal_dia`` under a plus band (a running fit's ream) binds as
+  ``bore_basic_*`` and the band's middle is the size made; an optional
+  mate's ``diametral_clearance_ref`` or ``diametral_interference`` and
+  ``made_at = "assembly"`` (finished after joining: the part's traveler
+  leaves it under size, its ``process`` optional);
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
   measured mate's ``diametral_clearance`` under ``dia_max``, a ``depth`` band
   and a floor ``corner_radius_max``;
 - ``tap``: a ``threaded_hole`` from the datum end, its drill ``dia`` and its
   ``drill_depth`` and ``thread_depth`` bands;
-- ``chamfer_*``: kind ``chamfer``, a ``leg`` band.
+- ``chamfer_*``: kind ``chamfer``, a ``leg`` band or a single ``leg_max``
+  limit (bound as ``<name>_leg_max_*``).
 
 An end face or the shoulder may list a ``perpendicularity`` and a diameter a
 ``runout``: one tolerance zone in mm to the feature its ``datum`` names.
@@ -50,6 +54,7 @@ from .cad import (
     _band,
     _edge_breaks,
     _inch_limits,
+    _mid,
     _model_frame,
     _number,
     _positive,
@@ -336,7 +341,6 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     ]
     if len(fits) > 1:
         raise CadError("bore: a fit is a clearance or a press, not both")
-    reaches: list[float] = []
     for key, binding in (
         ("diametral_clearance_ref", "bore_clearance_ref"),
         ("diametral_interference", "bore_interference"),
@@ -349,16 +353,16 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
         low, high = (_positive(v, f"bore.{key}") for v in fit)
         _inch_limits(values, binding, (low, high))
         values["bore_mate"] = _string(item.get("mate"), "bore.mate")
-        reaches.append(high)
-    # A unilateral fit (.1850 +.0010/+.0005) prints its nominal outside its
-    # band, by no more than the fit's own reach: the hole is then made to
-    # the band's middle. Without a fit, or further out, it is refused.
     nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
-    off = max(band[0] - nominal, nominal - band[1], 0.0)
-    if off > _TOLERANCE and not (reaches and off <= reaches[0] + _TOLERANCE):
-        raise CadError("bore.nominal_dia: outside its band")
-    values["bore_dia_mm"] = nominal if off <= _TOLERANCE else (band[0] + band[1]) / 2
-    values["bore_nominal_mm"] = nominal
+    if nominal < band[0] - _TOLERANCE:
+        # A basic size printed with a unilateral plus band (a running fit's
+        # ream, .1250 +.0015/+.0010; a press fit's, .1850 +.0010/+.0005):
+        # the size made is the band's middle, and the basic size binds for
+        # the traveler to quote.
+        values["bore_basic_mm"], values["bore_basic_in"] = nominal, nominal / 25.4
+        values["bore_dia_mm"] = _mid(band)
+    else:
+        values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
     # The drawing's least wall and a bonded bore's clearance on its mate
     # are printed acceptances the traveler states.
     if "wall_min" in item:
@@ -443,8 +447,19 @@ def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
 def _chamfer(item: dict, name: str, features: dict, values: dict) -> None:
     if item.get("kind") != "chamfer":
         raise CadError(f"{name}: expected a model-frame chamfer")
-    band = _limits(item, "leg", name, f"{name}_leg", values)
-    values[f"{name}_leg_mm"] = _nominal(item, "leg_nominal", band, name)
+    if "leg_max" in item.get("requirements", []):
+        # A single MAX limit (".02 MAX X 45°"): any break up to it; the
+        # nominal may not exceed it.
+        most = _positive(item.get("leg_max"), f"{name}.leg_max")
+        nominal = _positive(item.get("leg_nominal"), f"{name}.leg_nominal")
+        if nominal > most + _TOLERANCE:
+            raise CadError(f"{name}.leg_nominal: over its leg_max")
+        values[f"{name}_leg_max_mm"] = most
+        values[f"{name}_leg_max_in"] = most / 25.4
+        values[f"{name}_leg_mm"] = nominal
+    else:
+        band = _limits(item, "leg", name, f"{name}_leg", values)
+        values[f"{name}_leg_mm"] = _nominal(item, "leg_nominal", band, name)
     for key in ("edge_of", "at_end"):
         if item.get(key) not in features:
             raise CadError(f"{name}.{key}: expected a feature of this part")
