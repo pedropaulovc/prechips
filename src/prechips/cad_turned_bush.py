@@ -201,7 +201,7 @@ _CONTROLS = {"perpendicularity": "face", "runout": "diameter"}
 def _controls(name: str, item: dict, features: dict, values: dict) -> None:
     """Bind a feature's ``perpendicularity`` or ``runout`` (mm, listed in its
     requirements) as ``<name>_<control>_in``/``_mm``, to the part feature its
-    ``datum`` names."""
+    ``datum`` names: the part's axis, i.e. its bore or a turned diameter."""
     for control, kind in _CONTROLS.items():
         if control not in item.get("requirements", []):
             continue
@@ -209,8 +209,13 @@ def _controls(name: str, item: dict, features: dict, values: dict) -> None:
             raise CadError(f"{name}.{control}: expected on a {kind}")
         zone = _positive(item.get(control), f"{name}.{control}")
         datum = item.get("datum")
-        if not isinstance(datum, str) or datum not in features or datum == name:
-            raise CadError(f"{name}.datum: expected another feature of this part")
+        axis = datum == "bore" or (
+            isinstance(datum, str) and features.get(datum, {}).get("kind") == "diameter"
+        )
+        if not axis or datum == name:
+            raise CadError(
+                f"{name}.datum: expected the part's bore or another turned diameter"
+            )
         values[f"{name}_{control}_mm"] = zone
         values[f"{name}_{control}_in"] = zone / 25.4
         values[f"{name}_{control}_datum"] = datum
@@ -312,35 +317,49 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     if item.get("thru") is not True:
         raise CadError("bore.thru: expected a through hole")
     band = _limits(item, "dia", "bore", "bore_dia", values)
-    # A unilateral fit (.1850 +.0010/+.0005) prints its nominal outside its
-    # band: the hole is then made to the band's middle.
-    nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
-    inside = band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE
-    values["bore_dia_mm"] = nominal if inside else (band[0] + band[1]) / 2
-    values["bore_nominal_mm"] = nominal
-    values["bore_process"] = _string(item.get("process"), "bore.process")
-    # The drawing's least wall and a bonded bore's clearance on its mate
-    # are printed acceptances the traveler states.
-    if "wall_min" in item:
-        values["bore_wall_min_in"] = _positive(item["wall_min"], "bore.wall_min") / 25.4
+    fits = [
+        key
+        for key in ("diametral_clearance_ref", "diametral_interference")
+        if key in item
+    ]
+    if len(fits) > 1:
+        raise CadError("bore: a fit is a clearance or a press, not both")
+    reaches: list[float] = []
     for key, binding in (
         ("diametral_clearance_ref", "bore_clearance_ref"),
         ("diametral_interference", "bore_interference"),
     ):
         if key not in item:
             continue
-        band = item[key]
-        if not isinstance(band, list) or len(band) != 2:
+        fit = item[key]
+        if not isinstance(fit, list) or len(fit) != 2:
             raise CadError(f"bore.{key}: expected a band")
-        low, high = (_positive(v, f"bore.{key}") for v in band)
+        low, high = (_positive(v, f"bore.{key}") for v in fit)
         _inch_limits(values, binding, (low, high))
         values["bore_mate"] = _string(item.get("mate"), "bore.mate")
+        reaches.append(high)
+    # A unilateral fit (.1850 +.0010/+.0005) prints its nominal outside its
+    # band, by no more than the fit's own reach: the hole is then made to
+    # the band's middle. Without a fit, or further out, it is refused.
+    nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
+    off = max(band[0] - nominal, nominal - band[1], 0.0)
+    if off > _TOLERANCE and not (reaches and off <= reaches[0] + _TOLERANCE):
+        raise CadError("bore.nominal_dia: outside its band")
+    values["bore_dia_mm"] = nominal if off <= _TOLERANCE else (band[0] + band[1]) / 2
+    values["bore_nominal_mm"] = nominal
+    # The drawing's least wall and a bonded bore's clearance on its mate
+    # are printed acceptances the traveler states.
+    if "wall_min" in item:
+        values["bore_wall_min_in"] = _positive(item["wall_min"], "bore.wall_min") / 25.4
     # A bore the drawing finishes after joining (reamed in place at
-    # assembly): the part's traveler leaves it under size for that.
+    # assembly): the part's traveler leaves it under size for that, and its
+    # process may be omitted (cad_drilled_block's convention).
     made_at = item.get("made_at")
     if made_at not in (None, "assembly"):
         raise CadError('bore.made_at: expected "assembly"')
     values["bore_at_assembly"] = made_at == "assembly"
+    if "process" in item or made_at != "assembly":
+        values["bore_process"] = _string(item.get("process"), "bore.process")
 
 
 def _pocket(item: dict, frame: tuple, values: dict) -> None:
@@ -683,9 +702,10 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     for name in sorted(features):
         if name.startswith("chamfer_"):
             _chamfer(features[name], name, features, values)
-    for name in ("datum_end", "far_end", "shoulder", *turned):
-        if name in features:
-            _controls(name, features[name], features, values)
+    # Every feature: one listing a control it cannot carry (a bore's runout,
+    # say) is refused rather than dropped.
+    for name in sorted(features):
+        _controls(name, features[name], features, values)
     _edge_breaks(raw, values)
     _rough_sizes(parameters, values, sizes, turned, supplied)
     # The default member's bar or blank: the other members bring their own.

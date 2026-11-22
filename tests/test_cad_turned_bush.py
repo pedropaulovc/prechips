@@ -805,6 +805,11 @@ def _edited(path: Path, tmp_path: Path, old: str, new: str) -> Path:
             "outer.datum",
         ),
         (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"precision"',
+            '"perpendicularity" = 0.0254\n"datum" = "datum_end"\n"precision"',
+            "far_end.datum: expected the part's bore",
+        ),
+        (
             '"perpendicularity" = 0.0254\n"datum" = "bore"\n"faces"',
             '"perpendicularity" = 0\n"datum" = "bore"\n"faces"',
             "datum_end.perpendicularity",
@@ -828,3 +833,63 @@ def test_an_assembly_bore_is_the_only_made_at(tmp_path):
     edited = _edited(FLANGED, tmp_path, '"made_at" = "assembly"', '"made_at" = "bench"')
     with pytest.raises(CadError, match='bore.made_at: expected "assembly"'):
         load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_bore_nominal_outside_its_band_needs_a_fit_reaching_it(tmp_path):
+    edited = _edited(SPACER, tmp_path, '"nominal_dia" = 4.699', '"nominal_dia" = 47.0')
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_bore_takes_one_fit(tmp_path):
+    edited = _edited(
+        SPACER,
+        tmp_path,
+        '"diametral_interference" = [0.0127, 0.0508]',
+        '"diametral_interference" = [0.0127, 0.0508]\n"diametral_clearance_ref" = [0.01, 0.02]',
+    )
+    with pytest.raises(CadError, match="a clearance or a press, not both"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_control_on_the_bore_is_refused_not_dropped(tmp_path):
+    text = SPACER.read_text(encoding="utf-8")
+    for old, new in (
+        (
+            '"requirements" = ["dia", "thru"]',
+            '"requirements" = ["dia", "thru", "runout"]',
+        ),
+        (
+            '"diametral_interference" = [0.0127, 0.0508]',
+            '"diametral_interference" = [0.0127, 0.0508]\n"runout" = 0.1\n"datum" = "outer"',
+        ),
+    ):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    edited = tmp_path / SPACER.name
+    edited.write_text(text, encoding="utf-8")
+    with pytest.raises(CadError, match="bore.runout: expected on a diameter"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_may_omit_its_process_and_is_not_reamed_on_the_part(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"process" = "ream"\n', "")
+    values = load_turned_bush(edited, {}, "turned-flanged-bush").values
+    assert values["bore_at_assembly"] is True
+    assert "bore_process" not in values
+
+
+def test_an_assembly_bore_is_drilled_under_size_never_reamed_on_the_part():
+    params = BAR | {"jaw_clearance_in": 0.1, "parts_per_pull": 1}
+    cad = load_turned_bush(FLANGED, params, "turned-flanged-bush")
+    with pytest.raises(CadError, match="reamed at assembly"):
+        render_cad_svg(
+            _svg(hold="bar", out="datum", work="face drill ream part"), cad, params
+        )
+    bar = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face drill part"), cad, params
+    ).decode()
+    assert "drill under the assembly ream" in bar
+    inspect = render_cad_svg(_svg(hold="inspect"), cad, params).decode()
+    assert "reamed at assembly" in inspect
+    assert ".2490" not in bar + inspect

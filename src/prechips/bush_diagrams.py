@@ -270,6 +270,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
     if "ream" in work and "bore_dia_mm" not in values:
         raise CadError("turned-bush: ream needs the part's bore")
+    if "ream" in work and values.get("bore_at_assembly"):
+        raise CadError("turned-bush: the bore is reamed at assembly, not on the part")
     if hold == "mandrel" and "bore_dia_mm" not in values:
         raise CadError("turned-bush: a mandrel hold needs the part's bore")
     if turn is not None and "turn" not in work:
@@ -613,6 +615,9 @@ def _setup(
             # makes the printed size.
             "drill": "drill under the reamer"
             if "ream" in work
+            # An assembly bore: the part leaves it under size for the ream.
+            else "drill under the assembly ream"
+            if values.get("bore_at_assembly")
             else f"drill the Ø{_bore_band(values)} hole"
             if "bore_dia_mm" in values
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
@@ -681,7 +686,11 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
             (
                 page.x(values["bore_z1_mm"]) - 6,
                 _AXIS + values["bore_dia_mm"] / 2 * scale,
-                [
+                # An assembly bore is no acceptance of the part: drilled
+                # here under size, reamed at assembly.
+                ["bore drilled under size,", "reamed at assembly"]
+                if values.get("bore_at_assembly")
+                else [
                     # A drilled hole is a hole: "bore" would also name a
                     # pocket a boring bar opens on the same sheet.
                     "hole" if values.get("bore_process") == "drill" else "bore",
