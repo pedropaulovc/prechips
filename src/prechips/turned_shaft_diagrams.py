@@ -1050,7 +1050,13 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
         if values.get(f"{f}_station_to") == "centre":
             text += " to its centre"
         left_x, right_x = sorted((view.x(origin), view.x(edge)))
-        _dimension(groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710)
+        beside = right_x + 270 < 710
+        # Centred over a short run near the right end, a long label would
+        # run into the end view: it then ends short of the run's left end.
+        before = not beside and (left_x + right_x + len(text) * CHAR) / 2 > 710
+        _dimension(
+            groups, left_x, right_x, y, _AXIS, text, beside=beside, before=before
+        )
         y += 24
     # End view: the part between the jaws on a parallel, the cutter above.
     # It sits low enough that its jaw tops stay under the top view's

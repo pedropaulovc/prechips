@@ -247,6 +247,11 @@ def test_a_flat_may_be_stationed_to_its_centre(tmp_path):
     vise_params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
     vise = render_cad_svg(_svg(hold="vise", work="flat", x0="datum"), cad, vise_params)
     assert b"from the datum end to its centre" in vise
+    # From the far end's side the run is short and near the end view: the
+    # label ends short of it instead of running into the end view.
+    far = render_cad_svg(_svg(hold="vise", work="flat", x0="far"), cad, vise_params)
+    label = re.search(rb"<text[^>]*>[^<]*to its centre</text>", far)
+    assert label is not None and b'text-anchor="end"' in label.group(0)
     # The nearer end no longer matches the centre's band.
     (tmp_path / "near").mkdir()
     near = _edited(tmp_path / "near", source, '"station_to" = "centre"\n', "")
