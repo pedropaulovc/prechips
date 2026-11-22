@@ -804,11 +804,6 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
     for name, z0, z1, radius in segments:
         a, b = page.span(z0, z1)
         items.append(((a + b) / 2, 2 * _AXIS - page.up(radius), _size(values, name)))
-        if f"{name}_knurl_tpi" in values:
-            x0, x1 = page.span(z0, z1)
-            groups["part-threads"].append(
-                _rect(x0, page.up(radius), x1 - x0, page.size(radius))
-            )
     if "recess_dia_mm" in values:
         items.append(
             (
