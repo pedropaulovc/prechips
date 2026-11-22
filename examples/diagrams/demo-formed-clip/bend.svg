@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" font-family="sans-serif" font-size="13">
+  <rect class="paper" x="0" y="0" width="760" height="320"/>
+  <text class="title" x="20" y="22">Side view: the base in the vise beside the bending bar; the leg pushed over the bar's radiused edge</text>
+  <rect class="clamp" x="200" y="160" width="60" height="130"/>
+  <text class="label-on-clamp" x="208" y="230">fixed jaw</text>
+  <rect class="part-kept" x="260" y="160" width="12" height="130"/>
+  <rect class="fixture-support" x="272" y="160" width="60" height="130"/>
+  <rect class="clamp" x="332" y="160" width="60" height="130"/>
+  <text class="label-on-clamp" x="345" y="230">jaw</text>
+  <path class="part-kept" d="M260 160 L260 150 Q260 138 272 138 L460 138 L460 150 L284 150 Q272 150 272 160 Z"/>
+  <line class="leader" x1="470" y1="70" x2="470" y2="128" marker-end="url(#prechips-arr)"/>
+  <text class="label" x="480" y="80">push the leg down over the bar</text>
+  <text class="label" x="480" y="96">to just past 90°, then let it spring back</text>
+  <line class="leader" x1="270" y1="144" x2="230" y2="100"/>
+  <text class="label" x="150" y="92">bend, inside R</text>
+  <line class="leader" x1="302" y1="230" x2="302" y2="306"/>
+  <text class="label" x="312" y="312">bending bar, its R edge at the bend line</text>
+</svg>

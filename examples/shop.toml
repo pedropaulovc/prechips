@@ -346,6 +346,9 @@ description = "Hacksaw, 12 in 32 TPI bi-metal blade"
 [tools.kit-countersink-82]
 description = "82° countersink, 3/16 in body, in a T-handle"
 diameter_mm = 4.7625
+# The formed clip's bending bar: a demo shop-made tool.
+[tools.formed-bending-bar]
+description = "Bending bar: 1/2 x 1 in steel flat, one long edge filed to R.040; held in the bench vise beside the work"
 
 # SUS304 screw, LittleMachineShop "Cutting Speeds" table (read live
 # 2026-11-13), row Stainless steel 304: milling 70 ft/min (low end). Hand feed.
