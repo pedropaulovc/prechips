@@ -29,7 +29,11 @@ the plan prints what the drawing requires, in the part's own words.
 
 The envelope is the box over every face plane, each arc's apex and every
 outside cylinder; a manifest must declare every outside face for it to be the
-part's.
+part's. On an axis those leave no span, a feature's ``corners`` (a list of
+model points [x, y, z]: the corners of an outside face square to no model
+axis, such as a slant or tapered side) bound it; on an axis they do span,
+each corner must lie within it. A corners-bound axis is the box over the
+corners, so hole checks along it read that box, not the slant itself.
 """
 
 import math
@@ -533,6 +537,36 @@ def _inside(name: str, feature: dict, values: dict, shape: _Shape) -> None:
         _bind_mm(values, f"{name}_wall_to_{outside}_worst", wall)
 
 
+def _corners(name: str, feature: dict) -> list[list[float]]:
+    """A feature's `corners`, model points on the part's outside (a scalar
+    `corners` is an ordinary field and binds as one)."""
+    corners = feature.get("corners")
+    if not isinstance(corners, list):
+        return []
+    if not corners:
+        raise CadError(f"{name}.corners: expected a list of model points")
+    return [_point(corner, f"{name}.corners") for corner in corners]
+
+
+def _bound_corners(corners: list[tuple[str, list[float]]], shape: _Shape) -> None:
+    """Corners bound each axis no face or round spans, and lie within the
+    span of every axis one does."""
+    spanned = [shape.high[index] - shape.low[index] > 0 for index in range(3)]
+    for name, point in corners:
+        for index in range(3):
+            if not spanned[index]:
+                shape.extend(index, point[index], point[index])
+            elif not (
+                shape.low[index] - _TOLERANCE
+                <= point[index]
+                <= shape.high[index] + _TOLERANCE
+            ):
+                raise CadError(
+                    f"{name}.corners: a corner lies outside the faces bounding "
+                    f"{_AXES[index]}"
+                )
+
+
 def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     """Bind every feature's bands and positions, the envelope and, from the
     plan's `blank_<axis>_in`, the blank it is cut from."""
@@ -549,6 +583,7 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     values["finish"] = _string(material.get("finish"), "cad.material.finish")
     _edge_breaks(raw, values)
     shape = _Shape()
+    corners: list[tuple[str, list[float]]] = []
     for name, feature in features.items():
         if not isinstance(feature, dict):
             raise CadError(f"cad.features.{name}: expected a table")
@@ -575,10 +610,14 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
             else:
                 if isinstance(feature.get("plane"), dict):
                     _face(name, feature, shape, bounds=False)
+        corners += [(name, point) for point in _corners(name, feature)]
+    _bound_corners(corners, shape)
     for index, axis in enumerate(_AXES):
         low, high = shape.low[index], shape.high[index]
         if not high - low > 0:
-            raise CadError(f"cad.features: no outside face or round bounds {axis}")
+            raise CadError(
+                f"cad.features: no outside face, round or corners span {axis}"
+            )
         _bind_mm(values, f"envelope_{axis}", high - low)
         _bind(values, f"{axis}_min_mm", low)
         _bind(values, f"{axis}_max_mm", high)
