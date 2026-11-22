@@ -44,10 +44,13 @@ read along `<g>_blank_length_axis` and `<g>_blank_thickness_axis` (binding
 `<g>_envelope_<axis>_mm` and `<g>_envelope_<role>_axis`), or from
 `<g>_blank_size_fields`, three `<feature>.<field>` requirements of its own
 features in length, width, thickness order (a band's high end or a positive
-number), for a feature that describes several alike pieces. Either way it
-binds `<g>_envelope_<role>_mm`/`_in` and adds the stock axes `<g> <role>` on
-`<g>_blank_<role>_in`; an optional `<g>_blank_count` (identical pieces)
-binds as it is.
+number; never `finish_ra`, `plane`, `angle` or a `*_deg`/`*_angle` field),
+for a feature that describes several alike pieces. Those fields are the
+printed sizes of one piece: the group's modelled planes and extents, which
+may span several pieces or the part they bond to, are not checked against
+them. Either way it binds `<g>_envelope_<role>_mm`/`_in` and adds the stock
+axes `<g> <role>` on `<g>_blank_<role>_in`; an optional `<g>_blank_count`
+(identical pieces) binds as it is.
 """
 
 import re
@@ -79,6 +82,8 @@ _NAME = re.compile(r"[a-z][a-z0-9_]*")
 _SKIP = {"kind", "frame", "requirements", "cite", "faces", "precision", "plane"}
 _TOLERANCE = 1e-6
 _INF = float("inf")
+# Requirements that are not a length a blank must cover.
+_NOT_LENGTHS = {"finish_ra", "plane", "thru", "angle"}
 
 
 def _bind(values: dict, key: str, value: object) -> None:
@@ -410,6 +415,8 @@ def _size_field(
     feature = features[name]
     if field not in feature.get("requirements", []) or field not in feature:
         raise CadError(f"process.{key}: {entry} is not a requirement {name} lists")
+    if field in _NOT_LENGTHS or field.endswith(("_deg", "_angle")):
+        raise CadError(f"process.{key}: {entry} is not a length")
     if isinstance(feature[field], list):
         return _positive(_band(feature, field, name)[1], f"{name}.{field}")
     return _positive(feature[field], f"{name}.{field}")

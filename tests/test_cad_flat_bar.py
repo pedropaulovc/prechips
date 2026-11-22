@@ -216,7 +216,9 @@ PLATE = """
 ["features"."guide_plate"]
 "kind" = "profile"
 "frame" = "model"
-"requirements" = ["width", "reach", "thickness_as_supplied", "bond"]
+"requirements" = [
+  "width", "reach", "thickness_as_supplied", "bond", "finish_ra", "bevel_deg"
+]
 "width" = [11.938, 12.446]
 "width_nominal" = 12.192
 "reach" = [24.384, 24.892]
@@ -224,6 +226,8 @@ PLATE = """
 "reach_from" = "front_face"
 "thickness_as_supplied" = 3.175
 "bond" = "BOND SQUARE TO FRONT FACE"
+"finish_ra" = 3.2
+"bevel_deg" = 45.0
 "extent_x" = [-1.3335, 10.8585]
 "extent_y" = [100.0, 103.175]
 "extent_z" = [9.525, 34.163]
@@ -383,6 +387,8 @@ def test_a_blank_group_this_adapter_cannot_size_refuses(tmp_path, edits, message
         ("guide_plate.depth", "guide_plate.depth is not a requirement guide_plate"),
         ("guide_plate.reach_from", "is not a requirement guide_plate lists"),
         ("guide_plate.bond", "guide_plate.bond: expected a finite number"),
+        ("guide_plate.finish_ra", "guide_plate.finish_ra is not a length"),
+        ("guide_plate.bevel_deg", "guide_plate.bevel_deg is not a length"),
         ("guide_plate", "names no declared feature's field"),
     ],
 )
@@ -442,6 +448,12 @@ instruction = "Saw {{cad.plate_blank_count}} plates."
         ("", "", ""),
         ("plate_blank_length_in = 1.0\n", "", "plate length: parameters.plate_blank"),
         ('["plate"]', "[]", "parameters.blank_groups: expected a nonempty list"),
+        # Only the blank groups' keys may be lists; a size stays a number.
+        (
+            "blank_length_in = 6.25",
+            'blank_length_in = ["6"]',
+            "parameters.blank_length_in: expected a finite number",
+        ),
     ],
 )
 def test_a_plan_names_its_blank_groups(tmp_path, capsys, old, new, message):

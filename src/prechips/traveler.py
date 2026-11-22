@@ -22,6 +22,11 @@ class PlanError(ValueError):
     """An authored plan has a missing or unusable field."""
 
 
+# The only parameters that are lists of names, not numbers: flat_bar's blank
+# groups. Every other parameter stays a finite number.
+_NAME_LISTS = re.compile(r"blank_groups|[a-z][a-z0-9_]*_blank_(features|size_fields)")
+
+
 def _keys(table: dict, allowed: set[str], where: str) -> None:
     unknown = table.keys() - allowed
     if unknown:
@@ -270,8 +275,8 @@ def load_plan(path: Path) -> LoadedPlan:
     for key, value in parameters.items():
         if key == "quantity" and (type(value) is not int or value < 1):
             raise PlanError("parameters.quantity: expected a positive integer")
-        # A list of names configures an adapter (flat_bar's blank groups).
-        if isinstance(value, list):
+        # A list of names configures flat_bar's blank groups.
+        if _NAME_LISTS.fullmatch(key) and isinstance(value, list):
             if not value or not all(
                 isinstance(item, str) and item.strip() for item in value
             ):
