@@ -171,6 +171,11 @@ def test_a_printed_property_binds_true(tmp_path):
             '"width" = true',
             "width: expected a finite number",
         ),
+        (
+            '"drop" = [6.096, 6.604]',
+            '"drop" = true',
+            "cross_hole.drop: expected a finite number",
+        ),
         ('"finish_ra" = 1.6\n', "", "finish_ra: missing drawing requirement"),
         ('"axis" = [1.0, 0.0, 0.0]', '"axis" = [1.0, 1.0, 0.0]', "unit model axis"),
         ('"kind" = "notch"', '"kind" = "groove"', "top_notch: expected a model-frame"),

@@ -16,9 +16,9 @@ Per feature `F` and listed requirement `R`:
   outside the band, else the band's middle; a nominal also binds
   `F_R_nominal_in`;
 - `plane` binds `F_plane_mm` from the feature's `plane` table;
-- `thru` must be true; any other true-or-false requirement (`flat_bottom`...)
-  must be true and binds `F_R` true: the drawing prints a property the part
-  has, never its absence;
+- `thru` must be true; `flat_bottom` must be true and binds `F_flat_bottom`
+  true (the drawing prints a property the part has, never its absence); any
+  other requirement written true or false is refused as a non-number;
 - `finish_ra` binds `F_finish_ra_um` and `F_finish_ra_uin`;
 - a string (`process`, `thread`...) binds `F_R`; a point as below; any
   other single number (a `*_max` limit, a BASIC distance, a position zone)
@@ -86,6 +86,9 @@ _TOLERANCE = 1e-6
 _INF = float("inf")
 # Requirements that are not a length a blank must cover.
 _NOT_LENGTHS = {"finish_ra", "plane", "thru", "angle"}
+# Printed properties: true, never false. ``thru`` binds nothing (a through
+# hole's depth is the part's); every other flag binds ``F_R`` true.
+_FLAGS = {"thru", "flat_bottom"}
 
 
 def _bind(values: dict, key: str, value: object) -> None:
@@ -103,19 +106,11 @@ def _limits(values: dict, key: str, band: tuple[float, float]) -> None:
     _bind(values, f"{key}_band_mm", [band[0], band[1]])
 
 
-def _nominal_field(feature: dict, key: str) -> str | None:
-    """The field holding ``key``'s nominal, if the export gives one."""
+def _nominal(feature: dict, key: str, where: str) -> float | None:
     for field in (f"{key}_nominal", f"nominal_{key}"):
         if field in feature:
-            return field
+            return _number(feature[field], f"{where}.{field}")
     return None
-
-
-def _nominal(feature: dict, key: str, where: str) -> float | None:
-    field = _nominal_field(feature, key)
-    if field is None:
-        return None
-    return _number(feature[field], f"{where}.{field}")
 
 
 def _plane_value(feature: dict, where: str) -> tuple[int, float]:
@@ -170,24 +165,18 @@ def _requirement(values: dict, feature: dict, name: str, key: str) -> None:
     if key not in feature:
         raise CadError(f"{where}: missing drawing requirement")
     value = feature[key]
+    if key in _FLAGS:
+        if value is not True:
+            raise CadError(f"{where}: expected true")
+        if key != "thru":
+            _bind(values, prefix, True)
+        return
     if key == "finish_ra":
         grade = _positive(value, where)
         if grade not in _RA_UIN:
             raise CadError(f"{where}: {grade:g} um is not a preferred Ra grade")
         _bind(values, f"{prefix}_um", grade)
         _bind(values, f"{prefix}_uin", _RA_UIN[grade])
-        return
-    if key == "thru" or isinstance(value, bool):
-        # A printed property (THRU, FLAT BOTTOM): true, never false. A key
-        # with a numeric meaning (a nominal beside it, a limit) refuses a
-        # bool as it refuses any other non-number.
-        numeric = _nominal_field(feature, key) or key.endswith(("_max", "_min"))
-        if key != "thru" and numeric:
-            raise CadError(f"{where}: expected a finite number")
-        if value is not True:
-            raise CadError(f"{where}: expected true")
-        if key != "thru":
-            _bind(values, prefix, True)
         return
     if isinstance(value, str):
         _bind(values, prefix, _string(value, where))
