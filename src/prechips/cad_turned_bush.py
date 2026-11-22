@@ -168,20 +168,20 @@ def _length(features: dict, frame: tuple, values: dict) -> float:
     return nominal
 
 
-def _shoulder(item: dict, frame: tuple, values: dict) -> None:
+def _shoulder(item: dict, frame: tuple, values: dict, name: str = "shoulder") -> None:
     if item.get("kind") != "face" or item.get("station_from") != "datum_end":
-        raise CadError("shoulder: expected a face stationed from datum_end")
-    band = _limits(item, "station", "shoulder", "shoulder", values)
-    nominal = _nominal(item, "station_nominal", band, "shoulder")
+        raise CadError(f"{name}: expected a face stationed from datum_end")
+    band = _limits(item, "station", name, name, values)
+    nominal = _nominal(item, "station_nominal", band, name)
     plane = item.get("plane")
     if not isinstance(plane, dict) or plane.get("axis") != _AXES[frame[0]]:
-        raise CadError("shoulder.plane: expected a plane on the datum end's axis")
-    station = _station(frame, _number(plane.get("value"), "shoulder.plane.value"))
+        raise CadError(f"{name}.plane: expected a plane on the datum end's axis")
+    station = _station(frame, _number(plane.get("value"), f"{name}.plane.value"))
     if abs(station - nominal) > _TOLERANCE:
-        raise CadError("shoulder.plane: not the nominal station from the datum end")
+        raise CadError(f"{name}.plane: not the nominal station from the datum end")
     if band[1] >= _least_length(values):
-        raise CadError("shoulder.station: reaches the far end of the shortest part")
-    values["shoulder_mm"] = nominal
+        raise CadError(f"{name}.station: reaches the far end of the shortest part")
+    values[f"{name}_mm"] = nominal
 
 
 _FITS = frozenset({"diametral_clearance", "diametral_interference"})
