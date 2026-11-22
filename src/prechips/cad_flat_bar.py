@@ -36,6 +36,7 @@ model X, Y, Z; width is the third): the stock requirement then reads
 """
 
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from .cad import (
@@ -198,27 +199,46 @@ def _widen(span: list, index: int, low: float, high: float) -> None:
     span[index] = [min(span[index][0], low), max(span[index][1], high)]
 
 
-def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
+# A consumer's own fields: which keys it claims, and how it binds one.
+Claims = Callable[[str], bool]
+BindClaimed = Callable[[dict, dict, str, str], None]
+
+
+def _bind_feature(
+    values: dict,
+    features: dict,
+    name: str,
+    span: list | None,
+    *,
+    kinds: frozenset[str] | set[str] = _KINDS,
+    bare_kinds: frozenset[str] = frozenset(),
+    claims: Claims | None = None,
+    bind_claimed: BindClaimed | None = None,
+) -> None:
+    """Bind one feature. `kinds` are the feature kinds accepted, `bare_kinds`
+    those that may list no requirement. A key `claims` accepts (listed or
+    not, its `_nominal` with it) binds through `bind_claimed`. With `span`
+    None the part has no envelope: `extent_<axis>` is refused."""
     feature = features[name]
     if not _NAME.fullmatch(name):
         raise CadError(f"cad.features.{name}: expected a snake_case name")
     if (
         not isinstance(feature, dict)
-        or feature.get("kind") not in _KINDS
+        or feature.get("kind") not in kinds
         or feature.get("frame") != "model"
     ):
-        raise CadError(f"{name}: expected a model-frame {', '.join(sorted(_KINDS))}")
+        raise CadError(f"{name}: expected a model-frame {', '.join(sorted(kinds))}")
     requirements = feature.get("requirements")
     if (
         not isinstance(requirements, list)
-        or not requirements
+        or (not requirements and feature["kind"] not in bare_kinds)
         or not all(isinstance(key, str) for key in requirements)
     ):
         raise CadError(f"{name}.requirements: expected a nonempty list of names")
     if "plane" in feature:
         index, value = _plane_value(feature, name)
         _bind(values, f"{name}_plane_mm", value)
-        if feature["kind"] == "face":
+        if feature["kind"] == "face" and span is not None:
             _widen(span, index, value, value)
     elif "plane" in requirements:
         raise CadError(f"{name}.plane: missing drawing requirement")
@@ -226,20 +246,29 @@ def _bind_feature(values: dict, features: dict, name: str, span: list) -> None:
         for key in ("at", "axis"):
             if key not in feature:
                 raise CadError(f"{name}.{key}: a hole needs its {key}")
+    claimed = {key for key in feature if claims is not None and claims(key)}
     for key in requirements:
+        if key in claimed:
+            continue
         _requirement(values, feature, name, key)
-    # A listed band's nominal binds with it.
-    nominals = {f"{key}_nominal" for key in requirements} | {
-        f"nominal_{key}" for key in requirements
+    for key in sorted(claimed):
+        bind_claimed(values, feature, name, key)
+    # A listed or claimed band's nominal binds with it.
+    nominals = {
+        form.format(key)
+        for key in (*requirements, *claimed)
+        for form in ("{}_nominal", "nominal_{}")
     }
     for key, value in feature.items():
-        if key in _SKIP or key in requirements or key in nominals:
+        if key in _SKIP or key in requirements or key in claimed or key in nominals:
             continue
         if key.endswith("_from") and (
             not isinstance(value, str) or value not in features
         ):
             raise CadError(f"{name}.{key}: {value!r} is not a declared feature")
         if key.startswith("extent_"):
+            if span is None:
+                raise CadError(f"{name}.{key}: this part binds no envelope")
             axis = key.removeprefix("extent_")
             if axis not in _AXES:
                 raise CadError(f"{name}.{key}: expected extent_x, extent_y or extent_z")

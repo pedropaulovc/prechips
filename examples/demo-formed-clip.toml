@@ -1,0 +1,97 @@
+# Demo: a clip bent 90 degrees from .032 in half-hard brass strip at the
+# bench. The strip is sawn to its developed length and filed square, the
+# bend line is scribed, and the strip is bent in the vise over a radiused
+# bending bar. The developed length, the strip section and the bend's
+# radius, angle and allowance come from the manifest through the
+# formed_blank adapter; the bend line, the saw allowance and the pictures
+# are authored demo choices.
+title = "Demo formed clip"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "{{cad.material_spec}}"
+stock = "{{process.blank_width_in:.2f}} x {{process.blank_thickness_in:.3dot}} in strip, as supplied; one blank {{process.blank_length_in:.3dot}} long."
+note = "Inches. Bench work only: saw, file and bend in the bench vise."
+shop = "shop.toml"
+
+[cad]
+file = "cad/formed-clip-v1.toml"
+adapter = "formed_blank"
+part = "formed-clip"
+
+[parameters]
+quantity = 1
+# The developed length plus .010 left for filing the sawn end square.
+blank_length_in = 1.704
+blank_width_in = 0.5
+blank_thickness_in = 0.032
+
+[[tools]]
+id = "hacksaw"
+name = "Hacksaw"
+ref = "kit-hacksaw"
+
+[[tools]]
+id = "files"
+name = "Files"
+ref = "jig-files"
+
+[[tools]]
+id = "bending-bar"
+name = "Bending bar"
+ref = "formed-bending-bar"
+
+[[setups]]
+machine_kind = "other"
+title = "Saw and file the blank"
+machine = "Bench"
+indexing = "none"
+holding = "Bench vise, soft jaws; the strip flat between them, the cut line .10 out of the jaws."
+datum = "The filed end: every length runs from it."
+diagram = { file = "diagrams/demo-formed-clip/blank.svg", alt = "The strip in the soft jaws, sawn to its developed length and filed square at both ends; the bend line scribed across it." }
+envelope = "other"
+vise_hold = "other"
+beam = "other"
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "hacksaw"
+drilling = "none"
+sizing = "other"
+feed = "hand"
+instruction = "Square one end with the file. Saw the blank {{process.blank_length_in:.3dot}} long from that end."
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+feed = "hand"
+instruction = "File the sawn end square to the developed length {{cad.strip_developed_length_in:.3dot}}; break both ends' edges, {{cad.edge_break_in:.3dot}} max."
+inspection = "Length {{cad.strip_developed_length_in:.3dot}} ±.005 (calipers): the bend allowance, {{cad.bend_allowance_in:.3dot}} at K {{cad.strip_k_factor:.2f}}, is in it."
+gauge_checks = "other"
+
+[[setups.operations]]
+instruction = "Scribe the bend line square across the strip {{cad.bend_line_from_end_in:.3dot}} from the end that will be the base."
+feed = "hand"
+
+[[setups]]
+machine_kind = "other"
+title = "Bend"
+machine = "Bench"
+indexing = "none"
+holding = "Bench vise: the base between the jaws with the bending bar on the leg side, the scribed line level with the bar's radiused edge."
+datum = "The base's flat face, against the fixed jaw."
+diagram = { file = "diagrams/demo-formed-clip/bend.svg", alt = "The strip held by its base in the vise beside the bending bar, the leg pushed over the bar's radiused edge to 90 degrees." }
+envelope = "other"
+vise_hold = "other"
+beam = "other"
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "bending-bar"
+drilling = "none"
+sizing = "other"
+feed = "hand"
+instruction = "Push the leg over the bar's R{{cad.bend_radius_in:.3dot}} edge to just past 90° by hand, then let it spring back."
+inspection = "Bend {{cad.bend_angle_min_deg:.0f}}–{{cad.bend_angle_max_deg:.0f}}° (square); leg {{cad.leg_end_height_min_in:.2f}}–{{cad.leg_end_height_max_in:.2f}} high over the base face; base {{cad.base_end_length_min_in:.2f}}–{{cad.base_end_length_max_in:.2f}} from the end to the leg's outer face (calipers)."
+gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.leg_end_height_band_mm}}" }, { gauge = "calipers", band_mm = "{{cad.base_end_length_band_mm}}" }]

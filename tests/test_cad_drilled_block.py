@@ -469,3 +469,91 @@ def test_a_bad_reference_outside_is_refused(tmp_path, pairs, message):
     path = _variant(tmp_path, DISC, *pairs)
     with pytest.raises(CadError, match=message):
         load_drilled_block(path, {}, "drilled-disc")
+
+
+_TAPER_PIN = """
+["features"."big_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 0.0 }
+
+["features"."small_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane"]
+"plane" = { "frame" = "model", "axis" = "x", "value" = 44.45 }
+
+["features"."taper"]
+"kind" = "outside_cone"
+"frame" = "model"
+"requirements" = ["stock"]
+"at" = [0.0, 0.0, 0.0]
+"axis" = [1.0, 0.0, 0.0]
+"stock" = "NO. 3 TAPER PIN"
+"dia_ref" = 5.5626
+"small_dia_ref" = 4.6366
+"length_ref" = 44.45
+
+["features"."ring_hole"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru", "station"]
+"at" = [3.81, 0.0, 2.7416]
+"axis" = [0.0, 0.0, -1.0]
+"dia" = [2.0828, 2.1844]
+"nominal_dia" = 2.0828
+"thru" = true
+"process" = "drill"
+"station" = [3.556, 4.064]
+"station_nominal" = 3.81
+"station_from" = "big_end"
+"""
+
+
+def _taper_pin(tmp_path: Path, *pairs: str) -> Path:
+    """The disc's header with a bought taper pin's features, cross-drilled."""
+    header = DISC.read_text(encoding="utf-8").split('["features"."back_face"]')[0]
+    text = header + _TAPER_PIN
+    for old, new in zip(pairs[::2], pairs[1::2], strict=True):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    path = tmp_path / "taper-pin.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_an_outside_cone_bounds_the_part_by_its_large_end(tmp_path):
+    cad = load_drilled_block(_taper_pin(tmp_path), {}, "drilled-disc")
+    values = cad.values
+    assert values["envelope_x_in"] == pytest.approx(1.75)
+    assert values["envelope_y_mm"] == pytest.approx(5.5626)
+    assert values["envelope_z_mm"] == pytest.approx(5.5626)
+    assert values["taper_half_angle_deg"] == pytest.approx(0.5968, abs=1e-4)
+    assert values["taper_stock"] == "NO. 3 TAPER PIN"
+    assert values["ring_hole_station_in"] == pytest.approx(0.15)
+    assert values["ring_hole_x_from_min_in"] == pytest.approx(0.15)
+    # A cross hole is not walled by the cone it crosses.
+    assert "ring_hole_wall_to_taper_worst_mm" not in values
+
+
+def test_a_hole_along_an_outside_cone_is_walled_by_its_small_end(tmp_path):
+    path = _taper_pin(
+        tmp_path,
+        '"at" = [3.81, 0.0, 2.7416]\n"axis" = [0.0, 0.0, -1.0]',
+        '"at" = [44.45, 0.0, 0.0]\n"axis" = [-1.0, 0.0, 0.0]',
+        '"station" = [3.556, 4.064]\n"station_nominal" = 3.81\n'
+        '"station_from" = "big_end"\n',
+        "",
+        '"requirements" = ["dia", "thru", "station"]',
+        '"requirements" = ["dia", "thru"]',
+    )
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    # (4.6366 - 2.1844) / 2: the small end less the hole's largest size.
+    assert values["ring_hole_wall_to_taper_worst_mm"] == pytest.approx(1.2261)
+
+
+def test_an_outside_cone_needs_a_small_end_under_its_large_end(tmp_path):
+    path = _taper_pin(tmp_path, '"small_dia_ref" = 4.6366', '"small_dia_ref" = 5.6')
+    with pytest.raises(CadError, match="^taper: expected a small end under"):
+        load_drilled_block(path, {}, "drilled-disc")
