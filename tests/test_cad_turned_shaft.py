@@ -11,6 +11,7 @@ import pytest
 from prechips.cad import CadError
 from prechips.cad_diagrams import render_cad_svg
 from prechips.cad_turned_shaft import _faced, load_turned_shaft
+from prechips.shaft_diagrams import CHAR
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples/cad/turned-shaft-v51.toml"
@@ -265,6 +266,122 @@ def test_an_assembly_hole_may_omit_its_station(tmp_path):
     values = load_turned_shaft(source, {}, "demo-turned-shaft").values
     assert values["cross_hole_z_mm"] == pytest.approx(152.4)
     assert "cross_hole_station_mm" not in values
+
+
+def test_a_flat_may_be_stationed_to_its_centre(tmp_path):
+    # Flat A's centre, 17.4625 from the datum end, as its station.
+    source = _edited(
+        tmp_path,
+        SHAFT,
+        '"station" = [12.446, 12.954]\n"station_nominal" = 12.7\n',
+        '"station" = [17.2085, 17.7165]\n"station_nominal" = 17.4625\n'
+        '"station_to" = "centre"\n',
+    )
+    cad = load_turned_shaft(source, BLANK, "demo-turned-shaft")
+    assert cad.values["flat_a_station_to"] == "centre"
+    assert cad.values["flat_b_station_to"] == "near"
+    assert cad.values["flat_a_station_mm"] == pytest.approx(17.4625)
+    vise_params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    vise = render_cad_svg(_svg(hold="vise", work="flat", x0="datum"), cad, vise_params)
+    assert b"from the datum end to its centre" in vise
+    # From the far end's side the run is short and near the end view: the
+    # label ends short of it instead of running into the end view.
+    far = render_cad_svg(_svg(hold="vise", work="flat", x0="far"), cad, vise_params)
+    label = re.search(rb"<text[^>]*>[^<]*to its centre</text>", far)
+    assert label is not None and b'text-anchor="end"' in label.group(0)
+    # The nearer end no longer matches the centre's band.
+    (tmp_path / "near").mkdir()
+    near = _edited(tmp_path / "near", source, '"station_to" = "centre"\n', "")
+    with pytest.raises(CadError, match="not its nominal station"):
+        load_turned_shaft(near, BLANK, "demo-turned-shaft")
+    (tmp_path / "wrong").mkdir()
+    wrong = _edited(tmp_path / "wrong", source, '"centre"', '"middle"')
+    with pytest.raises(CadError, match="station_to"):
+        load_turned_shaft(wrong, BLANK, "demo-turned-shaft")
+
+
+def _label_extents(svg: bytes) -> list[tuple[float, float]]:
+    """Each station label's printed x extent, from its anchor and CHAR."""
+    extents = []
+    for match in re.finditer(rb"<text([^>]*)>([^<]*from the [^<]*)</text>", svg):
+        attributes, text = match.group(1).decode(), match.group(2).decode()
+        x = float(re.search(r'\bx="([-\d.]+)"', attributes).group(1))
+        width = len(text) * CHAR
+        if 'text-anchor="end"' in attributes:
+            extents.append((x - width, x))
+        elif 'text-anchor="middle"' in attributes:
+            extents.append((x - width / 2, x + width / 2))
+        else:
+            extents.append((x, x + width))
+    return extents
+
+
+@pytest.mark.parametrize("shift", [0.0, 25.0, 50.0, 75.0, 100.0])
+@pytest.mark.parametrize("x0", ["datum", "far"])
+def test_centre_station_labels_stay_on_the_vise_picture(tmp_path, shift, x0):
+    # Flat B stationed to its centre from the datum dome's root, moved along
+    # the shaft: wherever it sits its label prints inside the page and short
+    # of the end view's jaws.
+    source = _edited(
+        tmp_path,
+        SHAFT,
+        '"span" = [50.8, 60.325]',
+        f'"span" = [{50.8 + shift}, {60.325 + shift}]',
+        '"station" = [47.371, 47.879]\n"station_nominal" = 47.625\n',
+        f'"station" = [{52.1335 + shift}, {52.6415 + shift}]\n'
+        f'"station_nominal" = {52.3875 + shift}\n"station_to" = "centre"\n',
+    )
+    cad = load_turned_shaft(source, BLANK, "demo-turned-shaft")
+    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    svg = render_cad_svg(_svg(hold="vise", work="flat", x0=x0), cad, params)
+    extents = _label_extents(svg)
+    assert len(extents) == 2
+    assert all(10 <= start and end <= 710 for start, end in extents), extents
+
+
+def test_a_vise_picture_mills_only_its_setups_flats():
+    # Each flat in its own clamping: flat A now, flat B milled before.
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    both = render_cad_svg(_svg(hold="vise", work="flat"), cad, params)
+    one = render_cad_svg(
+        _svg(hold="vise", work="flat", flats="flat_a", **{"flats-done": "flat_b"}),
+        cad,
+        params,
+    )
+    assert both.count(b"from the datum") == 2
+    assert one.count(b"from the datum") == 1
+    assert one.count(b"across,") == 1
+    # Flat B still shows, outlined as kept, not hatched as cut this setup.
+    assert one.count(b"<rect") == both.count(b"<rect") - 1
+    for attrs, match in (
+        ({"flats": "flat_c"}, "data-flats"),
+        ({"flats": "flat_a", "flats-done": "flat_a"}, "data-flats"),
+    ):
+        with pytest.raises(CadError, match=match):
+            render_cad_svg(_svg(hold="vise", work="flat", **attrs), cad, params)
+    with pytest.raises(CadError, match="on a vise hold"):
+        render_cad_svg(_svg(hold="inspect", flats="flat_a"), cad, BLANK)
+
+
+def test_the_inspection_names_flats_as_the_plan_does():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    plain = render_cad_svg(_svg(hold="inspect"), cad, BLANK)
+    assert b">a: " in plain
+    named = render_cad_svg(
+        _svg(hold="inspect", **{"name-flat_a": "datum-end flat"}), cad, BLANK
+    )
+    assert b">datum-end flat: " in named and b">a: " not in named
+    for attrs, match in (
+        ({"name-flat_a": " "}, "non-blank"),
+        ({"name-flat_c": "x"}, "names no flat"),
+    ):
+        with pytest.raises(CadError, match=match):
+            render_cad_svg(_svg(hold="inspect", **attrs), cad, BLANK)
+    with pytest.raises(CadError, match="inspect hold"):
+        render_cad_svg(
+            _svg(hold="vise", work="flat", **{"name-flat_a": "x"}), cad, BLANK
+        )
 
 
 def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():

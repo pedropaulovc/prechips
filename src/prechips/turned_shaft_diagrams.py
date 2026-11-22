@@ -35,6 +35,11 @@ setup does: ``face``, ``turn``, ``dome`` (the out end's), ``groove``,
 ``thread`` (a die from the tailstock, or a single-point bit for
 ``thread_process = "single_point"``), ``chamfer``, ``part`` (lathe holds)
 and ``flat`` (the vise);
+on an inspect hold, ``data-name-<flat>`` names a flat as the operations do
+(default: the feature's suffix);
+on a vise hold, ``data-flats`` names the flats this setup mills (default:
+every flat) and ``data-flats-done`` the flats an earlier setup milled (drawn
+as kept, unlabelled; any other flat is not drawn: its O.D. is uncut);
 ``steps`` labels the out end's dome with the adapter's stepped-turning table
 (``process.dome_steps``);
 ``data-done`` what earlier setups made (``turn``, ``groove``, ``thread``,
@@ -249,6 +254,20 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
     x0 = root.attrib.pop("data-x0", "datum")
+    names = {
+        key.removeprefix("data-name-"): root.attrib.pop(key)
+        for key in [k for k in root.attrib if k.startswith("data-name-")]
+    }
+    if names and hold != "inspect":
+        raise CadError("turned-shaft: data-name-<flat> is on an inspect hold")
+    if any(not name.strip() for name in names.values()):
+        raise CadError("turned-shaft: a data-name-<flat> is non-blank text")
+    milled = root.attrib.pop("data-flats", None)
+    milled_before = set(root.attrib.pop("data-flats-done", "").split())
+    if (milled is not None or milled_before) and hold != "vise":
+        raise CadError(
+            "turned-shaft: data-flats and data-flats-done are on a vise hold"
+        )
     if x0 not in _OUTS or (x0 != "datum" and hold not in ("vise", "inspect")):
         raise CadError(
             "turned-shaft: data-x0 is datum or far, on a vise or inspect hold"
@@ -306,7 +325,15 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
             if values.get(f"dome_{end}_made_at", "traveler") != "assembly"
         }
         if hold == "vise":
-            return _vise(groups, values, parameters, made, x0)
+            return _vise(
+                groups,
+                values,
+                parameters,
+                made,
+                x0,
+                None if milled is None else milled.split(),
+                milled_before,
+            )
         return _inspect(
             groups,
             values,
@@ -315,6 +342,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
             as_left,
             x0,
             x0_label,
+            names,
         )
     title = _TITLES[hold]
     if hold == "blank" and done:
@@ -772,6 +800,12 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
     return [radius, f"{{{{cad.{prefix}_height_in:.3dot}}}} high", "at the root REF"]
 
 
+def _flat_name(names: dict, flat: str) -> str:
+    """A flat's name on the finished part: its ``data-name-<flat>`` when the
+    picture names it (as the operations do), else the feature's own suffix."""
+    return names.get(flat, flat.removeprefix("flat_"))
+
+
 def _slender(values: dict, length: float, width: float) -> tuple[float, float]:
     """Axial scale to fit ``width`` px, and a radial scale at least as large
     that draws the largest diameter at least 48 px."""
@@ -788,10 +822,15 @@ def _inspect(
     as_left: bool,
     x0: str,
     x0_label: str,
+    names: dict | None = None,
 ) -> Layout:
     """The part as it leaves, its ``data-x0`` end (the end lengths are read
     from) at the left, marked ``x0_label``, its printed sizes: the finished
     part unless data-done says what this traveler made."""
+    names = names or {}
+    unknown = set(names) - set(_names(values, "flat_", "_across_mm"))
+    if unknown:
+        raise CadError(f"turned-shaft: data-name-{min(unknown)} names no flat")
     length = _cad(values, "length_mm")
     scale, radial = _slender(values, length, 560.0)
     view = _View(80.0, 0.0, scale, radial, length if x0 == "far" else None)
@@ -841,7 +880,7 @@ def _inspect(
             (
                 (a + b) / 2,
                 view.up(values[f"{f}_across_mm"] - dia / 2),
-                [f"{f.removeprefix('flat_')}: {_band(f'{f}_across')} across"],
+                [f"{_flat_name(names, f)}: {_band(f'{f}_across')} across"],
             )
         )
     holes = [
@@ -974,15 +1013,33 @@ def values_on(values: dict, station: float) -> str:
     return _diameters(values)[0]
 
 
-def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) -> Layout:
-    """Top view in the vise, flats up; an end view of the hold at the right."""
+def _vise(
+    groups: Groups,
+    values: dict,
+    parameters: dict,
+    made: set,
+    x0: str,
+    milled: list | None = None,
+    milled_before: set | None = None,
+) -> Layout:
+    """Top view in the vise, flats up; an end view of the hold at the right.
+    ``milled`` the flats this setup cuts (default every flat),
+    ``milled_before`` those an earlier setup cut."""
     length = _cad(values, "length_mm")
-    flats = _names(values, "flat_", "_across_mm")
-    if not flats:
+    every = _names(values, "flat_", "_across_mm")
+    if not every:
         raise CadError("turned-shaft: a vise hold mills the part's flats")
-    normal = values[f"{flats[0]}_normal"]
-    if any(values[f"{f}_normal"] != normal for f in flats):
+    normal = values[f"{every[0]}_normal"]
+    if any(values[f"{f}_normal"] != normal for f in every):
         raise CadError("turned-shaft: the vise picture draws flats on one clock")
+    flats = every if milled is None else milled
+    before = set(milled_before or ())
+    unknown = (set(flats) | before) - set(every)
+    if unknown or not flats or before & set(flats):
+        raise CadError(
+            "turned-shaft: data-flats names the part's flats this setup mills, "
+            "data-flats-done others an earlier setup milled"
+        )
     # The jaws' sides from the X0 end, the end drawn at the left.
     jaw_from = float(parameters.get("vise_jaw_from_x0_mm", 0.0))
     jaw_width = _param(parameters, "vise_jaw_to_x0_mm") - jaw_from
@@ -1008,6 +1065,10 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     ]
     above = [(px(jaw_from + jaw_width) - 30, top - 14, ["fixed jaw"])]
     below_y = bottom + 14
+    for f in sorted(before):
+        a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
+        half = values[f"{f}_width_mm"] / 2 * radial
+        groups["part-kept"].append(_rect(a, _AXIS - half, b - a, 2 * half))
     for f in flats:
         a, b = sorted((view.x(values[f"{f}_z0_mm"]), view.x(values[f"{f}_z1_mm"])))
         half = values[f"{f}_width_mm"] / 2 * radial
@@ -1045,16 +1106,10 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     for f in flats:
         source = values[f"{f}_station_from"]
         origin = origins[source]
-        z0, z1 = values[f"{f}_z0_mm"], values[f"{f}_z1_mm"]
-        edge = z0 if origin < z0 else z1
-        runs.append((abs(edge - origin), origin, edge, f, source))
-    # Longest nearest the part, so no text crosses a longer one's witness.
-    y = below_y + 22
-    for _, origin, edge, f, source in sorted(runs, reverse=True):
-        text = f"{_band(f'{f}_station')} from the {names[source]}"
-        left_x, right_x = sorted((view.x(origin), view.x(edge)))
-        _dimension(groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710)
-        y += 24
+        # The point the loader checked the station to (an end, or the centre).
+        edge = values[f"{f}_station_point_mm"]
+        centre = values.get(f"{f}_station_to") == "centre"
+        runs.append((abs(edge - origin), origin, edge, f, source, centre))
     # End view: the part between the jaws on a parallel, the cutter above.
     # It sits low enough that its jaw tops stay under the top view's
     # callouts.
@@ -1066,6 +1121,63 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     if "jaw_top_over_od_mm" in parameters:
         over = _param(parameters, "jaw_top_over_od_mm") * k
     cx, cy = 640.0, max(_AXIS, top - 10 + r + over)
+    # Longest nearest the part, so no text crosses a longer one's witness:
+    # a shorter run's witnesses reach down past every row above its own.
+    rows = sorted(runs, reverse=True)
+    y = below_y + 22
+    for row, (_, origin, edge, flat, source, centre) in enumerate(rows):
+        text = f"{_band(f'{flat}_station')} from the {names[source]}"
+        left_x, right_x = sorted((view.x(origin), view.x(edge)))
+        if not centre:
+            _dimension(
+                groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710
+            )
+            y += 24
+            continue
+        text += " to its centre"
+        width = len(_bound(text)) * CHAR
+        mid = (left_x + right_x) / 2
+        start = left_x - 6 - width
+        # The witnesses of the rows below this one.
+        below = [view.x(z) for _, o, e, *_ in rows[row + 1 :] for z in (o, e)]
+
+        # A row level with the end view ends short of its jaws, any other row
+        # short of the page's right margin; a label with no room on its row
+        # moves below the end view, where it runs to the margin. Beside the
+        # line, centred over it, or ending short of it when no lower row's
+        # witness crosses there; else above it, kept on the page.
+        placed = None
+        for row_y in (y, max(y, cy + r + 62)):
+            level = cy - r - over - 10 < row_y + 5 and row_y - 12 < cy + r + 50
+            limit = cx - r - 22 if level else 710.0
+            if right_x + 6 + width <= limit:
+                placed = (True, False, None)
+            elif 10 <= mid - width / 2 and mid + width / 2 <= limit:
+                placed = (False, False, None)
+            elif start >= 10 and not any(start <= x <= left_x - 1 for x in below):
+                placed = (False, True, None)
+            if placed is not None:
+                break
+        if placed is None:
+            if width > limit - 10:
+                raise CadError(
+                    f"turned-shaft: no room on the vise picture for {flat}'s station"
+                )
+            placed = (False, False, max(10.0, min(mid - width / 2, limit - width)))
+        y = row_y
+        beside, before, at = placed
+        _dimension(
+            groups,
+            left_x,
+            right_x,
+            y,
+            _AXIS,
+            text,
+            beside=beside,
+            before=before,
+            start=at,
+        )
+        y += 24
     flat_y = cy - (values[f"{f}_across_mm"] - dia / 2) * k
     half = math.sqrt(max(r**2 - (cy - flat_y) ** 2, 0.0))
     groups["part-kept"].append(

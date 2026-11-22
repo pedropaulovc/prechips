@@ -248,10 +248,14 @@ def _dimension(
     text: str,
     *,
     beside: bool = False,
+    before: bool = False,
+    start: float | None = None,
 ) -> None:
     """Dimension at ``y`` with extension lines from ``edge``.
 
-    The text sits above the line, or past its ``x1`` end when ``beside``.
+    The text sits above the line (from ``start`` when given, else centred),
+    past its ``x1`` end when ``beside``, or ending short of its ``x0`` end
+    when ``before``.
     """
     beyond = y + 4 if y > edge else y - 4
     groups["dims"] += [
@@ -261,6 +265,10 @@ def _dimension(
     ]
     if beside:
         groups["label"].append(_text(x1 + 6, y + 5, text))
+    elif before:
+        groups["label"].append(_text(x0 - 6, y + 5, text, text_anchor="end"))
+    elif start is not None:
+        groups["label"].append(_text(start, y - 5, text))
     else:
         groups["label"].append(_text((x0 + x1) / 2, y - 5, text, text_anchor="middle"))
 
