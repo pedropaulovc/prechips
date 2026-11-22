@@ -750,3 +750,37 @@ def test_a_reamed_bore_prints_four_places_and_its_reamer(tmp_path):
     plug = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="ream needs the part's bore"):
         render_cad_svg(_svg(hold="bar", out="datum", work="face ream part"), plug, BAR)
+
+
+def test_a_basic_bore_under_a_plus_band_makes_the_band_middle(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"dia" = [4.0894, 4.191]\n"nominal_dia" = 4.0894\n"thru" = true\n"process" = "drill"'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # A running fit's ream printed .1600 +.0015/+.0010: the basic size lies
+    # under the band, so the band's middle is the size the reamer makes.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.064\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    values = load_turned_bush(source, {}, "turned-cup").values
+    assert values["bore_basic_in"] == pytest.approx(0.16)
+    assert values["bore_dia_mm"] == pytest.approx(4.09575)
+    assert values["bore_dia_min_in"] == pytest.approx(0.161)
+    # A nominal over its band is still refused.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.2\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(source, {}, "turned-cup")
+    # Inside its band the nominal is still the size made (and no basic binds).
+    assert "bore_basic_in" not in load_turned_bush(CUP, {}, "turned-cup").values

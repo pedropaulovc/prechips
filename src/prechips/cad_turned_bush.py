@@ -14,7 +14,9 @@ supply ``length_min``) from the datum end. Optional features:
   a measured mate with a ``diametral_clearance`` or a press fit's
   ``diametral_interference`` (a ``dia`` band may add a
   ``diametral_interference``);
-- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``;
+- ``bore``: a ``hole`` through, a ``dia`` band and its ``process``; a basic
+  ``nominal_dia`` under a plus band (a running fit's ream) binds as
+  ``bore_basic_*`` and the band's middle is the size made;
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
   measured mate's ``diametral_clearance`` under ``dia_max``, a ``depth`` band
   and a floor ``corner_radius_max``;
@@ -43,6 +45,7 @@ from .cad import (
     _band,
     _edge_breaks,
     _inch_limits,
+    _mid,
     _model_frame,
     _number,
     _positive,
@@ -276,7 +279,15 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     if item.get("thru") is not True:
         raise CadError("bore.thru: expected a through hole")
     band = _limits(item, "dia", "bore", "bore_dia", values)
-    values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
+    nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
+    if nominal < band[0] - _TOLERANCE:
+        # A basic size printed with a unilateral plus band (a running fit's
+        # ream, .1250 +.0015/+.0010): the size made is the band's middle,
+        # and the basic size binds for the traveler to quote.
+        values["bore_basic_mm"], values["bore_basic_in"] = nominal, nominal / 25.4
+        values["bore_dia_mm"] = _mid(band)
+    else:
+        values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
     values["bore_process"] = _string(item.get("process"), "bore.process")
     # The drawing's least wall and a bonded bore's clearance on its mate
     # are printed acceptances the traveler states.
