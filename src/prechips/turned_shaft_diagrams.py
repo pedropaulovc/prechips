@@ -124,6 +124,13 @@ def _band(key: str, places: int = 3) -> str:
     )
 
 
+def _groove_dia(values: dict, groove: str) -> str:
+    """A groove's printed Ø: its band, or its single MAX limit."""
+    if f"{groove}_dia_max_mm" in values:
+        return f"Ø{{{{cad.{groove}_dia_max_in:.3dot}}}} max"
+    return f"Ø{_band(f'{groove}_dia')}"
+
+
 def _names(values: dict, prefix: str, suffix: str) -> list[str]:
     return sorted(
         key.removesuffix(suffix)
@@ -680,7 +687,7 @@ def _labels(
                 (
                     (a + b) / 2,
                     view.down(values[f"{g}_dia_mm"] / 2),
-                    [f"groove Ø{_band(f'{g}_dia')}", f"{_band(f'{g}_width')} wide"],
+                    [f"groove {_groove_dia(values, g)}", f"{_band(f'{g}_width')} wide"],
                 )
             )
     if "chamfer" in work:
@@ -876,7 +883,7 @@ def _inspect(
             (
                 (a + b) / 2,
                 view.down(values[f"{g}_dia_mm"] / 2),
-                [f"groove Ø{_band(f'{g}_dia')}"],
+                [f"groove {_groove_dia(values, g)}"],
             )
         )
     for h in holes:
