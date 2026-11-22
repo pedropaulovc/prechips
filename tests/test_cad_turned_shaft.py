@@ -328,6 +328,26 @@ def test_a_vise_picture_mills_only_its_setups_flats():
         render_cad_svg(_svg(hold="inspect", flats="flat_a"), cad, BLANK)
 
 
+def test_the_inspection_names_flats_as_the_plan_does():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    plain = render_cad_svg(_svg(hold="inspect"), cad, BLANK)
+    assert b">a: " in plain
+    named = render_cad_svg(
+        _svg(hold="inspect", **{"name-flat_a": "datum-end flat"}), cad, BLANK
+    )
+    assert b">datum-end flat: " in named and b">a: " not in named
+    for attrs, match in (
+        ({"name-flat_a": " "}, "non-blank"),
+        ({"name-flat_c": "x"}, "names no flat"),
+    ):
+        with pytest.raises(CadError, match=match):
+            render_cad_svg(_svg(hold="inspect", **attrs), cad, BLANK)
+    with pytest.raises(CadError, match="inspect hold"):
+        render_cad_svg(
+            _svg(hold="vise", work="flat", **{"name-flat_a": "x"}), cad, BLANK
+        )
+
+
 def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
     with pytest.raises(CadError, match="data-hold"):

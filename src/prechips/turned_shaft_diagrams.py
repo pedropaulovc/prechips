@@ -35,6 +35,8 @@ setup does: ``face``, ``turn``, ``dome`` (the out end's), ``groove``,
 ``thread`` (a die from the tailstock, or a single-point bit for
 ``thread_process = "single_point"``), ``chamfer``, ``part`` (lathe holds)
 and ``flat`` (the vise);
+on an inspect hold, ``data-name-<flat>`` names a flat as the operations do
+(default: the feature's suffix);
 on a vise hold, ``data-flats`` names the flats this setup mills (default:
 every flat) and ``data-flats-done`` the flats an earlier setup milled (drawn
 as kept, unlabelled; any other flat is not drawn: its O.D. is uncut);
@@ -245,6 +247,14 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     done = set(root.attrib.pop("data-done", "").split())
     grip = root.attrib.pop("data-grip", "outer")
     x0 = root.attrib.pop("data-x0", "datum")
+    names = {
+        key.removeprefix("data-name-"): root.attrib.pop(key)
+        for key in [k for k in root.attrib if k.startswith("data-name-")]
+    }
+    if names and hold != "inspect":
+        raise CadError("turned-shaft: data-name-<flat> is on an inspect hold")
+    if any(not name.strip() for name in names.values()):
+        raise CadError("turned-shaft: a data-name-<flat> is non-blank text")
     milled = root.attrib.pop("data-flats", None)
     milled_before = set(root.attrib.pop("data-flats-done", "").split())
     if (milled is not None or milled_before) and hold != "vise":
@@ -325,6 +335,7 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
             as_left,
             x0,
             x0_label,
+            names,
         )
     title = _TITLES[hold]
     if hold == "blank" and done:
@@ -782,6 +793,12 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
     return [radius, f"{{{{cad.{prefix}_height_in:.3dot}}}} high", "at the root REF"]
 
 
+def _flat_name(names: dict, flat: str) -> str:
+    """A flat's name on the finished part: its ``data-name-<flat>`` when the
+    picture names it (as the operations do), else the feature's own suffix."""
+    return names.get(flat, flat.removeprefix("flat_"))
+
+
 def _slender(values: dict, length: float, width: float) -> tuple[float, float]:
     """Axial scale to fit ``width`` px, and a radial scale at least as large
     that draws the largest diameter at least 48 px."""
@@ -798,10 +815,15 @@ def _inspect(
     as_left: bool,
     x0: str,
     x0_label: str,
+    names: dict | None = None,
 ) -> Layout:
     """The part as it leaves, its ``data-x0`` end (the end lengths are read
     from) at the left, marked ``x0_label``, its printed sizes: the finished
     part unless data-done says what this traveler made."""
+    names = names or {}
+    unknown = set(names) - set(_names(values, "flat_", "_across_mm"))
+    if unknown:
+        raise CadError(f"turned-shaft: data-name-{min(unknown)} names no flat")
     length = _cad(values, "length_mm")
     scale, radial = _slender(values, length, 560.0)
     view = _View(80.0, 0.0, scale, radial, length if x0 == "far" else None)
@@ -851,7 +873,7 @@ def _inspect(
             (
                 (a + b) / 2,
                 view.up(values[f"{f}_across_mm"] - dia / 2),
-                [f"{f.removeprefix('flat_')}: {_band(f'{f}_across')} across"],
+                [f"{_flat_name(names, f)}: {_band(f'{f}_across')} across"],
             )
         )
     holes = [
