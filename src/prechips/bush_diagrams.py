@@ -14,6 +14,8 @@ names how the work is held:
   ``data-z0="out"`` marks Z0 there without turning (a DRO set from a
   measured length), and ``data-seat="none"`` draws the chuck body clear of
   the part's end, nothing behind it (default ``chuck``: seated on the body);
+  unseated, the grip reaches the part's chuck-side end or only smaller
+  diameters stand behind it, inside the jaws' bore;
 - ``mandrel``: the squared blank on a bolt through its bore, the bolt in the
   chuck, a washer and nut on each face;
 - ``inspect``: the finished part alone with its printed sizes, its datum end
@@ -105,12 +107,15 @@ def _knurl_lines(name: str) -> list[str]:
     ]
 
 
-def _countersinks(values: dict) -> list[str]:
-    return sorted(
-        key.removesuffix("_dia_max_mm")
-        for key in values
-        if key.startswith("countersink") and key.endswith("_dia_max_mm")
-    )
+def _countersinks(values: dict, out: str | None = None) -> list[str]:
+    """The part's countersinks; with ``out``, those at the end toward the
+    tailstock (``datum``: the datum end; ``far``: the far end or recess)."""
+    ends = {"datum": {"datum_end"}, "far": {"far_end", "recess"}}.get(out)
+    return [
+        name
+        for name in values.get("countersinks", [])
+        if ends is None or ends & set(values[f"{name}_ends"])
+    ]
 
 
 _CSK_ENDS = {"datum_end": "datum end", "far_end": "far end", "recess": "in the recess"}
@@ -229,8 +234,10 @@ def _holes(groups: Groups, values: dict, page: _Page, shift: float, holes: set) 
         path = "L".join(f"{x:.2f} {y:.2f}" for x, y in points)
         groups["hidden"].append(_el("path", d=f"M{path}"))
     if "tap" in holes and values.get("tap_thru"):
-        runs.append((0.0, values["length_mm"], values["tap_drill_dia_mm"]))
-        x0, x1 = page.span(0.0, values["length_mm"], shift)
+        # Through the part; a dished far end ends it at the recess floor.
+        end = values.get("recess_z0_mm", values["length_mm"])
+        runs.append((0.0, end, values["tap_drill_dia_mm"]))
+        x0, x1 = page.span(0.0, end, shift)
         radius = values["tap_drill_dia_mm"] / 2
         groups["part-threads"].append(
             _rect(x0, page.up(radius), x1 - x0, page.size(radius))
@@ -341,8 +348,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: recess needs the part's recess")
     if "recess" in work and out != "far":
         raise CadError("turned-bush: the recess is cut with the far end out")
-    if "countersink" in work and not _countersinks(values):
-        raise CadError("turned-bush: countersink needs the part's countersink")
+    if "countersink" in work and not _countersinks(values, out):
+        raise CadError("turned-bush: countersink needs a countersink at the out end")
     if "knurl" in work and not any(k.endswith("_knurl_tpi") for k in values):
         raise CadError("turned-bush: knurl needs a knurled diameter")
     if hold == "mandrel" and "bore_dia_mm" not in values:
@@ -526,12 +533,13 @@ def _setup(
                 z0 = max(z0, z1 - held_mm)
             else:
                 z1 = min(z1, z0 + held_mm)
-        if "turn" in work:
-            # A regrip turns only what stands out of its jaws.
-            for name, a0, a1, _ in segments:
-                inside = a0 < z1 - 1e-6 and a1 > z0 + 1e-6
-                if name in turned and inside:
-                    raise CadError(f"turned-bush: the regrip turns {name} in its jaws")
+        # A regrip turns or knurls only what stands out of its jaws.
+        for name, a0, a1, _ in segments:
+            inside = a0 < z1 - 1e-6 and a1 > z0 + 1e-6
+            if inside and "turn" in work and name in turned:
+                raise CadError(f"turned-bush: the regrip turns {name} in its jaws")
+            if inside and "knurl" in work and f"{name}_knurl_tpi" in values:
+                raise CadError(f"turned-bush: the regrip knurls {name} in its jaws")
         behind = 0.0
         if seat == "none":
             # Nothing behind the part: the grip must reach its chuck-side end,
@@ -609,19 +617,23 @@ def _setup(
                 _rect(a, page.up(radius), b - a, page.size(radius))
             )
         _holes(groups, values, page, shift, holes)
-        if (
-            kerf
-            and hold in ("bar", "block")
-            and {"drill", "part"} <= work
-            and "bore" in holes
-            and "bore_dia_mm" in values
-        ):
+        through = (
+            "bore"
+            if "bore" in holes and "bore_dia_mm" in values
+            else "tap"
+            if "tap" in holes and values.get("tap_thru")
+            else None
+        )
+        if kerf and hold in ("bar", "block") and {"drill", "part"} <= work and through:
             # A through hole is drilled past the parting line: from the
-            # bore's chuck-side end it runs on through any regrip allowance
+            # hole's chuck-side end it runs on through any regrip allowance
             # and the kerf.
-            radius = values["bore_dia_mm"] / 2
+            radius = (
+                values[f"{'bore' if through == 'bore' else 'tap_drill'}_dia_mm"] / 2
+            )
             x_end = page.x(
-                values["bore_z1_mm" if out == "datum" else "bore_z0_mm"], shift
+                values[f"{through}_z1_mm" if out == "datum" else f"{through}_z0_mm"],
+                shift,
             )
             x_cut = page.x(beyond, shift) - kerf * scale
             a, b = sorted((x_end, x_cut))
@@ -732,9 +744,7 @@ def _setup(
             if values.get("tap_thru")
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
             "pocket": "pocket {{cad.pocket_depth_min_in:.3dot}}–{{cad.pocket_depth_max_in:.3dot}} deep",
-            "countersink": f"countersink Ø{{{{cad.{_countersinks(values)[0]}_dia_max_in:.2dot}}}} max"
-            if _countersinks(values)
-            else "",
+            "countersink": ", ".join(_csk_text(n) for n in _countersinks(values, out)),
             "tap": "tap {{cad.tap_thread}}",
         }
         if "ream" in work:
@@ -787,7 +797,7 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
     # The nearest shoulder sits nearest the part, so the extension lines of
     # the farther ones run clear of the nearer dimensions.
     shoulders = sorted(
-        (key.removesuffix("_mm") for key in values if _is_shoulder(key)),
+        values.get("shoulders", []),
         key=lambda name: values[f"{name}_mm"],
     )
     for index, name in enumerate(shoulders):
@@ -842,15 +852,6 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
             )
         )
     return _finish(groups, _callouts(groups, items, low + 30, above=False))
-
-
-def _is_shoulder(key: str) -> bool:
-    """A shoulder's bound nominal station (``shoulder_mm``, ``shoulder_*_mm``)."""
-    return (
-        (key == "shoulder_mm" or key.startswith("shoulder_"))
-        and key.endswith("_mm")
-        and not key.endswith(("_band_mm", "_z0_mm", "_z1_mm"))
-    )
 
 
 BUSH_LAYOUTS = {"turned-bush": _layout}

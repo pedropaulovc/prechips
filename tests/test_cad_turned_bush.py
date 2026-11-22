@@ -988,3 +988,42 @@ def test_a_countersink_at_the_far_end_needs_a_through_hole(tmp_path):
     source.write_text(text, "utf-8")
     with pytest.raises(CadError, match="a blind tap reaches only the datum end"):
         load_turned_bush(source, KNOB_BAR, "turned-knob")
+
+
+def test_a_knob_refuses_names_supplies_and_setups_it_cannot_make(tmp_path):
+    params = KNOB_BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.2}
+    with pytest.raises(CadError, match="knurled, so turned to its blank"):
+        load_turned_bush(
+            KNOB,
+            KNOB_BAR | {"stock_dia_in": 0.81, "as_supplied_outer": 1},
+            "turned-knob",
+        )
+    text = KNOB.read_text(encoding="utf-8")
+    for old, new, message in [
+        ('"features"."step_waist"', '"features"."step_rough"', "bound keys meet"),
+        (
+            '"features"."shoulder_head"',
+            '"features"."shoulder_flange_min"',
+            "bound keys meet",
+        ),
+        ('"depth" = [0.762, 1.27]', '"depth" = [0.762, 8.5]', "runs past outer"),
+    ]:
+        assert text.count(old) == 1
+        source = tmp_path / "cad.toml"
+        source.write_text(text.replace(old, new), "utf-8")
+        with pytest.raises(CadError, match=message):
+            load_turned_bush(source, KNOB_BAR, "turned-knob")
+    cad = load_turned_bush(KNOB, params, "turned-knob")
+    # Both ends are countersunk: each setup names the one at its out end.
+    far = render_cad_svg(
+        _svg(hold="regrip", out="far", work="face countersink", z0="out", seat="none"),
+        cad,
+        params,
+    ).decode()
+    assert "countersink Ø.18 max × 90°" in far
+    with pytest.raises(CadError, match="knurls outer in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="far", work="face knurl", z0="out", seat="none"),
+            cad,
+            params,
+        )
