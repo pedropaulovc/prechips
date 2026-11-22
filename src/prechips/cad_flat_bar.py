@@ -16,7 +16,9 @@ Per feature `F` and listed requirement `R`:
   outside the band, else the band's middle; a nominal also binds
   `F_R_nominal_in`;
 - `plane` binds `F_plane_mm` from the feature's `plane` table;
-- `thru` must be true;
+- `thru` must be true; any other true-or-false requirement (`flat_bottom`...)
+  must be true and binds `F_R` true: the drawing prints a property the part
+  has, never its absence;
 - `finish_ra` binds `F_finish_ra_um` and `F_finish_ra_uin`;
 - a string (`process`, `thread`...) binds `F_R`; a point as below; any
   other single number (a `*_max` limit, a BASIC distance, a position zone)
@@ -163,6 +165,11 @@ def _requirement(values: dict, feature: dict, name: str, key: str) -> None:
     if key == "thru":
         if value is not True:
             raise CadError(f"{where}: expected true")
+        return
+    if isinstance(value, bool):
+        if value is not True:
+            raise CadError(f"{where}: expected true")
+        _bind(values, prefix, True)
         return
     if key == "finish_ra":
         grade = _positive(value, where)

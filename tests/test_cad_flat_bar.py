@@ -132,6 +132,22 @@ def test_locations_from_a_datum_threads_and_points_bind(tmp_path):
     assert load_flat_bar(fit, {}, "notched-bar").values["cross_hole_dia_mm"] == 3.175
 
 
+def test_a_printed_property_binds_true(tmp_path):
+    """A true-or-false requirement (FLAT BOTTOM) is a property the drawing
+    prints: it binds true, and a false one refuses."""
+    listed = (
+        '"requirements" = ["dia", "thru", "process", "location_from_back", "drop", '
+        '"finish_ra"]'
+    )
+    flat = listed.replace('"finish_ra"]', '"finish_ra", "flat_bottom"]')
+    source = _variant(tmp_path, listed, flat + '\n"flat_bottom" = true')
+    values = load_flat_bar(source, {}, "notched-bar").values
+    assert values["cross_hole_flat_bottom"] is True
+    false = _variant(tmp_path, listed, flat + '\n"flat_bottom" = false')
+    with pytest.raises(CadError, match="cross_hole.flat_bottom: expected true"):
+        load_flat_bar(false, {}, "notched-bar")
+
+
 @pytest.mark.parametrize(
     ("old", "new", "message"),
     [
