@@ -1038,26 +1038,10 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     for f in flats:
         source = values[f"{f}_station_from"]
         origin = origins[source]
-        z0, z1 = values[f"{f}_z0_mm"], values[f"{f}_z1_mm"]
-        edge = z0 if origin < z0 else z1
-        if values.get(f"{f}_station_to") == "centre":
-            edge = (z0 + z1) / 2
-        runs.append((abs(edge - origin), origin, edge, f, source))
-    # Longest nearest the part, so no text crosses a longer one's witness.
-    y = below_y + 22
-    for _, origin, edge, f, source in sorted(runs, reverse=True):
-        text = f"{_band(f'{f}_station')} from the {names[source]}"
-        if values.get(f"{f}_station_to") == "centre":
-            text += " to its centre"
-        left_x, right_x = sorted((view.x(origin), view.x(edge)))
-        beside = right_x + 270 < 710
-        # Centred over a short run near the right end, a long label would
-        # run into the end view: it then ends short of the run's left end.
-        before = not beside and (left_x + right_x + len(text) * CHAR) / 2 > 710
-        _dimension(
-            groups, left_x, right_x, y, _AXIS, text, beside=beside, before=before
-        )
-        y += 24
+        # The point the loader checked the station to (an end, or the centre).
+        edge = values[f"{f}_station_point_mm"]
+        centre = values.get(f"{f}_station_to") == "centre"
+        runs.append((abs(edge - origin), origin, edge, f, source, centre))
     # End view: the part between the jaws on a parallel, the cutter above.
     # It sits low enough that its jaw tops stay under the top view's
     # callouts.
@@ -1069,6 +1053,63 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
     if "jaw_top_over_od_mm" in parameters:
         over = _param(parameters, "jaw_top_over_od_mm") * k
     cx, cy = 640.0, max(_AXIS, top - 10 + r + over)
+    # Longest nearest the part, so no text crosses a longer one's witness:
+    # a shorter run's witnesses reach down past every row above its own.
+    rows = sorted(runs, reverse=True)
+    y = below_y + 22
+    for row, (_, origin, edge, flat, source, centre) in enumerate(rows):
+        text = f"{_band(f'{flat}_station')} from the {names[source]}"
+        left_x, right_x = sorted((view.x(origin), view.x(edge)))
+        if not centre:
+            _dimension(
+                groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710
+            )
+            y += 24
+            continue
+        text += " to its centre"
+        width = len(_bound(text)) * CHAR
+        mid = (left_x + right_x) / 2
+        start = left_x - 6 - width
+        # The witnesses of the rows below this one.
+        below = [view.x(z) for _, o, e, *_ in rows[row + 1 :] for z in (o, e)]
+
+        # A row level with the end view ends short of its jaws, any other row
+        # short of the page's right margin; a label with no room on its row
+        # moves below the end view, where it runs to the margin. Beside the
+        # line, centred over it, or ending short of it when no lower row's
+        # witness crosses there; else above it, kept on the page.
+        placed = None
+        for row_y in (y, max(y, cy + r + 62)):
+            level = cy - r - over - 10 < row_y + 5 and row_y - 12 < cy + r + 50
+            limit = cx - r - 22 if level else 710.0
+            if right_x + 6 + width <= limit:
+                placed = (True, False, None)
+            elif 10 <= mid - width / 2 and mid + width / 2 <= limit:
+                placed = (False, False, None)
+            elif start >= 10 and not any(start <= x <= left_x - 1 for x in below):
+                placed = (False, True, None)
+            if placed is not None:
+                break
+        if placed is None:
+            if width > limit - 10:
+                raise CadError(
+                    f"turned-shaft: no room on the vise picture for {flat}'s station"
+                )
+            placed = (False, False, max(10.0, min(mid - width / 2, limit - width)))
+        y = row_y
+        beside, before, at = placed
+        _dimension(
+            groups,
+            left_x,
+            right_x,
+            y,
+            _AXIS,
+            text,
+            beside=beside,
+            before=before,
+            start=at,
+        )
+        y += 24
     flat_y = cy - (values[f"{f}_across_mm"] - dia / 2) * k
     half = math.sqrt(max(r**2 - (cy - flat_y) ** 2, 0.0))
     groups["part-kept"].append(

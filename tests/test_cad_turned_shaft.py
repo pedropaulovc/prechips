@@ -11,6 +11,7 @@ import pytest
 from prechips.cad import CadError
 from prechips.cad_diagrams import render_cad_svg
 from prechips.cad_turned_shaft import _faced, load_turned_shaft
+from prechips.shaft_diagrams import CHAR
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples/cad/turned-shaft-v51.toml"
@@ -261,6 +262,45 @@ def test_a_flat_may_be_stationed_to_its_centre(tmp_path):
     wrong = _edited(tmp_path / "wrong", source, '"centre"', '"middle"')
     with pytest.raises(CadError, match="station_to"):
         load_turned_shaft(wrong, BLANK, "demo-turned-shaft")
+
+
+def _label_extents(svg: bytes) -> list[tuple[float, float]]:
+    """Each station label's printed x extent, from its anchor and CHAR."""
+    extents = []
+    for match in re.finditer(rb"<text([^>]*)>([^<]*from the [^<]*)</text>", svg):
+        attributes, text = match.group(1).decode(), match.group(2).decode()
+        x = float(re.search(r'\bx="([-\d.]+)"', attributes).group(1))
+        width = len(text) * CHAR
+        if 'text-anchor="end"' in attributes:
+            extents.append((x - width, x))
+        elif 'text-anchor="middle"' in attributes:
+            extents.append((x - width / 2, x + width / 2))
+        else:
+            extents.append((x, x + width))
+    return extents
+
+
+@pytest.mark.parametrize("shift", [0.0, 25.0, 50.0, 75.0, 100.0])
+@pytest.mark.parametrize("x0", ["datum", "far"])
+def test_centre_station_labels_stay_on_the_vise_picture(tmp_path, shift, x0):
+    # Flat B stationed to its centre from the datum dome's root, moved along
+    # the shaft: wherever it sits its label prints inside the page and short
+    # of the end view's jaws.
+    source = _edited(
+        tmp_path,
+        SHAFT,
+        '"span" = [50.8, 60.325]',
+        f'"span" = [{50.8 + shift}, {60.325 + shift}]',
+        '"station" = [47.371, 47.879]\n"station_nominal" = 47.625\n',
+        f'"station" = [{52.1335 + shift}, {52.6415 + shift}]\n'
+        f'"station_nominal" = {52.3875 + shift}\n"station_to" = "centre"\n',
+    )
+    cad = load_turned_shaft(source, BLANK, "demo-turned-shaft")
+    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    svg = render_cad_svg(_svg(hold="vise", work="flat", x0=x0), cad, params)
+    extents = _label_extents(svg)
+    assert len(extents) == 2
+    assert all(10 <= start and end <= 710 for start, end in extents), extents
 
 
 def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():

@@ -546,10 +546,11 @@ def _origin(item: dict, name: str, values: dict) -> tuple[float, int]:
     return origins[source]
 
 
-def _located(item: dict, name: str, values: dict, edge: tuple[float, float]) -> None:
+def _located(item: dict, name: str, values: dict, edge: tuple[float, float]) -> float:
     """Bind a ``station`` band from ``station_from``, checked against the model:
     ``edge`` is the feature's nearer and farther station from the datum end
-    (one point for a feature stationed to its centre)."""
+    (one point for a feature stationed to its centre). Returns the point it
+    locates, from the datum end."""
     band = _limits(item, "station", name, f"{name}_station", values)
     nominal = _nominal(item, "station_nominal", band, name)
     origin, inward = _origin(item, name, values)
@@ -560,6 +561,7 @@ def _located(item: dict, name: str, values: dict, edge: tuple[float, float]) -> 
             f"not its nominal station {nominal:.4f}"
         )
     values[f"{name}_station_mm"] = nominal
+    return edge[0] if inward > 0 else edge[1]
 
 
 def _groove(item: dict, name: str, frame: tuple, values: dict, turned: list) -> None:
@@ -673,7 +675,11 @@ def _flat(
         raise CadError(f'{name}.station_to: expected "near" or "centre"')
     values[f"{name}_station_to"] = to
     middle = (z0 + z1) / 2
-    _located(item, name, values, (middle, middle) if to == "centre" else (z0, z1))
+    # The point the station locates, from the datum end: the vise picture
+    # dimensions to it.
+    values[f"{name}_station_point_mm"] = _located(
+        item, name, values, (middle, middle) if to == "centre" else (z0, z1)
+    )
     whole = values["length_mm"]
     values[f"{name}_from_datum_mm"] = [z0, z1]
     values[f"{name}_from_far_mm"] = [whole - z1, whole - z0]
