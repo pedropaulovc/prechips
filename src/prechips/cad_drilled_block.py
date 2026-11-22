@@ -27,9 +27,14 @@ Every banded drawing requirement binds the same way whatever it is named, and
 a band located from a face or another feature is checked against the model:
 the plan prints what the drawing requires, in the part's own words.
 
-The envelope is the box over every face plane, each arc's apex and every
-outside cylinder; a manifest must declare every outside face for it to be the
-part's.
+Any feature's ``corners`` (a list of model points [x, y, z]) bound the
+envelope: an outside face square to no model axis (a slant or tapered side)
+gives its corners, so a part such a face alone bounds on an axis still has
+an envelope there.
+
+The envelope is the box over every face plane, each arc's apex, every
+outside cylinder and every feature's corners; a manifest must declare every
+outside face for it to be the part's.
 """
 
 import math
@@ -533,6 +538,20 @@ def _inside(name: str, feature: dict, values: dict, shape: _Shape) -> None:
         _bind_mm(values, f"{name}_wall_to_{outside}_worst", wall)
 
 
+def _corners(name: str, feature: dict, shape: _Shape) -> None:
+    """A feature's `corners`, model points on the part's outside, bound the
+    envelope (a face square to no model axis bounds it only there)."""
+    if "corners" not in feature:
+        return
+    corners = feature["corners"]
+    if not isinstance(corners, list) or not corners:
+        raise CadError(f"{name}.corners: expected a list of model points")
+    for corner in corners:
+        point = _point(corner, f"{name}.corners")
+        for index in range(3):
+            shape.extend(index, point[index], point[index])
+
+
 def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
     """Bind every feature's bands and positions, the envelope and, from the
     plan's `blank_<axis>_in`, the blank it is cut from."""
@@ -575,6 +594,7 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
             else:
                 if isinstance(feature.get("plane"), dict):
                     _face(name, feature, shape, bounds=False)
+        _corners(name, feature, shape)
     for index, axis in enumerate(_AXES):
         low, high = shape.low[index], shape.high[index]
         if not high - low > 0:

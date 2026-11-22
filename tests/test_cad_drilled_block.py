@@ -340,6 +340,53 @@ def test_an_axis_no_outside_face_bounds_is_refused(tmp_path):
         load_drilled_block(path, {}, "drilled-bracket")
 
 
+_SLANT = """["features"."slant"]
+"kind" = "tapered_side"
+"frame" = "model"
+"requirements" = []
+"corners" = [[0.0, 0.0, -8.128], [0.0, 0.0, 8.128], [17.78, 6.096, %s]]
+
+["features"."bore"]"""
+
+
+def test_corners_bound_an_axis_no_outside_face_bounds(tmp_path):
+    # The z faces become reference planes; a face square to no model axis
+    # declares its corners, and they alone bound z.
+    pairs = [
+        '["features"."bore"]',
+        _SLANT % "8.128",
+    ]
+    for face in ("near_side", "far_side"):
+        old = f'["features"."{face}"]\n"kind" = "face"'
+        pairs += [old, old.replace('"face"', '"reference_plane"')]
+    values = load_drilled_block(
+        _variant(tmp_path, BRACKET, *pairs), {}, "drilled-bracket"
+    ).values
+    assert values["envelope_z_in"] == pytest.approx(0.64)
+    assert values["envelope_x_in"] == pytest.approx(0.70)
+
+
+def test_a_corner_outside_the_faces_widens_the_envelope(tmp_path):
+    path = _variant(tmp_path, BRACKET, '["features"."bore"]', _SLANT % "10.0")
+    values = load_drilled_block(path, {}, "drilled-bracket").values
+    assert values["envelope_z_in"] == pytest.approx((10.0 + 8.128) / 25.4)
+    assert values["z_max_mm"] == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize("corners", ["[]", "[[0.0, 0.0]]", '"none"'])
+def test_bad_corners_are_refused(tmp_path, corners):
+    path = _variant(
+        tmp_path,
+        BRACKET,
+        '["features"."bore"]',
+        (_SLANT % "8.128").replace(
+            "[[0.0, 0.0, -8.128], [0.0, 0.0, 8.128], [17.78, 6.096, 8.128]]", corners
+        ),
+    )
+    with pytest.raises(CadError, match="^slant.corners: expected a"):
+        load_drilled_block(path, {}, "drilled-bracket")
+
+
 def test_a_one_sided_limit_binds_in_mm_beside_a_band_of_its_stem(tmp_path):
     # A `wall` band and a least `wall_min` on one feature: the limit binds
     # `_mm` (printed in inches by the `in` format), the band its own ends.
