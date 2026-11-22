@@ -270,6 +270,13 @@ def load_plan(path: Path) -> LoadedPlan:
     for key, value in parameters.items():
         if key == "quantity" and (type(value) is not int or value < 1):
             raise PlanError("parameters.quantity: expected a positive integer")
+        # A list of names configures an adapter (flat_bar's blank groups).
+        if isinstance(value, list):
+            if not value or not all(
+                isinstance(item, str) and item.strip() for item in value
+            ):
+                raise PlanError(f"parameters.{key}: expected a nonempty list of names")
+            continue
         if type(value) not in (int, float):
             raise PlanError(f"parameters.{key}: expected a finite number")
         if not isfinite(value):
