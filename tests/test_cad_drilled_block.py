@@ -335,7 +335,7 @@ def test_an_axis_no_outside_face_bounds_is_refused(tmp_path):
         pairs += [old, old.replace('"face"', '"reference_plane"')]
     path = _variant(tmp_path, BRACKET, *pairs)
     with pytest.raises(
-        CadError, match="^cad.features: no outside face or round bounds x$"
+        CadError, match="^cad.features: no outside face, round or corners span x$"
     ):
         load_drilled_block(path, {}, "drilled-bracket")
 
@@ -366,24 +366,12 @@ def test_corners_bound_an_axis_no_outside_face_bounds(tmp_path):
     assert values["envelope_x_in"] == pytest.approx(0.70)
 
 
-def test_a_corner_outside_the_faces_widens_the_envelope(tmp_path):
+def test_a_corner_outside_the_faces_on_its_axis_is_refused(tmp_path):
+    # z is spanned by its faces: a corner there must lie between them.
     path = _variant(tmp_path, BRACKET, '["features"."bore"]', _SLANT % "10.0")
-    values = load_drilled_block(path, {}, "drilled-bracket").values
-    assert values["envelope_z_in"] == pytest.approx((10.0 + 8.128) / 25.4)
-    assert values["z_max_mm"] == pytest.approx(10.0)
-
-
-@pytest.mark.parametrize("corners", ["[]", "[[0.0, 0.0]]", '"none"'])
-def test_bad_corners_are_refused(tmp_path, corners):
-    path = _variant(
-        tmp_path,
-        BRACKET,
-        '["features"."bore"]',
-        (_SLANT % "8.128").replace(
-            "[[0.0, 0.0, -8.128], [0.0, 0.0, 8.128], [17.78, 6.096, 8.128]]", corners
-        ),
-    )
-    with pytest.raises(CadError, match="^slant.corners: expected a"):
+    with pytest.raises(
+        CadError, match="^slant.corners: a corner lies outside the faces bounding z$"
+    ):
         load_drilled_block(path, {}, "drilled-bracket")
 
 
