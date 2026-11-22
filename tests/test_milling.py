@@ -599,7 +599,7 @@ SKIM = {
 }
 
 
-def _strap(beam: dict, cut: dict, **setup) -> None:
+def _strap(beam: dict, cut: dict, tool: dict | None = None, **setup) -> None:
     operation = {"tool": "em", "speed_kind": "spindle", "milling_cuts": [cut]}
     _check(
         {
@@ -609,7 +609,7 @@ def _strap(beam: dict, cut: dict, **setup) -> None:
             "operations": [operation],
             **setup,
         },
-        tools=[{"id": "em", "helix_deg": 30}],
+        tools=[{"id": "em", "helix_deg": 30, **(tool or {})}],
     )
 
 
@@ -740,6 +740,54 @@ def test_a_bonded_flat_is_judged_on_the_bond_under_every_piece():
     # Nothing bends, so no deflection limit applies.
     with pytest.raises(CheckError, match="max_deflection_mm: a bonded part bends"):
         _strap(BONDED, through | {"max_deflection_mm": 0.01})
+
+
+def test_a_downcut_or_straight_flute_tool_lifts_no_bonded_piece():
+    through = SLOT | {"traverse_mm": [6.35, 298.45]}
+    # The .5 mm level that lifts 26.2 N at the strap's edge with an upcut
+    # helix (0.41 MPa) pushes the strap down with a downcut: the plate takes it.
+    with pytest.raises(CheckError, match="lifts 'strap' at its edge"):
+        _strap(BONDED, through, {"axial_direction": "up"})
+    _strap(BONDED, through, {"axial_direction": "down"})
+    # Straight flutes have no helix force at all.
+    _strap(BONDED, through, {"axial_direction": "none"})
+    # The cross-spindle force is unchanged: shear still refuses a small piece.
+    small = copy.deepcopy(BONDED)
+    small["bond"]["pieces"][1]["area_mm2"] = 200.0
+    small["bond"]["pieces"][0]["width_mm"] = 38.1
+    for direction in ("down", "none"):
+        with pytest.raises(CheckError, match="exceeds the bond under 'waste'"):
+            _strap(small, through, {"axial_direction": direction})
+    with pytest.raises(CheckError, match="axial_direction: expected up, down or none"):
+        _strap(BONDED, through, {"axial_direction": "left"})
+
+
+def test_a_downcut_bends_a_clamped_plate_part_only_across_the_spindle():
+    between = SLOT | {"traverse_mm": [38.1, 266.7], "max_deflection_mm": 1e-6}
+    # Upcut, the slot's 26.2 N lift bends the strap between clamps (along z).
+    _bending, text = _refused(PLATE, between)
+    assert "along z" in text
+    # Downcut, the same force pushes it onto the plate: only the cross-spindle
+    # force is left to bend it, along y.
+    with pytest.raises(CheckError) as caught:
+        _strap(PLATE, between, {"axial_direction": "down"})
+    assert "along y" in str(caught.value)
+    # On a cantilever the downcut's force bends as much as the upcut's.
+    cantilever = {
+        "axis": "x",
+        "hold": "cantilever",
+        "extent_mm": [0, 100],
+        "clamp_mm": [0, 20],
+        "section_mm": {"y": 16.0, "z": 2.49},
+    }
+    cut = SLOT | {"stations_mm": 100, "axial_doc_mm": 0.17}
+    with pytest.raises(CheckError) as up:
+        _strap(cantilever, cut)
+    with pytest.raises(CheckError) as down:
+        _strap(cantilever, cut, {"axial_direction": "down"})
+    assert re.search(r"estimated bending ([0-9.e-]+) mm along z", str(up.value))
+    bend = r"estimated bending ([0-9.e-]+) mm along z"
+    assert re.search(bend, str(up.value))[1] == re.search(bend, str(down.value))[1]
 
 
 @pytest.mark.parametrize(
