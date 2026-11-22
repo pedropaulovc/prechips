@@ -70,6 +70,47 @@ def test_the_disc_binds_its_turned_outside_and_walls():
     assert values["radial_tap_into_axis_in"] == pytest.approx(0.2875 - 0.083, abs=1e-4)
 
 
+_ROUND_OUTSIDE = (
+    '"kind" = "outside_cylinder"\n"frame" = "model"\n"requirements" = ["dia", "length"]',
+    (
+        '"kind" = "hex_prism"\n"frame" = "model"\n"requirements" = []\n'
+        '"af_ref" = 12.7\n"corner" = [0, 1, 0]'
+    ),
+)
+
+
+def test_a_hex_prism_bounds_the_part_at_its_corners_and_walls_holes_along_it(
+    tmp_path,
+):
+    # The disc made from 1/2 in hex bar, its corners on ±Y.
+    path = _variant(tmp_path, DISC, *_ROUND_OUTSIDE)
+    values = load_drilled_block(path, {}, "drilled-disc").values
+    assert values["outside_af_in"] == pytest.approx(0.5)
+    assert values["outside_ac_in"] == pytest.approx(1 / 3**0.5)
+    assert values["envelope_x_in"] == pytest.approx(0.5)
+    assert values["envelope_y_in"] == pytest.approx(1 / 3**0.5)
+    assert values["envelope_z_in"] == pytest.approx(0.35)
+    # The bore's least wall is to the flats' inscribed circle.
+    assert values["bore_wall_to_outside_worst_mm"] == pytest.approx(
+        6.35 - 2.1082 - 6.3881 / 2
+    )
+    # A banded size across the flats walls holes at its least.
+    banded = _variant(
+        tmp_path,
+        path,
+        '"requirements" = []\n"af_ref" = 12.7',
+        '"requirements" = ["af"]\n"af" = [12.6, 12.7]\n"af_nominal" = 12.7',
+    )
+    values = load_drilled_block(banded, {}, "drilled-disc").values
+    assert values["outside_af_mm"] == pytest.approx(12.7)
+    assert values["bore_wall_to_outside_worst_mm"] == pytest.approx(
+        6.3 - 2.1082 - 6.3881 / 2
+    )
+    along = _variant(tmp_path, path, '"corner" = [0, 1, 0]', '"corner" = [0, 0, 1]')
+    with pytest.raises(CadError, match="square to the prism's axis"):
+        load_drilled_block(along, {}, "drilled-disc")
+
+
 def test_an_arc_bounds_the_part_only_at_its_apex(tmp_path):
     # A segmental arch wider than the ear: its circle overhangs the sides,
     # but the sides clip it, so only its apex extends the envelope.

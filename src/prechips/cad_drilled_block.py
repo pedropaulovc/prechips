@@ -11,6 +11,10 @@ Each kind has a geometric meaning:
   direction in which it bounds the part);
 * ``outside_cylinder``: a turned outside (``at`` one end, ``axis`` along its
   length, ``dia`` with ``nominal_dia``, ``length`` with ``length_nominal``);
+* ``hex_prism``: a length of hex bar (``at`` one end, ``axis`` along its
+  length, ``length_nominal``, its size across the flats as an ``af`` band
+  with ``af_nominal`` or a stock ``af_ref``, and ``corner``, the unit
+  direction square to the axis in which two corners lie);
 * ``hole`` and ``threaded_hole``: drilled, reamed or tapped along a model axis
   from its entry point (``at``, ``axis`` into the part), through, blind or
   running into another hole.
@@ -20,9 +24,9 @@ Every banded drawing requirement binds the same way whatever it is named, and
 a band located from a face or another feature is checked against the model:
 the plan prints what the drawing requires, in the part's own words.
 
-The envelope is the box over every face plane, each arc's apex and every
-outside cylinder; a manifest must declare every outside face for it to be the
-part's.
+The envelope is the box over every face plane, each arc's apex, every
+outside cylinder and every hex prism's corners and flats; a manifest must
+declare every outside face for it to be the part's.
 """
 
 import math
@@ -246,6 +250,41 @@ def _cylinder(name: str, feature: dict, shape: _Shape) -> None:
     shape.extend(index, *span)
     shape.cylinders[name] = (index, (span[0], span[1]), feature["dia"][0])
     # A turned outside has no one station along its length: its ends do.
+    position: list[float | None] = list(centre)
+    position[index] = None
+    shape.positions[name] = position
+
+
+def _hex_prism(name: str, feature: dict, values: dict, shape: _Shape) -> None:
+    """A length of hex bar: its corners bound the part along ``corner``, its
+    flats across the third axis; its inscribed circle walls holes along it."""
+    centre = _point(feature.get("at"), f"{name}.at")
+    index, sign = _axis(feature.get("axis"), f"{name}.axis")
+    corner, _corner_sign = _axis(feature.get("corner"), f"{name}.corner")
+    if corner == index:
+        raise CadError(f"{name}.corner: expected square to the prism's axis")
+    if "af" in feature.get("requirements", ()):
+        # A banded size binds with its nominal as any band does.
+        least = _band(feature, "af", name)[0]
+        af = _number(feature.get("af_nominal"), f"{name}.af_nominal")
+    else:
+        af = _number(feature.get("af_ref"), f"{name}.af_ref")
+        least = af
+        _bind_mm(values, f"{name}_af", af)
+    length = _number(feature.get("length_nominal"), f"{name}.length_nominal")
+    if af <= 0 or length <= 0:
+        raise CadError(f"{name}: expected a positive size across the flats and length")
+    across_corners = 2 * af / math.sqrt(3)
+    _bind_mm(values, f"{name}_ac", across_corners)
+    flats = 3 - index - corner
+    shape.extend(
+        corner, centre[corner] - across_corners / 2, centre[corner] + across_corners / 2
+    )
+    shape.extend(flats, centre[flats] - af / 2, centre[flats] + af / 2)
+    span = sorted((centre[index], centre[index] + sign * length))
+    shape.extend(index, *span)
+    # The flats' inscribed circle is the least wall a hole along it keeps.
+    shape.cylinders[name] = (index, (span[0], span[1]), least)
     position: list[float | None] = list(centre)
     position[index] = None
     shape.positions[name] = position
@@ -476,6 +515,8 @@ def load_drilled_block(path: Path, parameters: dict, part: str) -> CadData:
             _arc(name, feature, shape)
         elif kind == "outside_cylinder":
             _cylinder(name, feature, shape)
+        elif kind == "hex_prism":
+            _hex_prism(name, feature, values, shape)
         elif kind in _HOLES:
             _hole(name, feature, values, shape, kind)
         else:
