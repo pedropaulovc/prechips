@@ -231,6 +231,33 @@ def test_an_assembly_hole_may_omit_its_station(tmp_path):
     assert "cross_hole_station_mm" not in values
 
 
+def test_a_flat_may_be_stationed_to_its_centre(tmp_path):
+    # Flat A's centre, 17.4625 from the datum end, as its station.
+    source = _edited(
+        tmp_path,
+        SHAFT,
+        '"station" = [12.446, 12.954]\n"station_nominal" = 12.7\n',
+        '"station" = [17.2085, 17.7165]\n"station_nominal" = 17.4625\n'
+        '"station_to" = "centre"\n',
+    )
+    cad = load_turned_shaft(source, BLANK, "demo-turned-shaft")
+    assert cad.values["flat_a_station_to"] == "centre"
+    assert cad.values["flat_b_station_to"] == "near"
+    assert cad.values["flat_a_station_mm"] == pytest.approx(17.4625)
+    vise_params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    vise = render_cad_svg(_svg(hold="vise", work="flat", x0="datum"), cad, vise_params)
+    assert b"from the datum end to its centre" in vise
+    # The nearer end no longer matches the centre's band.
+    (tmp_path / "near").mkdir()
+    near = _edited(tmp_path / "near", source, '"station_to" = "centre"\n', "")
+    with pytest.raises(CadError, match="not its nominal station"):
+        load_turned_shaft(near, BLANK, "demo-turned-shaft")
+    (tmp_path / "wrong").mkdir()
+    wrong = _edited(tmp_path / "wrong", source, '"centre"', '"middle"')
+    with pytest.raises(CadError, match="station_to"):
+        load_turned_shaft(wrong, BLANK, "demo-turned-shaft")
+
+
 def test_pictures_refuse_unknown_holds_and_flats_on_the_lathe():
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
     with pytest.raises(CadError, match="data-hold"):

@@ -1040,11 +1040,15 @@ def _vise(groups: Groups, values: dict, parameters: dict, made: set, x0: str) ->
         origin = origins[source]
         z0, z1 = values[f"{f}_z0_mm"], values[f"{f}_z1_mm"]
         edge = z0 if origin < z0 else z1
+        if values.get(f"{f}_station_to") == "centre":
+            edge = (z0 + z1) / 2
         runs.append((abs(edge - origin), origin, edge, f, source))
     # Longest nearest the part, so no text crosses a longer one's witness.
     y = below_y + 22
     for _, origin, edge, f, source in sorted(runs, reverse=True):
         text = f"{_band(f'{f}_station')} from the {names[source]}"
+        if values.get(f"{f}_station_to") == "centre":
+            text += " to its centre"
         left_x, right_x = sorted((view.x(origin), view.x(edge)))
         _dimension(groups, left_x, right_x, y, _AXIS, text, beside=right_x + 270 < 710)
         y += 24

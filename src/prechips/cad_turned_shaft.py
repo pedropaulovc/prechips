@@ -19,7 +19,8 @@ station is a distance from the ``datum_end`` into the part, and ``outer`` and
   ``fillet_*``.
 
 Flats and cross holes are stationed from ``datum_end``, ``far_end`` or a
-domed end's root (``datum_root``, ``far_root``). The plan binds either the
+domed end's root (``datum_root``, ``far_root``); a flat's station runs to its
+nearer end, or with ``station_to = "centre"`` to its centre. The plan binds either the
 bar-fed cycle (turned_bush's round bar) or a sawn blank of round stock.
 """
 
@@ -547,7 +548,8 @@ def _origin(item: dict, name: str, values: dict) -> tuple[float, int]:
 
 def _located(item: dict, name: str, values: dict, edge: tuple[float, float]) -> None:
     """Bind a ``station`` band from ``station_from``, checked against the model:
-    ``edge`` is the feature's nearer and farther station from the datum end."""
+    ``edge`` is the feature's nearer and farther station from the datum end
+    (one point for a feature stationed to its centre)."""
     band = _limits(item, "station", name, f"{name}_station", values)
     nominal = _nominal(item, "station_nominal", band, name)
     origin, inward = _origin(item, name, values)
@@ -666,7 +668,12 @@ def _flat(
     values[f"{name}_length_mm"] = length
     if abs(z1 - z0 - length) > _STATION:
         raise CadError(f"{name}.span: not its nominal length")
-    _located(item, name, values, (z0, z1))
+    to = item.get("station_to", "near")
+    if to not in ("near", "centre"):
+        raise CadError(f'{name}.station_to: expected "near" or "centre"')
+    values[f"{name}_station_to"] = to
+    middle = (z0 + z1) / 2
+    _located(item, name, values, (middle, middle) if to == "centre" else (z0, z1))
     whole = values["length_mm"]
     values[f"{name}_from_datum_mm"] = [z0, z1]
     values[f"{name}_from_far_mm"] = [whole - z1, whole - z0]
