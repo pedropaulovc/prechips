@@ -7,7 +7,7 @@
   <text class="label-on-clamp" x="74" y="188">moving jaw</text>
   <rect class="part-kept" x="80" y="110" width="600" height="50"/>
   <rect class="part-removed" x="680" y="110" width="20" height="50"/>
-  <line class="centre-line" x1="320" y1="96" x2="320" y2="174"/>
+  <line class="datum" x1="320" y1="96" x2="320" y2="174"/>
   <text class="label" x="300" y="88">bend line</text>
   <line class="dims" x1="80" y1="230" x2="680" y2="230"/>
   <line class="dims" x1="80" y1="165" x2="80" y2="238"/>

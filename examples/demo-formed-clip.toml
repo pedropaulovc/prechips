@@ -24,9 +24,6 @@ quantity = 1
 blank_length_in = 1.704
 blank_width_in = 0.5
 blank_thickness_in = 0.032
-# The bend's inside tangent on the base side, from the base end: the base
-# length less the thickness and the inside radius (.750 - .032 - .040).
-bend_line_in = 0.678
 
 [[tools]]
 id = "hacksaw"
@@ -74,7 +71,7 @@ inspection = "Length {{cad.strip_developed_length_in:.3dot}} ±.005 (calipers): 
 gauge_checks = "other"
 
 [[setups.operations]]
-instruction = "Scribe the bend line square across the strip {{process.bend_line_in:.3dot}} from the end that will be the base."
+instruction = "Scribe the bend line square across the strip {{cad.bend_line_from_end_in:.3dot}} from the end that will be the base."
 feed = "hand"
 
 [[setups]]

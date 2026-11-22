@@ -103,5 +103,8 @@
 "angle" = [89.0, 91.0]
 "angle_nominal" = 90.0
 "precision" = { "radius" = 2 }
+# The bend's inside tangent on the base side, along the blank from the base
+# end: the base length less the thickness and the inside radius.
+"line_from_end" = 17.2212
 "faces" = ["bend_1"]
 
