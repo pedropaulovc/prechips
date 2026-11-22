@@ -218,7 +218,13 @@ def _controls(name: str, item: dict, features: dict, values: dict) -> None:
             ok = target.get("kind") == "face"
             wanted = "an end face or the shoulder"
         else:
-            ok = datum == "bore" or target.get("kind") == "diameter"
+            # The part's own axis: its bore, or a diameter every member turns
+            # (not a member's own, not one left as bought).
+            ok = (datum == "bore" and target.get("kind") == "hole") or (
+                datum in ("outer", "step")
+                and target.get("kind") == "diameter"
+                and "stock" not in target.get("requirements", [])
+            )
             wanted = "the part's bore or another turned diameter"
         if not ok or datum == name:
             raise CadError(f"{name}.datum: expected {wanted}")

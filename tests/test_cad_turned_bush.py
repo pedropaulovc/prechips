@@ -908,3 +908,14 @@ def test_a_bore_perpendicularity_needs_a_face_datum(tmp_path):
         CadError, match="bore.datum: expected an end face or the shoulder"
     ):
         load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_control_datum_must_exist_and_be_turned(tmp_path):
+    edited = _edited(
+        PLUG,
+        tmp_path,
+        '"requirements" = ["plane"]',
+        '"requirements" = ["plane", "perpendicularity"]\n"perpendicularity" = 0.0254\n"datum" = "bore"',
+    )
+    with pytest.raises(CadError, match="datum_end.datum: expected the part's bore"):
+        load_turned_bush(edited, {}, "turned-plug")
