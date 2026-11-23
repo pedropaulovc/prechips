@@ -91,10 +91,8 @@ def test_an_accepted_bond_prints_who_accepted_it(tmp_path):
     plan.write_text(text, encoding="utf-8")
     html = render_traveler(load_plan(plan))
     assert html.count("<dt>Bond:</dt>") == 1  # once for the bonded setup
-    assert (
-        "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
-        "the cuts may load it to 0.69 MPa in shear and 0.69 MPa in tension" in html
-    )
+    accepted = "strength accepted by the shop owner, 2026-01-05, not from a data sheet"
+    assert f"<dt>Bond:</dt><dd>{accepted}</dd>" in html
     # Without the check that holds the cuts to them, the figures do not print.
     import dataclasses
 
