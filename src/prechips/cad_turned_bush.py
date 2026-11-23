@@ -8,7 +8,8 @@ into the part. ``far_end`` is the other end face, with a ``length`` band (or a
 supply ``length_min``) from the datum end. Optional features:
 
 - ``shoulder`` and ``shoulder_*``: a step face, a ``station`` band from the
-  datum end;
+  datum end, with an optional ``root_radius_max`` (a root limited under the
+  title block's inside corner);
 - ``outer``, ``step``, ``step_*`` and member ``outer_<member>``: kind
   ``diameter``, each with a ``span`` along the axis and one acceptance: a
   ``dia`` band, a ``stock`` diameter left as bought (``dia_ref``), or a
@@ -18,7 +19,10 @@ supply ``length_min``) from the datum end. Optional features:
   ``knurl`` table's ``pattern`` and ``tpi``; the band is over the knurl);
 - ``bore``: a ``hole`` through, a ``dia`` band and its ``process``; a basic
   ``nominal_dia`` under a plus band (a running fit's ream) binds as
-  ``bore_basic_*`` and the band's middle is the size made;
+  ``bore_basic_*`` and the band's middle is the size made; an optional
+  mate's ``diametral_clearance_ref`` or ``diametral_interference`` and
+  ``made_at = "assembly"`` (finished after joining: the part's traveler
+  leaves it under size, its ``process`` optional);
 - ``pocket``: a ``counterbore`` from the datum end, a ``dia_ref`` bored to a
   measured mate's ``diametral_clearance`` under ``dia_max``, a ``depth`` band
   and a floor ``corner_radius_max``;
@@ -33,6 +37,9 @@ supply ``length_min``) from the datum end. Optional features:
   and an included angle from its ``half_angle`` band;
 - ``chamfer_*``: kind ``chamfer``, a ``leg`` band or a single ``leg_max``
   limit (bound as ``<name>_leg_max_*``).
+
+An end face or the shoulder may list a ``perpendicularity`` and a diameter a
+``runout``: one tolerance zone in mm to the feature its ``datum`` names.
 
 Bands bind in inches as ``<key>_in``/``_min_in``/``_max_in``/``_band_mm``,
 nominal sizes as ``<key>_mm``, stations as ``<feature>_z0_mm``/``_z1_mm``.
@@ -193,6 +200,52 @@ def _shoulder(item: dict, frame: tuple, values: dict, name: str = "shoulder") ->
     if band[1] >= _least_length(values):
         raise CadError(f"{name}.station: reaches the far end of the shortest part")
     values[f"{name}_mm"] = nominal
+    # A root the drawing limits below the title block's inside corner (a
+    # sharp-cornered tool forms it): a single R MAX limit.
+    if "root_radius_max" in item.get("requirements", []):
+        root = _positive(item.get("root_radius_max"), f"{name}.root_radius_max")
+        values[f"{name}_root_r_max_mm"] = root
+        values[f"{name}_root_r_max_in"] = root / 25.4
+
+
+# A single tolerance zone to a datum feature: an end face's or the
+# shoulder's perpendicularity, or a diameter's runout, to the part's axis
+# (its bore or a turned diameter); the bore's perpendicularity to a face.
+_CONTROLS = {"perpendicularity": ("face", "hole"), "runout": ("diameter",)}
+_WHERE = {"perpendicularity": "a face or the bore", "runout": "a diameter"}
+
+
+def _controls(name: str, item: dict, features: dict, values: dict) -> None:
+    """Bind a feature's ``perpendicularity`` or ``runout`` (mm, listed in its
+    requirements) as ``<name>_<control>_in``/``_mm``, to the part feature its
+    ``datum`` names: a face's or a diameter's to the part's axis (the bore or
+    a turned diameter), the bore's to a face."""
+    for control, kinds in _CONTROLS.items():
+        if control not in item.get("requirements", []):
+            continue
+        kind = item.get("kind")
+        if kind not in kinds or (kind == "hole" and name != "bore"):
+            raise CadError(f"{name}.{control}: expected on {_WHERE[control]}")
+        zone = _positive(item.get(control), f"{name}.{control}")
+        datum = item.get("datum")
+        target = features.get(datum, {}) if isinstance(datum, str) else {}
+        if kind == "hole":
+            ok = target.get("kind") == "face"
+            wanted = "an end face or the shoulder"
+        else:
+            # The part's own axis: its bore, or a diameter every member turns
+            # (not a member's own, not one left as bought).
+            ok = (datum == "bore" and target.get("kind") == "hole") or (
+                datum in ("outer", "step")
+                and target.get("kind") == "diameter"
+                and "stock" not in target.get("requirements", [])
+            )
+            wanted = "the part's bore or another turned diameter"
+        if not ok or datum == name:
+            raise CadError(f"{name}.datum: expected {wanted}")
+        values[f"{name}_{control}_mm"] = zone
+        values[f"{name}_{control}_in"] = zone / 25.4
+        values[f"{name}_{control}_datum"] = datum
 
 
 _FITS = frozenset({"diametral_clearance", "diametral_interference"})
@@ -362,27 +415,48 @@ def _bore(item: dict, frame: tuple, values: dict) -> None:
     if item.get("thru") is not True:
         raise CadError("bore.thru: expected a through hole")
     band = _limits(item, "dia", "bore", "bore_dia", values)
+    fits = [
+        key
+        for key in ("diametral_clearance_ref", "diametral_interference")
+        if key in item
+    ]
+    if len(fits) > 1:
+        raise CadError("bore: a fit is a clearance or a press, not both")
+    for key, binding in (
+        ("diametral_clearance_ref", "bore_clearance_ref"),
+        ("diametral_interference", "bore_interference"),
+    ):
+        if key not in item:
+            continue
+        fit = item[key]
+        if not isinstance(fit, list) or len(fit) != 2:
+            raise CadError(f"bore.{key}: expected a band")
+        low, high = (_positive(v, f"bore.{key}") for v in fit)
+        _inch_limits(values, binding, (low, high))
+        values["bore_mate"] = _string(item.get("mate"), "bore.mate")
     nominal = _positive(item.get("nominal_dia"), "bore.nominal_dia")
     if nominal < band[0] - _TOLERANCE:
         # A basic size printed with a unilateral plus band (a running fit's
-        # ream, .1250 +.0015/+.0010): the size made is the band's middle,
-        # and the basic size binds for the traveler to quote.
+        # ream, .1250 +.0015/+.0010; a press fit's, .1850 +.0010/+.0005):
+        # the size made is the band's middle, and the basic size binds for
+        # the traveler to quote.
         values["bore_basic_mm"], values["bore_basic_in"] = nominal, nominal / 25.4
         values["bore_dia_mm"] = _mid(band)
     else:
         values["bore_dia_mm"] = _nominal(item, "nominal_dia", band, "bore")
-    values["bore_process"] = _string(item.get("process"), "bore.process")
     # The drawing's least wall and a bonded bore's clearance on its mate
     # are printed acceptances the traveler states.
     if "wall_min" in item:
         values["bore_wall_min_in"] = _positive(item["wall_min"], "bore.wall_min") / 25.4
-    if "diametral_clearance_ref" in item:
-        clearance = item["diametral_clearance_ref"]
-        if not isinstance(clearance, list) or len(clearance) != 2:
-            raise CadError("bore.diametral_clearance_ref: expected a band")
-        low, high = (_positive(v, "bore.diametral_clearance_ref") for v in clearance)
-        _inch_limits(values, "bore_clearance_ref", (low, high))
-        values["bore_mate"] = _string(item.get("mate"), "bore.mate")
+    # A bore the drawing finishes after joining (reamed in place at
+    # assembly): the part's traveler leaves it under size for that, and its
+    # process may be omitted (cad_drilled_block's convention).
+    made_at = item.get("made_at")
+    if made_at not in (None, "assembly"):
+        raise CadError('bore.made_at: expected "assembly"')
+    values["bore_at_assembly"] = made_at == "assembly"
+    if "process" in item or made_at != "assembly":
+        values["bore_process"] = _string(item.get("process"), "bore.process")
 
 
 def _pocket(item: dict, frame: tuple, values: dict) -> None:
@@ -881,6 +955,10 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         elif name.startswith("countersink"):
             _countersink(features[name], name, features, values)
     values["countersinks"] = sorted(n for n in features if n.startswith("countersink"))
+    # Every feature: one listing a control it cannot carry (a bore's runout,
+    # say) is refused rather than dropped.
+    for name in sorted(features):
+        _controls(name, features[name], features, values)
     _edge_breaks(raw, values)
     _rough_sizes(parameters, values, sizes, turned, supplied)
     # The default member's bar or blank: the other members bring their own.
