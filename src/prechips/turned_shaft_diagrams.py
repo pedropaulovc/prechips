@@ -136,6 +136,13 @@ def _groove_dia(values: dict, groove: str) -> str:
     return f"Ø{_band(f'{groove}_dia')}"
 
 
+def _chamfer_leg(values: dict, name: str) -> str:
+    """A chamfer's leg: its band, or its single MAX limit."""
+    if f"{name}_leg_min_in" in values:
+        return _band(f"{name}_leg")
+    return f"{{{{cad.{name}_leg_max_in:.3dot}}}} max"
+
+
 def _names(values: dict, prefix: str, suffix: str) -> list[str]:
     return sorted(
         key.removesuffix(suffix)
@@ -736,13 +743,16 @@ def _labels(
                 )
             )
     if "chamfer" in work:
-        chamfers = _names(values, "chamfer_", "_leg_min_in")
+        chamfers = _names(values, "chamfer_", "_leg_mm")
         if chamfers:
             below.append(
                 (
                     view.x(0) - 4,
                     view.down(values.get("stock_dia_mm", 2) / 2),
-                    ["break edges:", *(f"{_band(f'{c}_leg')} × 45°" for c in chamfers)],
+                    [
+                        "break edges:",
+                        *(f"{_chamfer_leg(values, c)} × 45°" for c in chamfers),
+                    ],
                 )
             )
 

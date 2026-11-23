@@ -1,0 +1,101 @@
+# Demo manifest in the CAD export format: a reamed spacer pressed on a screw shoulder, both faces square to its bore and its outside running true to it; demo identity, no source citations.
+"part" = "turned-spacer"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "turned-spacer.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-TURNED-SPACER"
+"revision" = "v1"
+
+["material"]
+"spec" = "C36000 free-machining brass round, 1/2 in"
+"name" = "Brass"
+"finish" = "bare, oiled (no plating)"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = []
+"process" = "unknown"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["plane", "perpendicularity"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+"outward" = [0.0, 0.0, -1.0]
+"perpendicularity" = 0.0254
+"datum" = "bore"
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["length", "perpendicularity"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 5.0 }
+"outward" = [0.0, 0.0, 1.0]
+"length" = [4.953, 5.0546]
+"length_nominal" = 5.0
+"length_from" = "datum_end"
+"perpendicularity" = 0.0254
+"datum" = "bore"
+"precision" = { "length" = 3 }
+"faces" = ["F1"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "runout"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 5.0]
+"dia" = [10.922, 11.43]
+"dia_nominal" = 11.176
+"runout" = 0.4064
+"datum" = "bore"
+"precision" = { "dia" = 2 }
+"faces" = ["F1"]
+
+["features"."bore"]
+"kind" = "hole"
+"frame" = "model"
+"requirements" = ["dia", "thru"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 5.0]
+"dia" = [4.7117, 4.7244]
+"nominal_dia" = 4.699
+"thru" = true
+"process" = "ream"
+"diametral_interference" = [0.0127, 0.0508]
+"mate" = "DEMO-SCREW SHOULDER"
+"callout" = "REAM THRU\nPRESS FIT ON DEMO-SCREW"
+"precision" = { "dia" = 4 }
+"faces" = ["F1"]

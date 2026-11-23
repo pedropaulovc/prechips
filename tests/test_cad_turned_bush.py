@@ -1,4 +1,5 @@
 import base64
+import math
 import re
 import subprocess
 import sys
@@ -14,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUG = ROOT / "examples/cad/turned-plug-v1.toml"
 CUP = ROOT / "examples/cad/turned-cup-v1.toml"
 COLLAR = ROOT / "examples/cad/turned-collar-v1.toml"
+KNOB = ROOT / "examples/cad/turned-knob-v1.toml"
+KNOB_BAR = {"stock_dia_in": 0.875, "face_allowance_in": 0.02, "part_kerf_in": 0.075}
 BAR = {"stock_dia_in": 0.625, "face_allowance_in": 0.02, "part_kerf_in": 0.0625}
 COLLAR_BARS = {
     "stock_dia_in": 1.75,
@@ -565,11 +568,17 @@ def test_an_unseated_regrip_sets_z0_on_its_out_end_and_inspect_names_its_datum()
     # Datum end out: the datum end is the out end, so Z0 there is the same.
     datum_out = {"hold": "regrip", "out": "datum", "grip": "step", "work": "turn"}
     render_cad_svg(_svg(**datum_out, turn="outer", z0="datum"), cad, params)
-    # Gripped on the head with the spigot behind it: nothing seats it, but the
-    # spigot would run into the drawn chuck body.
+    # Gripped on the head with the smaller spigot behind it, inside the jaws'
+    # bore: the chuck body is drawn clear of the spigot's end.
+    spigot_in = _svg(hold="regrip", out="datum", work="face", seat="none")
+    assert b"nothing behind the part" in render_cad_svg(spigot_in, cad, params)
+    # Gripped on the spigot with the larger head behind it: the head would run
+    # into the jaws.
     with pytest.raises(CadError, match="grip at the part's chuck-side end"):
         render_cad_svg(
-            _svg(hold="regrip", out="datum", work="face", seat="none"), cad, params
+            _svg(hold="regrip", out="far", grip="step", work="face", seat="none"),
+            cad,
+            params,
         )
     with pytest.raises(CadError, match="data-datum"):
         render_cad_svg(_svg(**regrip, datum="head end"), cad, params)
@@ -750,3 +759,440 @@ def test_a_reamed_bore_prints_four_places_and_its_reamer(tmp_path):
     plug = load_turned_bush(PLUG, BAR, "turned-plug")
     with pytest.raises(CadError, match="ream needs the part's bore"):
         render_cad_svg(_svg(hold="bar", out="datum", work="face ream part"), plug, BAR)
+
+
+def test_a_basic_bore_under_a_plus_band_makes_the_band_middle(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"dia" = [4.0894, 4.191]\n"nominal_dia" = 4.0894\n"thru" = true\n"process" = "drill"'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # A running fit's ream printed .1600 +.0015/+.0010: the basic size lies
+    # under the band, so the band's middle is the size the reamer makes.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.064\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    values = load_turned_bush(source, {}, "turned-cup").values
+    assert values["bore_basic_in"] == pytest.approx(0.16)
+    assert values["bore_dia_mm"] == pytest.approx(4.09575)
+    assert values["bore_dia_min_in"] == pytest.approx(0.161)
+    # A nominal over its band is still refused.
+    source.write_text(
+        text.replace(
+            old,
+            '"dia" = [4.0894, 4.1021]\n"nominal_dia" = 4.2\n"thru" = true\n'
+            '"process" = "ream"',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(source, {}, "turned-cup")
+    # Inside its band the nominal is still the size made (and no basic binds).
+    assert "bore_basic_in" not in load_turned_bush(CUP, {}, "turned-cup").values
+
+
+def test_a_single_max_chamfer_binds_its_limit_and_prints_max(tmp_path):
+    text = CUP.read_text(encoding="utf-8")
+    old = '"requirements" = ["leg"]\n"leg" = [0.3048, 0.5588]\n"leg_nominal" = 0.4318'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    # ".02 MAX X 45°": any break up to the limit.
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.508',
+        ),
+        "utf-8",
+    )
+    params = BAR | {"stock_dia_in": 0.5}
+    cad = load_turned_bush(source, params, "turned-cup")
+    values = cad.values
+    assert values["chamfer_far_leg_max_in"] == pytest.approx(0.02)
+    assert values["chamfer_far_leg_mm"] == pytest.approx(0.508)
+    assert "chamfer_far_leg_min_in" not in values
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn chamfer part"), cad, params
+    ).decode()
+    assert ".020 max × 45°" in picture
+    # The banded chamfer keeps its band.
+    assert "–" in picture.split("chamfer:", 1)[1].split(".020 max", 1)[0]
+    source.write_text(
+        text.replace(
+            old,
+            '"requirements" = ["leg_max"]\n"leg_max" = 0.508\n"leg_nominal" = 0.6',
+        ),
+        "utf-8",
+    )
+    with pytest.raises(CadError, match="chamfer_far.leg_nominal: over its leg_max"):
+        load_turned_bush(source, params, "turned-cup")
+
+
+def test_a_knurled_knob_binds_its_steps_shoulders_recess_tap_and_countersinks():
+    params = KNOB_BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.2}
+    cad = load_turned_bush(KNOB, params, "turned-knob")
+    values = cad.values
+    # The knurled head, flange and waist run end to end from the seat face.
+    assert [values[f"{n}_z0_mm"] for n in ("step_flange", "step_waist", "outer")] == (
+        pytest.approx([0.0, 5.08, 7.366])
+    )
+    # 25 TPI round Ø.81: 63 pitches track at Ø.8021, under the band's middle.
+    assert values["outer_knurl_teeth"] == 63
+    assert values["outer_knurl_tpi"] == 25
+    assert values["outer_knurl_blank_in"] == pytest.approx(63 / 25 / math.pi)
+    assert values["shoulder_flange_band_mm"] == [4.826, 5.334]
+    assert values["shoulder_head_mm"] == pytest.approx(7.366)
+    # The dish: Ø.59 rim to a Ø.35 floor .04 deep, its flank 18.43° off the face.
+    assert values["recess_z0_mm"] == pytest.approx(16.002 - 1.016)
+    assert values["recess_flank_deg"] == pytest.approx(
+        90 - math.degrees(math.atan(0.12 / 0.04))
+    )
+    assert values["tap_kind"] == "thru"
+    assert values["countersinks_ends"] == ["datum_end", "recess"]
+    assert values["countersinks_angle_deg"] == pytest.approx(90.0)
+    assert values["countersinks_dia_max_in"] == pytest.approx(0.18)
+    bar = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn knurl drill tap part"),
+        cad,
+        params,
+    ).decode()
+    for text in ("turn Ø.802,", "knurl to", "Ø.800–.820", "turn Ø.480–.500"):
+        assert text in bar
+    assert "drill through" in bar and "tap #8-32 UNC-2B" in bar
+    regrip = render_cad_svg(
+        _svg(
+            hold="regrip",
+            out="far",
+            work="face recess countersink",
+            z0="out",
+            seat="none",
+        ),
+        cad,
+        params,
+    ).decode()
+    for text in ("recess Ø.58–.60", "to Ø.34–.36 floor,", "countersink"):
+        assert text in regrip
+    inspect = render_cad_svg(_svg(hold="inspect", datum="seat face"), cad, params)
+    for text in (
+        "Ø.800–.820 over",
+        "straight knurl",
+        "25 TPI",
+        "to flange face .190–.210",
+        "to head face .280–.300",
+        "× 90°, both ends",
+    ):
+        assert text in inspect.decode()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ('"floor_dia_nominal" = 8.89', '"floor_dia_nominal" = 9.5', "outside its band"),
+        (
+            '"floor_dia" = [8.636, 9.144]\n"floor_dia_nominal" = 8.89',
+            '"floor_dia" = [14.8, 15.0]\n"floor_dia_nominal" = 14.9',
+            "not under its rim",
+        ),
+        ('"dia_max" = 4.571999999999999', '"dia_max" = 3.5', "not over its hole"),
+        (
+            '"at_ends" = ["datum_end", "recess"]',
+            '"at_ends" = ["datum_end", "pocket"]',
+            "at_ends",
+        ),
+        ('"pattern" = "straight"', '"pattern" = "wavy"', "straight or diamond"),
+    ],
+)
+def test_a_knob_refuses_a_recess_countersink_or_knurl_it_cannot_make(
+    tmp_path, old, new, message
+):
+    text = KNOB.read_text(encoding="utf-8")
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace(old, new), "utf-8")
+    with pytest.raises(CadError, match=message):
+        load_turned_bush(source, KNOB_BAR, "turned-knob")
+
+
+def test_a_through_tap_has_no_lead_to_cap():
+    with pytest.raises(CadError, match="a through tap has no bottom"):
+        load_turned_bush(KNOB, KNOB_BAR | {"tap_lead_in": 0.1}, "turned-knob")
+
+
+def test_a_knurled_blank_is_the_least_turned_size_and_a_stock_rim_binds(tmp_path):
+    values = load_turned_bush(KNOB, KNOB_BAR, "turned-knob").values
+    assert values["outer_turn_min_mm"] == pytest.approx(values["outer_knurl_blank_mm"])
+    # A dished far end in a diameter left as bought: its own size bounds the rim.
+    text = KNOB.read_text(encoding="utf-8")
+    old = '"requirements" = ["dia", "knurl"]'
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(
+        text.replace(old, '"requirements" = ["stock"]\n"dia_ref" = 20.574'), "utf-8"
+    )
+    stock = load_turned_bush(source, {}, "turned-knob").values
+    assert stock["outer_stock"] is True
+    assert stock["recess_dia_mm"] == pytest.approx(14.986)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            '"at_ends" = ["datum_end", "recess"]',
+            '"at_ends" = ["far_end"]',
+            "countersunk in the recess",
+        ),
+        (
+            '"floor_dia" = [8.636, 9.144]',
+            '"floor_dia" = [3.4, 9.144]',
+            "not over the tap",
+        ),
+        ('"depth" = [0.762, 1.27]', '"depth" = [0.762, 9.0]', "runs past outer"),
+    ],
+)
+def test_a_recess_or_countersink_that_misses_its_hole_or_diameter_refuses(
+    tmp_path, old, new, message
+):
+    text = KNOB.read_text(encoding="utf-8")
+    assert text.count(old) == 1
+    source = tmp_path / "cad.toml"
+    source.write_text(text.replace(old, new), "utf-8")
+    with pytest.raises(CadError, match=message):
+        load_turned_bush(source, KNOB_BAR, "turned-knob")
+
+
+def test_a_countersink_at_the_far_end_needs_a_through_hole(tmp_path):
+    text = KNOB.read_text(encoding="utf-8")
+    pairs = [
+        (
+            '"requirements" = ["thread", "dia", "thru"]',
+            '"requirements" = ["thread", "dia", "drill_depth", "thread_depth"]',
+        ),
+        (
+            '"thru" = true\n',
+            (
+                '"depth_from" = "datum_end"\n"drill_depth" = [7.0, 7.5]\n'
+                '"drill_depth_nominal" = 7.2\n"thread_depth" = [5.0, 5.5]\n'
+                '"thread_depth_nominal" = 5.2\n'
+            ),
+        ),
+        ('"span" = [0.0, 16.002]\n"thread"', '"span" = [0.0, 7.2]\n"thread"'),
+    ]
+    for old, new in pairs:
+        assert text.count(old) == 1
+        text = text.replace(old, new)
+    source = tmp_path / "cad.toml"
+    source.write_text(text, "utf-8")
+    with pytest.raises(CadError, match="a blind tap reaches only the datum end"):
+        load_turned_bush(source, KNOB_BAR, "turned-knob")
+
+
+def test_a_knob_refuses_names_supplies_and_setups_it_cannot_make(tmp_path):
+    params = KNOB_BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.2}
+    with pytest.raises(CadError, match="knurled, so turned to its blank"):
+        load_turned_bush(
+            KNOB,
+            KNOB_BAR | {"stock_dia_in": 0.81, "as_supplied_outer": 1},
+            "turned-knob",
+        )
+    text = KNOB.read_text(encoding="utf-8")
+    for old, new, message in [
+        ('"features"."step_waist"', '"features"."step_rough"', "bound keys meet"),
+        (
+            '"features"."shoulder_head"',
+            '"features"."shoulder_flange_min"',
+            "bound keys meet",
+        ),
+        ('"depth" = [0.762, 1.27]', '"depth" = [0.762, 8.5]', "runs past outer"),
+    ]:
+        assert text.count(old) == 1
+        source = tmp_path / "cad.toml"
+        source.write_text(text.replace(old, new), "utf-8")
+        with pytest.raises(CadError, match=message):
+            load_turned_bush(source, KNOB_BAR, "turned-knob")
+    cad = load_turned_bush(KNOB, params, "turned-knob")
+    # Both ends are countersunk: each setup names the one at its out end.
+    far = render_cad_svg(
+        _svg(hold="regrip", out="far", work="face countersink", z0="out", seat="none"),
+        cad,
+        params,
+    ).decode()
+    assert "countersink Ø.18 max × 90°" in far
+    with pytest.raises(CadError, match="knurls outer in its jaws"):
+        render_cad_svg(
+            _svg(hold="regrip", out="far", work="face knurl", z0="out", seat="none"),
+            cad,
+            params,
+        )
+
+
+SPACER = ROOT / "examples/cad/turned-spacer-v1.toml"
+FLANGED = ROOT / "examples/cad/turned-flanged-bush-v1.toml"
+
+
+def test_spacer_binds_face_perpendicularity_and_outside_runout():
+    values = load_turned_bush(SPACER, {}, "turned-spacer").values
+    for end in ("datum_end", "far_end"):
+        assert values[f"{end}_perpendicularity_in"] == pytest.approx(0.001)
+        assert values[f"{end}_perpendicularity_datum"] == "bore"
+    assert values["outer_runout_in"] == pytest.approx(0.016)
+    assert values["outer_runout_datum"] == "bore"
+    assert values["bore_interference_min_in"] == pytest.approx(0.0005)
+    assert values["bore_interference_max_in"] == pytest.approx(0.002)
+    assert values["bore_mate"] == "DEMO-SCREW SHOULDER"
+    assert values["bore_at_assembly"] is False
+    # A unilateral reamed fit (.1850 +.0010/+.0005): made to the band's middle.
+    assert values["bore_dia_mm"] == pytest.approx((4.7117 + 4.7244) / 2)
+    assert values["bore_basic_in"] == pytest.approx(0.185)
+
+
+def test_flanged_bush_binds_the_shoulder_root_and_an_assembly_bore():
+    values = load_turned_bush(FLANGED, {}, "turned-flanged-bush").values
+    assert values["shoulder_root_r_max_in"] == pytest.approx(0.005)
+    assert values["bore_perpendicularity_in"] == pytest.approx(0.002)
+    assert values["bore_perpendicularity_datum"] == "shoulder"
+    assert values["bore_at_assembly"] is True
+    assert values["step_interference_min_in"] == pytest.approx(0.0005)
+    assert (values["step_dia_min_in"], values["step_dia_max_in"]) == pytest.approx(
+        (0.4387, 0.4391)
+    )
+    assert "outer_runout_in" not in values
+
+
+def _edited(path: Path, tmp_path: Path, old: str, new: str) -> Path:
+    text = path.read_text(encoding="utf-8")
+    assert text.count(old) == 1, old
+    edited = tmp_path / path.name
+    edited.write_text(text.replace(old, new), encoding="utf-8")
+    return edited
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "outer"',
+            "outer.datum",
+        ),
+        (
+            '"runout" = 0.4064\n"datum" = "bore"',
+            '"runout" = 0.4064\n"datum" = "hub"',
+            "outer.datum",
+        ),
+        (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"precision"',
+            '"perpendicularity" = 0.0254\n"datum" = "datum_end"\n"precision"',
+            "far_end.datum: expected the part's bore",
+        ),
+        (
+            '"perpendicularity" = 0.0254\n"datum" = "bore"\n"faces"',
+            '"perpendicularity" = 0\n"datum" = "bore"\n"faces"',
+            "datum_end.perpendicularity",
+        ),
+        (
+            '"requirements" = ["dia", "runout"]',
+            '"requirements" = ["dia", "perpendicularity"]',
+            "outer.perpendicularity: expected on a face",
+        ),
+    ],
+)
+def test_a_control_needs_another_datum_feature_and_its_kind(
+    tmp_path, old, new, message
+):
+    edited = _edited(SPACER, tmp_path, old, new)
+    with pytest.raises(CadError, match=message):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_is_the_only_made_at(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"made_at" = "assembly"', '"made_at" = "bench"')
+    with pytest.raises(CadError, match='bore.made_at: expected "assembly"'):
+        load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_bore_nominal_over_its_band_is_refused(tmp_path):
+    edited = _edited(SPACER, tmp_path, '"nominal_dia" = 4.699', '"nominal_dia" = 47.0')
+    with pytest.raises(CadError, match="bore.nominal_dia: outside its band"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_bore_takes_one_fit(tmp_path):
+    edited = _edited(
+        SPACER,
+        tmp_path,
+        '"diametral_interference" = [0.0127, 0.0508]',
+        '"diametral_interference" = [0.0127, 0.0508]\n"diametral_clearance_ref" = [0.01, 0.02]',
+    )
+    with pytest.raises(CadError, match="a clearance or a press, not both"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_a_control_on_the_bore_is_refused_not_dropped(tmp_path):
+    text = SPACER.read_text(encoding="utf-8")
+    for old, new in (
+        (
+            '"requirements" = ["dia", "thru"]',
+            '"requirements" = ["dia", "thru", "runout"]',
+        ),
+        (
+            '"diametral_interference" = [0.0127, 0.0508]',
+            '"diametral_interference" = [0.0127, 0.0508]\n"runout" = 0.1\n"datum" = "outer"',
+        ),
+    ):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    edited = tmp_path / SPACER.name
+    edited.write_text(text, encoding="utf-8")
+    with pytest.raises(CadError, match="bore.runout: expected on a diameter"):
+        load_turned_bush(edited, {}, "turned-spacer")
+
+
+def test_an_assembly_bore_may_omit_its_process_and_is_not_reamed_on_the_part(tmp_path):
+    edited = _edited(FLANGED, tmp_path, '"process" = "ream"\n', "")
+    values = load_turned_bush(edited, {}, "turned-flanged-bush").values
+    assert values["bore_at_assembly"] is True
+    assert "bore_process" not in values
+
+
+def test_an_assembly_bore_is_drilled_under_size_never_reamed_on_the_part():
+    params = BAR | {"jaw_clearance_in": 0.1, "parts_per_pull": 1}
+    cad = load_turned_bush(FLANGED, params, "turned-flanged-bush")
+    with pytest.raises(CadError, match="reamed at assembly"):
+        render_cad_svg(
+            _svg(hold="bar", out="datum", work="face drill ream part"), cad, params
+        )
+    bar = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face drill part"), cad, params
+    ).decode()
+    assert "drill under the assembly ream" in bar
+    inspect = render_cad_svg(_svg(hold="inspect"), cad, params).decode()
+    assert "reamed at assembly" in inspect
+    assert ".2490" not in bar + inspect
+
+
+def test_a_bore_perpendicularity_needs_a_face_datum(tmp_path):
+    edited = _edited(
+        FLANGED,
+        tmp_path,
+        '"datum" = "shoulder"\n"callout"',
+        '"datum" = "outer"\n"callout"',
+    )
+    with pytest.raises(
+        CadError, match="bore.datum: expected an end face or the shoulder"
+    ):
+        load_turned_bush(edited, {}, "turned-flanged-bush")
+
+
+def test_a_control_datum_must_exist_and_be_turned(tmp_path):
+    edited = _edited(
+        PLUG,
+        tmp_path,
+        '"requirements" = ["plane"]',
+        '"requirements" = ["plane", "perpendicularity"]\n"perpendicularity" = 0.0254\n"datum" = "bore"',
+    )
+    with pytest.raises(CadError, match="datum_end.datum: expected the part's bore"):
+        load_turned_bush(edited, {}, "turned-plug")
