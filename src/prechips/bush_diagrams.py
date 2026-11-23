@@ -136,6 +136,13 @@ def _recess_lines() -> list[str]:
     ]
 
 
+def _recess_anchor(page: _Page, values: dict) -> tuple[float, float]:
+    """Mid-point of the recess's lower cone line, where its leader lands."""
+    x = (page.x(values["length_mm"]) + page.x(values["recess_z0_mm"])) / 2
+    radius = (values["recess_dia_mm"] + values["recess_floor_dia_mm"]) / 4
+    return x, 2 * _AXIS - page.up(radius)
+
+
 def _band(key: str, places: int) -> str:
     """``min–max`` tokens of the inch band ``key``."""
     return (
@@ -706,13 +713,7 @@ def _setup(
                 lines = [*_knurl_lines(name), *_size(values, name)[:1]]
                 above.append(((a + b) / 2, page.up(radius), lines))
     if "recess" in work:
-        below.append(
-            (
-                page.x_out - 6,
-                _AXIS + values["recess_dia_mm"] / 2 * scale,
-                _recess_lines(),
-            )
-        )
+        below.append((*_recess_anchor(page, values), _recess_lines()))
     if "face" in work:
         if hold == "regrip":
             text = ["face to", _length_text(values)]
@@ -833,13 +834,7 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
         a, b = page.span(z0, z1)
         items.append(((a + b) / 2, 2 * _AXIS - page.up(radius), _size(values, name)))
     if "recess_dia_mm" in values:
-        items.append(
-            (
-                page.x_out - 4,
-                _AXIS + values["recess_dia_mm"] / 2 * scale,
-                _recess_lines(),
-            )
-        )
+        items.append((*_recess_anchor(page, values), _recess_lines()))
     countersinks = []
     for name in _countersinks(values):
         ends = values[f"{name}_ends"]

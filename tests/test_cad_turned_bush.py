@@ -831,6 +831,28 @@ def test_a_single_max_chamfer_binds_its_limit_and_prints_max(tmp_path):
         load_turned_bush(source, params, "turned-cup")
 
 
+def _recess_leader_lands_on_its_cone(svg: str) -> bool:
+    """A leader dot lies on the dish's lower cone line (its hidden path)."""
+    number = r"(-?[\d.]+)"
+    cones = re.findall(
+        rf'd="M{number} {number}L{number} {number}L{number} {number}L{number} {number}"',
+        svg,
+    )
+    dots = [
+        (float(x), float(y))
+        for x, y in re.findall(
+            rf'<circle cx="{number}" cy="{number}"[^>]*leader-dot', svg
+        )
+    ]
+    for cone in cones:
+        _, _, _, _, x3, y3, x4, y4 = map(float, cone)
+        for x, y in dots:
+            t = (x - x4) / (x3 - x4) if x3 != x4 else -1
+            if 0 < t < 1 and abs(y - (y4 + t * (y3 - y4))) < 0.5:
+                return True
+    return False
+
+
 def test_a_knurled_knob_binds_its_steps_shoulders_recess_tap_and_countersinks():
     params = KNOB_BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.2}
     cad = load_turned_bush(KNOB, params, "turned-knob")
@@ -876,6 +898,8 @@ def test_a_knurled_knob_binds_its_steps_shoulders_recess_tap_and_countersinks():
     for text in ("recess Ø.58–.60", "to Ø.34–.36 floor,", "countersink"):
         assert text in regrip
     inspect = render_cad_svg(_svg(hold="inspect", datum="seat face"), cad, params)
+    for svg in (regrip, inspect.decode()):
+        assert _recess_leader_lands_on_its_cone(svg)
     for text in (
         "Ø.800–.820 over",
         "straight knurl",
