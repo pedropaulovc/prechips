@@ -31,6 +31,9 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
 
 ``data-end-label`` names the one end a picture names, in the plan's words:
 the inspection's x0 end, or a turned-round blank's out end in its caption.
+``data-piece="offcut"`` on a ``blank`` hold not turned round names the
+chucked piece a trial offcut (caption and jaw label), e.g. the offcut a
+radius turner is set on; the default ``blank`` names the sawn blank.
 
 Lathe holds are side elevations, chuck at the left, ``data-out`` (``datum``
 or ``far``) the part's end toward the tailstock. ``data-work`` lists what the
@@ -306,6 +309,14 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError(
             "turned-shaft: data-wrap is none or shim, on a bar or blank hold"
         )
+    piece = root.attrib.pop("data-piece", "blank")
+    if piece not in ("blank", "offcut") or (
+        piece == "offcut" and (hold != "blank" or done)
+    ):
+        raise CadError(
+            "turned-shaft: data-piece is blank or offcut, the latter on a"
+            " blank hold not turned round"
+        )
     if hold not in _HOLDS:
         raise CadError(
             f"turned-shaft: data-hold must be one of {', '.join(_HOLDS)}, not {hold!r}"
@@ -378,6 +389,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
             names,
         )
     title = _TITLES[hold]
+    if piece == "offcut":
+        title = "Trial offcut in the chuck, seen from the operator's side"
     if hold == "blank" and done:
         named = end_label or f"{out} end"
         title = f"Turned round, the {named} out, seen from the operator's side"
@@ -385,7 +398,9 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
         made.add(f"dome-{out}")
-    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap, tool)
+    return _lathe(
+        groups, values, parameters, hold, out, work, made, grip, wrap, tool, piece
+    )
 
 
 def _ball_turner(
@@ -456,6 +471,7 @@ def _lathe(
     grip: str,
     wrap: str,
     tool: str,
+    piece: str,
 ) -> Layout:
     length = _cad(values, "length_mm")
     names = _diameters(values)
@@ -536,7 +552,7 @@ def _lathe(
         bar = (
             "jaws on bar Ø{{process.stock_dia_in:.4dot}}"
             if hold == "bar"
-            else "jaws on the blank"
+            else f"jaws on the {piece}"
         )
         shim = _SHIM if wrap == "shim" else 0.0
         if shim:
