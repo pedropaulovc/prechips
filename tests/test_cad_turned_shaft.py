@@ -798,3 +798,34 @@ def test_inspect_lands_a_diameter_leader_clear_of_the_holes_through_it():
         assert len(holes) == len(stations)
         od = max(dots, key=lambda d: d[1])[0]
         assert 80 < od < 640 and min(abs(od - x) for x in holes) > 8.5
+
+
+def test_a_bar_kept_beyond_z0_as_a_centre_stub_draws_it_and_the_dead_centre():
+    params = HEADED_BAR | {
+        "centre_stub_in": 0.2,
+        "parts_per_pull": 1,
+        "jaw_clearance_in": 0.1,
+    }
+    cad = load_turned_shaft(HEADED, params, "demo-headed-pin")
+    svg = render_cad_svg(
+        _svg(hold="bar", out="far", work="face turn part"), cad, params
+    ).decode()
+    assert "dead centre" in svg
+    assert "face the bar end" in svg
+    assert "to Z0" not in svg
+    # A later picture on the same bar shows the stub already faced.
+    later = render_cad_svg(
+        _svg(hold="bar", out="far", work="part"), cad, params
+    ).decode()
+    assert "dead centre" in later
+    for work, stub, message in [
+        ("face turn part", 0.22, "inside process.face_allowance_in"),
+        ("face turn dome part", 0.2, "no dome or thread"),
+    ]:
+        stubbed = HEADED_BAR | {"centre_stub_in": stub}
+        with pytest.raises(CadError, match=message):
+            render_cad_svg(
+                _svg(hold="bar", out="far", work=work),
+                load_turned_shaft(HEADED, stubbed, "demo-headed-pin"),
+                stubbed,
+            )

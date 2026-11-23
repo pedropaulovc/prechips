@@ -7,7 +7,10 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   ``process.blank_length_in`` from its end, the blank dimensioned (a kerf
   ``process.saw_kerf_in`` drawn when stated);
 - ``bar``: round bar in the chuck, ``process.parts_per_pull`` parts (one by
-  default) out past the jaws, each a ``cad.pitch_mm`` along the bar;
+  default) out past the jaws, each a ``cad.pitch_mm`` along the bar; with
+  ``process.centre_stub_in`` (inside ``process.face_allowance_in``, and
+  ``face`` in ``data-work``), that much bar is kept beyond the out end's Z0
+  as a stub, a tailstock dead centre in its centre hole;
 - ``blank``: a sawn blank in the chuck, ``cad.end_stickout_mm`` out, the
   ``cad.face_stock_per_end_mm`` on its out end (``data-wrap="shim"`` on a
   bar or blank draws the jaws over a shim wrap);
@@ -385,7 +388,7 @@ def _lathe(
         return -station if out == "datum" else station - length
 
     stock = values.get("stock_dia_mm", 0.0) / 2
-    count, pitch, face, kerf, regrip = 1, length, 0.0, 0.0, 0.0
+    count, pitch, face, kerf, regrip, stub = 1, length, 0.0, 0.0, 0.0, 0.0
     if hold == "bar":
         count = int(parameters.get("parts_per_pull", 1))
         pitch = _cad(values, "pitch_mm")
@@ -393,6 +396,20 @@ def _lathe(
         face = _param(parameters, "face_allowance_in") * 25.4 if "face" in work else 0.0
         kerf = _param(parameters, "part_kerf_in") * 25.4
         jaw = float(values.get("jaw_z_mm", -(count * pitch)))
+        if "centre_stub_in" in parameters:
+            # Bar kept beyond Z0 for the tailstock centre, inside the facing;
+            # a picture without face shows it already faced.
+            stub = _param(parameters, "centre_stub_in") * 25.4
+            if stub >= _param(parameters, "face_allowance_in") * 25.4 - 1e-9:
+                raise CadError(
+                    "turned-shaft: process.centre_stub_in must lie inside"
+                    " process.face_allowance_in"
+                )
+            if work & {"dome", "thread"}:
+                raise CadError(
+                    "turned-shaft: a centre stub holds the tailstock and the out"
+                    " end: no dome or thread in its setup"
+                )
     elif hold == "blank":
         face = float(values["face_stock_per_end_mm"]) if "face" in work else 0.0
         jaw = float(values["end_jaw_z_mm"])
@@ -423,12 +440,14 @@ def _lathe(
     zmin = jaw - _HELD if hold != "regrip" else max(jaw - _HELD, back)
     if hold == "blank":
         zmin = max(zmin, -length)
-    reach = face - zmin
+    # The bar's out end: the arriving end, or a faced centre stub's.
+    bar_end = max(face, stub)
+    reach = bar_end - zmin
     largest = max([stock, *(values[f"{n}_dia_mm"] / 2 for n in names)])
     scale = min(14.0, 420.0 / reach, 70.0 / largest)
     view = _View(_X0, zmin, scale, scale)
     groups["centre-line"].append(
-        _line(view.x(zmin) - 50, _AXIS, view.x(face) + 120, _AXIS)
+        _line(view.x(zmin) - 50, _AXIS, view.x(bar_end) + 120, _AXIS)
     )
     station = _meridian(values, made)
     above: list[tuple[float, float, list[str]]] = []
@@ -436,7 +455,7 @@ def _lathe(
     if hold in ("bar", "blank"):
         y0, y1 = view.up(stock), view.down(stock)
         left = view.x(zmin) - 40
-        groups["part-arriving"].append(_rect(left, y0, view.x(face) - left, y1 - y0))
+        groups["part-arriving"].append(_rect(left, y0, view.x(bar_end) - left, y1 - y0))
         bar = (
             "jaws on bar Ø{{process.stock_dia_in:.4dot}}"
             if hold == "bar"
@@ -499,7 +518,7 @@ def _lathe(
                 ["3-jaw chuck, jaws", "on a shim wrap"],
             )
         )
-    if face:
+    if face > stub:
         # The out end arrives at the bar's size, or turned in an earlier setup.
         radius = stock
         if hold == "regrip" and "turn" in made and "turn" not in work:
@@ -511,8 +530,28 @@ def _lathe(
                 _rect(view.x(0), view.up(radius), face * scale, 2 * radius * scale)
             )
         groups["part-removed"].append(
-            _rect(view.x(0), view.up(radius), face * scale, 2 * radius * scale)
+            _rect(
+                view.x(stub), view.up(radius), (face - stub) * scale, 2 * radius * scale
+            )
         )
+    if stub:
+        # Cut off with the part when this setup parts it.
+        fill = "part-removed" if "part" in work else "part-kept"
+        groups[fill].append(
+            _rect(view.x(0), view.up(stock), stub * scale, 2 * stock * scale)
+        )
+        # The dead centre's 60° point in the stub's centre hole, its quill
+        # beyond the faced end.
+        x = view.x(stub) - 4
+        groups["fixture-vise"].append(
+            _el(
+                "path",
+                d=f"M{_pt(x, _AXIS)}L{_pt(x + 10, _AXIS - 6)}H{x + 44:.2f}"
+                f"V{_AXIS + 6:.2f}H{x + 10:.2f}Z",
+            )
+        )
+        # Labelled on its quill, beyond the turning tool.
+        below.append((x + 40, _AXIS + 6, ["dead centre"]))
     top = view.up(largest)
     bottom = view.down(largest)
     groups["datum"].append(_line(view.x(0), top - 10, view.x(0), bottom + 10))
@@ -521,17 +560,17 @@ def _lathe(
     _dimension(
         groups,
         view.x(jaw),
-        view.x(0 if hold == "blank" else face),
+        view.x(0 if hold == "blank" else bar_end),
         bottom + 44,
         bottom + 2,
         _stickout(values, hold, out, grip),
     )
     other = "far" if out == "datum" else "datum"
     to_length = hold == "regrip" or f"face-{other}" in made
-    _labels(values, view, work, z_of, out, above, below, to_length)
+    _labels(values, view, work, z_of, out, above, below, to_length, stub=stub)
     if work & {"face", "turn", "dome", "groove", "chamfer"}:
         # The turning tool, beside the out end, clear of the labels.
-        x = view.x(face) + 4
+        x = view.x(bar_end) + 4
         groups["cutter"].append(
             _el("path", d=f"M{x:.2f} {bottom + 6:.2f}l18 5v28h-18z")
         )
@@ -690,10 +729,14 @@ def _labels(
     above: list,
     below: list,
     to_length: bool,
+    stub: float = 0.0,
 ) -> None:
     length = values["length_mm"]
     if "face" in work:
-        text = ["face the end", "to Z0"]
+        # With a centre stub the faced end stands the stub beyond Z0.
+        text = (
+            ["face the bar end", "for the stub"] if stub else ["face the end", "to Z0"]
+        )
         if to_length:
             band = (
                 _band("faced_length")
@@ -702,7 +745,7 @@ def _labels(
             )
             text = ["face to length", band]
         below.append(
-            (view.x(0) + 1, view.down(values.get("stock_dia_mm", 0) / 2 or 1), text)
+            (view.x(stub) + 1, view.down(values.get("stock_dia_mm", 0) / 2 or 1), text)
         )
     if "turn" in work:
         for name in _diameters(values):
