@@ -337,22 +337,25 @@ def _bond(value: object, where: str) -> dict:
     }
 
 
-def accepted_bonds(setup: dict) -> list[str]:
+def accepted_bonds(setup: dict, where: str) -> list[str]:
     """Each accepted bond a setup's beams declare, as a line for the sheet.
 
     A bond whose strengths are accepted rather than read from a data sheet
     says so where the operator reads the hold, once per distinct acceptance.
+    The sheet prints these only while the check that judges the cuts against
+    them is enforced; each is validated here as the check validates it.
     """
     lines = []
     for holder in (setup, *setup.get("operations", [])):
         beam = holder.get("beam") if isinstance(holder, dict) else None
-        bond = beam.get("bond") if isinstance(beam, dict) else None
-        if not isinstance(bond, dict) or "accepted_by" not in bond:
+        declared = beam.get("bond") if isinstance(beam, dict) else None
+        if not isinstance(declared, dict) or "accepted_by" not in declared:
             continue
+        bond = _bond(declared, f"{where}: beam.bond")
         line = (
-            f"strength accepted by {bond['accepted_by']}, not from a data sheet: "
-            f"the cuts may load it to {bond['shear_mpa']:g} MPa in shear and "
-            f"{bond['tensile_mpa']:g} MPa in tension"
+            f"strength accepted by {declared['accepted_by'].strip()}, not from a "
+            f"data sheet: the cuts may load it to {bond['shear']:g} MPa in shear "
+            f"and {bond['tensile']:g} MPa in tension"
         )
         if line not in lines:
             lines.append(line)

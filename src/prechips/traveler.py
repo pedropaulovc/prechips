@@ -924,7 +924,13 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         index = indexing.setting(
             loaded, setup, f"setup {setup_number} ({setup['title']})"
         )
-        bonds = milling.accepted_bonds(setup)
+        # Accepted figures print only while the check that holds the cuts to
+        # them is enforced: an unchecked figure is not put on the sheet.
+        bonds = []
+        if "milling_deflection" in profile.enforce:
+            bonds = milling.accepted_bonds(
+                setup, f"setup {setup_number} ({setup['title']})"
+            )
         if "holding" in setup or "datum" in setup or index is not None or bonds:
             lines.append("<dl>")
             for key in ("holding", "datum"):

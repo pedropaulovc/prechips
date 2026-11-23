@@ -881,13 +881,21 @@ def test_an_accepted_bond_is_judged_on_its_strengths_as_written():
     text = str(caught.value)
     assert "over the bond's accepted 0.4 MPa in tension" in text
     assert "the accepted strength, not a data-sheet or measured one" in text
-    setup = {"beam": accepted, "operations": [{"beam": accepted}, {}]}
+    setup = {
+        "beam": accepted,
+        "operations": [{"beam": accepted}, {}, {"beam": "other"}],
+    }
     printed = (
         "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
         "the cuts may load it to 0.69 MPa in shear and 0.4 MPa in tension"
     )
-    assert accepted_bonds(setup) == [printed]
-    assert accepted_bonds({"beam": BONDED, "operations": []}) == []
+    assert accepted_bonds(setup, "setup 1") == [printed]
+    assert accepted_bonds({"beam": BONDED, "operations": []}, "setup 1") == []
+    # The sheet line is validated like the check: text for a number refuses.
+    unread = copy.deepcopy(setup)
+    unread["beam"]["bond"]["shear_mpa"] = "0.69"
+    with pytest.raises(CheckError, match="setup 1: beam.bond.shear_mpa"):
+        accepted_bonds(unread, "setup 1")
     both = copy.deepcopy(accepted)
     both["bond"]["derating"] = 0.25
     neither = copy.deepcopy(BONDED)

@@ -95,6 +95,13 @@ def test_an_accepted_bond_prints_who_accepted_it(tmp_path):
         "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
         "the cuts may load it to 0.69 MPa in shear and 0.69 MPa in tension" in html
     )
+    # Without the check that holds the cuts to them, the figures do not print.
+    import dataclasses
+
+    from prechips.profiles import PRO
+
+    unchecked = dataclasses.replace(PRO, enforce=PRO.enforce - {"milling_deflection"})
+    assert "<dt>Bond:</dt>" not in render_traveler(load_plan(plan), profile=unchecked)
 
 
 def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
