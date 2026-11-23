@@ -829,3 +829,81 @@ def test_a_bar_kept_beyond_z0_as_a_centre_stub_draws_it_and_the_dead_centre():
                 load_turned_shaft(HEADED, stubbed, "demo-headed-pin"),
                 stubbed,
             )
+
+
+def test_a_formed_dome_binds_the_ball_turners_sweep_and_the_roughing_chamfer():
+    values = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin").values
+    for prefix, form in (("dome_datum", 0.18), ("dome_far", 0.07)):
+        root = values[f"{prefix}_root_dia_mm"] / 2 / 25.4
+        # The tip leaves the corner asin(r / R) off the axis.
+        assert values[f"{prefix}_form_sweep_deg"] == pytest.approx(
+            math.degrees(math.asin(root / form))
+        )
+        # A 45° chamfer's line meets the sphere where it slopes 45°, R/√2 off
+        # the axis, while that lies on the cap; else at the root.
+        cap = form - math.sqrt(form**2 - root**2)
+        expected = (
+            root + form - math.sqrt(2) * form if form / math.sqrt(2) <= root else cap
+        )
+        assert values[f"{prefix}_form_chamfer_max_in"] == pytest.approx(expected)
+    # The R.180 on the Ø.20 head: R/√2 lies past the root, the leg is the cap.
+    assert values["dome_datum_form_chamfer_max_in"] == pytest.approx(
+        values["dome_datum_form_height_in"]
+    )
+    # The R.070 on its Ø.125: tangent on the cap, under its height.
+    assert values["dome_far_form_chamfer_max_in"] < values["dome_far_form_height_in"]
+
+
+def test_a_roughing_chamfer_stays_outside_every_formed_dome():
+    ok = load_turned_shaft(
+        HEADED, HEADED_BAR | {"dome_chamfer_in": 0.03}, "demo-headed-pin"
+    )
+    assert ok.values["dome_datum_form_chamfer_max_in"] > 0.03
+    # .031 clears the far dome's .0335 but not the datum dome's .0303.
+    with pytest.raises(CadError, match="cuts into the dome_datum sphere"):
+        load_turned_shaft(
+            HEADED, HEADED_BAR | {"dome_chamfer_in": 0.031}, "demo-headed-pin"
+        )
+    with pytest.raises(CadError, match="binds only on a dome this traveler forms"):
+        load_turned_shaft(SHAFT, BLANK | {"dome_chamfer_in": 0.01}, "demo-turned-shaft")
+
+
+def test_a_dome_picture_may_draw_the_ball_turner_in_place_of_the_form_tool():
+    cad = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin")
+    swept = render_cad_svg(
+        _svg(
+            hold="regrip", out="far", work="face dome", **{"dome-tool": "ball-turner"}
+        ),
+        cad,
+        HEADED_BAR,
+    )
+    assert b"ball turner, from above:" in swept
+    assert b"R.070 about a pivot on the axis," in swept
+    assert "swept 0–63° from the apex".encode() in swept
+    # The form tool's label is not drawn.
+    assert b"R.070 form" not in swept
+    formed = render_cad_svg(
+        _svg(hold="regrip", out="far", work="face dome"), cad, HEADED_BAR
+    )
+    assert b"ball turner" not in formed
+    # Only a dome this setup works, with a form radius, on a lathe hold.
+    for attrs in (
+        {"hold": "regrip", "out": "far", "work": "face"},
+        {"hold": "inspect"},
+        {"hold": "regrip", "out": "far", "work": "dome", "dome-tool": "fly"},
+    ):
+        attrs.setdefault("dome-tool", "ball-turner")
+        with pytest.raises(CadError, match="data-dome-tool"):
+            render_cad_svg(_svg(**attrs), cad, HEADED_BAR)
+    plain = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    with pytest.raises(CadError, match="data-dome-tool"):
+        render_cad_svg(
+            _svg(
+                hold="blank",
+                out="far",
+                work="face dome",
+                **{"dome-tool": "ball-turner"},
+            ),
+            plain,
+            BLANK,
+        )

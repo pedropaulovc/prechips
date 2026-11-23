@@ -56,7 +56,11 @@ not yet made is drawn at the size it arrives at. A form-cut dome
 height at the root (its range when formed per part on
 ``process.dome_form_dia_min_in``–``_max_in``; ``SR`` alone for a full
 hemisphere) and the form tool is
-drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
+drawn where ``dome`` is worked; with ``data-dome-tool="ball-turner"`` a lathe
+hold draws a radius (ball) turner there instead, seen from above: its pivot
+on the axis one form radius behind the apex, the bit to its tip and the tip's
+sweep from the apex to ``_form_sweep_deg``, labelled with the radius, the
+height (or a tangent hemisphere) and the sweep. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
 hatched, the part solid; cross holes made at assembly are dashed on the
@@ -302,6 +306,19 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError(
             "turned-shaft: data-wrap is none or shim, on a bar or blank hold"
         )
+    tool = root.attrib.pop("data-dome-tool", "form")
+    if tool not in ("form", "ball-turner") or (
+        tool == "ball-turner"
+        and (
+            "dome" not in work
+            or f"dome_{out}_form_radius_mm" not in values
+            or hold not in ("bar", "blank", "regrip")
+        )
+    ):
+        raise CadError(
+            "turned-shaft: data-dome-tool is form or ball-turner, the latter"
+            " on a lathe hold whose dome has a process form radius"
+        )
     if hold not in _HOLDS:
         raise CadError(
             f"turned-shaft: data-hold must be one of {', '.join(_HOLDS)}, not {hold!r}"
@@ -366,7 +383,65 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
         made.add(f"dome-{out}")
-    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap)
+    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap, tool)
+
+
+def _ball_turner(
+    groups: Groups,
+    values: dict,
+    view: _View,
+    prefix: str,
+    below: list[tuple[float, float, list[str]]],
+) -> None:
+    """A radius (ball) turner seen from above: its pivot on the axis one
+    radius behind the apex (Z0), the bit from the pivot to its tip where it
+    leaves the corner, and the tip's sweep from the apex to there, toward
+    the operator (the lower half)."""
+    radius = values[f"{prefix}_form_radius_mm"]
+    sweep = math.radians(values[f"{prefix}_form_sweep_deg"])
+    pivot = (view.x(-radius), _AXIS)
+    arc = [
+        (
+            view.x(-radius + radius * math.cos(sweep * i / _ARC)),
+            view.down(radius * math.sin(sweep * i / _ARC)),
+        )
+        for i in range(_ARC + 1)
+    ]
+    groups["hidden"].append(_el("path", d="M" + "L".join(_pt(*p) for p in arc)))
+    tip = arc[-1]
+    # The bit: a narrow bar from the pivot to the tip.
+    dx, dy = tip[0] - pivot[0], tip[1] - pivot[1]
+    norm = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / norm * 2.0, dx / norm * 2.0
+    bit = [
+        (pivot[0] + nx, pivot[1] + ny),
+        (tip[0] + nx, tip[1] + ny),
+        (tip[0] - nx, tip[1] - ny),
+        (pivot[0] - nx, pivot[1] - ny),
+    ]
+    groups["cutter"].append(_el("path", d="M" + "L".join(_pt(*p) for p in bit) + "Z"))
+    groups["cutter"].append(_el("circle", cx=f"{pivot[0]:.2f}", cy=_AXIS, r=3.5))
+    if f"{prefix}_form_height_min_in" in values:
+        height = (
+            f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
+            f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high at the root,"
+        )
+    elif abs(radius - values[f"{prefix}_root_dia_mm"] / 2) < 1e-3:
+        height = "a hemisphere tangent to the O.D.,"
+    else:
+        height = f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high at the root,"
+    below.append(
+        (
+            tip[0],
+            tip[1],
+            [
+                "ball turner, from above:",
+                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} about a pivot on the axis,",
+                height,
+                f"swept 0–{{{{cad.{prefix}_form_sweep_deg:.0f}}}}° from the apex",
+            ],
+        )
+    )
 
 
 def _lathe(
@@ -379,6 +454,7 @@ def _lathe(
     made: set,
     grip: str,
     wrap: str,
+    tool: str = "form",
 ) -> Layout:
     length = _cad(values, "length_mm")
     names = _diameters(values)
@@ -575,7 +651,9 @@ def _lathe(
             _el("path", d=f"M{x:.2f} {bottom + 6:.2f}l18 5v28h-18z")
         )
     prefix = f"dome_{out}"
-    if "dome" in work and f"{prefix}_form_radius_mm" in values:
+    if "dome" in work and tool == "ball-turner":
+        _ball_turner(groups, values, view, prefix, below)
+    elif "dome" in work and f"{prefix}_form_radius_mm" in values:
         # The form tool, its concave face standing off the dome it cuts.
         apex = 0.0 if out == "datum" else length
         cap = _cap(values, prefix, apex, 1 if out == "datum" else -1, form=True)
