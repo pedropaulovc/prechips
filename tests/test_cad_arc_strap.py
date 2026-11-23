@@ -77,6 +77,26 @@ def test_the_strap_is_placed_in_its_blank_for_the_plate_hold():
     assert values["bushing_clear_mm"] == pytest.approx(0.542)
 
 
+def test_an_accepted_bond_prints_who_accepted_it(tmp_path):
+    import shutil
+
+    from prechips.traveler import load_plan, render_traveler
+
+    shutil.copytree(ROOT / "examples", tmp_path / "examples")
+    plan = tmp_path / "examples/demo-arc-strap.toml"
+    text = plan.read_text(encoding="utf-8")
+    derated = 'derating = "{{process.bond_derating}}"'
+    assert derated in text
+    text = text.replace(derated, 'accepted_by = "the shop owner, 2026-01-05"')
+    plan.write_text(text, encoding="utf-8")
+    html = render_traveler(load_plan(plan))
+    assert html.count("<dt>Bond:</dt>") == 1  # once for the bonded setup
+    assert (
+        "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
+        "the cuts may load it to 0.69 MPa in shear and 0.69 MPa in tension" in html
+    )
+
+
 def test_the_bonded_outline_binds_depths_notches_and_bonded_areas():
     values = _values()
     # 2.4892 thick less the 0.25 skin; the skin plus 0.08 into the tape.
@@ -173,6 +193,7 @@ def test_strap_pictures_land_leaders_on_features_and_key_roles_truthfully():
     svg = "{http://www.w3.org/2000/svg}"
     words = " ".join(text.text for text in key.iter(f"{svg}text"))
     assert "vise jaw, work holder" in words and "tape, bond" in words
+    assert "<dt>Bond:</dt>" not in html  # data-sheet strengths print nothing
     assert not {"strap", "clamp", "hold-down"} & set(re.split(r"[ ,]+", words))
 
     def group(root, role):

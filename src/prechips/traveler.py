@@ -10,7 +10,7 @@ from math import floor, isfinite
 from pathlib import Path
 from xml.etree import ElementTree
 
-from prechips import indexing, palette, speeds
+from prechips import indexing, milling, palette, speeds
 from prechips.cad import CadData, CadError, bind_data, load_cad
 from prechips.checks import CheckError, positive_mm
 from prechips.checks import fields as check_fields
@@ -924,11 +924,14 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         index = indexing.setting(
             loaded, setup, f"setup {setup_number} ({setup['title']})"
         )
-        if "holding" in setup or "datum" in setup or index is not None:
+        bonds = milling.accepted_bonds(setup)
+        if "holding" in setup or "datum" in setup or index is not None or bonds:
             lines.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+            for bond in bonds:
+                lines.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
             if index is not None:
                 lines.append(
                     f"<dt>Index:</dt><dd>{_html(indexing.describe(index))}</dd>"
