@@ -558,6 +558,7 @@ def _setup(
                 )
             behind = end * page.scale
         x0, x1 = page.span(z0, z1)
+        jaw_end = x1
         back = _GAP + behind if seat == "none" else 0.0
         _chuck(groups, page, x0 + 2, x1 - 2, radius, _SHIM, back)
         lines = [f"{chuck} chuck, jaws", "on a shim wrap"]
@@ -661,7 +662,12 @@ def _setup(
             datum_x = page.x_out
         low = 2 * _AXIS - page.up(largest)
         groups["datum"].append(_line(datum_x, page.up(largest) - 10, datum_x, low + 10))
-        _datum_label(groups, datum_x - 4, low + 24, "Z0", "end")
+        if hold == "regrip" and jaw_end > datum_x - 4 - 3 * CHAR:
+            # Jaws reaching under the label's place: it goes past the facing
+            # tool, on the tailstock side of the line.
+            _datum_label(groups, datum_x + 22, low + 24, "Z0", "start")
+        else:
+            _datum_label(groups, datum_x - 4, low + 24, "Z0", "end")
     if "turn" in work:
         for name, z0, z1, radius in segments:
             if (
