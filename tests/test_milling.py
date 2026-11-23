@@ -885,10 +885,7 @@ def test_an_accepted_bond_is_judged_on_its_strengths_as_written():
         "beam": accepted,
         "operations": [{"beam": accepted}, {}, {"beam": "other"}],
     }
-    printed = (
-        "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
-        "the cuts may load it to 0.69 MPa in shear and 0.4 MPa in tension"
-    )
+    printed = "strength accepted by the shop owner, 2026-01-05, not from a data sheet"
     assert accepted_bonds(setup, "setup 1") == [printed]
     assert accepted_bonds({"beam": BONDED, "operations": []}, "setup 1") == []
     # The sheet line is validated like the check: text for a number refuses.

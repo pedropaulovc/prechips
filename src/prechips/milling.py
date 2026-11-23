@@ -351,11 +351,12 @@ def accepted_bonds(setup: dict, where: str) -> list[str]:
         declared = beam.get("bond") if isinstance(beam, dict) else None
         if not isinstance(declared, dict) or "accepted_by" not in declared:
             continue
-        bond = _bond(declared, f"{where}: beam.bond")
+        _bond(declared, f"{where}: beam.bond")
+        # For the operator: whose word the hold rests on. The figures stay in
+        # the plan; a stress is nothing to act on at the machine.
         line = (
-            f"strength accepted by {declared['accepted_by'].strip()}, not from a "
-            f"data sheet: the cuts may load it to {bond['shear']:g} MPa in shear "
-            f"and {bond['tensile']:g} MPa in tension"
+            f"strength accepted by {declared['accepted_by'].strip()}, "
+            "not from a data sheet"
         )
         if line not in lines:
             lines.append(line)
