@@ -1,0 +1,160 @@
+# Demo manifest in the CAD export format: a headed pin turned from 1/4 in bar, its head domed, a press land turned to its measured mate, a journal with a running fit on three mates, a ring groove stationed from the head seat and a domed tip; demo identity, no source citations.
+"part" = "demo-headed-pin"
+"units" = "mm"
+"precision" = "unknown"
+"step" = "demo-headed-pin.STEP"
+"step_sha256" = "unknown"
+"construction" = "one_piece"
+"cite_root" = "demo"
+
+["drawing"]
+"number" = "DEMO-HEADED-PIN"
+"revision" = "v51"
+
+["material"]
+"spec" = "AISI 1018 cold-drawn round, 1/4 in"
+"name" = "Plain Carbon Steel"
+"finish" = "oiled"
+"thickness" = "unknown"
+
+["notes"]
+"manufacturing" = ["1. LAND: PRESS FIT IN DEMO-ARM, TURNED TO THE MEASURED REAM."]
+"process" = "turned from bar"
+"edge_break" = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+["general_tolerances"]
+"linear_1pl" = 2.54
+"linear_2pl" = 0.254
+"linear_3pl" = 0.127
+"angular_deg" = 1.0
+"drilled_hole_plus" = 0.1016
+"drilled_hole_minus" = 0.0
+"edge_break_r" = 0.254
+"chamfer_max" = 0.254
+
+["frames"]
+"setup" = "unknown"
+
+["frames"."model"]
+"origin" = [0.0, 0.0, 0.0]
+"x" = [1.0, 0.0, 0.0]
+"y" = [0.0, 1.0, 0.0]
+"z" = [0.0, 0.0, 1.0]
+
+["datums"]
+
+["features"]
+
+["features"."datum_end"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["radius", "height_ref"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = -3.056476 }
+"outward" = [0.0, 0.0, -1.0]
+"radius" = [4.318, 4.826]
+"radius_nominal" = 4.572
+"height_ref" = 0.770476
+"precision" = { "radius" = 2, "height_ref" = 2 }
+"faces" = ["F1"]
+
+["features"."far_end"]
+"kind" = "dome"
+"frame" = "model"
+"requirements" = ["radius", "height_ref", "length_ref", "station"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 52.832 }
+"outward" = [0.0, 0.0, 1.0]
+"radius" = [1.524, 2.032]
+"radius_nominal" = 1.778
+"height_ref" = 0.977295
+"length_ref" = 55.888476
+"length_from" = "datum_end"
+"station" = [52.578, 53.086]
+"station_nominal" = 52.832
+"station_from" = "shoulder"
+"precision" = { "radius" = 2, "height_ref" = 2, "length_ref" = 2, "station" = 2 }
+"faces" = ["F2"]
+
+["features"."shoulder"]
+"kind" = "face"
+"frame" = "model"
+"requirements" = ["station"]
+"plane" = { "frame" = "model", "axis" = "z", "value" = 0.0 }
+"outward" = [0.0, 0.0, 1.0]
+"station" = [2.032, 2.54]
+"station_nominal" = 2.286
+"station_from" = "datum_root"
+"precision" = { "station" = 2 }
+"faces" = ["F3"]
+
+["features"."step_head"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [-2.286, 0.0]
+"dia" = [4.826, 5.334]
+"dia_nominal" = 5.08
+"precision" = { "dia" = 2 }
+"faces" = ["F4"]
+
+["features"."step_land"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia_ref", "diametral_interference", "length"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [0.0, 7.366]
+"dia_ref" = 3.21564
+"diametral_interference" = [0.00508, 0.0127]
+"mate" = "DEMO-ARM"
+"mate_dia" = [3.2004, 3.2131]
+"length" = [7.112, 7.62]
+"length_nominal" = 7.366
+"length_from" = "shoulder"
+"precision" = { "dia_ref" = 4, "length" = 2 }
+"faces" = ["F5"]
+
+["features"."outer"]
+"kind" = "diameter"
+"frame" = "model"
+"requirements" = ["dia", "diametral_clearance"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [7.366, 51.854705]
+"dia" = [3.16992, 3.175]
+"dia_nominal" = 3.175
+"diametral_clearance" = [0.0254, 0.04318]
+"mates" = ["DEMO-SLEEVE", "DEMO-BUSH-A", "DEMO-BUSH-B"]
+"precision" = { "dia" = 4 }
+"faces" = ["F6"]
+
+["features"."groove"]
+"kind" = "groove"
+"frame" = "model"
+"requirements" = ["dia", "width", "station"]
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"span" = [48.3362, 48.8442]
+"dia" = [2.413, 2.4638]
+"dia_nominal" = 2.413
+"width" = [0.508, 0.5588]
+"width_nominal" = 0.508
+"station" = [48.8188, 48.8696]
+"station_nominal" = 48.8442
+"station_from" = "shoulder"
+"station_to" = "far_wall"
+"precision" = { "dia" = 3, "width" = 3, "station" = 3 }
+"faces" = ["F7"]
+
+["features"."fillet_seat"]
+"kind" = "fillet"
+"frame" = "model"
+"requirements" = ["radius_max"]
+"radius_max" = 0.127
+"radius_nominal" = 0.127
+"axis" = [0.0, 0.0, 1.0]
+"at" = [0.0, 0.0, 0.0]
+"between" = ["shoulder", "step_land"]
+"precision" = { "radius_max" = 3 }
+"faces" = ["F8"]
