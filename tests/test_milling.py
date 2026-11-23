@@ -774,6 +774,46 @@ def test_a_downcut_or_straight_flute_tool_lifts_no_bonded_piece():
         _strap(BONDED, through, {"axial_direction": "none", "helix_deg": 30})
 
 
+def test_a_feed_below_the_table_is_checked_at_its_first_row_under_the_makers_load():
+    through = SLOT | {"traverse_mm": [6.35, 298.45], "axial_doc_mm": 0.17}
+    # .00065 in/tooth: below Table 4's first row, .001 in.
+    light = through | {"feed_per_tooth_mm": 0.01651}
+    with pytest.raises(CheckError, match="below the feed-factor table's first row"):
+        _strap(BONDED, light)
+    maker = {
+        "maker_chip_load_mm_per_tooth": {"steel_1018": 0.01651},
+        "maker_chip_load_source": "the cutter maker's speeds and feeds sheet",
+    }
+    _strap(BONDED, light, maker)
+    # Checked at the first row's force: on a small piece in shear it refuses
+    # with the force the .001 in slot gives.
+    small = copy.deepcopy(BONDED)
+    small["bond"]["pieces"][1]["area_mm2"] = 200.0
+    small["bond"]["pieces"][0]["width_mm"] = 38.1
+    force = r"cross-spindle force ([0-9.]+) N"
+    with pytest.raises(CheckError) as row:
+        _strap(small, through | {"axial_doc_mm": 0.5})
+    with pytest.raises(CheckError) as caught:
+        _strap(small, light | {"axial_doc_mm": 0.5}, maker)
+    text = str(caught.value)
+    assert re.search(force, text)[1] == re.search(force, str(row.value))[1]
+    assert "(bounded at the 0.001 in/tooth table row)" in text
+    # Never above the maker's figure, inside the table too.
+    with pytest.raises(
+        CheckError, match="exceeds the maker's chip load for steel_1018"
+    ):
+        _strap(BONDED, through, maker)
+    # Another material's figure does not cover this cut.
+    brass = {**maker, "maker_chip_load_mm_per_tooth": {"brass": 0.01651}}
+    with pytest.raises(CheckError, match="below the feed-factor table's first row"):
+        _strap(BONDED, light, brass)
+    with pytest.raises(CheckError, match="each require the other"):
+        _strap(BONDED, light, {**maker, "maker_chip_load_source": None})
+    unknown = {**maker, "maker_chip_load_mm_per_tooth": {"unobtainium": 0.01}}
+    with pytest.raises(CheckError, match="must name a configured material"):
+        _strap(BONDED, light, unknown)
+
+
 def test_a_downcut_bends_a_clamped_plate_part_only_across_the_spindle():
     between = SLOT | {"traverse_mm": [38.1, 266.7], "max_deflection_mm": 1e-6}
     # Upcut, the slot's 26.2 N lift bends the strap between clamps (along z).

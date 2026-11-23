@@ -627,19 +627,34 @@ def _forces(
     if woc > diameter + 1e-6:
         raise CheckError(f"{where}.radial_woc_mm: exceeds cutter_dia_mm")
     milling = config["milling"]
+    factors = config["force"]["feed_factors"]
+    maker = _maker_chip_load(tool, name)
+    if maker is not None and feed > maker * (1 + 1e-9):
+        raise CheckError(
+            f"{where}: {feed:g} mm/tooth exceeds the maker's chip load for {name}, "
+            f"{maker:g} mm/tooth, stated on tool {tool['id']!r}"
+        )
+    # Table 4 stops at its first row (.001 in). The mean force per tooth,
+    # C × feed, rises from row to row, so a lighter feed loads the cutter at
+    # most as much as that row: a small cutter run at its maker's published
+    # chip load below the table is checked there, no factor invented. Without
+    # the maker's figure on the tool the table still refuses it.
+    below = feed / INCH_MM < factors[0][0]
+    if below and maker is None:
+        raise CheckError(
+            f"{where}: {feed / INCH_MM:g} in/tooth is below the feed-factor "
+            f"table's first row, {factors[0][0]:g} in/tooth; the tool must state "
+            f"the maker's chip load for {name} (maker_chip_load_mm_per_tooth "
+            "with maker_chip_load_source) to be checked at that row"
+        )
+    force_feed = factors[0][0] * INCH_MM if below else feed
     tangential = milling_force_n(
         material["unit_power_hp_min_per_in3"],
-        table_factor(
-            feed / INCH_MM,
-            config["force"]["feed_factors"],
-            "feed",
-            "in/tooth",
-            "feed-factor",
-        ),
+        table_factor(force_feed / INCH_MM, factors, "feed", "in/tooth", "feed-factor"),
         milling["face_wear" if kind == "face" else "wear"],
         woc,
         doc,
-        feed,
+        force_feed,
         flutes,
         diameter,
     )
@@ -654,6 +669,10 @@ def _forces(
         f"cross-spindle force {across:.3g} N (tangential {tangential:.3g} N × "
         f"√(1 + radial_ratio {milling['radial_ratio']:g}²))"
     )
+    if below:
+        row = f" (bounded at the {factors[0][0]:g} in/tooth table row)"
+        along_text += row
+        across_text += row
     # Side and slot cuts lift the part on the helix; end and face cuts push
     # it down, and so does a downcut (left-hand spiral, right-hand cut) tool's
     # helix.
@@ -1061,9 +1080,16 @@ def _check_cut(
     )
 
 
-def _tools(plan: LoadedPlan) -> dict[str, dict]:
-    """Plan tools by id, with any stated helix, axial ratio or axial force
-    direction validated."""
+def _maker_chip_load(tool: dict | None, material: str) -> float | None:
+    """The tool maker's chip load (mm/tooth) for ``material``, if stated."""
+    if tool is None:
+        return None
+    return tool.get("maker_chip_load_mm_per_tooth", {}).get(material)
+
+
+def _tools(plan: LoadedPlan, config: dict) -> dict[str, dict]:
+    """Plan tools by id, with any stated helix, axial ratio, axial force
+    direction or maker's chip load validated."""
     tools = {}
     for tool in plan.data.get("tools", []):
         where = f"tool {tool.get('id')!r}"
@@ -1084,6 +1110,29 @@ def _tools(plan: LoadedPlan) -> dict[str, dict]:
             and _positive(tool["helix_deg"], f"{where}.helix_deg") >= 90
         ):
             raise CheckError(f"{where}.helix_deg: expected an angle below 90°")
+        loads = tool.get("maker_chip_load_mm_per_tooth")
+        source = tool.get("maker_chip_load_source")
+        if (loads is None) != (source is None):
+            raise CheckError(
+                f"{where}: maker_chip_load_mm_per_tooth and maker_chip_load_source "
+                "each require the other (the maker's figures and where they are "
+                "published)"
+            )
+        if loads is not None:
+            if not isinstance(source, str) or not source.strip():
+                raise CheckError(f"{where}.maker_chip_load_source: expected text")
+            if not isinstance(loads, dict) or not loads:
+                raise CheckError(
+                    f"{where}.maker_chip_load_mm_per_tooth: expected a table of "
+                    "material = mm/tooth"
+                )
+            for material, load in loads.items():
+                if material not in config["materials"]:
+                    raise CheckError(
+                        f"{where}.maker_chip_load_mm_per_tooth.{material}: must "
+                        "name a configured material"
+                    )
+                _positive(load, f"{where}.maker_chip_load_mm_per_tooth.{material}")
         tools[tool.get("id")] = tool
     return tools
 
@@ -1095,7 +1144,7 @@ def check(plan: LoadedPlan, config: dict) -> None:
         raise CheckError(
             f"milling_material: {material!r} must select a configured material"
         )
-    context = {"config": config, "material": material, "tools": _tools(plan)}
+    context = {"config": config, "material": material, "tools": _tools(plan, config)}
     operation_number = 0
     for index, setup in enumerate(plan.data["setups"], 1):
         where = f"setup {index} ({setup.get('title', 'untitled')})"
