@@ -634,11 +634,12 @@ def _forces(
             f"{where}: {feed:g} mm/tooth exceeds the maker's chip load for {name}, "
             f"{maker:g} mm/tooth, stated on tool {tool['id']!r}"
         )
-    # Table 4 stops at its first row (.001 in). The mean force per tooth,
-    # C × feed, rises from row to row, so a lighter feed loads the cutter at
-    # most as much as that row: a small cutter run at its maker's published
-    # chip load below the table is checked there, no factor invented. Without
-    # the maker's figure on the tool the table still refuses it.
+    # Table 4 stops at its first row (.001 in). Its mean force per tooth,
+    # C × feed, rises from row to row; taking it to keep rising with chip
+    # thickness below the table (a stated assumption, not a tabulated value),
+    # a lighter feed loads the cutter at most as much as that row. So a small
+    # cutter run at its maker's published chip load below the table is
+    # checked at the first row. Without the maker's figure it refuses.
     below = feed / INCH_MM < factors[0][0]
     if below and maker is None:
         raise CheckError(
@@ -647,14 +648,20 @@ def _forces(
             f"the maker's chip load for {name} (maker_chip_load_mm_per_tooth "
             "with maker_chip_load_source) to be checked at that row"
         )
-    force_feed = factors[0][0] * INCH_MM if below else feed
+    first = factors[0][0]
     tangential = milling_force_n(
         material["unit_power_hp_min_per_in3"],
-        table_factor(force_feed / INCH_MM, factors, "feed", "in/tooth", "feed-factor"),
+        table_factor(
+            first if below else feed / INCH_MM,
+            factors,
+            "feed",
+            "in/tooth",
+            "feed-factor",
+        ),
         milling["face_wear" if kind == "face" else "wear"],
         woc,
         doc,
-        force_feed,
+        first * INCH_MM if below else feed,
         flutes,
         diameter,
     )
