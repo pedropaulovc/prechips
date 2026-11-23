@@ -650,6 +650,26 @@ def test_pictures_take_a_shim_wrap_and_read_lengths_from_the_far_end():
         render_cad_svg(_svg(hold="inspect", wrap="shim"), cad, BLANK)
 
 
+def test_a_blank_hold_may_name_its_piece_a_trial_offcut():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    offcut = render_cad_svg(
+        _svg(hold="blank", work="face", wrap="shim", piece="offcut"), cad, BLANK
+    )
+    assert b"Trial offcut in the chuck, seen from the operator's side" in offcut
+    assert b"jaws over a shim wrap on the offcut" in offcut
+    assert b"blank" not in offcut.split(b"<text", 1)[-1]
+    blank = render_cad_svg(_svg(hold="blank", work="face", wrap="shim"), cad, BLANK)
+    assert b"Sawn blank in the chuck" in blank
+    # Only a blank hold not yet turned round, and only blank or offcut.
+    for attrs in (
+        {"hold": "inspect", "piece": "offcut"},
+        {"hold": "blank", "done": "face-datum", "piece": "offcut"},
+        {"hold": "blank", "work": "face", "piece": "rod"},
+    ):
+        with pytest.raises(CadError, match="data-piece"):
+            render_cad_svg(_svg(**attrs), cad, BLANK)
+
+
 @pytest.mark.parametrize("form", [0.08, 0.12])
 def test_a_form_tool_at_either_end_of_the_radius_band_is_accepted(form):
     # Its cap is checked against the exact band, not the inward-printed one.
