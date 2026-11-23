@@ -8,8 +8,9 @@ supports (inside the span or on an overhang beyond one), a stated rigid seat
 (no bending), or a plate seat with clamp stations (a downward push bends
 nothing; lift and side load bend the part between the clamps, or between the
 tabs a cut-out part hangs on). A part bonded to the plate over its whole face
-bends nothing; the cut's forces are compared with the bond's derated shear and
-tensile strengths instead. Coefficients, authored force ratios and limits
+bends nothing; the cut's forces are compared with the bond's shear and tensile
+strengths instead: data-sheet strengths derated by the plan, or strengths the
+shop accepts and names who accepted them. Coefficients, authored force ratios and limits
 live in turning.toml beside the turning data. The spindle is vertical (machine
 Z). This is a stiffness screen at the cut, not predicted dimensional error,
 chatter, clamp slip or machine compliance.
@@ -59,8 +60,16 @@ _OPTIONAL = {
     "cantilever": _VISE_LINK,
     "plate": {"clamps_mm", "section_mm", "tabs", "bond", "vise_hold"},
 }
+_BASIS_NOTE = {
+    "derated": "catalogue strength, not a measured hold",
+    "accepted": "the accepted strength, not a data-sheet or measured one",
+}
 _TAB_KEYS = {"stations_mm", "section_mm", "length_mm"}
-_BOND_KEYS = {"shear_mpa", "tensile_mpa", "derating", "pieces"}
+# A bond's strengths have exactly one basis: a data sheet's, derated by the
+# plan, or figures the shop accepts on a named person's word (accepted_by),
+# used as written and printed on the sheet as accepted.
+_BOND_KEYS = {"shear_mpa", "tensile_mpa", "pieces"}
+_BOND_BASIS = {"derating", "accepted_by"}
 _PIECE_KEYS = {
     "part": {"name", "kind", "area_mm2", "width_mm"},
     "waste": {"name", "kind", "area_mm2"},
@@ -271,7 +280,10 @@ def _row(
 
 
 def _bond(value: object, where: str) -> dict:
-    """A bonded part's tape strengths, the plan's derating and its pieces.
+    """A bonded part's strengths, their basis and its pieces.
+
+    The strengths are a data sheet's times the plan's ``derating``, or the
+    figures ``accepted_by`` names someone as accepting, used as written.
 
     Each piece the cut leaves on the plate is declared: a ``part`` with the
     bonded width at the cut, or ``waste``. Nothing is inferred: a piece the
@@ -279,10 +291,24 @@ def _bond(value: object, where: str) -> dict:
     """
     if not isinstance(value, dict):
         raise CheckError(f"{where}: expected a table")
-    _fields(value, _BOND_KEYS, _BOND_KEYS, where)
-    derating = _positive(value["derating"], f"{where}.derating")
-    if derating > 1:
-        raise CheckError(f"{where}.derating: expected a fraction up to 1")
+    _fields(value, _BOND_KEYS, _BOND_KEYS | _BOND_BASIS, where)
+    if len(_BOND_BASIS & value.keys()) != 1:
+        raise CheckError(
+            f"{where}: declare derating (data-sheet strengths) or accepted_by "
+            "(strengths the shop accepts), exactly one"
+        )
+    if "accepted_by" in value:
+        accepted_by = value["accepted_by"]
+        if not isinstance(accepted_by, str) or not accepted_by.strip():
+            raise CheckError(
+                f"{where}.accepted_by: expected who accepted the strengths, named"
+            )
+        derating, basis = 1.0, "accepted"
+    else:
+        derating = _positive(value["derating"], f"{where}.derating")
+        if derating > 1:
+            raise CheckError(f"{where}.derating: expected a fraction up to 1")
+        basis = "derated"
     pieces = value["pieces"]
     if not isinstance(pieces, list) or not pieces:
         raise CheckError(f"{where}.pieces: expected one or more bonded pieces")
@@ -306,8 +332,34 @@ def _bond(value: object, where: str) -> dict:
     return {
         "shear": _positive(value["shear_mpa"], f"{where}.shear_mpa") * derating,
         "tensile": _positive(value["tensile_mpa"], f"{where}.tensile_mpa") * derating,
+        "basis": basis,
         "pieces": parsed,
     }
+
+
+def accepted_bonds(setup: dict, where: str) -> list[str]:
+    """Each accepted bond a setup's beams declare, as a line for the sheet.
+
+    A bond whose strengths are accepted rather than read from a data sheet
+    says so where the operator reads the hold, once per distinct acceptance.
+    The sheet prints these only while the check that judges the cuts against
+    them is enforced; each is validated here as the check validates it.
+    """
+    lines = []
+    for holder in (setup, *setup.get("operations", [])):
+        beam = holder.get("beam") if isinstance(holder, dict) else None
+        declared = beam.get("bond") if isinstance(beam, dict) else None
+        if not isinstance(declared, dict) or "accepted_by" not in declared:
+            continue
+        bond = _bond(declared, f"{where}: beam.bond")
+        line = (
+            f"strength accepted by {declared['accepted_by'].strip()}, not from a "
+            f"data sheet: the cuts may load it to {bond['shear']:g} MPa in shear "
+            f"and {bond['tensile']:g} MPa in tension"
+        )
+        if line not in lines:
+            lines.append(line)
+    return lines
 
 
 def _plate(value: dict, beam: dict, where: str) -> None:
@@ -981,8 +1033,8 @@ def _bonded_cut(
         if across > capacity:
             raise CheckError(
                 f"{where}: {across_text} exceeds the bond under {piece['name']!r}, "
-                f"{capacity:.3g} N in shear ({piece['area']:.6g} mm² at the derated "
-                f"{bond['shear']:.3g} MPa); catalogue strength, not a measured hold"
+                f"{capacity:.3g} N in shear ({piece['area']:.6g} mm² at the "
+                f"{bond['basis']} {bond['shear']:.3g} MPa); {_BASIS_NOTE[bond['basis']]}"
             )
         if not forces["lifts"]:
             continue
@@ -991,8 +1043,8 @@ def _bonded_cut(
             raise CheckError(
                 f"{where}: {lift_text} lifts {piece['name']!r} at its edge with "
                 f"{stress:.3g} MPa (4 × force over {piece['lift_area']:.6g} mm²), "
-                f"over the bond's derated {bond['tensile']:.3g} MPa in tension; "
-                "catalogue strength, not a measured hold"
+                f"over the bond's {bond['basis']} {bond['tensile']:.3g} MPa in "
+                f"tension; {_BASIS_NOTE[bond['basis']]}"
             )
 
 

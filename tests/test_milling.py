@@ -866,6 +866,48 @@ def test_a_plate_hold_is_clamped_or_bonded_not_both(change, message):
         _strap(loose, cut)
 
 
+def test_an_accepted_bond_is_judged_on_its_strengths_as_written():
+    from prechips.milling import accepted_bonds
+
+    through = SLOT | {"traverse_mm": [6.35, 298.45]}
+    accepted = copy.deepcopy(BONDED)
+    del accepted["bond"]["derating"]
+    accepted["bond"] |= {"accepted_by": "the shop owner, 2026-01-05"}
+    # 0.69 MPa as written: the .5 mm level (0.41 MPa) the derated bond refuses.
+    _strap(accepted, through)
+    accepted["bond"]["tensile_mpa"] = 0.4
+    with pytest.raises(CheckError) as caught:
+        _strap(accepted, through)
+    text = str(caught.value)
+    assert "over the bond's accepted 0.4 MPa in tension" in text
+    assert "the accepted strength, not a data-sheet or measured one" in text
+    setup = {
+        "beam": accepted,
+        "operations": [{"beam": accepted}, {}, {"beam": "other"}],
+    }
+    printed = (
+        "strength accepted by the shop owner, 2026-01-05, not from a data sheet: "
+        "the cuts may load it to 0.69 MPa in shear and 0.4 MPa in tension"
+    )
+    assert accepted_bonds(setup, "setup 1") == [printed]
+    assert accepted_bonds({"beam": BONDED, "operations": []}, "setup 1") == []
+    # The sheet line is validated like the check: text for a number refuses.
+    unread = copy.deepcopy(setup)
+    unread["beam"]["bond"]["shear_mpa"] = "0.69"
+    with pytest.raises(CheckError, match="setup 1: beam.bond.shear_mpa"):
+        accepted_bonds(unread, "setup 1")
+    both = copy.deepcopy(accepted)
+    both["bond"]["derating"] = 0.25
+    neither = copy.deepcopy(BONDED)
+    del neither["bond"]["derating"]
+    for bad in (both, neither):
+        with pytest.raises(CheckError, match="derating .* or accepted_by"):
+            _strap(bad, through)
+    accepted["bond"]["accepted_by"] = " "
+    with pytest.raises(CheckError, match="accepted_by: expected who"):
+        _strap(accepted, through)
+
+
 def test_a_plate_in_a_vise_is_gripped_by_its_plate_not_the_part():
     cut = SLOT | {"stations_mm": 152.4}
     # Clamped to the table: no vise hold to link.
