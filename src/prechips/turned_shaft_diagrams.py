@@ -56,7 +56,11 @@ not yet made is drawn at the size it arrives at. A form-cut dome
 height at the root (its range when formed per part on
 ``process.dome_form_dia_min_in``–``_max_in``; ``SR`` alone for a full
 hemisphere) and the form tool is
-drawn where ``dome`` is worked. Lathe pictures are to scale; the vise and inspection pictures are to
+drawn where ``dome`` is worked; with ``data-dome-tool="ball-turner"`` a lathe
+hold draws a radius (ball) turner there instead, seen from above: its pivot
+on the axis one form radius behind the apex, the bit to its tip and the tip's
+sweep from the apex to ``_form_sweep_deg``, labelled with the radius, the
+height (or a tangent hemisphere) and the sweep. Lathe pictures are to scale; the vise and inspection pictures are to
 scale along the axis and draw diameters larger when the part is slender (the
 title says so). Material arriving is dashed, material removed in the setup
 hatched, the part solid; cross holes made at assembly are dashed on the
@@ -328,6 +332,21 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-shaft: a blank hold needs process.end_stickout_in")
     if "steps" in work and not ("dome" in work and "dome_steps" in parameters):
         raise CadError("turned-shaft: steps label a dome with process.dome_steps")
+    tool = root.attrib.pop("data-dome-tool", "form")
+    if tool not in ("form", "ball-turner") or (
+        tool == "ball-turner"
+        and (
+            "dome" not in work
+            or "steps" in work
+            or f"dome_{out}_form_radius_mm" not in values
+            or hold not in ("bar", "blank", "regrip")
+        )
+    ):
+        raise CadError(
+            "turned-shaft: data-dome-tool is form or ball-turner, the latter"
+            " on a lathe hold that sweeps a dome with a process form radius"
+            " (never with a step table)"
+        )
     groups = _groups(root)
     if hold == "saw":
         return _saw(groups, values, parameters)
@@ -366,7 +385,64 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
     made = done | (work & {"turn", "groove", "thread"})
     if "dome" in work:
         made.add(f"dome-{out}")
-    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap)
+    return _lathe(groups, values, parameters, hold, out, work, made, grip, wrap, tool)
+
+
+def _ball_turner(
+    groups: Groups,
+    values: dict,
+    view: _View,
+    prefix: str,
+    below: list[tuple[float, float, list[str]]],
+) -> None:
+    """A radius (ball) turner seen from above: its pivot on the axis one
+    radius behind the apex (Z0), the bit from the pivot to its tip where it
+    leaves the corner, and the tip's sweep from the apex to there, toward
+    the operator (the lower half)."""
+    radius = values[f"{prefix}_form_radius_mm"]
+    sweep = math.radians(values[f"{prefix}_form_sweep_deg"])
+    pivot = (view.x(-radius), _AXIS)
+    arc = [
+        (
+            view.x(-radius + radius * math.cos(sweep * i / _ARC)),
+            view.down(radius * math.sin(sweep * i / _ARC)),
+        )
+        for i in range(_ARC + 1)
+    ]
+    groups["hidden"].append(_el("path", d="M" + "L".join(_pt(*p) for p in arc)))
+    tip = arc[-1]
+    # The bit: a narrow bar from the pivot to the tip. A large radius puts
+    # the pivot left of the window (inside the jaws): the bar then starts at
+    # the window's edge and the pivot is not drawn.
+    start = pivot
+    if pivot[0] < view.x0:
+        t = (view.x0 - pivot[0]) / (tip[0] - pivot[0])
+        start = (view.x0, pivot[1] + t * (tip[1] - pivot[1]))
+    dx, dy = tip[0] - start[0], tip[1] - start[1]
+    norm = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / norm * 2.0, dx / norm * 2.0
+    bit = [
+        (start[0] + nx, start[1] + ny),
+        (tip[0] + nx, tip[1] + ny),
+        (tip[0] - nx, tip[1] - ny),
+        (start[0] - nx, start[1] - ny),
+    ]
+    groups["cutter"].append(_el("path", d="M" + "L".join(_pt(*p) for p in bit) + "Z"))
+    if start == pivot:
+        groups["cutter"].append(_el("circle", cx=f"{pivot[0]:.2f}", cy=_AXIS, r=3.5))
+    height = _form_height(values, prefix) or ["a hemisphere tangent to the O.D.,"]
+    below.append(
+        (
+            tip[0],
+            tip[1],
+            [
+                "ball turner, from above:",
+                f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} about a pivot on the axis,",
+                *height,
+                f"swept 0–{{{{cad.{prefix}_form_sweep_deg:.0f}}}}° from the apex",
+            ],
+        )
+    )
 
 
 def _lathe(
@@ -379,6 +455,7 @@ def _lathe(
     made: set,
     grip: str,
     wrap: str,
+    tool: str,
 ) -> Layout:
     length = _cad(values, "length_mm")
     names = _diameters(values)
@@ -575,7 +652,9 @@ def _lathe(
             _el("path", d=f"M{x:.2f} {bottom + 6:.2f}l18 5v28h-18z")
         )
     prefix = f"dome_{out}"
-    if "dome" in work and f"{prefix}_form_radius_mm" in values:
+    if "dome" in work and tool == "ball-turner":
+        _ball_turner(groups, values, view, prefix, below)
+    elif "dome" in work and f"{prefix}_form_radius_mm" in values:
         # The form tool, its concave face standing off the dome it cuts.
         apex = 0.0 if out == "datum" else length
         cap = _cap(values, prefix, apex, 1 if out == "datum" else -1, form=True)
@@ -823,14 +902,13 @@ def _left_length(values: dict, parameters: dict, made: set) -> str:
     return "{{process.blank_length_in:.3dot}}"
 
 
-def _dome_text(values: dict, prefix: str) -> list[str]:
-    """A dome's radius and its height at the root: the form tool's when
-    form-cut (the range over the part's diameter when the plan forms it per
-    part), ``SR`` alone for a full hemisphere."""
+def _form_height(values: dict, prefix: str) -> list[str] | None:
+    """A formed dome's height lines at the root (the range over the part's
+    diameter when the plan forms it per part); None for a full hemisphere or
+    a dome with no form radius."""
     if f"{prefix}_form_height_min_in" in values:
         # Formed per part: no one height (nor a hemisphere on every part).
         return [
-            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
             (
                 f"{{{{cad.{prefix}_form_height_min_in:.4dot}}}}–"
                 f"{{{{cad.{prefix}_form_height_max_in:.4dot}}}} high"
@@ -838,19 +916,23 @@ def _dome_text(values: dict, prefix: str) -> list[str]:
             "at the root,",
             "by the turned Ø",
         ]
+    if f"{prefix}_form_radius_in" not in values or (
+        abs(values[f"{prefix}_form_radius_mm"] - values[f"{prefix}_root_dia_mm"] / 2)
+        < 1e-3
+    ):
+        return None
+    return [f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high", "at the root"]
+
+
+def _dome_text(values: dict, prefix: str) -> list[str]:
+    """A dome's radius and its height at the root: the form tool's when
+    form-cut (the range over the part's diameter when the plan forms it per
+    part), ``SR`` alone for a full hemisphere."""
+    lines = _form_height(values, prefix)
+    if lines is not None:
+        return [f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,", *lines]
     if f"{prefix}_form_radius_in" in values:
-        if (
-            abs(
-                values[f"{prefix}_form_radius_mm"] - values[f"{prefix}_root_dia_mm"] / 2
-            )
-            < 1e-3
-        ):
-            return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
-        return [
-            f"R{{{{cad.{prefix}_form_radius_in:.3dot}}}} form,",
-            f"{{{{cad.{prefix}_form_height_in:.4dot}}}} high",
-            "at the root",
-        ]
+        return [f"SR{{{{cad.{prefix}_form_radius_in:.3dot}}}} form"]
     if f"{prefix}_radius_min_in" in values:
         radius = f"R{_band(f'{prefix}_radius')},"
     else:

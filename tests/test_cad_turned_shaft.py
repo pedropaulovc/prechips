@@ -829,3 +829,131 @@ def test_a_bar_kept_beyond_z0_as_a_centre_stub_draws_it_and_the_dead_centre():
                 load_turned_shaft(HEADED, stubbed, "demo-headed-pin"),
                 stubbed,
             )
+
+
+def _chamfer_crosses_sphere(leg: float, radius: float, root: float) -> bool:
+    """Whether a 45° chamfer, ``leg`` along the end face and the O.D. of a
+    diameter of radius ``root``, reaches inside the sphere of ``radius`` whose
+    apex is on the end face (z into the part from the apex plane)."""
+    for i in range(2001):
+        rho = root - leg + leg * i / 2000
+        line_z = rho - (root - leg)
+        sphere_z = radius - math.sqrt(max(radius**2 - rho**2, 0.0))
+        if line_z > sphere_z + 1e-9:
+            return True
+    return False
+
+
+# The headed pin's domed diameters (mm): the Ø.190-.210 head under the R.180
+# datum dome, the Ø.1248-.1250 shank under the R.070 far dome.
+HEADED_DOMES = (
+    ("dome_datum", 0.18, (4.826, 5.334)),
+    ("dome_far", 0.07, (3.16992, 3.175)),
+)
+
+
+@pytest.mark.parametrize(("prefix", "form", "band"), HEADED_DOMES)
+def test_the_roughing_chamfer_limit_clears_the_sphere_on_every_diameter(
+    prefix, form, band
+):
+    values = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin").values
+    radius = form * 25.4
+    leg = values[f"{prefix}_form_chamfer_max_mm"]
+    # Clear of the sphere across the diameter's whole band ...
+    for k in range(11):
+        root = (band[0] + (band[1] - band[0]) * k / 10) / 2
+        assert not _chamfer_crosses_sphere(leg, radius, min(root, radius))
+    # ... and the limit is tight: a longer leg crosses it on the least.
+    assert _chamfer_crosses_sphere(leg * 1.02, radius, band[0] / 2)
+
+
+@pytest.mark.parametrize(("prefix", "form", "band"), HEADED_DOMES)
+def test_the_sweep_reaches_the_corner_of_the_largest_diameter(prefix, form, band):
+    values = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin").values
+    radius = form * 25.4
+    tip = radius * math.sin(math.radians(values[f"{prefix}_form_sweep_deg"]))
+    # The tip at the sweep's end stands at the largest corner (or the full
+    # radius on a hemisphere): no ring is left unswept on any part.
+    assert tip == pytest.approx(min(band[1] / 2, radius))
+
+
+def test_a_roughing_chamfer_stays_outside_every_formed_dome():
+    values = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin").values
+    datum = values["dome_datum_form_chamfer_max_in"]
+    assert datum < values["dome_far_form_chamfer_max_in"]
+    load_turned_shaft(
+        HEADED, HEADED_BAR | {"dome_chamfer_in": datum - 0.001}, "demo-headed-pin"
+    )
+    # Over the smaller (datum) limit, though inside the far dome's.
+    with pytest.raises(CadError, match="cuts into the dome_datum sphere"):
+        load_turned_shaft(
+            HEADED, HEADED_BAR | {"dome_chamfer_in": datum + 0.001}, "demo-headed-pin"
+        )
+    with pytest.raises(CadError, match="binds only on a dome this traveler forms"):
+        load_turned_shaft(SHAFT, BLANK | {"dome_chamfer_in": 0.01}, "demo-turned-shaft")
+
+
+def test_a_dome_picture_may_draw_the_ball_turner_in_place_of_the_form_tool():
+    cad = load_turned_shaft(HEADED, HEADED_BAR, "demo-headed-pin")
+    swept = render_cad_svg(
+        _svg(
+            hold="regrip", out="far", work="face dome", **{"dome-tool": "ball-turner"}
+        ),
+        cad,
+        HEADED_BAR,
+    )
+    assert b"ball turner, from above:" in swept
+    assert b"R.070 about a pivot on the axis," in swept
+    assert "swept 0–63° from the apex".encode() in swept
+    # The form tool's label is not drawn.
+    assert b"R.070 form" not in swept
+    formed = render_cad_svg(
+        _svg(hold="regrip", out="far", work="face dome"), cad, HEADED_BAR
+    )
+    assert b"ball turner" not in formed
+    # Only a dome this setup sweeps, with a form radius, on a lathe hold, and
+    # never with a step table.
+    for attrs in (
+        {"hold": "regrip", "out": "far", "work": "face"},
+        {"hold": "inspect", "work": "dome"},
+        {"hold": "regrip", "out": "far", "work": "dome", "dome-tool": "fly"},
+    ):
+        attrs.setdefault("dome-tool", "ball-turner")
+        with pytest.raises(CadError, match="data-dome-tool"):
+            render_cad_svg(_svg(**attrs), cad, HEADED_BAR)
+    stepped = HEADED_BAR | {"dome_steps": 3}
+    with pytest.raises(CadError, match="data-dome-tool"):
+        render_cad_svg(
+            _svg(
+                hold="regrip",
+                out="far",
+                work="face dome steps",
+                **{"dome-tool": "ball-turner"},
+            ),
+            load_turned_shaft(HEADED, stepped, "demo-headed-pin"),
+            stepped,
+        )
+    # A radius whose pivot falls inside the jaws: the bit starts at the
+    # window's edge and no pivot is drawn off the page.
+    large = HEADED_BAR | {"dome_far_form_radius_in": 1.5}
+    wide = render_cad_svg(
+        _svg(
+            hold="regrip", out="far", work="face dome", **{"dome-tool": "ball-turner"}
+        ),
+        load_turned_shaft(HEADED, large, "demo-headed-pin"),
+        large,
+    )
+    assert not re.search(rb'<circle[^>]*cx="-', wide)
+    assert b"R1.500 about a pivot on the axis," in wide
+    plain = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    with pytest.raises(CadError, match="data-dome-tool"):
+        render_cad_svg(
+            _svg(
+                hold="blank",
+                out="far",
+                work="face dome",
+                **{"dome-tool": "ball-turner"},
+            ),
+            plain,
+            BLANK,
+        )

@@ -32,7 +32,12 @@ stationed from a domed end's root, and a diameter may print a ``length``
 from one of those origins (``length_from``) that it runs from. A domed end
 may be cut by its own form tool (``dome_datum_form_radius_in`` /
 ``dome_far_form_radius_in`` and their ``_form_dia_min_in``/``_max_in``) in
-place of the shared ``dome_form_*``. The plan binds either the bar-fed
+place of the shared ``dome_form_*``; the radius is equally the one a radius
+(ball) turner is set to, which sweeps the same sphere about a pivot on the
+axis (``_form_sweep_deg``, the angle off the axis where its tip leaves the
+corner), and ``_form_chamfer_max`` is the longest 45° chamfer leg on the
+square corner that stays outside that sphere (``dome_chamfer_in``, a
+roughing chamfer, is held under it). The plan binds either the bar-fed
 cycle (turned_bush's round bar) or a sawn blank of round stock.
 """
 
@@ -366,6 +371,48 @@ def _form(
         for end, cap in zip(("min", "max"), caps, strict=True):
             values[f"{prefix}_form_height_{end}_mm"] = cap
             values[f"{prefix}_form_height_{end}_in"] = cap / 25.4
+    # The diameters this end may arrive at: the plan's per-part band when it
+    # forms each part on its own diameter, else the diameter's printed range.
+    least, most = sizes if per_part else roots
+    most = min(most, radius)
+    # A radius (ball) turner cuts the same sphere, its tip swung about a pivot
+    # on the axis one radius behind the apex: from the apex until the tip
+    # leaves the end's corner, asin(r / R) off the axis (90° on a tangent
+    # hemisphere), taken on the largest diameter so no ring is left unswept.
+    values[f"{prefix}_form_sweep_deg"] = math.degrees(math.asin(most / radius))
+    # The longest leg of a 45° chamfer on the end's square corner (a leg along
+    # each face) that stays outside the sphere, so roughing it off ahead of
+    # the form never cuts the dome: the chamfer's line first meets the sphere
+    # where the sphere slopes 45°, R/√2 off the axis, while that lies on the
+    # cap (leg r + R − √2·R), else at the root (leg = the cap's height). Both
+    # grow with r, so it is taken on the least diameter.
+    least = min(least, radius)
+    leg = (
+        least + radius - math.sqrt(2) * radius
+        if radius / math.sqrt(2) <= least
+        else _cap(radius, least)
+    )
+    values[f"{prefix}_form_chamfer_max_mm"] = leg
+    values[f"{prefix}_form_chamfer_max_in"] = leg / 25.4
+
+
+def _dome_chamfer(values: dict, parameters: dict) -> None:
+    """``dome_chamfer_in``: the leg of the 45° chamfer a plan roughs each
+    formed dome's corner off with; it must stay outside every formed dome's
+    sphere (``_form_chamfer_max``)."""
+    leg = _positive(parameters["dome_chamfer_in"], "process.dome_chamfer_in")
+    formed = [p for p in _DOMES.values() if f"{p}_form_chamfer_max_in" in values]
+    if not formed:
+        raise CadError(
+            "process.dome_chamfer_in: binds only on a dome this traveler forms"
+        )
+    for prefix in formed:
+        most = values[f"{prefix}_form_chamfer_max_in"]
+        if leg > most + _TOLERANCE:
+            raise CadError(
+                f"process.dome_chamfer_in: a {leg:.4f} leg cuts into the "
+                f"{prefix} sphere (at most {most:.4f})"
+            )
 
 
 def _steps(values: dict, parameters: dict) -> None:
@@ -1067,6 +1114,8 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     _tiles(values, turned, start, end)
     _body(features["far_end"], values)
     _faced(values)
+    if "dome_chamfer_in" in parameters:
+        _dome_chamfer(values, parameters)
     threaded = [name for name in turned if "thread" in features[name]]
     if len(threaded) > 1:
         raise CadError("cad.features: at most one threaded diameter")
