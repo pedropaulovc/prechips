@@ -558,7 +558,7 @@ def _lathe(
     )
     other = "far" if out == "datum" else "datum"
     to_length = hold == "regrip" or f"face-{other}" in made
-    _labels(values, view, work, z_of, out, above, below, to_length, stub=stub > 0)
+    _labels(values, view, work, z_of, out, above, below, to_length, stub=stub)
     if work & {"face", "turn", "dome", "groove", "chamfer"}:
         # The turning tool, beside the out end, clear of the labels.
         x = view.x(face) + 4
@@ -720,7 +720,7 @@ def _labels(
     above: list,
     below: list,
     to_length: bool,
-    stub: bool = False,
+    stub: float = 0.0,
 ) -> None:
     length = values["length_mm"]
     if "face" in work:
@@ -736,7 +736,7 @@ def _labels(
             )
             text = ["face to length", band]
         below.append(
-            (view.x(0) + 1, view.down(values.get("stock_dia_mm", 0) / 2 or 1), text)
+            (view.x(stub) + 1, view.down(values.get("stock_dia_mm", 0) / 2 or 1), text)
         )
     if "turn" in work:
         for name in _diameters(values):
