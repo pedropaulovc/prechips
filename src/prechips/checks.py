@@ -66,7 +66,15 @@ CHECKS: dict[str, Check] = {
     ),
     "milling_deflection": Check(
         module="prechips.milling",
-        tool_fields=frozenset({"helix_deg", "axial_ratio", "axial_direction"}),
+        tool_fields=frozenset(
+            {
+                "helix_deg",
+                "axial_ratio",
+                "axial_direction",
+                "maker_chip_load_mm_per_tooth",
+                "maker_chip_load_source",
+            }
+        ),
         setup_fields=frozenset({"beam"}),
         operation_fields=frozenset({"beam", "milling_cuts"}),
         config="turning",
