@@ -529,7 +529,9 @@ def _lathe(
             )
         )
     if stub:
-        groups["part-kept"].append(
+        # Cut off with the part when this setup parts it.
+        fill = "part-removed" if "part" in work else "part-kept"
+        groups[fill].append(
             _rect(view.x(0), view.up(stock), stub * scale, 2 * stock * scale)
         )
         # The dead centre's 60° point in the stub's centre hole, its quill
