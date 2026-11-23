@@ -30,6 +30,7 @@ bar_length_in = 12.0
 chuck_grip_in = 0.75
 # A .20 in centre stub beyond the tip plane, and .02 faced off the bar end.
 face_allowance_in = 0.22
+centre_stub_in = 0.2
 part_kerf_in = 0.0625
 parts_per_pull = 1
 jaw_clearance_in = 0.1

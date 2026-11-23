@@ -1102,7 +1102,12 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     least_bar = max(sizes.values())
     axes: list[StockAxis] = []
     if "blank_length_in" in parameters:
-        bar_only = {"face_allowance_in", "part_kerf_in", "regrip_allowance_in"}
+        bar_only = {
+            "face_allowance_in",
+            "part_kerf_in",
+            "regrip_allowance_in",
+            "centre_stub_in",
+        }
         if (bar_only | set(_BAR_LENGTH) | set(_PULL)) & set(parameters):
             raise CadError("process: round bar and a sawn blank are exclusive")
         _all_or_none(parameters, _BLANK, "the sawn blank")

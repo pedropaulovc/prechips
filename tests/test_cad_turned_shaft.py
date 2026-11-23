@@ -813,9 +813,14 @@ def test_a_bar_kept_beyond_z0_as_a_centre_stub_draws_it_and_the_dead_centre():
     assert "dead centre" in svg
     assert "face the bar end" in svg
     assert "to Z0" not in svg
+    # A later picture on the same bar shows the stub already faced.
+    later = render_cad_svg(
+        _svg(hold="bar", out="far", work="part"), cad, params
+    ).decode()
+    assert "dead centre" in later
     for work, stub, message in [
-        ("turn part", 0.2, "needs face"),
         ("face turn part", 0.22, "inside process.face_allowance_in"),
+        ("face turn dome part", 0.2, "no dome or thread"),
     ]:
         stubbed = HEADED_BAR | {"centre_stub_in": stub}
         with pytest.raises(CadError, match=message):
