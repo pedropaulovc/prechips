@@ -371,27 +371,29 @@ def _form(
         for end, cap in zip(("min", "max"), caps, strict=True):
             values[f"{prefix}_form_height_{end}_mm"] = cap
             values[f"{prefix}_form_height_{end}_in"] = cap / 25.4
+    # The diameters this end may arrive at: the plan's per-part band when it
+    # forms each part on its own diameter, else the diameter's printed range.
+    least, most = sizes if per_part else roots
+    most = min(most, radius)
     # A radius (ball) turner cuts the same sphere, its tip swung about a pivot
     # on the axis one radius behind the apex: from the apex until the tip
-    # leaves the end's corner, asin(root / R) off the axis (90° on a tangent
-    # hemisphere); on the largest diameter it domes when formed per part.
-    values[f"{prefix}_form_sweep_deg"] = math.degrees(
-        math.asin(min(max(sizes) / radius, 1.0))
-    )
+    # leaves the end's corner, asin(r / R) off the axis (90° on a tangent
+    # hemisphere), taken on the largest diameter so no ring is left unswept.
+    values[f"{prefix}_form_sweep_deg"] = math.degrees(math.asin(most / radius))
     # The longest leg of a 45° chamfer on the end's square corner (a leg along
     # each face) that stays outside the sphere, so roughing it off ahead of
     # the form never cuts the dome: the chamfer's line first meets the sphere
     # where the sphere slopes 45°, R/√2 off the axis, while that lies on the
-    # cap (leg r + R − √2·R), else at the root (leg = the cap's height); the
-    # least over the diameters it domes.
-    legs = [
-        s + radius - math.sqrt(2) * radius
-        if radius / math.sqrt(2) <= s
-        else _cap(radius, s)
-        for s in sizes
-    ]
-    values[f"{prefix}_form_chamfer_max_mm"] = min(legs)
-    values[f"{prefix}_form_chamfer_max_in"] = min(legs) / 25.4
+    # cap (leg r + R − √2·R), else at the root (leg = the cap's height). Both
+    # grow with r, so it is taken on the least diameter.
+    least = min(least, radius)
+    leg = (
+        least + radius - math.sqrt(2) * radius
+        if radius / math.sqrt(2) <= least
+        else _cap(radius, least)
+    )
+    values[f"{prefix}_form_chamfer_max_mm"] = leg
+    values[f"{prefix}_form_chamfer_max_in"] = leg / 25.4
 
 
 def _dome_chamfer(values: dict, parameters: dict) -> None:
