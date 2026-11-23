@@ -850,7 +850,7 @@ def test_a_knurled_knob_binds_its_steps_shoulders_recess_tap_and_countersinks():
     assert values["recess_flank_deg"] == pytest.approx(
         90 - math.degrees(math.atan(0.12 / 0.04))
     )
-    assert values["tap_thru"] is True
+    assert values["tap_kind"] == "thru"
     assert values["countersinks_ends"] == ["datum_end", "recess"]
     assert values["countersinks_angle_deg"] == pytest.approx(90.0)
     assert values["countersinks_dia_max_in"] == pytest.approx(0.18)

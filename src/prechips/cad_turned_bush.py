@@ -424,7 +424,7 @@ def _tap_thru(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
     values["tap_thread"] = _string(item.get("thread"), "tap.thread")
     band = _limits(item, "dia", "tap", "tap_drill_dia", values)
     values["tap_drill_dia_mm"] = _nominal(item, "nominal_dia", band, "tap")
-    values["tap_thru"] = True
+    values["tap_kind"] = "thru"
 
 
 def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
@@ -512,7 +512,7 @@ def _recess(item: dict, frame: tuple, values: dict, diameters: list[str]) -> Non
     # drilled (to its point) as deep as the floor of the shortest part.
     holes = [("bore", "bore_dia_band_mm")] if "bore_dia_band_mm" in values else []
     if "tap_drill_dia_band_mm" in values and (
-        values.get("tap_thru")
+        values.get("tap_kind") == "thru"
         or values["tap_drill_depth_band_mm"][1]
         + _DRILL_POINT * values["tap_drill_dia_band_mm"][1]
         >= floor_at
@@ -554,7 +554,11 @@ def _countersink(item: dict, name: str, features: dict, values: dict) -> None:
         )
     if "datum_end" in ends and "pocket" in features:
         raise CadError(f"{name}.at_ends: the datum end's hole opens in its pocket")
-    if hole == "tap" and not values.get("tap_thru") and set(ends) - {"datum_end"}:
+    if (
+        hole == "tap"
+        and not values.get("tap_kind") == "thru"
+        and set(ends) - {"datum_end"}
+    ):
         raise CadError(f"{name}.at_ends: a blind tap reaches only the datum end")
     most = _positive(item.get("dia_max"), f"{name}.dia_max")
     hole_max = values[
@@ -868,6 +872,7 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         _tap_thru(features["tap"], frame, values, parameters)
     elif "tap" in features:
         _tap(features["tap"], frame, values, parameters)
+        values["tap_kind"] = "blind"
     if "recess" in features:
         _recess(features["recess"], frame, values, turned)
     for name in sorted(features):

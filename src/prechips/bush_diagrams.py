@@ -233,9 +233,11 @@ def _holes(groups: Groups, values: dict, page: _Page, shift: float, holes: set) 
         ]
         path = "L".join(f"{x:.2f} {y:.2f}" for x, y in points)
         groups["hidden"].append(_el("path", d=f"M{path}"))
-    if "tap" in holes and values.get("tap_thru"):
+    if "tap" in holes and values.get("tap_kind") == "thru":
         # Through the part; a dished far end ends it at the recess floor.
-        end = values.get("recess_z0_mm", values["length_mm"])
+        end = values["length_mm"]
+        if "recess" in holes and "recess_z0_mm" in values:
+            end = values["recess_z0_mm"]
         runs.append((0.0, end, values["tap_drill_dia_mm"]))
         x0, x1 = page.span(0.0, end, shift)
         radius = values["tap_drill_dia_mm"] / 2
@@ -622,7 +624,7 @@ def _setup(
             "bore"
             if "bore" in holes and "bore_dia_mm" in values
             else "tap"
-            if "tap" in holes and values.get("tap_thru")
+            if "tap" in holes and values.get("tap_kind") == "thru"
             else None
         )
         if kerf and hold in ("bar", "block") and {"drill", "part"} <= work and through:
@@ -747,7 +749,7 @@ def _setup(
             else f"drill the Ø{_bore_band(values)} hole"
             if "bore_dia_mm" in values
             else "drill through"
-            if values.get("tap_thru")
+            if values.get("tap_kind") == "thru"
             else "drill {{cad.tap_drill_depth_min_in:.2dot}}–{{cad.tap_drill_depth_max_in:.2dot}} deep",
             "pocket": "pocket {{cad.pocket_depth_min_in:.3dot}}–{{cad.pocket_depth_max_in:.3dot}} deep",
             "countersink": ", ".join(_csk_text(n) for n in _countersinks(values, out)),
@@ -839,7 +841,7 @@ def _inspect(groups: Groups, values: dict, outer: str, datum_label: str) -> Layo
         where = "both ends" if len(ends) > 1 else _CSK_ENDS[ends[0]]
         head, tail = _csk_text(name).split(" × ")
         countersinks += [head, f"× {tail}, {where}"]
-    if values.get("tap_thru"):
+    if values.get("tap_kind") == "thru":
         lines = ["{{cad.tap_thread}} through,", *countersinks]
         items.append((page.x(values["length_mm"] / 2), _AXIS, lines))
     elif countersinks:
