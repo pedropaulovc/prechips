@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" font-family="sans-serif" font-size="13">
+  <rect class="paper" x="0" y="0" width="760" height="260"/>
+  <text class="title" x="20" y="22">The finished lever: hub length, bore, pin hole from the bore</text>
+  <rect class="part-kept" x="60" y="120" width="640" height="14"/>
+  <rect class="part-kept" x="355" y="96" width="50" height="62"/>
+  <rect class="holes" x="370" y="96" width="20" height="62"/>
+  <rect class="holes" x="656" y="120" width="8" height="14"/>
+  <line class="dims" x1="430" y1="96" x2="430" y2="158"/>
+  <text class="label" x="436" y="88">hub length</text>
+  <line class="dims" x1="380" y1="200" x2="660" y2="200"/>
+  <text class="label" x="460" y="220">pin hole from the bore</text>
+</svg>
