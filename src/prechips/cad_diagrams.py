@@ -43,7 +43,9 @@ ARROW = "url(#prechips-arr)"
 # The CAD data and parameters of the layout being drawn, so a label can be
 # measured as printed, after its tokens are bound. ``render_cad_svg`` sets it
 # around the layout call.
-_binding: ContextVar[tuple[CadData, dict, dict | None]] = ContextVar("_binding")
+_binding: ContextVar[tuple[CadData, dict]] = ContextVar("_binding")
+# A family plan's part map while a layout runs, for qualified label tokens.
+_family: ContextVar[dict | None] = ContextVar("_family", default=None)
 
 
 def _bound(text: str) -> str:
@@ -55,8 +57,8 @@ def _bound(text: str) -> str:
     binding = _binding.get(None)
     if binding is None:
         raise CadError("diagram labels are measured only inside render_cad_svg")
-    cad, parameters, parts = binding
-    return bind_text(text, cad, parameters, parts=parts)
+    cad, parameters = binding
+    return bind_text(text, cad, parameters, parts=_family.get())
 
 
 def _fmt(value: float | str) -> str:
@@ -746,10 +748,12 @@ def render_cad_svg(
     ).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
-    token = _binding.set((cad, parameters, parts))
+    token = _binding.set((cad, parameters))
+    family = _family.set(parts)
     try:
         view, groups = layout(cad.values, parameters, root)
     finally:
+        _family.reset(family)
         _binding.reset(token)
     for element in list(root.iter()):
         group = element.attrib.pop("data-cad-group", None)
