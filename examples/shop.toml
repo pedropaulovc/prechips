@@ -645,3 +645,13 @@ tool = "headed-pin-form-r070"
 material = "shaft-1018-cold-finished"
 sfm = 70
 feed = "Hand, along Z"
+
+# --- Demo clamp pair (examples/demo-clamp-pair.toml) ---
+# A family plan: both halves of the clamp_half demo manifests on one sheet.
+# Its cutters are the records above (the arc strap's 1/2 in carbide end mill
+# and its 1018 setting, the jig parts' centre drill, #29 drill and 8-32 tap,
+# the riser's #9). The bore is read with a 3/4 to 1-1/4 in telescoping gauge
+# transferred to the micrometers, so it reads at their .0001 in.
+[gauges.clamp-pair-telescoping-gauge]
+range_mm = [19.05, 31.75]
+resolution_mm = 0.00254

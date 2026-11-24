@@ -44,6 +44,8 @@ ARROW = "url(#prechips-arr)"
 # measured as printed, after its tokens are bound. ``render_cad_svg`` sets it
 # around the layout call.
 _binding: ContextVar[tuple[CadData, dict]] = ContextVar("_binding")
+# A family plan's part map while a layout runs, for qualified label tokens.
+_family: ContextVar[dict | None] = ContextVar("_family", default=None)
 
 
 def _bound(text: str) -> str:
@@ -56,7 +58,7 @@ def _bound(text: str) -> str:
     if binding is None:
         raise CadError("diagram labels are measured only inside render_cad_svg")
     cad, parameters = binding
-    return bind_text(text, cad, parameters)
+    return bind_text(text, cad, parameters, parts=_family.get())
 
 
 def _fmt(value: float | str) -> str:
@@ -698,8 +700,13 @@ LAYOUTS: dict[str, Callable[[dict, dict, ElementTree.Element], Layout]] = {
 }
 
 
-def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
-    """Return the SVG with CAD/process tokens bound and feature groups filled."""
+def render_cad_svg(
+    content: bytes, cad: CadData, parameters: dict, *, parts: dict | None = None
+) -> bytes:
+    """Return the SVG with CAD/process tokens bound and feature groups filled.
+
+    ``parts`` is a family plan's part map, for an authored SVG's qualified
+    ``{{cad.PART.KEY}}`` tokens."""
     try:
         root = ElementTree.fromstring(content)
     except ElementTree.ParseError as error:
@@ -708,9 +715,9 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     if name is None:
         if b"{{" not in content:
             return content
-        return bind_text(content.decode("utf-8"), cad, parameters, xml=True).encode(
-            "utf-8"
-        )
+        return bind_text(
+            content.decode("utf-8"), cad, parameters, xml=True, parts=parts
+        ).encode("utf-8")
     # The shaft and jig layouts build on this module's primitives, so import
     # them here.
     from prechips.block_diagrams import BLOCK_LAYOUTS
@@ -742,9 +749,11 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
     token = _binding.set((cad, parameters))
+    family = _family.set(parts)
     try:
         view, groups = layout(cad.values, parameters, root)
     finally:
+        _family.reset(family)
         _binding.reset(token)
     for element in list(root.iter()):
         group = element.attrib.pop("data-cad-group", None)
@@ -758,5 +767,7 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     if groups:
         raise CadError(f"diagram template {name!r} lacks groups {sorted(groups)}")
     text = ElementTree.tostring(root, encoding="unicode")
-    bound = bind_text(text, cad, parameters, extra={"view": view}, xml=True)
+    bound = bind_text(
+        text, cad, parameters, extra={"view": view}, xml=True, parts=parts
+    )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n' + bound).encode("utf-8")

@@ -34,6 +34,9 @@ uv run prechips traveler examples/demo-fence-plate.toml --profile pro --out out/
 uv run prechips traveler examples/demo-fence-plate.toml --profile hobby --out out/fence-plate-hobby.html
 uv run prechips traveler examples/demo-hex-block.toml --profile pro --out out/hex-block-pro.html
 uv run prechips traveler examples/demo-hex-block.toml --profile hobby --out out/hex-block-hobby.html
+uv run prechips traveler examples/demo-clamp-pair.toml --profile pro --out out/clamp-pair-pro.html
+uv run prechips traveler examples/demo-clamp-pair.toml --profile hobby --out out/clamp-pair-hobby.html
+uv run prechips traveler examples/demo-clamp-pair.toml --placeholder front --shared-file clamp-pair-hobby.html --out out/clamp-front-placeholder.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile pro --out out/turned-plug-pro.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile hobby --out out/turned-plug-hobby.html
 uv run prechips traveler examples/demo-turned-shaft.toml --profile pro --out out/turned-shaft-pro.html
@@ -146,6 +149,55 @@ Use named bindings such as `{{cad.length_in:.2f}}` and `{{process.blank_length_i
 Each adapter applies the selected plan's setup frames and distinguishes model geometry from requirement limits. Named bindings update repeated dimensions and coordinate tables together. Conflicting machining targets and source acceptance limits are input errors. The shaft's reference span remains REF: its final length still follows the assembly fit. The rocker's hub-length aim is authored; its strap aim follows that aim and the bound face depths. Selected tools and gauges remain separate from source acceptance limits.
 
 Changing CAD dimensions does not select new tools or redesign the machining process. Unsupported coordinate frames and conflicting cap geometry fail with an input error; general tool and gauge suitability is not checked. Literal-only plans work with a custom profile that omits `stock_fit`.
+
+## Part families
+
+Near-twin parts that share most of a route can share one traveler. A family plan replaces `[cad]` with two or more `[[parts]]` tables, each binding one manifest through its adapter:
+
+```toml
+[[parts]]
+id = "front"                      # Names the part in bindings and in `part = "front"`.
+label = "Front {{cad.drawing_number}}"  # Optional; captions a picture that names this part.
+title = "{{cad.drawing_number}} clamp front"  # Optional; heads this part's placeholder.
+file = "cad/clamp-front-v51.toml"
+adapter = "clamp_half"
+part = "clamp-front"
+[parts.parameters]                # Optional: this part's own numbers, over [parameters].
+peck_mm = 4.572
+
+[[parts]]
+id = "back"
+file = "cad/clamp-back-v51.toml"
+adapter = "clamp_half"
+part = "clamp-back"
+```
+
+Each part is read with the plan's `[parameters]` and its own `[parts.parameters]` laid over them, and `stock_fit` is passed by every part against those numbers. Bindings then depend on where the text sits:
+
+- A setup or an operation may name `part = "front"`. Its `{{cad.KEY}}` and `{{process.KEY}}` tokens bind that part, and its pictures are drawn from that part. An operation's `part` wins over its setup's.
+- Everywhere else (the header, the tools and every setup or operation without a `part`) a bare token binds only a value **every part gives alike**. A value the parts give differently, or that only some of them have, is refused, naming the token to write instead. A setup written once for all the parts therefore cannot print a number that is true of one of them only.
+- `{{cad.front.KEY}}` and `{{process.front.KEY}}` name a part anywhere, for a table of per-part values or a header naming each drawing.
+- A picture without a part must come out the same from every part; where the parts draw it differently the refusal asks for one. A `diagram` may name its own part (`{ file, alt, part = "back" }`), which then prints that part's `label` above the picture.
+
+Checks read a setup's structured fields after binding, so they need no knowledge of parts: a shared setup's `envelope`, `vise_hold`, `beam` and cuts either bind values the parts share or state the governing part's value with a qualified token. A one-part plan is unchanged: `part` on a setup, operation or picture, and a `{{cad.PART.KEY}}` token, are refused without `[[parts]]`.
+
+Three optional fields keep a sheet shared by several parts unambiguous. They are not limited to family plans, except `serves`:
+
+- A tool may carry `number = 3`, the T number the plan's NC programs call it by. The tool list and every operation that uses the tool print it (`T3 #9 drill`), and a number given to two tools is refused, so one T number means one tool on the whole sheet.
+- A setup may list `programs = ["first-end.nc"]`, the NC programs it runs, printed as its `NC:` line. A program every part runs is then named once, in the setup that is written once.
+- A setup may list `serves = ["front", "back"]`, the parts that go through it, where that is not its `part` (or, without one, every part): a setup that prints one part's values but holds several, as the bolted pair's bore does. It must include the setup's own `part`.
+
+### Placeholder sheets
+
+A part made on a family traveler has no sheet of its own. Where a document set must still hold a sheet under every part's name, print the part a placeholder:
+
+```sh
+uv run prechips traveler examples/demo-clamp-pair.toml --placeholder front --shared-file clamp-pair-traveler.pdf --out out/clamp-front-traveler.html
+```
+
+It lists every setup the part goes through, so it is one page for a plan of ordinary length (the demo's is) and runs onto another where the list is longer; nothing is left out to fit. It prints the part's `title` (else its `label`, else its id), the plan's revision and material, the shared traveler's title and, with `--shared-file`, its file name, the other parts made with it, and a table of the shared traveler's setups this part goes through with each one's machine and programs. It carries no instructions, so it cannot drift from the shared sheet. The plan is loaded and checked exactly as for the traveler (the same profile and `--disable-check` flags apply), so a plan that refuses prints no placeholder either; the profile does not change the page.
+
+`examples/demo-clamp-pair.toml` puts both halves of a split clamp on one sheet: six setups square every blank alike, one table says where the two halves differ in the mating-face setup, each half then has its own drilling setup, and the pair is bored bolted together.
 
 ## Stock fit
 
