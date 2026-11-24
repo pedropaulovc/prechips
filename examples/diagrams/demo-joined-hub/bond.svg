@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" font-family="sans-serif" font-size="13">
+  <rect class="paper" x="0" y="0" width="760" height="300"/>
+  <text class="title" x="20" y="22">Setup 1 (section through the hub): bond the hub into the strap; 24 h cure</text>
+  <rect class="fixture-table" x="20" y="220" width="720" height="40"/>
+  <text class="label" x="30" y="280">surface plate</text>
+  <rect class="fixture-support" x="90" y="186" width="80" height="34"/>
+  <rect class="fixture-support" x="590" y="186" width="80" height="34"/>
+  <text class="label" x="70" y="178">gauge block H</text>
+  <text class="label" x="560" y="178">gauge block H</text>
+  <rect class="part-kept" x="40" y="154" width="290" height="32"/>
+  <rect class="part-kept" x="430" y="154" width="290" height="32"/>
+  <text class="label" x="190" y="146">strap</text>
+  <rect class="part-kept" x="330" y="100" width="100" height="120"/>
+  <line class="hidden" x1="355" y1="100" x2="355" y2="220"/>
+  <line class="hidden" x1="405" y1="100" x2="405" y2="220"/>
+  <rect class="bond" x="326" y="158" width="4" height="24"/>
+  <rect class="bond" x="430" y="158" width="4" height="24"/>
+  <text class="label" x="440" y="94">hub, standing on its end</text>
+  <line class="leader" x1="434" y1="170" x2="520" y2="120"/>
+  <text class="label" x="524" y="118">compound on the land's middle</text>
+</svg>

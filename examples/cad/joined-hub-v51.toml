@@ -1,0 +1,107 @@
+# Demo manifest: a lever built up from a turned hub joined through a flat
+# strap. The drawing permits the built-up part; the bore is drilled through
+# the hub and both hub ends are faced after joining. CAD export format, demo
+# identity, no source citations.
+part = "joined-lever"
+units = "mm"
+precision = 2
+step = "joined-lever.STEP"
+step_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+construction = "built_up_permitted"
+
+[drawing]
+number = "DEMO-JOINED-LEVER"
+revision = "v51"
+
+[material]
+spec = "AISI 1018 low-carbon steel"
+name = "Plain Carbon Steel"
+finish = "black oxide"
+thickness = 3.175
+
+[notes]
+manufacturing = ["1. MAY BE HUB JOINED TO STRAP."]
+edge_break = "REMOVE BURRS AND BREAK SHARP EDGES R.010 OR CHAMFER .010 MAX"
+
+[general_tolerances]
+linear_1pl = 2.54
+linear_2pl = 0.254
+linear_3pl = 0.127
+angular_deg = 1.0
+drilled_hole_plus = 0.1016
+drilled_hole_minus = 0.0
+edge_break_r = 0.254
+chamfer_max = 0.254
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+
+# The hub's outside: turned before joining, not cut again.
+[features.hub_od]
+kind = "boss"
+frame = "model"
+requirements = ["dia"]
+at = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia = [12.446, 12.954]
+dia_nominal = 12.7
+
+[features.pivot_bore]
+kind = "hole"
+frame = "model"
+requirements = ["dia", "thru", "process"]
+at = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia = [6.5278, 6.6294]
+nominal_dia = 6.5278
+drill = "F"
+thru = true
+process = "F DRILL"
+
+[features.hub_ends]
+kind = "face"
+frame = "model"
+requirements = ["length"]
+length = [7.5184, 7.7216]
+length_nominal = 7.62
+upper_z = 3.81
+lower_z = -3.81
+
+[features.strap_faces]
+kind = "face"
+frame = "model"
+requirements = ["thickness"]
+thickness = [3.1496, 3.2004]
+thickness_nominal = 3.175
+
+[features.pin_hole]
+kind = "hole"
+frame = "model"
+requirements = ["dia", "thru", "position_dia"]
+at = [50.8, 6.35, 0.0]
+axis = [0.0, 0.0, 1.0]
+dia = [3.2639, 3.3655]
+nominal_dia = 3.2639
+drill = "#30"
+thru = true
+position_dia = 0.254
+
+# The strap's outline, cut before joining: a profile zone the traveler does
+# not cut. Its table field says how the zone governs the radius: not printed.
+[features.outline]
+kind = "profile"
+frame = "model"
+requirements = ["radius", "surface_profile"]
+radius = 6.35
+surface_profile = 0.508
+surface_profile_governs = { radius = "increases" }
+
+[features.hub_root]
+kind = "fillet"
+frame = "model"
+requirements = ["radius"]
+radius = [0.0, 0.254]
+radius_nominal = 0.254

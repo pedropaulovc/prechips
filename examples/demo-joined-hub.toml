@@ -1,0 +1,216 @@
+# Demo: a lever built up from a turned hub and a flat strap, both made
+# beforehand to their own sheets: the hub's outside finished, its length and
+# bore left with stock; the strap finished, its hub hole reamed. The hub is
+# bonded through the strap's hole on the surface plate, the strap held
+# parallel to it on two gauge blocks; after the cure the lever lies on two
+# 1-2-3 blocks on the mill table (vise off) under two step clamps, the hub's
+# lower end in the gap between the blocks. Each hub end is faced from its own
+# strap face (Z0 the strap top, touched off each load), which centres the
+# strap on the hub; the second load also drills the bore through the hub and
+# the pin hole through the strap, a screw jack under the strap beside the
+# pin hole. Sizes come from the manifest through the joined_hub adapter;
+# holding, depths and feeds are authored.
+title = "Joined lever"
+part = "{{cad.drawing_number}}"
+revision = "{{cad.revision}}"
+material = "1018: hub and strap made to their own sheets (demo)"
+stock = "Per lever: one hub (land Ø{{cad.hub_land_min_in:.4dot}}–{{cad.hub_land_max_in:.4dot}}, {{process.hub_supply_length_min_in:.2dot}}–{{process.hub_supply_length_max_in:.2dot}} long) and one strap ({{cad.strap_thickness_min_in:.3dot}}–{{cad.strap_thickness_max_in:.3dot}} thick); {{process.quantity:d}} levers."
+note = "Inches unless mm. Setups 2–3 on the PM-30MV with the vise off, the lever on two 1-2-3 blocks under two step clamps. Each NC file is proved once in air, Z0 raised 1.000 in, before it cuts metal."
+shop = "shop.toml"
+material_key = "arc-strap-1018-cold-finished"
+milling_material = "steel_1018"
+
+[cad]
+file = "cad/joined-hub-v51.toml"
+adapter = "joined_hub"
+part = "joined-lever"
+
+[parameters]
+quantity = 4
+hub_land_min_in = 0.4975
+hub_land_max_in = 0.4990
+hub_supply_length_min_in = 0.37
+hub_supply_length_max_in = 0.40
+bond_offset_max_in = 0.009
+strap_half_length_mm = 76.2
+strap_width_mm = 19.05
+# Two 1-2-3 blocks 2 in up, .625 apart: the hub's lower end hangs between
+# them; the strap rests on their inner edges, clamped over each block. On
+# 1 in blocks the spindle nose would come under the table's least reach.
+block_height_mm = 50.8
+block_inner_x_mm = 7.9375
+clamp_x_mm = 33.3375
+jack_x_mm = 42.0
+# The pin hole's drill pushes the strap onto the jack beyond the right
+# block's clamp: pinned between them, the hole 8.8 mm past the jack.
+# Face passes: two, the 1/2 in end mill's centre on either edge of the hub.
+face_cutter_dia_mm = 12.7
+face_woc_mm = 6.35
+face_feed_per_min_mm = 565.4
+# Drill tips below Z0 (the strap top): the bore through the faced hub, its
+# full diameter 0.5 mm past; the pin hole through the strap likewise.
+bore_tip_z_mm = -8.5
+pin_tip_z_mm = -4.6
+bore_feed_per_min_mm = 66.0
+pin_feed_per_min_mm = 74.0
+spot_feed_per_min_mm = 45.7
+spot_dia_mm = 2.54
+r8_collet_gauge_mm = 6.3
+drill_chuck_gauge_mm = 95.0
+half_mill_projection_mm = 28.45
+drill_projection_mm = 101.6
+
+[[tools]]
+id = "em-half"
+name = "1/2 in carbide end mill"
+ref = "arc-strap-em-half"
+[[tools]]
+id = "spot"
+name = "#2 centre drill"
+ref = "jig-spot"
+[[tools]]
+id = "drill-f"
+name = "F drill"
+ref = "jig-drill-f"
+[[tools]]
+id = "drill-30"
+name = "#30 drill"
+ref = "riser-drill-30"
+[[tools]]
+id = "files"
+name = "Files"
+ref = "jig-files"
+
+[[setups]]
+machine_kind = "other"
+title = "Bond the hub into the strap"
+machine = "Surface plate"
+indexing = "none"
+holding = "On the surface plate: the strap on two gauge blocks, one under each arm; the hub through the strap's hole, standing on one end on a square of paper."
+datum = "None: the plate squares the hub, the blocks hold the strap parallel to it."
+diagram = { file = "diagrams/demo-joined-hub/bond.svg", alt = "Section through the hub: the surface plate, the hub standing on its end through the strap, the strap on a gauge block under each arm." }
+envelope = "other"
+vise_hold = "other"
+beam = "other"
+
+[[setups.operations]]
+instruction = "For each hub: its length L, calipers; H = (L − {{cad.strap_thickness_in:.3dot}})/2. Two gauge blocks within .005 of H and .001 of each other. Degrease the land and the strap's hole with isopropyl alcohol."
+feed = "hand"
+
+[[setups.operations]]
+instruction = "Retaining compound round the middle of the land; slide the hub into the strap with a quarter turn and set both on the plate as in Holding. Wipe off any squeeze-out. Leave 24 h before Setup 2."
+feed = "hand"
+inspection = "At 24 h: the hub does not turn in the strap when twisted hard by hand."
+gauge_checks = "other"
+
+[[setups]]
+machine_kind = "other"
+title = "Face the first hub end"
+machine = "PM-30MV, vise off"
+indexing = "none"
+machine_ref = "pm-30mv"
+holding = "Two 1-2-3 blocks 2 in up, .625 apart; the strap across them, one face up, the hub's lower end in the gap; a step clamp over each block at X ±{{process.clamp_x_mm:in.2f}}."
+datum = "X0 Y0 the hub's axis (edge finder on both sides each way); Z0 the strap's top face (the end mill on a .200 gauge block)."
+diagram = { file = "diagrams/demo-joined-hub/face-1.svg", alt = "Elevation: the strap on two 1-2-3 blocks under two step clamps, the hub's lower end between the blocks; the end mill faces the upper hub end {{cad.hub_end_height_in:.3dot}} above the strap." }
+envelope = { x_span_mm = ["{{process.strap_half_length_mm}}", "{{process.strap_half_length_mm}}"], y_span_mm = ["{{process.strap_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.strap_thickness_mm}}", "{{cad.hub_end_supply_max_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{cad.strap_thickness_mm}}", "{{cad.hub_end_height_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_mm}}"] }
+vise_hold = "other"
+beam = { axis = "x", hold = "between", extent_mm = [-76.2, 76.2], supports_mm = [-7.9375, 7.9375], section_mm = { y = "{{process.strap_width_mm}}", z = "{{cad.strap_thickness_mm}}" } }
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "em-half"
+drilling = "none"
+sizing = "other"
+instruction = "Face the upper hub end to Z {{cad.hub_end_height_in:.3dot}}: two passes along X, the cutter's centre on Y +{{process.face_woc_mm:in.3dot}} then Y −{{process.face_woc_mm:in.3dot}} (each end takes {{cad.face_depth_min_in:.3dot}}–{{cad.face_depth_max_in:.3dot}})."
+settings = "arc-strap-em-half-1018-cf"
+milling_cuts = [
+  { name = "hub end", kind = "face", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", axial_doc_mm = "{{cad.face_depth_max_mm}}", radial_woc_mm = "{{process.face_woc_mm}}", stations_mm = [0] },
+]
+
+[[setups]]
+machine_kind = "other"
+title = "Face the second hub end; bore and pin hole"
+machine = "PM-30MV, vise off"
+indexing = "none"
+machine_ref = "pm-30mv"
+holding = "As Setup 2, the lever turned over: the faced end down between the blocks; the strap's long edge along X. A screw jack snug under the strap at X {{process.jack_x_mm:in.2f}}, beside the pin hole."
+datum = "X0 Y0 the hub's axis, +X toward the pin hole; Z0 the strap's top face."
+diagram = { file = "diagrams/demo-joined-hub/face-2.svg", alt = "Elevation: the lever turned over on the blocks, the jack under the strap beside the pin hole; the end mill faces the upper hub end, then the F drill runs through the hub and the #30 through the strap." }
+envelope = { x_span_mm = ["{{process.strap_half_length_mm}}", "{{process.strap_half_length_mm}}"], y_span_mm = ["{{process.strap_width_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.block_height_mm}}", "{{cad.strap_thickness_mm}}", "{{cad.hub_end_supply_max_mm}}"], deepest_cut_mm = ["{{process.block_height_mm}}", "{{cad.strap_thickness_mm}}", "{{process.bore_tip_z_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_projection_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_mm}}"] }
+vise_hold = "other"
+beam = { axis = "x", hold = "between", extent_mm = [-76.2, 76.2], supports_mm = [-7.9375, 7.9375], section_mm = { y = "{{process.strap_width_mm}}", z = "{{cad.strap_thickness_mm}}" } }
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "em-half"
+drilling = "none"
+sizing = "other"
+instruction = "Face the upper hub end to Z {{cad.hub_end_height_in:.3dot}} as in Setup 2."
+settings = "arc-strap-em-half-1018-cf"
+milling_cuts = [
+  { name = "second hub end", kind = "face", phase = "finish", cutter_dia_mm = "{{process.face_cutter_dia_mm}}", axial_doc_mm = "{{cad.face_depth_max_mm}}", radial_woc_mm = "{{process.face_woc_mm}}", stations_mm = [0] },
+]
+inspection = "Hub length {{cad.hub_length_min_in:.3dot}}–{{cad.hub_length_max_in:.3dot}}, micrometer."
+gauge_checks = [{ gauge = "micrometers", band_mm = "{{cad.hub_length_band_mm}}" }]
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "drill-f"
+drilling = "twist_drill"
+sizing = { kind = "band", band_mm = "{{cad.bore_dia_band_mm}}" }
+instruction = "{{cad.bore_drill}} drill through the hub at X0 Y0, one plunge, to Z {{process.bore_tip_z_mm:in.3dot}}; set 950. Cutting oil."
+rpm = 950
+feed = "{{process.bore_feed_per_min_mm:in.1f}} in/min"
+hole_depth_mm = "{{cad.bore_depth_mm}}"
+peck = "none"
+milling_cuts = [
+  { name = "bore", kind = "drill", phase = "rough", cutter_dia_mm = 6.5278, flutes = 2, rpm = 950, feed_mm_min = "{{process.bore_feed_per_min_mm}}", stations_mm = [0] },
+]
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "spot"
+drilling = "none"
+sizing = "other"
+instruction = "Spot the pin hole Ø{{process.spot_dia_mm:in.3dot}} at X {{cad.pin_hole_from_bore_x_in:.4f}}, Y {{cad.pin_hole_from_bore_y_in:.4f}}; set 1800."
+rpm = 1800
+feed = "{{process.spot_feed_per_min_mm:in.1f}} in/min"
+beam = { axis = "x", hold = "between", extent_mm = [-76.2, 76.2], supports_mm = [33.3375, 42.0], section_mm = { y = "{{process.strap_width_mm}}", z = "{{cad.strap_thickness_mm}}" } }
+milling_cuts = [
+  { name = "pin spot", kind = "drill", phase = "rough", cutter_dia_mm = "{{process.spot_dia_mm}}", flutes = 2, rpm = 1800, feed_mm_min = "{{process.spot_feed_per_min_mm}}", stations_mm = "{{cad.pin_hole_from_bore_x_mm}}" },
+]
+
+[[setups.operations]]
+speed_kind = "spindle"
+tool = "drill-30"
+drilling = "twist_drill"
+sizing = { kind = "band", band_mm = "{{cad.pin_hole_dia_band_mm}}" }
+instruction = "#30 drill through the strap, one plunge, to Z {{process.pin_tip_z_mm:in.3dot}}; set 2400. Cutting oil."
+rpm = 2400
+feed = "{{process.pin_feed_per_min_mm:in.1f}} in/min"
+hole_depth_mm = "{{cad.strap_thickness_mm}}"
+peck = "none"
+beam = { axis = "x", hold = "between", extent_mm = [-76.2, 76.2], supports_mm = [33.3375, 42.0], section_mm = { y = "{{process.strap_width_mm}}", z = "{{cad.strap_thickness_mm}}" } }
+milling_cuts = [
+  { name = "pin drill", kind = "drill", phase = "rough", cutter_dia_mm = 3.2639, flutes = 2, rpm = 2400, feed_mm_min = "{{process.pin_feed_per_min_mm}}", stations_mm = "{{cad.pin_hole_from_bore_x_mm}}" },
+]
+
+[[setups]]
+machine_kind = "other"
+title = "Deburr and inspect"
+machine = "Bench"
+indexing = "none"
+diagram = { file = "diagrams/demo-joined-hub/inspect.svg", alt = "The finished lever: hub length, the bore through the hub and the pin hole {{cad.pin_hole_from_bore_in:.3f}} from the bore." }
+envelope = "other"
+vise_hold = "other"
+beam = "other"
+
+[[setups.operations]]
+speed_kind = "other"
+tool = "files"
+drilling = "none"
+sizing = "other"
+instruction = "Break every edge, R{{cad.edge_break_in:.3dot}} or chamfer {{cad.chamfer_max_in:.3dot}} max; deburr both ends of the bore and the pin hole."
+feed = "hand"
+inspection = "Each lever: the hub's shaft slides through the bore by hand. First lever: pin hole {{cad.pin_hole_from_bore_in:.3f}} from the bore, calipers over a pin in each."
+gauge_checks = "other"

@@ -292,6 +292,10 @@ def load_cad(path: Path, parameters: dict, adapter: str, part: str) -> CadData:
         from prechips.cad_formed_blank import load_formed_blank
 
         return load_formed_blank(path, parameters, part)
+    if adapter == "joined_hub":
+        from prechips.cad_joined_hub import load_joined_hub
+
+        return load_joined_hub(path, parameters, part)
     raise CadError(f"cad.adapter: unsupported adapter {adapter!r}")
 
 
