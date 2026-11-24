@@ -367,11 +367,15 @@ def _load_parts(
         except CadError as error:
             raise PlanError(f"{where} ({part_id}): {error}") from error
         parts[part_id] = (cad, merged)
-        if "label" in entry:
-            # A label binds its own part's values.
-            labels[part_id] = bind_text(_text(entry, "label", where), cad, merged)
-        if "title" in entry:
-            titles[part_id] = bind_text(_text(entry, "title", where), cad, merged)
+    # A label or title binds its own part's values; a qualified token names
+    # any part's, so every part is loaded first.
+    for index, entry in enumerate(family, 1):
+        where = f"parts[{index}]"
+        for key, bound in (("label", labels), ("title", titles)):
+            if key in entry:
+                bound[entry["id"]] = bind_text(
+                    _text(entry, key, where), *parts[entry["id"]], parts=parts
+                )
     return parts, labels, titles
 
 
@@ -439,8 +443,10 @@ def load_plan(path: Path) -> LoadedPlan:
 
         def bound(table: dict, kind: str, where: str, at: tuple) -> dict:
             """``table`` bound in the scope ``at``, its operations left as they are."""
+            # A picture that names a part binds its file and alt text there.
+            picture = at
             if isinstance(table.get("diagram"), dict):
-                scope(table["diagram"], f"{where}.diagram", at)
+                picture = scope(table["diagram"], f"{where}.diagram", at)
             for key in native[kind] & table.keys():
                 table[key] = bind_data(
                     table[key], *at, scalar_mode="native", parts=named
@@ -448,7 +454,9 @@ def load_plan(path: Path) -> LoadedPlan:
             return {
                 key: value
                 if key == "operations"
-                else bind_data(value, *at, parts=named)
+                else bind_data(
+                    value, *(picture if key == "diagram" else at), parts=named
+                )
                 for key, value in table.items()
             }
 
@@ -1008,6 +1016,7 @@ def _diagram_html(
     source_dir: Path,
     scopes: list[tuple[CadData | None, dict]],
     caption: str | None = None,
+    parts: dict | None = None,
 ) -> tuple[str, set[str]]:
     """Return a setup's or operation's picture figure and the roles it draws.
 
@@ -1020,7 +1029,9 @@ def _diagram_html(
         if scopes[0][0] is not None:
             from prechips.cad_diagrams import render_cad_svg
 
-            drawings = {render_cad_svg(content, *scope) for scope in scopes}
+            drawings = {
+                render_cad_svg(content, *scope, parts=parts) for scope in scopes
+            }
             if len(drawings) > 1:
                 raise ValueError(
                     "the parts draw it differently: give the picture, its "
@@ -1094,9 +1105,11 @@ def setups_serving(loaded: LoadedPlan, part: str) -> list[tuple[int, dict]]:
 def render_placeholder(
     loaded: LoadedPlan, part: str, *, shared_file: str | None = None
 ) -> str:
-    """One page for one part of a family plan: it points to the shared
-    traveler and lists the setups (and their NC programs) the part goes
-    through. The part has no sheet of its own to drift from the shared one."""
+    """A pointer sheet for one part of a family plan: it points to the shared
+    traveler and lists every setup (and its NC programs) the part goes
+    through, so it is one page for a plan of ordinary length and runs on
+    where the list is longer. The part has no sheet of its own to drift from
+    the shared one."""
     if part not in loaded.parts:
         known = ", ".join(loaded.parts) or "none: the plan has no [[parts]]"
         raise PlanError(f"placeholder: unknown part {part!r} (parts: {known})")
@@ -1233,6 +1246,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 source_dir,
                 loaded.scopes(pictures[0], setup),
                 loaded.labels.get(pictures[0].get("part")),
+                loaded.parts or None,
             )
             drawn |= roles
             lines.append(diagram)
@@ -1265,6 +1279,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     source_dir,
                     loaded.scopes(pictures[op_index], operation, setup),
                     loaded.labels.get(pictures[op_index].get("part")),
+                    loaded.parts or None,
                 )
                 drawn |= roles
                 op_diagrams = True

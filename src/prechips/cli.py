@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         "--placeholder",
         metavar="PART",
         help=(
-            "render one part of a family plan's one-page placeholder, which "
+            "render one part of a family plan's placeholder sheet, which "
             "points to the shared traveler, in place of the traveler"
         ),
     )
@@ -140,13 +140,13 @@ def main(argv: list[str] | None = None) -> int:
         for name in checks.CHECKS:
             if name in profile.enforce:
                 checks.run(name, plan, config)
-        # A placeholder passes every check of the traveler it points to.
+        # A placeholder passes every check of the traveler it points to,
+        # the rendering's own (its pictures) included.
+        html = render_traveler(plan, profile=profile)
         if args.placeholder is not None:
             html = render_placeholder(
                 plan, args.placeholder, shared_file=args.shared_file
             )
-        else:
-            html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")
     except (

@@ -374,7 +374,7 @@ instruction = "#9 drill through both ear holes, pecks of {{process.peck_mm:in.3d
 rpm = 1200
 feed = "{{process.drill_feed_per_min_mm:in.1f}} in/min"
 hole_depth_mm = "{{cad.depth_mm}}"
-peck = { step_mm = 4.572, retract = "full" }
+peck = { step_mm = "{{process.peck_mm}}", retract = "full" }
 milling_cuts = [
   { name = "ear drill", kind = "drill", phase = "finish", cutter_dia_mm = 4.9784, flutes = 2, rpm = 1200, feed_mm_min = "{{process.drill_feed_per_min_mm}}", stations_mm = ["{{cad.ear_near_x_mm}}", "{{cad.ear_far_x_mm}}"] },
 ]
@@ -444,7 +444,7 @@ instruction = "#29 drill through both tap drills, pecks of {{process.peck_mm:in.
 rpm = 1700
 feed = "{{process.drill_feed_per_min_mm:in.1f}} in/min"
 hole_depth_mm = "{{cad.pre_face_depth_mm}}"
-peck = { step_mm = 3.048, retract = "full" }
+peck = { step_mm = "{{process.peck_mm}}", retract = "full" }
 milling_cuts = [
   { name = "ear drill", kind = "drill", phase = "finish", cutter_dia_mm = 3.4544, flutes = 2, rpm = 1700, feed_mm_min = "{{process.drill_feed_per_min_mm}}", stations_mm = ["{{cad.ear_near_x_mm}}", "{{cad.ear_far_x_mm}}"] },
 ]

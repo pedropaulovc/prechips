@@ -125,22 +125,38 @@ def test_a_shared_picture_the_parts_draw_differently_must_name_one(tmp_path):
     assert not out.exists()
 
 
+# The back alone on a 1.8 in blank: the shared text names the front's length,
+# so only the back's own reading of the plan can refuse it.
+_BACK_BLANK_TOO_SHORT = (
+    ("{{process.blank_length_min_in", "{{process.front.blank_length_min_in"),
+    (
+        'part = "clamp-back"\n',
+        'part = "clamp-back"\n[parts.parameters]\nblank_length_min_in = 1.8\n',
+    ),
+    (
+        "\n[parts.parameters]\nother_half_depth_min_mm = 17.272",
+        "\nother_half_depth_min_mm = 17.272",
+    ),
+)
+
+
 def test_every_part_passes_its_own_stock_fit(tmp_path):
-    plan = _copy(
-        tmp_path,
-        DEMO,
-        (
-            'part = "clamp-back"\n',
-            'part = "clamp-back"\n[parts.parameters]\nblank_section_in = 0.5\n',
-        ),
-        (
-            "\n[parts.parameters]\nother_half_depth_min_mm = 17.272",
-            "\nother_half_depth_min_mm = 17.272",
-        ),
-    )
-    result = _cli(plan, tmp_path / "pair.html", "pro")
+    from prechips.stock import StockError, check_stock_fit
+
+    loaded = load_plan(DEMO)
+    check_stock_fit(loaded)
+    # The clamp adapter refuses a short blank itself, so the comparison is
+    # reached with the back's parameters changed after its manifest is read.
+    cad, parameters = loaded.parts["back"]
+    loaded.parts["back"] = (cad, parameters | {"blank_length_min_in": 1.8})
+    with pytest.raises(StockError, match=r"stock_fit: length: .*\(part back\)"):
+        check_stock_fit(loaded)
+    # From the command line the adapter names the part first; nothing is written.
+    out = tmp_path / "pair.html"
+    result = _cli(_copy(tmp_path, DEMO, *_BACK_BLANK_TOO_SHORT), out, "pro")
     assert result.returncode == 2
-    assert "back" in result.stderr
+    assert "parts[2] (back): process.blank_length_min_in" in result.stderr
+    assert not out.exists()
 
 
 def test_a_one_part_plan_has_no_parts_to_name(tmp_path):
@@ -249,17 +265,56 @@ def test_a_placeholder_is_refused_with_its_traveler(tmp_path):
     assert result.returncode == 2 and "no [[parts]]" in result.stderr
     result = _cli(DEMO, out, "pro", "--shared-file", "pair.pdf")
     assert result.returncode == 2 and "requires --placeholder" in result.stderr
-    broken = _copy(
+    broken = _copy(tmp_path, DEMO, *_BACK_BLANK_TOO_SHORT)
+    result = _cli(broken, out, "pro", "--placeholder", "front")
+    assert result.returncode == 2
+    assert "parts[2] (back): process.blank_length_min_in" in result.stderr
+    assert not out.exists()
+    # The traveler's own refusals hold too: a picture it cannot draw.
+    unseen = _copy(
+        tmp_path, DEMO, ("diagrams/demo-clamp-pair/saw.svg", "diagrams/none.svg")
+    )
+    result = _cli(unseen, out, "hobby", "--placeholder", "front")
+    assert result.returncode == 2 and "none.svg" in result.stderr
+    assert not out.exists()
+
+
+def test_values_alike_but_for_noise_bind_the_same_whichever_part_is_first():
+    from prechips.cad import Agreed
+
+    small, other = (
+        {"gap_mm": 1e-10, "runs": [0.1 + 0.2]},
+        {"gap_mm": 2e-10, "runs": [0.3]},
+    )
+    for tables in ({"a": small, "b": other}, {"b": other, "a": small}):
+        agreed = Agreed("process", tables)
+        assert agreed["gap_mm"] == 0.0 and agreed["runs"] == [0.3]
+    # Values given exactly alike stay as computed.
+    assert Agreed("process", {"a": small, "b": dict(small)})["gap_mm"] == 1e-10
+
+
+def test_part_titles_and_pictures_bind_qualified_tokens_and_their_own_part(tmp_path):
+    plan = _copy(
         tmp_path,
         DEMO,
         (
-            'part = "clamp-back"\n',
-            'part = "clamp-back"\n[parts.parameters]\nblank_section_in = 0.5\n',
-        ),
-        (
-            "\n[parts.parameters]\nother_half_depth_min_mm = 17.272",
-            "\nother_half_depth_min_mm = 17.272",
+            'alt = "A back held the same way,',
+            (
+                'alt = "A back {{cad.depth_in:.3dot}} deep ({{cad.front.depth_in:.3dot}} '
+                "the front) held the same way,"
+            ),
         ),
     )
-    assert _cli(broken, out, "pro", "--placeholder", "front").returncode == 2
-    assert not out.exists()
+    loaded = load_plan(plan)
+    front, back = (
+        loaded.parts[part][0].values["depth_in"] for part in ("front", "back")
+    )
+    assert front != back
+    alts = [
+        operation["diagram"]["alt"]
+        for setup in loaded.data["setups"]
+        for operation in setup["operations"]
+        if "A back " in operation.get("diagram", {}).get("alt", "")
+    ]
+    # The picture names the back inside a setup that names no part.
+    assert any(f"A back {back:.3f}".replace("0.", ".") in alt for alt in alts), alts

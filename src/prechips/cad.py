@@ -747,6 +747,13 @@ def _alike(first: object, other: object) -> bool:
     return _denoised(first) == _denoised(other)
 
 
+def _settled(value: object) -> object:
+    """``value`` with every float denoised, lists item by item."""
+    if isinstance(value, list):
+        return [_settled(item) for item in value]
+    return _denoised(value)
+
+
 class Agreed(Mapping):
     """The values every part of a family gives alike, for text that names no
     part: a key the parts give differently (or only some give) is refused,
@@ -768,7 +775,9 @@ class Agreed(Mapping):
                 f"one, as in {{{{{self._namespace}.{next(iter(self._tables))}."
                 f"{key}}}}}, or give the setup or operation a part"
             )
-        return first
+        # Values that differ only by noise give the denoised one, whichever
+        # part is listed first.
+        return first if all(value == first for value in values) else _settled(first)
 
     def __iter__(self):
         return iter({key: None for table in self._tables.values() for key in table})

@@ -698,8 +698,13 @@ LAYOUTS: dict[str, Callable[[dict, dict, ElementTree.Element], Layout]] = {
 }
 
 
-def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
-    """Return the SVG with CAD/process tokens bound and feature groups filled."""
+def render_cad_svg(
+    content: bytes, cad: CadData, parameters: dict, *, parts: dict | None = None
+) -> bytes:
+    """Return the SVG with CAD/process tokens bound and feature groups filled.
+
+    ``parts`` is a family plan's part map, for an authored SVG's qualified
+    ``{{cad.PART.KEY}}`` tokens."""
     try:
         root = ElementTree.fromstring(content)
     except ElementTree.ParseError as error:
@@ -708,9 +713,9 @@ def render_cad_svg(content: bytes, cad: CadData, parameters: dict) -> bytes:
     if name is None:
         if b"{{" not in content:
             return content
-        return bind_text(content.decode("utf-8"), cad, parameters, xml=True).encode(
-            "utf-8"
-        )
+        return bind_text(
+            content.decode("utf-8"), cad, parameters, xml=True, parts=parts
+        ).encode("utf-8")
     # The shaft and jig layouts build on this module's primitives, so import
     # them here.
     from prechips.block_diagrams import BLOCK_LAYOUTS
