@@ -371,3 +371,18 @@ def test_a_template_picture_takes_qualified_tokens():
         marked.encode("utf-8"), *loaded.parts["front"], parts=loaded.parts
     ).decode("utf-8")
     assert f"other {back}</" in drawn
+
+
+def test_a_captioned_operation_picture_is_one_unbreakable_box():
+    import re
+
+    html = render_traveler(load_plan(DEMO), profile=HOBBY)
+    figures = re.findall(r"<figure ([^>]*)><figcaption", html)
+    in_ops = [attrs for attrs in figures if "op-picture" in attrs]
+    assert in_ops and len(in_ops) < len(figures)
+    # In an operations-table cell the caption and image are one inline-block;
+    # a captioned setup picture, outside the table, stays a plain block.
+    assert all("inline-block" in attrs for attrs in in_ops)
+    assert not any(
+        "inline-block" in attrs for attrs in figures if "op-picture" not in attrs
+    )

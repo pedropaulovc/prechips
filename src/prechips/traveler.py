@@ -1056,8 +1056,16 @@ def _diagram_html(
         if caption
         else ""
     )
+    # A captioned operation picture is one unbreakable box. Observed
+    # 2026-11-24 printing a consumer's family traveler with headless Chromium
+    # (--print-to-pdf): the caption of a picture in an operations-table cell
+    # stayed at a page's foot, its image on the next page, twice in 21 pages,
+    # despite break-inside: avoid on the figure and its row group. A setup
+    # picture stands outside the table, where break-inside holds.
+    boxed = caption and "op-picture" in figure_class.split()
+    whole = ' style="display: inline-block; width: 100%"' if boxed else ""
     figure = (
-        f'<figure class="{figure_class}">{named}'
+        f'<figure class="{figure_class}"{whole}>{named}'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
