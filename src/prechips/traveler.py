@@ -1056,8 +1056,11 @@ def _diagram_html(
         if caption
         else ""
     )
+    # A captioned picture is one unbreakable box: in a table cell the browser
+    # ignores break-inside and would leave the caption at a page's foot.
+    whole = ' style="display: inline-block; width: 100%"' if caption else ""
     figure = (
-        f'<figure class="{figure_class}">{named}'
+        f'<figure class="{figure_class}"{whole}>{named}'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )

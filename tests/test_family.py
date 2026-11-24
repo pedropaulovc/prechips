@@ -371,3 +371,13 @@ def test_a_template_picture_takes_qualified_tokens():
         marked.encode("utf-8"), *loaded.parts["front"], parts=loaded.parts
     ).decode("utf-8")
     assert f"other {back}</" in drawn
+
+
+def test_a_captioned_picture_cannot_be_split_from_its_caption():
+    html = render_traveler(load_plan(DEMO), profile=HOBBY)
+    whole = ' style="display: inline-block; width: 100%"><figcaption'
+    captions = html.count("<figcaption")
+    assert captions and html.count(whole) == captions
+    # A picture without a caption keeps its plain figure.
+    single = render_traveler(load_plan(SINGLE), profile=HOBBY)
+    assert "<figcaption" not in single and "inline-block" not in single
