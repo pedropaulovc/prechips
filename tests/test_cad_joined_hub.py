@@ -15,7 +15,7 @@ SUPPLY = {
     "hub_land_max_in": 0.4990,
     "hub_supply_length_min_in": 0.37,
     "hub_supply_length_max_in": 0.40,
-    "bond_offset_max_in": 0.008,
+    "bond_offset_max_in": 0.009,
 }
 
 
@@ -34,27 +34,32 @@ def test_members_heights_and_offsets_follow_the_manifest():
     assert values["hub_dia_band_mm"] == [12.446, 12.954]
     assert values["bore_dia_band_mm"] == [6.5278, 6.6294]
     assert values["bore_drill"] == "F"
-    assert values["hub_length_band_mm"] == [7.5692, 7.6708]
+    assert values["hub_length_band_mm"] == [7.5184, 7.7216]
     assert values["strap_thickness_band_mm"] == [3.1496, 3.2004]
-    # (.300 − .125)/2: each end .0875 over its own strap face.
-    assert values["hub_end_height_in"] == pytest.approx(0.0875)
+    # The members' nominals, declared in either spelling.
+    assert values["hub_dia_mm"] == pytest.approx(12.7)
+    assert values["bore_dia_mm"] == pytest.approx(6.5278)
+    # (.300 − .125)/2 = .0875 lies between two readings; .087 and .088 each
+    # leave .002 in the .296–.304 band, so the nearer-then-lower .087 prints.
+    assert values["hub_end_height_in"] == pytest.approx(0.087)
+    assert values["hub_end_height_mm"] == pytest.approx(0.087 * 25.4)
     assert values["bore_depth_mm"] == pytest.approx(7.62)
     assert values["pin_hole_from_bore_x_mm"] == pytest.approx(50.8)
     assert values["pin_hole_from_bore_y_mm"] == pytest.approx(6.35)
     assert values["pin_hole_from_bore_mm"] == pytest.approx(51.1953, abs=1e-4)
     assert "pin_hole_from_bore_z_mm" not in values
-    # Shortest hub (.37), thickest strap, offset toward the end: .0265 off;
-    # longest (.40), thinnest, offset away: .0585.
-    assert values["face_depth_min_in"] == pytest.approx(0.0265)
-    assert values["face_depth_max_in"] == pytest.approx(0.0585)
-    assert values["hub_end_supply_max_in"] == pytest.approx(0.146)
+    # Shortest hub (.37), thickest strap, offset toward the end: .026 off;
+    # longest (.40), thinnest, offset away: .060.
+    assert values["face_depth_min_in"] == pytest.approx(0.026)
+    assert values["face_depth_max_in"] == pytest.approx(0.060)
+    assert values["hub_end_supply_max_in"] == pytest.approx(0.147)
     assert values["hub_land_band_mm"] == pytest.approx([12.6365, 12.6746])
     # Every feature also binds by name; a table field binds nothing.
     assert values["outline_surface_profile_in"] == pytest.approx(0.02)
     assert not any(key.startswith("outline_surface_profile_governs") for key in values)
     assert values["hub_root_radius_max_in"] == pytest.approx(0.01)
     required = {axis.name: axis.required_mm for axis in cad.stock_requirement.axes}
-    assert required == {"hub length": 7.6708}
+    assert required == {"hub length": 7.7216}
 
 
 def _manifest(tmp_path, old: str, new: str) -> Path:
@@ -76,11 +81,17 @@ def _manifest(tmp_path, old: str, new: str) -> Path:
         ),
         # One boss, the hub.
         ('kind = "boss"', 'kind = "face"', "exactly one boss"),
-        # The bore lies on the hub's axis.
+        # The bore lies on the hub's axis: off it, it is a hole cutting the hub.
         (
             "at = [0.0, 0.0, 0.0]\naxis = [0.0, 0.0, 1.0]\ndia = [6.5278",
             "at = [0.5, 0.0, 0.0]\naxis = [0.0, 0.0, 1.0]\ndia = [6.5278",
-            "on the hub's axis",
+            "cutting into the hub",
+        ),
+        # The hole on the hub's axis is a plain hole.
+        (
+            '[features.pivot_bore]\nkind = "hole"',
+            '[features.pivot_bore]\nkind = "threaded_hole"',
+            "exactly one plain hole on the hub's axis",
         ),
         # Every hole runs along the hub's axis.
         (
@@ -89,7 +100,7 @@ def _manifest(tmp_path, old: str, new: str) -> Path:
             "parallel to the hub's axis",
         ),
         # Facing each end from its own face cannot hold this tight a length.
-        ("length = [7.5692, 7.6708]", "length = [7.6073, 7.6327]", "length band"),
+        ("length = [7.5184, 7.7216]", "length = [7.6073, 7.6327]", "length band"),
         # The strap's thickness is one band.
         (
             "thickness = [3.1496, 3.2004]\nthickness_nominal = 3.175",
@@ -98,6 +109,20 @@ def _manifest(tmp_path, old: str, new: str) -> Path:
         ),
         # Names collide with the members' own keys.
         ("[features.pivot_bore]", "[features.bore]", "bound twice"),
+        # A strap hole may not cut into the hub.
+        ("at = [50.8, 6.35, 0.0]", "at = [4.0, 0.0, 0.0]", "cutting into the hub"),
+        # A listed requirement written as a table is refused, not dropped.
+        (
+            "position_dia = 0.254",
+            "position_dia = { zone = 0.254 }",
+            "pin_hole.position_dia",
+        ),
+        # Every feature names its frame and kind.
+        (
+            'kind = "boss"\nframe = "model"\n',
+            'kind = "boss"\n',
+            "model-frame feature with a kind",
+        ),
     ],
 )
 def test_bad_manifests_are_refused(tmp_path, old, new, message):
@@ -125,3 +150,27 @@ def test_the_supply_must_be_stated():
     del supply["bond_offset_max_in"]
     with pytest.raises(CadError, match="bond_offset_max_in"):
         load_joined_hub(SOURCE, supply, "joined-lever")
+
+
+def test_the_other_nominal_spelling_and_a_listed_statement_bind(tmp_path):
+    text = SOURCE.read_text(encoding="utf-8")
+    text = text.replace("thickness_nominal = 3.175", "nominal_thickness = 3.175", 1)
+    text = text.replace(
+        'requirements = ["radius", "surface_profile"]\nradius = 6.35',
+        'requirements = ["radius", "surface_profile", "mirror_symmetric"]\n'
+        "radius = 6.35\nmirror_symmetric = true",
+        1,
+    )
+    path = tmp_path / "joined.toml"
+    path.write_text(text, encoding="utf-8")
+    values = load_joined_hub(path, SUPPLY, "joined-lever").values
+    assert values["strap_thickness_mm"] == pytest.approx(3.175)
+    assert values["outline_mirror_symmetric"] is True
+
+
+def test_a_land_at_the_band_edge_is_not_refused_by_conversion_noise():
+    # .5100 in is the hub's 12.954 mm high limit, read through inches.
+    values = load_joined_hub(
+        SOURCE, {**SUPPLY, "hub_land_max_in": 0.51}, "joined-lever"
+    ).values
+    assert values["hub_land_max_in"] == pytest.approx(0.51)

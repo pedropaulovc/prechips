@@ -6,34 +6,39 @@ construction (`construction = "built_up_permitted"`). The two members arrive
 made: the strap at its finished thickness, the hub with its outside at the
 finished size and its length and bore left with stock. The traveler joins
 them, then drills the bore through the hub and faces each hub end. The
-manifest names its features; the adapter finds the members by kind and
-geometry, never by name:
+manifest names its features; the adapter finds the members by kind,
+geometry and requirement, never by feature name:
 
 - the hub: the one `boss`, along a model axis (`at`, `axis`, a `dia` band);
 - the bore: the one `hole` on the hub's axis (parallel, its `at` on the
   axis), through;
-- the hub's length across its two ends: the one feature listing `length`,
-  a band with `length_nominal`;
+- the hub's length across its two ends: the one feature listing `length`
+  (a drawing that prints another `length` is refused), a band with its
+  nominal (`length_nominal` or `nominal_length`);
 - the strap's thickness: every feature listing `thickness`, all one band
-  with one `thickness_nominal`;
+  with one nominal;
 - strap holes: every other `hole` or `threaded_hole`, parallel to the hub's
-  axis and through.
+  axis, through and wholly outside the hub's largest diameter.
 
 Every feature also binds by feature and field as in `flat_bar` (its binder,
 imported unchanged), with any kind accepted and no envelope; angles (`angle`
 or `*_deg`) bind in degrees as in `formed_blank`; a field written true binds
-`F_field` true; a table field (a note on how a zone governs a size, say) is
-not printed and binds nothing.
+`F_field` true, listed or not (a drawing statement with no number, such as a
+mirror-symmetric outline); a table field not listed (a note on how a zone
+governs a size, say) binds nothing, and a listed one is refused.
 
 The members bind as `hub_dia_*`, `bore_dia_*` (and `bore_drill` when the
 bore names its drill), `hub_length_*` and `strap_thickness_*`
-(`_in`/`_min_in`/`_max_in`/`_band_mm`, the nominal as `_mm`). Derived:
+(`_in`/`_min_in`/`_max_in`/`_band_mm`, the declared nominal, else the
+band's middle, as `_mm`). Derived:
 
-- `hub_end_height_mm`/`_in`: half the hub's nominal length less the strap's
-  nominal thickness, each hub end's height over its own strap face. Facing
-  both ends to it from their own faces centres the strap on the hub and
-  makes the length twice it plus the strap; across the strap's thickness band
-  that must stay inside the length band, else refused;
+- `hub_end_height_mm`/`_in`: each hub end's height over its own strap face,
+  half the hub's nominal length less the strap's nominal thickness, taken to
+  the .001 in reading the sheet prints (of the two either side, the one
+  leaving the most margin in the length band). Facing both ends to it from
+  their own faces centres the strap on the hub and makes the length twice it
+  plus the strap; across the strap's thickness band that must stay inside
+  the length band, else refused;
 - `bore_depth_mm`/`_in`: the hub's nominal length, the bore's run;
 - per strap hole `H`: `H_from_bore_<a>_mm`/`_in` along each of the two model
   axes square to the hub's, and `H_from_bore_mm`/`_in`, its distance from the
@@ -66,17 +71,19 @@ from .cad import (
     _inch_limits,
     _model_frame,
     _number,
-    _positive,
     _read_manifest,
     _string,
 )
-from .cad_flat_bar import _bind, _bind_feature
+from .cad_flat_bar import _axis, _bind, _bind_feature, _is_point, _nominal
 from .cad_formed_blank import _angle, _is_angle
 
 _AXES = "xyz"
 _HOLES = ("hole", "threaded_hole")
 # Model agreement: the members' axes and points come from the same CAD values.
 _TOLERANCE = 1e-3
+# Inch-to-millimetre conversion noise in the supply checks.
+_NOISE = 1e-9
+_INCH_READING = 0.0254
 _SUPPLY = (
     "hub_land_min_in",
     "hub_land_max_in",
@@ -94,11 +101,15 @@ class _AnyKind(frozenset):
 
 
 def _claims_for(feature: dict):
+    listed = set(feature.get("requirements", ()))
+
     def claims(key: str) -> bool:
         if key.startswith("nominal_") or key.endswith("_nominal"):
             return False
         value = feature.get(key)
-        return _is_angle(key) or value is True or isinstance(value, dict)
+        if isinstance(value, dict):
+            return key not in listed
+        return _is_angle(key) or value is True
 
     return claims
 
@@ -116,29 +127,52 @@ def _bind_claimed(values: dict, feature: dict, name: str, key: str) -> None:
 
 def _unit_axis(value: object, where: str) -> tuple[int, int]:
     """A unit vector along a model axis: its index and sign."""
-    if not isinstance(value, list) or len(value) != 3:
-        raise CadError(f"{where}: expected a unit vector along a model axis")
-    numbers = [_number(item, where) for item in value]
-    nonzero = [index for index, item in enumerate(numbers) if item != 0]
-    if len(nonzero) != 1 or abs(numbers[nonzero[0]]) != 1:
-        raise CadError(f"{where}: expected a unit vector along a model axis")
-    return nonzero[0], int(numbers[nonzero[0]])
+    axis = _axis(value, where)
+    return _AXES.index(axis[1].lower()), 1 if axis[0] == "+" else -1
 
 
 def _point(value: object, where: str) -> list[float]:
-    if not isinstance(value, list) or len(value) != 3:
+    if not _is_point(value):
         raise CadError(f"{where}: expected a model point [x, y, z]")
-    return [_number(item, where) for item in value]
+    return [float(item) for item in value]
 
 
-def _nominal_band(
-    feature: dict, key: str, name: str
+def _limits(values: dict, key: str, band: tuple[float, float]) -> None:
+    """`_inch_limits`, refusing a key a feature has already bound."""
+    for suffix in ("_in", "_min_in", "_max_in", "_band_mm"):
+        if f"{key}{suffix}" in values:
+            raise CadError(f"cad.{key}{suffix}: bound twice")
+    _inch_limits(values, key, band)
+
+
+def _member(
+    values: dict, feature: dict, key: str, name: str, prefix: str
 ) -> tuple[tuple[float, float], float]:
+    """A member's listed band and nominal (declared, inside the band, else
+    the band's middle), bound as `<prefix>_*`."""
+    band = _band(feature, key, name)
+    nominal = _nominal(feature, key, name)
+    if nominal is None:
+        nominal = (band[0] + band[1]) / 2
+    elif not band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE:
+        raise CadError(
+            f"{name}.{key}: its nominal {nominal:g} mm lies outside its band"
+        )
+    _limits(values, prefix, band)
+    _bind(values, f"{prefix}_mm", nominal)
+    return band, nominal
+
+
+def _declared(feature: dict, key: str, name: str) -> tuple[tuple[float, float], float]:
     """A listed band and its declared nominal, which must lie inside it."""
     band = _band(feature, key, name)
-    nominal = _positive(feature.get(f"{key}_nominal"), f"{name}.{key}_nominal")
+    nominal = _nominal(feature, key, name)
+    if nominal is None or nominal <= 0:
+        raise CadError(f"{name}.{key}: expected its positive nominal")
     if not band[0] - _TOLERANCE <= nominal <= band[1] + _TOLERANCE:
-        raise CadError(f"{name}.{key}_nominal: {nominal:g} mm lies outside its band")
+        raise CadError(
+            f"{name}.{key}: its nominal {nominal:g} mm lies outside its band"
+        )
     return band, nominal
 
 
@@ -164,8 +198,11 @@ def _off_axis(point: list[float], at: list[float], index: int) -> list[float]:
     return [0.0 if i == index else point[i] - at[i] for i in range(3)]
 
 
-def _bore(features: dict, index: int, at: list[float]) -> tuple[str, list[str]]:
-    """The one hole on the hub's axis; the other holes are the strap's."""
+def _bore(
+    features: dict, index: int, at: list[float], hub_radius: float
+) -> tuple[str, list[str]]:
+    """The one hole on the hub's axis; the other holes are the strap's, each
+    wholly outside the hub's largest diameter."""
     bores, others = [], []
     for name, feature in features.items():
         if feature.get("kind") not in _HOLES:
@@ -175,8 +212,16 @@ def _bore(features: dict, index: int, at: list[float]) -> tuple[str, list[str]]:
             raise CadError(f"{name}.axis: expected parallel to the hub's axis")
         if feature.get("thru") is not True:
             raise CadError(f"{name}.thru: expected a through hole")
-        offset = _off_axis(_point(feature.get("at"), f"{name}.at"), at, index)
-        (bores if math.hypot(*offset) <= _TOLERANCE else others).append(name)
+        distance = math.hypot(
+            *_off_axis(_point(feature.get("at"), f"{name}.at"), at, index)
+        )
+        if distance <= _TOLERANCE:
+            bores.append(name)
+            continue
+        radius = _band(feature, "dia", name)[1] / 2 if "dia" in feature else 0.0
+        if distance - radius <= hub_radius:
+            raise CadError(f"{name}: a strap hole cutting into the hub")
+        others.append(name)
     if len(bores) != 1 or features[bores[0]].get("kind") != "hole":
         raise CadError(
             "cad.features: expected exactly one plain hole on the hub's axis"
@@ -188,7 +233,7 @@ def _thickness(features: dict) -> tuple[tuple[float, float], float]:
     names = _listing(features, "thickness")
     if not names:
         raise CadError("cad.features: expected the strap's thickness")
-    bands = {_nominal_band(features[name], "thickness", name) for name in names}
+    bands = {_declared(features[name], "thickness", name) for name in names}
     if len(bands) != 1:
         raise CadError(f"{', '.join(names)}: the strap's thickness disagrees")
     return bands.pop()
@@ -197,8 +242,37 @@ def _thickness(features: dict) -> tuple[tuple[float, float], float]:
 def _length(features: dict) -> tuple[tuple[float, float], float]:
     names = _listing(features, "length")
     if len(names) != 1:
-        raise CadError("cad.features: expected exactly one hub length")
-    return _nominal_band(features[names[0]], "length", names[0])
+        raise CadError(
+            "cad.features: expected exactly one feature listing a length, the hub's"
+        )
+    return _declared(features[names[0]], "length", names[0])
+
+
+def _end_height(
+    length: tuple[float, float], thickness: tuple[float, float], exact: float
+) -> float:
+    """The .001 in reading (mm) either side of ``exact`` leaving the most
+    margin when twice it plus the strap's thickness band must lie in the
+    length band; refused when neither does."""
+    low = math.floor(exact / _INCH_READING + 1e-6) * _INCH_READING
+
+    def margin(height: float) -> float:
+        return min(
+            2 * height + thickness[0] - length[0],
+            length[1] - 2 * height - thickness[1],
+        )
+
+    best = max(
+        (low, low + _INCH_READING),
+        key=lambda height: (margin(height), -abs(height - exact), -height),
+    )
+    if margin(best) < -_NOISE * 1000:
+        raise CadError(
+            "cad.features: facing each hub end from its own strap face to a "
+            ".001 in height leaves the length band across the strap's "
+            "thickness band"
+        )
+    return round(best / _INCH_READING) * _INCH_READING
 
 
 def _supply(
@@ -215,17 +289,15 @@ def _supply(
         raise CadError(f"process: joined_hub needs {', '.join(missing)}")
     mm = {key: _number(parameters[key], f"process.{key}") * 25.4 for key in _SUPPLY}
     land = (mm["hub_land_min_in"], mm["hub_land_max_in"])
-    if not dia[0] <= land[0] <= land[1] <= dia[1]:
+    if not dia[0] - _NOISE <= land[0] <= land[1] <= dia[1] + _NOISE:
         raise CadError(
             "process.hub_land_*: the turned land lies outside the hub's band"
         )
-    _inch_limits(values, "hub_land", land)
+    _limits(values, "hub_land", land)
     short, long = mm["hub_supply_length_min_in"], mm["hub_supply_length_max_in"]
     offset = mm["bond_offset_max_in"]
     if long < short or offset < 0:
         raise CadError("process: expected a supplied length band and an offset ≥ 0")
-    if short < length[1]:
-        raise CadError("process.hub_supply_length_min_in: under the finished length")
     least = (short - thickness[1]) / 2 - offset - height
     most = (long - thickness[0]) / 2 + offset - height
     if least <= 0:
@@ -253,6 +325,9 @@ def load_joined_hub(path: Path, parameters: dict, part: str) -> CadData:
     for name, feature in features.items():
         if not isinstance(feature, dict):
             raise CadError(f"cad.features.{name}: expected a table")
+        kind = feature.get("kind")
+        if feature.get("frame") != "model" or not isinstance(kind, str) or not kind:
+            raise CadError(f"{name}: expected a model-frame feature with a kind")
         _bind_feature(
             values,
             features,
@@ -271,32 +346,23 @@ def load_joined_hub(path: Path, parameters: dict, part: str) -> CadData:
     _edge_breaks(raw, values)
 
     hub, index, at = _hub(features)
-    bore, holes = _bore(features, index, at)
-    dia = _band(features[hub], "dia", hub)
-    _inch_limits(values, "hub_dia", dia)
-    bore_dia = _band(features[bore], "dia", bore)
-    _inch_limits(values, "bore_dia", bore_dia)
+    dia, _hub_nominal = _member(values, features[hub], "dia", hub, "hub_dia")
+    bore, holes = _bore(features, index, at, dia[1] / 2)
+    bore_dia, _bore_nominal = _member(values, features[bore], "dia", bore, "bore_dia")
     if bore_dia[1] >= dia[0]:
         raise CadError(f"{bore}: the bore is not inside the hub")
     if "drill" in features[bore]:
         _bind(values, "bore_drill", _string(features[bore]["drill"], f"{bore}.drill"))
     length, length_nominal = _length(features)
     thickness, thickness_nominal = _thickness(features)
-    _inch_limits(values, "hub_length", length)
+    _limits(values, "hub_length", length)
     _bind(values, "hub_length_mm", length_nominal)
-    _inch_limits(values, "strap_thickness", thickness)
+    _limits(values, "strap_thickness", thickness)
     _bind(values, "strap_thickness_mm", thickness_nominal)
-    height = (length_nominal - thickness_nominal) / 2
-    if height <= 0:
+    exact = (length_nominal - thickness_nominal) / 2
+    if exact <= 0:
         raise CadError("cad.features: the hub is not longer than the strap is thick")
-    if not (
-        length[0] - _TOLERANCE <= 2 * height + thickness[0]
-        and 2 * height + thickness[1] <= length[1] + _TOLERANCE
-    ):
-        raise CadError(
-            "cad.features: facing each hub end from its own strap face leaves "
-            "the length band across the strap's thickness band"
-        )
+    height = _end_height(length, thickness, exact)
     for key, value in (("hub_end_height", height), ("bore_depth", length_nominal)):
         _bind(values, f"{key}_mm", value)
         _bind(values, f"{key}_in", value / 25.4)

@@ -31,9 +31,9 @@ hub_land_min_in = 0.4975
 hub_land_max_in = 0.4990
 hub_supply_length_min_in = 0.37
 hub_supply_length_max_in = 0.40
-bond_offset_max_in = 0.008
+bond_offset_max_in = 0.009
 strap_half_length_mm = 76.2
-strap_width_mm = 12.7
+strap_width_mm = 19.05
 # Two 1-2-3 blocks 2 in up, .625 apart: the hub's lower end hangs between
 # them; the strap rests on their inner edges, clamped over each block. On
 # 1 in blocks the spindle nose would come under the table's least reach.
