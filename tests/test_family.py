@@ -373,11 +373,16 @@ def test_a_template_picture_takes_qualified_tokens():
     assert f"other {back}</" in drawn
 
 
-def test_a_captioned_picture_cannot_be_split_from_its_caption():
+def test_a_captioned_operation_picture_is_one_unbreakable_box():
+    import re
+
     html = render_traveler(load_plan(DEMO), profile=HOBBY)
-    whole = ' style="display: inline-block; width: 100%"><figcaption'
-    captions = html.count("<figcaption")
-    assert captions and html.count(whole) == captions
-    # A picture without a caption keeps its plain figure.
-    single = render_traveler(load_plan(SINGLE), profile=HOBBY)
-    assert "<figcaption" not in single and "inline-block" not in single
+    figures = re.findall(r"<figure ([^>]*)><figcaption", html)
+    in_ops = [attrs for attrs in figures if "op-picture" in attrs]
+    assert in_ops and len(in_ops) < len(figures)
+    # In an operations-table cell the caption and image are one inline-block;
+    # a captioned setup picture, outside the table, stays a plain block.
+    assert all("inline-block" in attrs for attrs in in_ops)
+    assert not any(
+        "inline-block" in attrs for attrs in figures if "op-picture" not in attrs
+    )
