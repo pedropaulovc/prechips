@@ -43,7 +43,7 @@ ARROW = "url(#prechips-arr)"
 # The CAD data and parameters of the layout being drawn, so a label can be
 # measured as printed, after its tokens are bound. ``render_cad_svg`` sets it
 # around the layout call.
-_binding: ContextVar[tuple[CadData, dict]] = ContextVar("_binding")
+_binding: ContextVar[tuple[CadData, dict, dict | None]] = ContextVar("_binding")
 
 
 def _bound(text: str) -> str:
@@ -55,8 +55,8 @@ def _bound(text: str) -> str:
     binding = _binding.get(None)
     if binding is None:
         raise CadError("diagram labels are measured only inside render_cad_svg")
-    cad, parameters = binding
-    return bind_text(text, cad, parameters)
+    cad, parameters, parts = binding
+    return bind_text(text, cad, parameters, parts=parts)
 
 
 def _fmt(value: float | str) -> str:
@@ -746,7 +746,7 @@ def render_cad_svg(
     ).get(name)
     if layout is None:
         raise CadError(f"unknown diagram template {name!r}")
-    token = _binding.set((cad, parameters))
+    token = _binding.set((cad, parameters, parts))
     try:
         view, groups = layout(cad.values, parameters, root)
     finally:
@@ -763,5 +763,7 @@ def render_cad_svg(
     if groups:
         raise CadError(f"diagram template {name!r} lacks groups {sorted(groups)}")
     text = ElementTree.tostring(root, encoding="unicode")
-    bound = bind_text(text, cad, parameters, extra={"view": view}, xml=True)
+    bound = bind_text(
+        text, cad, parameters, extra={"view": view}, xml=True, parts=parts
+    )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n' + bound).encode("utf-8")

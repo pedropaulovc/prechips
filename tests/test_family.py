@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from prechips.traveler import PlanError, load_plan, setups_serving
+from prechips.profiles import HOBBY
+from prechips.traveler import PlanError, load_plan, render_traveler, setups_serving
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "examples/demo-clamp-pair.toml"
@@ -289,32 +290,84 @@ def test_values_alike_but_for_noise_bind_the_same_whichever_part_is_first():
     for tables in ({"a": small, "b": other}, {"b": other, "a": small}):
         agreed = Agreed("process", tables)
         assert agreed["gap_mm"] == 0.0 and agreed["runs"] == [0.3]
+    for tables in (
+        {"a": {"x": -0.0}, "b": {"x": 0.0}},
+        {"b": {"x": 0.0}, "a": {"x": -0.0}},
+    ):
+        assert repr(Agreed("process", tables)["x"]) == "0.0"
     # Values given exactly alike stay as computed.
     assert Agreed("process", {"a": small, "b": dict(small)})["gap_mm"] == 1e-10
 
 
 def test_part_titles_and_pictures_bind_qualified_tokens_and_their_own_part(tmp_path):
+    svg = tmp_path / "plain.svg"
+    svg.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        "<text>{{cad.depth_in:.3dot}} / {{cad.front.depth_in:.3dot}}</text></svg>",
+        encoding="utf-8",
+    )
     plan = _copy(
         tmp_path,
         DEMO,
         (
-            'alt = "A back held the same way,',
+            'title = "{{cad.drawing_number}} demo clamp front"',
+            'title = "{{cad.drawing_number}} front, mate {{cad.back.drawing_number}}"',
+        ),
+        (
             (
-                'alt = "A back {{cad.depth_in:.3dot}} deep ({{cad.front.depth_in:.3dot}} '
-                "the front) held the same way,"
+                f'file = "{DEMO.parent.as_posix()}/diagrams/demo-clamp-pair/mating.svg", '
+                'part = "back", alt = "A back held the same way,'
+            ),
+            (
+                f'file = "{svg.as_posix()}", part = "back", '
+                'alt = "A back {{cad.depth_in:.3dot}} deep '
+                "({{cad.front.depth_in:.3dot}} the front) held the same way,"
             ),
         ),
     )
     loaded = load_plan(plan)
-    front, back = (
-        loaded.parts[part][0].values["depth_in"] for part in ("front", "back")
-    )
+    cad = {part: loaded.parts[part][0].values for part in ("front", "back")}
+    front, back = (f"{cad[part]['depth_in']:.3f}".lstrip("0") for part in cad)
     assert front != back
+    # A title names another part's value beside its own.
+    numbers = [cad[part]["drawing_number"] for part in cad]
+    assert loaded.titles["front"] == f"{numbers[0]} front, mate {numbers[1]}"
+    # The picture names the back inside a setup that names no part: its alt
+    # text and its authored SVG bind the back's values, and the front's by name.
     alts = [
         operation["diagram"]["alt"]
         for setup in loaded.data["setups"]
         for operation in setup["operations"]
         if "A back " in operation.get("diagram", {}).get("alt", "")
     ]
-    # The picture names the back inside a setup that names no part.
-    assert any(f"A back {back:.3f}".replace("0.", ".") in alt for alt in alts), alts
+    assert any(
+        alt.startswith(f"A back {back} deep ({front} the front) held") for alt in alts
+    ), alts
+    import base64
+    import re
+
+    html = render_traveler(loaded, profile=HOBBY)
+    pictures = [
+        base64.b64decode(data).decode("utf-8")
+        for data in re.findall(r"data:image/svg\+xml;base64,([A-Za-z0-9+/=]+)", html)
+    ]
+    assert any(f"<text>{back} / {front}</text>" in picture for picture in pictures)
+
+
+def test_a_template_picture_takes_qualified_tokens():
+    from prechips.cad_diagrams import render_cad_svg
+
+    loaded = load_plan(DEMO)
+    template = (DEMO.parent / "diagrams/demo-clamp-pair/mating.svg").read_text(
+        encoding="utf-8"
+    )
+    assert "data-cad-template" in template
+    marked = template.replace(
+        "/>", "><text>other {{cad.back.depth_in:.3dot}}</text></svg>"
+    )
+    assert marked != template
+    back = f"{loaded.parts['back'][0].values['depth_in']:.3f}".lstrip("0")
+    drawn = render_cad_svg(
+        marked.encode("utf-8"), *loaded.parts["front"], parts=loaded.parts
+    ).decode("utf-8")
+    assert f"other {back}</" in drawn

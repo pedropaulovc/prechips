@@ -777,7 +777,9 @@ class Agreed(Mapping):
             )
         # Values that differ only by noise give the denoised one, whichever
         # part is listed first.
-        return first if all(value == first for value in values) else _settled(first)
+        # (repr tells -0.0 from 0.0, which == does not).
+        alike = all(repr(value) == repr(first) for value in values)
+        return first if alike else _settled(first)
 
     def __iter__(self):
         return iter({key: None for table in self._tables.values() for key in table})
