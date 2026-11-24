@@ -27,6 +27,7 @@ milling_material = "steel_1018"
 [[parts]]
 id = "front"
 label = "Front {{cad.drawing_number}}"
+title = "{{cad.drawing_number}} demo clamp front"
 file = "cad/clamp-front-v51.toml"
 adapter = "clamp_half"
 part = "clamp-front"
@@ -45,6 +46,7 @@ drill_9_oal_mm = 88.9
 [[parts]]
 id = "back"
 label = "Back {{cad.drawing_number}}"
+title = "{{cad.drawing_number}} demo clamp back"
 file = "cad/clamp-back-v51.toml"
 adapter = "clamp_half"
 part = "clamp-back"
@@ -117,18 +119,22 @@ centre_drill_oal_mm = 47.625
 
 [[tools]]
 id = "em-half"
+number = 1
 name = "1/2 in carbide end mill"
 ref = "arc-strap-em-half"
 [[tools]]
 id = "spot"
+number = 2
 name = "#2 centre drill"
 ref = "jig-spot"
 [[tools]]
 id = "drill-9"
+number = 3
 name = "#9 drill"
 ref = "riser-drill-9"
 [[tools]]
 id = "drill-29"
+number = 4
 name = "#29 drill"
 ref = "jig-drill-29"
 [[tools]]
@@ -177,6 +183,7 @@ table = { columns = ["Finished size", "Front {{cad.front.drawing_number}}", "Bac
 [[setups]]
 machine_kind = "other"
 title = "First end"
+programs = ["first-end.nc"]
 machine = "CNC mill / vise"
 indexing = "none"
 machine_ref = "pm-30mv"
@@ -500,6 +507,8 @@ diagram = { file = "diagrams/demo-clamp-pair/deburr.svg", part = "back", alt = "
 [[setups]]
 machine_kind = "other"
 part = "back"
+serves = ["front", "back"]
+programs = ["pair-bore.nc", "bore-open.nc"]
 title = "Pair bore: each back bolted to its front"
 machine = "CNC mill / vise"
 indexing = "none"

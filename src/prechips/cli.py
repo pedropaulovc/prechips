@@ -9,7 +9,13 @@ from pathlib import Path
 from prechips import checks
 from prechips.profiles import ProfileError, load_profile
 from prechips.stock import StockError, check_stock_fit
-from prechips.traveler import PlanError, load_plan, render_traveler, used_diagrams
+from prechips.traveler import (
+    PlanError,
+    load_plan,
+    render_placeholder,
+    render_traveler,
+    used_diagrams,
+)
 from prechips.turning import (
     DEFAULT_CONFIG,
     TurningError,
@@ -48,8 +54,23 @@ def main(argv: list[str] | None = None) -> int:
             "(partial TOML config)"
         ),
     )
+    traveler.add_argument(
+        "--placeholder",
+        metavar="PART",
+        help=(
+            "render one part of a family plan's one-page placeholder, which "
+            "points to the shared traveler, in place of the traveler"
+        ),
+    )
+    traveler.add_argument(
+        "--shared-file",
+        metavar="NAME",
+        help="with --placeholder: the shared traveler's file name, printed on it",
+    )
     args = parser.parse_args(argv)
     try:
+        if args.shared_file is not None and args.placeholder is None:
+            raise PlanError("--shared-file: requires --placeholder")
         if args.out.exists() and args.out.samefile(args.plan):
             raise PlanError("output must not overwrite the input plan")
         profile = load_profile(args.profile)
@@ -119,7 +140,13 @@ def main(argv: list[str] | None = None) -> int:
         for name in checks.CHECKS:
             if name in profile.enforce:
                 checks.run(name, plan, config)
-        html = render_traveler(plan, profile=profile)
+        # A placeholder passes every check of the traveler it points to.
+        if args.placeholder is not None:
+            html = render_placeholder(
+                plan, args.placeholder, shared_file=args.shared_file
+            )
+        else:
+            html = render_traveler(plan, profile=profile)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(html, encoding="utf-8")
     except (

@@ -36,6 +36,7 @@ uv run prechips traveler examples/demo-hex-block.toml --profile pro --out out/he
 uv run prechips traveler examples/demo-hex-block.toml --profile hobby --out out/hex-block-hobby.html
 uv run prechips traveler examples/demo-clamp-pair.toml --profile pro --out out/clamp-pair-pro.html
 uv run prechips traveler examples/demo-clamp-pair.toml --profile hobby --out out/clamp-pair-hobby.html
+uv run prechips traveler examples/demo-clamp-pair.toml --placeholder front --shared-file clamp-pair-hobby.html --out out/clamp-front-placeholder.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile pro --out out/turned-plug-pro.html
 uv run prechips traveler examples/demo-turned-plug.toml --profile hobby --out out/turned-plug-hobby.html
 uv run prechips traveler examples/demo-turned-shaft.toml --profile pro --out out/turned-shaft-pro.html
@@ -157,6 +158,7 @@ Near-twin parts that share most of a route can share one traveler. A family plan
 [[parts]]
 id = "front"                      # Names the part in bindings and in `part = "front"`.
 label = "Front {{cad.drawing_number}}"  # Optional; captions a picture that names this part.
+title = "{{cad.drawing_number}} clamp front"  # Optional; heads this part's placeholder.
 file = "cad/clamp-front-v51.toml"
 adapter = "clamp_half"
 part = "clamp-front"
@@ -178,6 +180,22 @@ Each part is read with the plan's `[parameters]` and its own `[parts.parameters]
 - A picture without a part must come out the same from every part; where the parts draw it differently the refusal asks for one. A `diagram` may name its own part (`{ file, alt, part = "back" }`), which then prints that part's `label` above the picture.
 
 Checks read a setup's structured fields after binding, so they need no knowledge of parts: a shared setup's `envelope`, `vise_hold`, `beam` and cuts either bind values the parts share or state the governing part's value with a qualified token. A one-part plan is unchanged: `part` on a setup, operation or picture, and a `{{cad.PART.KEY}}` token, are refused without `[[parts]]`.
+
+Three optional fields keep a sheet shared by several parts unambiguous. They are not limited to family plans, except `serves`:
+
+- A tool may carry `number = 3`, the T number the plan's NC programs call it by. The tool list and every operation that uses the tool print it (`T3 #9 drill`), and a number given to two tools is refused, so one T number means one tool on the whole sheet.
+- A setup may list `programs = ["first-end.nc"]`, the NC programs it runs, printed as its `NC:` line. A program every part runs is then named once, in the setup that is written once.
+- A setup may list `serves = ["front", "back"]`, the parts that go through it, where that is not its `part` (or, without one, every part): a setup that prints one part's values but holds several, as the bolted pair's bore does. It must include the setup's own `part`.
+
+### Placeholder sheets
+
+A part made on a family traveler has no sheet of its own. Where a document set must still hold a sheet under every part's name, print the part a placeholder:
+
+```sh
+uv run prechips traveler examples/demo-clamp-pair.toml --placeholder front --shared-file clamp-pair-traveler.pdf --out out/clamp-front-traveler.html
+```
+
+It is one page: the part's `title` (else its `label`, else its id), the plan's revision and material, the shared traveler's title and, with `--shared-file`, its file name, the other parts made with it, and a table of the shared traveler's setups this part goes through with each one's machine and programs. It carries no instructions, so it cannot drift from the shared sheet. The plan is loaded and checked exactly as for the traveler (the same profile and `--disable-check` flags apply), so a plan that refuses prints no placeholder either; the profile does not change the page.
 
 `examples/demo-clamp-pair.toml` puts both halves of a split clamp on one sheet: six setups square every blank alike, one table says where the two halves differ in the mating-face setup, each half then has its own drilling setup, and the pair is bored bolted together.
 

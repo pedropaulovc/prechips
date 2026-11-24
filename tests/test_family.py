@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from prechips.traveler import PlanError, load_plan
+from prechips.traveler import PlanError, load_plan, setups_serving
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "examples/demo-clamp-pair.toml"
@@ -29,9 +29,20 @@ def _copy(tmp_path: Path, source: Path, *edits: tuple[str, str]) -> Path:
     return plan
 
 
-def _cli(plan: Path, out: Path, profile: str) -> subprocess.CompletedProcess:
+def _cli(
+    plan: Path, out: Path, profile: str, *more: str
+) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["prechips", "traveler", str(plan), "--profile", profile, "--out", str(out)],
+        [
+            "prechips",
+            "traveler",
+            str(plan),
+            "--profile",
+            profile,
+            "--out",
+            str(out),
+            *more,
+        ],
         capture_output=True,
         check=False,
         text=True,
@@ -140,3 +151,115 @@ def test_a_one_part_plan_has_no_parts_to_name(tmp_path):
         load_plan(
             _copy(tmp_path, SINGLE, ('title = "', 'title = "{{cad.front.width_mm}} '))
         )
+
+
+def test_tool_numbers_and_programs_print_once_for_the_whole_sheet(tmp_path):
+    out = tmp_path / "pair.html"
+    assert _cli(DEMO, out, "pro").returncode == 0
+    html = out.read_text(encoding="utf-8")
+    # The tool list and every operation call a tool by its one T number.
+    assert '<td class="text">T3 #9 (.1960 in) drill' in html
+    assert '<div class="text tool">T3 #9 drill</div>' in html
+    assert '<div class="text tool">T4 #29 drill</div>' in html
+    # A tool no program calls has no number.
+    assert '<div class="text tool">Files</div>' in html
+    assert "<dt>NC:</dt><dd>pair-bore.nc, bore-open.nc</dd>" in html
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        (
+            'id = "drill-29"\nnumber = 4',
+            'id = "drill-29"\nnumber = 3',
+            r"tools\[4\]\.number: T3 is already tool 'drill-9'",
+        ),
+        ('id = "spot"\nnumber = 2', 'id = "spot"\nnumber = 0', "positive integer"),
+        (
+            'programs = ["first-end.nc"]',
+            'programs = ["first-end.nc", "first-end.nc"]',
+            r"setups\[2\]\.programs: expected a nonempty array of distinct names",
+        ),
+        (
+            'serves = ["front", "back"]',
+            'serves = ["front", "rear"]',
+            r"serves: unknown part 'rear'",
+        ),
+        (
+            'serves = ["front", "back"]',
+            'serves = ["front"]',
+            r"serves: expected to include its part 'back'",
+        ),
+    ],
+)
+def test_number_program_and_serves_refusals(tmp_path, old, new, message):
+    with pytest.raises(PlanError, match=message):
+        load_plan(_copy(tmp_path, DEMO, (old, new)))
+
+
+def test_serves_needs_a_family(tmp_path):
+    plan = _copy(tmp_path, SINGLE, ("[[setups]]\n", '[[setups]]\nserves = ["a"]\n'))
+    with pytest.raises(PlanError, match=r"setups\[1\]\.serves: requires \[\[parts\]\]"):
+        load_plan(plan)
+
+
+def test_a_setup_serves_its_part_or_every_part_unless_it_says():
+    plan = load_plan(DEMO)
+    front = [number for number, _ in setups_serving(plan, "front")]
+    back = [number for number, _ in setups_serving(plan, "back")]
+    # Setup 7 is the fronts', 8 and 11 the backs'; 10 names the back, whose
+    # values it prints, and serves both: the pair is bored bolted together.
+    assert front == [1, 2, 3, 4, 5, 6, 7, 9, 10, 12]
+    assert back == [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12]
+
+
+def test_a_placeholder_points_one_part_to_the_shared_traveler(tmp_path):
+    out = tmp_path / "front.html"
+    result = _cli(
+        DEMO, out, "hobby", "--placeholder", "front", "--shared-file", "pair.pdf"
+    )
+    assert result.returncode == 0, result.stderr
+    html = out.read_text(encoding="utf-8")
+    assert "<h1>DEMO-CLAMP-FRONT demo clamp front</h1>" in html
+    assert (
+        "shared traveler <strong>Demo clamp pair: front and back</strong> "
+        "(file pair.pdf)" in html
+    )
+    assert "together with DEMO-CLAMP-BACK demo clamp back" in html
+    # Its setups only, each with the programs it runs; no setup page follows.
+    assert "Setup 7 — Fronts: outside face" in html
+    assert "Setup 8 — Backs:" not in html
+    assert "Setup 10 — Pair bore" in html and "pair-bore.nc, bore-open.nc" in html
+    assert "<section>" not in html and "<img" not in html
+    # Both profiles print the same placeholder.
+    pro = tmp_path / "front-pro.html"
+    result = _cli(
+        DEMO, pro, "pro", "--placeholder", "front", "--shared-file", "pair.pdf"
+    )
+    assert result.returncode == 0, result.stderr
+    assert pro.read_text(encoding="utf-8") == html
+
+
+def test_a_placeholder_is_refused_with_its_traveler(tmp_path):
+    # Not a part of the family; not a family; a plan that refuses.
+    out = tmp_path / "x.html"
+    result = _cli(DEMO, out, "pro", "--placeholder", "rear")
+    assert result.returncode == 2 and "unknown part 'rear'" in result.stderr
+    result = _cli(SINGLE, out, "pro", "--placeholder", "front")
+    assert result.returncode == 2 and "no [[parts]]" in result.stderr
+    result = _cli(DEMO, out, "pro", "--shared-file", "pair.pdf")
+    assert result.returncode == 2 and "requires --placeholder" in result.stderr
+    broken = _copy(
+        tmp_path,
+        DEMO,
+        (
+            'part = "clamp-back"\n',
+            'part = "clamp-back"\n[parts.parameters]\nblank_section_in = 0.5\n',
+        ),
+        (
+            "\n[parts.parameters]\nother_half_depth_min_mm = 17.272",
+            "\nother_half_depth_min_mm = 17.272",
+        ),
+    )
+    assert _cli(broken, out, "pro", "--placeholder", "front").returncode == 2
+    assert not out.exists()
