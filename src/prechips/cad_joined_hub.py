@@ -106,9 +106,7 @@ def _claims_for(feature: dict):
             return False
         value = feature.get(key)
         if isinstance(value, dict):
-            # A malformed list is the binder's to refuse; never claim for it.
-            listed = feature.get("requirements")
-            return isinstance(listed, list) and key not in listed
+            return key not in feature.get("requirements", ())
         return _is_angle(key) or value is True
 
     return claims
@@ -157,9 +155,11 @@ def _nominal_in(
 def _member(
     values: dict, feature: dict, key: str, name: str, prefix: str
 ) -> tuple[float, float]:
-    """A member's listed band, bound as `<prefix>_*` with its declared nominal
-    (else the band's middle) as `<prefix>_mm`."""
+    """A member's listed positive band, bound as `<prefix>_*` with its
+    declared nominal (else the band's middle) as `<prefix>_mm`."""
     band = _band(feature, key, name)
+    if band[0] <= 0:
+        raise CadError(f"{name}.{key}: expected positive drawing limits")
     nominal = _nominal_in(feature, key, name, band)
     _limits(values, prefix, band)
     _bind(
@@ -178,15 +178,23 @@ def _declared(feature: dict, key: str, name: str) -> tuple[tuple[float, float], 
 
 
 def _hole_radius(feature: dict, name: str) -> float:
-    """A strap hole's largest radius: its `dia` (a band's high end or one
-    number, listed or not), else its thread's basic major."""
+    """A strap hole's largest radius: a tapped hole's thread's basic major
+    (its `dia`, if any, is the tap drill, under it); else its `dia`, a band's
+    high end or one number, listed or not."""
+    thread = feature.get("thread")
+    if isinstance(thread, str):
+        try:
+            return inch_thread(thread, f"{name}.thread")[0] / 2
+        except CadError:
+            raise CadError(
+                f"{name}.thread: {thread!r} cannot be sized against the hub "
+                "(an inch UN thread with its class, e.g. #10-32 UNF-2B)"
+            ) from None
     dia = feature.get("dia")
     if isinstance(dia, list) and dia:
         return max(_number(item, f"{name}.dia") for item in dia) / 2
     if dia is not None:
         return _number(dia, f"{name}.dia") / 2
-    if isinstance(feature.get("thread"), str):
-        return inch_thread(feature["thread"], f"{name}.thread")[0] / 2
     raise CadError(f"{name}: a strap hole states no size (dia or thread)")
 
 
@@ -194,8 +202,7 @@ def _listing(features: dict, key: str) -> list[str]:
     return [
         name
         for name, feature in features.items()
-        if isinstance(feature.get("requirements"), list)
-        and key in feature["requirements"]
+        if key in feature.get("requirements", ())
     ]
 
 
@@ -237,7 +244,11 @@ def _bore(
         else:
             others.append(name)
     if len(bores) != 1 or features[bores[0]].get("kind") != "hole":
-        off = f" ({', '.join(cutting)} lies off it, inside the hub)" if cutting else ""
+        off = (
+            f" ({', '.join(cutting)} lies off it, inside the hub)"
+            if cutting and not bores
+            else ""
+        )
         raise CadError(
             f"cad.features: expected exactly one plain hole on the hub's axis{off}"
         )

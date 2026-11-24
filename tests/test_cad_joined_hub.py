@@ -98,6 +98,30 @@ def _manifest(tmp_path, old: str, new: str) -> Path:
             ),
             "tap: a strap hole cutting into the hub",
         ),
+        # Its tap-drill dia does not size it: the major still cuts the hub.
+        (
+            "[features.outline]",
+            (
+                '[features.tap]\nkind = "threaded_hole"\nframe = "model"\n'
+                'requirements = ["thread", "thru"]\nat = [8.6, 0.0, 0.0]\n'
+                'axis = [0.0, 0.0, 1.0]\nthread = "#10-32 UNF-2B"\n'
+                "dia = [3.797, 3.8986]\nthru = true\n\n[features.outline]"
+            ),
+            "tap: a strap hole cutting into the hub",
+        ),
+        # A thread the adapter cannot size is refused by name.
+        (
+            "[features.outline]",
+            (
+                '[features.tap]\nkind = "threaded_hole"\nframe = "model"\n'
+                'requirements = ["thread", "thru"]\nat = [30.0, 0.0, 0.0]\n'
+                'axis = [0.0, 0.0, 1.0]\nthread = "M4x0.7"\nthru = true\n\n'
+                "[features.outline]"
+            ),
+            "tap.thread: 'M4x0.7' cannot be sized against the hub",
+        ),
+        # The members' limits are positive.
+        ("dia = [6.5278, 6.6294]", "dia = [-1.0, 6.6294]", "positive"),
         # A malformed requirements list is refused, never a traceback.
         (
             'requirements = ["radius", "surface_profile"]',
