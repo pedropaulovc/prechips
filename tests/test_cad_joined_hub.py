@@ -81,11 +81,28 @@ def _manifest(tmp_path, old: str, new: str) -> Path:
         ),
         # One boss, the hub.
         ('kind = "boss"', 'kind = "face"', "exactly one boss"),
-        # The bore lies on the hub's axis: off it, it is a hole cutting the hub.
+        # The bore lies on the hub's axis; off it, the axis has no plain hole.
         (
             "at = [0.0, 0.0, 0.0]\naxis = [0.0, 0.0, 1.0]\ndia = [6.5278",
             "at = [0.5, 0.0, 0.0]\naxis = [0.0, 0.0, 1.0]\ndia = [6.5278",
-            "cutting into the hub",
+            "plain hole on the hub's axis (pivot_bore lies off it, inside the hub)",
+        ),
+        # A tapped strap hole is sized by its thread's major.
+        (
+            "[features.outline]",
+            (
+                '[features.tap]\nkind = "threaded_hole"\nframe = "model"\n'
+                'requirements = ["thread", "thru"]\nat = [7.0, 0.0, 0.0]\n'
+                'axis = [0.0, 0.0, 1.0]\nthread = "#10-32 UNF-2B"\nthru = true\n\n'
+                "[features.outline]"
+            ),
+            "tap: a strap hole cutting into the hub",
+        ),
+        # A malformed requirements list is refused, never a traceback.
+        (
+            'requirements = ["radius", "surface_profile"]',
+            "requirements = 5",
+            "outline",
         ),
         # The hole on the hub's axis is a plain hole.
         (
@@ -174,3 +191,33 @@ def test_a_land_at_the_band_edge_is_not_refused_by_conversion_noise():
         SOURCE, {**SUPPLY, "hub_land_max_in": 0.51}, "joined-lever"
     ).values
     assert values["hub_land_max_in"] == pytest.approx(0.51)
+
+
+def test_a_unilateral_member_diameter_and_a_one_number_strap_hole_bind(tmp_path):
+    text = SOURCE.read_text(encoding="utf-8")
+    # A .257 +.001/+.003 bore: its nominal size lies under its band.
+    text = text.replace("dia = [6.5278, 6.6294]", "dia = [6.5532, 6.6040]", 1)
+    text = text.replace("dia = [3.2639, 3.3655]", "dia = 3.2639", 1)
+    path = tmp_path / "joined.toml"
+    path.write_text(text, encoding="utf-8")
+    values = load_joined_hub(path, SUPPLY, "joined-lever").values
+    assert values["bore_dia_band_mm"] == [6.5532, 6.6040]
+    assert values["bore_dia_mm"] == pytest.approx(6.5278)
+    assert values["pin_hole_from_bore_mm"] == pytest.approx(51.1953, abs=1e-4)
+
+
+def test_the_printed_height_may_lie_below_the_exact_half(tmp_path):
+    # Length .290–.300 (nominal .300), strap .125–.127 (nominal .126): the
+    # half is .087, but .087 makes .301 on the thickest strap; .086 fits.
+    text = SOURCE.read_text(encoding="utf-8")
+    text = text.replace("length = [7.5184, 7.7216]", "length = [7.366, 7.62]", 1)
+    text = text.replace(
+        "thickness = [3.1496, 3.2004]\nthickness_nominal = 3.175",
+        "thickness = [3.175, 3.2258]\nthickness_nominal = 3.2004",
+        1,
+    )
+    path = tmp_path / "joined.toml"
+    path.write_text(text, encoding="utf-8")
+    supply = {**SUPPLY, "hub_supply_length_min_in": 0.36}
+    values = load_joined_hub(path, supply, "joined-lever").values
+    assert values["hub_end_height_in"] == pytest.approx(0.086)
