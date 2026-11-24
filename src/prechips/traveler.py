@@ -11,7 +11,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from prechips import indexing, milling, palette, speeds
-from prechips.cad import CadData, CadError, bind_data, load_cad
+from prechips.cad import Agreed, CadData, CadError, bind_data, bind_text, load_cad
 from prechips.checks import CheckError, positive_mm
 from prechips.checks import fields as check_fields
 from prechips.profiles import PRO, Profile
@@ -71,6 +71,20 @@ def _cutting_settings(table: dict, where: str) -> None:
             raise PlanError(f"{where}.rpm: expected a positive integer")
 
 
+def _names(table: dict, key: str, where: str) -> None:
+    """An optional nonempty array of distinct nonempty strings."""
+    if key not in table:
+        return
+    names = table[key]
+    if (
+        not isinstance(names, list)
+        or not names
+        or any(not isinstance(name, str) or not name.strip() for name in names)
+        or len(set(names)) != len(names)
+    ):
+        raise PlanError(f"{where}.{key}: expected a nonempty array of distinct names")
+
+
 def _choice(table: dict, key: str, choices: set[str], where: str) -> None:
     if key in table and (not isinstance(table[key], str) or table[key] not in choices):
         raise PlanError(f"{where}.{key}: expected {' or '.join(sorted(choices))}")
@@ -116,7 +130,7 @@ def _diagram(table: dict, where: str) -> None:
     where = f"{where}.diagram"
     if not isinstance(diagram, dict):
         raise PlanError(f"{where}: expected a table")
-    _keys(diagram, {"file", "alt"}, where)
+    _keys(diagram, {"file", "alt", "part"}, where)
     _text(diagram, "file", where)
     _text(diagram, "alt", where)
 
@@ -264,28 +278,43 @@ class LoadedPlan:
     shop_data: dict
     # The files read for ``shop``: the file itself, or a directory's files.
     shop_files: list[Path] = field(default_factory=list)
+    # A family plan's parts, by id: each one's CAD data and its parameters
+    # (the plan's with the part's own over them). Empty for a one-part plan.
+    parts: dict[str, tuple[CadData, dict]] = field(default_factory=dict)
+    # The parts' optional printed names, by id.
+    labels: dict[str, str] = field(default_factory=dict)
+    # The parts' optional titles, by id: what a part's placeholder is headed.
+    titles: dict[str, str] = field(default_factory=dict)
+
+    def scopes(self, *tables: dict) -> list[tuple[CadData | None, dict]]:
+        """The CAD data and parameters a picture is drawn from: the part the
+        first of ``tables`` (innermost first) names, else every part's."""
+        for table in tables:
+            if "part" in table:
+                return [self.parts[table["part"]]]
+        return list(self.parts.values()) or [(self.cad, self.parameters)]
 
 
-def load_plan(path: Path) -> LoadedPlan:
-    with path.open("rb") as source:
-        plan = tomllib.load(source)
-    parameters = plan.pop("parameters", {})
+_PART_ID = re.compile(r"[a-z][a-z0-9_]*")
+
+
+def _parameters(parameters: object, where: str) -> None:
     if not isinstance(parameters, dict):
-        raise PlanError("parameters: expected a table")
+        raise PlanError(f"{where}: expected a table")
     for key, value in parameters.items():
         if key == "quantity" and (type(value) is not int or value < 1):
-            raise PlanError("parameters.quantity: expected a positive integer")
+            raise PlanError(f"{where}.quantity: expected a positive integer")
         # A list of names configures flat_bar's blank groups.
         if _NAME_LISTS.fullmatch(key) and isinstance(value, list):
             if not value or not all(
                 isinstance(item, str) and item.strip() for item in value
             ):
-                raise PlanError(f"parameters.{key}: expected a nonempty list of names")
+                raise PlanError(f"{where}.{key}: expected a nonempty list of names")
             continue
         if type(value) not in (int, float):
-            raise PlanError(f"parameters.{key}: expected a finite number")
+            raise PlanError(f"{where}.{key}: expected a finite number")
         if not isfinite(value):
-            raise PlanError(f"parameters.{key}: expected a finite number")
+            raise PlanError(f"{where}.{key}: expected a finite number")
         if (
             key
             in {
@@ -295,11 +324,76 @@ def load_plan(path: Path) -> LoadedPlan:
             }
             and value <= 0
         ):
-            raise PlanError(f"parameters.{key}: expected a positive number")
+            raise PlanError(f"{where}.{key}: expected a positive number")
+
+
+def _load_parts(
+    family: object, path: Path, parameters: dict
+) -> tuple[dict, dict, dict]:
+    """A family plan's ``[[parts]]``: each part's manifest through its adapter,
+    read with the plan's parameters and the part's own over them, and the
+    parts' labels and titles."""
+    if not isinstance(family, list) or len(family) < 2:
+        raise PlanError("parts: expected two or more [[parts]] tables")
+    parts: dict[str, tuple[CadData, dict]] = {}
+    labels: dict[str, str] = {}
+    titles: dict[str, str] = {}
+    for index, entry in enumerate(family, 1):
+        where = f"parts[{index}]"
+        if not isinstance(entry, dict):
+            raise PlanError(f"{where}: expected a table")
+        _keys(
+            entry,
+            {"id", "label", "title", "file", "adapter", "part", "parameters"},
+            where,
+        )
+        part_id = _text(entry, "id", where)
+        if not _PART_ID.fullmatch(part_id):
+            raise PlanError(
+                f"{where}.id: expected a lower-case name of letters, digits and _"
+            )
+        if part_id in parts:
+            raise PlanError(f"{where}.id: duplicate part {part_id!r}")
+        own = entry.get("parameters", {})
+        _parameters(own, f"{where}.parameters")
+        merged = parameters | own
+        try:
+            cad = load_cad(
+                path.parent / _text(entry, "file", where),
+                merged,
+                _text(entry, "adapter", where),
+                _text(entry, "part", where),
+            )
+        except CadError as error:
+            raise PlanError(f"{where} ({part_id}): {error}") from error
+        parts[part_id] = (cad, merged)
+    # A label or title binds its own part's values; a qualified token names
+    # any part's, so every part is loaded first.
+    for index, entry in enumerate(family, 1):
+        where = f"parts[{index}]"
+        for key, bound in (("label", labels), ("title", titles)):
+            if key in entry:
+                bound[entry["id"]] = bind_text(
+                    _text(entry, key, where), *parts[entry["id"]], parts=parts
+                )
+    return parts, labels, titles
+
+
+def load_plan(path: Path) -> LoadedPlan:
+    with path.open("rb") as source:
+        plan = tomllib.load(source)
+    parameters = plan.pop("parameters", {})
+    _parameters(parameters, "parameters")
     cad = None
     config = plan.pop("cad", None)
+    family = plan.pop("parts", None)
+    parts: dict[str, tuple[CadData, dict]] = {}
+    labels: dict[str, str] = {}
+    titles: dict[str, str] = {}
     try:
         if config is not None:
+            if family is not None:
+                raise PlanError("plan: expected [cad] or [[parts]], not both")
             if not isinstance(config, dict):
                 raise PlanError("cad: expected a table")
             _keys(config, {"file", "adapter", "part"}, "cad")
@@ -309,8 +403,25 @@ def load_plan(path: Path) -> LoadedPlan:
                 _text(config, "adapter", "cad"),
                 _text(config, "part", "cad"),
             )
-        # Literal-only plans can also bind authored process parameters.
-        context = cad or CadData({}, stock_requirement=None, source=path.resolve())
+        if family is not None:
+            parts, labels, titles = _load_parts(family, path, parameters)
+            # Text that names no part binds only what every part gives alike.
+            shared = (
+                CadData(
+                    Agreed(
+                        "cad", {key: part.values for key, (part, _) in parts.items()}
+                    ),
+                    stock_requirement=None,
+                    source=path.resolve(),
+                ),
+                Agreed("process", {key: own for key, (_, own) in parts.items()}),
+            )
+        else:
+            # Literal-only plans can also bind authored process parameters.
+            shared = (
+                cad or CadData({}, stock_requirement=None, source=path.resolve()),
+                parameters,
+            )
         # Analysis inputs retain full-precision numeric tokens. Printed fields
         # keep the existing text binding semantics.
         native = {
@@ -318,20 +429,67 @@ def load_plan(path: Path) -> LoadedPlan:
             "setups": {"turning_support"} | check_fields("setup"),
             "operations": {"turning_cuts", "turning_step"} | check_fields("operation"),
         }
+        named = parts or None
 
-        def keep_numbers(table: dict, kind: str) -> None:
+        def scope(table: dict, where: str, outer: tuple) -> tuple:
+            """The part a setup, operation or picture names, else ``outer``."""
+            if "part" not in table:
+                return outer
+            if not parts:
+                raise PlanError(f"{where}.part: requires [[parts]]")
+            if not isinstance(table["part"], str) or table["part"] not in parts:
+                raise PlanError(f"{where}.part: unknown part {table['part']!r}")
+            return parts[table["part"]]
+
+        def bound(table: dict, kind: str, where: str, at: tuple) -> dict:
+            """``table`` bound in the scope ``at``, its operations left as they are."""
+            # A picture that names a part binds its file and alt text there.
+            picture = at
+            if isinstance(table.get("diagram"), dict):
+                picture = scope(table["diagram"], f"{where}.diagram", at)
             for key in native[kind] & table.keys():
                 table[key] = bind_data(
-                    table[key], context, parameters, scalar_mode="native"
+                    table[key], *at, scalar_mode="native", parts=named
                 )
+            return {
+                key: value
+                if key == "operations"
+                else bind_data(
+                    value, *(picture if key == "diagram" else at), parts=named
+                )
+                for key, value in table.items()
+            }
 
-        for tool in _tables(plan, "tools", "plan"):
-            keep_numbers(tool, "tools")
-        for setup in _tables(plan, "setups", "plan"):
-            keep_numbers(setup, "setups")
-            for operation in _tables(setup, "operations", "setup"):
-                keep_numbers(operation, "operations")
-        plan = bind_data(plan, context, parameters)
+        tools = [
+            bound(tool, "tools", f"tools[{index}]", shared)
+            for index, tool in enumerate(_tables(plan, "tools", "plan"), 1)
+        ]
+        setups = []
+        for index, setup in enumerate(_tables(plan, "setups", "plan"), 1):
+            where = f"setups[{index}]"
+            at = scope(setup, where, shared)
+            operations = [
+                bound(
+                    operation,
+                    "operations",
+                    f"{where}.operations[{op_index}]",
+                    scope(operation, f"{where}.operations[{op_index}]", at),
+                )
+                for op_index, operation in enumerate(
+                    _tables(setup, "operations", "setup"), 1
+                )
+            ]
+            setup = bound(setup, "setups", where, at)
+            setup["operations"] = operations
+            setups.append(setup)
+        plan = {
+            key: tools
+            if key == "tools"
+            else setups
+            if key == "setups"
+            else bind_data(value, *shared, parts=named)
+            for key, value in plan.items()
+        }
     except CadError as error:
         raise PlanError(str(error)) from error
     shop_path = None
@@ -392,14 +550,27 @@ def load_plan(path: Path) -> LoadedPlan:
 
     tool_ids = set()
     tool_refs = {}
+    # The T numbers the plan's NC programs call its tools by.
+    tool_numbers: dict[int, str] = {}
     for index, tool in enumerate(_tables(plan, "tools", "plan"), 1):
         where = f"tools[{index}]"
         _keys(
             tool,
-            {"id", "name", "description", "status", "ref"} | check_fields("tool"),
+            {"id", "name", "description", "status", "ref", "number"}
+            | check_fields("tool"),
             where,
         )
         tool_id = _text(tool, "id", where)
+        if "number" in tool:
+            number = tool["number"]
+            if type(number) is not int or number < 1:
+                raise PlanError(f"{where}.number: expected a positive integer")
+            if number in tool_numbers:
+                raise PlanError(
+                    f"{where}.number: T{number} is already tool "
+                    f"{tool_numbers[number]!r}; one number names one tool"
+                )
+            tool_numbers[number] = tool_id
         if "ref" in tool:
             ref = _text(tool, "ref", where)
             if shop_path is None:
@@ -439,6 +610,9 @@ def load_plan(path: Path) -> LoadedPlan:
                 "operations",
                 "inspection",
                 "machine_kind",
+                "part",
+                "programs",
+                "serves",
                 "turning_support",
             }
             | check_fields("setup"),
@@ -446,6 +620,18 @@ def load_plan(path: Path) -> LoadedPlan:
         )
         for key in ("title", "machine"):
             _text(setup, key, where)
+        _names(setup, "programs", where)
+        if "serves" in setup:
+            if not parts:
+                raise PlanError(f"{where}.serves: requires [[parts]]")
+            _names(setup, "serves", where)
+            unknown = [name for name in setup["serves"] if name not in parts]
+            if unknown:
+                raise PlanError(f"{where}.serves: unknown part {unknown[0]!r}")
+            if "part" in setup and setup["part"] not in setup["serves"]:
+                raise PlanError(
+                    f"{where}.serves: expected to include its part {setup['part']!r}"
+                )
         if "machine_ref" in setup:
             ref = _text(setup, "machine_ref", where)
             if shop_path is None:
@@ -482,6 +668,7 @@ def load_plan(path: Path) -> LoadedPlan:
                     "cut_kind",
                     "turning_cuts",
                     "turning_step",
+                    "part",
                 }
                 | check_fields("operation"),
                 op_where,
@@ -589,7 +776,16 @@ def load_plan(path: Path) -> LoadedPlan:
                         f"{table_where}.rows: expected nonempty rows matching the columns"
                     )
     return LoadedPlan(
-        plan, path.resolve(), cad, parameters, shop_path, shop, shop_files
+        plan,
+        path.resolve(),
+        cad,
+        parameters,
+        shop_path,
+        shop,
+        shop_files,
+        parts,
+        labels,
+        titles,
     )
 
 
@@ -818,17 +1014,30 @@ def _diagram_html(
     where: str,
     figure_class: str,
     source_dir: Path,
-    cad: CadData | None,
-    parameters: dict,
+    scopes: list[tuple[CadData | None, dict]],
+    caption: str | None = None,
+    parts: dict | None = None,
 ) -> tuple[str, set[str]]:
-    """Return a setup's or operation's picture figure and the roles it draws."""
+    """Return a setup's or operation's picture figure and the roles it draws.
+
+    ``scopes`` holds the CAD data and parameters to draw it from: one, or in a
+    family plan every part's when the picture names none, which must then all
+    draw the same picture."""
     path = source_dir / diagram["file"]
     try:
         content = path.read_bytes()
-        if cad is not None:
+        if scopes[0][0] is not None:
             from prechips.cad_diagrams import render_cad_svg
 
-            content = render_cad_svg(content, cad, parameters)
+            drawings = {
+                render_cad_svg(content, *scope, parts=parts) for scope in scopes
+            }
+            if len(drawings) > 1:
+                raise ValueError(
+                    "the parts draw it differently: give the picture, its "
+                    "operation or its setup a part"
+                )
+            content = drawings.pop()
         root = ElementTree.fromstring(content)
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
@@ -841,8 +1050,14 @@ def _diagram_html(
         ) from error
     image = base64.b64encode(content).decode("ascii")
     alt = _html(diagram["alt"])
+    # A picture that names its own part says which, where the part has a label.
+    named = (
+        f'<figcaption style="font-weight: 700">{_html(caption)}</figcaption>'
+        if caption
+        else ""
+    )
     figure = (
-        f'<figure class="{figure_class}">'
+        f'<figure class="{figure_class}">{named}'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
         "</figure>"
     )
@@ -866,10 +1081,76 @@ def _stock_html(plan: dict) -> str:
     return f"{_html(plan['stock'])}{''.join(marks)}"
 
 
+def _tool_number(tool: dict) -> str:
+    """``T3 ``, the number the plan's NC programs call the tool by, if it has one."""
+    return f"T{tool['number']} " if "number" in tool else ""
+
+
 def _tool_html(tool: dict) -> str:
     mark = _status_mark(tool)
     status = f" <strong>({mark})</strong>" if mark else ""
-    return f"{_html(tool['description'])}{status}"
+    return f"{_tool_number(tool)}{_html(tool['description'])}{status}"
+
+
+def setups_serving(loaded: LoadedPlan, part: str) -> list[tuple[int, dict]]:
+    """The numbered setups a family's part goes through: those listing it in
+    ``serves``, else the ones naming it or naming no part."""
+    return [
+        (number, setup)
+        for number, setup in enumerate(loaded.data["setups"], 1)
+        if part in setup.get("serves", [setup.get("part", part)])
+    ]
+
+
+def render_placeholder(
+    loaded: LoadedPlan, part: str, *, shared_file: str | None = None
+) -> str:
+    """A pointer sheet for one part of a family plan: it points to the shared
+    traveler and lists every setup (and its NC programs) the part goes
+    through, so it is one page for a plan of ordinary length and runs on
+    where the list is longer. The part has no sheet of its own to drift from
+    the shared one."""
+    if part not in loaded.parts:
+        known = ", ".join(loaded.parts) or "none: the plan has no [[parts]]"
+        raise PlanError(f"placeholder: unknown part {part!r} (parts: {known})")
+    plan = loaded.data
+
+    def name(part_id: str) -> str:
+        return loaded.titles.get(part_id) or loaded.labels.get(part_id) or part_id
+
+    others = [name(other) for other in loaded.parts if other != part]
+    file = f" (file {_html(shared_file)})" if shared_file else ""
+    lines = [
+        "<!doctype html>",
+        '<html lang="en"><head><meta charset="utf-8">',
+        f"<title>{_html(name(part))}</title>",
+        f"<style>{CSS}</style></head><body>",
+        f"<h1>{_html(name(part))}</h1>",
+        '<div class="meta">',
+        f"<p>{_html(plan['revision'])}</p>",
+        f"<p><strong>{_html(plan['material'])}.</strong></p>",
+        "</div>",
+        (
+            '<p class="text">This part has no traveler of its own. It is made on the '
+            f"shared traveler <strong>{_html(plan['title'])}</strong>{file}, "
+            f"together with {_html(', '.join(others))}. "
+            "Work from that sheet: this page only points to it.</p>"
+        ),
+        (
+            '<table class="data"><thead><tr><th scope="col">Shared traveler setup</th>'
+            '<th scope="col">Machine</th><th scope="col">NC programs</th></tr></thead>'
+            "<tbody>"
+        ),
+    ]
+    for number, setup in setups_serving(loaded, part):
+        programs = ", ".join(setup.get("programs", [])) or "none"
+        lines.append(
+            f'<tr><td class="text">Setup {number} — {_html(setup["title"])}</td>'
+            f'<td class="text">{_html(setup["machine"])}</td>'
+            f'<td class="text">{_html(programs)}</td></tr>'
+        )
+    lines += ["</tbody></table>", "</body></html>\n"]
+    return "\n".join(lines)
 
 
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
@@ -931,11 +1212,20 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             bonds = milling.accepted_bonds(
                 setup, f"setup {setup_number} ({setup['title']})"
             )
-        if "holding" in setup or "datum" in setup or index is not None or bonds:
+        programs = setup.get("programs")
+        if (
+            "holding" in setup
+            or "datum" in setup
+            or index is not None
+            or bonds
+            or programs
+        ):
             lines.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
                     lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+            if programs:
+                lines.append(f"<dt>NC:</dt><dd>{_html(', '.join(programs))}</dd>")
             for bond in bonds:
                 lines.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
             if index is not None:
@@ -954,8 +1244,9 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 where,
                 "setup-diagram",
                 source_dir,
-                loaded.cad,
-                loaded.parameters,
+                loaded.scopes(pictures[0], setup),
+                loaded.labels.get(pictures[0].get("part")),
+                loaded.parts or None,
             )
             drawn |= roles
             lines.append(diagram)
@@ -986,8 +1277,9 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     " diagram",
                     "setup-diagram op-picture",
                     source_dir,
-                    loaded.cad,
-                    loaded.parameters,
+                    loaded.scopes(pictures[op_index], operation, setup),
+                    loaded.labels.get(pictures[op_index].get("part")),
+                    loaded.parts or None,
                 )
                 drawn |= roles
                 op_diagrams = True
@@ -1028,7 +1320,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             lines.append("</td><td>")
             if tool is not None:
                 lines.append(
-                    f'<div class="text tool">{_html(tool.get("name", tool["description"]))}</div>'
+                    f'<div class="text tool">{_tool_number(tool)}'
+                    f"{_html(tool.get('name', tool['description']))}</div>"
                 )
             settings = []
             if "rpm" in operation:
