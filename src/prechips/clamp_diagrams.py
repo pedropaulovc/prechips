@@ -58,10 +58,22 @@ wrench and the 1-2-3 block's length are schematic.
 from __future__ import annotations
 
 import math
+from contextlib import contextmanager
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _process, _rect
+from prechips.cad_diagrams import (
+    Element,
+    Layout,
+    _binding,
+    _cad,
+    _el,
+    _family,
+    _line,
+    _process,
+    _rect,
+    _view,
+)
 from prechips.jig_diagrams import (
     DimText,
     _datum_label,
@@ -345,6 +357,60 @@ def _passes(
     )
 
 
+def _both_halves() -> tuple[tuple[str, dict], tuple[str, dict]]:
+    """A family plan's front and back, each its part id and values, for a
+    picture that draws both (``data-halves="both"``): the same picture
+    whichever part it is drawn for."""
+    halves = {}
+    for part, (cad, _) in (_family.get() or {}).items():
+        half = cad.values.get("half") if cad is not None else None
+        if half in ("front", "back"):
+            halves[half] = (part, cad.values)
+    if set(halves) != {"front", "back"}:
+        raise CadError(
+            'clamp-half: data-halves="both" needs a family plan with a front and a back'
+        )
+    return halves["front"], halves["back"]
+
+
+@contextmanager
+def _drawing(groups: Groups, part: str):
+    """Draw one half of a both-halves picture: its labels measured as that
+    family part's, and once drawn its ``{{cad.KEY}}`` tokens bound to it,
+    whichever part the picture is drawn for. Yields each role's count
+    before it."""
+    marks = {role: len(items) for role, items in groups.items()}
+    token = _binding.set(_family.get()[part])
+    try:
+        yield marks
+    finally:
+        _binding.reset(token)
+    _qualify_since(groups, marks, part)
+
+
+def _since(groups: Groups, marks: dict[str, int]):
+    """Every (role, index) drawn since ``marks``, each role's count then."""
+    for role, items in groups.items():
+        for index in range(marks.get(role, 0), len(items)):
+            yield items, index
+
+
+def _shift_since(groups: Groups, marks: dict[str, int], dy: float) -> None:
+    """Move every element drawn since ``marks`` ``dy`` px down the page."""
+    for items, index in _since(groups, marks):
+        tag, attrs, text = items[index]
+        items[index] = (tag, {**attrs, "transform": f"translate(0 {dy:.1f})"}, text)
+
+
+def _qualify_since(groups: Groups, marks: dict[str, int], part: str) -> None:
+    """Bind the ``{{cad.KEY}}`` tokens drawn since ``marks`` to the family's
+    ``part``, whichever part the picture is drawn for."""
+    for items, index in _since(groups, marks):
+        tag, attrs, text = items[index]
+        if text and "{{cad." in text:
+            items[index] = (tag, attrs, text.replace("{{cad.", f"{{{{cad.{part}."))
+
+
 def _half(
     groups: Groups,
     values: dict,
@@ -353,9 +419,11 @@ def _half(
     work: str,
     end: str | None,
     stop: str | None,
+    which: str | None = None,
 ) -> Layout:
     """One half in the vise, seen along the jaws (from the low X end, the
-    fixed jaw at the left), with a plan from above."""
+    fixed jaw at the left), with a plan from above; ``which`` names the half
+    under the plan's heading when a picture draws both."""
     if work not in _HALF[up]:
         raise CadError(
             f"clamp-half: with data-up {up!r}, data-work must be one of "
@@ -538,7 +606,7 @@ def _half(
     if up == "end":
         _upright_plan(groups, parameters, stop)
         return _finish(groups, low)
-    return _plan(groups, values, parameters, up, work, across, low, mirror, stop)
+    return _plan(groups, values, parameters, up, work, across, low, mirror, stop, which)
 
 
 def _upright_plan(groups: Groups, parameters: dict, stop: str | None) -> None:
@@ -579,11 +647,14 @@ def _plan(
     low: float,
     mirror: bool,
     stop: str | None,
+    which: str | None = None,
 ) -> Layout:
     """From above: the width along the jaws, the near side at the left, or at
     the right when ``mirror``, the stations measured from it; the work stop's
-    rod on the near side when ``stop``."""
-    _label(groups, 40, low + 34, "From above:", "start", **{"class": "title"})
+    rod on the near side when ``stop``. ``which`` names the half under the
+    heading when a picture draws both."""
+    heading = f"From above, {which}:" if which else "From above:"
+    _label(groups, 40, low + 34, heading, "start", **{"class": "title"})
     s = 6.0
     # Mirrored, the jaw label sits left of the part: room for it on the page.
     x0 = 210.0 if mirror else 150.0
@@ -989,6 +1060,17 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     end = root.attrib.pop("data-end", None)
     bored = root.attrib.pop("data-bored", "yes")
     stop = root.attrib.pop("data-stop", None)
+    halves = root.attrib.pop("data-halves", None)
+    if halves not in (None, "both"):
+        raise CadError(f'clamp-half: data-halves must be "both", not {halves!r}')
+    if halves and not (
+        (step == "inspect" and bored == "yes")
+        or (step == "half" and up == "mating" and work == "face")
+    ):
+        raise CadError(
+            'clamp-half: data-halves="both" goes with the inspect step or the '
+            "mating face's half step"
+        )
     if stop not in (None, *_STOPS):
         raise CadError(
             f"clamp-half: data-stop must be one of {', '.join(_STOPS)}, not {stop!r}"
@@ -1007,9 +1089,24 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     title = _TITLES[step]
     if bored == "no":
         title = "Half before the bore, down its axis and at its mating face"
+    if halves and step == "inspect":
+        title = "Finished front and back, down the bore and at the outside face"
     _title(groups, 40, 24, title)
     if step == "saw":
         return _saw(groups, parameters)
+    if step == "inspect" and halves:
+        # The front, then the back below it: one box for both, each text
+        # bound to its own half.
+        (front_id, front), (back_id, back) = _both_halves()
+        with _drawing(groups, front_id):
+            view, _ = _inspect(groups, front, True)
+            _label(groups, 40, 60, "FRONT", "start", font_weight="700")
+        dy = view["height"] - 30
+        with _drawing(groups, back_id) as marks:
+            view, _ = _inspect(groups, back, True)
+            _label(groups, 40, 60, "BACK", "start", font_weight="700")
+        _shift_since(groups, marks, dy)
+        return _view(height=view["height"] + dy), groups
     if step == "inspect":
         return _inspect(groups, values, bored == "yes")
     if step == "pair":
@@ -1018,6 +1115,27 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
         raise CadError(
             f"clamp-half: the half step needs data-up ({', '.join(_HALF)}), not {up!r}"
         )
+    if halves:
+        # One view along the jaws (the same for each half), then each half
+        # from above, where they differ: the front, then the back below it,
+        # each text bound to its own half.
+        (front_id, front), (back_id, back) = _both_halves()
+        with _drawing(groups, front_id):
+            view, _ = _half(groups, front, parameters, up, work, end, stop, "a front")
+        with _drawing(groups, back_id):
+            layout = _plan(
+                groups,
+                back,
+                parameters,
+                up,
+                work,
+                _cad(back, "height_mm"),
+                view["height"] - 40,
+                (back.get("half") == "front") == (up == "outside"),
+                "rod" if stop else None,
+                "a back",
+            )
+        return layout
     return _half(groups, values, parameters, up, work, end, stop)
 
 

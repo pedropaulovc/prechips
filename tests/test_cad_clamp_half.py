@@ -451,3 +451,41 @@ def test_the_work_stop_is_drawn_where_the_template_fits_it():
     ):
         with pytest.raises(CadError, match=message):
             _picture(front, PICTURES, **attrs)
+
+
+def test_one_picture_draws_both_halves_bound_to_each():
+    front = load_clamp_half(FRONT, PICTURES, "clamp-front")
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+    parts = {"front": (front, PICTURES), "back": (back, PICTURES | PAIR)}
+
+    def both(part: str, **attrs: str) -> str:
+        extra = "".join(f' data-{key}="{value}"' for key, value in attrs.items())
+        root = (
+            '<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'
+            f' data-halves="both"{extra}/>'
+        ).encode()
+        return render_cad_svg(root, *parts[part], parts=parts).decode()
+
+    mating = {"step": "half", "up": "mating", "work": "face", "stop": "rod"}
+    for attrs in ({"step": "inspect"}, mating):
+        # The same picture whichever half it is drawn for, each half's text
+        # bound to that half: the front's clearance holes, the back's taps.
+        drawn = {both(part, **attrs) for part in parts}
+        assert len(drawn) == 1
+        (svg,) = drawn
+        if attrs["step"] == "inspect":
+            assert "FRONT" in svg and "BACK" in svg
+            assert "#8 clearance" in svg and "#8-32 UNC-2B" in svg
+        else:
+            assert "From above, a front:" in svg and "From above, a back:" in svg
+            # One rod per half from above, none along the jaws.
+            assert len(_group(svg, "stop-rod")) == 2
+    with pytest.raises(CadError, match="needs a family plan with a front and a back"):
+        render_cad_svg(
+            b'<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'
+            b' data-halves="both" data-step="inspect"/>',
+            front,
+            PICTURES,
+        )
+    with pytest.raises(CadError, match="goes with the inspect step"):
+        both("front", step="pair")
