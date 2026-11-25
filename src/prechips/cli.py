@@ -97,16 +97,8 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(plan.cad.source)
         inputs.extend(cad.source for cad, _ in plan.parts.values())
         inputs.extend(plan.shop_files)
-        # A new .toml beside a shop directory's files would join that shop.
-        folder = args.out.resolve().parent
-        if (
-            plan.shop is not None
-            and plan.shop.is_dir()
-            and args.out.suffix.lower() == ".toml"
-            and folder.exists()
-            and folder.samefile(plan.shop)
-        ):
-            raise PlanError("output must not be a .toml file in the shop directory")
+        if plan.shop is not None:
+            _refuse_shop_toml(args.out, plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning, milling and drill pecking read the same packaged/override file.
@@ -182,14 +174,7 @@ def _standing(shop: Path, out: Path) -> int:
         # and no new .toml that would join the shop directory.
         if out.exists() and any(path.exists() and out.samefile(path) for path in files):
             raise PlanError("output must not overwrite a shop file")
-        folder = out.resolve().parent
-        if (
-            shop.is_dir()
-            and out.suffix.lower() == ".toml"
-            and folder.exists()
-            and folder.samefile(shop)
-        ):
-            raise PlanError("output must not be a .toml file in the shop directory")
+        _refuse_shop_toml(out, shop)
         html = render_standing(page)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
@@ -198,3 +183,16 @@ def _standing(shop: Path, out: Path) -> int:
         return 2
     print(f"Wrote {out}")
     return 0
+
+
+def _refuse_shop_toml(out: Path, shop: Path) -> None:
+    """A new .toml beside a shop directory's files would join that shop; a
+    link is judged by what it points to."""
+    target = out.resolve()
+    if (
+        shop.is_dir()
+        and target.suffix.lower() == ".toml"
+        and target.parent.exists()
+        and target.parent.samefile(shop)
+    ):
+        raise PlanError("output must not be a .toml file in the shop directory")

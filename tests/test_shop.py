@@ -561,7 +561,8 @@ def test_the_standing_page_prints_once_and_each_sheet_points_to_it(tmp_path):
 
 def test_running_text_cannot_close_the_style_element(tmp_path):
     # Codjiflo, prechips#604: page-margin text sits in a CSS string inside
-    # <style>, a raw-text element any "</style" closes.
+    # <style>, a raw-text element any "</style" closes. "<" prints from the
+    # escape "\3c " (its own space ends it), so the space after "< " stays.
     shared = SHOP + STANDING.replace(
         "project = 'The \"Harmonic\" Analyzer'",
         "project = 'A </style><script>x()</script> < b'",
@@ -571,9 +572,7 @@ def test_running_text_cannot_close_the_style_element(tmp_path):
     assert main(["standing", str(shop), "--out", str(out)]) == 0
     for html in (render_traveler(load_plan(plan)), out.read_text(encoding="utf-8")):
         assert html.count("</style>") == 1 and "<script>" not in html
-        assert (
-            '"A \\00003c/style>\\00003cscript>x()\\00003c/script> \\00003c b"' in html
-        )
+        assert '"A \\3c /style>\\3c script>x()\\3c /script> \\3c  b"' in html
 
 
 def test_standing_output_never_overwrites_or_joins_the_shop(tmp_path):

@@ -182,11 +182,18 @@ def _version() -> str:
 
 
 def _css_string(text: str) -> str:
-    """A CSS string inside ``<style>``: ``\\`` and ``"`` escaped, and ``<``
-    as the six-digit CSS escape ``\\00003c`` (no terminating space needed),
-    so no ``</style`` closes the element early."""
-    escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("<", "\\00003c")
-    return '"' + " ".join(escaped.split()) + '"'
+    """A CSS string inside ``<style>``: whitespace runs made one space, ``\\``
+    and ``"`` escaped, and ``<`` as the CSS escape ``\\3c`` so no ``</style``
+    closes the element early. A hex escape swallows one whitespace character
+    after it (CSS Syntax 3, 4.3.7), so it always ends in its own space and a
+    space that followed the ``<`` survives."""
+    escaped = " ".join(text.split()).replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + escaped.replace("<", "\\3c ") + '"'
+
+
+# An SVG root's width or height that gives it a natural size: a number,
+# optionally in an absolute unit ("100%", "auto" or "" give none).
+_ABSOLUTE_LENGTH = re.compile(r"\s*(\d+\.?\d*|\.\d+)\s*(px|pt|pc|mm|cm|in)?\s*")
 
 
 def _running(top_left: str, top_right: str, bottom_left: str) -> str:
@@ -1290,7 +1297,9 @@ def _diagram_html(
     # only) has no natural size to stand beside the setup's facts at: it
     # spans the column below them, as every picture did before they stood
     # side by side.
-    unsized = root.get("width") is None or root.get("height") is None
+    unsized = not all(
+        _ABSOLUTE_LENGTH.fullmatch(root.get(side) or "") for side in ("width", "height")
+    )
     if unsized and "op-picture" not in figure_class.split():
         whole += " data-wide"
     figure = (
