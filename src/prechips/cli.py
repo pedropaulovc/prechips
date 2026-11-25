@@ -186,13 +186,15 @@ def _standing(shop: Path, out: Path) -> int:
 
 
 def _refuse_shop_toml(out: Path, shop: Path) -> None:
-    """A new .toml beside a shop directory's files would join that shop; a
-    link is judged by what it points to."""
-    target = out.resolve()
-    if (
-        shop.is_dir()
-        and target.suffix.lower() == ".toml"
-        and target.parent.exists()
-        and target.parent.samefile(shop)
-    ):
-        raise PlanError("output must not be a .toml file in the shop directory")
+    """A new .toml beside a shop directory's files would join that shop. A
+    link is judged both as named and by what it points to: shop/x.toml
+    linking elsewhere, or x.html linking into the shop as a .toml."""
+    if not shop.is_dir():
+        return
+    for path in (out.absolute(), out.resolve()):
+        if (
+            path.suffix.lower() == ".toml"
+            and path.parent.exists()
+            and path.parent.samefile(shop)
+        ):
+            raise PlanError("output must not be a .toml file in the shop directory")

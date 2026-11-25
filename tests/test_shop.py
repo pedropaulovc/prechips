@@ -584,3 +584,12 @@ def test_standing_output_never_overwrites_or_joins_the_shop(tmp_path):
     assert (folder / "shop.toml").read_text(encoding="utf-8") == SHOP + STANDING
     assert not (folder / "page.toml").exists()
     assert main(["standing", str(folder), "--out", str(folder / "page.html")]) == 0
+    # Codjiflo, prechips#605: a .toml link in the shop pointing at a non-.toml
+    # file is refused as named, not only by its target.
+    link = folder / "link.toml"
+    try:
+        link.symlink_to(tmp_path / "elsewhere.html")
+    except OSError:
+        pytest.skip("this account cannot create symlinks")
+    assert main(["standing", str(folder), "--out", str(link)]) == 2
+    assert not (tmp_path / "elsewhere.html").exists()
