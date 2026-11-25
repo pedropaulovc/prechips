@@ -7,7 +7,7 @@ import pytest
 from prechips.cad import CadError
 from prechips.cad_clamp_half import load_clamp_half
 from prechips.cad_diagrams import SVG_NS, render_cad_svg
-from prechips.clamp_diagrams import _first_pass
+from prechips.clamp_diagrams import _shown_pass
 from prechips.shaft_diagrams import CHAR
 
 SVG = f"{{{SVG_NS}}}"
@@ -47,6 +47,7 @@ PICTURES = BLANK | {
     "tap_guide_dia_mm": 12.7,
     "tap_guide_point_dia_mm": 4.7625,
     "stop_rod_dia_mm": 9.525,
+    "stop_rod_top_max_mm": 11.176,
 }
 
 
@@ -272,8 +273,8 @@ def test_every_picture_binds_for_both_halves():
     front = load_clamp_half(FRONT, PICTURES, "clamp-front")
     with pytest.raises(CadError, match="only the back's mating face"):
         _picture(front, PICTURES, step="half", up="mating", work="face-off")
-    with pytest.raises(CadError, match="data-work must be one of drill, tap"):
-        _picture(front, PICTURES, step="half", up="outside", work="face")
+    with pytest.raises(CadError, match="data-work must be one of face, drill, tap"):
+        _picture(front, PICTURES, step="half", up="outside", work="face-off")
 
 
 def _text_x(svg: str, text: str) -> float:
@@ -330,23 +331,40 @@ def _group(svg: str, role: str) -> list[ElementTree.Element]:
     ]
 
 
+def _points(element: ElementTree.Element) -> list[tuple[float, float]]:
+    """A path's points: each M/L pair and each arc's end point."""
+    points = []
+    for command, body in re.findall(r"([MLA])([^MLAZ]*)", element.get("d")):
+        numbers = [float(n) for n in re.findall(r"-?[\d.]+", body)]
+        if command == "A":
+            points.append((numbers[-2], numbers[-1]))
+        else:
+            points += list(zip(numbers[::2], numbers[1::2]))
+    return points
+
+
 def _span(element: ElementTree.Element, axis: int) -> float:
-    """A path's extent along x (0) or y (1), px."""
-    numbers = [float(n) for n in re.findall(r"-?[\d.]+", element.get("d"))]
-    values = numbers[axis::2]
+    """A path's extent along x (0) or y (1), px. A tool's round end bulges
+    its arc's vertical radius below its lowest corners: that apex is its tip."""
+    values = [point[axis] for point in _points(element)]
+    arcs = re.findall(r"A\s*[-\d.]+\s+([-\d.]+)", element.get("d"))
+    if axis == 1 and arcs:
+        values.append(max(values) + float(arcs[0]))
     return max(values) - min(values)
 
 
-def test_first_pass_is_the_recipes():
+def test_the_pass_shown_stands_over_the_part():
     # The plan's own count: a 3/4 in face takes four passes of 4.89 (19.05
-    # plus the 0.5 overhang), the .630 face three of 5.50; the first pass's
-    # centre stands the cutter's radius less one pass outside the fixed jaw.
-    outside, step = _first_pass(PICTURES, 19.05)
+    # plus the 0.5 overhang), the .630 face three of 5.50. The first hangs
+    # over the fixed jaw; the picture shows the one least past either edge.
+    inside, step, index, count = _shown_pass(PICTURES, 19.05)
+    assert (index, count) == (2, 4)
     assert step == pytest.approx(19.55 / 4)
-    assert outside == pytest.approx(6.35 - 19.55 / 4)
-    assert _first_pass(PICTURES, 16.002)[1] == pytest.approx(16.502 / 3)
+    assert inside == pytest.approx(3 * 19.55 / 4 - 6.35)
+    assert inside - 6.35 >= 0 and inside + 6.35 <= 19.05
+    assert _shown_pass(PICTURES, 16.002)[1:] == (pytest.approx(16.502 / 3), 2, 3)
     with pytest.raises(CadError, match="face_overhang_mm: must not be negative"):
-        _first_pass(PICTURES | {"face_overhang_mm": -0.1}, 19.05)
+        _shown_pass(PICTURES | {"face_overhang_mm": -0.1}, 19.05)
 
 
 def test_tools_are_drawn_to_scale():
@@ -361,14 +379,24 @@ def test_tools_are_drawn_to_scale():
     side, above = cutters(front, up="bottom", work="face")
     assert _span(side, 0) == pytest.approx(12.7 * 6, abs=0.2)
     assert _span(side, 1) == pytest.approx(28.45 * 6, abs=0.2)
+    # Its square end drawn round (the near half of the end face), shallow:
+    # 12 % of the diameter deep, its apex the tool's true end.
+    rise = float(re.search(r"A\s*[-\d.]+\s+([-\d.]+)", side.get("d"))[1])
+    assert rise == pytest.approx(0.12 * 12.7 * 6, abs=0.1)
     assert float(above.get("r")) == pytest.approx(12.7 * 3, abs=0.01)
     upright = cutters(front, up="end", work="face", end="first")[0]
     assert _span(upright, 0) == pytest.approx(12.7 * 4, abs=0.2)
-    # A drill at its hole's diameter (the front's #9, the back's #29).
+    # One moment per picture: facing the outside face draws the end mill in
+    # both views; the drill's own picture the drill at its hole's diameter
+    # (the front's #9, the back's #29) in both, and no end mill.
+    side, above = cutters(front, up="outside", work="face")
+    assert _span(side, 0) == pytest.approx(12.7 * 6, abs=0.2)
+    assert float(above.get("r")) == pytest.approx(12.7 * 3, abs=0.01)
     for cad in (front, back):
-        drill = cutters(cad, up="outside", work="drill")[0]
+        drill, hole = cutters(cad, up="outside", work="drill")
         width = cad.values["ear_dia_in"] * 25.4 * 6
         assert _span(drill, 0) == pytest.approx(width, abs=0.2)
+        assert float(hole.get("r")) == pytest.approx(width / 2, abs=0.01)
     # The tap at its thread's major diameter, the guide at its own sizes.
     tap, point, guide, plan = cutters(back, up="outside", work="tap")
     assert _span(tap, 0) == pytest.approx(
@@ -388,28 +416,31 @@ def test_the_work_stop_is_drawn_where_the_template_fits_it():
     front = load_clamp_half(FRONT, PICTURES, "clamp-front")
     back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
 
-    def supports(cad, **attrs):
+    def rods(cad, **attrs):
         svg = _picture(cad, PICTURES, step="half", **attrs)
-        return svg, [e for e in _group(svg, "fixture-support") if e.tag == f"{SVG}path"]
+        return svg, _group(svg, "stop-rod")
 
     hold = {"up": "mating", "work": "face"}
-    assert supports(front, **hold)[1] == []
-    svg, (rod,) = supports(front, **hold, stop="rod")
-    assert _span(rod, 1) == pytest.approx(9.525 * 6, abs=0.2)
+    assert rods(front, **hold)[1] == []
+    # From above a bar its diameter wide; end-on a circle, its top at the
+    # highest the plan allows.
+    svg, (end, bar) = rods(front, **hold, stop="rod")
+    ys = [y for _, y in _points(bar)]
+    assert max(ys) - min(ys) == pytest.approx(9.525 * 6, abs=0.2)
+    assert float(end.get("r")) == pytest.approx(9.525 * 3, abs=0.01)
     assert "work stop" not in svg
-    # At the near side: left of the X0 line for a front's mating face, right
-    # of it for a back's.
+    # At the near side: left of the X0 line for a front's mating face (in
+    # front of the part along the jaws), right of it for a back's (behind).
     for cad, outward in ((front, -1), (back, 1)):
-        svg, (rod,) = supports(cad, **hold, stop="rod")
-        xs = [float(n) for n in re.findall(r"-?[\d.]+", rod.get("d"))][::2]
+        svg, (end, bar) = rods(cad, **hold, stop="rod")
+        xs = [x for x, _ in _points(bar)]
         tip = _datum_x(svg)
         assert all((x - tip) * outward >= -0.1 for x in xs)
+        assert (end.get("stroke-dasharray") is None) == (outward < 0)
     # Named once, upright, with when it is set.
-    svg, (rod,) = supports(
-        front, up="end", work="face", end="first", stop="rod-labelled"
-    )
-    assert "work stop rod Ø.375, low:" in svg
-    assert "then set on the LEFT face" in svg
+    svg, _ = rods(front, up="end", work="face", end="first", stop="rod-labelled")
+    assert "work stop: Ø.375 rod from its post" in svg
+    assert "touch-offs, then set on the LEFT face" in svg
     for attrs, message in (
         ({"step": "pair", "stop": "rod"}, "data-stop goes with the half step"),
         ({"step": "half", **hold, "stop": "post"}, "data-stop must be one of rod"),

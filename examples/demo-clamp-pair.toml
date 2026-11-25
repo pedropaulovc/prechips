@@ -335,7 +335,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "The same stacks (1/8 in thick: the holes fall between them). A front, turned over end for end from Setup 6: the mating face down on both stacks, B against the FIXED jaw, gripped on B and the top, centred. Its RIGHT end is the near side N: the hole stations count from it."
 datum = "X0 the RIGHT end (N), the part to −X; Y0 the fixed jaw's face (B), +Y toward it; Z0 the stacks' top (the mating face). Ear holes at X −{{cad.ear_near_x_in:.3f}} and −{{cad.ear_far_x_in:.3f}} in, Y −{{cad.ear_height_in:.3f}} in."
-diagram = { file = "diagrams/demo-clamp-pair/drill.svg", alt = "The half lying on stacked parallels, mating face down, bottom face at the fixed jaw; the 1/2 in end mill faces the outside face to the depth, the centre drill spots and the #9 drills both ear holes through between the parallels." }
+diagram = { file = "diagrams/demo-clamp-pair/outside.svg", alt = "The half lying on stacked parallels, mating face down, bottom face at the fixed jaw; the 1/2 in end mill faces the outside face to the depth; the ear holes it will drill." }
 envelope = { x_span_mm = ["{{cad.width_mm}}", "{{process.face_cutter_dia_mm}}", 5.08], y_span_mm = ["{{cad.height_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.riser_height_mm}}", "{{process.blank_section_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.riser_height_mm}}", "{{process.drill_tip_height_mm}}"], longest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.drill_9_oal_mm}}"], shortest_tool_mm = ["{{process.drill_chuck_gauge_mm}}", "{{process.centre_drill_oal_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.height_mm}}", along_jaws_mm = "{{cad.width_mm}}", part_height_mm = "{{process.blank_section_mm}}", parallel_height_mm = "{{process.riser_height_mm}}", overhang_mm = ["{{process.vise_lying_inset_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.width_mm}}"], clamp_mm = [0, "{{cad.width_mm}}"], section_mm = { y = "{{cad.height_mm}}", z = "{{cad.depth_mm}}" }, vise_left = "start" }
@@ -375,6 +375,7 @@ tool = "drill-9"
 drilling = "twist_drill"
 sizing = { kind = "band", band_mm = "{{cad.ear_dia_band_mm}}" }
 instruction = "#9 drill through both ear holes, pecks of {{process.peck_mm:in.3dot}} with full retract, its full diameter {{process.drill_past_mm:in.3dot}} past the mating face into the gap between the stacks. Cutting oil."
+diagram = { file = "diagrams/demo-clamp-pair/drill.svg", alt = "The front as in the setup picture: the #9 drill through the near ear hole, its point past the mating face between the parallels." }
 rpm = 1200
 feed = "{{process.drill_feed_per_min_mm:in.1f}} in/min"
 hole_depth_mm = "{{cad.depth_mm}}"
@@ -405,7 +406,7 @@ indexing = "none"
 machine_ref = "pm-30mv"
 holding = "The same stacks (1/8 in thick: the holes fall between them). A back, turned over end for end from Setup 6: the mating face down on both stacks, B against the FIXED jaw, gripped on B and the top, centred. Its LEFT end is the near side N: the hole stations count from it."
 datum = "X0 the LEFT end (N), the part to +X; Y0 the fixed jaw's face (B), +Y toward it; Z0 the stacks' top (the mating face). Tap drills at X {{cad.ear_near_x_in:.3f}} and {{cad.ear_far_x_in:.3f}} in, Y −{{cad.ear_height_in:.3f}} in."
-diagram = { file = "diagrams/demo-clamp-pair/drill.svg", alt = "The half lying on stacked parallels, mating face down, bottom face at the fixed jaw; the 1/2 in end mill faces the outside face to the pre-face depth, the centre drill spots and the #29 drills both tap drills through between the parallels." }
+diagram = { file = "diagrams/demo-clamp-pair/outside.svg", alt = "The half lying on stacked parallels, mating face down, bottom face at the fixed jaw; the 1/2 in end mill faces the outside face to the pre-face depth; the tap drills it will drill." }
 envelope = { x_span_mm = ["{{cad.width_mm}}", "{{process.face_cutter_dia_mm}}", 5.08], y_span_mm = ["{{cad.height_mm}}", "{{process.face_cutter_dia_mm}}"], work_top_mm = ["{{process.vise_bed_height_mm}}", "{{process.riser_height_mm}}", "{{process.blank_section_mm}}"], deepest_cut_mm = ["{{process.vise_bed_height_mm}}", "{{process.riser_height_mm}}", "{{process.drill_tip_height_mm}}"], longest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.tap_stack_max_mm}}"], shortest_tool_mm = ["{{process.r8_collet_gauge_mm}}", "{{process.half_mill_projection_min_mm}}"] }
 vise_hold = { vise = "vise-pm-6", across_jaws_mm = "{{cad.height_mm}}", along_jaws_mm = "{{cad.width_mm}}", part_height_mm = "{{process.blank_section_mm}}", parallel_height_mm = "{{process.riser_height_mm}}", overhang_mm = ["{{process.vise_lying_inset_mm}}", "rest"], jaw_offset = "centred", fixed_jaw_face = "machined", moving_jaw_face = "machined", moving_jaw_contact = "flat" }
 beam = { axis = "x", hold = "cantilever", extent_mm = [0, "{{cad.width_mm}}"], clamp_mm = [0, "{{cad.width_mm}}"], section_mm = { y = "{{cad.height_mm}}", z = "{{cad.pre_face_depth_mm}}" }, vise_left = "start" }
@@ -445,6 +446,7 @@ tool = "drill-29"
 drilling = "twist_drill"
 sizing = { kind = "tap_drill", tap = "tap-8-32" }
 instruction = "#29 drill through both tap drills, pecks of {{process.peck_mm:in.3dot}} with full retract, its full diameter {{process.drill_past_mm:in.3dot}} past the mating face into the gap between the stacks. Cutting oil. The half stays in the vise for the tap."
+diagram = { file = "diagrams/demo-clamp-pair/drill.svg", alt = "The back as in the setup picture: the #29 drill through the near tap drill, its point past the mating face between the parallels." }
 rpm = 1700
 feed = "{{process.drill_feed_per_min_mm:in.1f}} in/min"
 hole_depth_mm = "{{cad.pre_face_depth_mm}}"

@@ -11,8 +11,8 @@
 * ``mating`` (lying, jaws on the top and bottom faces; ``face`` skims the
   split line, ``face-off`` takes the back's grip gap off after the bore);
 * ``outside`` (lying, jaws on the top and bottom faces, the bottom face on
-  the fixed jaw; ``drill`` faces to depth and drills the ears, ``tap`` taps
-  the back's).
+  the fixed jaw; ``face`` faces to depth, with the ears it will drill;
+  ``drill`` drills them and ``tap`` taps the back's).
 
 A lying ``half`` with the bottom face on the fixed jaw (``mating`` or
 ``outside`` up) draws the near side (X0) at the end the hold puts it, from
@@ -29,21 +29,28 @@ drill exits.
 
 The vise holds are seen along the jaws from the low X end, the fixed jaw at
 the left, with a plan from above (beside an upright blank, below a lying
-one). ``data-stop`` draws the work stop's rod against the near side (an
-upright blank's left face) in the plan: ``rod``, or ``rod-labelled`` on the
-one picture of a sheet that names it and says when it is set.
+one). A picture shows one moment: both views show the same tool at the same
+place, so a setup that faces, then drills, then taps draws the end mill in
+its ``face`` picture and the drill or tap in that operation's own picture.
+``data-stop`` draws the work stop's rod against the near side (an upright
+blank's left face): from above a round bar reaching in from its post beside
+the vise, along the jaws end-on (hidden when behind the part): ``rod``, or
+``rod-labelled`` on the one picture of a sheet that names it and says when it
+is set.
 
 Sizes come from the adapter (envelope, bore, ears, the pair) and from
 authored parameters. Tools are drawn to scale from the plan's numbers: the
 end mill (``face_cutter_dia_mm``) at its whole stick-out
-(``half_mill_projection_mm``) on the face's first pass
-(``face_stepover_max_mm``, ``face_overhang_mm``), a circle from above with
+(``half_mill_projection_mm``) on the face pass that stands least past the
+face's edges (``face_stepover_max_mm``, ``face_overhang_mm``), a circle from
+above with
 the pass direction; an ear drill at the hole's diameter, its point at
 ``drill_tip_height_mm``; the tap at its thread's major diameter to
 ``tap_point_depth_mm``; the tap guide (``tap_guide_dia_mm``,
-``tap_guide_point_dia_mm``); the work stop's rod (``stop_rod_dia_mm``).
-Tools and rods too long for the picture end in a break line. Jaws, the
-tap's wrench and the 1-2-3 block's length are schematic.
+``tap_guide_point_dia_mm``); the work stop's rod (``stop_rod_dia_mm``, its
+top at ``stop_rod_top_max_mm``). Tools and rods too long for the picture end
+in a break line. Jaws, the tap's wrench and the 1-2-3 block's length are
+schematic.
 """
 
 from __future__ import annotations
@@ -79,7 +86,7 @@ _HALF = {
     "bottom": ("face",),
     "top": ("face",),
     "mating": ("face", "face-off"),
-    "outside": ("drill", "tap"),
+    "outside": ("face", "drill", "tap"),
 }
 _ENDS = ("first", "length")
 # ``data-stop`` on a vise hold: the work stop's rod drawn at the near side
@@ -88,11 +95,17 @@ _STOPS = ("rod", "rod-labelled")
 _JAW = 40.0  # schematic jaw body, px
 _S = 6.0  # px per mm
 _REMOVED = 7.0  # px: the layer a face takes off, schematic
+# A round tool's or rod's square end seen from the side is drawn as the near
+# half of its end face: an ellipse this fraction of the diameter deep (owner
+# 2026-11-25: "some indication that end mill is cylindrical when looking from
+# side ; can be something simple like adding a round bottom"); shallow, so a
+# square end mill does not read as a ball nose.
+_ROUND_RISE = 0.12
 # Tools drawn short end in a break line; these lengths are the picture's,
 # not the tools': a drill or the tap guide above the part, px.
 _SHORT = 60.0
 _BREAK = 3.0  # px: a break line's teeth
-_ROD_OUT = 70.0  # px: the work stop's rod drawn out from its tip
+_ROD_OUT = 130.0  # px: the work stop's rod drawn out from its tip
 # The tap's T-handle wrench (no size on record), schematic, px: its gap above
 # the face and its thickness; the tap guide's point drawn out of its body.
 _WRENCH_GAP = 50.0
@@ -172,19 +185,28 @@ def _section(parameters: dict) -> float:
     return _param(parameters, "blank_section_in") * 25.4
 
 
-def _first_pass(parameters: dict, across: float) -> tuple[float, float]:
-    """The facing's first pass over a face ``across`` mm wide, as the recipe
-    cuts it: how far the cutter's centre stands outside the fixed-jaw edge,
-    and the stepover, mm. Equal passes no wider than face_stepover_max_mm
-    that together reach face_overhang_mm past both edges, the first at the
-    fixed jaw, the rest toward the moving jaw."""
+def _shown_pass(parameters: dict, across: float) -> tuple[float, float, int, int]:
+    """The facing pass a picture shows, of those the recipe cuts over a face
+    ``across`` mm wide: equal passes no wider than face_stepover_max_mm that
+    together reach face_overhang_mm past both edges, the first at the fixed
+    jaw (where the cutter overhangs the jaw), the rest toward the moving jaw.
+    The picture shows the pass whose cutter stands least past either edge
+    (the first such), so it reads as over the part, not over a jaw. Returns
+    how far its centre is in from the fixed-jaw edge and the stepover, mm,
+    its index from 0 and the number of passes."""
     overhang = _process(parameters, "face_overhang_mm")
     if overhang < 0:
         raise CadError("process.face_overhang_mm: must not be negative for the diagram")
     span = across + overhang
     count = math.ceil(span / _param(parameters, "face_stepover_max_mm") - 1e-9)
     step = span / count
-    return _param(parameters, "face_cutter_dia_mm") / 2 - step, step
+    radius = _param(parameters, "face_cutter_dia_mm") / 2
+    insides = [(k + 1) * step - radius for k in range(count)]
+    index = min(
+        range(count),
+        key=lambda k: max(radius - insides[k], insides[k] + radius - across, 0.0),
+    )
+    return insides[index], step, index, count
 
 
 def _zigzag(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, float]]:
@@ -202,8 +224,19 @@ def _zigzag(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, flo
     return points
 
 
-def _path(points: list[tuple[float, float]]) -> Element:
-    return _el("path", d="M" + "L".join(f"{x:.1f} {y:.1f}" for x, y in points) + "Z")
+def _path(points: list[tuple[float, float]], arc: str = "") -> Element:
+    """A closed outline through ``points``; ``arc`` (an SVG arc command from
+    the last point) closes it along a curve instead of a straight edge."""
+    line = "L".join(f"{x:.1f} {y:.1f}" for x, y in points)
+    return _el("path", d=f"M{line}{arc}Z")
+
+
+def _end_arc(x: float, y: float, half: float) -> str:
+    """The arc to (``x``, ``y``) of a round bar's square end seen from the
+    side: the near half of its end face, a shallow ellipse ``half`` (the
+    radius) by _ROUND_RISE of the diameter."""
+    rise = _ROUND_RISE * 2 * half
+    return f"A{half:.1f} {rise:.1f} 0 0 0 {x:.1f} {y:.1f}"
 
 
 def _tool(
@@ -215,20 +248,27 @@ def _tool(
     broken: bool = False,
 ) -> Element:
     """A round tool seen from the side, ``width`` wide (its diameter to the
-    picture's scale), from its ``tip`` up to ``top`` (page y): square ended,
-    or ground to an included ``point_deg``; ``broken`` ends it in a break
-    line where it is drawn short."""
+    picture's scale), from its ``tip`` up to ``top`` (page y): ground to an
+    included ``point_deg``, or square ended, its end drawn as the near half
+    of the end face (the cue that it is round) with its lowest point at
+    ``tip``, so its length is true; ``broken`` ends it in a break line where
+    it is drawn short."""
     left, right = cx - width / 2, cx + width / 2
-    point = (
-        0.0 if point_deg is None else width / 2 / math.tan(math.radians(point_deg / 2))
-    )
-    outline = [(left, top), (left, tip - point)]
-    if point:
-        outline.append((cx, tip))
-    outline += [(right, tip - point), (right, top)]
+    if point_deg is not None:
+        point = width / 2 / math.tan(math.radians(point_deg / 2))
+        outline = [(right, top), (right, tip - point), (cx, tip), (left, tip - point)]
+        outline.append((left, top))
+        if broken:
+            outline += _zigzag(left, top, right, top)
+        return _path(outline)
+    corner = tip - _ROUND_RISE * width
+    # Up the right side, across the top, down the left, then the arc under
+    # it back to the right.
+    outline = [(right, corner), (right, top)]
     if broken:
         outline += _zigzag(right, top, left, top)
-    return _path(outline)
+    outline += [(left, top), (left, corner)]
+    return _path(outline, _end_arc(right, corner, width / 2))
 
 
 def _rod(tip: float, outward: int, cy: float, width: float, length: float) -> Element:
@@ -247,15 +287,28 @@ def _rod(tip: float, outward: int, cy: float, width: float, length: float) -> El
             (tip, high),
         ]
     )
+    groups["centre-line"].append(_line(tip - outward * 6, cy, end, cy))
+
+
+def _rod_end(groups: Groups, cx: float, cy: float, width: float, near: bool) -> None:
+    """The work stop's rod end-on, seen along the jaws: in front of the part
+    when it touches the end nearer the viewer, else behind it (hidden)."""
+    style = {} if near else {"fill": "none", "stroke_dasharray": "4 3"}
+    groups["stop-rod"].append(_el("circle", cx=cx, cy=cy, r=width / 2, **style))
+    reach = width / 2 + 5
+    groups["centre-line"] += [
+        _line(cx - reach, cy, cx + reach, cy),
+        _line(cx, cy - reach, cx, cy + reach),
+    ]
 
 
 def _stop_label(groups: Groups, x: float, y: float, face: str) -> float:
     """The work stop named once, in the first picture that draws it: what the
     rod is and when it is set. Returns the bottom of the text."""
     lines = [
-        "work stop rod Ø{{process.stop_rod_dia_mm:in.3dot}}, low:",
-        "drawn back for the touch-offs,",
-        f"then set on {face}",
+        "work stop: Ø{{process.stop_rod_dia_mm:in.3dot}} rod from its post",
+        "beside the vise; drawn back for the",
+        f"touch-offs, then set on {face}",
     ]
     for index, line in enumerate(lines):
         _label(groups, x, y + 16 * index, line, "start")
@@ -271,14 +324,18 @@ def _passes(
     parameters: dict,
     across: float,
 ) -> None:
-    """From above: the end mill on the face's first pass and the pass
-    direction, toward +X from the low X end, then the stepover toward the
-    moving jaw (down the page). ``edge`` is the fixed-jaw edge's page y."""
-    outside, step = _first_pass(parameters, across)
+    """From above: the end mill on the pass the picture shows, its direction
+    (the first pass runs toward +X, then they alternate) and the stepover
+    toward the moving jaw (down the page). ``edge`` is the fixed-jaw edge's
+    page y."""
+    inside, step, index, count = _shown_pass(parameters, across)
     radius = _param(parameters, "face_cutter_dia_mm") / 2 * s
-    y = edge - outside * s
+    y = edge + inside * s
     groups["cutter"].append(_el("circle", cx=(left + right) / 2, cy=y, r=radius))
-    path = [(left, y), (right, y), (right, y + step * s)]
+    start, end = (left, right) if index % 2 == 0 else (right, left)
+    path = [(start, y), (end, y)]
+    if index < count - 1:
+        path.append((end, y + step * s))
     groups["arrow"].append(
         _el(
             "polyline",
@@ -390,15 +447,14 @@ def _half(
         (left + thick / 2, (seat + cut) / 2, ["parallels against", "the jaws"]),
         (right + _JAW / 2, (bed - jaw + cut) / 2, grip),
     ]
-    if work in ("face", "face-off") or up == "outside" and work == "drill":
+    if work in ("face", "face-off"):
         # The layer this face loses, schematic, on top of what is kept.
         groups["part-removed"].append(_rect(left, top - _REMOVED, across * s, _REMOVED))
         groups["active-face"].append(_line(left, top, right, top))
-        if work != "drill":
-            # The end mill in the face's first pass, at the fixed jaw.
-            outside, _step = _first_pass(parameters, across)
-            cutter = _param(parameters, "face_cutter_dia_mm") * s
-            groups["cutter"].append(_tool(left - outside * s, cutter, top, top - reach))
+        # The end mill on the pass the plan view shows, over the part.
+        inside = _shown_pass(parameters, across)[0]
+        cutter = _param(parameters, "face_cutter_dia_mm") * s
+        groups["cutter"].append(_tool(left + inside * s, cutter, top, top - reach))
         texts = {
             "end": ["face square,", "just clean"]
             if end == "first"
@@ -423,7 +479,22 @@ def _half(
                 "face {{cad.grip_offset_min_in:.3dot}}–{{cad.grip_offset_max_in:.3dot}} off,",
                 "to depth {{cad.depth_min_in:.3dot}}–{{cad.depth_max_in:.3dot}}",
             ]
-        items.append((right - 6, top - _REMOVED / 2, text))
+        # On the face beside the cutter, not under it.
+        free = left + 6 if inside > across / 2 else right - 6
+        items.append((free, top - _REMOVED / 2, text))
+    # Bottom face on the fixed jaw: the face up looking toward +X puts the
+    # near side at the right.
+    mirror = up in ("mating", "outside") and (values.get("half") == "front") == (
+        up == "outside"
+    )
+    if stop is not None:
+        # The rod end-on, centred between the jaws (its place across them is
+        # not on record), its top at the highest the plan allows above the
+        # supports; in front of the part when it touches the end facing the
+        # viewer (the low X end), behind it otherwise.
+        rod = _param(parameters, "stop_rod_dia_mm")
+        high = _param(parameters, "stop_rod_top_max_mm")
+        _rod_end(groups, centre, seat - (high - rod / 2) * s, rod * s, not mirror)
     if up == "outside":
         # An ear hole through the depth, at its height from the fixed jaw.
         hole = _cad(values, "ear_dia_in") * 25.4 * s
@@ -456,23 +527,20 @@ def _half(
             ]
             text = ["{{cad.ear_thread}} by hand,", "through, centre on top"]
         else:
-            # The ear drill at the hole's own diameter, its point where the
-            # plan puts it below the stacks' top, drawn short above the face.
-            tip = seat - _process(parameters, "drill_tip_height_mm") * s
-            groups["cutter"].append(
-                _tool(middle, hole, tip, top - reach, _DRILL_POINT_DEG, broken=True)
-            )
+            if work == "drill":
+                # The ear drill at the hole's own diameter, its point where
+                # the plan puts it below the stacks' top, drawn short above
+                # the face.
+                tip = seat - _process(parameters, "drill_tip_height_mm") * s
+                groups["cutter"].append(
+                    _tool(middle, hole, tip, top - reach, _DRILL_POINT_DEG, broken=True)
+                )
             text = _ear_text(values, drill=True)
         items.append((middle - hole / 2, top + tall * s / 2, text))
     low = _callouts(groups, items, cut + 24, above=False)
     if up == "end":
         _upright_plan(groups, parameters, stop)
         return _finish(groups, low)
-    # Bottom face on the fixed jaw: the face up looking toward +X puts the
-    # near side at the right.
-    mirror = up in ("mating", "outside") and (values.get("half") == "front") == (
-        up == "outside"
-    )
     return _plan(groups, values, parameters, up, work, across, low, mirror, stop)
 
 
@@ -499,7 +567,7 @@ def _upright_plan(groups: Groups, parameters: dict, stop: str | None) -> None:
     _passes(groups, x0, x0 + side, y0, s, parameters, _section(parameters))
     if stop is not None:
         rod = _param(parameters, "stop_rod_dia_mm") * s
-        groups["fixture-support"].append(_rod(x0, -1, cy, rod, _ROD_OUT))
+        _rod(groups, x0, -1, cy, rod)
         if stop == "rod-labelled":
             _stop_label(groups, x0 - _ROD_OUT, y0 + side + 44, "the LEFT face")
 
@@ -548,21 +616,20 @@ def _plan(
     bottom = y0 + deep + 40
     if stop is not None:
         rod = _param(parameters, "stop_rod_dia_mm") * s
-        outward = 1 if mirror else -1
-        groups["fixture-support"].append(
-            _rod(near, outward, y0 + deep / 2, rod, _ROD_OUT)
-        )
+        _rod(groups, near, 1 if mirror else -1, y0 + deep / 2, rod)
         if stop == "rod-labelled":
             bottom = _stop_label(groups, x0, y0 + deep + 40, "the N end") + 14
-    if work == "tap":
-        # The tap in the near hole, at its thread's major diameter.
-        thread = _cad(values, "ear_thread_major_mm") * s
+    if work in ("tap", "drill"):
+        # The tap (its thread's major diameter) or the drill (the hole's) in
+        # the near hole, where the program goes first.
+        key = "ear_thread_major_mm" if work == "tap" else None
+        dia = _cad(values, key) if key else _cad(values, "ear_dia_in") * 25.4
         groups["cutter"].append(
             _el(
                 "circle",
                 cx=at("ear_near_x_mm"),
                 cy=y0 + _cad(values, "ear_height_mm") * s,
-                r=thread / 2,
+                r=dia * s / 2,
             )
         )
     else:
