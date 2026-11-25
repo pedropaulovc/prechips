@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -389,7 +390,8 @@ def test_shorter_journal_updates_follow_rest_waste_threshold(tmp_path):
     assert plan.cad.values["rest_scribe_min"] == pytest.approx(12.3)
     html = render_traveler(plan)
     assert "12.30" in html
-    assert "11.50" not in html
+    # The old threshold, not the "prechips 0.11.50" footer.
+    assert not re.search(r"(?<![\d.])11\.50(?!\d)", html)
 
 
 @pytest.mark.parametrize("profile", ["pro", "hobby"])
