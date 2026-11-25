@@ -265,3 +265,20 @@ def test_tools_are_drawn_to_scale():
     for height in (20.0, -40.0):
         with pytest.raises(CadError, match="cross_tip_height_mm"):
             _picture(cad, parameters | {"cross_tip_height_mm": height}, step="cross")
+    # A point below the drawn crop takes the vise and parallels down with it.
+    deep = parameters | {"cross_tip_height_mm": -20.0}
+    svg = _picture(cad, deep, step="cross")
+    (tool,) = _cutters(svg)
+    supports = [
+        float(r.get("y")) + float(r.get("height"))
+        for group in ElementTree.fromstring(svg).iter(f"{SVG}g")
+        if group.get("class") in ("clamp", "fixture-support")
+        for r in group
+        if r.tag == f"{SVG}rect"
+    ]
+    # Both jaws and both parallels reach past the point.
+    assert sum(bottom > _tip(tool) for bottom in supports) >= 4
+    # A guide point wider than its body is refused.
+    swapped = parameters | {"tap_guide_dia_mm": 4.7625, "tap_guide_point_dia_mm": 12.7}
+    with pytest.raises(CadError, match="must be smaller than"):
+        _picture(cad, swapped, step="upright", end="top", work="tap")

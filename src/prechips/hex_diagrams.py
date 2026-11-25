@@ -218,7 +218,19 @@ def _cross(groups: Groups, values: dict, parameters: dict) -> Layout:
     centre = 150.0
     # Only the top of the vise is drawn: the seat is at the parallels' tops.
     seat = 190.0
-    bed = seat + min(rise, 70.0)
+    middle = seat - _cad(values, "cross_axis_height_mm") * scale
+    # The F drill at the bore's own diameter at the end of its stroke: its
+    # 118° point process.cross_tip_height_mm above the parallels' tops
+    # (below them when negative). Its point must be in the block or past it,
+    # short of the vise bed under the parallels.
+    tip = seat - _process(parameters, "cross_tip_height_mm") * scale
+    if not middle - ac / 2 < tip < seat + rise:
+        raise CadError(
+            "process.cross_tip_height_mm: the F drill's point must be below the "
+            "block's top corner and above the vise bed"
+        )
+    # The vise drawn down past the drill's point when it runs below the crop.
+    bed = min(seat + rise, max(seat + min(rise, 70.0), tip + 6))
     left, right = centre - af / 2, centre + af / 2
     reach = min(jaw - rise, ac) + (bed - seat)
     groups["clamp"] += [
@@ -229,29 +241,16 @@ def _cross(groups: Groups, values: dict, parameters: dict) -> Layout:
         _rect(left, seat, thick, bed - seat),
         _rect(right - thick, seat, thick, bed - seat),
     ]
-    middle = seat - _cad(values, "cross_axis_height_mm") * scale
     points = _hexagon(centre, middle, ac)
     groups["part-kept"].append(
         _el("path", d="M" + " L".join(f"{x:.1f} {y:.1f}" for x, y in points) + " Z")
     )
     bore = _cad(values, "bore_dia_in") * 25.4 * scale
     groups["part-removed"].append(_rect(centre - bore / 2, middle - ac / 2, bore, ac))
-    # The F drill at the bore's own diameter at the end of its stroke: its
-    # 118° point process.cross_tip_height_mm above the parallels' tops
-    # (below them when negative), drawn short above the corner. Its point
-    # must be in the block or past it, short of the vise bed under the
-    # parallels.
-    tip = seat - _process(parameters, "cross_tip_height_mm") * scale
-    if not middle - ac / 2 < tip < seat + rise:
-        raise CadError(
-            "process.cross_tip_height_mm: the F drill's point must be below the "
-            "block's top corner and above the vise bed"
-        )
+    # The drill drawn short above the corner.
     groups["cutter"].append(
         _tool(centre, bore, tip, middle - ac / 2 - 46, _DRILL_POINT_DEG, broken=True)
     )
-    # Below the drawn bed when the point runs past it.
-    bed = max(bed, tip)
     groups["centre-line"].append(_line(centre, middle - ac / 2 - 60, centre, bed + 6))
     _datum_label(
         groups, centre + bore / 2 + 6, middle - ac / 2 - 30, "Y0: hex axis", "start"

@@ -137,24 +137,19 @@ def _tap_stack(
     the wrench's centre hole and its body (process.tap_guide_dia_mm), both
     at their diameters × ``s``, the body drawn short. All of it turns or
     travels with the tap, so all of it is the tool."""
+    point_dia = _param(parameters, "tap_guide_point_dia_mm")
+    body_dia = _param(parameters, "tap_guide_dia_mm")
+    if point_dia >= body_dia:
+        raise CadError(
+            f"process.tap_guide_point_dia_mm {point_dia:g} must be smaller than "
+            f"process.tap_guide_dia_mm {body_dia:g} (the point stands out of the body)"
+        )
     top = face - _WRENCH_GAP
     seat = top - _WRENCH
     body = seat - _guide_point(parameters, s)
     return [
         _tool(cx, thread, tip, top),
         _rect(cx - wrench / 2, seat, wrench, _WRENCH),
-        _tool(
-            cx,
-            _param(parameters, "tap_guide_point_dia_mm") * s,
-            seat,
-            body,
-            _GUIDE_POINT_DEG,
-        ),
-        _tool(
-            cx,
-            _param(parameters, "tap_guide_dia_mm") * s,
-            body,
-            body - _SHORT,
-            broken=True,
-        ),
+        _tool(cx, point_dia * s, seat, body, _GUIDE_POINT_DEG),
+        _tool(cx, body_dia * s, body, body - _SHORT, broken=True),
     ]
