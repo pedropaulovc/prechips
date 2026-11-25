@@ -417,6 +417,14 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     assert html.index(second_image) < html.index("Locate the pattern.")
     assert 'alt="Vise &amp; stock &lt;side view&gt;"' in html
     assert "<svg" not in html
+    # A setup picture stands beside the setup's facts, inside the heading,
+    # and a page break may fall between it and the operations table.
+    top = html.index('<div class="setup-heading pictured">')
+    assert top < html.index("<dt>Holding:</dt>") < html.index(first_image)
+    assert html.index(first_image) < html.index('<table class="operations">')
+    # An operation with no tool and no speed spans the Tool / settings column.
+    assert '<td colspan="2"><div class="text">Locate the pattern.' in html
+    assert '<td><div class="text">Face to thickness.' in html
 
 
 def with_operation_diagram(text, file="op.svg"):

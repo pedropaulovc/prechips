@@ -888,11 +888,17 @@ th:last-child, td:last-child { padding-right: 0; }
 .tools td { width: 50%; }
 .tools td:nth-child(2) { padding-left: 0.1in; }
 .setup-heading { break-inside: avoid; break-after: avoid; }
+.setup-heading.pictured { break-after: auto; }
 .setup-heading h2 { display: flex; justify-content: space-between; gap: 0.12in; }
 .machine { font-size: var(--body-size); font-weight: normal; text-align: right; }
 .setup-diagram { margin: 0.08in 0; break-inside: avoid; }
 .setup-diagram img { display: block; width: 100%; max-height: 4in; object-fit: contain; }
-.operations { table-layout: fixed; break-before: avoid; }
+.setup-top { display: flex; flex-wrap: wrap; align-items: flex-start; column-gap: 0.15in; }
+.setup-top > dl { flex: 1 1 2.8in; }
+.setup-top > .setup-diagram { flex: 0 0 auto; max-width: 100%; }
+.setup-top > .setup-diagram img { width: auto; max-width: 100%; }
+.op-feed { float: right; margin-left: 0.15in; }
+.operations { table-layout: fixed; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
 .settings-column { width: 29%; }
@@ -1300,8 +1306,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     pictures_on = "setup_diagrams" in profile.features
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
-        lines.append(
-            '<section><div class="setup-heading">'
+        heading = (
             f"<h2>Setup {setup_number} — {_html(setup['title'])}"
             f'<span class="machine">{_html(setup["machine"])}</span></h2>'
         )
@@ -1316,6 +1321,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 setup, f"setup {setup_number} ({setup['title']})"
             )
         programs = setup.get("programs")
+        facts = []
         if (
             "holding" in setup
             or "datum" in setup
@@ -1323,20 +1329,19 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             or bonds
             or programs
         ):
-            lines.append("<dl>")
+            facts.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
-                    lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+                    facts.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
             if programs:
-                lines.append(f"<dt>NC:</dt><dd>{_html(', '.join(programs))}</dd>")
+                facts.append(f"<dt>NC:</dt><dd>{_html(', '.join(programs))}</dd>")
             for bond in bonds:
-                lines.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
+                facts.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
             if index is not None:
-                lines.append(
+                facts.append(
                     f"<dt>Index:</dt><dd>{_html(indexing.describe(index))}</dd>"
                 )
-            lines.append("</dl>")
-        lines.append("</div>")
+            facts.append("</dl>")
         # Profiles require the setup's picture only; operation pictures are
         # optional additions under the same feature.
         pictures = used_diagrams(setup, profile)
@@ -1352,9 +1357,20 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 loaded.parts or None,
             )
             drawn |= roles
-            lines.append(diagram)
-        elif pictures_on and "setup_diagrams" in profile.enforce:
-            raise PlanError(f"{where}: required by profile {profile.name!r}")
+            # The picture stands beside the setup's facts at its own width
+            # (it wraps below them when both do not fit), and the operations
+            # may start on the next page: a picture that does not fit no
+            # longer drags the table's first row along.
+            lines.append(
+                f'<section><div class="setup-heading pictured">{heading}'
+                '<div class="setup-top">'
+            )
+            lines += [*facts, diagram, "</div></div>"]
+        else:
+            if pictures_on and "setup_diagrams" in profile.enforce:
+                raise PlanError(f"{where}: required by profile {profile.name!r}")
+            lines.append(f'<section><div class="setup-heading">{heading}')
+            lines += [*facts, "</div>"]
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
             '<col class="work-column"><col class="settings-column"></colgroup>'
@@ -1409,8 +1425,18 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 rich |= text != _html(operation[text_key])
                 work = f'<div class="text">{text}</div>'
             reopen = "<tbody>" if body == "closed" and not grouped else ""
+            # An operation with no tool and no speed has nothing for the
+            # Tool / settings column but its feed text: its work spans that
+            # column, the feed printed at the cell's top right.
+            spans = tool is None and "rpm" not in operation
+            cell = '<td colspan="2">' if spans else "<td>"
+            if spans and "feed" in operation:
+                cell += (
+                    '<div class="text setting-value op-feed">'
+                    f"{_html(operation['feed'])}</div>"
+                )
             lines.append(
-                f'{reopen}<tr><td class="op-number">{operation_number}</td><td>{work}'
+                f'{reopen}<tr><td class="op-number">{operation_number}</td>{cell}{work}'
             )
             body = "rows"
             if "turning_step" in operation:
@@ -1420,21 +1446,24 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     '<div class="text"><strong>Check:</strong> '
                     f"{_html(operation['inspection'])}</div>"
                 )
-            lines.append("</td><td>")
-            if tool is not None:
-                lines.append(
-                    f'<div class="text tool">{_tool_number(tool)}'
-                    f"{_html(tool.get('name', tool['description']))}</div>"
-                )
-            settings = []
-            if "rpm" in operation:
-                settings.append(f"{_html(operation['rpm'])} rpm")
-            if "feed" in operation:
-                settings.append(_html(operation["feed"]))
-            if settings:
-                lines.append(
-                    '<div class="text setting-value">' + "; ".join(settings) + "</div>"
-                )
+            if not spans:
+                lines.append("</td><td>")
+                if tool is not None:
+                    lines.append(
+                        f'<div class="text tool">{_tool_number(tool)}'
+                        f"{_html(tool.get('name', tool['description']))}</div>"
+                    )
+                settings = []
+                if "rpm" in operation:
+                    settings.append(f"{_html(operation['rpm'])} rpm")
+                if "feed" in operation:
+                    settings.append(_html(operation["feed"]))
+                if settings:
+                    lines.append(
+                        '<div class="text setting-value">'
+                        + "; ".join(settings)
+                        + "</div>"
+                    )
             lines.append("</td></tr>")
             if grouped:
                 lines.append("</tbody>")
