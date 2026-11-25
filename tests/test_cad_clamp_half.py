@@ -397,8 +397,10 @@ def test_tools_are_drawn_to_scale():
         width = cad.values["ear_dia_in"] * 25.4 * 6
         assert _span(drill, 0) == pytest.approx(width, abs=0.2)
         assert float(hole.get("r")) == pytest.approx(width / 2, abs=0.01)
-    # The tap at its thread's major diameter, the guide at its own sizes.
-    tap, point, guide, plan = cutters(back, up="outside", work="tap")
+    # The tap at its thread's major diameter, the guide at its own sizes; the
+    # wrench turns with the tap, so it is drawn as the tool too.
+    tap, wrench, point, guide, plan = cutters(back, up="outside", work="tap")
+    assert wrench.tag.endswith("rect")
     assert _span(tap, 0) == pytest.approx(
         back.values["ear_thread_major_mm"] * 6, abs=0.2
     )

@@ -145,8 +145,9 @@ def _upright(
     name = "BOTTOM" if end == "bottom" else "TOP"
     _label(groups, right + 10, top + 4, f"{name} end up", "start")
     if work == "tap":
-        # Wrench across the tap, the centre in its top hole.
-        groups["part-rest"].append(_rect(centre - 70, tool_top - 9, 140, 9))
+        # Wrench across the tap, the centre in its top hole: it turns with
+        # the tap, so it is drawn as the tool.
+        groups["cutter"].append(_rect(centre - 70, tool_top - 9, 140, 9))
         groups["cutter"].append(
             _el(
                 "path",

@@ -513,15 +513,16 @@ def _half(
         if work == "tap":
             # The tap at its thread's major diameter, its point where the
             # plan stops it; its wrench (size not on record) a little above
-            # the face; the tap guide's point in the wrench's centre hole
-            # and its body, both at their own diameters, drawn short.
+            # the face, drawn as the tool since it turns with the tap; the
+            # tap guide's point in the wrench's centre hole and its body,
+            # both at their own diameters, drawn short.
             tip = top + _param(parameters, "tap_point_depth_mm") * s
             wrench = top - _WRENCH_GAP
             thread = _cad(values, "ear_thread_major_mm") * s
-            groups["cutter"].append(_tool(middle, thread, tip, wrench))
-            groups["part-rest"].append(
-                _rect(middle - 50, wrench - _WRENCH, 100, _WRENCH)
-            )
+            groups["cutter"] += [
+                _tool(middle, thread, tip, wrench),
+                _rect(middle - 50, wrench - _WRENCH, 100, _WRENCH),
+            ]
             point = _param(parameters, "tap_guide_point_dia_mm") * s
             seat_y = wrench - _WRENCH
             body = seat_y - _GUIDE_POINT

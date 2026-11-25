@@ -168,7 +168,7 @@ LEGEND = (
     ("fixture-support", "1-2-3, parallel, jack, stop"),
     ("clamp", "vise jaw, work holder"),
     ("stop-rod", "work stop rod"),
-    ("cutter", "cutter, edge finder"),
+    ("cutter", "tool, T-handle, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),
     ("centre-line", "centre line"),
