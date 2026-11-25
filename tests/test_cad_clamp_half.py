@@ -447,6 +447,8 @@ def test_the_work_stop_is_drawn_where_the_template_fits_it():
         xs = [x for x, _ in _points(bar)]
         tip = _datum_x(svg)
         assert all((x - tip) * outward >= -0.1 for x in xs)
+        # Its break line's teeth stand off its far end, away from the blank.
+        assert max((x - tip) * outward for x in xs) == pytest.approx(133, abs=0.2)
     # Named once, upright, with when it is set.
     svg, _ = rods(front, up="end", work="face", end="first", stop="rod-labelled")
     assert "work stop: Ø.375 rod from its post" in svg
@@ -476,7 +478,8 @@ def test_one_picture_draws_both_halves_bound_to_each():
         return render_cad_svg(root, *parts[part], parts=parts).decode()
 
     mating = {"step": "half", "up": "mating", "work": "face", "stop": "rod"}
-    for attrs in ({"step": "inspect"}, mating):
+    labelled = mating | {"stop": "rod-labelled"}
+    for attrs in ({"step": "inspect"}, mating, labelled):
         # The same picture whichever half it is drawn for, each half's text
         # bound to that half: the front's clearance holes, the back's taps.
         drawn = {both(part, **attrs) for part in parts}
@@ -497,6 +500,10 @@ def test_one_picture_draws_both_halves_bound_to_each():
                 pytest.approx(9.525 * 6, abs=0.2),
                 pytest.approx(76.2, abs=0.2),
             ]
+            # The rod named once, from the front's own parameters
+            # ({{process.KEY}} bound to the front whichever part draws it).
+            if attrs["stop"] == "rod-labelled":
+                assert "work stop: Ø.375 rod" in svg and "Ø.500" not in svg
     with pytest.raises(CadError, match="needs a family plan with a front and a back"):
         render_cad_svg(
             b'<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'

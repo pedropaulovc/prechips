@@ -284,6 +284,11 @@ def _tool(
         outline = [(left, top), (left, tip - point), (cx, tip), (right, tip - point)]
         return _path([*outline, (right, top), *breaks])
     corner = tip - _ROUND_RISE * width
+    if corner < top:
+        raise CadError(
+            f"a round end {_ROUND_RISE * width:.1f} px deep does not fit the "
+            f"{tip - top:.1f} px the tool is drawn"
+        )
     # Up the right side, across the top, down the left, then the arc under
     # it back to the right.
     outline = [(right, corner), (right, top), *breaks, (left, top), (left, corner)]
@@ -304,17 +309,13 @@ def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> N
     # high edge to the low one through the tip.
     sweep = 0 if outward < 0 else 1
     arc = f"A{rise:.1f} {width / 2:.1f} 0 0 {sweep} {shoulder:.1f} {low:.1f}"
+    # The break line's teeth stand off the rod's end, away from the blank.
+    if outward > 0:
+        teeth = _zigzag(end, low, end, high)
+    else:
+        teeth = list(reversed(_zigzag(end, high, end, low)))
     groups["stop-rod"].append(
-        _path(
-            [
-                (shoulder, low),
-                (end, low),
-                *_zigzag(end, low, end, high),
-                (end, high),
-                (shoulder, high),
-            ],
-            arc,
-        )
+        _path([(shoulder, low), (end, low), *teeth, (end, high), (shoulder, high)], arc)
     )
     groups["centre-line"].append(_line(tip - outward * 6, cy, end, cy))
 
