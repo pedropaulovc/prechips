@@ -191,9 +191,16 @@ def _css_string(text: str) -> str:
     return '"' + escaped.replace("<", "\\3c ") + '"'
 
 
-# An SVG root's width or height that gives it a natural size: a number,
-# optionally in an absolute unit ("100%", "auto" or "" give none).
-_ABSOLUTE_LENGTH = re.compile(r"\s*(\d+\.?\d*|\.\d+)\s*(px|pt|pc|mm|cm|in)?\s*")
+# An SVG root's width or height that gives it a natural size: a positive
+# number, optionally in an absolute unit ("100%", "auto", "" or 0 give none).
+_ABSOLUTE_LENGTH = re.compile(
+    r"\s*(\d+\.?\d*|\.\d+)\s*(px|pt|pc|mm|cm|in)?\s*", re.IGNORECASE
+)
+
+
+def _natural_size(value: str | None) -> bool:
+    match = _ABSOLUTE_LENGTH.fullmatch(value or "")
+    return match is not None and float(match[1]) > 0
 
 
 def _running(top_left: str, top_right: str, bottom_left: str) -> str:
@@ -1029,6 +1036,7 @@ th:last-child, td:last-child { padding-right: 0; }
 .setup-top > .setup-diagram[data-wide] img { width: 100%; }
 .op-feed { float: right; max-width: 50%; margin-left: 0.15in; }
 .operations { table-layout: fixed; }
+.setup-heading:not(.pictured) + .operations { break-before: avoid; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
 .settings-column { width: 29%; }
@@ -1297,9 +1305,7 @@ def _diagram_html(
     # only) has no natural size to stand beside the setup's facts at: it
     # spans the column below them, as every picture did before they stood
     # side by side.
-    unsized = not all(
-        _ABSOLUTE_LENGTH.fullmatch(root.get(side) or "") for side in ("width", "height")
-    )
+    unsized = not all(_natural_size(root.get(side)) for side in ("width", "height"))
     if unsized and "op-picture" not in figure_class.split():
         whole += " data-wide"
     figure = (
