@@ -5,7 +5,9 @@ import re
 import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cache
 from html import escape
+from importlib import metadata
 from math import floor, isfinite
 from pathlib import Path
 from xml.etree import ElementTree
@@ -61,6 +63,180 @@ def _shop_record(shop: dict, section: str, key: str, where: str) -> dict:
     if not isinstance(record, dict):
         raise PlanError(f"shop.{section}.{key}: expected a table")
     return record
+
+
+NOTE_KINDS = {"stop"}
+
+
+def _note_block(block: dict, where: str) -> None:
+    """A titled block at the sheet's head: a list of ``items`` or two-column
+    ``rows`` (label, text), exactly one; ``kind = "stop"`` sets it apart."""
+    _keys(block, {"title", "kind", "items", "rows"}, where)
+    _text(block, "title", where)
+    _choice(block, "kind", NOTE_KINDS, where)
+    if ("items" in block) == ("rows" in block):
+        raise PlanError(f"{where}: declare items or rows, not both or neither")
+    if "items" in block:
+        items = block["items"]
+        if (
+            not isinstance(items, list)
+            or not items
+            or any(not isinstance(item, str) or not item.strip() for item in items)
+        ):
+            raise PlanError(f"{where}.items: expected a nonempty array of strings")
+        return
+    rows = block["rows"]
+    if (
+        not isinstance(rows, list)
+        or not rows
+        or any(
+            not isinstance(row, list)
+            or len(row) != 2
+            or any(not isinstance(cell, str) or not cell.strip() for cell in row)
+            for row in rows
+        )
+    ):
+        raise PlanError(f"{where}.rows: expected a nonempty array of [label, text]")
+
+
+def _notes(plan: dict, shop: dict, shop_path: Path | None) -> list[dict]:
+    """The plan's ``notes`` in order, each shop ``ref`` replaced by its record."""
+    notes = []
+    refs: list[str] = []
+    for index, block in enumerate(_tables(plan, "notes", "plan"), 1):
+        where = f"notes[{index}]"
+        if "ref" not in block:
+            _note_block(block, where)
+            notes.append(block)
+            continue
+        _keys(block, {"ref"}, where)
+        ref = _text(block, "ref", where)
+        if shop_path is None:
+            raise PlanError(f"{where}.ref: requires plan.shop")
+        if ref in refs:
+            raise PlanError(f"{where}: duplicate notes reference {ref!r}")
+        refs.append(ref)
+        shared = _shop_record(shop, "notes", ref, where)
+        _note_block(shared, f"shop.notes.{ref}")
+        notes.append(shared)
+    return notes
+
+
+def _standing(shop: dict, where: str) -> dict:
+    """The shop's ``[standing]`` page: its title, optional ``intro``, the
+    ``pointer`` a sheet opting in prints, an optional full picture ``legend``
+    and its ``notes`` (keys of shop ``[notes.<key>]`` blocks, in order),
+    returned with each key replaced by its block."""
+    page = shop.get("standing")
+    if not isinstance(page, dict):
+        raise PlanError(f"{where}: the shop has no [standing] table")
+    _keys(page, {"title", "intro", "pointer", "legend", "notes"}, "shop.standing")
+    _text(page, "title", "shop.standing")
+    _text(page, "intro", "shop.standing", optional=True)
+    _text(page, "pointer", "shop.standing")
+    if not isinstance(page.get("legend", False), bool):
+        raise PlanError("shop.standing.legend: expected true or false")
+    keys = page.get("notes")
+    if (
+        not isinstance(keys, list)
+        or not keys
+        or any(not isinstance(key, str) or not key.strip() for key in keys)
+        or len(set(keys)) != len(keys)
+    ):
+        raise PlanError(
+            "shop.standing.notes: expected a nonempty array of distinct keys"
+        )
+    blocks = []
+    for key in keys:
+        block = _shop_record(shop, "notes", key, "shop.standing.notes")
+        _note_block(block, f"shop.notes.{key}")
+        blocks.append(block)
+    return page | {"notes": blocks}
+
+
+def load_standing(path: Path) -> tuple[dict, list[Path]]:
+    """The standing page of the shop file or directory at ``path``, and the
+    shop files it was read from."""
+    shop, files = load_shop(path)
+    return _standing(shop, f"shop {path}") | {"project": _project(shop)}, files
+
+
+def _project(shop: dict) -> str:
+    """The shop's ``[sheet] project``: the project title every printed page
+    carries in its running header, as the drawings' title block prints it."""
+    sheet = shop.get("sheet")
+    if sheet is None:
+        return ""
+    if not isinstance(sheet, dict):
+        raise PlanError("shop.sheet: expected a table")
+    _keys(sheet, {"project"}, "shop.sheet")
+    return _text(sheet, "project", "shop.sheet")
+
+
+@cache
+def _version() -> str:
+    try:
+        return metadata.version("prechips")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _css_string(text: str) -> str:
+    """A CSS string inside ``<style>``: whitespace runs made one space, ``\\``
+    and ``"`` escaped, and ``<`` as the CSS escape ``\\3c`` so no ``</style``
+    closes the element early. A hex escape swallows one whitespace character
+    after it (CSS Syntax 3, 4.3.7), so it always ends in its own space and a
+    space that followed the ``<`` survives."""
+    escaped = " ".join(text.split()).replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + escaped.replace("<", "\\3c ") + '"'
+
+
+# An SVG root's width or height that gives it a natural size: a number,
+# optionally in an absolute unit ("100%", "auto" or "" give none).
+_ABSOLUTE_LENGTH = re.compile(r"\s*(\d+\.?\d*|\.\d+)\s*(px|pt|pc|mm|cm|in)?\s*")
+
+
+def _running(top_left: str, top_right: str, bottom_left: str) -> str:
+    """A running header and footer in the page margin, one line each, on
+    every printed page: the project, the sheet's identity, what printed it,
+    and ``SHEET n OF N``. They cost no body lines."""
+    box = "font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #000;"
+    rules = "".join(
+        f"@{name} {{ content: {_css_string(text)}; {box} }}"
+        for name, text in (
+            ("top-left", top_left),
+            ("top-right", top_right),
+            ("bottom-left", bottom_left),
+        )
+        if text
+    )
+    sheet = 'content: "SHEET " counter(page) " OF " counter(pages);'
+    return f"@page {{ {rules}@bottom-right {{ {sheet} {box} }} }}\n"
+
+
+def _identity(loaded: "LoadedPlan", part: str | None = None) -> str:
+    """Each part's slug and drawing number, then the revision, from the feature
+    manifests; the plan's own part and revision lines without CAD data."""
+    plan = loaded.data
+    if part is not None:
+        cads = [loaded.parts[part][0]]
+    elif loaded.parts:
+        cads = [cad for cad, _ in loaded.parts.values()]
+    else:
+        cads = [loaded.cad] if loaded.cad is not None else []
+    values = [cad.values for cad in cads]
+    if not values or any(
+        not {"part", "drawing_number", "revision"} <= value.keys() for value in values
+    ):
+        return f"{plan['part']} · REV {plan['revision']}"
+    revisions = dict.fromkeys(v["revision"] for v in values)
+    if len(revisions) == 1:
+        parts = " · ".join(f"{v['part']} {v['drawing_number']}" for v in values)
+        return f"{parts} · REV {next(iter(revisions))}"
+    # Parts at different revisions: each carries its own.
+    return " · ".join(
+        f"{v['part']} {v['drawing_number']} REV {v['revision']}" for v in values
+    )
 
 
 def _cutting_settings(table: dict, where: str) -> None:
@@ -498,6 +674,7 @@ def load_plan(path: Path) -> LoadedPlan:
     if "shop" in plan:
         shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
         shop, shop_files = load_shop(shop_path)
+        _project(shop)
         plan.pop("shop")
     material_key = _text(plan, "material_key", "plan", optional=True)
     plan.pop("material_key", None)
@@ -511,6 +688,8 @@ def load_plan(path: Path) -> LoadedPlan:
             "stock",
             "stock_refs",
             "note",
+            "notes",
+            "standing",
             "tools",
             "setups",
             "turning_material",
@@ -547,6 +726,15 @@ def load_plan(path: Path) -> LoadedPlan:
             stock.append(shared)
         # The printed stock text stays the authority; the records add marks.
         plan["stock_refs"] = stock
+    if "notes" in plan:
+        plan["notes"] = _notes(plan, shop, shop_path)
+    if "standing" in plan:
+        if plan["standing"] is not True:
+            raise PlanError("plan.standing: expected true (or leave it out)")
+        if shop_path is None:
+            raise PlanError("plan.standing: requires plan.shop")
+        # The sheet prints only the pointer; the page is rendered on its own.
+        plan["standing"] = _standing(shop, "plan.standing")["pointer"]
 
     tool_ids = set()
     tool_refs = {}
@@ -828,11 +1016,19 @@ th:last-child, td:last-child { padding-right: 0; }
 .tools td { width: 50%; }
 .tools td:nth-child(2) { padding-left: 0.1in; }
 .setup-heading { break-inside: avoid; break-after: avoid; }
+.setup-heading.pictured { break-after: auto; }
 .setup-heading h2 { display: flex; justify-content: space-between; gap: 0.12in; }
 .machine { font-size: var(--body-size); font-weight: normal; text-align: right; }
 .setup-diagram { margin: 0.08in 0; break-inside: avoid; }
 .setup-diagram img { display: block; width: 100%; max-height: 4in; object-fit: contain; }
-.operations { table-layout: fixed; break-before: avoid; }
+.setup-top { display: flex; flex-wrap: wrap; align-items: flex-start; column-gap: 0.15in; }
+.setup-top > dl { flex: 1 1 2.8in; }
+.setup-top > .setup-diagram { flex: 0 0 auto; max-width: 100%; }
+.setup-top > .setup-diagram img { width: auto; max-width: 100%; }
+.setup-top > .setup-diagram[data-wide] { flex: 1 1 100%; }
+.setup-top > .setup-diagram[data-wide] img { width: 100%; }
+.op-feed { float: right; max-width: 50%; margin-left: 0.15in; }
+.operations { table-layout: fixed; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
 .settings-column { width: 29%; }
@@ -996,6 +1192,39 @@ OP_DIAGRAM_CSS = """\
 """
 
 
+# Printed only on sheets with head notes. A stop block is boxed and its title
+# bold, distinct in greyscale; a rows block is a label column and its text.
+NOTES_CSS = """\
+.note-block { margin: 0.06in 0; break-inside: avoid; }
+.note-block h3 { font-size: var(--body-size); margin: 0 0 0.02in; break-after: avoid; }
+.note-block ul { margin: 0; }
+.note-stop { border: 2px solid var(--ink); padding: 0.04in 0.08in; }
+.note-rows { margin: 0; table-layout: fixed; }
+.note-rows th { width: 1.6in; font-weight: bold; border-bottom: 1px solid var(--rule); }
+"""
+
+
+def _note_html(block: dict) -> str:
+    """One head note block: its title, then its items or its rows."""
+    kind = " note-stop" if block.get("kind") == "stop" else ""
+    parts = [f'<div class="note-block{kind}"><h3>{_html(block["title"])}</h3>']
+    if "items" in block:
+        parts.append(
+            "<ul>"
+            + "".join(f"<li>{_inline(item)}</li>" for item in block["items"])
+            + "</ul>"
+        )
+    else:
+        parts.append('<table class="note-rows"><tbody>')
+        parts += [
+            f'<tr><th scope="row">{_inline(label)}</th><td>{_inline(text)}</td></tr>'
+            for label, text in block["rows"]
+        ]
+        parts.append("</tbody></table>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def used_diagrams(setup: dict, profile: Profile) -> dict[int, dict]:
     """The pictures a render of this setup opens: 0 is the setup's own, n its
     nth operation's. The CLI's output guard reads the same lookup."""
@@ -1064,6 +1293,15 @@ def _diagram_html(
     # picture stands outside the table, where break-inside holds.
     boxed = caption and "op-picture" in figure_class.split()
     whole = ' style="display: inline-block; width: 100%"' if boxed else ""
+    # A setup picture whose SVG has no width and height of its own (a viewBox
+    # only) has no natural size to stand beside the setup's facts at: it
+    # spans the column below them, as every picture did before they stood
+    # side by side.
+    unsized = not all(
+        _ABSOLUTE_LENGTH.fullmatch(root.get(side) or "") for side in ("width", "height")
+    )
+    if unsized and "op-picture" not in figure_class.split():
+        whole += " data-wide"
     figure = (
         f'<figure class="{figure_class}"{whole}>{named}'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'
@@ -1128,11 +1366,16 @@ def render_placeholder(
 
     others = [name(other) for other in loaded.parts if other != part]
     file = f" (file {_html(shared_file)})" if shared_file else ""
+    running = _running(
+        _project(loaded.shop_data),
+        _identity(loaded, part),
+        f"{name(part)} · placeholder, prechips {_version()}",
+    )
     lines = [
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(name(part))}</title>",
-        f"<style>{CSS}</style></head><body>",
+        f"<style>{CSS}{running}</style></head><body>",
         f"<h1>{_html(name(part))}</h1>",
         '<div class="meta">',
         f"<p>{_html(plan['revision'])}</p>",
@@ -1161,6 +1404,38 @@ def render_placeholder(
     return "\n".join(lines)
 
 
+def render_standing(page: dict) -> str:
+    """The shop's standing page (``load_standing``): its title and intro, its
+    note blocks in order, and the full picture key when ``legend`` is set. One
+    document for every sheet, with the travelers' stylesheet."""
+    running = _running(page.get("project", ""), page["title"], f"prechips {_version()}")
+    lines = [
+        "<!doctype html>",
+        '<html lang="en"><head><meta charset="utf-8">',
+        f"<title>{_html(page['title'])}</title>",
+        f"<style>{CSS}{RICH_CSS}{NOTES_CSS}{running}</style></head><body>",
+        f"<h1>{_html(page['title'])}</h1>",
+    ]
+    if "intro" in page:
+        lines.append(f'<p class="text">{_html(page["intro"])}</p>')
+    lines += [_note_html(block) for block in page["notes"]]
+    if page.get("legend"):
+        key = base64.b64encode(palette.legend_svg(palette.LEGEND)).decode("ascii")
+        alt = _html("Picture key: " + "; ".join(text for _, text in palette.LEGEND))
+        # At 90 % of the column the full key (six rows since the work stop's
+        # rod has its own entry) still fits under a page of standing rows;
+        # at full width it alone spilled onto a second sheet (a consumer's
+        # one-page standing page, 2026-11-25).
+        lines.append(
+            '<figure class="picture-key" style="margin: 0.08in 0">'
+            f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
+            ' style="display: block; width: 90%">'
+            "</figure>"
+        )
+    lines.append("</body></html>\n")
+    return "\n".join(lines)
+
+
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     """Render a loaded plan; source paths remain relative to its TOML file."""
     plan = loaded.data
@@ -1171,19 +1446,30 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(plan['title'])}</title>",
     ]
+    running = _running(
+        _project(loaded.shop_data),
+        _identity(loaded),
+        f"{plan['title']} · traveler, prechips {_version()}",
+    )
     # Sheets using markup, steps or operation pictures get their extra CSS
     # spliced in here at the end.
     style_at = len(lines)
     lines += [
-        f"<style>{CSS}</style></head><body>",
+        f"<style>{CSS}{running}</style></head><body>",
         f"<h1>{_html(plan['title'])}</h1>",
         '<div class="meta">',
         (f"<p>{_html(plan['part'])}; {_html(plan['revision'])}</p>"),
         (f"<p><strong>{_html(plan['material'])}.</strong> {_stock_html(plan)}</p>"),
         "</div>",
     ]
+    if "standing" in plan:
+        lines.append(
+            f'<p class="text standing"><strong>{_html(plan["standing"])}</strong></p>'
+        )
     if "note" in plan:
         lines.append(f'<p class="text">{_html(plan["note"])}</p>')
+    for block in plan.get("notes", []):
+        lines.append(_note_html(block))
     lines.append(
         '<table class="tools"><thead><tr><th colspan="2">Tools</th></tr></thead><tbody>'
     )
@@ -1205,8 +1491,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     pictures_on = "setup_diagrams" in profile.features
     operation_number = 0
     for setup_number, setup in enumerate(plan["setups"], 1):
-        lines.append(
-            '<section><div class="setup-heading">'
+        heading = (
             f"<h2>Setup {setup_number} — {_html(setup['title'])}"
             f'<span class="machine">{_html(setup["machine"])}</span></h2>'
         )
@@ -1221,6 +1506,7 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 setup, f"setup {setup_number} ({setup['title']})"
             )
         programs = setup.get("programs")
+        facts = []
         if (
             "holding" in setup
             or "datum" in setup
@@ -1228,20 +1514,19 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             or bonds
             or programs
         ):
-            lines.append("<dl>")
+            facts.append("<dl>")
             for key in ("holding", "datum"):
                 if key in setup:
-                    lines.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
+                    facts.append(f"<dt>{key.title()}:</dt><dd>{_html(setup[key])}</dd>")
             if programs:
-                lines.append(f"<dt>NC:</dt><dd>{_html(', '.join(programs))}</dd>")
+                facts.append(f"<dt>NC:</dt><dd>{_html(', '.join(programs))}</dd>")
             for bond in bonds:
-                lines.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
+                facts.append(f"<dt>Bond:</dt><dd>{_html(bond)}</dd>")
             if index is not None:
-                lines.append(
+                facts.append(
                     f"<dt>Index:</dt><dd>{_html(indexing.describe(index))}</dd>"
                 )
-            lines.append("</dl>")
-        lines.append("</div>")
+            facts.append("</dl>")
         # Profiles require the setup's picture only; operation pictures are
         # optional additions under the same feature.
         pictures = used_diagrams(setup, profile)
@@ -1257,9 +1542,20 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 loaded.parts or None,
             )
             drawn |= roles
-            lines.append(diagram)
-        elif pictures_on and "setup_diagrams" in profile.enforce:
-            raise PlanError(f"{where}: required by profile {profile.name!r}")
+            # The picture stands beside the setup's facts at its own width
+            # (it wraps below them when both do not fit), and the operations
+            # may start on the next page: a picture that does not fit no
+            # longer drags the table's first row along.
+            lines.append(
+                f'<section><div class="setup-heading pictured">{heading}'
+                '<div class="setup-top">'
+            )
+            lines += [*facts, diagram, "</div></div>"]
+        else:
+            if pictures_on and "setup_diagrams" in profile.enforce:
+                raise PlanError(f"{where}: required by profile {profile.name!r}")
+            lines.append(f'<section><div class="setup-heading">{heading}')
+            lines += [*facts, "</div>"]
         lines.append(
             '<table class="operations"><colgroup><col class="op-column">'
             '<col class="work-column"><col class="settings-column"></colgroup>'
@@ -1314,8 +1610,18 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                 rich |= text != _html(operation[text_key])
                 work = f'<div class="text">{text}</div>'
             reopen = "<tbody>" if body == "closed" and not grouped else ""
+            # An operation with no tool and no speed has nothing for the
+            # Tool / settings column but its feed text: its work spans that
+            # column, the feed printed at the cell's top right.
+            spans = tool is None and "rpm" not in operation
+            cell = '<td colspan="2">' if spans else "<td>"
+            if spans and "feed" in operation:
+                cell += (
+                    '<div class="text setting-value op-feed">'
+                    f"{_html(operation['feed'])}</div>"
+                )
             lines.append(
-                f'{reopen}<tr><td class="op-number">{operation_number}</td><td>{work}'
+                f'{reopen}<tr><td class="op-number">{operation_number}</td>{cell}{work}'
             )
             body = "rows"
             if "turning_step" in operation:
@@ -1325,21 +1631,24 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
                     '<div class="text"><strong>Check:</strong> '
                     f"{_html(operation['inspection'])}</div>"
                 )
-            lines.append("</td><td>")
-            if tool is not None:
-                lines.append(
-                    f'<div class="text tool">{_tool_number(tool)}'
-                    f"{_html(tool.get('name', tool['description']))}</div>"
-                )
-            settings = []
-            if "rpm" in operation:
-                settings.append(f"{_html(operation['rpm'])} rpm")
-            if "feed" in operation:
-                settings.append(_html(operation["feed"]))
-            if settings:
-                lines.append(
-                    '<div class="text setting-value">' + "; ".join(settings) + "</div>"
-                )
+            if not spans:
+                lines.append("</td><td>")
+                if tool is not None:
+                    lines.append(
+                        f'<div class="text tool">{_tool_number(tool)}'
+                        f"{_html(tool.get('name', tool['description']))}</div>"
+                    )
+                settings = []
+                if "rpm" in operation:
+                    settings.append(f"{_html(operation['rpm'])} rpm")
+                if "feed" in operation:
+                    settings.append(_html(operation["feed"]))
+                if settings:
+                    lines.append(
+                        '<div class="text setting-value">'
+                        + "; ".join(settings)
+                        + "</div>"
+                    )
             lines.append("</td></tr>")
             if grouped:
                 lines.append("</tbody>")
@@ -1390,8 +1699,13 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             ' style="display: block; width: 100%">'
             "</figure>",
         )
-    extra = (RICH_CSS if rich else "") + (OP_DIAGRAM_CSS if op_diagrams else "")
+    notes = "notes" in plan
+    extra = (
+        (RICH_CSS if rich or notes else "")
+        + (OP_DIAGRAM_CSS if op_diagrams else "")
+        + (NOTES_CSS if notes else "")
+    )
     if extra:
-        lines[style_at] = f"<style>{CSS}{extra}</style></head><body>"
+        lines[style_at] = f"<style>{CSS}{extra}{running}</style></head><body>"
     lines.append("</body></html>\n")
     return "\n".join(lines)

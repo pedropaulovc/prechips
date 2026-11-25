@@ -395,8 +395,13 @@ def test_stock_free_unillustrated_profile_does_not_read_unused_diagram(tmp_path)
 def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
-    first = b'<svg xmlns="http://www.w3.org/2000/svg"><text>First</text></svg>'
-    second = b'<svg xmlns="http://www.w3.org/2000/svg"><text>Second</text></svg>'
+    first = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="100%"><text>First</text></svg>'
+    )
+    second = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+        b"<text>Second</text></svg>"
+    )
     (diagrams / "setup.svg").write_bytes(first)
     (diagrams / "drill.svg").write_bytes(second)
     text = with_diagram(PLAN) + with_diagram(
@@ -417,6 +422,20 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     assert html.index(second_image) < html.index("Locate the pattern.")
     assert 'alt="Vise &amp; stock &lt;side view&gt;"' in html
     assert "<svg" not in html
+    # A setup picture stands beside the setup's facts, inside the heading,
+    # and a page break may fall between it and the operations table.
+    top = html.index('<div class="setup-heading pictured">')
+    assert top < html.index("<dt>Holding:</dt>") < html.index(first_image)
+    assert html.index(first_image) < html.index('<table class="operations">')
+    # Codjiflo, prechips#604: a picture with no absolute width and height of
+    # its own (a viewBox only, or "100%") has no natural size to stand beside
+    # the facts at, so it spans the column below them; a sized one keeps its
+    # own size.
+    assert f'<figure class="setup-diagram" data-wide><img src="{first_image}"' in html
+    assert f'<figure class="setup-diagram"><img src="{second_image}"' in html
+    # An operation with no tool and no speed spans the Tool / settings column.
+    assert '<td colspan="2"><div class="text">Locate the pattern.' in html
+    assert '<td><div class="text">Face to thickness.' in html
 
 
 def with_operation_diagram(text, file="op.svg"):

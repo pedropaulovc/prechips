@@ -418,3 +418,169 @@ def test_split_shop_directory_merges_sections_and_refuses_repeats(tmp_path, caps
     (split / "more.toml").write_text("[limits]\na = 1\n", encoding="utf-8")
     with pytest.raises(PlanError, match="shop.limits.a: defined in both"):
         load_plan(plan)
+
+
+def test_head_notes_print_titled_blocks_and_shared_standing_rules(tmp_path):
+    notes = (
+        'notes = [{ title = "This job", rows = [["Parts", "Two <halves>"]] },'
+        ' { title = "STOP: the rod", kind = "stop", items = ["Rod **back**"] },'
+        ' { ref = "mill" }]'
+    )
+    text = PLAN.replace(
+        'stock = "Authored blank"', f'stock = "Authored blank"\n{notes}'
+    )
+    shop_text = SHOP + (
+        '\n[notes.mill]\ntitle = "Standing rules"\n'
+        'rows = [["Feed Hold", "Reset with the axes stopped"]]\n'
+    )
+    plan, shop, _ = prepare(tmp_path, text, shop_text)
+    sheet = render_traveler(load_plan(plan))
+    job = sheet.index("<h3>This job</h3>")
+    stop = sheet.index('<div class="note-block note-stop"><h3>STOP: the rod</h3>')
+    rules = sheet.index("<h3>Standing rules</h3>")
+    assert job < stop < rules < sheet.index('<table class="tools">')
+    assert '<th scope="row">Parts</th><td>Two &lt;halves&gt;</td>' in sheet
+    assert "<li>Rod <strong>back</strong></li>" in sheet
+    assert '<th scope="row">Feed Hold</th><td>Reset with the axes stopped</td>' in sheet
+    # The shared block is one source: editing the shop edits every sheet.
+    shop.write_text(shop_text.replace("axes stopped", "axes at rest"), "utf-8")
+    assert "Reset with the axes at rest" in render_traveler(load_plan(plan))
+    # A sheet without notes keeps its exact styles.
+    plan, _, _ = prepare(tmp_path)
+    assert ".note-block" not in render_traveler(load_plan(plan))
+    for plan_text, shared, message in (
+        (
+            text.replace('{ ref = "mill" }', '{ ref = "lathe" }'),
+            shop_text,
+            "unknown shared notes reference 'lathe'",
+        ),
+        (
+            text.replace('{ ref = "mill" }', '{ ref = "mill" }, { ref = "mill" }'),
+            shop_text,
+            "duplicate notes reference",
+        ),
+        (
+            text.replace('kind = "stop"', 'kind = "warn"'),
+            shop_text,
+            r"notes\[2\].kind: expected stop",
+        ),
+        (
+            text.replace(
+                'rows = [["Parts", "Two <halves>"]]',
+                'rows = [["Parts"]], items = ["x"]',
+            ),
+            shop_text,
+            "declare items or rows, not both or neither",
+        ),
+        (
+            text.replace('rows = [["Parts", "Two <halves>"]]', 'rows = [["Parts"]]'),
+            shop_text,
+            r"notes\[1\].rows: expected a nonempty array of \[label, text\]",
+        ),
+        (
+            text,
+            shop_text.replace('title = "Standing rules"', 'title = ""'),
+            "shop.notes.mill.title: expected a nonempty string",
+        ),
+    ):
+        plan, _, _ = prepare(tmp_path, plan_text, shared)
+        with pytest.raises(PlanError, match=message):
+            load_plan(plan)
+
+
+STANDING = """
+[sheet]
+project = 'The "Harmonic" Analyzer'
+
+[standing]
+title = "Shop standing instructions"
+intro = "Common sense in this shop."
+pointer = "Standing instructions apply (standing.pdf)."
+legend = true
+notes = ["every"]
+
+[notes.every]
+title = "Every traveler"
+rows = [["Units", "Inches unless mm"]]
+"""
+
+
+def test_the_standing_page_prints_once_and_each_sheet_points_to_it(tmp_path):
+    text = PLAN.replace(
+        'stock = "Authored blank"', 'stock = "Authored blank"\nstanding = true'
+    )
+    plan, shop, _ = prepare(tmp_path, text, SHOP + STANDING)
+    sheet = render_traveler(load_plan(plan))
+    pointer = "<strong>Standing instructions apply (standing.pdf).</strong>"
+    assert sheet.index(pointer) < sheet.index('<table class="tools">')
+    assert "Inches unless mm" not in sheet
+    out = tmp_path / "standing.html"
+    assert main(["standing", str(shop), "--out", str(out)]) == 0
+    page = out.read_text(encoding="utf-8")
+    assert "<h1>Shop standing instructions</h1>" in page
+    assert '<th scope="row">Units</th><td>Inches unless mm</td>' in page
+    assert 'class="picture-key"' in page and pointer not in page
+    # Every printed page of both carries the project, what the page is and
+    # SHEET n OF N in its margin; the plan's part and revision without CAD.
+    for html, right in ((sheet, "T1 · REV A"), (page, "Shop standing instructions")):
+        assert '@top-left { content: "The \\"Harmonic\\" Analyzer";' in html
+        assert f'@top-right {{ content: "{right}";' in html
+        assert 'content: "SHEET " counter(page) " OF " counter(pages);' in html
+    assert '@bottom-left { content: "Test part · traveler, prechips ' in sheet
+    # Without a [sheet] table the header still names the part and the page.
+    plan, _, _ = prepare(tmp_path)
+    bare = render_traveler(load_plan(plan))
+    assert "@top-left" not in bare and '@top-right { content: "T1 · REV A";' in bare
+    for plan_text, shared, message in (
+        (text, SHOP, "plan.standing: the shop has no \\[standing\\] table"),
+        (
+            text.replace("standing = true", "standing = 1"),
+            SHOP + STANDING,
+            "expected true",
+        ),
+        (
+            text,
+            SHOP + STANDING.replace('notes = ["every"]', 'notes = ["every", "every"]'),
+            "shop.standing.notes: expected a nonempty array of distinct keys",
+        ),
+        (
+            text,
+            SHOP + STANDING.replace('notes = ["every"]', 'notes = ["lathe"]'),
+            "unknown",
+        ),
+    ):
+        plan, _, _ = prepare(tmp_path, plan_text, shared)
+        with pytest.raises(PlanError, match=message):
+            load_plan(plan)
+    plan, shop, _ = prepare(
+        tmp_path, text, SHOP + STANDING.replace("[sheet]", "[sheet]\nx = 1")
+    )
+    with pytest.raises(PlanError, match="shop.sheet"):
+        load_plan(plan)
+
+
+def test_running_text_cannot_close_the_style_element(tmp_path):
+    # Codjiflo, prechips#604: page-margin text sits in a CSS string inside
+    # <style>, a raw-text element any "</style" closes. "<" prints from the
+    # escape "\3c " (its own space ends it), so the space after "< " stays.
+    shared = SHOP + STANDING.replace(
+        "project = 'The \"Harmonic\" Analyzer'",
+        "project = 'A </style><script>x()</script> < b'",
+    )
+    plan, shop, _ = prepare(tmp_path, PLAN, shared)
+    out = tmp_path / "standing.html"
+    assert main(["standing", str(shop), "--out", str(out)]) == 0
+    for html in (render_traveler(load_plan(plan)), out.read_text(encoding="utf-8")):
+        assert html.count("</style>") == 1 and "<script>" not in html
+        assert '"A \\3c /style>\\3c script>x()\\3c /script> \\3c  b"' in html
+
+
+def test_standing_output_never_overwrites_or_joins_the_shop(tmp_path):
+    folder = tmp_path / "shop"
+    folder.mkdir()
+    (folder / "shop.toml").write_text(SHOP + STANDING, encoding="utf-8")
+    for out in (folder / "shop.toml", folder / "page.toml"):
+        assert main(["standing", str(folder), "--out", str(out)]) == 2
+    assert (folder / "shop.toml").read_text(encoding="utf-8") == SHOP + STANDING
+    assert not (folder / "page.toml").exists()
+    assert main(["standing", str(folder), "--out", str(folder / "page.html")]) == 0

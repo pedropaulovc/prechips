@@ -12,7 +12,9 @@ from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import (
     PlanError,
     load_plan,
+    load_standing,
     render_placeholder,
+    render_standing,
     render_traveler,
     used_diagrams,
 )
@@ -67,7 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         metavar="NAME",
         help="with --placeholder: the shared traveler's file name, printed on it",
     )
+    standing = commands.add_parser(
+        "standing",
+        help="render a shop's [standing] instructions page as printable HTML",
+    )
+    standing.add_argument("shop", type=Path, metavar="SHOP")
+    standing.add_argument("--out", type=Path, required=True, metavar="page.html")
     args = parser.parse_args(argv)
+    if args.command == "standing":
+        return _standing(args.shop, args.out)
     try:
         if args.shared_file is not None and args.placeholder is None:
             raise PlanError("--shared-file: requires --placeholder")
@@ -87,16 +97,8 @@ def main(argv: list[str] | None = None) -> int:
             inputs.append(plan.cad.source)
         inputs.extend(cad.source for cad, _ in plan.parts.values())
         inputs.extend(plan.shop_files)
-        # A new .toml beside a shop directory's files would join that shop.
-        folder = args.out.resolve().parent
-        if (
-            plan.shop is not None
-            and plan.shop.is_dir()
-            and args.out.suffix.lower() == ".toml"
-            and folder.exists()
-            and folder.samefile(plan.shop)
-        ):
-            raise PlanError("output must not be a .toml file in the shop directory")
+        if plan.shop is not None:
+            _refuse_shop_toml(args.out, plan.shop)
         if args.profile not in {"pro", "hobby"}:
             inputs.append(Path(args.profile))
         # Turning, milling and drill pecking read the same packaged/override file.
@@ -163,3 +165,34 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(f"Wrote {args.out}")
     return 0
+
+
+def _standing(shop: Path, out: Path) -> int:
+    try:
+        page, files = load_standing(shop)
+        # The same guards as `prechips traveler`: never overwrite a shop file,
+        # and no new .toml that would join the shop directory.
+        if out.exists() and any(path.exists() and out.samefile(path) for path in files):
+            raise PlanError("output must not overwrite a shop file")
+        _refuse_shop_toml(out, shop)
+        html = render_standing(page)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html, encoding="utf-8")
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, PlanError) as error:
+        print(f"prechips: {error}", file=sys.stderr)
+        return 2
+    print(f"Wrote {out}")
+    return 0
+
+
+def _refuse_shop_toml(out: Path, shop: Path) -> None:
+    """A new .toml beside a shop directory's files would join that shop; a
+    link is judged by what it points to."""
+    target = out.resolve()
+    if (
+        shop.is_dir()
+        and target.suffix.lower() == ".toml"
+        and target.parent.exists()
+        and target.parent.samefile(shop)
+    ):
+        raise PlanError("output must not be a .toml file in the shop directory")

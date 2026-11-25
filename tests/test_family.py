@@ -63,6 +63,28 @@ def test_demo_pair_renders_one_traveler_for_both_parts(tmp_path, profile):
     assert ("<figcaption" in html) == (profile == "hobby")
 
 
+def test_the_page_header_names_each_part_and_its_revision(tmp_path):
+    # Codjiflo, prechips#604: the running header's identity, from the parts'
+    # manifests; parts at different revisions each print their own.
+    header = '@top-right {{ content: "{}";'
+    html = render_traveler(load_plan(DEMO))
+    same = "clamp-front DEMO-CLAMP-FRONT · clamp-back DEMO-CLAMP-BACK · REV v51"
+    assert header.format(same) in html
+    back = (DEMO.parent / "cad/clamp-back-v51.toml").read_text(encoding="utf-8")
+    manifest = tmp_path / "clamp-back-v52.toml"
+    manifest.write_text(
+        back.replace('"revision" = "v51"', '"revision" = "v52"'), encoding="utf-8"
+    )
+    plan = _copy(
+        tmp_path,
+        DEMO,
+        (f"{DEMO.parent.as_posix()}/cad/clamp-back-v51.toml", manifest.as_posix()),
+        ('revision = "{{cad.revision}}"', 'revision = "mixed"'),
+    )
+    mixed = "clamp-front DEMO-CLAMP-FRONT REV v51 · clamp-back DEMO-CLAMP-BACK REV v52"
+    assert header.format(mixed) in render_traveler(load_plan(plan))
+
+
 def test_text_binds_its_own_part_or_what_the_parts_share():
     plan = load_plan(DEMO)
     assert set(plan.parts) == {"front", "back"}
