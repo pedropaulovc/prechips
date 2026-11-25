@@ -418,3 +418,71 @@ def test_split_shop_directory_merges_sections_and_refuses_repeats(tmp_path, caps
     (split / "more.toml").write_text("[limits]\na = 1\n", encoding="utf-8")
     with pytest.raises(PlanError, match="shop.limits.a: defined in both"):
         load_plan(plan)
+
+
+def test_head_notes_print_titled_blocks_and_shared_standing_rules(tmp_path):
+    notes = (
+        'notes = [{ title = "This job", rows = [["Parts", "Two <halves>"]] },'
+        ' { title = "STOP: the rod", kind = "stop", items = ["Rod **back**"] },'
+        ' { ref = "mill" }]'
+    )
+    text = PLAN.replace(
+        'stock = "Authored blank"', f'stock = "Authored blank"\n{notes}'
+    )
+    shop_text = SHOP + (
+        '\n[notes.mill]\ntitle = "Standing rules"\n'
+        'rows = [["Feed Hold", "Reset with the axes stopped"]]\n'
+    )
+    plan, shop, _ = prepare(tmp_path, text, shop_text)
+    sheet = render_traveler(load_plan(plan))
+    job = sheet.index("<h3>This job</h3>")
+    stop = sheet.index('<div class="note-block note-stop"><h3>STOP: the rod</h3>')
+    rules = sheet.index("<h3>Standing rules</h3>")
+    assert job < stop < rules < sheet.index('<table class="tools">')
+    assert '<th scope="row">Parts</th><td>Two &lt;halves&gt;</td>' in sheet
+    assert "<li>Rod <strong>back</strong></li>" in sheet
+    assert '<th scope="row">Feed Hold</th><td>Reset with the axes stopped</td>' in sheet
+    # The shared block is one source: editing the shop edits every sheet.
+    shop.write_text(shop_text.replace("axes stopped", "axes at rest"), "utf-8")
+    assert "Reset with the axes at rest" in render_traveler(load_plan(plan))
+    # A sheet without notes keeps its exact styles.
+    plan, _, _ = prepare(tmp_path)
+    assert ".note-block" not in render_traveler(load_plan(plan))
+    for plan_text, shared, message in (
+        (
+            text.replace('{ ref = "mill" }', '{ ref = "lathe" }'),
+            shop_text,
+            "unknown shared notes reference 'lathe'",
+        ),
+        (
+            text.replace('{ ref = "mill" }', '{ ref = "mill" }, { ref = "mill" }'),
+            shop_text,
+            "duplicate notes reference",
+        ),
+        (
+            text.replace('kind = "stop"', 'kind = "warn"'),
+            shop_text,
+            r"notes\[2\].kind: expected stop",
+        ),
+        (
+            text.replace(
+                'rows = [["Parts", "Two <halves>"]]',
+                'rows = [["Parts"]], items = ["x"]',
+            ),
+            shop_text,
+            "declare items or rows, not both or neither",
+        ),
+        (
+            text.replace('rows = [["Parts", "Two <halves>"]]', 'rows = [["Parts"]]'),
+            shop_text,
+            r"notes\[1\].rows: expected a nonempty array of \[label, text\]",
+        ),
+        (
+            text,
+            shop_text.replace('title = "Standing rules"', 'title = ""'),
+            "shop.notes.mill.title: expected a nonempty string",
+        ),
+    ):
+        plan, _, _ = prepare(tmp_path, plan_text, shared)
+        with pytest.raises(PlanError, match=message):
+            load_plan(plan)

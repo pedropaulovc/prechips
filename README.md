@@ -616,6 +616,10 @@ revision = "drawing revision"
 material = "drawing material"
 stock = "stock dimensions and quantity"
 note = "Optional job-specific prerequisite"
+# Optional titled head blocks, printed in order after `note`, before Tools:
+# notes = [{ title = "This job", rows = [["Parts", "Text"]] },
+#          { title = "STOP: the rod", kind = "stop", items = ["One rule"] },
+#          { ref = "mill-standing" }]  # a [notes.<key>] block in the shop file
 
 [[tools]]
 id = "cutter"
@@ -649,6 +653,8 @@ rows = [["Feature name", "Authored X coordinate", "Authored Y coordinate"]]
 ```
 
 Root `note`, tool `name`, setup `holding`, `datum`, `inspection`, and operation `tool`, `rpm`, `feed`, `inspection` and `table` are optional. Omit irrelevant setup fields rather than filling them with boilerplate. Omit `tool` for inspections or work requiring only ordinary shop equipment. Tool names provide short labels in operation tables; the tooling list retains full descriptions. Other shown fields are required, except that an operation gives `instruction` or `steps` (below); tools, setups and operations must be nonempty. Optional operation tables contain string `columns` and string-array `rows`, each matching the column count. Unknown fields and unresolved tool references produce an input error. Repeat tables in working order; each operation belongs to the most recent setup. Setup inspections print after its operations. Do not invent unknown machining values to fill a field.
+
+Root `notes` is an optional array of titled blocks printed at the sheet's head, in order, after `note` and before the Tools table, in both profiles. A block has `title` and exactly one of `items` (a bulleted list of strings) or `rows` (two-column `[label, text]` pairs, the label printed bold); `kind = "stop"` boxes it, for a rule that must not be missed. Item and row text takes the inline markup below (`**bold**`, `*em*`, `` `code` ``). A block `{ ref = "<key>" }` (the only field) prints the shop file's `[notes.<key>]` block, written in the same shape: shop-wide standing rules live there once and every plan that names them prints the same text. It requires `shop`; unknown or repeated keys are refused; shop text is literal (no `{{...}}` binding). Sheets without `notes` keep their exact bytes.
 
 An operation's optional `instruction_detailed` must be a nonempty string. With `detailed_instructions` enabled it replaces, never appends to, `instruction`; operations without it retain their ordinary instruction. Put a specific hobby method here rather than repeating the compact paragraph or adding generic tutorials. Both variants share tooling, settings and inspection limits.
 

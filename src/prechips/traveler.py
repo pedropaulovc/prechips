@@ -63,6 +63,63 @@ def _shop_record(shop: dict, section: str, key: str, where: str) -> dict:
     return record
 
 
+NOTE_KINDS = {"stop"}
+
+
+def _note_block(block: dict, where: str) -> None:
+    """A titled block at the sheet's head: a list of ``items`` or two-column
+    ``rows`` (label, text), exactly one; ``kind = "stop"`` sets it apart."""
+    _keys(block, {"title", "kind", "items", "rows"}, where)
+    _text(block, "title", where)
+    _choice(block, "kind", NOTE_KINDS, where)
+    if ("items" in block) == ("rows" in block):
+        raise PlanError(f"{where}: declare items or rows, not both or neither")
+    if "items" in block:
+        items = block["items"]
+        if (
+            not isinstance(items, list)
+            or not items
+            or any(not isinstance(item, str) or not item.strip() for item in items)
+        ):
+            raise PlanError(f"{where}.items: expected a nonempty array of strings")
+        return
+    rows = block["rows"]
+    if (
+        not isinstance(rows, list)
+        or not rows
+        or any(
+            not isinstance(row, list)
+            or len(row) != 2
+            or any(not isinstance(cell, str) or not cell.strip() for cell in row)
+            for row in rows
+        )
+    ):
+        raise PlanError(f"{where}.rows: expected a nonempty array of [label, text]")
+
+
+def _notes(plan: dict, shop: dict, shop_path: Path | None) -> list[dict]:
+    """The plan's ``notes`` in order, each shop ``ref`` replaced by its record."""
+    notes = []
+    refs: list[str] = []
+    for index, block in enumerate(_tables(plan, "notes", "plan"), 1):
+        where = f"notes[{index}]"
+        if "ref" not in block:
+            _note_block(block, where)
+            notes.append(block)
+            continue
+        _keys(block, {"ref"}, where)
+        ref = _text(block, "ref", where)
+        if shop_path is None:
+            raise PlanError(f"{where}.ref: requires plan.shop")
+        if ref in refs:
+            raise PlanError(f"{where}: duplicate notes reference {ref!r}")
+        refs.append(ref)
+        shared = _shop_record(shop, "notes", ref, where)
+        _note_block(shared, f"shop.notes.{ref}")
+        notes.append(shared)
+    return notes
+
+
 def _cutting_settings(table: dict, where: str) -> None:
     _text(table, "feed", where, optional=True)
     if "rpm" in table:
@@ -511,6 +568,7 @@ def load_plan(path: Path) -> LoadedPlan:
             "stock",
             "stock_refs",
             "note",
+            "notes",
             "tools",
             "setups",
             "turning_material",
@@ -547,6 +605,8 @@ def load_plan(path: Path) -> LoadedPlan:
             stock.append(shared)
         # The printed stock text stays the authority; the records add marks.
         plan["stock_refs"] = stock
+    if "notes" in plan:
+        plan["notes"] = _notes(plan, shop, shop_path)
 
     tool_ids = set()
     tool_refs = {}
@@ -996,6 +1056,39 @@ OP_DIAGRAM_CSS = """\
 """
 
 
+# Printed only on sheets with head notes. A stop block is boxed and its title
+# bold, distinct in greyscale; a rows block is a label column and its text.
+NOTES_CSS = """\
+.note-block { margin: 0.06in 0; break-inside: avoid; }
+.note-block h3 { font-size: var(--body-size); margin: 0 0 0.02in; break-after: avoid; }
+.note-block ul { margin: 0; }
+.note-stop { border: 2px solid var(--ink); padding: 0.04in 0.08in; }
+.note-rows { margin: 0; table-layout: fixed; }
+.note-rows th { width: 1.6in; font-weight: bold; border-bottom: 1px solid var(--rule); }
+"""
+
+
+def _note_html(block: dict) -> str:
+    """One head note block: its title, then its items or its rows."""
+    kind = " note-stop" if block.get("kind") == "stop" else ""
+    parts = [f'<div class="note-block{kind}"><h3>{_html(block["title"])}</h3>']
+    if "items" in block:
+        parts.append(
+            "<ul>"
+            + "".join(f"<li>{_inline(item)}</li>" for item in block["items"])
+            + "</ul>"
+        )
+    else:
+        parts.append('<table class="note-rows"><tbody>')
+        parts += [
+            f'<tr><th scope="row">{_inline(label)}</th><td>{_inline(text)}</td></tr>'
+            for label, text in block["rows"]
+        ]
+        parts.append("</tbody></table>")
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def used_diagrams(setup: dict, profile: Profile) -> dict[int, dict]:
     """The pictures a render of this setup opens: 0 is the setup's own, n its
     nth operation's. The CLI's output guard reads the same lookup."""
@@ -1184,6 +1277,8 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     ]
     if "note" in plan:
         lines.append(f'<p class="text">{_html(plan["note"])}</p>')
+    for block in plan.get("notes", []):
+        lines.append(_note_html(block))
     lines.append(
         '<table class="tools"><thead><tr><th colspan="2">Tools</th></tr></thead><tbody>'
     )
@@ -1390,7 +1485,12 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
             ' style="display: block; width: 100%">'
             "</figure>",
         )
-    extra = (RICH_CSS if rich else "") + (OP_DIAGRAM_CSS if op_diagrams else "")
+    notes = "notes" in plan
+    extra = (
+        (RICH_CSS if rich or notes else "")
+        + (OP_DIAGRAM_CSS if op_diagrams else "")
+        + (NOTES_CSS if notes else "")
+    )
     if extra:
         lines[style_at] = f"<style>{CSS}{extra}</style></head><body>"
     lines.append("</body></html>\n")
