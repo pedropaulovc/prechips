@@ -6,6 +6,7 @@ import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
 from html import escape
+from importlib import metadata
 from math import floor, isfinite
 from pathlib import Path
 from xml.etree import ElementTree
@@ -118,6 +119,105 @@ def _notes(plan: dict, shop: dict, shop_path: Path | None) -> list[dict]:
         _note_block(shared, f"shop.notes.{ref}")
         notes.append(shared)
     return notes
+
+
+def _standing(shop: dict, where: str) -> dict:
+    """The shop's ``[standing]`` page: its title, optional ``intro``, the
+    ``pointer`` a sheet opting in prints, an optional full picture ``legend``
+    and its ``notes`` (keys of shop ``[notes.<key>]`` blocks, in order),
+    returned with each key replaced by its block."""
+    page = shop.get("standing")
+    if not isinstance(page, dict):
+        raise PlanError(f"{where}: the shop has no [standing] table")
+    _keys(page, {"title", "intro", "pointer", "legend", "notes"}, "shop.standing")
+    _text(page, "title", "shop.standing")
+    _text(page, "intro", "shop.standing", optional=True)
+    _text(page, "pointer", "shop.standing")
+    if not isinstance(page.get("legend", False), bool):
+        raise PlanError("shop.standing.legend: expected true or false")
+    keys = page.get("notes")
+    if (
+        not isinstance(keys, list)
+        or not keys
+        or any(not isinstance(key, str) or not key.strip() for key in keys)
+        or len(set(keys)) != len(keys)
+    ):
+        raise PlanError(
+            "shop.standing.notes: expected a nonempty array of distinct keys"
+        )
+    blocks = []
+    for key in keys:
+        block = _shop_record(shop, "notes", key, "shop.standing.notes")
+        _note_block(block, f"shop.notes.{key}")
+        blocks.append(block)
+    return page | {"notes": blocks}
+
+
+def load_standing(path: Path) -> dict:
+    """The standing page of the shop file or directory at ``path``."""
+    shop, _ = load_shop(path)
+    return _standing(shop, f"shop {path}") | {"project": _project(shop)}
+
+
+def _project(shop: dict) -> str:
+    """The shop's ``[sheet] project``: the project title every printed page
+    carries in its running header, as the drawings' title block prints it."""
+    sheet = shop.get("sheet")
+    if sheet is None:
+        return ""
+    if not isinstance(sheet, dict):
+        raise PlanError("shop.sheet: expected a table")
+    _keys(sheet, {"project"}, "shop.sheet")
+    return _text(sheet, "project", "shop.sheet")
+
+
+def _version() -> str:
+    try:
+        return metadata.version("prechips")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def _css_string(text: str) -> str:
+    return '"' + " ".join(text.replace("\\", "\\\\").replace('"', '\\"').split()) + '"'
+
+
+def _running(top_left: str, top_right: str, bottom_left: str) -> str:
+    """A running header and footer in the page margin, one line each, on
+    every printed page: the project, the sheet's identity, what printed it,
+    and ``SHEET n OF N``. They cost no body lines."""
+    box = "font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #000;"
+    rules = "".join(
+        f"@{name} {{ content: {_css_string(text)}; {box} }}"
+        for name, text in (
+            ("top-left", top_left),
+            ("top-right", top_right),
+            ("bottom-left", bottom_left),
+        )
+        if text
+    )
+    sheet = 'content: "SHEET " counter(page) " OF " counter(pages);'
+    return f"@page {{ {rules}@bottom-right {{ {sheet} {box} }} }}\n"
+
+
+def _identity(loaded: "LoadedPlan", part: str | None = None) -> str:
+    """Each part's slug and drawing number, then the revision, from the feature
+    manifests; the plan's own part and revision lines without CAD data."""
+    plan = loaded.data
+    if part is not None:
+        cads = [loaded.parts[part][0]]
+    elif loaded.parts:
+        cads = [cad for cad, _ in loaded.parts.values()]
+    else:
+        cads = [loaded.cad] if loaded.cad is not None else []
+    values = [cad.values for cad in cads]
+    if not values or any(
+        not {"part", "drawing_number", "revision"} <= value.keys() for value in values
+    ):
+        return f"{plan['part']} · REV {plan['revision']}"
+    parts = " · ".join(f"{v['part']} {v['drawing_number']}" for v in values)
+    revisions = ", ".join(dict.fromkeys(v["revision"] for v in values))
+    return f"{parts} · REV {revisions}"
 
 
 def _cutting_settings(table: dict, where: str) -> None:
@@ -569,6 +669,7 @@ def load_plan(path: Path) -> LoadedPlan:
             "stock_refs",
             "note",
             "notes",
+            "standing",
             "tools",
             "setups",
             "turning_material",
@@ -607,6 +708,13 @@ def load_plan(path: Path) -> LoadedPlan:
         plan["stock_refs"] = stock
     if "notes" in plan:
         plan["notes"] = _notes(plan, shop, shop_path)
+    if "standing" in plan:
+        if plan["standing"] is not True:
+            raise PlanError("plan.standing: expected true (or leave it out)")
+        if shop_path is None:
+            raise PlanError("plan.standing: requires plan.shop")
+        # The sheet prints only the pointer; the page is rendered on its own.
+        plan["standing"] = _standing(shop, "plan.standing")["pointer"]
 
     tool_ids = set()
     tool_refs = {}
@@ -1227,11 +1335,16 @@ def render_placeholder(
 
     others = [name(other) for other in loaded.parts if other != part]
     file = f" (file {_html(shared_file)})" if shared_file else ""
+    running = _running(
+        _project(loaded.shop_data),
+        _identity(loaded, part),
+        f"{name(part)} · placeholder, prechips {_version()}",
+    )
     lines = [
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(name(part))}</title>",
-        f"<style>{CSS}</style></head><body>",
+        f"<style>{CSS}{running}</style></head><body>",
         f"<h1>{_html(name(part))}</h1>",
         '<div class="meta">',
         f"<p>{_html(plan['revision'])}</p>",
@@ -1260,6 +1373,34 @@ def render_placeholder(
     return "\n".join(lines)
 
 
+def render_standing(page: dict) -> str:
+    """The shop's standing page (``load_standing``): its title and intro, its
+    note blocks in order, and the full picture key when ``legend`` is set. One
+    document for every sheet, with the travelers' stylesheet."""
+    running = _running(page.get("project", ""), page["title"], f"prechips {_version()}")
+    lines = [
+        "<!doctype html>",
+        '<html lang="en"><head><meta charset="utf-8">',
+        f"<title>{_html(page['title'])}</title>",
+        f"<style>{CSS}{RICH_CSS}{NOTES_CSS}{running}</style></head><body>",
+        f"<h1>{_html(page['title'])}</h1>",
+    ]
+    if "intro" in page:
+        lines.append(f'<p class="text">{_html(page["intro"])}</p>')
+    lines += [_note_html(block) for block in page["notes"]]
+    if page.get("legend"):
+        key = base64.b64encode(palette.legend_svg(palette.LEGEND)).decode("ascii")
+        alt = _html("Picture key: " + "; ".join(text for _, text in palette.LEGEND))
+        lines.append(
+            '<figure class="picture-key" style="margin: 0.08in 0">'
+            f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
+            ' style="display: block; width: 100%">'
+            "</figure>"
+        )
+    lines.append("</body></html>\n")
+    return "\n".join(lines)
+
+
 def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
     """Render a loaded plan; source paths remain relative to its TOML file."""
     plan = loaded.data
@@ -1270,17 +1411,26 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(plan['title'])}</title>",
     ]
+    running = _running(
+        _project(loaded.shop_data),
+        _identity(loaded),
+        f"{plan['title']} · traveler, prechips {_version()}",
+    )
     # Sheets using markup, steps or operation pictures get their extra CSS
     # spliced in here at the end.
     style_at = len(lines)
     lines += [
-        f"<style>{CSS}</style></head><body>",
+        f"<style>{CSS}{running}</style></head><body>",
         f"<h1>{_html(plan['title'])}</h1>",
         '<div class="meta">',
         (f"<p>{_html(plan['part'])}; {_html(plan['revision'])}</p>"),
         (f"<p><strong>{_html(plan['material'])}.</strong> {_stock_html(plan)}</p>"),
         "</div>",
     ]
+    if "standing" in plan:
+        lines.append(
+            f'<p class="text standing"><strong>{_html(plan["standing"])}</strong></p>'
+        )
     if "note" in plan:
         lines.append(f'<p class="text">{_html(plan["note"])}</p>')
     for block in plan.get("notes", []):
@@ -1521,6 +1671,6 @@ def render_traveler(loaded: LoadedPlan, *, profile: Profile = PRO) -> str:
         + (NOTES_CSS if notes else "")
     )
     if extra:
-        lines[style_at] = f"<style>{CSS}{extra}</style></head><body>"
+        lines[style_at] = f"<style>{CSS}{extra}{running}</style></head><body>"
     lines.append("</body></html>\n")
     return "\n".join(lines)

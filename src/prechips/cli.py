@@ -12,7 +12,9 @@ from prechips.stock import StockError, check_stock_fit
 from prechips.traveler import (
     PlanError,
     load_plan,
+    load_standing,
     render_placeholder,
+    render_standing,
     render_traveler,
     used_diagrams,
 )
@@ -67,7 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         metavar="NAME",
         help="with --placeholder: the shared traveler's file name, printed on it",
     )
+    standing = commands.add_parser(
+        "standing",
+        help="render a shop's [standing] instructions page as printable HTML",
+    )
+    standing.add_argument("shop", type=Path, metavar="SHOP")
+    standing.add_argument("--out", type=Path, required=True, metavar="page.html")
     args = parser.parse_args(argv)
+    if args.command == "standing":
+        return _standing(args.shop, args.out)
     try:
         if args.shared_file is not None and args.placeholder is None:
             raise PlanError("--shared-file: requires --placeholder")
@@ -162,4 +172,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"prechips: {error}", file=sys.stderr)
         return 2
     print(f"Wrote {args.out}")
+    return 0
+
+
+def _standing(shop: Path, out: Path) -> int:
+    try:
+        html = render_standing(load_standing(shop))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html, encoding="utf-8")
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, PlanError) as error:
+        print(f"prechips: {error}", file=sys.stderr)
+        return 2
+    print(f"Wrote {out}")
     return 0
