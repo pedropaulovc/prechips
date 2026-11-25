@@ -94,6 +94,8 @@ mating_skim_mm = 0.508
 face_step_max_mm = 1.27
 face_cutter_dia_mm = 12.7
 face_stepover_max_mm = 5.08
+# The facing passes reach this far past both edges of a face together.
+face_overhang_mm = 0.5
 drill_past_mm = 1.0
 spot_feed_per_min_mm = 45.72
 parallel_height_mm = 25.4
@@ -115,6 +117,8 @@ back_parallel_end_mm = 15.875
 r8_collet_gauge_mm = 6.3
 drill_chuck_gauge_mm = 95.0
 half_mill_projection_min_mm = 25.4
+# The end mill's stick-out the setup pictures draw it at.
+half_mill_projection_mm = 25.4
 centre_drill_oal_mm = 47.625
 
 [[tools]]
