@@ -2,7 +2,9 @@ import base64
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -12,6 +14,7 @@ from prechips.cad_hex_block import load_hex_block
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "examples/cad/hex-block-v51.toml"
+DEMO = ROOT / "examples/demo-hex-block.toml"
 HOLD = {"parallel_thickness_mm": 3.175, "cross_parallel_end_mm": 9.525}
 BLANK = {"blank_length_min_in": 1.25, "blank_length_max_in": 1.30}
 
@@ -161,3 +164,104 @@ def test_the_surfaces_picture_names_surfaces_and_prints_no_sizes():
     assert not re.search(
         r"\d\.\d|\.\d\d", "".join(re.findall(r">([^<]+)</text>", picture))
     )
+
+
+SVG = "{http://www.w3.org/2000/svg}"
+
+
+def _picture(cad, parameters, **attrs: str) -> str:
+    extra = "".join(f' data-{key}="{value}"' for key, value in attrs.items())
+    root = (
+        '<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="hex-block"'
+        f"{extra}/>"
+    ).encode()
+    return render_cad_svg(root, cad, parameters).decode()
+
+
+def _cutters(svg: str) -> list[ElementTree.Element]:
+    return [
+        child
+        for group in ElementTree.fromstring(svg).iter(f"{SVG}g")
+        if group.get("class") == "cutter"
+        for child in group
+    ]
+
+
+def _points(element: ElementTree.Element) -> list[tuple[float, float]]:
+    """A path's points: each M/L pair and each arc's end point."""
+    points = []
+    for command, body in re.findall(r"([MLA])([^MLAZ]*)", element.get("d")):
+        numbers = [float(n) for n in re.findall(r"-?[\d.]+", body)]
+        if command == "A":
+            points.append((numbers[-2], numbers[-1]))
+        else:
+            points += list(zip(numbers[::2], numbers[1::2]))
+    return points
+
+
+def _width(element: ElementTree.Element) -> float:
+    xs = [x for x, _ in _points(element)]
+    return max(xs) - min(xs)
+
+
+def _tip(element: ElementTree.Element) -> float:
+    """A tool's lowest point, px: a point's apex, or a round end's arc
+    bulging its vertical radius below the corners."""
+    ys = [y for _, y in _points(element)]
+    arc = re.search(r"A\s*[-\d.]+\s+([-\d.]+)", element.get("d"))
+    return max(ys) + (float(arc[1]) if arc else 0.0)
+
+
+def _top_of_part(svg: str) -> float:
+    """The upright block's top: the hole's removed rect starts there."""
+    root = ElementTree.fromstring(svg)
+    (group,) = [g for g in root.iter(f"{SVG}g") if g.get("class") == "part-removed"]
+    return float(group[0].get("y"))
+
+
+def test_tools_are_drawn_to_scale():
+    parameters = tomllib.loads(DEMO.read_text(encoding="utf-8"))["parameters"]
+    cad = load_hex_block(SOURCE, parameters, "hex-block")
+    values = cad.values
+    s = 4.5  # the upright views' px per mm
+    drill = values["tap_drill_dia_in"] * 25.4
+    major = 0.060 + 0.013 * 4  # #4-40's basic major diameter, in
+    assert values["thread_major_mm"] == pytest.approx(major * 25.4)
+    for end, hole in (("bottom", "rod"), ("top", "thumb")):
+        # The tap drill at the hole's diameter, its 118° point past the
+        # deepest drilled depth by the point's length.
+        svg = _picture(cad, parameters, step="upright", end=end, work="drill")
+        (tool,) = _cutters(svg)
+        assert _width(tool) == pytest.approx(drill * s, abs=0.2)
+        depth = values[f"{hole}_drill_depth_band_mm"][1]
+        tip = _top_of_part(svg) + (depth + values["tap_drill_point_mm"]) * s
+        assert _tip(tool) == pytest.approx(tip, abs=0.2)
+        assert "A" not in tool.get("d")
+        # The tap at #4-40's major diameter, its square end drawn round
+        # (12 % of it deep) in the middle of its reach band; the wrench
+        # turns with it; the guide's point and body at their own sizes.
+        svg = _picture(cad, parameters, step="upright", end=end, work="tap")
+        tap, wrench, point, guide = _cutters(svg)
+        assert _width(tap) == pytest.approx(major * 25.4 * s, abs=0.2)
+        rise = float(re.search(r"A\s*[-\d.]+\s+([-\d.]+)", tap.get("d"))[1])
+        assert rise == pytest.approx(0.12 * major * 25.4 * s, abs=0.1)
+        reach = sum(values[f"{hole}_tap_reach_band_mm"]) / 2
+        assert _tip(tap) == pytest.approx(_top_of_part(svg) + reach * s, abs=0.2)
+        assert wrench.tag == f"{SVG}rect"
+        assert _width(point) == pytest.approx(4.7625 * s, abs=0.2)
+        assert _width(guide) == pytest.approx(12.7 * s, abs=0.2)
+        assert "wrench, tap guide's point in its top" in svg
+    # Corner down: the F drill at the bore's diameter, its point
+    # cross_tip_height_mm below the parallels' tops.
+    svg = _picture(cad, parameters, step="cross")
+    (tool,) = _cutters(svg)
+    assert _width(tool) == pytest.approx(values["bore_dia_in"] * 25.4 * 7, abs=0.2)
+    seat = 190.0
+    assert _tip(tool) == pytest.approx(seat + 4.794 * 7, abs=0.2)
+    without = {k: v for k, v in parameters.items() if not k.startswith("tap_guide")}
+    with pytest.raises(CadError, match="tap_guide_point_dia_mm"):
+        _picture(cad, without, step="upright", end="top", work="tap")
+    # The F drill's point stays between the block's top corner and the bed.
+    for height in (20.0, -40.0):
+        with pytest.raises(CadError, match="cross_tip_height_mm"):
+            _picture(cad, parameters | {"cross_tip_height_mm": height}, step="cross")

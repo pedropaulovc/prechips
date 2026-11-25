@@ -85,6 +85,16 @@ from prechips.jig_diagrams import (
     _vdim,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
+from prechips.tool_shapes import (
+    _DRILL_POINT_DEG,
+    _ROUND_RISE,
+    _SHORT,
+    _path,
+    _tap_reach,
+    _tap_stack,
+    _tool,
+    _zigzag,
+)
 
 Groups = dict[str, list[Element]]
 
@@ -109,26 +119,7 @@ _STOPS = ("rod", "rod-labelled")
 _JAW = 40.0  # schematic jaw body, px
 _S = 6.0  # px per mm
 _REMOVED = 7.0  # px: the layer a face takes off, schematic
-# A round tool's or rod's square end seen from the side is drawn as the near
-# half of its end face: an ellipse this fraction of the diameter deep (owner
-# 2026-11-25: "some indication that end mill is cylindrical when looking from
-# side ; can be something simple like adding a round bottom"); shallow, so a
-# square end mill does not read as a ball nose.
-_ROUND_RISE = 0.12
-# Tools drawn short end in a break line; these lengths are the picture's,
-# not the tools': a drill or the tap guide above the part, px.
-_SHORT = 60.0
-_BREAK = 3.0  # px: a break line's teeth
 _ROD_OUT = 130.0  # px: the work stop's rod drawn out from its tip
-# The tap's T-handle wrench (no size on record), schematic, px: its gap above
-# the face and its thickness; the tap guide's point drawn out of its body.
-_WRENCH_GAP = 50.0
-_WRENCH = 9.0
-# The tap guide's point drawn out of its body at least this long, px; longer
-# when its 60° cone at the point's diameter needs it.
-_GUIDE_POINT = 20.0
-_DRILL_POINT_DEG = 118.0  # a jobber drill's point
-_GUIDE_POINT_DEG = 60.0  # the tap guide's point, as it seats in a centre hole
 
 
 def _saw(groups: Groups, parameters: dict) -> Layout:
@@ -224,75 +215,6 @@ def _shown_pass(parameters: dict, across: float) -> tuple[float, float, int, int
     )
     return insides[index], step, index, count
 
-
-def _zigzag(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, float]]:
-    """A break line's teeth from (``x0``, ``y0``) to (``x1``, ``y1``), ends
-    excluded: where a tool or rod drawn to scale is cut off short."""
-    length = math.hypot(x1 - x0, y1 - y0)
-    teeth = max(2, round(length / 8))
-    # Teeth stand off the line, square to it: to the left of the way it is
-    # drawn, so a tool's top drawn left to right has them standing up.
-    nx, ny = (y1 - y0) / length, (x0 - x1) / length
-    points = []
-    for k in range(1, 2 * teeth):
-        t = k / (2 * teeth)
-        lift = _BREAK if k % 2 else 0.0
-        points.append((x0 + (x1 - x0) * t + nx * lift, y0 + (y1 - y0) * t + ny * lift))
-    return points
-
-
-def _path(points: list[tuple[float, float]], arc: str = "") -> Element:
-    """A closed outline through ``points``; ``arc`` (an SVG arc command from
-    the last point) closes it along a curve instead of a straight edge."""
-    line = "L".join(f"{x:.1f} {y:.1f}" for x, y in points)
-    return _el("path", d=f"M{line}{arc}Z")
-
-
-def _end_arc(x: float, y: float, half: float) -> str:
-    """The arc to (``x``, ``y``) of a round bar's square end seen from the
-    side: the near half of its end face, a shallow ellipse ``half`` (the
-    radius) by _ROUND_RISE of the diameter."""
-    rise = _ROUND_RISE * 2 * half
-    return f"A{half:.1f} {rise:.1f} 0 0 0 {x:.1f} {y:.1f}"
-
-
-def _tool(
-    cx: float,
-    width: float,
-    tip: float,
-    top: float,
-    point_deg: float | None = None,
-    broken: bool = False,
-) -> Element:
-    """A round tool seen from the side, ``width`` wide (its diameter to the
-    picture's scale), from its ``tip`` up to ``top`` (page y): ground to an
-    included ``point_deg``, or square ended, its end drawn as the near half
-    of the end face (the cue that it is round) with its lowest point at
-    ``tip``, so its length is true; ``broken`` ends it in a break line where
-    it is drawn short."""
-    left, right = cx - width / 2, cx + width / 2
-    # The break line drawn left to right, its teeth standing up off the top,
-    # then walked back right to left as the outline goes.
-    breaks = list(reversed(_zigzag(left, top, right, top))) if broken else []
-    if point_deg is not None:
-        point = width / 2 / math.tan(math.radians(point_deg / 2))
-        if tip - point < top:
-            raise CadError(
-                f"a {point_deg:g}° point {point:.1f} px long does not fit the "
-                f"{tip - top:.1f} px the tool is drawn"
-            )
-        outline = [(left, top), (left, tip - point), (cx, tip), (right, tip - point)]
-        return _path([*outline, (right, top), *breaks])
-    corner = tip - _ROUND_RISE * width
-    if corner < top:
-        raise CadError(
-            f"a round end {_ROUND_RISE * width:.1f} px deep does not fit the "
-            f"{tip - top:.1f} px the tool is drawn"
-        )
-    # Up the right side, across the top, down the left, then the arc under
-    # it back to the right.
-    outline = [(right, corner), (right, top), *breaks, (left, top), (left, corner)]
-    return _path(outline, _end_arc(right, corner, width / 2))
 
 
 def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> None:
@@ -489,7 +411,7 @@ def _half(
     # whole stick-out; a drill, or the tap guide over the tap's wrench,
     # drawn short to a break line.
     if work == "tap":
-        reach = _WRENCH_GAP + _WRENCH + _guide_point(parameters, s) + _SHORT
+        reach = _tap_reach(parameters, s)
     elif work == "drill":
         reach = _SHORT
     else:
@@ -585,30 +507,12 @@ def _half(
         groups["hidden"].append(_rect(middle - hole / 2, top, hole, tall * s))
         if work == "tap":
             # The tap at its thread's major diameter, its point where the
-            # plan stops it; its wrench (size not on record) a little above
-            # the face, drawn as the tool since it turns with the tap; the
-            # tap guide's point in the wrench's centre hole and its body,
-            # both at their own diameters, drawn short.
+            # plan stops it, under its wrench and the tap guide.
             tip = top + _param(parameters, "tap_point_depth_mm") * s
-            wrench = top - _WRENCH_GAP
             thread = _cad(values, "ear_thread_major_mm") * s
-            groups["cutter"] += [
-                _tool(middle, thread, tip, wrench),
-                _rect(middle - 50, wrench - _WRENCH, 100, _WRENCH),
-            ]
-            point = _param(parameters, "tap_guide_point_dia_mm") * s
-            seat_y = wrench - _WRENCH
-            body = seat_y - _guide_point(parameters, s)
-            groups["cutter"] += [
-                _tool(middle, point, seat_y, body, _GUIDE_POINT_DEG),
-                _tool(
-                    middle,
-                    _param(parameters, "tap_guide_dia_mm") * s,
-                    body,
-                    body - _SHORT,
-                    broken=True,
-                ),
-            ]
+            groups["cutter"] += _tap_stack(
+                middle, thread, tip, top, 100.0, parameters, s
+            )
             text = ["{{cad.ear_thread}} by hand,", "through, centre on top"]
         else:
             if work == "drill":
@@ -625,13 +529,6 @@ def _half(
     if up == "end":
         return _finish(groups, max(low, _upright_plan(groups, parameters, stop)))
     return _plan(groups, values, parameters, up, work, across, low, mirror, stop, which)
-
-
-def _guide_point(parameters: dict, s: float) -> float:
-    """The tap guide's point drawn out of its body, px: its whole 60° cone
-    at the point's diameter, and at least _GUIDE_POINT."""
-    cone = _param(parameters, "tap_guide_point_dia_mm") * s / 2
-    return max(_GUIDE_POINT, cone / math.tan(math.radians(_GUIDE_POINT_DEG / 2)))
 
 
 def _upright_plan(groups: Groups, parameters: dict, stop: str | None) -> float:

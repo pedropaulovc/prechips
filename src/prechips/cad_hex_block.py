@@ -30,6 +30,7 @@ from .cad import (
     _positive,
     _read_manifest,
     _string,
+    inch_thread,
 )
 
 _FEATURES = {
@@ -170,6 +171,8 @@ def _holes(features: dict, values: dict, height: float, af: float) -> None:
     if _band(rod, "location_from_z_flat", "rod_tap") != location:
         raise CadError("rod_tap.location_from_z_flat: disagrees with lever_bore")
     values["thread"] = thread
+    # The tap pictures draw the tap at its thread's basic major diameter.
+    values["thread_major_mm"] = inch_thread(thread, "rod_tap.thread")[0]
     values["plug_tap_lead_mm"] = lead
     _inch_limits(values, "tap_drill_dia", drill)
     _inch_limits(values, "tap_location", location)

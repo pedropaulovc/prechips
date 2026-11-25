@@ -513,8 +513,12 @@ description = "1/2 in 3-flute uncoated carbide square end mill, 3 in OAL"
 diameter_mm = 12.7
 flute_length_mm = 25.4
 helix_deg = 30
-[tools.hex-block-dead-centre]
-description = "MT3 dead centre, straight end held in the 3/4 in R8 collet, used as a spindle tap guide"
+# LittleMachineShop, Tap Guide, Fisher, SKU 1963 (read 2026-11-21): "0.500"
+# diameter body"; Primary Tactical, Fisher Micro Tap Guide (read
+# 2026-11-21): "31/8" OAL, 1/2" diameter shank, 3/16" diameter tip, retracts
+# 1/2" into body." The sellers' sizes, not measured.
+[tools.tap-guide-fisher]
+description = "Fisher spring tap guide, 1/2 in shank in the 1/2 in R8 collet, 3/16 in spring-loaded point retracting 1/2 in, 3 1/8 in overall; its point seats in the tap wrench's centre hole"
 # Facing: The Carbide End Mill Store "Carbide End Mill Speeds and Feeds,
 # General Purpose, Uncoated" (6gtools.com, PDF read 2026-11-17), row
 # Non-Ferrous N, Brass/Bronze: 400 SFM, 1/2 in .0042 in/tooth at chip-load
