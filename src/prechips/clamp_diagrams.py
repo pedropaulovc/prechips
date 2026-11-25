@@ -216,7 +216,6 @@ def _shown_pass(parameters: dict, across: float) -> tuple[float, float, int, int
     return insides[index], step, index, count
 
 
-
 def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> None:
     """The work stop's rod from above, its diameter ``width`` to scale, on
     the line ``cy``: its tip at ``tip`` (its square end, drawn round, touching
