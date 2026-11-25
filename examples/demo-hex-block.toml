@@ -6,7 +6,7 @@
 # templates. Upright the block stands on two thin parallels, one against
 # each jaw; for the cross bore it lies corner down between them. Each tapped
 # hole is tapped by hand in the setup that drilled it, the tap wrench guided
-# by a dead centre in the stopped spindle.
+# by a spring tap guide in the stopped spindle.
 title = "Demo hex block"
 part = "{{cad.drawing_number}}"
 revision = "{{cad.revision}}"
@@ -57,6 +57,10 @@ rod_tip_height_mm = 18.37
 thumb_tip_height_mm = 19.27
 cross_tip_height_mm = -4.794
 tap_stack_max_mm = 269.24
+# The spring tap guide's 1/2 in body and 3/16 in point (shop
+# tools.tap-guide-fisher, its sellers' sizes), as the tap pictures draw them.
+tap_guide_dia_mm = 12.7
+tap_guide_point_dia_mm = 4.7625
 
 [[tools]]
 id = "em-half"
@@ -75,9 +79,9 @@ id = "drill-f"
 name = "F drill"
 ref = "jig-drill-f"
 [[tools]]
-id = "dead-centre"
-name = "MT3 dead centre"
-ref = "hex-block-dead-centre"
+id = "tap-guide"
+name = "Fisher spring tap guide"
+ref = "tap-guide-fisher"
 [[tools]]
 id = "tap-4-40"
 name = "4-40 plug tap"
@@ -165,25 +169,25 @@ milling_cuts = [
 ]
 
 [[setups.operations]]
-instruction = "Stop check before the first tap file: measure the dead centre from its tip to the collet's face and the 4-40 tap in the T-handle wrench from its point to the wrench's centre hole (calipers, or the combination square's 12 in blade). The two together must be at most {{process.tap_stack_max_mm:in.2f}} in (the mill's 17 in opening less the vise, the parallels, this blank, the collet and 1 in to bring the point down onto the wrench). Over: stop; do not tap on this setup. Set the tap's depth flag: a turn of masking tape on the tap with its edge {{cad.rod_tap_reach_min_in:.3dot}}–{{cad.rod_tap_reach_max_in:.3dot}} from the point, by the calipers' depth rod (aim {{cad.rod_tap_reach_in:.3dot}})."
+instruction = "Stop check before the first tap file: measure the tap guide from its tip to the collet's face and the 4-40 tap in the T-handle wrench from its point to the wrench's centre hole (calipers, or the combination square's 12 in blade). The two together must be at most {{process.tap_stack_max_mm:in.2f}} in (the mill's 17 in opening less the vise, the parallels, this blank, the collet and 1 in to bring the point down onto the wrench). Over: stop; do not tap on this setup. Set the tap's depth flag: a turn of masking tape on the tap with its edge {{cad.rod_tap_reach_min_in:.3dot}}–{{cad.rod_tap_reach_max_in:.3dot}} from the point, by the calipers' depth rod (aim {{cad.rod_tap_reach_in:.3dot}})."
 feed = "hand"
 inspection = "Flag edge {{cad.rod_tap_reach_min_in:.3dot}}–{{cad.rod_tap_reach_max_in:.3dot}} from the tap's point (calipers)."
 gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.rod_tap_reach_band_mm}}" }]
 
 [[setups.operations]]
 speed_kind = "other"
-tool = "dead-centre"
+tool = "tap-guide"
 drilling = "none"
 sizing = "other"
-instruction = "Run MC02_rod_tap: M6 T5 (the dead centre in its 3/4 in collet; the tool setter measures it), Z to the machine top, over the hole, end. The spindle stays off."
-diagram = { file = "diagrams/demo-hex-block/bottom-tap.svg", alt = "The blank upright in the vise, bottom end up; the 4-40 tap in the T-handle wrench in the rod hole, the dead centre in the spindle seated in the wrench's centre hole; the tape flag on the tap at the tap-reach band." }
+instruction = "Run MC02_rod_tap: M6 T5 (the spring tap guide in its 1/2 in collet; the tool setter measures it), Z to the machine top, over the hole, end. The spindle stays off."
+diagram = { file = "diagrams/demo-hex-block/bottom-tap.svg", alt = "The blank upright in the vise, bottom end up; the 4-40 tap in the T-handle wrench in the rod hole, the spring tap guide in the spindle, its point seated in the wrench's centre hole; the tape flag on the tap at the tap-reach band." }
 
 [[setups.operations]]
 speed_kind = "other"
 tool = "tap-4-40"
 drilling = "none"
 sizing = "other"
-instruction = "The 4-40 plug tap in the T-handle wrench, point in the hole, a drop of Tapmatic Gold; jog Z down until the dead centre's point sits in the wrench's centre hole, light pressure only: the point guides, it does not push. Turn the wrench, backing off a half turn each turn to break the chip, jogging Z down to keep the point seated. Stop when the flag reaches the face: thread {{cad.rod_thread_depth_min_in:.3dot}}–{{cad.rod_thread_depth_max_in:.3dot}} full, the point short of the drilled depth. Jog Z up clear, back the tap out by hand, blow the hole out. The thread depth is held by the flag at the face, not gauged on the part."
+instruction = "The 4-40 plug tap in the T-handle wrench, point in the hole, a drop of Tapmatic Gold; jog Z down until the tap guide's point sits in the wrench's centre hole and is pushed partway into its body: its spring keeps light pressure on the tap, it does not push it in. Turn the wrench, backing off a half turn each turn to break the chip, jogging Z down to keep the point seated and short of fully retracted. Stop when the flag reaches the face: thread {{cad.rod_thread_depth_min_in:.3dot}}–{{cad.rod_thread_depth_max_in:.3dot}} full, the point short of the drilled depth. Jog Z up clear, back the tap out by hand, blow the hole out. The thread depth is held by the flag at the face, not gauged on the part."
 feed = "hand"
 
 [[setups]]
@@ -293,18 +297,18 @@ gauge_checks = [{ gauge = "calipers", band_mm = "{{cad.thumb_tap_reach_band_mm}}
 
 [[setups.operations]]
 speed_kind = "other"
-tool = "dead-centre"
+tool = "tap-guide"
 drilling = "none"
 sizing = "other"
-instruction = "Run MC05_thumb_tap: M6 T5 (the dead centre), Z to the machine top, over the hole, end. The spindle stays off."
-diagram = { file = "diagrams/demo-hex-block/top-tap.svg", alt = "The block upright in the vise, top end up; the 4-40 tap in the T-handle wrench in the thumb hole, the dead centre in the spindle seated in the wrench's centre hole; the tape flag on the tap." }
+instruction = "Run MC05_thumb_tap: M6 T5 (the spring tap guide), Z to the machine top, over the hole, end. The spindle stays off."
+diagram = { file = "diagrams/demo-hex-block/top-tap.svg", alt = "The block upright in the vise, top end up; the 4-40 tap in the T-handle wrench in the thumb hole, the spring tap guide in the spindle, its point seated in the wrench's centre hole; the tape flag on the tap." }
 
 [[setups.operations]]
 speed_kind = "other"
 tool = "tap-4-40"
 drilling = "none"
 sizing = "other"
-instruction = "Tap the thumb hole as the rod hole: Tapmatic Gold, the dead centre seated by jogging Z, a half turn back each turn; stop when the flag reaches the face (the thread runs into the bore: .25 REF). Jog Z up clear, back the tap out, blow the hole and the bore out."
+instruction = "Tap the thumb hole as the rod hole: Tapmatic Gold, the tap guide's point seated by jogging Z, a half turn back each turn; stop when the flag reaches the face (the thread runs into the bore: .25 REF). Jog Z up clear, back the tap out, blow the hole and the bore out."
 feed = "hand"
 
 [[setups]]

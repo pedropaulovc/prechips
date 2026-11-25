@@ -8,8 +8,14 @@ block lying corner down for the cross bore, seen from its end and from above.
 ``inspect``: the finished block, seen along its cross bore.
 
 Sizes come from the adapter (block, holes, the corner-down seat) and from
-authored holding parameters (parallels, jaw height). Jaws, parallels, drill,
-tap, wrench and centre are schematic symbols.
+authored holding parameters (parallels, jaw height). The tools are drawn to
+scale: each drill at its hole's diameter with its 118° point at the end of its
+stroke (the tap drill's depth band and point, ``process.cross_tip_height_mm``
+for the F drill), the tap at its thread's major diameter (``cad.thread_major_mm``)
+in the middle of its reach band, the spring tap guide at
+``process.tap_guide_dia_mm`` with its ``process.tap_guide_point_dia_mm`` point
+(``prechips.tool_shapes``); square ends drawn round, shanks broken off. Jaws,
+parallels and the tap's wrench are schematic symbols.
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ import math
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _process, _rect
 from prechips.jig_diagrams import (
     _datum_label,
     _finish,
@@ -28,6 +34,14 @@ from prechips.jig_diagrams import (
     _title,
 )
 from prechips.shaft_diagrams import _callouts, _dimension
+from prechips.tool_shapes import (
+    _DRILL_POINT_DEG,
+    _SHORT,
+    _WRENCH_GAP,
+    _tap_reach,
+    _tap_stack,
+    _tool,
+)
 
 Groups = dict[str, list[Element]]
 
@@ -105,7 +119,10 @@ def _upright(
     thick = _param(parameters, "parallel_thickness_mm") * _S
     rise = _param(parameters, "parallel_height_mm") * _S
     jaw = _param(parameters, "vise_jaw_height_mm") * _S
-    centre, bed = 250.0, 70.0 + max(jaw, rise + tall) + 70
+    # The tool standing on the part, px above its top: a drill, or the tap
+    # guide over the tap's wrench, drawn short to a break line.
+    reach = _tap_reach(parameters, _S) if work == "tap" else _SHORT
+    centre, bed = 250.0, 60.0 + reach + max(jaw, rise + tall)
     left, right = _jaws(groups, centre, bed, af, jaw)
     seat = bed - rise
     groups["fixture-support"] += [
@@ -114,7 +131,7 @@ def _upright(
     ]
     top = seat - tall
     groups["part-kept"].append(_rect(left, top, af, tall))
-    groups["centre-line"].append(_line(centre, top - 62, centre, seat + 10))
+    groups["centre-line"].append(_line(centre, top - reach - 14, centre, seat + 10))
     _datum_label(groups, left - 10, top - 8, "X0 Y0: hex axis", "end")
     # The hole worked from the end that is up: the rod tap's from the bottom
     # end, the thumb tap's from the top end, which runs into the cross bore.
@@ -126,10 +143,14 @@ def _upright(
     radius = _cad(values, "bore_dia_in") * 25.4 * _S / 2
     if end == "top":
         groups["holes"].append(_el("circle", cx=centre, cy=seat - bore, r=radius))
-    tool_top = top - 48
-    groups["cutter"].append(
-        _rect(centre - drill / 2, tool_top, drill, 48 + depth * 0.3)
-    )
+    if work == "drill":
+        # The tap drill at the hole's own diameter at the end of its stroke:
+        # full diameter to the deepest drilled depth, its 118° point on past
+        # it; drawn short above the end.
+        tip = top + depth + _cad(values, "tap_drill_point_mm") * _S
+        groups["cutter"].append(
+            _tool(centre, drill, tip, top - reach, _DRILL_POINT_DEG, broken=True)
+        )
     items = [
         (
             left + thick / 2,
@@ -145,22 +166,24 @@ def _upright(
     name = "BOTTOM" if end == "bottom" else "TOP"
     _label(groups, right + 10, top + 4, f"{name} end up", "start")
     if work == "tap":
-        # Wrench across the tap, the centre in its top hole: it turns with
-        # the tap, so it is drawn as the tool.
-        groups["cutter"].append(_rect(centre - 70, tool_top - 9, 140, 9))
-        groups["cutter"].append(
-            _el(
-                "path",
-                d=f"M{centre - 9:.1f} {tool_top - 40:.1f} L{centre + 9:.1f} "
-                f"{tool_top - 40:.1f} L{centre:.1f} {tool_top - 10:.1f} Z",
-            )
-        )
+        # The tap at its thread's major diameter, its square end (drawn
+        # round) at the middle of the reach band the plan stops it in, under
+        # its T-handle wrench and the tap guide.
+        major = _cad(values, "thread_major_mm") * _S
+        tip = top + sum(_band_mm(values, f"{hole}_tap_reach")) / 2 * _S
+        groups["cutter"] += _tap_stack(centre, major, tip, top, 140.0, parameters, _S)
         text = [
             "tap by hand until its",
             f"point is {{{{cad.{hole}_tap_reach_min_in:.3dot}}}}–{{{{cad.{hole}_tap_reach_max_in:.3dot}}}} below this end",
         ]
         items.append((centre, top, text))
-        _label(groups, centre + 76, tool_top - 1, "wrench, centre in its top", "start")
+        _label(
+            groups,
+            centre + 76,
+            top - _WRENCH_GAP - 1,
+            "wrench, tap guide's point in its top",
+            "start",
+        )
     else:
         text = [
             "tap drill",
@@ -195,7 +218,19 @@ def _cross(groups: Groups, values: dict, parameters: dict) -> Layout:
     centre = 150.0
     # Only the top of the vise is drawn: the seat is at the parallels' tops.
     seat = 190.0
-    bed = seat + min(rise, 70.0)
+    middle = seat - _cad(values, "cross_axis_height_mm") * scale
+    # The F drill at the bore's own diameter at the end of its stroke: its
+    # 118° point process.cross_tip_height_mm above the parallels' tops
+    # (below them when negative). Its point must be in the block or past it,
+    # short of the vise bed under the parallels.
+    tip = seat - _process(parameters, "cross_tip_height_mm") * scale
+    if not middle - ac / 2 < tip < seat + rise:
+        raise CadError(
+            "process.cross_tip_height_mm: the F drill's point must be below the "
+            "block's top corner and above the vise bed"
+        )
+    # The vise drawn down past the drill's point when it runs below the crop.
+    bed = min(seat + rise, max(seat + min(rise, 70.0), tip + 6))
     left, right = centre - af / 2, centre + af / 2
     reach = min(jaw - rise, ac) + (bed - seat)
     groups["clamp"] += [
@@ -206,14 +241,16 @@ def _cross(groups: Groups, values: dict, parameters: dict) -> Layout:
         _rect(left, seat, thick, bed - seat),
         _rect(right - thick, seat, thick, bed - seat),
     ]
-    middle = seat - _cad(values, "cross_axis_height_mm") * scale
     points = _hexagon(centre, middle, ac)
     groups["part-kept"].append(
         _el("path", d="M" + " L".join(f"{x:.1f} {y:.1f}" for x, y in points) + " Z")
     )
     bore = _cad(values, "bore_dia_in") * 25.4 * scale
     groups["part-removed"].append(_rect(centre - bore / 2, middle - ac / 2, bore, ac))
-    groups["cutter"].append(_rect(centre - bore / 2, middle - ac / 2 - 46, bore, 40))
+    # The drill drawn short above the corner.
+    groups["cutter"].append(
+        _tool(centre, bore, tip, middle - ac / 2 - 46, _DRILL_POINT_DEG, broken=True)
+    )
     groups["centre-line"].append(_line(centre, middle - ac / 2 - 60, centre, bed + 6))
     _datum_label(
         groups, centre + bore / 2 + 6, middle - ac / 2 - 30, "Y0: hex axis", "start"

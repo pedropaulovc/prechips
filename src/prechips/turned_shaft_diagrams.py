@@ -713,11 +713,13 @@ def _lathe(
             above.append((x, y - 40, ["single-point threading bit:", *lines]))
         else:
             x = view.x(face) + 40
+            # The die (no size on record, schematic) and its holder from the
+            # tailstock, which slides and turns with it: both the tool.
             groups["cutter"] += [
                 _rect(x, view.up(radius) - 16, 14, 16),
                 _rect(x, view.down(radius), 14, 16),
+                _rect(x + 14, _AXIS - 12, 40, 24),
             ]
-            groups["fixture-vise"].append(_rect(x + 14, _AXIS - 12, 40, 24))
             above.append(
                 (x + 7, view.up(radius) - 16, ["die from the tailstock:", *lines])
             )
