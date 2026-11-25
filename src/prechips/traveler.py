@@ -1413,10 +1413,14 @@ def render_standing(page: dict) -> str:
     if page.get("legend"):
         key = base64.b64encode(palette.legend_svg(palette.LEGEND)).decode("ascii")
         alt = _html("Picture key: " + "; ".join(text for _, text in palette.LEGEND))
+        # At 90 % of the column the full key (six rows since the work stop's
+        # rod has its own entry) still fits under a page of standing rows;
+        # at full width it alone spilled onto a second sheet (a consumer's
+        # one-page standing page, 2026-11-25).
         lines.append(
             '<figure class="picture-key" style="margin: 0.08in 0">'
             f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
-            ' style="display: block; width: 100%">'
+            ' style="display: block; width: 90%">'
             "</figure>"
         )
     lines.append("</body></html>\n")
