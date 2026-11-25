@@ -633,6 +633,116 @@ def test_a_through_hole_is_drawn_past_the_parting_line():
     assert "drill the Ø.161–.165 hole" in picture
 
 
+def _tailstock(picture: str) -> tuple[list[tuple[float, float]], float | None, str]:
+    """The tailstock tool's outline points as drawn upright (before its
+    turn onto the axis), its round end's depth (None: pointed) and its
+    transform."""
+    cutter = re.search(r'class="cutter"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    d, turn = re.search(r'<path d="([^"]+)"[^>]*transform="([^"]+)"', cutter).groups()
+    outline = d.split("A")[0]
+    points = [
+        (float(x), float(y)) for x, y in re.findall(r"([-\d.]+) ([-\d.]+)", outline)
+    ]
+    arc = re.search(r"A\s*[-\d.]+\s+([-\d.]+)", d)
+    return points, float(arc[1]) if arc else None, turn
+
+
+def _scale(picture: str, stock_in: float) -> float:
+    """The picture's px per mm, from the arriving bar's drawn diameter."""
+    arriving = re.search(r'class="part-arriving"[^>]*>(.*?)</g>', picture, re.DOTALL)
+    height = float(re.search(r'height="([\d.]+)"', arriving[1])[1])
+    return height / (stock_in * 25.4)
+
+
+def test_the_tailstock_tool_is_drawn_to_scale():
+    axis = 270.0
+    # The outline is written to .1 px; a length is a difference of two.
+    px = 0.2
+
+    def drawn(points):
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        return max(xs) - min(xs), max(ys)
+
+    # The drill at the bore's diameter, its 118° point past the drilled run;
+    # turned about the faced end's centre to lie along the axis.
+    params = BAR | {"stock_dia_in": 0.5, "parts_per_pull": 2, "jaw_clearance_in": 0.1}
+    cad = load_turned_bush(CUP, params, "turned-cup")
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre drill part"), cad, params
+    ).decode()
+    scale = _scale(picture, 0.5)
+    points, rise, turn = _tailstock(picture)
+    width, tip = drawn(points)
+    assert width == pytest.approx(cad.values["bore_dia_mm"] * scale, abs=px)
+    assert rise is None
+    shoulder = sorted({p[1] for p in points})[-2]
+    assert tip - shoulder == pytest.approx(
+        width / 2 / math.tan(math.radians(59)), abs=px
+    )
+    assert turn.startswith("rotate(90 ") and turn.endswith(f" {axis:.2f})")
+    # Only the chuck is a fixture: the tailstock's tool holder is not drawn.
+    vise = re.search(r'class="fixture-vise"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    assert vise.count("<rect") == 1
+    # A blind tap at its thread's major (#10-24: .190), square ended and
+    # drawn round (12 % of its diameter deep), its end at its bound reach.
+    params = BAR | {"tap_lead_in": 0.0625}
+    cad = load_turned_bush(PLUG, params, "turned-plug")
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre drill tap part"), cad, params
+    ).decode()
+    scale = _scale(picture, 0.625)
+    points, rise, _ = _tailstock(picture)
+    width, corner = drawn(points)
+    assert width == pytest.approx(0.19 * 25.4 * scale, abs=px)
+    assert rise == pytest.approx(0.12 * width, abs=px)
+    assert corner + rise - axis == pytest.approx(
+        cad.values["tap_reach_in"] * 25.4 * scale, abs=px
+    )
+    # A through tap to the plan's pencil mark (#8-32: .164).
+    params = KNOB_BAR | {
+        "regrip_allowance_in": 0.02,
+        "regrip_grip_in": 0.2,
+        "tap_mark_in": 0.72,
+        "csk_dia_in": 0.17,
+    }
+    cad = load_turned_bush(KNOB, params, "turned-knob")
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face turn knurl drill tap part"),
+        cad,
+        params,
+    ).decode()
+    scale = _scale(picture, 0.875)
+    points, rise, _ = _tailstock(picture)
+    width, corner = drawn(points)
+    assert width == pytest.approx(0.164 * 25.4 * scale, abs=px)
+    assert corner + rise - axis == pytest.approx(0.72 * 25.4 * scale, abs=px)
+    # The countersink's 90° cone at the plan's Ø.170, its apex in from the
+    # recess floor.
+    picture = render_cad_svg(
+        _svg(
+            hold="regrip",
+            out="far",
+            work="face recess countersink",
+            holes="tap",
+            z0="out",
+            seat="none",
+        ),
+        cad,
+        params,
+    ).decode()
+    hidden = re.search(r'class="hidden"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    hole = float(re.search(r'<rect [^>]*height="([\d.]+)"', hidden)[1])
+    scale = hole / cad.values["tap_drill_dia_mm"]
+    points, rise, _ = _tailstock(picture)
+    width, tip = drawn(points)
+    assert rise is None
+    assert width == pytest.approx(0.17 * 25.4 * scale, abs=px)
+    depth = cad.values["recess_depth_mm"] + 0.085 * 25.4
+    assert tip - axis == pytest.approx(depth * scale, abs=px)
+    shoulder = sorted({p[1] for p in points})[-2]
+    assert tip - shoulder == pytest.approx(width / 2, abs=px)
+
+
 def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():
     params = BAR | {"regrip_allowance_in": 0.02, "regrip_grip_in": 0.3}
     cad = load_turned_bush(PLUG, params, "turned-plug")
