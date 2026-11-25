@@ -106,6 +106,9 @@ ROLES: dict[str, dict[str, str]] = {
         "stroke-dasharray": "1.5 2",
     },
     "clamp": {"fill": "#6b7178", "stroke": "#111", "stroke-width": "1.2"},
+    # A round locator (the work stop's rod): a plain light bar, solid outline,
+    # lighter than the jaws and unpatterned, unlike a support.
+    "stop-rod": {"fill": "#f3efe2", "stroke": "#111", "stroke-width": "1.4"},
     "cutter": {"fill": "#e0a800", "stroke": "#111", "stroke-width": "1.6"},
     "centre-line": {
         "fill": "none",
@@ -164,6 +167,7 @@ LEGEND = (
     ("bond", "tape, bond"),
     ("fixture-support", "1-2-3, parallel, jack, stop"),
     ("clamp", "vise jaw, work holder"),
+    ("stop-rod", "work stop rod"),
     ("cutter", "cutter, edge finder"),
     ("datum", "datum, scribed line"),
     ("arrow", "cutter path on part"),

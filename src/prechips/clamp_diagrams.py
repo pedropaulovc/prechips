@@ -271,21 +271,31 @@ def _tool(
     return _path(outline, _end_arc(right, corner, width / 2))
 
 
-def _rod(tip: float, outward: int, cy: float, width: float, length: float) -> Element:
-    """The work stop's rod from above: ``width`` (its diameter to scale) on
-    the line ``cy``, its tip at ``tip``, running ``length`` px out on the
-    ``outward`` side (-1 left, +1 right) to a break line: its post, on the
-    table beyond the vise, is not drawn."""
-    end = tip + outward * length
+def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> None:
+    """The work stop's rod from above, its diameter ``width`` to scale, on
+    the line ``cy``: its tip at ``tip`` (its square end, drawn round, touching
+    there), reaching in from its post beside the vise on the ``outward`` side
+    (-1 left, +1 right); drawn out to a break line, the post not drawn
+    (where it stands on the table is not on record)."""
+    end = tip + outward * _ROD_OUT
     low, high = cy - width / 2, cy + width / 2
-    return _path(
-        [
-            (tip, low),
-            (end, low),
-            *_zigzag(end, low, end, high),
-            (end, high),
-            (tip, high),
-        ]
+    shoulder = tip + outward * _ROUND_RISE * width
+    rise = _ROUND_RISE * width
+    # The end face's near half bulges toward the blank, sweeping from the
+    # high edge to the low one through the tip.
+    sweep = 0 if outward < 0 else 1
+    arc = f"A{rise:.1f} {width / 2:.1f} 0 0 {sweep} {shoulder:.1f} {low:.1f}"
+    groups["stop-rod"].append(
+        _path(
+            [
+                (shoulder, low),
+                (end, low),
+                *_zigzag(end, low, end, high),
+                (end, high),
+                (shoulder, high),
+            ],
+            arc,
+        )
     )
     groups["centre-line"].append(_line(tip - outward * 6, cy, end, cy))
 
