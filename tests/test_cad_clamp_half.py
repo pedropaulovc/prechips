@@ -47,7 +47,6 @@ PICTURES = BLANK | {
     "tap_guide_dia_mm": 12.7,
     "tap_guide_point_dia_mm": 4.7625,
     "stop_rod_dia_mm": 9.525,
-    "stop_rod_top_max_mm": 11.176,
 }
 
 
@@ -424,21 +423,24 @@ def test_the_work_stop_is_drawn_where_the_template_fits_it():
 
     hold = {"up": "mating", "work": "face"}
     assert rods(front, **hold)[1] == []
-    # From above a bar its diameter wide; end-on a circle, its top at the
-    # highest the plan allows.
-    svg, (end, bar) = rods(front, **hold, stop="rod")
+    # From above a bar its diameter wide, the only rod drawn; along the jaws
+    # it would stand across or behind the part, so that view says it is not
+    # shown.
+    svg, (bar,) = rods(front, **hold, stop="rod")
     ys = [y for _, y in _points(bar)]
     assert max(ys) - min(ys) == pytest.approx(9.525 * 6, abs=0.2)
-    assert float(end.get("r")) == pytest.approx(9.525 * 3, abs=0.01)
-    assert "work stop" not in svg
-    # At the near side: left of the X0 line for a front's mating face (in
-    # front of the part along the jaws), right of it for a back's (behind).
+    assert "work stop rod not shown (see from above)" in svg
+    assert "work stop:" not in svg
+    assert "work stop rod not shown" not in _picture(
+        front, PICTURES, step="half", **hold
+    )
+    # At the near side: left of the X0 line for a front's mating face, right
+    # of it for a back's.
     for cad, outward in ((front, -1), (back, 1)):
-        svg, (end, bar) = rods(cad, **hold, stop="rod")
+        svg, (bar,) = rods(cad, **hold, stop="rod")
         xs = [x for x, _ in _points(bar)]
         tip = _datum_x(svg)
         assert all((x - tip) * outward >= -0.1 for x in xs)
-        assert (end.get("stroke-dasharray") is None) == (outward < 0)
     # Named once, upright, with when it is set.
     svg, _ = rods(front, up="end", work="face", end="first", stop="rod-labelled")
     assert "work stop: Ø.375 rod from its post" in svg

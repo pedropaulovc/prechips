@@ -47,10 +47,12 @@ above with
 the pass direction; an ear drill at the hole's diameter, its point at
 ``drill_tip_height_mm``; the tap at its thread's major diameter to
 ``tap_point_depth_mm``; the tap guide (``tap_guide_dia_mm``,
-``tap_guide_point_dia_mm``); the work stop's rod (``stop_rod_dia_mm``, its
-top at ``stop_rod_top_max_mm``). Tools and rods too long for the picture end
-in a break line. Jaws, the tap's wrench and the 1-2-3 block's length are
-schematic.
+``tap_guide_point_dia_mm``); the work stop's rod (``stop_rod_dia_mm``) from
+above only: seen along the jaws it would stand across or behind the part, so
+that view leaves it out and says so (owner 2026-11-25: "rod is confusing on
+side view, better to replace with a callout saying its not shown"). Tools
+and rods too long for the picture end in a break line. Jaws, the tap's
+wrench and the 1-2-3 block's length are schematic.
 """
 
 from __future__ import annotations
@@ -300,18 +302,6 @@ def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> N
     groups["centre-line"].append(_line(tip - outward * 6, cy, end, cy))
 
 
-def _rod_end(groups: Groups, cx: float, cy: float, width: float, near: bool) -> None:
-    """The work stop's rod end-on, seen along the jaws: in front of the part
-    when it touches the end nearer the viewer, else behind it (hidden)."""
-    style = {} if near else {"fill": "none", "stroke_dasharray": "4 3"}
-    groups["stop-rod"].append(_el("circle", cx=cx, cy=cy, r=width / 2, **style))
-    reach = width / 2 + 5
-    groups["centre-line"] += [
-        _line(cx - reach, cy, cx + reach, cy),
-        _line(cx, cy - reach, cx, cy + reach),
-    ]
-
-
 def _stop_label(groups: Groups, x: float, y: float, face: str) -> float:
     """The work stop named once, in the first picture that draws it: what the
     rod is and when it is set. Returns the bottom of the text."""
@@ -498,13 +488,9 @@ def _half(
         up == "outside"
     )
     if stop is not None:
-        # The rod end-on, centred between the jaws (its place across them is
-        # not on record), its top at the highest the plan allows above the
-        # supports; in front of the part when it touches the end facing the
-        # viewer (the low X end), behind it otherwise.
-        rod = _param(parameters, "stop_rod_dia_mm")
-        high = _param(parameters, "stop_rod_top_max_mm")
-        _rod_end(groups, centre, seat - (high - rod / 2) * s, rod * s, not mirror)
+        # The rod would stand across or behind the part seen along the jaws:
+        # left out of this view, and said so under its title.
+        _label(groups, 40, 44, "work stop rod not shown (see from above)", "start")
     if up == "outside":
         # An ear hole through the depth, at its height from the fixed jaw.
         hole = _cad(values, "ear_dia_in") * 25.4 * s
