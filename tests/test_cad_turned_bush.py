@@ -828,20 +828,33 @@ def test_the_tap_binds_its_major_and_the_plan_its_mark_and_countersink():
     ] == pytest.approx(-20.447)
     with pytest.raises(CadError, match="reaches the jaws 20.447 mm"):
         load_turned_bush(KNOB, pull | {"tap_mark_in": 0.815}, "turned-knob")
+    # Two parts out: the second (chuck-side) part's faced end is a pitch
+    # nearer the jaws than Z0, so the same mark reaches them from there.
+    two = pull | {"parts_per_pull": 2}
+    assert -load_turned_bush(KNOB, two, "turned-knob").values["jaw_z_mm"] > 30
+    with pytest.raises(CadError, match="reaches the jaws 20.447 mm"):
+        load_turned_bush(KNOB, two | {"tap_mark_in": 0.815}, "turned-knob")
     with pytest.raises(CadError, match="tap_mark_in: the part has no tap"):
         load_turned_bush(
             CUP, BAR | {"stock_dia_in": 0.5, "tap_mark_in": 1}, "turned-cup"
         )
     knob = load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": 0.17}, "turned-knob")
     assert knob.values["csk_dia_mm"] == pytest.approx(0.17 * 25.4)
-    # The printed .18 max itself is allowed, despite the inch-to-mm rounding.
-    load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": 0.18}, "turned-knob")
     # Over the printed .18 max, or not over the #29 hole.
     for dia in (0.19, 0.13):
         with pytest.raises(CadError, match="process.csk_dia_in"):
             load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": dia}, "turned-knob")
     with pytest.raises(CadError, match="the part has no countersink"):
         load_turned_bush(PLUG, BAR | {"csk_dia_in": 0.2}, "turned-plug")
+
+
+def test_a_countersink_at_its_printed_max_passes_the_inch_rounding(tmp_path):
+    # .17 in is 4.3180000000000005 mm, a ULP over a printed 4.318 mm max.
+    knob = _edited(KNOB, tmp_path, '"dia_max" = 4.571999999999999', '"dia_max" = 4.318')
+    values = load_turned_bush(
+        knob, KNOB_BAR | {"csk_dia_in": 0.17}, "turned-knob"
+    ).values
+    assert values["csk_dia_mm"] > values["countersinks_dia_max_mm"]
 
 
 def test_a_recess_named_on_a_part_without_one_leaves_the_drill_through():
