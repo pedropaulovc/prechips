@@ -1,3 +1,4 @@
+import math
 import re
 from pathlib import Path
 from xml.etree import ElementTree
@@ -364,6 +365,8 @@ def test_the_pass_shown_stands_over_the_part():
     assert _shown_pass(PICTURES, 16.002)[1:] == (pytest.approx(16.502 / 3), 2, 3)
     with pytest.raises(CadError, match="face_overhang_mm: must not be negative"):
         _shown_pass(PICTURES | {"face_overhang_mm": -0.1}, 19.05)
+    # A stepover wider than the face still cuts it, in one pass.
+    assert _shown_pass(PICTURES | {"face_stepover_max_mm": 1e12}, 19.05)[3] == 1
 
 
 def test_tools_are_drawn_to_scale():
@@ -404,6 +407,9 @@ def test_tools_are_drawn_to_scale():
         back.values["ear_thread_major_mm"] * 6, abs=0.2
     )
     assert _span(point, 0) == pytest.approx(4.7625 * 6, abs=0.2)
+    # Its whole 60° cone drawn out of the body, not folded back into it.
+    cone = 4.7625 * 3 / math.tan(math.radians(30))
+    assert _span(point, 1) == pytest.approx(cone, abs=0.2)
     assert _span(guide, 0) == pytest.approx(12.7 * 6, abs=0.2)
     assert float(plan.get("r")) == pytest.approx(
         back.values["ear_thread_major_mm"] * 3, abs=0.01
@@ -456,7 +462,10 @@ def test_the_work_stop_is_drawn_where_the_template_fits_it():
 def test_one_picture_draws_both_halves_bound_to_each():
     front = load_clamp_half(FRONT, PICTURES, "clamp-front")
     back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
-    parts = {"front": (front, PICTURES), "back": (back, PICTURES | PAIR)}
+    # The back's own parameters (a wider rod) draw the back's view, whichever
+    # part the picture is drawn for.
+    back_parameters = PICTURES | PAIR | {"stop_rod_dia_mm": 12.7}
+    parts = {"front": (front, PICTURES), "back": (back, back_parameters)}
 
     def both(part: str, **attrs: str) -> str:
         extra = "".join(f' data-{key}="{value}"' for key, value in attrs.items())
@@ -478,8 +487,16 @@ def test_one_picture_draws_both_halves_bound_to_each():
             assert "#8 clearance" in svg and "#8-32 UNC-2B" in svg
         else:
             assert "From above, a front:" in svg and "From above, a back:" in svg
-            # One rod per half from above, none along the jaws.
-            assert len(_group(svg, "stop-rod")) == 2
+            # One rod per half from above, none along the jaws, each at its
+            # own part's diameter.
+            rods = _group(svg, "stop-rod")
+            widths = [
+                max(ys) - min(ys) for ys in ([y for _, y in _points(r)] for r in rods)
+            ]
+            assert widths == [
+                pytest.approx(9.525 * 6, abs=0.2),
+                pytest.approx(76.2, abs=0.2),
+            ]
     with pytest.raises(CadError, match="needs a family plan with a front and a back"):
         render_cad_svg(
             b'<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'
@@ -489,3 +506,15 @@ def test_one_picture_draws_both_halves_bound_to_each():
         )
     with pytest.raises(CadError, match="goes with the inspect step"):
         both("front", step="pair")
+    # Two fronts: which one would it draw?
+    parts["other"] = (front, PICTURES)
+    with pytest.raises(
+        CadError, match="draws one front, but parts 'front' and 'other'"
+    ):
+        both("front", step="inspect")
+
+
+def test_the_pairs_end_mill_must_fit_the_bore():
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+    with pytest.raises(CadError, match="smaller than the bore it interpolates"):
+        _picture(back, PICTURES | PAIR | {"face_cutter_dia_mm": 30.0}, step="pair")
