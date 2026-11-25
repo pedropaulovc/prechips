@@ -24,7 +24,10 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   states, and an end view of the hold: the jaw tops
   ``process.jaw_top_over_od_mm`` over the rod (the end view drops to keep
   them under the callouts), the rod on a ``process.parallel_thickness_mm``
-  wide parallel when given;
+  wide parallel when given, the end mill over the flat at its diameter
+  (``process.flat_mill_dia_mm``, required: the picture draws it to scale;
+  whether one pass or several cut the flat), its square end drawn round and
+  its shank broken off;
 - ``inspect``: the finished part with its printed sizes, its ``data-x0``
   end (``datum`` or ``far``: the end its lengths are read from) at the left,
   marked "<end> end" or ``data-end-label`` (the plan's own name for it).
@@ -89,6 +92,7 @@ from prechips.shaft_diagrams import (
     _dimension,
     _pt,
 )
+from prechips.tool_shapes import _tool
 
 Groups = dict[str, list[Element]]
 Profile = list[tuple[float, float]]  # (Z, radius) along the upper meridian
@@ -108,6 +112,9 @@ _TITLES = {
 _X0 = 110.0  # page x of the window's chuck-side end
 _HELD = 10.0  # mm of work drawn in the jaws
 _ARC = 12  # points per dome meridian
+# The vise end view's end mill drawn this far up from the flat, px, then
+# broken off: the picture's length, not the tool's stick-out.
+_CUTTER_SHOWN = 46.0
 
 
 @dataclass(frozen=True)
@@ -1376,7 +1383,21 @@ def _vise(
     if "parallel_thickness_mm" in parameters:
         width = min(_param(parameters, "parallel_thickness_mm") * k, 2 * r)
     groups["fixture-support"].append(_rect(cx - width / 2, cy + r, width, 22))
-    groups["cutter"].append(_rect(cx - r * 0.75, flat_y - 46, 1.5 * r, 40))
+    # The end mill over the flat at its own diameter to this view's scale,
+    # its square end (drawn round) on the flat: centred on the flat, where
+    # every crossing of its width passes. Drawn short to a break line (its
+    # stick-out would run into the callouts). Where the jaws stand above the
+    # flat it must fit between them (the rod's diameter apart); else it may
+    # overhang them by no more than their drawn width.
+    cutter = _param(parameters, "flat_mill_dia_mm") * k
+    if cutter > 2 * r + (0.0 if jaw_top < flat_y else 32.0):
+        raise CadError(
+            "process.flat_mill_dia_mm: the end mill does not fit between the "
+            "vise jaws over the flat"
+        )
+    groups["cutter"].append(
+        _tool(cx, cutter, flat_y, flat_y - _CUTTER_SHOWN, broken=True)
+    )
     groups["label"].append(
         _el("text", "end view", x=cx, y=cy + r + 40, text_anchor="middle")
     )

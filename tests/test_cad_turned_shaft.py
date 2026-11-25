@@ -23,6 +23,12 @@ BLANK = {
     "end_stickout_in": 0.5,
 }
 BAR = {"stock_dia_in": 0.1875, "face_allowance_in": 0.02, "part_kerf_in": 0.0625}
+# The vise hold: its jaws, and the flats' 1/8 in end mill the picture draws.
+VISE = {
+    "vise_jaw_from_x0_mm": 5.0,
+    "vise_jaw_to_x0_mm": 163.6738,
+    "flat_mill_dia_mm": 3.175,
+}
 HEADED = ROOT / "examples/cad/turned-headed-pin-v51.toml"
 # The demo plan's bar cycle, each dome's form tool and the two regrips.
 HEADED_BAR = {
@@ -474,7 +480,7 @@ def test_a_flat_may_be_stationed_to_its_centre(tmp_path):
     assert cad.values["flat_a_station_to"] == "centre"
     assert cad.values["flat_b_station_to"] == "near"
     assert cad.values["flat_a_station_mm"] == pytest.approx(17.4625)
-    vise_params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    vise_params = BLANK | VISE
     vise = render_cad_svg(_svg(hold="vise", work="flat", x0="datum"), cad, vise_params)
     assert b"from the datum end to its centre" in vise
     # From the far end's side the run is short and near the end view: the
@@ -525,7 +531,7 @@ def test_centre_station_labels_stay_on_the_vise_picture(tmp_path, shift, x0):
         f'"station_nominal" = {52.3875 + shift}\n"station_to" = "centre"\n',
     )
     cad = load_turned_shaft(source, BLANK, "demo-turned-shaft")
-    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    params = BLANK | VISE
     svg = render_cad_svg(_svg(hold="vise", work="flat", x0=x0), cad, params)
     extents = _label_extents(svg)
     assert len(extents) == 2
@@ -535,7 +541,7 @@ def test_centre_station_labels_stay_on_the_vise_picture(tmp_path, shift, x0):
 def test_a_vise_picture_mills_only_its_setups_flats():
     # Each flat in its own clamping: flat A now, flat B milled before.
     cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
-    params = BLANK | {"vise_jaw_from_x0_mm": 5.0, "vise_jaw_to_x0_mm": 163.6738}
+    params = BLANK | VISE
     both = render_cad_svg(_svg(hold="vise", work="flat"), cad, params)
     one = render_cad_svg(
         _svg(hold="vise", work="flat", flats="flat_a", **{"flats-done": "flat_b"}),
@@ -555,6 +561,45 @@ def test_a_vise_picture_mills_only_its_setups_flats():
             render_cad_svg(_svg(hold="vise", work="flat", **attrs), cad, params)
     with pytest.raises(CadError, match="on a vise hold"):
         render_cad_svg(_svg(hold="inspect", flats="flat_a"), cad, BLANK)
+
+
+def _cutter_path(svg: bytes) -> tuple[list[tuple[float, float]], list[float]]:
+    """The vise end view's end mill: its outline's points up to its round
+    end, and that arc's numbers (radii, flags, end point)."""
+    d = re.search(rb'<g class="cutter"><path d="([^"]+)"', svg)[1].decode()
+    numbers = [float(n) for n in re.findall(r"-?[\d.]+", d.split("A")[0])]
+    arc = [float(n) for n in re.findall(r"-?[\d.]+", d.split("A")[1])]
+    return list(zip(numbers[::2], numbers[1::2])), arc
+
+
+def test_the_vise_end_mill_is_drawn_to_scale_on_the_flat():
+    cad = load_turned_shaft(SHAFT, BLANK, "demo-turned-shaft")
+    # The end view draws the rod 48 px across: px per mm from its diameter.
+    k = 24.0 / (cad.values["outer_dia_mm"] / 2)
+    for dia in (3.175, 4.7625):
+        params = BLANK | VISE | {"flat_mill_dia_mm": dia}
+        svg = render_cad_svg(_svg(hold="vise", work="flat"), cad, params)
+        corners, arc = _cutter_path(svg)
+        xs = [x for x, _ in corners]
+        assert max(xs) - min(xs) == pytest.approx(dia * k, abs=0.2)
+        # Its square end drawn round, 12 % of the diameter deep, its lowest
+        # point on the flat: the chord the end view's rod is cut to.
+        assert arc[0] == pytest.approx(dia * k / 2, abs=0.1)
+        assert arc[1] == pytest.approx(0.12 * dia * k, abs=0.1)
+        chord = re.search(rb'<path d="M([\d.]+) ([\d.]+)A24\.0 24\.0 0 1 0', svg)
+        tip = max(y for _, y in corners) + arc[1]
+        assert tip == pytest.approx(float(chord[2]), abs=0.15)
+        # Centred over the flat, which is centred on the rod.
+        assert (max(xs) + min(xs)) / 2 == pytest.approx(640.0, abs=0.1)
+    # Required: no other key stands in for it.
+    params = BLANK | VISE | {"flat_cutter_dia_mm": 4.7625}
+    del params["flat_mill_dia_mm"]
+    with pytest.raises(CadError, match="flat_mill_dia_mm"):
+        render_cad_svg(_svg(hold="vise", work="flat"), cad, params)
+    # Wider than the jaws' gap where they stand above the flat: refused.
+    held = BLANK | VISE | {"jaw_top_over_od_mm": 0.5, "flat_mill_dia_mm": 9.525}
+    with pytest.raises(CadError, match="does not fit between the vise jaws"):
+        render_cad_svg(_svg(hold="vise", work="flat"), cad, held)
 
 
 def test_the_inspection_names_flats_as_the_plan_does():

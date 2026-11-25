@@ -35,6 +35,8 @@ turn_feed_mm_rev = 0.0508
 turn_start_z_mm = 0.5
 # The 3/16 end mill: its face sweeps a flat in one pass.
 flat_cutter_dia_mm = 4.7625
+# The same end mill as the vise picture draws it.
+flat_mill_dia_mm = 4.7625
 # The 6 in vise (shop workholding.vise-pm-6): the left jaw side 5 mm in from
 # the datum end; 1-1/2 in parallels leave the rod's top just under the jaws.
 vise_jaw_from_x0_mm = 5.0
