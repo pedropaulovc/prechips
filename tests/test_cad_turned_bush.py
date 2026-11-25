@@ -679,6 +679,8 @@ def test_the_tailstock_tool_is_drawn_to_scale():
     assert tip - shoulder == pytest.approx(
         width / 2 / math.tan(math.radians(59)), abs=px
     )
+    # Full diameter through both parts and past the second parting line.
+    assert shoulder - axis == pytest.approx(cad.values["run_mm"] * scale, abs=px)
     assert turn.startswith("rotate(90 ") and turn.endswith(f" {axis:.2f})")
     # Only the chuck is a fixture: the tailstock's tool holder is not drawn.
     vise = re.search(r'class="fixture-vise"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
@@ -741,6 +743,121 @@ def test_the_tailstock_tool_is_drawn_to_scale():
     assert tip - axis == pytest.approx(depth * scale, abs=px)
     shoulder = sorted({p[1] for p in points})[-2]
     assert tip - shoulder == pytest.approx(width / 2, abs=px)
+
+
+def test_the_reamer_pocket_and_recessed_drill_are_drawn_to_scale():
+    axis, px = 270.0, 0.2
+    params = BAR | {"stock_dia_in": 0.5}
+    cup = load_turned_bush(CUP, params, "turned-cup")
+
+    def tool(cad, stock_in, params=params, **attrs):
+        picture = render_cad_svg(_svg(hold="bar", out="datum", **attrs), cad, params)
+        points, rise, _ = _tailstock(picture.decode())
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        return (max(xs) - min(xs), max(ys), rise, _scale(picture.decode(), stock_in))
+
+    # A reaming picture without the drill: the reamer at the bore, square
+    # ended and drawn round, through to the bore's far end.
+    width, corner, rise, scale = tool(cup, 0.5, work="face ream part")
+    assert width == pytest.approx(cup.values["bore_dia_mm"] * scale, abs=px)
+    assert rise == pytest.approx(0.12 * width, abs=px)
+    assert corner + rise - axis == pytest.approx(
+        cup.values["bore_z1_mm"] * scale, abs=px
+    )
+    # The pocket's end mill at its diameter, its end on the pocket's floor.
+    width, corner, rise, scale = tool(cup, 0.5, work="face pocket")
+    assert width == pytest.approx(cup.values["pocket_dia_mm"] * scale, abs=px)
+    assert corner + rise - axis == pytest.approx(
+        cup.values["pocket_depth_mm"] * scale, abs=px
+    )
+    # A through tap's drill with the far end dished already: full diameter
+    # to the recess floor, where the hole's hidden edges end.
+    knob = load_turned_bush(KNOB, KNOB_BAR, "turned-knob")
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face drill", holes="recess"),
+        knob,
+        KNOB_BAR,
+    ).decode()
+    points, _, _ = _tailstock(picture)
+    shoulder = sorted({p[1] for p in points})[-2]
+    assert shoulder - axis == pytest.approx(
+        knob.values["recess_z0_mm"] * _scale(picture, 0.875), abs=px
+    )
+    # The centre drill alone has no size on record: a schematic point.
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face centre"), cup, params
+    ).decode()
+    cutter = re.search(r'class="cutter"[^>]*>(.*?)</g>', picture, re.DOTALL)[1]
+    assert "transform" not in cutter
+
+
+def test_tailstock_work_needs_its_feature_and_its_end_out():
+    params = BAR | {"stock_dia_in": 0.5}
+    cup = load_turned_bush(CUP, params, "turned-cup")
+    plug = load_turned_bush(PLUG, BAR, "turned-plug")
+    with pytest.raises(CadError, match="tap needs the part's tap"):
+        render_cad_svg(_svg(hold="bar", work="face tap"), cup, params)
+    with pytest.raises(CadError, match="pocket needs the part's pocket"):
+        render_cad_svg(_svg(hold="bar", work="face pocket"), plug, BAR)
+    # The pocket and a blind tap (and its drill) open on the datum end.
+    with pytest.raises(CadError, match="pocket opens on the datum end"):
+        render_cad_svg(_svg(hold="bar", out="far", work="face pocket"), cup, params)
+    with pytest.raises(CadError, match="drill, tap opens on the datum end"):
+        render_cad_svg(_svg(hold="bar", out="far", work="face drill tap"), plug, BAR)
+
+
+def test_the_tap_binds_its_major_and_the_plan_its_mark_and_countersink():
+    assert load_turned_bush(PLUG, BAR, "turned-plug").values[
+        "tap_major_mm"
+    ] == pytest.approx(0.19 * 25.4)
+    with pytest.raises(CadError, match="a blind tap stops at its reach"):
+        load_turned_bush(PLUG, BAR | {"tap_mark_in": 0.7}, "turned-plug")
+    knob = load_turned_bush(KNOB, KNOB_BAR | {"tap_mark_in": 0.72}, "turned-knob")
+    assert knob.values["tap_major_mm"] == pytest.approx(0.164 * 25.4)
+    assert knob.values["tap_mark_mm"] == pytest.approx(0.72 * 25.4)
+    # Judged at the longest part (.640 max, not the .630 nominal): a .635
+    # mark stops short of the far end of a long one.
+    for mark in (0.6, 0.635):
+        with pytest.raises(CadError, match="does not pass the longest part"):
+            load_turned_bush(KNOB, KNOB_BAR | {"tap_mark_in": mark}, "turned-knob")
+    # The jaws stand -jaw_z_mm from the faced end (20.447 mm here), not the
+    # stickout from the arriving end (20.955 mm).
+    pull = KNOB_BAR | {"parts_per_pull": 1, "jaw_clearance_in": 0.1}
+    assert load_turned_bush(KNOB, pull, "turned-knob").values[
+        "jaw_z_mm"
+    ] == pytest.approx(-20.447)
+    with pytest.raises(CadError, match="reaches the jaws 20.447 mm"):
+        load_turned_bush(KNOB, pull | {"tap_mark_in": 0.815}, "turned-knob")
+    with pytest.raises(CadError, match="tap_mark_in: the part has no tap"):
+        load_turned_bush(
+            CUP, BAR | {"stock_dia_in": 0.5, "tap_mark_in": 1}, "turned-cup"
+        )
+    knob = load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": 0.17}, "turned-knob")
+    assert knob.values["csk_dia_mm"] == pytest.approx(0.17 * 25.4)
+    # The printed .18 max itself is allowed, despite the inch-to-mm rounding.
+    load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": 0.18}, "turned-knob")
+    # Over the printed .18 max, or not over the #29 hole.
+    for dia in (0.19, 0.13):
+        with pytest.raises(CadError, match="process.csk_dia_in"):
+            load_turned_bush(KNOB, KNOB_BAR | {"csk_dia_in": dia}, "turned-knob")
+    with pytest.raises(CadError, match="the part has no countersink"):
+        load_turned_bush(PLUG, BAR | {"csk_dia_in": 0.2}, "turned-plug")
+
+
+def test_a_recess_named_on_a_part_without_one_leaves_the_drill_through():
+    knob = load_turned_bush(KNOB, KNOB_BAR, "turned-knob")
+    for key in [k for k in knob.values if k.startswith("recess_")]:
+        del knob.values[key]
+    picture = render_cad_svg(
+        _svg(hold="bar", out="datum", work="face drill", holes="recess"),
+        knob,
+        KNOB_BAR,
+    ).decode()
+    points, _, _ = _tailstock(picture)
+    shoulder = sorted({p[1] for p in points})[-2]
+    assert shoulder - 270.0 == pytest.approx(
+        knob.values["length_mm"] * _scale(picture, 0.875), abs=0.2
+    )
 
 
 def test_regrip_on_the_head_turns_the_spigot_and_binds_its_jaws():

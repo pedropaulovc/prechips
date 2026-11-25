@@ -47,11 +47,11 @@ from __future__ import annotations
 import math
 from xml.etree import ElementTree
 
-from prechips.cad import CadError, inch_thread
+from prechips.cad import CadError
 from prechips.cad_diagrams import Element, Layout, _bound, _cad, _el, _line, _rect
-from prechips.clamp_diagrams import _DRILL_POINT_DEG, _tool
 from prechips.jig_diagrams import _datum_label, _finish, _groups, _param, _title
 from prechips.shaft_diagrams import CHAR, _break, _callouts, _dimension
+from prechips.tool_shapes import _DRILL_POINT_DEG, _tool
 
 Groups = dict[str, list[Element]]
 
@@ -305,7 +305,7 @@ def _chuck(
 
 
 def _tailstock_tool(
-    values: dict, parameters: dict, out: str, token: str, through: float | None
+    values: dict, out: str, token: str, through: float | None
 ) -> tuple[float, float, float | None] | None:
     """The tailstock tool of the ``token`` operation, from the plan's numbers:
     its diameter (mm), how deep its end stands from the faced out end (mm;
@@ -337,11 +337,9 @@ def _tailstock_tool(
         # point) at the face, else through as the drill ran; a blind tap at
         # its bound reach (full thread plus the plan's tap_lead_in), else at
         # full thread.
-        dia = inch_thread(values["tap_thread"], "cad.tap.thread")[0]
+        dia = values["tap_major_mm"]
         if values.get("tap_kind") == "thru":
-            if "tap_mark_in" in parameters:
-                return dia, _param(parameters, "tap_mark_in") * 25.4, None
-            return dia, through, None
+            return dia, values.get("tap_mark_mm", through), None
         if "tap_reach_in" in values:
             return dia, values["tap_reach_in"] * 25.4, None
         return dia, values["tap_thread_depth_mm"], None
@@ -352,9 +350,7 @@ def _tailstock_tool(
         # recess). The cutter's body (not on record) is drawn at that
         # diameter.
         name = _countersinks(values, out)[0]
-        dia = values[f"{name}_dia_max_mm"]
-        if "csk_dia_in" in parameters:
-            dia = _param(parameters, "csk_dia_in") * 25.4
+        dia = values.get("csk_dia_mm", values[f"{name}_dia_max_mm"])
         angle = values[f"{name}_angle_deg"]
         mouth = 0.0
         if out == "far" and "recess" in values[f"{name}_ends"]:
@@ -448,6 +444,23 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
     if "ream" in work and "bore_dia_mm" not in values:
         raise CadError("turned-bush: ream needs the part's bore")
+    if "drill" in work and not ("bore_dia_mm" in values or "tap_thread" in values):
+        raise CadError("turned-bush: drill needs the part's bore or tap")
+    if "pocket" in work and "pocket_dia_mm" not in values:
+        raise CadError("turned-bush: pocket needs the part's pocket")
+    if "tap" in work and "tap_thread" not in values:
+        raise CadError("turned-bush: tap needs the part's tap")
+    # The pocket and a blind tap open on the datum end: the tailstock tool
+    # reaches them only with that end out.
+    blind = "tap_thread" in values and values.get("tap_kind") != "thru"
+    datum_only = {"pocket"} | ({"tap"} if blind else set())
+    if blind and "bore_dia_mm" not in values:
+        datum_only.add("drill")
+    if work & datum_only and out != "datum":
+        raise CadError(
+            f"turned-bush: {', '.join(sorted(work & datum_only))} opens on the"
+            " datum end: it is cut with the datum end out"
+        )
     if "recess" in work and "recess_dia_mm" not in values:
         raise CadError("turned-bush: recess needs the part's recess")
     if "recess" in work and out != "far":
@@ -486,6 +499,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         return _inspect(groups, values, outer, datum_label or "Z0 datum end")
     if "drill" in work:
         holes.add("bore" if "bore_dia_mm" in values else "tap")
+    if "ream" in work:
+        holes.add("bore")
     holes |= work & {"pocket", "tap", "recess"}
     names = [seg[0] for seg in _segments(values, outer)]
     turned = set(names)
@@ -738,6 +753,12 @@ def _setup(
             values[f"{through}_z1_mm" if out == "datum" else f"{through}_z0_mm"],
             shift,
         )
+        # Where the drilled hole's hidden edges end: a through tap's at the
+        # recess floor when the far end is dished already (as _holes draws).
+        x_hole = x_end
+        dished = "recess" in holes and "recess_z0_mm" in values
+        if through == "tap" and out == "datum" and dished:
+            x_hole = page.x(values["recess_z0_mm"], shift)
         if kerf and hold in ("bar", "block") and {"drill", "part"} <= work:
             # A through hole is drilled past the parting line: from the
             # hole's chuck-side end it runs on through any regrip allowance
@@ -748,10 +769,10 @@ def _setup(
             x_cut = page.x(beyond, shift) - kerf * scale
             a, b = sorted((x_end, x_cut))
             groups["hidden"].append(_rect(a, page.up(radius), b - a, page.size(radius)))
-            x_end = a
+            x_hole = a
         # How deep from the faced end the through hole runs: through every
         # part out of the jaws.
-        run = (page.x_out - x_end) / scale
+        run = (page.x_out - x_hole) / scale
     top_y = page.up(stock)
     if face:
         radius = stock
@@ -846,7 +867,7 @@ def _setup(
     if hole_work:
         # One moment: the last tailstock operation's tool at the end of its
         # cut (the holes drawn are as it leaves them).
-        tool = _tailstock_tool(values, parameters, out, hole_work[-1], run)
+        tool = _tailstock_tool(values, out, hole_work[-1], run)
         anchor = _tailstock(groups, page, x_tail, tool)
         lines = {
             "centre": "centre drill",
