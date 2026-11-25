@@ -1,12 +1,17 @@
+import math
 import re
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
 from prechips.cad import CadError
 from prechips.cad_clamp_half import load_clamp_half
-from prechips.cad_diagrams import render_cad_svg
+from prechips.cad_diagrams import SVG_NS, render_cad_svg
+from prechips.clamp_diagrams import _shown_pass
 from prechips.shaft_diagrams import CHAR
+
+SVG = f"{{{SVG_NS}}}"
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / "examples/cad/clamp-front-v51.toml"
@@ -33,6 +38,16 @@ PICTURES = BLANK | {
     "vise_jaw_height_mm": 44.9453,
     "parallel_thickness_mm": 3.175,
     "screw_head_height_mm": 3.9624,
+    # The tools and the work stop, drawn to scale.
+    "face_cutter_dia_mm": 12.7,
+    "face_stepover_max_mm": 6.4,
+    "face_overhang_mm": 0.5,
+    "half_mill_projection_mm": 28.45,
+    "drill_tip_height_mm": -2.038,
+    "tap_point_depth_mm": 19.05,
+    "tap_guide_dia_mm": 12.7,
+    "tap_guide_point_dia_mm": 4.7625,
+    "stop_rod_dia_mm": 9.525,
 }
 
 
@@ -258,8 +273,8 @@ def test_every_picture_binds_for_both_halves():
     front = load_clamp_half(FRONT, PICTURES, "clamp-front")
     with pytest.raises(CadError, match="only the back's mating face"):
         _picture(front, PICTURES, step="half", up="mating", work="face-off")
-    with pytest.raises(CadError, match="data-work must be one of drill, tap"):
-        _picture(front, PICTURES, step="half", up="outside", work="face")
+    with pytest.raises(CadError, match="data-work must be one of face, drill, tap"):
+        _picture(front, PICTURES, step="half", up="outside", work="face-off")
 
 
 def _text_x(svg: str, text: str) -> float:
@@ -304,3 +319,209 @@ def test_lying_holds_put_the_near_side_where_the_hold_does():
     ):
         with pytest.raises(CadError, match=message):
             _picture(back, PICTURES, **attrs)
+
+
+def _group(svg: str, role: str) -> list[ElementTree.Element]:
+    root = ElementTree.fromstring(svg)
+    return [
+        child
+        for group in root.iter(f"{SVG}g")
+        if group.get("class") == role
+        for child in group
+    ]
+
+
+def _points(element: ElementTree.Element) -> list[tuple[float, float]]:
+    """A path's points: each M/L pair and each arc's end point."""
+    points = []
+    for command, body in re.findall(r"([MLA])([^MLAZ]*)", element.get("d")):
+        numbers = [float(n) for n in re.findall(r"-?[\d.]+", body)]
+        if command == "A":
+            points.append((numbers[-2], numbers[-1]))
+        else:
+            points += list(zip(numbers[::2], numbers[1::2]))
+    return points
+
+
+def _span(element: ElementTree.Element, axis: int) -> float:
+    """A path's extent along x (0) or y (1), px. A tool's round end bulges
+    its arc's vertical radius below its lowest corners: that apex is its tip."""
+    values = [point[axis] for point in _points(element)]
+    arcs = re.findall(r"A\s*[-\d.]+\s+([-\d.]+)", element.get("d"))
+    if axis == 1 and arcs:
+        values.append(max(values) + float(arcs[0]))
+    return max(values) - min(values)
+
+
+def test_the_pass_shown_stands_over_the_part():
+    # The plan's own count: a 3/4 in face takes four passes of 4.89 (19.05
+    # plus the 0.5 overhang), the .630 face three of 5.50. The first hangs
+    # over the fixed jaw; the picture shows the one least past either edge.
+    inside, step, index, count = _shown_pass(PICTURES, 19.05)
+    assert (index, count) == (2, 4)
+    assert step == pytest.approx(19.55 / 4)
+    assert inside == pytest.approx(3 * 19.55 / 4 - 6.35)
+    assert inside - 6.35 >= 0 and inside + 6.35 <= 19.05
+    assert _shown_pass(PICTURES, 16.002)[1:] == (pytest.approx(16.502 / 3), 2, 3)
+    with pytest.raises(CadError, match="face_overhang_mm: must not be negative"):
+        _shown_pass(PICTURES | {"face_overhang_mm": -0.1}, 19.05)
+    # A stepover wider than the face still cuts it, in one pass.
+    assert _shown_pass(PICTURES | {"face_stepover_max_mm": 1e12}, 19.05)[3] == 1
+
+
+def test_tools_are_drawn_to_scale():
+    front = load_clamp_half(FRONT, PICTURES, "clamp-front")
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+
+    def cutters(cad, parameters=PICTURES, **attrs):
+        return _group(_picture(cad, parameters, step="half", **attrs), "cutter")
+
+    # The end mill along the jaws, 1/2 in wide at the picture's px per mm
+    # (6 lying, 4 upright) and its stick-out tall; from above a 1/2 in circle.
+    side, above = cutters(front, up="bottom", work="face")
+    assert _span(side, 0) == pytest.approx(12.7 * 6, abs=0.2)
+    assert _span(side, 1) == pytest.approx(28.45 * 6, abs=0.2)
+    # Its square end drawn round (the near half of the end face), shallow:
+    # 12 % of the diameter deep, its apex the tool's true end.
+    rise = float(re.search(r"A\s*[-\d.]+\s+([-\d.]+)", side.get("d"))[1])
+    assert rise == pytest.approx(0.12 * 12.7 * 6, abs=0.1)
+    assert float(above.get("r")) == pytest.approx(12.7 * 3, abs=0.01)
+    upright = cutters(front, up="end", work="face", end="first")[0]
+    assert _span(upright, 0) == pytest.approx(12.7 * 4, abs=0.2)
+    # One moment per picture: facing the outside face draws the end mill in
+    # both views; the drill's own picture the drill at its hole's diameter
+    # (the front's #9, the back's #29) in both, and no end mill.
+    side, above = cutters(front, up="outside", work="face")
+    assert _span(side, 0) == pytest.approx(12.7 * 6, abs=0.2)
+    assert float(above.get("r")) == pytest.approx(12.7 * 3, abs=0.01)
+    for cad in (front, back):
+        drill, hole = cutters(cad, up="outside", work="drill")
+        width = cad.values["ear_dia_in"] * 25.4 * 6
+        assert _span(drill, 0) == pytest.approx(width, abs=0.2)
+        assert float(hole.get("r")) == pytest.approx(width / 2, abs=0.01)
+    # The tap at its thread's major diameter, the guide at its own sizes; the
+    # wrench turns with the tap, so it is drawn as the tool too.
+    tap, wrench, point, guide, plan = cutters(back, up="outside", work="tap")
+    assert wrench.tag.endswith("rect")
+    assert _span(tap, 0) == pytest.approx(
+        back.values["ear_thread_major_mm"] * 6, abs=0.2
+    )
+    assert _span(point, 0) == pytest.approx(4.7625 * 6, abs=0.2)
+    # Its whole 60° cone drawn out of the body, not folded back into it.
+    cone = 4.7625 * 3 / math.tan(math.radians(30))
+    assert _span(point, 1) == pytest.approx(cone, abs=0.2)
+    assert _span(guide, 0) == pytest.approx(12.7 * 6, abs=0.2)
+    assert float(plan.get("r")) == pytest.approx(
+        back.values["ear_thread_major_mm"] * 3, abs=0.01
+    )
+    # The pair's end mill on the bore's wall.
+    pair = _group(_picture(back, PICTURES | PAIR, step="pair"), "cutter")[0]
+    assert float(pair.get("r")) == pytest.approx(12.7 * 3, abs=0.01)
+
+
+def test_the_work_stop_is_drawn_where_the_template_fits_it():
+    front = load_clamp_half(FRONT, PICTURES, "clamp-front")
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+
+    def rods(cad, **attrs):
+        svg = _picture(cad, PICTURES, step="half", **attrs)
+        return svg, _group(svg, "stop-rod")
+
+    hold = {"up": "mating", "work": "face"}
+    assert rods(front, **hold)[1] == []
+    # From above a bar its diameter wide, the only rod drawn; along the jaws
+    # it would stand across or behind the part, so that view says it is not
+    # shown.
+    svg, (bar,) = rods(front, **hold, stop="rod")
+    ys = [y for _, y in _points(bar)]
+    assert max(ys) - min(ys) == pytest.approx(9.525 * 6, abs=0.2)
+    assert "work stop rod not shown (see from above)" in svg
+    assert "work stop:" not in svg
+    assert "work stop rod not shown" not in _picture(
+        front, PICTURES, step="half", **hold
+    )
+    # At the near side: left of the X0 line for a front's mating face, right
+    # of it for a back's.
+    for cad, outward in ((front, -1), (back, 1)):
+        svg, (bar,) = rods(cad, **hold, stop="rod")
+        xs = [x for x, _ in _points(bar)]
+        tip = _datum_x(svg)
+        assert all((x - tip) * outward >= -0.1 for x in xs)
+        # Its break line's teeth stand off its far end, away from the blank.
+        assert max((x - tip) * outward for x in xs) == pytest.approx(133, abs=0.2)
+    # Named once, upright, with when it is set.
+    svg, _ = rods(front, up="end", work="face", end="first", stop="rod-labelled")
+    assert "work stop: Ø.375 rod from its post" in svg
+    assert "touch-offs, then set on the LEFT face" in svg
+    for attrs, message in (
+        ({"step": "pair", "stop": "rod"}, "data-stop goes with the half step"),
+        ({"step": "half", **hold, "stop": "post"}, "data-stop must be one of rod"),
+    ):
+        with pytest.raises(CadError, match=message):
+            _picture(front, PICTURES, **attrs)
+
+
+def test_one_picture_draws_both_halves_bound_to_each():
+    front = load_clamp_half(FRONT, PICTURES, "clamp-front")
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+    # The back's own parameters (a wider rod) draw the back's view, whichever
+    # part the picture is drawn for.
+    back_parameters = PICTURES | PAIR | {"stop_rod_dia_mm": 12.7}
+    parts = {"front": (front, PICTURES), "back": (back, back_parameters)}
+
+    def both(part: str, **attrs: str) -> str:
+        extra = "".join(f' data-{key}="{value}"' for key, value in attrs.items())
+        root = (
+            '<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'
+            f' data-halves="both"{extra}/>'
+        ).encode()
+        return render_cad_svg(root, *parts[part], parts=parts).decode()
+
+    mating = {"step": "half", "up": "mating", "work": "face", "stop": "rod"}
+    labelled = mating | {"stop": "rod-labelled"}
+    for attrs in ({"step": "inspect"}, mating, labelled):
+        # The same picture whichever half it is drawn for, each half's text
+        # bound to that half: the front's clearance holes, the back's taps.
+        drawn = {both(part, **attrs) for part in parts}
+        assert len(drawn) == 1
+        (svg,) = drawn
+        if attrs["step"] == "inspect":
+            assert "FRONT" in svg and "BACK" in svg
+            assert "#8 clearance" in svg and "#8-32 UNC-2B" in svg
+        else:
+            assert "From above, a front:" in svg and "From above, a back:" in svg
+            # One rod per half from above, none along the jaws, each at its
+            # own part's diameter.
+            rods = _group(svg, "stop-rod")
+            widths = [
+                max(ys) - min(ys) for ys in ([y for _, y in _points(r)] for r in rods)
+            ]
+            assert widths == [
+                pytest.approx(9.525 * 6, abs=0.2),
+                pytest.approx(76.2, abs=0.2),
+            ]
+            # The rod named once, from the front's own parameters
+            # ({{process.KEY}} bound to the front whichever part draws it).
+            if attrs["stop"] == "rod-labelled":
+                assert "work stop: Ø.375 rod" in svg and "Ø.500" not in svg
+    with pytest.raises(CadError, match="needs a family plan with a front and a back"):
+        render_cad_svg(
+            b'<svg xmlns="http://www.w3.org/2000/svg" data-cad-template="clamp-half"'
+            b' data-halves="both" data-step="inspect"/>',
+            front,
+            PICTURES,
+        )
+    with pytest.raises(CadError, match="goes with the inspect step"):
+        both("front", step="pair")
+    # Two fronts: which one would it draw?
+    parts["other"] = (front, PICTURES)
+    with pytest.raises(
+        CadError, match="draws one front, but parts 'front' and 'other'"
+    ):
+        both("front", step="inspect")
+
+
+def test_the_pairs_end_mill_must_fit_the_bore():
+    back = load_clamp_half(BACK, PICTURES | PAIR, "clamp-back")
+    with pytest.raises(CadError, match="smaller than the bore it interpolates"):
+        _picture(back, PICTURES | PAIR | {"face_cutter_dia_mm": 30.0}, step="pair")

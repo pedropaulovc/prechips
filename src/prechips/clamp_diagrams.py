@@ -11,8 +11,8 @@
 * ``mating`` (lying, jaws on the top and bottom faces; ``face`` skims the
   split line, ``face-off`` takes the back's grip gap off after the bore);
 * ``outside`` (lying, jaws on the top and bottom faces, the bottom face on
-  the fixed jaw; ``drill`` faces to depth and drills the ears, ``tap`` taps
-  the back's).
+  the fixed jaw; ``face`` faces to depth, with the ears it will drill;
+  ``drill`` drills them and ``tap`` taps the back's).
 
 A lying ``half`` with the bottom face on the fixed jaw (``mating`` or
 ``outside`` up) draws the near side (X0) at the end the hold puts it, from
@@ -27,18 +27,53 @@ along the bore and at its outside face; ``data-bored="no"`` draws it before
 the bore, at the depth it is bored at and at its mating face with the ears'
 drill exits.
 
+The vise holds are seen along the jaws from the low X end, the fixed jaw at
+the left, with a plan from above (beside an upright blank, below a lying
+one). A picture shows one moment: both views show the same tool at the same
+place, so a setup that faces, then drills, then taps draws the end mill in
+its ``face`` picture and the drill or tap in that operation's own picture.
+``data-stop`` draws the work stop's rod against the near side (an upright
+blank's left face) from above only, a round bar reaching in from its post
+beside the vise; the view along the jaws leaves it out and says so:
+``rod``, or ``rod-labelled`` on the one picture of a sheet that names it and
+says when it is set.
+
 Sizes come from the adapter (envelope, bore, ears, the pair) and from
-authored holding parameters (parallels, jaw height, block, screws). Jaws,
-parallels, blocks, cutters, taps and screws are schematic symbols.
+authored parameters. Tools are drawn to scale from the plan's numbers: the
+end mill (``face_cutter_dia_mm``) at its whole stick-out
+(``half_mill_projection_mm``) on the face pass that stands least past the
+face's edges (``face_stepover_max_mm``, ``face_overhang_mm``), a circle from
+above with
+the pass direction; an ear drill at the hole's diameter, its point at
+``drill_tip_height_mm``; the tap at its thread's major diameter to
+``tap_point_depth_mm``; the tap guide (``tap_guide_dia_mm``,
+``tap_guide_point_dia_mm``); the work stop's rod (``stop_rod_dia_mm``) from
+above only: seen along the jaws it would stand across or behind the part, so
+that view leaves it out and says so (owner 2026-11-25: "rod is confusing on
+side view, better to replace with a callout saying its not shown"). Tools
+and rods too long for the picture end in a break line. Jaws, the tap's
+wrench and the 1-2-3 block's length are schematic.
 """
 
 from __future__ import annotations
 
 import math
+from contextlib import contextmanager
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
-from prechips.cad_diagrams import Element, Layout, _cad, _el, _line, _rect
+from prechips.cad_diagrams import (
+    Element,
+    Layout,
+    _binding,
+    _cad,
+    _el,
+    _family,
+    _line,
+    _process,
+    _rect,
+    _view,
+)
 from prechips.jig_diagrams import (
     DimText,
     _datum_label,
@@ -65,12 +100,35 @@ _HALF = {
     "bottom": ("face",),
     "top": ("face",),
     "mating": ("face", "face-off"),
-    "outside": ("drill", "tap"),
+    "outside": ("face", "drill", "tap"),
 }
 _ENDS = ("first", "length")
+# ``data-stop`` on a vise hold: the work stop's rod drawn at the near side
+# (upright, the left face), and once on the sheet named.
+_STOPS = ("rod", "rod-labelled")
 _JAW = 40.0  # schematic jaw body, px
 _S = 6.0  # px per mm
 _REMOVED = 7.0  # px: the layer a face takes off, schematic
+# A round tool's or rod's square end seen from the side is drawn as the near
+# half of its end face: an ellipse this fraction of the diameter deep (owner
+# 2026-11-25: "some indication that end mill is cylindrical when looking from
+# side ; can be something simple like adding a round bottom"); shallow, so a
+# square end mill does not read as a ball nose.
+_ROUND_RISE = 0.12
+# Tools drawn short end in a break line; these lengths are the picture's,
+# not the tools': a drill or the tap guide above the part, px.
+_SHORT = 60.0
+_BREAK = 3.0  # px: a break line's teeth
+_ROD_OUT = 130.0  # px: the work stop's rod drawn out from its tip
+# The tap's T-handle wrench (no size on record), schematic, px: its gap above
+# the face and its thickness; the tap guide's point drawn out of its body.
+_WRENCH_GAP = 50.0
+_WRENCH = 9.0
+# The tap guide's point drawn out of its body at least this long, px; longer
+# when its 60° cone at the point's diameter needs it.
+_GUIDE_POINT = 20.0
+_DRILL_POINT_DEG = 118.0  # a jobber drill's point
+_GUIDE_POINT_DEG = 60.0  # the tap guide's point, as it seats in a centre hole
 
 
 def _saw(groups: Groups, parameters: dict) -> Layout:
@@ -143,6 +201,235 @@ def _section(parameters: dict) -> float:
     return _param(parameters, "blank_section_in") * 25.4
 
 
+def _shown_pass(parameters: dict, across: float) -> tuple[float, float, int, int]:
+    """The facing pass a picture shows, of those the recipe cuts over a face
+    ``across`` mm wide: equal passes no wider than face_stepover_max_mm that
+    together reach face_overhang_mm past both edges, the first at the fixed
+    jaw (where the cutter overhangs the jaw), the rest toward the moving jaw.
+    The picture shows the pass whose cutter stands least past either edge
+    (the first such), so it reads as over the part, not over a jaw. Returns
+    how far its centre is in from the fixed-jaw edge and the stepover, mm,
+    its index from 0 and the number of passes."""
+    overhang = _process(parameters, "face_overhang_mm")
+    if overhang < 0:
+        raise CadError("process.face_overhang_mm: must not be negative for the diagram")
+    span = across + overhang
+    count = max(1, math.ceil(span / _param(parameters, "face_stepover_max_mm") - 1e-9))
+    step = span / count
+    radius = _param(parameters, "face_cutter_dia_mm") / 2
+    insides = [(k + 1) * step - radius for k in range(count)]
+    index = min(
+        range(count),
+        key=lambda k: max(radius - insides[k], insides[k] + radius - across, 0.0),
+    )
+    return insides[index], step, index, count
+
+
+def _zigzag(x0: float, y0: float, x1: float, y1: float) -> list[tuple[float, float]]:
+    """A break line's teeth from (``x0``, ``y0``) to (``x1``, ``y1``), ends
+    excluded: where a tool or rod drawn to scale is cut off short."""
+    length = math.hypot(x1 - x0, y1 - y0)
+    teeth = max(2, round(length / 8))
+    # Teeth stand off the line, square to it: to the left of the way it is
+    # drawn, so a tool's top drawn left to right has them standing up.
+    nx, ny = (y1 - y0) / length, (x0 - x1) / length
+    points = []
+    for k in range(1, 2 * teeth):
+        t = k / (2 * teeth)
+        lift = _BREAK if k % 2 else 0.0
+        points.append((x0 + (x1 - x0) * t + nx * lift, y0 + (y1 - y0) * t + ny * lift))
+    return points
+
+
+def _path(points: list[tuple[float, float]], arc: str = "") -> Element:
+    """A closed outline through ``points``; ``arc`` (an SVG arc command from
+    the last point) closes it along a curve instead of a straight edge."""
+    line = "L".join(f"{x:.1f} {y:.1f}" for x, y in points)
+    return _el("path", d=f"M{line}{arc}Z")
+
+
+def _end_arc(x: float, y: float, half: float) -> str:
+    """The arc to (``x``, ``y``) of a round bar's square end seen from the
+    side: the near half of its end face, a shallow ellipse ``half`` (the
+    radius) by _ROUND_RISE of the diameter."""
+    rise = _ROUND_RISE * 2 * half
+    return f"A{half:.1f} {rise:.1f} 0 0 0 {x:.1f} {y:.1f}"
+
+
+def _tool(
+    cx: float,
+    width: float,
+    tip: float,
+    top: float,
+    point_deg: float | None = None,
+    broken: bool = False,
+) -> Element:
+    """A round tool seen from the side, ``width`` wide (its diameter to the
+    picture's scale), from its ``tip`` up to ``top`` (page y): ground to an
+    included ``point_deg``, or square ended, its end drawn as the near half
+    of the end face (the cue that it is round) with its lowest point at
+    ``tip``, so its length is true; ``broken`` ends it in a break line where
+    it is drawn short."""
+    left, right = cx - width / 2, cx + width / 2
+    # The break line drawn left to right, its teeth standing up off the top,
+    # then walked back right to left as the outline goes.
+    breaks = list(reversed(_zigzag(left, top, right, top))) if broken else []
+    if point_deg is not None:
+        point = width / 2 / math.tan(math.radians(point_deg / 2))
+        if tip - point < top:
+            raise CadError(
+                f"a {point_deg:g}° point {point:.1f} px long does not fit the "
+                f"{tip - top:.1f} px the tool is drawn"
+            )
+        outline = [(left, top), (left, tip - point), (cx, tip), (right, tip - point)]
+        return _path([*outline, (right, top), *breaks])
+    corner = tip - _ROUND_RISE * width
+    if corner < top:
+        raise CadError(
+            f"a round end {_ROUND_RISE * width:.1f} px deep does not fit the "
+            f"{tip - top:.1f} px the tool is drawn"
+        )
+    # Up the right side, across the top, down the left, then the arc under
+    # it back to the right.
+    outline = [(right, corner), (right, top), *breaks, (left, top), (left, corner)]
+    return _path(outline, _end_arc(right, corner, width / 2))
+
+
+def _rod(groups: Groups, tip: float, outward: int, cy: float, width: float) -> None:
+    """The work stop's rod from above, its diameter ``width`` to scale, on
+    the line ``cy``: its tip at ``tip`` (its square end, drawn round, touching
+    there), reaching in from its post beside the vise on the ``outward`` side
+    (-1 left, +1 right); drawn out to a break line, the post not drawn
+    (where it stands on the table is not on record)."""
+    end = tip + outward * _ROD_OUT
+    low, high = cy - width / 2, cy + width / 2
+    shoulder = tip + outward * _ROUND_RISE * width
+    rise = _ROUND_RISE * width
+    # The end face's near half bulges toward the blank, sweeping from the
+    # high edge to the low one through the tip.
+    sweep = 0 if outward < 0 else 1
+    arc = f"A{rise:.1f} {width / 2:.1f} 0 0 {sweep} {shoulder:.1f} {low:.1f}"
+    # The break line's teeth stand off the rod's end, away from the blank.
+    if outward > 0:
+        teeth = _zigzag(end, low, end, high)
+    else:
+        teeth = list(reversed(_zigzag(end, high, end, low)))
+    groups["stop-rod"].append(
+        _path([(shoulder, low), (end, low), *teeth, (end, high), (shoulder, high)], arc)
+    )
+    groups["centre-line"].append(_line(tip - outward * 6, cy, end, cy))
+
+
+def _stop_label(groups: Groups, x: float, y: float, face: str) -> float:
+    """The work stop named once, in the first picture that draws it: what the
+    rod is and when it is set. Returns the bottom of the text."""
+    lines = [
+        "work stop: Ø{{process.stop_rod_dia_mm:in.3dot}} rod from its post",
+        "beside the vise; drawn back for the",
+        f"touch-offs, then set on {face}",
+    ]
+    for index, line in enumerate(lines):
+        _label(groups, x, y + 16 * index, line, "start")
+    return y + 16 * (len(lines) - 1)
+
+
+def _passes(
+    groups: Groups,
+    left: float,
+    right: float,
+    edge: float,
+    s: float,
+    parameters: dict,
+    across: float,
+) -> None:
+    """From above: the end mill on the pass the picture shows, its direction
+    (the first pass runs toward +X, then they alternate) and the stepover
+    toward the moving jaw (down the page). ``edge`` is the fixed-jaw edge's
+    page y."""
+    inside, step, index, count = _shown_pass(parameters, across)
+    radius = _param(parameters, "face_cutter_dia_mm") / 2 * s
+    y = edge + inside * s
+    groups["cutter"].append(_el("circle", cx=(left + right) / 2, cy=y, r=radius))
+    start, end = (left, right) if index % 2 == 0 else (right, left)
+    path = [(start, y), (end, y)]
+    if index < count - 1:
+        path.append((end, y + step * s))
+    groups["arrow"].append(
+        _el(
+            "polyline",
+            points=" ".join(f"{x:.1f},{y:.1f}" for x, y in path),
+            fill="none",
+        )
+    )
+
+
+def _both_halves() -> tuple[tuple[str, dict, dict], tuple[str, dict, dict]]:
+    """A family plan's one front and one back, each its part id, values and
+    parameters, for a picture that draws both (``data-halves="both"``): the
+    same picture whichever part it is drawn for."""
+    halves: dict[str, tuple[str, dict, dict]] = {}
+    for part, (cad, parameters) in (_family.get() or {}).items():
+        half = cad.values.get("half") if cad is not None else None
+        if half not in ("front", "back"):
+            continue
+        if half in halves:
+            raise CadError(
+                f'clamp-half: data-halves="both" draws one {half}, but parts '
+                f"{halves[half][0]!r} and {part!r} are both one"
+            )
+        halves[half] = (part, cad.values, parameters)
+    if set(halves) != {"front", "back"}:
+        raise CadError(
+            'clamp-half: data-halves="both" needs a family plan with a front and a back'
+        )
+    return halves["front"], halves["back"]
+
+
+@contextmanager
+def _drawing(groups: Groups, part: str):
+    """Draw one half of a both-halves picture: its labels measured as that
+    family part's, and once drawn its ``{{cad.KEY}}`` and ``{{process.KEY}}``
+    tokens bound to it, whichever part the picture is drawn for. Yields each
+    role's count before it."""
+    marks = {role: len(items) for role, items in groups.items()}
+    token = _binding.set(_family.get()[part])
+    try:
+        yield marks
+    finally:
+        _binding.reset(token)
+    _qualify_since(groups, marks, part)
+
+
+def _since(groups: Groups, marks: dict[str, int]):
+    """Every (role, index) drawn since ``marks``, each role's count then."""
+    for role, items in groups.items():
+        for index in range(marks.get(role, 0), len(items)):
+            yield items, index
+
+
+def _shift_since(groups: Groups, marks: dict[str, int], dy: float) -> None:
+    """Move every element drawn since ``marks`` ``dy`` px down the page,
+    before any transform of its own."""
+    for items, index in _since(groups, marks):
+        tag, attrs, text = items[index]
+        move = f"translate(0 {dy:.1f})"
+        if "transform" in attrs:
+            move = f"{move} {attrs['transform']}"
+        items[index] = (tag, {**attrs, "transform": move}, text)
+
+
+def _qualify_since(groups: Groups, marks: dict[str, int], part: str) -> None:
+    """Bind the ``{{cad.KEY}}`` and ``{{process.KEY}}`` tokens drawn since
+    ``marks`` to the family's ``part``, whichever part the picture is drawn
+    for."""
+    for items, index in _since(groups, marks):
+        tag, attrs, text = items[index]
+        if text and "{{" in text:
+            for namespace in ("cad", "process"):
+                text = text.replace(f"{{{{{namespace}.", f"{{{{{namespace}.{part}.")
+            items[index] = (tag, attrs, text)
+
+
 def _half(
     groups: Groups,
     values: dict,
@@ -150,9 +437,12 @@ def _half(
     up: str,
     work: str,
     end: str | None,
+    stop: str | None,
+    which: str | None = None,
 ) -> Layout:
-    """One half in the vise, seen along the jaws, with a plan from above
-    for the lying holds."""
+    """One half in the vise, seen along the jaws (from the low X end, the
+    fixed jaw at the left), with a plan from above; ``which`` names the half
+    under the plan's heading when a picture draws both."""
     if work not in _HALF[up]:
         raise CadError(
             f"clamp-half: with data-up {up!r}, data-work must be one of "
@@ -195,9 +485,18 @@ def _half(
     rise = _param(parameters, rest) * s
     jaw = _param(parameters, "vise_jaw_height_mm") * s
     centre = 130.0
+    # The tool standing on the part, px above its top: the end mill its
+    # whole stick-out; a drill, or the tap guide over the tap's wrench,
+    # drawn short to a break line.
+    if work == "tap":
+        reach = _WRENCH_GAP + _WRENCH + _guide_point(parameters, s) + _SHORT
+    elif work == "drill":
+        reach = _SHORT
+    else:
+        reach = _param(parameters, "half_mill_projection_mm") * s
     # To scale above the vise bed; only the top of the vise is drawn when
     # the parallels are tall, cut off below the seat.
-    bed = 120.0 + max(jaw, rise + tall * s)
+    bed = 60.0 + reach + max(jaw, rise + tall * s)
     seat = bed - rise
     cut = min(bed, seat + 50)
     left, right = centre - across * s / 2, centre + across * s / 2
@@ -209,6 +508,14 @@ def _half(
         _rect(left - _JAW, bed - jaw, _JAW, cut - bed + jaw),
         _rect(right, bed - jaw, _JAW, cut - bed + jaw),
     ]
+    _label(
+        groups,
+        left - _JAW / 2,
+        bed - jaw + 16,
+        "fixed",
+        "middle",
+        **{"class": "label-on-clamp"},
+    )
     groups["fixture-support"] += [
         _rect(left, seat, thick, cut - seat),
         _rect(right - thick, seat, thick, cut - seat),
@@ -227,11 +534,14 @@ def _half(
         (left + thick / 2, (seat + cut) / 2, ["parallels against", "the jaws"]),
         (right + _JAW / 2, (bed - jaw + cut) / 2, grip),
     ]
-    if work in ("face", "face-off") or up == "outside" and work == "drill":
+    if work in ("face", "face-off"):
         # The layer this face loses, schematic, on top of what is kept.
         groups["part-removed"].append(_rect(left, top - _REMOVED, across * s, _REMOVED))
         groups["active-face"].append(_line(left, top, right, top))
-        groups["cutter"].append(_rect(centre - 30, top - _REMOVED - 48, 60, 42))
+        # The end mill on the pass the plan view shows, over the part.
+        inside = _shown_pass(parameters, across)[0]
+        cutter = _param(parameters, "face_cutter_dia_mm") * s
+        groups["cutter"].append(_tool(left + inside * s, cutter, top, top - reach))
         texts = {
             "end": ["face square,", "just clean"]
             if end == "first"
@@ -256,45 +566,122 @@ def _half(
                 "face {{cad.grip_offset_min_in:.3dot}}–{{cad.grip_offset_max_in:.3dot}} off,",
                 "to depth {{cad.depth_min_in:.3dot}}–{{cad.depth_max_in:.3dot}}",
             ]
-        items.append((centre + 30, top - _REMOVED / 2, text))
+        # On the face beside the cutter, not under it.
+        free = left + 6 if inside > across / 2 else right - 6
+        items.append((free, top - _REMOVED / 2, text))
+    # Bottom face on the fixed jaw: the face up looking toward +X puts the
+    # near side at the right.
+    mirror = up in ("mating", "outside") and (values.get("half") == "front") == (
+        up == "outside"
+    )
+    if stop is not None:
+        # The rod would stand across or behind the part seen along the jaws:
+        # left out of this view, and said so under its title.
+        _label(groups, 40, 44, "work stop rod not shown (see from above)", "start")
     if up == "outside":
         # An ear hole through the depth, at its height from the fixed jaw.
         hole = _cad(values, "ear_dia_in") * 25.4 * s
         middle = left + _cad(values, "ear_height_mm") * s
         groups["hidden"].append(_rect(middle - hole / 2, top, hole, tall * s))
         if work == "tap":
-            tool = top - 50
-            groups["cutter"].append(
-                _rect(middle - hole / 2, tool, hole, 50 + tall * s / 3)
-            )
-            groups["part-rest"].append(_rect(middle - 50, tool - 9, 100, 9))
+            # The tap at its thread's major diameter, its point where the
+            # plan stops it; its wrench (size not on record) a little above
+            # the face, drawn as the tool since it turns with the tap; the
+            # tap guide's point in the wrench's centre hole and its body,
+            # both at their own diameters, drawn short.
+            tip = top + _param(parameters, "tap_point_depth_mm") * s
+            wrench = top - _WRENCH_GAP
+            thread = _cad(values, "ear_thread_major_mm") * s
+            groups["cutter"] += [
+                _tool(middle, thread, tip, wrench),
+                _rect(middle - 50, wrench - _WRENCH, 100, _WRENCH),
+            ]
+            point = _param(parameters, "tap_guide_point_dia_mm") * s
+            seat_y = wrench - _WRENCH
+            body = seat_y - _guide_point(parameters, s)
+            groups["cutter"] += [
+                _tool(middle, point, seat_y, body, _GUIDE_POINT_DEG),
+                _tool(
+                    middle,
+                    _param(parameters, "tap_guide_dia_mm") * s,
+                    body,
+                    body - _SHORT,
+                    broken=True,
+                ),
+            ]
             text = ["{{cad.ear_thread}} by hand,", "through, centre on top"]
         else:
+            if work == "drill":
+                # The ear drill at the hole's own diameter, its point where
+                # the plan puts it below the stacks' top, drawn short above
+                # the face.
+                tip = seat - _process(parameters, "drill_tip_height_mm") * s
+                groups["cutter"].append(
+                    _tool(middle, hole, tip, top - reach, _DRILL_POINT_DEG, broken=True)
+                )
             text = _ear_text(values, drill=True)
         items.append((middle - hole / 2, top + tall * s / 2, text))
     low = _callouts(groups, items, cut + 24, above=False)
     if up == "end":
-        return _finish(groups, low)
-    # Bottom face on the fixed jaw: the face up looking toward +X puts the
-    # near side at the right.
-    mirror = up in ("mating", "outside") and (values.get("half") == "front") == (
-        up == "outside"
-    )
-    return _plan(groups, values, up, work, across, low, mirror)
+        return _finish(groups, max(low, _upright_plan(groups, parameters, stop)))
+    return _plan(groups, values, parameters, up, work, across, low, mirror, stop, which)
+
+
+def _guide_point(parameters: dict, s: float) -> float:
+    """The tap guide's point drawn out of its body, px: its whole 60° cone
+    at the point's diameter, and at least _GUIDE_POINT."""
+    cone = _param(parameters, "tap_guide_point_dia_mm") * s / 2
+    return max(_GUIDE_POINT, cone / math.tan(math.radians(_GUIDE_POINT_DEG / 2)))
+
+
+def _upright_plan(groups: Groups, parameters: dict, stop: str | None) -> float:
+    """From above, beside the upright blank: the square between the jaws,
+    X0 Y0 on its axis, the facing pass and the work stop on the left face.
+    Returns the view's bottom."""
+    s = _S
+    side = _section(parameters) * s
+    x0, y0 = 470.0, 110.0
+    _label(groups, 380, 72, "From above:", "start", **{"class": "title"})
+    groups["clamp"] += [
+        _rect(x0 - 20, y0 - 18, side + 40, 18),
+        _rect(x0 - 20, y0 + side, side + 40, 18),
+    ]
+    _label(groups, x0 + side + 26, y0 - 4, "fixed jaw", "start")
+    groups["part-kept"].append(_rect(x0, y0, side, side))
+    cx, cy = x0 + side / 2, y0 + side / 2
+    groups["datum"] += [
+        _line(cx, cy - 14, cx, cy + 14),
+        _line(cx - 14, cy, x0 + side + 22, cy),
+    ]
+    _datum_label(groups, x0 + side + 26, cy + 5, "X0 Y0: axis", "start")
+    _passes(groups, x0, x0 + side, y0, s, parameters, _section(parameters))
+    bottom = y0 + side + 18
+    if stop is not None:
+        rod = _param(parameters, "stop_rod_dia_mm") * s
+        _rod(groups, x0, -1, cy, rod)
+        if stop == "rod-labelled":
+            bottom = _stop_label(groups, x0 - _ROD_OUT, y0 + side + 44, "the LEFT face")
+    return bottom
 
 
 def _plan(
     groups: Groups,
     values: dict,
+    parameters: dict,
     up: str,
     work: str,
     across: float,
     low: float,
     mirror: bool,
+    stop: str | None,
+    which: str | None = None,
 ) -> Layout:
     """From above: the width along the jaws, the near side at the left, or at
-    the right when ``mirror``, the stations measured from it."""
-    _label(groups, 40, low + 34, "From above:", "start", **{"class": "title"})
+    the right when ``mirror``, the stations measured from it; the work stop's
+    rod on the near side when ``stop``. ``which`` names the half under the
+    heading when a picture draws both."""
+    heading = f"From above, {which}:" if which else "From above:"
+    _label(groups, 40, low + 34, heading, "start", **{"class": "title"})
     s = 6.0
     # Mirrored, the jaw label sits left of the part: room for it on the page.
     x0 = 210.0 if mirror else 150.0
@@ -321,6 +708,27 @@ def _plan(
         "start" if mirror else "end",
     )
     groups["datum"].append(_line(near, y0 - 22, near, y0 + deep + 22))
+    bottom = y0 + deep + 40
+    if stop is not None:
+        rod = _param(parameters, "stop_rod_dia_mm") * s
+        _rod(groups, near, 1 if mirror else -1, y0 + deep / 2, rod)
+        if stop == "rod-labelled":
+            bottom = _stop_label(groups, x0, y0 + deep + 40, "the N end") + 14
+    if work in ("tap", "drill"):
+        # The tap (its thread's major diameter) or the drill (the hole's) in
+        # the near hole, where the program goes first.
+        key = "ear_thread_major_mm" if work == "tap" else None
+        dia = _cad(values, key) if key else _cad(values, "ear_dia_in") * 25.4
+        groups["cutter"].append(
+            _el(
+                "circle",
+                cx=at("ear_near_x_mm"),
+                cy=y0 + _cad(values, "ear_height_mm") * s,
+                r=dia * s / 2,
+            )
+        )
+    else:
+        _passes(groups, x0, x0 + wide, y0, s, parameters, across)
     # The jaw label goes at the end away from the near side.
     other = x0 if mirror else x0 + wide
     if up in ("mating", "outside"):
@@ -345,7 +753,7 @@ def _plan(
             y0,
             "{{cad.width_min_in:.2dot}}–{{cad.width_max_in:.2dot}}",
         )
-        return _finish(groups, y0 + deep + 40)
+        return _finish(groups, bottom)
     hole = _cad(values, "ear_dia_in") * 25.4 * s
     ear_y = y0 + _cad(values, "ear_height_mm") * s
     first, second = at("ear_near_x_mm"), at("ear_far_x_mm")
@@ -364,7 +772,7 @@ def _plan(
         witness=(other, second),
         place=DimText.ALONG_LEFT if mirror else DimText.RIGHT,
     )
-    return _finish(groups, y0 + deep + 40)
+    return _finish(groups, bottom)
 
 
 # The drawing gives the bore as a reference size with a sliding fit on the
@@ -540,10 +948,32 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
         x = bore + side * station
         groups["hidden"].append(_rect(x - shank / 2, face - length, shank, length))
         groups["part-rest"].append(_rect(x - head / 2, face, head, rise))
-    # The block between the heads, shortened, then the moving jaw.
+    # The block between the heads, drawn short to a break line (it is
+    # spacer_block_length_mm across the jaws), then the moving jaw.
     block = _param(parameters, "spacer_block_width_mm") * s
     stub = 70.0
-    groups["fixture-support"].append(_rect(bore - block / 2, face, block, stub))
+    a, b = bore - block / 2, bore + block / 2
+    mid = face + stub / 2
+    groups["fixture-support"] += [
+        _path(
+            [
+                (a, face),
+                (b, face),
+                (b, mid - 4),
+                *_zigzag(b, mid - 4, a, mid - 4),
+                (a, mid - 4),
+            ]
+        ),
+        _path(
+            [
+                (a, mid + 4),
+                *_zigzag(a, mid + 4, b, mid + 4),
+                (b, mid + 4),
+                (b, face + stub),
+                (a, face + stub),
+            ]
+        ),
+    ]
     groups["clamp"].append(_rect(x0 - 24, face + stub, wide + 48, 22))
     # Parallels under the pair: along the front against the block, and
     # along the back against the fixed jaw, stopped short of the bore when
@@ -560,7 +990,28 @@ def _pair(groups: Groups, values: dict, parameters: dict) -> Layout:
         _rect(x0 - 16, y0, end - x0 + 16, thick),
     ]
     groups["part-removed"].append(_el("circle", cx=bore, cy=split, r=radius))
-    groups["cutter"].append(_el("circle", cx=bore + radius - 22, cy=split, r=22))
+    # The end mill to scale at the helix's +X start, on the bore's wall;
+    # it climbs (G3, counterclockwise from above).
+    cutter = _param(parameters, "face_cutter_dia_mm") * s / 2
+    if cutter >= radius:
+        raise CadError(
+            "clamp-half: the pair's end mill (process.face_cutter_dia_mm) must be "
+            "smaller than the bore it interpolates"
+        )
+    groups["cutter"].append(
+        _el("circle", cx=bore + radius - cutter, cy=split, r=cutter)
+    )
+    path = radius - cutter
+    start, finish = math.radians(30), math.radians(150)
+    groups["arrow"].append(
+        _el(
+            "path",
+            d=f"M{bore + path * math.cos(start):.1f} {split - path * math.sin(start):.1f} "
+            f"A{path:.1f} {path:.1f} 0 0 0 "
+            f"{bore + path * math.cos(finish):.1f} {split - path * math.sin(finish):.1f}",
+            fill="none",
+        )
+    )
     groups["centre-line"] += [
         _line(bore, y0 - 34, bore, face + 10),
         _line(x0 - 30, split, x0 + wide + 30, split),
@@ -640,6 +1091,24 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     work = root.attrib.pop("data-work", None)
     end = root.attrib.pop("data-end", None)
     bored = root.attrib.pop("data-bored", "yes")
+    stop = root.attrib.pop("data-stop", None)
+    halves = root.attrib.pop("data-halves", None)
+    if halves not in (None, "both"):
+        raise CadError(f'clamp-half: data-halves must be "both", not {halves!r}')
+    if halves and not (
+        (step == "inspect" and bored == "yes")
+        or (step == "half" and up == "mating" and work == "face")
+    ):
+        raise CadError(
+            'clamp-half: data-halves="both" goes with the inspect step or the '
+            "mating face's half step"
+        )
+    if stop not in (None, *_STOPS):
+        raise CadError(
+            f"clamp-half: data-stop must be one of {', '.join(_STOPS)}, not {stop!r}"
+        )
+    if stop is not None and step != "half":
+        raise CadError("clamp-half: data-stop goes with the half step (the vise holds)")
     if step not in _TITLES:
         raise CadError(
             f"clamp-half: data-step must be one of {', '.join(_TITLES)}, not {step!r}"
@@ -652,9 +1121,24 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
     title = _TITLES[step]
     if bored == "no":
         title = "Half before the bore, down its axis and at its mating face"
+    if halves and step == "inspect":
+        title = "Finished front and back, down the bore and at the outside face"
     _title(groups, 40, 24, title)
     if step == "saw":
         return _saw(groups, parameters)
+    if step == "inspect" and halves:
+        # The front, then the back below it: one box for both, each text
+        # bound to its own half.
+        (front_id, front, _), (back_id, back, _) = _both_halves()
+        with _drawing(groups, front_id):
+            view, _ = _inspect(groups, front, True)
+            _label(groups, 40, 60, "FRONT", "start", font_weight="700")
+        dy = view["height"] - 30
+        with _drawing(groups, back_id) as marks:
+            view, _ = _inspect(groups, back, True)
+            _label(groups, 40, 60, "BACK", "start", font_weight="700")
+        _shift_since(groups, marks, dy)
+        return _view(height=view["height"] + dy), groups
     if step == "inspect":
         return _inspect(groups, values, bored == "yes")
     if step == "pair":
@@ -663,7 +1147,28 @@ def _clamp_half(values: dict, parameters: dict, root: ElementTree.Element) -> La
         raise CadError(
             f"clamp-half: the half step needs data-up ({', '.join(_HALF)}), not {up!r}"
         )
-    return _half(groups, values, parameters, up, work, end)
+    if halves:
+        # One view along the jaws (the same for each half), then each half
+        # from above, where they differ: the front, then the back below it,
+        # each text bound to its own half.
+        (front_id, front, front_p), (back_id, back, back_p) = _both_halves()
+        with _drawing(groups, front_id):
+            view, _ = _half(groups, front, front_p, up, work, end, stop, "a front")
+        with _drawing(groups, back_id):
+            layout = _plan(
+                groups,
+                back,
+                back_p,
+                up,
+                work,
+                _cad(back, "height_mm"),
+                view["height"] - 40,
+                (back.get("half") == "front") == (up == "outside"),
+                "rod" if stop else None,
+                "a back",
+            )
+        return layout
+    return _half(groups, values, parameters, up, work, end, stop)
 
 
 CLAMP_LAYOUTS = {"clamp-half": _clamp_half}
