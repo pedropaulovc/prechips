@@ -35,19 +35,23 @@ chamfers a setup with ``chamfer`` cuts (all by default); ``data-chuck``
 (``3-jaw`` or ``4-jaw``) names the chuck;
 ``data-member`` draws a member on its own bar (the default member when
 omitted or named). Part
-sizes come from the adapter; chuck, jaws, tools, bolt and nut are schematic
-symbols. Material arriving is dashed, material removed in the setup hatched,
-material kept solid, holes made by now dashed as hidden edges.
+sizes come from the adapter; chuck, jaws, lathe bits, bolt and nut are
+schematic symbols. The tailstock tool is drawn to scale (see ``_tailstock``):
+the setup's last tailstock operation's tool at the end of its cut, broken off
+short outside the part. Material arriving is dashed, material removed in the
+setup hatched, material kept solid, holes made by now dashed as hidden edges.
 """
 
 from __future__ import annotations
 
+import math
 from xml.etree import ElementTree
 
 from prechips.cad import CadError
 from prechips.cad_diagrams import Element, Layout, _bound, _cad, _el, _line, _rect
 from prechips.jig_diagrams import _datum_label, _finish, _groups, _param, _title
 from prechips.shaft_diagrams import CHAR, _break, _callouts, _dimension
+from prechips.tool_shapes import _DRILL_POINT_DEG, _tool
 
 Groups = dict[str, list[Element]]
 
@@ -83,6 +87,9 @@ _JAW = 22.0  # schematic jaw depth, px
 _SHIM = 3.0  # shim wrap under regrip jaws, px
 _GAP = 14.0  # an unseated regrip: chuck body behind the part's end, px
 _AXIS = 270.0  # spindle axis, page px
+# The tailstock tool drawn out past the arriving end before its break line,
+# px: its stick-out from the chuck or wrench is not on record.
+_STICK = 60.0
 
 
 def _segments(values: dict, outer: str) -> list[tuple[str, float, float, float]]:
@@ -297,15 +304,99 @@ def _chuck(
         ]
 
 
-def _tailstock(groups: Groups, x: float) -> None:
-    """Drill or tap on the axis from the tailstock, its point at ``x``."""
-    groups["cutter"].append(
-        _el(
-            "path",
-            d=f"M{x:.2f} {_AXIS:.2f}L{x + 8:.2f} {_AXIS - 5:.2f}H{x + 46:.2f}V{_AXIS + 5:.2f}H{x + 8:.2f}Z",
+def _tailstock_tool(
+    values: dict, out: str, token: str, through: float | None
+) -> tuple[float, float, float | None] | None:
+    """The tailstock tool of the ``token`` operation, from the plan's numbers:
+    its diameter (mm), how deep its end stands from the faced out end (mm;
+    a pointed tool's apex, a square-ended one's true end) and its point's
+    included angle (None: square ended). ``through`` is how deep a through
+    hole's drilled full diameter runs (the hidden edges drawn). None: no
+    size on record (the centre drill), drawn schematic."""
+    if token == "drill":
+        # The drill makes the hole: its diameter is the hole's. A through
+        # hole is drilled full diameter as deep as its hidden edges run, a
+        # blind tap drill to its full-diameter depth; the point runs past.
+        if "bore_dia_mm" in values:
+            dia, shoulder = values["bore_dia_mm"], through
+        elif values.get("tap_kind") == "thru":
+            dia, shoulder = values["tap_drill_dia_mm"], through
+        else:
+            dia, shoulder = values["tap_drill_dia_mm"], values["tap_drill_depth_mm"]
+        point = dia / 2 / math.tan(math.radians(_DRILL_POINT_DEG / 2))
+        return dia, shoulder + point, _DRILL_POINT_DEG
+    if token == "ream":
+        # The reamer makes the bore's printed size, through as the drill ran.
+        return values["bore_dia_mm"], through, None
+    if token == "pocket":
+        # Plunged at the pocket's own diameter to its floor.
+        return values["pocket_dia_mm"], values["pocket_depth_mm"], None
+    if token == "tap":
+        # The tap at its thread's basic major diameter; its point where the
+        # plan stops it: a through tap's pencil mark (tap_mark_in, from its
+        # point) at the face, else through as the drill ran; a blind tap at
+        # its bound reach (full thread plus the plan's tap_lead_in), else at
+        # full thread.
+        dia = values["tap_major_mm"]
+        if values.get("tap_kind") == "thru":
+            return dia, values.get("tap_mark_mm", through), None
+        if "tap_reach_in" in values:
+            return dia, values["tap_reach_in"] * 25.4, None
+        return dia, values["tap_thread_depth_mm"], None
+    if token == "countersink":
+        # The countersink's cone to scale: its diameter at the hole's mouth
+        # the plan's csk_dia_in, else the printed max, and its included
+        # angle; the apex that far in from the mouth (the recess floor in a
+        # recess). The cutter's body (not on record) is drawn at that
+        # diameter.
+        name = _countersinks(values, out)[0]
+        dia = values.get("csk_dia_mm", values[f"{name}_dia_max_mm"])
+        angle = values[f"{name}_angle_deg"]
+        mouth = 0.0
+        if out == "far" and "recess" in values[f"{name}_ends"]:
+            mouth = values["recess_depth_mm"]
+        return dia, mouth + dia / 2 / math.tan(math.radians(angle / 2)), angle
+    return None
+
+
+def _tailstock(
+    groups: Groups,
+    page: _Page,
+    x_tail: float,
+    tool: tuple[float, float, float | None] | None,
+) -> tuple[float, float]:
+    """The tailstock tool on the axis at the end of its cut: its diameter to
+    the picture's scale, its end ``tool[1]`` mm in from the faced out end,
+    drawn out past the arriving end and broken off (its stick-out from the
+    chuck or wrench is not on record, nor are they drawn). Returns where a
+    callout lands on it."""
+    if tool is None:
+        # No size on record (the centre drill): a schematic point at the face.
+        x = x_tail + 14
+        groups["cutter"].append(
+            _el(
+                "path",
+                d=f"M{x:.2f} {_AXIS:.2f}L{x + 8:.2f} {_AXIS - 5:.2f}H{x + 46:.2f}"
+                f"V{_AXIS + 5:.2f}H{x + 8:.2f}Z",
+            )
         )
+        return x + 26, _AXIS - 5
+    dia, end, point_deg = tool
+    width = dia * page.scale
+    reach = x_tail - page.x_out + _STICK
+    # Drawn upright about the faced end's centre, then turned to lie along
+    # the axis with its end toward the chuck.
+    element = _tool(
+        page.x_out,
+        width,
+        _AXIS + end * page.scale,
+        _AXIS - reach,
+        point_deg,
+        broken=True,
     )
-    groups["fixture-vise"].append(_rect(x + 46, _AXIS - 14, 34, 28))
+    element[1]["transform"] = f"rotate(90 {page.x_out:.2f} {_AXIS:.2f})"
+    groups["cutter"].append(element)
+    return x_tail + _STICK / 2, _AXIS - width / 2
 
 
 _HOLES = ("bore", "pocket", "tap", "recess")
@@ -353,6 +444,23 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         raise CadError("turned-bush: a squared blank is held in the 4-jaw")
     if "ream" in work and "bore_dia_mm" not in values:
         raise CadError("turned-bush: ream needs the part's bore")
+    if "drill" in work and not ("bore_dia_mm" in values or "tap_thread" in values):
+        raise CadError("turned-bush: drill needs the part's bore or tap")
+    if "pocket" in work and "pocket_dia_mm" not in values:
+        raise CadError("turned-bush: pocket needs the part's pocket")
+    if "tap" in work and "tap_thread" not in values:
+        raise CadError("turned-bush: tap needs the part's tap")
+    # The pocket and a blind tap open on the datum end: the tailstock tool
+    # reaches them only with that end out.
+    blind = "tap_thread" in values and values.get("tap_kind") != "thru"
+    datum_only = {"pocket"} | ({"tap"} if blind else set())
+    if blind and "bore_dia_mm" not in values:
+        datum_only.add("drill")
+    if work & datum_only and out != "datum":
+        raise CadError(
+            f"turned-bush: {', '.join(sorted(work & datum_only))} opens on the"
+            " datum end: it is cut with the datum end out"
+        )
     if "recess" in work and "recess_dia_mm" not in values:
         raise CadError("turned-bush: recess needs the part's recess")
     if "recess" in work and out != "far":
@@ -391,6 +499,8 @@ def _layout(values: dict, parameters: dict, root: ElementTree.Element) -> Layout
         return _inspect(groups, values, outer, datum_label or "Z0 datum end")
     if "drill" in work:
         holes.add("bore" if "bore_dia_mm" in values else "tap")
+    if "ream" in work:
+        holes.add("bore")
     holes |= work & {"pocket", "tap", "recess"}
     names = [seg[0] for seg in _segments(values, outer)]
     turned = set(names)
@@ -600,6 +710,7 @@ def _setup(
                 ["bolt through the bore,", f"in the {chuck} chuck"],
             )
         )
+    run = None
     for index in range(count):
         shift = index * pitch
         groups["part-kept"].append(_profile(page, segments, shift))
@@ -636,20 +747,32 @@ def _setup(
             if "tap" in holes and values.get("tap_kind") == "thru"
             else None
         )
-        if kerf and hold in ("bar", "block") and {"drill", "part"} <= work and through:
+        if not through:
+            continue
+        x_end = page.x(
+            values[f"{through}_z1_mm" if out == "datum" else f"{through}_z0_mm"],
+            shift,
+        )
+        # Where the drilled hole's hidden edges end: a through tap's at the
+        # recess floor when the far end is dished already (as _holes draws).
+        x_hole = x_end
+        dished = "recess" in holes and "recess_z0_mm" in values
+        if through == "tap" and out == "datum" and dished:
+            x_hole = page.x(values["recess_z0_mm"], shift)
+        if kerf and hold in ("bar", "block") and {"drill", "part"} <= work:
             # A through hole is drilled past the parting line: from the
             # hole's chuck-side end it runs on through any regrip allowance
             # and the kerf.
             radius = (
                 values[f"{'bore' if through == 'bore' else 'tap_drill'}_dia_mm"] / 2
             )
-            x_end = page.x(
-                values[f"{through}_z1_mm" if out == "datum" else f"{through}_z0_mm"],
-                shift,
-            )
             x_cut = page.x(beyond, shift) - kerf * scale
             a, b = sorted((x_end, x_cut))
             groups["hidden"].append(_rect(a, page.up(radius), b - a, page.size(radius)))
+            x_hole = a
+        # How deep from the faced end the through hole runs: through every
+        # part out of the jaws.
+        run = (page.x_out - x_hole) / scale
     top_y = page.up(stock)
     if face:
         radius = stock
@@ -742,7 +865,10 @@ def _setup(
         if token in work
     ]
     if hole_work:
-        _tailstock(groups, x_tail + 14)
+        # One moment: the last tailstock operation's tool at the end of its
+        # cut (the holes drawn are as it leaves them).
+        tool = _tailstock_tool(values, out, hole_work[-1], run)
+        anchor = _tailstock(groups, page, x_tail, tool)
         lines = {
             "centre": "centre drill",
             # A reamed bore: the drill opens it under the reamer, which
@@ -764,7 +890,7 @@ def _setup(
         if "ream" in work:
             lines["ream"] = f"ream the Ø{_bore_band(values)} hole"
         head = "tailstock, in turn:" if len(hole_work) > 1 else "tailstock:"
-        above.append((x_tail + 40, _AXIS - 5, [head, *(lines[t] for t in hole_work)]))
+        above.append((*anchor, [head, *(lines[t] for t in hole_work)]))
     if "chamfer" in work and chamfers:
         below.append(
             (

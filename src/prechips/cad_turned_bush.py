@@ -48,6 +48,12 @@ With the plan's round-bar parameters the adapter binds the bar-fed cycle
 (the pitch one part takes off the bar, the stickout for a pull of parts and
 the parts one bar makes); with the squared-blank parameters it binds the
 blank a 4-jaw chuck turns the part from.
+
+A tap binds its thread's basic major diameter (``tap_major_mm``). The plan
+may give a through tap's ``tap_mark_in`` (its pencil mark from the point, fed
+to the face: past the far end, short of the jaws; ``tap_mark_mm``) and the
+countersinks' ``csk_dia_in`` (the diameter fed to at the hole's mouth: over
+the hole, inside each printed max; ``csk_dia_mm``).
 """
 
 import math
@@ -69,6 +75,7 @@ from .cad import (
     _read_manifest,
     _required,
     _string,
+    inch_thread,
 )
 
 _AXES = "xyz"
@@ -498,7 +505,16 @@ def _tap_thru(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
     values["tap_thread"] = _string(item.get("thread"), "tap.thread")
     band = _limits(item, "dia", "tap", "tap_drill_dia", values)
     values["tap_drill_dia_mm"] = _nominal(item, "nominal_dia", band, "tap")
+    _tap_major(values, band)
     values["tap_kind"] = "thru"
+
+
+def _tap_major(values: dict, drill: tuple[float, float]) -> None:
+    """The tap's thread's basic major diameter, over its drill's band."""
+    major = inch_thread(values["tap_thread"], "tap.thread")[0]
+    if drill[1] >= major:
+        raise CadError("tap.dia: the tap drill reaches the thread's major diameter")
+    values["tap_major_mm"] = major
 
 
 def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
@@ -517,6 +533,7 @@ def _tap(item: dict, frame: tuple, values: dict, parameters: dict) -> None:
     values["tap_thread"] = _string(item.get("thread"), "tap.thread")
     band = _limits(item, "dia", "tap", "tap_drill_dia", values)
     values["tap_drill_dia_mm"] = _nominal(item, "nominal_dia", band, "tap")
+    _tap_major(values, band)
     drill = _limits(item, "drill_depth", "tap", "tap_drill_depth", values)
     thread = _limits(item, "thread_depth", "tap", "tap_thread_depth", values)
     values["tap_drill_depth_mm"] = _nominal(item, "drill_depth_nominal", drill, "tap")
@@ -867,6 +884,54 @@ def _block(values: dict, parameters: dict, least_bar: float) -> list:
     ]
 
 
+def _csk_dia(parameters: dict, values: dict) -> None:
+    """The plan's countersink diameter at the hole's mouth (the size it
+    feeds to): over each countersink's hole and inside its printed max."""
+    if not values["countersinks"]:
+        raise CadError("process.csk_dia_in: the part has no countersink")
+    dia = _positive(parameters["csk_dia_in"], "process.csk_dia_in") * 25.4
+    for name in values["countersinks"]:
+        hole = values[f"{name}_edge_of"]
+        band = values["bore_dia_band_mm" if hole == "bore" else "tap_drill_dia_band_mm"]
+        least, most = band[1] + _TOLERANCE, values[f"{name}_dia_max_mm"] + _TOLERANCE
+        if not least < dia <= most:
+            raise CadError(
+                f"process.csk_dia_in: {dia:.3f} mm is not over the {hole}'s"
+                f" {band[1]:.3f} mm and inside {name}'s"
+                f" {values[f'{name}_dia_max_mm']:.3f} mm max"
+            )
+    values["csk_dia_mm"] = dia
+
+
+def _tap_mark(parameters: dict, values: dict) -> None:
+    """The plan's through tap's pencil mark from its point, fed to a part's
+    faced end: its point passes the longest part's far end (full thread
+    through) and stops short of the jaws from the chuck-side part of a pull,
+    the nearest to them."""
+    if "tap_thread" not in values:
+        raise CadError("process.tap_mark_in: the part has no tap")
+    if values["tap_kind"] != "thru":
+        raise CadError("process.tap_mark_in: a blind tap stops at its reach")
+    mark = _positive(parameters["tap_mark_in"], "process.tap_mark_in") * 25.4
+    longest = values.get("length_band_mm", [values["length_mm"]] * 2)[1]
+    if mark <= longest + _TOLERANCE:
+        raise CadError(
+            f"process.tap_mark_in: the tap's point {mark:.3f} mm in does not"
+            f" pass the longest part's {longest:.3f} mm"
+        )
+    if "jaw_z_mm" in values:
+        # The first part's faced end is Z0; each later part of the pull is
+        # faced a pitch nearer the jaw fronts.
+        later = (_count(parameters, "parts_per_pull") - 1) * values["pitch_mm"]
+        jaws = -values["jaw_z_mm"] - later
+        if mark >= jaws - _TOLERANCE:
+            raise CadError(
+                f"process.tap_mark_in: the tap's point {mark:.3f} mm in reaches"
+                f" the jaws {jaws:.3f} mm from the last part's faced end"
+            )
+    values["tap_mark_mm"] = mark
+
+
 def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     """Bind the part's length, diameters, bore, pocket, tap and chamfers."""
     raw, values, features = _read_manifest(path, part, "turned_bush")
@@ -955,6 +1020,8 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
         elif name.startswith("countersink"):
             _countersink(features[name], name, features, values)
     values["countersinks"] = sorted(n for n in features if n.startswith("countersink"))
+    if "csk_dia_in" in parameters:
+        _csk_dia(parameters, values)
     # Every feature: one listing a control it cannot carry (a bore's runout,
     # say) is refused rather than dropped.
     for name in sorted(features):
@@ -979,4 +1046,6 @@ def load_turned_bush(path: Path, parameters: dict, part: str) -> CadData:
     if supplied and "stock_dia_mm" not in values:
         raise CadError("process.as_supplied: needs round bar")
     requirement = StockRequirement("in", tuple(axes)) if axes else None
+    if "tap_mark_in" in parameters:
+        _tap_mark(parameters, values)
     return CadData(values, requirement, path.resolve())
