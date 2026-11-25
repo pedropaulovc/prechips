@@ -893,7 +893,8 @@ def _csk_dia(parameters: dict, values: dict) -> None:
     for name in values["countersinks"]:
         hole = values[f"{name}_edge_of"]
         band = values["bore_dia_band_mm" if hole == "bore" else "tap_drill_dia_band_mm"]
-        if not band[1] < dia <= values[f"{name}_dia_max_mm"] + _TOLERANCE:
+        least, most = band[1] + _TOLERANCE, values[f"{name}_dia_max_mm"] + _TOLERANCE
+        if not least < dia <= most:
             raise CadError(
                 f"process.csk_dia_in: {dia:.3f} mm is not over the {hole}'s"
                 f" {band[1]:.3f} mm and inside {name}'s"
@@ -903,26 +904,31 @@ def _csk_dia(parameters: dict, values: dict) -> None:
 
 
 def _tap_mark(parameters: dict, values: dict) -> None:
-    """The plan's through tap's pencil mark from its point, fed to the faced
-    end: its point passes the longest part's far end (full thread through)
-    and stops short of the jaws."""
+    """The plan's through tap's pencil mark from its point, fed to a part's
+    faced end: its point passes the longest part's far end (full thread
+    through) and stops short of the jaws from the chuck-side part of a pull,
+    the nearest to them."""
     if "tap_thread" not in values:
         raise CadError("process.tap_mark_in: the part has no tap")
     if values["tap_kind"] != "thru":
         raise CadError("process.tap_mark_in: a blind tap stops at its reach")
     mark = _positive(parameters["tap_mark_in"], "process.tap_mark_in") * 25.4
     longest = values.get("length_band_mm", [values["length_mm"]] * 2)[1]
-    if mark <= longest:
+    if mark <= longest + _TOLERANCE:
         raise CadError(
             f"process.tap_mark_in: the tap's point {mark:.3f} mm in does not"
             f" pass the longest part's {longest:.3f} mm"
         )
-    # From the faced end (Z0) to the jaw fronts.
-    if "jaw_z_mm" in values and mark >= -values["jaw_z_mm"]:
-        raise CadError(
-            f"process.tap_mark_in: the tap's point {mark:.3f} mm in reaches the"
-            f" jaws {-values['jaw_z_mm']:.3f} mm from the faced end"
-        )
+    if "jaw_z_mm" in values:
+        # The first part's faced end is Z0; each later part of the pull is
+        # faced a pitch nearer the jaw fronts.
+        later = (_count(parameters, "parts_per_pull") - 1) * values["pitch_mm"]
+        jaws = -values["jaw_z_mm"] - later
+        if mark >= jaws - _TOLERANCE:
+            raise CadError(
+                f"process.tap_mark_in: the tap's point {mark:.3f} mm in reaches"
+                f" the jaws {jaws:.3f} mm from the last part's faced end"
+            )
     values["tap_mark_mm"] = mark
 
 
