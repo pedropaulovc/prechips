@@ -5,6 +5,7 @@ import re
 import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cache
 from html import escape
 from importlib import metadata
 from math import floor, isfinite
@@ -153,10 +154,11 @@ def _standing(shop: dict, where: str) -> dict:
     return page | {"notes": blocks}
 
 
-def load_standing(path: Path) -> dict:
-    """The standing page of the shop file or directory at ``path``."""
-    shop, _ = load_shop(path)
-    return _standing(shop, f"shop {path}") | {"project": _project(shop)}
+def load_standing(path: Path) -> tuple[dict, list[Path]]:
+    """The standing page of the shop file or directory at ``path``, and the
+    shop files it was read from."""
+    shop, files = load_shop(path)
+    return _standing(shop, f"shop {path}") | {"project": _project(shop)}, files
 
 
 def _project(shop: dict) -> str:
@@ -171,6 +173,7 @@ def _project(shop: dict) -> str:
     return _text(sheet, "project", "shop.sheet")
 
 
+@cache
 def _version() -> str:
     try:
         return metadata.version("prechips")
@@ -179,7 +182,11 @@ def _version() -> str:
 
 
 def _css_string(text: str) -> str:
-    return '"' + " ".join(text.replace("\\", "\\\\").replace('"', '\\"').split()) + '"'
+    """A CSS string inside ``<style>``: ``\\`` and ``"`` escaped, and ``<``
+    as the six-digit CSS escape ``\\00003c`` (no terminating space needed),
+    so no ``</style`` closes the element early."""
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("<", "\\00003c")
+    return '"' + " ".join(escaped.split()) + '"'
 
 
 def _running(top_left: str, top_right: str, bottom_left: str) -> str:
@@ -215,9 +222,14 @@ def _identity(loaded: "LoadedPlan", part: str | None = None) -> str:
         not {"part", "drawing_number", "revision"} <= value.keys() for value in values
     ):
         return f"{plan['part']} · REV {plan['revision']}"
-    parts = " · ".join(f"{v['part']} {v['drawing_number']}" for v in values)
-    revisions = ", ".join(dict.fromkeys(v["revision"] for v in values))
-    return f"{parts} · REV {revisions}"
+    revisions = dict.fromkeys(v["revision"] for v in values)
+    if len(revisions) == 1:
+        parts = " · ".join(f"{v['part']} {v['drawing_number']}" for v in values)
+        return f"{parts} · REV {next(iter(revisions))}"
+    # Parts at different revisions: each carries its own.
+    return " · ".join(
+        f"{v['part']} {v['drawing_number']} REV {v['revision']}" for v in values
+    )
 
 
 def _cutting_settings(table: dict, where: str) -> None:
@@ -655,6 +667,7 @@ def load_plan(path: Path) -> LoadedPlan:
     if "shop" in plan:
         shop_path = (path.parent / _text(plan, "shop", "plan")).resolve()
         shop, shop_files = load_shop(shop_path)
+        _project(shop)
         plan.pop("shop")
     material_key = _text(plan, "material_key", "plan", optional=True)
     plan.pop("material_key", None)
@@ -1005,7 +1018,9 @@ th:last-child, td:last-child { padding-right: 0; }
 .setup-top > dl { flex: 1 1 2.8in; }
 .setup-top > .setup-diagram { flex: 0 0 auto; max-width: 100%; }
 .setup-top > .setup-diagram img { width: auto; max-width: 100%; }
-.op-feed { float: right; margin-left: 0.15in; }
+.setup-top > .setup-diagram[data-wide] { flex: 1 1 100%; }
+.setup-top > .setup-diagram[data-wide] img { width: 100%; }
+.op-feed { float: right; max-width: 50%; margin-left: 0.15in; }
 .operations { table-layout: fixed; }
 .op-column { width: 6%; }
 .work-column { width: 65%; }
@@ -1271,6 +1286,13 @@ def _diagram_html(
     # picture stands outside the table, where break-inside holds.
     boxed = caption and "op-picture" in figure_class.split()
     whole = ' style="display: inline-block; width: 100%"' if boxed else ""
+    # A setup picture whose SVG has no width and height of its own (a viewBox
+    # only) has no natural size to stand beside the setup's facts at: it
+    # spans the column below them, as every picture did before they stood
+    # side by side.
+    unsized = root.get("width") is None or root.get("height") is None
+    if unsized and "op-picture" not in figure_class.split():
+        whole += " data-wide"
     figure = (
         f'<figure class="{figure_class}"{whole}>{named}'
         f'<img src="data:image/svg+xml;base64,{image}" alt="{alt}">'

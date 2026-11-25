@@ -556,4 +556,32 @@ def test_the_standing_page_prints_once_and_each_sheet_points_to_it(tmp_path):
         tmp_path, text, SHOP + STANDING.replace("[sheet]", "[sheet]\nx = 1")
     )
     with pytest.raises(PlanError, match="shop.sheet"):
-        render_traveler(load_plan(plan))
+        load_plan(plan)
+
+
+def test_running_text_cannot_close_the_style_element(tmp_path):
+    # Codjiflo, prechips#604: page-margin text sits in a CSS string inside
+    # <style>, a raw-text element any "</style" closes.
+    shared = SHOP + STANDING.replace(
+        "project = 'The \"Harmonic\" Analyzer'",
+        "project = 'A </style><script>x()</script> < b'",
+    )
+    plan, shop, _ = prepare(tmp_path, PLAN, shared)
+    out = tmp_path / "standing.html"
+    assert main(["standing", str(shop), "--out", str(out)]) == 0
+    for html in (render_traveler(load_plan(plan)), out.read_text(encoding="utf-8")):
+        assert html.count("</style>") == 1 and "<script>" not in html
+        assert (
+            '"A \\00003c/style>\\00003cscript>x()\\00003c/script> \\00003c b"' in html
+        )
+
+
+def test_standing_output_never_overwrites_or_joins_the_shop(tmp_path):
+    folder = tmp_path / "shop"
+    folder.mkdir()
+    (folder / "shop.toml").write_text(SHOP + STANDING, encoding="utf-8")
+    for out in (folder / "shop.toml", folder / "page.toml"):
+        assert main(["standing", str(folder), "--out", str(out)]) == 2
+    assert (folder / "shop.toml").read_text(encoding="utf-8") == SHOP + STANDING
+    assert not (folder / "page.toml").exists()
+    assert main(["standing", str(folder), "--out", str(folder / "page.html")]) == 0

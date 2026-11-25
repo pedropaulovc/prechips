@@ -396,7 +396,10 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
     first = b'<svg xmlns="http://www.w3.org/2000/svg"><text>First</text></svg>'
-    second = b'<svg xmlns="http://www.w3.org/2000/svg"><text>Second</text></svg>'
+    second = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+        b"<text>Second</text></svg>"
+    )
     (diagrams / "setup.svg").write_bytes(first)
     (diagrams / "drill.svg").write_bytes(second)
     text = with_diagram(PLAN) + with_diagram(
@@ -422,6 +425,11 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     top = html.index('<div class="setup-heading pictured">')
     assert top < html.index("<dt>Holding:</dt>") < html.index(first_image)
     assert html.index(first_image) < html.index('<table class="operations">')
+    # Codjiflo, prechips#604: a picture with no width and height of its own
+    # (a viewBox only) has no natural size to stand beside the facts at, so
+    # it spans the column below them; a sized one keeps its own size.
+    assert f'<figure class="setup-diagram" data-wide><img src="{first_image}"' in html
+    assert f'<figure class="setup-diagram"><img src="{second_image}"' in html
     # An operation with no tool and no speed spans the Tool / settings column.
     assert '<td colspan="2"><div class="text">Locate the pattern.' in html
     assert '<td><div class="text">Face to thickness.' in html

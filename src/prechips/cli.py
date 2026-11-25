@@ -177,7 +177,20 @@ def main(argv: list[str] | None = None) -> int:
 
 def _standing(shop: Path, out: Path) -> int:
     try:
-        html = render_standing(load_standing(shop))
+        page, files = load_standing(shop)
+        # The same guards as `prechips traveler`: never overwrite a shop file,
+        # and no new .toml that would join the shop directory.
+        if out.exists() and any(path.exists() and out.samefile(path) for path in files):
+            raise PlanError("output must not overwrite a shop file")
+        folder = out.resolve().parent
+        if (
+            shop.is_dir()
+            and out.suffix.lower() == ".toml"
+            and folder.exists()
+            and folder.samefile(shop)
+        ):
+            raise PlanError("output must not be a .toml file in the shop directory")
+        html = render_standing(page)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding="utf-8")
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, PlanError) as error:
