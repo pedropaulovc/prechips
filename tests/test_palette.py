@@ -105,56 +105,32 @@ def test_key_labels_fit_their_column():
 
 
 @pytest.mark.parametrize(
-    "family, style, declared, changed",
+    "family, declared, changed",
     [
-        (None, None, FONT_FAMILY, True),
-        ("sans-serif", None, FONT_FAMILY, True),
-        ("' Sans-Serif ', ''", None, FONT_FAMILY, True),
-        ("''", None, FONT_FAMILY, True),
-        ("sans-serif, Verdana", None, FONT_FAMILY, True),
-        ("inherit", None, FONT_FAMILY, True),
-        ("monospace", None, MONO_FAMILY, True),
-        ("Verdana, sans-serif", None, "Verdana, sans-serif", False),
-        ("'Courier New'", None, "'Courier New'", False),
-        (FONT_FAMILY, None, FONT_FAMILY, False),
-        # The inline style wins over the attribute, as in CSS.
-        ("Verdana", "fill: none; font-family: serif", FONT_FAMILY, True),
-        (None, "font-family: Verdana, sans-serif", None, False),
+        (None, FONT_FAMILY, True),
+        ("sans-serif", FONT_FAMILY, True),
+        ("' Sans-Serif ', ''", FONT_FAMILY, True),
+        ("''", FONT_FAMILY, True),
+        ("sans-serif, Verdana", FONT_FAMILY, True),
+        ("inherit", FONT_FAMILY, True),
+        ("monospace", MONO_FAMILY, True),
+        ("Verdana, sans-serif", "Verdana, sans-serif", False),
+        ("'Courier New'", "'Courier New'", False),
+        (FONT_FAMILY, FONT_FAMILY, False),
     ],
 )
 def test_a_picture_naming_no_real_font_prints_in_the_sheet_font(
-    family, style, declared, changed
+    family, declared, changed
 ):
     # An <img> SVG does not inherit the page's CSS: without a named family its
     # text takes the printing browser's default, which differs by machine.
     root = ElementTree.fromstring(
         '<svg xmlns="http://www.w3.org/2000/svg"><text>a</text></svg>'
     )
-    for key, value in (("font-family", family), ("style", style)):
-        if value is not None:
-            root.set(key, value)
+    if family is not None:
+        root.set("font-family", family)
     assert declare_font(root) is changed
     assert root.get("font-family") == declared
-    if changed and style is not None:
-        # A replaced font leaves the style, so the attribute is what prints.
-        assert "font-family" not in root.get("style", "")
-
-
-def test_text_inside_a_picture_naming_no_real_font_prints_in_the_sheet_font():
-    root = ElementTree.fromstring(
-        '<svg xmlns="http://www.w3.org/2000/svg" font-family="Verdana">'
-        '<g font-family="sans-serif"><text>a</text></g>'
-        '<text style="font-family: monospace">b</text>'
-        '<text font-family="Georgia, serif">c</text>'
-        '<text font-family="inherit">d</text>'
-        "</svg>"
-    )
-    assert declare_font(root) is True
-    group, mono, named, inherited = root
-    assert group.get("font-family") == FONT_FAMILY
-    assert mono.get("font-family") == MONO_FAMILY and mono.get("style") is None
-    assert named.get("font-family") == "Georgia, serif"
-    assert inherited.get("font-family") == "inherit"
 
 
 def test_every_hobby_picture_names_a_real_font(hobby_pictures):

@@ -47,8 +47,6 @@ GENERIC_FAMILIES = frozenset(
 CSS_WIDE_KEYWORDS = frozenset({"inherit", "initial", "unset", "revert", "revert-layer"})
 _NOT_FONTS = GENERIC_FAMILIES | CSS_WIDE_KEYWORDS
 _MONO_GENERICS = frozenset({"monospace", "ui-monospace"})
-# Inside the picture these take the parent element's font.
-_INHERITING = frozenset({"inherit", "unset"})
 
 _DEFS = f"""<defs xmlns="{SVG_NS}">
   <marker id="prechips-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
@@ -270,21 +268,8 @@ def families(value: str | None) -> list[str]:
     return [name for name in names if name]
 
 
-def _style_font(style: str) -> tuple[str | None, str]:
-    """An inline ``style``'s ``font-family`` (None if it sets none) and the
-    style without it."""
-    value, kept = None, []
-    for declaration in style.split(";"):
-        name, colon, rest = declaration.partition(":")
-        if colon and name.strip().lower() == "font-family":
-            value = rest.strip()
-        elif declaration.strip():
-            kept.append(declaration.strip())
-    return value, "; ".join(kept)
-
-
 def declare_font(root: ElementTree.Element) -> bool:
-    """Give a picture whose text names no real font the sheet's font.
+    """Give a picture whose root names no real font the sheet's font.
 
     An SVG embedded as an ``<img>`` does not inherit the page's CSS: a picture
     whose root declares no ``font-family``, or one whose first family is
@@ -294,31 +279,17 @@ def declare_font(root: ElementTree.Element) -> bool:
     could fit on one print and run off another. Such a font is replaced
     whole, not prepended to: a generic first family always matches, so the
     names after it never print. A generic monospace becomes the sheet's
-    monospace stack, anything else its text font. An element inside the
-    picture that declares such a font is given the same; one that declares
-    none, ``inherit`` or ``unset`` takes its parent's. A real first family
-    is kept. The inline ``style`` wins over the attribute, as in CSS; a font
-    replaced there is moved to the attribute. ``<style>`` sheets are left
-    alone. Returns whether it changed the picture.
+    monospace stack, anything else its text font; a real first family is
+    kept. Only the root ``<svg>``'s ``font-family`` attribute is read and
+    written: fonts in an inline ``style``, on inner elements or in ``<style>``
+    sheets are prechips#621. Returns whether it set the font.
     """
-    changed = False
-    for element in root.iter():
-        styled, rest = _style_font(element.get("style") or "")
-        names = families(styled if styled is not None else element.get("font-family"))
-        primary = names[0] if names else None
-        if element is not root and (primary is None or primary in _INHERITING):
-            continue
-        if primary is not None and primary not in _NOT_FONTS:
-            continue
-        font = MONO_FAMILY if primary in _MONO_GENERICS else FONT_FAMILY
-        if styled is not None:
-            if rest:
-                element.set("style", rest)
-            else:
-                del element.attrib["style"]
-        element.set("font-family", font)
-        changed = True
-    return changed
+    names = families(root.get("font-family"))
+    primary = names[0] if names else None
+    if primary is not None and primary not in _NOT_FONTS:
+        return False
+    root.set("font-family", MONO_FAMILY if primary in _MONO_GENERICS else FONT_FAMILY)
+    return True
 
 
 def legend_svg(entries: list[tuple[str, str]]) -> bytes:
