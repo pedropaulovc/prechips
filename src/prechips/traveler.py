@@ -207,7 +207,7 @@ def _running(top_left: str, top_right: str, bottom_left: str) -> str:
     """A running header and footer in the page margin, one line each, on
     every printed page: the project, the sheet's identity, what printed it,
     and ``SHEET n OF N``. They cost no body lines."""
-    box = "font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #000;"
+    box = f"font-family: {palette.FONT_FAMILY}; font-size: 7.5pt; color: #000;"
     rules = "".join(
         f"@{name} {{ content: {_css_string(text)}; {box} }}"
         for name, text in (
@@ -984,12 +984,15 @@ def load_plan(path: Path) -> LoadedPlan:
     )
 
 
-CSS = """
+CSS = (
+    """
 :root {
   --ink: #000;
   --paper: #fff;
   --rule: #ccc;
-  --font: Arial, Helvetica, sans-serif;
+  --font: """
+    + palette.FONT_FAMILY
+    + """;
   --body-size: 10.5pt;
   --title-size: 17pt;
   --heading-size: 12pt;
@@ -1052,6 +1055,7 @@ ul { padding-left: 0.2in; margin: 0.06in 0; }
 li { break-inside: avoid; }
 @media screen { body { padding: 0.25in 0; } }
 """
+)
 
 
 def _html(value: str | int) -> str:
@@ -1060,16 +1064,20 @@ def _html(value: str | int) -> str:
 
 # Printed only on sheets that use markup or steps, so plain sheets keep their
 # exact bytes.
-RICH_CSS = """\
+RICH_CSS = (
+    """\
 .text ol, .text ul { margin: 0; padding-left: 0.22in; }
 .text .gap { height: 1.2em; }
-code { font-family: Consolas, "Courier New", monospace; font-size: 0.95em; }
+code { font-family: """
+    + palette.MONO_FAMILY
+    + """; font-size: 0.95em; }
 .steps { margin: 0; padding-left: 0.22in; white-space: pre-wrap; }
 .steps-spaced > li + li { margin-top: 0.04in; }
 .step-check, .step-stop { padding-left: 0.05in; }
 .step-check { border-left: 1px solid var(--ink); }
 .step-stop { border-left: 3px solid var(--ink); font-weight: bold; }
 """
+)
 
 _CODE = re.compile(r"`([^`\n]+)`")
 _BOLD = re.compile(r"\*\*(?=[^\s*])(.+?)(?<=[^\s*])\*\*")
@@ -1279,7 +1287,8 @@ def _diagram_html(
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
         drawn = palette.paint(root)
-        if drawn:
+        font_set = palette.declare_font(root)
+        if drawn or font_set:
             content = ElementTree.tostring(root, encoding="utf-8")
     except (OSError, ElementTree.ParseError, ValueError) as error:
         raise PlanError(

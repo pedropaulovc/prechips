@@ -35,7 +35,7 @@ from prechips.cad_diagrams import (
     _text,
     _view,
 )
-from prechips.palette import ROLES
+from prechips.palette import FONT_FAMILY, ROLES
 from prechips.shaft_diagrams import _break, _callouts, _dimension
 
 JAW = 14.0  # schematic jaw-plate depth in top views
@@ -50,7 +50,7 @@ def _groups(root: ElementTree.Element) -> dict[str, list[Element]]:
             "viewBox": "0 0 720 {{view.height}}",
             "width": "720",
             "height": "{{view.height}}",
-            "font-family": "Arial, Helvetica, sans-serif",
+            "font-family": FONT_FAMILY,
             "font-size": "14",
         }
     )

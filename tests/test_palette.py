@@ -5,7 +5,17 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips.palette import LEGEND, ROLES, legend_svg, paint
+from prechips.palette import (
+    CSS_WIDE_KEYWORDS,
+    FONT_FAMILY,
+    GENERIC_FAMILIES,
+    LEGEND,
+    MONO_FAMILY,
+    ROLES,
+    declare_font,
+    legend_svg,
+    paint,
+)
 from prechips.profiles import HOBBY
 from prechips.traveler import load_plan, render_traveler
 
@@ -25,11 +35,16 @@ def _palette_ids() -> set[str]:
     return {element.get("id") for element in probe.iter() if element.get("id")}
 
 
-@pytest.mark.parametrize("plan", PLANS, ids=lambda path: path.stem)
-def test_hobby_pictures_take_every_colour_from_a_palette_role(plan):
-    html = render_traveler(load_plan(plan), profile=HOBBY)
-    pictures = IMAGE.findall(html)
+@pytest.fixture(scope="module", params=PLANS, ids=lambda path: path.stem)
+def hobby_pictures(request):
+    """Each example plan's hobby pictures, rendered once for every test here."""
+    pictures = IMAGE.findall(render_traveler(load_plan(request.param), profile=HOBBY))
     assert pictures
+    return pictures
+
+
+def test_hobby_pictures_take_every_colour_from_a_palette_role(hobby_pictures):
+    pictures = hobby_pictures
     palette_ids = _palette_ids()
     found = []
     for number, picture in enumerate(pictures):
@@ -87,3 +102,39 @@ def test_key_labels_fit_their_column():
     # A column leaves 148 px for a 12 px label; the widest that fits is
     # about 27 characters of this text.
     assert max(len(label) for _, label in LEGEND) <= 27
+
+
+@pytest.mark.parametrize(
+    "family, declared, changed",
+    [
+        (None, FONT_FAMILY, True),
+        ("sans-serif", FONT_FAMILY, True),
+        ("' Sans-Serif ', ''", FONT_FAMILY, True),
+        ("''", FONT_FAMILY, True),
+        ("sans-serif, Verdana", FONT_FAMILY, True),
+        ("inherit", FONT_FAMILY, True),
+        ("monospace", MONO_FAMILY, True),
+        ("Verdana, sans-serif", "Verdana, sans-serif", False),
+        ("'Courier New'", "'Courier New'", False),
+        (FONT_FAMILY, FONT_FAMILY, False),
+    ],
+)
+def test_a_picture_naming_no_real_font_prints_in_the_sheet_font(
+    family, declared, changed
+):
+    # An <img> SVG does not inherit the page's CSS: without a named family its
+    # text takes the printing browser's default, which differs by machine.
+    root = ElementTree.fromstring(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text>a</text></svg>'
+    )
+    if family is not None:
+        root.set("font-family", family)
+    assert declare_font(root) is changed
+    assert root.get("font-family") == declared
+
+
+def test_every_hobby_picture_names_a_real_font(hobby_pictures):
+    for picture in hobby_pictures:
+        family = ElementTree.fromstring(base64.b64decode(picture)).get("font-family")
+        primary = (family or "").split(",")[0].strip().strip("'\"").strip().lower()
+        assert primary not in {"", *GENERIC_FAMILIES, *CSS_WIDE_KEYWORDS}, family
