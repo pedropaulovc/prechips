@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips import traveler
+from prechips import palette, traveler
 from prechips.checks import CHECKS
 
 # Minimal fixtures for the older checks declare no data for the v0.8 checks.
@@ -396,7 +396,7 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
     # Each names its font, so it embeds byte for byte (one that names none is
-    # given the sheet's: tests/test_palette.py).
+    # given the sheet's: the next test).
     first = (
         b'<svg xmlns="http://www.w3.org/2000/svg" width="100%" font-family="Arial">'
         b"<text>First</text></svg>"
@@ -439,6 +439,30 @@ def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     # An operation with no tool and no speed spans the Tool / settings column.
     assert '<td colspan="2"><div class="text">Locate the pattern.' in html
     assert '<td><div class="text">Face to thickness.' in html
+
+
+def test_a_plain_picture_naming_no_real_font_prints_in_the_sheet_font(tmp_path):
+    # No palette role, so only the font makes the picture be re-serialised.
+    plain = '<svg xmlns="http://www.w3.org/2000/svg"{}><text>a</text></svg>'
+    (tmp_path / "setup.svg").write_text(plain.format(""), encoding="utf-8")
+    (tmp_path / "drill.svg").write_text(
+        plain.format(' font-family="sans-serif"'), encoding="utf-8"
+    )
+    text = with_diagram(PLAN, file="setup.svg") + with_diagram(
+        SECOND_SETUP, file="drill.svg", alt="Drill pattern"
+    )
+    result, out = run_cli(
+        tmp_path, text, "--profile", stock_free_profile(tmp_path, diagrams=True)
+    )
+    assert result.returncode == 0, result.stderr
+    pictures = re.findall(
+        r'src="data:image/svg\+xml;base64,([^"]+)"', out.read_text(encoding="utf-8")
+    )
+    fonts = [
+        ElementTree.fromstring(base64.b64decode(picture)).get("font-family")
+        for picture in pictures
+    ]
+    assert fonts == [palette.FONT_FAMILY] * 2
 
 
 def with_operation_diagram(text, file="op.svg"):
