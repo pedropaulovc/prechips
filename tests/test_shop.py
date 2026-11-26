@@ -520,6 +520,10 @@ def test_the_standing_page_prints_once_and_each_sheet_points_to_it(tmp_path):
     assert "<h1>Shop standing instructions</h1>" in page
     assert '<th scope="row">Units</th><td>Inches unless mm</td>' in page
     assert 'class="picture-key"' in page and pointer not in page
+    # The page's blocks sit closer than a traveler's head notes, so a full
+    # page of rows plus the key stays one sheet; travelers keep their spacing.
+    assert ".note-block { margin: 0.03in 0; }" in page
+    assert ".note-block { margin: 0.03in 0; }" not in sheet
     # Every printed page of both carries the project, what the page is and
     # SHEET n OF N in its margin; the plan's part and revision without CAD.
     for html, right in ((sheet, "T1 · REV A"), (page, "Shop standing instructions")):
