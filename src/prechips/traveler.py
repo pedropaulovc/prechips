@@ -1279,7 +1279,7 @@ def _diagram_html(
         if root.tag not in {"svg", "{http://www.w3.org/2000/svg}svg"}:
             raise ValueError("expected an SVG root element")
         drawn = palette.paint(root)
-        if drawn:
+        if palette.declare_font(root) or drawn:
             content = ElementTree.tostring(root, encoding="utf-8")
     except (OSError, ElementTree.ParseError, ValueError) as error:
         raise PlanError(

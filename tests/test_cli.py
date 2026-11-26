@@ -395,11 +395,14 @@ def test_stock_free_unillustrated_profile_does_not_read_unused_diagram(tmp_path)
 def test_required_diagrams_embed_each_setup_before_operations(tmp_path):
     diagrams = tmp_path / "diagrams"
     diagrams.mkdir()
+    # Each names its font, so it embeds byte for byte (one that names none is
+    # given the sheet's: tests/test_palette.py).
     first = (
-        b'<svg xmlns="http://www.w3.org/2000/svg" width="100%"><text>First</text></svg>'
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="100%" font-family="Arial">'
+        b"<text>First</text></svg>"
     )
     second = (
-        b'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" font-family="Arial">'
         b"<text>Second</text></svg>"
     )
     (diagrams / "setup.svg").write_bytes(first)

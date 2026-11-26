@@ -20,6 +20,24 @@ from xml.etree import ElementTree
 
 from prechips.cad_diagrams import ARROW, SVG_NS
 
+# The traveler's own font (its CSS ``--font``); pictures print in it too.
+FONT_FAMILY = "Arial, Helvetica, sans-serif"
+_GENERIC_FAMILIES = {
+    "serif",
+    "sans-serif",
+    "monospace",
+    "cursive",
+    "fantasy",
+    "system-ui",
+    "ui-serif",
+    "ui-sans-serif",
+    "ui-monospace",
+    "ui-rounded",
+    "math",
+    "emoji",
+    "fangsong",
+}
+
 _DEFS = f"""<defs xmlns="{SVG_NS}">
   <marker id="prechips-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
       markerHeight="7" orient="auto-start-reverse">
@@ -232,6 +250,27 @@ def paint(root: ElementTree.Element) -> set[str]:
     return drawn
 
 
+def declare_font(root: ElementTree.Element) -> bool:
+    """Give a picture that names no font of its own the sheet's font.
+
+    An SVG embedded as an ``<img>`` does not inherit the page's CSS: a picture
+    whose root declares no ``font-family``, or only generic families
+    (``sans-serif``), prints in whatever the printing browser's default is
+    (Times for none, Arial or DejaVu Sans for ``sans-serif``, by machine), so
+    the same picture's text could fit on one print and run off another. A
+    root that names a real family keeps it. Returns whether it set the font.
+    """
+    names = [
+        name.strip().strip("'\"").lower()
+        for name in (root.get("font-family") or "").split(",")
+        if name.strip()
+    ]
+    if any(name not in _GENERIC_FAMILIES for name in names):
+        return False
+    root.set("font-family", FONT_FAMILY)
+    return True
+
+
 def legend_svg(entries: list[tuple[str, str]]) -> bytes:
     """The picture key: each (role, text) entry's swatch and meaning, four columns."""
     columns, width, row = 4, 180, 22
@@ -240,7 +279,7 @@ def legend_svg(entries: list[tuple[str, str]]) -> bytes:
         {
             "width": "720",
             "height": str(row * -(-len(entries) // columns) + 6),
-            "font-family": "Arial, Helvetica, sans-serif",
+            "font-family": FONT_FAMILY,
             "font-size": "12",
         },
     )

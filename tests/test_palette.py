@@ -5,7 +5,7 @@ from xml.etree import ElementTree
 
 import pytest
 
-from prechips.palette import LEGEND, ROLES, legend_svg, paint
+from prechips.palette import FONT_FAMILY, LEGEND, ROLES, declare_font, legend_svg, paint
 from prechips.profiles import HOBBY
 from prechips.traveler import load_plan, render_traveler
 
@@ -87,3 +87,35 @@ def test_key_labels_fit_their_column():
     # A column leaves 148 px for a 12 px label; the widest that fits is
     # about 27 characters of this text.
     assert max(len(label) for _, label in LEGEND) <= 27
+
+
+@pytest.mark.parametrize(
+    "family, declared",
+    [
+        (None, FONT_FAMILY),
+        ("sans-serif", FONT_FAMILY),
+        (" serif ", FONT_FAMILY),
+        ("Verdana, sans-serif", "Verdana, sans-serif"),
+        ("'Courier New'", "'Courier New'"),
+    ],
+)
+def test_a_picture_naming_no_real_font_prints_in_the_sheet_font(family, declared):
+    # An <img> SVG does not inherit the page's CSS: without a named family its
+    # text takes the printing browser's default, which differs by machine.
+    root = ElementTree.fromstring(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text>a</text></svg>'
+    )
+    if family is not None:
+        root.set("font-family", family)
+    assert declare_font(root) == (declared == FONT_FAMILY)
+    assert root.get("font-family") == declared
+
+
+@pytest.mark.parametrize("plan", PLANS, ids=lambda path: path.stem)
+def test_every_hobby_picture_names_a_real_font(plan):
+    html = render_traveler(load_plan(plan), profile=HOBBY)
+    for picture in IMAGE.findall(html):
+        family = (
+            ElementTree.fromstring(base64.b64decode(picture)).get("font-family") or ""
+        )
+        assert family.split(",")[0].strip() not in {"", "serif", "sans-serif"}, family
