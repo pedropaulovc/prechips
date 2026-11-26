@@ -1410,6 +1410,19 @@ def render_placeholder(
     return "\n".join(lines)
 
 
+# The standing page is one sheet (a consumer's owner-approved design): its
+# blocks sit closer than a traveler's head notes, and the picture key keeps a
+# small margin, so a row can grow by a line without pushing the key onto a
+# second sheet. The text is unchanged.
+STANDING_CSS = """\
+h1 { margin: 0 0 0.04in; }
+p { margin: 0.03in 0; }
+.note-block { margin: 0.03in 0; }
+.note-block h3 { margin: 0; }
+.picture-key { margin: 0.04in 0 0; }
+"""
+
+
 def render_standing(page: dict) -> str:
     """The shop's standing page (``load_standing``): its title and intro, its
     note blocks in order, and the full picture key when ``legend`` is set. One
@@ -1419,7 +1432,7 @@ def render_standing(page: dict) -> str:
         "<!doctype html>",
         '<html lang="en"><head><meta charset="utf-8">',
         f"<title>{_html(page['title'])}</title>",
-        f"<style>{CSS}{RICH_CSS}{NOTES_CSS}{running}</style></head><body>",
+        f"<style>{CSS}{RICH_CSS}{NOTES_CSS}{STANDING_CSS}{running}</style></head><body>",
         f"<h1>{_html(page['title'])}</h1>",
     ]
     if "intro" in page:
@@ -1433,7 +1446,7 @@ def render_standing(page: dict) -> str:
         # at full width it alone spilled onto a second sheet (a consumer's
         # one-page standing page, 2026-11-25).
         lines.append(
-            '<figure class="picture-key" style="margin: 0.08in 0">'
+            '<figure class="picture-key">'
             f'<img src="data:image/svg+xml;base64,{key}" alt="{alt}"'
             ' style="display: block; width: 90%">'
             "</figure>"
