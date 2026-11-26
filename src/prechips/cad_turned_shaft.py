@@ -1054,6 +1054,17 @@ def load_turned_shaft(path: Path, parameters: dict, part: str) -> CadData:
     for name, item in features.items():
         if not isinstance(item, dict) or item.get("frame") != "model":
             raise CadError(f"{name}: expected a model-frame feature")
+    if "flat_cutter_dia_mm" in parameters and "flat_mill_dia_mm" in parameters:
+        # The one-pass cutter the flats' paths use and the end mill the vise
+        # picture draws are one tool: refuse drift, in every profile.
+        cutter = _positive(
+            parameters["flat_cutter_dia_mm"], "process.flat_cutter_dia_mm"
+        )
+        mill = _positive(parameters["flat_mill_dia_mm"], "process.flat_mill_dia_mm")
+        if abs(cutter - mill) > _STATION:
+            raise CadError(
+                "process.flat_mill_dia_mm: disagrees with process.flat_cutter_dia_mm"
+            )
     known = {"datum_end", "far_end", "shoulder", "tap", *_DIAMETERS}
     unknown = sorted(
         name

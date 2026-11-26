@@ -24,7 +24,13 @@ One picture per setup, drawn from the ``turned_shaft`` adapter's values.
   states, and an end view of the hold: the jaw tops
   ``process.jaw_top_over_od_mm`` over the rod (the end view drops to keep
   them under the callouts), the rod on a ``process.parallel_thickness_mm``
-  wide parallel when given;
+  wide parallel when given, the end mill over the flat at its diameter
+  (``process.flat_mill_dia_mm``, required: the picture draws it to scale;
+  whether one pass or several cut the flat), its square end drawn round and
+  its shank broken off above the flat or the jaw tops; refused where the jaw
+  tops reach a flat of the setup (flush counts) and the mill is no narrower
+  than the clamped (largest) diameter, or when too wide to draw in the end
+  view;
 - ``inspect``: the finished part with its printed sizes, its ``data-x0``
   end (``datum`` or ``far``: the end its lengths are read from) at the left,
   marked "<end> end" or ``data-end-label`` (the plan's own name for it).
@@ -89,6 +95,7 @@ from prechips.shaft_diagrams import (
     _dimension,
     _pt,
 )
+from prechips.tool_shapes import _tool
 
 Groups = dict[str, list[Element]]
 Profile = list[tuple[float, float]]  # (Z, radius) along the upper meridian
@@ -108,6 +115,16 @@ _TITLES = {
 _X0 = 110.0  # page x of the window's chuck-side end
 _HELD = 10.0  # mm of work drawn in the jaws
 _ARC = 12  # points per dome meridian
+# The vise end view's end mill drawn this far up past the flat or the jaw
+# tops, whichever is higher, px, then broken off: the picture's length, not
+# the tool's stick-out.
+_SHANK_ABOVE = 24.0
+# The vise end view's half width the page holds about its centre, px:
+# from the top view's right end (570 px, its centre line 580) to it at 640.
+_END_VIEW_HALF = 60.0
+# With no process.jaw_top_over_od_mm, the jaw tops drawn this far above
+# the rod's centre, px (schematic).
+_JAW_TOP_DRAWN = 4.0
 
 
 @dataclass(frozen=True)
@@ -1282,17 +1299,49 @@ def _vise(
         edge = values[f"{f}_station_point_mm"]
         centre = values.get(f"{f}_station_to") == "centre"
         runs.append((abs(edge - origin), origin, edge, f, source, centre))
-    # End view: the part between the jaws on a parallel, the cutter above.
-    # It sits low enough that its jaw tops stay under the top view's
-    # callouts.
+    # End view: the part between the jaws on a parallel, the cutter above,
+    # the flat-bearing diameter drawn r px in radius, the diameter the jaws
+    # clamp (the largest) behind it. It sits low enough that the end mill's
+    # broken-off shank stays under the top view's callouts.
     r = 24.0
     f = flats[0]
     dia = values[f"{values[f'{f}_on']}_dia_mm"]
     k = r / (dia / 2)
-    over = 4.0 - r
+    big = largest * k
+    # The jaw tops above the rod's centre: process.jaw_top_over_od_mm over
+    # the clamped diameter's top when given, else schematic.
     if "jaw_top_over_od_mm" in parameters:
-        over = _param(parameters, "jaw_top_over_od_mm") * k
-    cx, cy = 640.0, max(_AXIS, top - 10 + r + over)
+        jaw_mm = largest + _param(parameters, "jaw_top_over_od_mm")
+    else:
+        jaw_mm = _JAW_TOP_DRAWN / k
+    # The end mill must pass between the jaws over every flat of this setup
+    # whose surface the jaw tops reach (flush counts), the jaws as far apart
+    # as the diameter they clamp; a mill as wide as that opening has no
+    # clearance and does not fit. Above the jaws nothing holds it back.
+    mill = _param(parameters, "flat_mill_dia_mm")
+    opening = 2 * largest
+    for g in flats:
+        height = values[f"{g}_across_mm"] - values[f"{values[f'{g}_on']}_dia_mm"] / 2
+        # Flush within rounding counts as reaching the flat.
+        if jaw_mm >= height - 1e-9 and mill >= opening:
+            raise CadError(
+                f"process.flat_mill_dia_mm: a {mill:g} mm end mill does not fit "
+                f"between the vise jaws, {opening:g} mm apart, over {g}"
+            )
+    cutter = mill * k
+    if cutter / 2 > _END_VIEW_HALF:
+        raise CadError(
+            f"process.flat_mill_dia_mm: a {mill:g} mm end mill is too wide to "
+            "draw in the vise end view"
+        )
+    # Px from the centre up to the jaw tops, to the flat, and to the top of
+    # the end view (the shank's broken end); and the end view's half width.
+    jaw_rise = jaw_mm * k
+    flat_rise = (values[f"{f}_across_mm"] - dia / 2) * k
+    view_rise = max(jaw_rise, flat_rise) + _SHANK_ABOVE
+    side = max(big + 16, cutter / 2)
+    cx, cy = 640.0, max(_AXIS, top - 10 + view_rise)
+    view_top = cy - view_rise
     # Longest nearest the part, so no text crosses a longer one's witness:
     # a shorter run's witnesses reach down past every row above its own.
     rows = sorted(runs, reverse=True)
@@ -1319,9 +1368,9 @@ def _vise(
         # line, centred over it, or ending short of it when no lower row's
         # witness crosses there; else above it, kept on the page.
         placed = None
-        for row_y in (y, max(y, cy + r + 62)):
-            level = cy - r - over - 10 < row_y + 5 and row_y - 12 < cy + r + 50
-            limit = cx - r - 22 if level else 710.0
+        for row_y in (y, max(y, cy + big + 62)):
+            level = view_top - 10 < row_y + 5 and row_y - 12 < cy + big + 50
+            limit = cx - side - 6 if level else 710.0
             if right_x + 6 + width <= limit:
                 placed = (True, False, None)
             elif 10 <= mid - width / 2 and mid + width / 2 <= limit:
@@ -1350,8 +1399,11 @@ def _vise(
             start=at,
         )
         y += 24
-    flat_y = cy - (values[f"{f}_across_mm"] - dia / 2) * k
+    flat_y = cy - flat_rise
     half = math.sqrt(max(r**2 - (cy - flat_y) ** 2, 0.0))
+    if big > r + 1e-9:
+        # The diameter the jaws clamp, beyond the flat-bearing step.
+        groups["part-kept"].append(_el("circle", cx=cx, cy=cy, r=f"{big:.2f}"))
     groups["part-kept"].append(
         _el(
             "path",
@@ -1364,26 +1416,29 @@ def _vise(
             d=f"M{_pt(cx - half, flat_y)}A{r} {r} 0 0 1 {_pt(cx + half, flat_y)}Z",
         )
     )
-    # The jaw tops stand process.jaw_top_over_od_mm over the rod's top when
-    # given (the rod on a parallel), else a little over its centre; the
-    # parallel is process.parallel_thickness_mm wide when given.
-    jaw_top = cy - r - over
+    # The jaws on the clamped diameter, their tops jaw_rise over the centre;
+    # the rod on a parallel, process.parallel_thickness_mm wide when given.
+    jaw_top = cy - jaw_rise
     groups["clamp"] += [
-        _rect(cx - r - 16, jaw_top, 16, cy + r + 26 - jaw_top),
-        _rect(cx + r, jaw_top, 16, cy + r + 26 - jaw_top),
+        _rect(cx - big - 16, jaw_top, 16, cy + big + 26 - jaw_top),
+        _rect(cx + big, jaw_top, 16, cy + big + 26 - jaw_top),
     ]
-    width = 2 * r
+    width = 2 * big
     if "parallel_thickness_mm" in parameters:
-        width = min(_param(parameters, "parallel_thickness_mm") * k, 2 * r)
-    groups["fixture-support"].append(_rect(cx - width / 2, cy + r, width, 22))
-    groups["cutter"].append(_rect(cx - r * 0.75, flat_y - 46, 1.5 * r, 40))
+        width = min(_param(parameters, "parallel_thickness_mm") * k, 2 * big)
+    groups["fixture-support"].append(_rect(cx - width / 2, cy + big, width, 22))
+    # The end mill over the flat at its own diameter to this view's scale,
+    # its square end (drawn round) on the flat: centred on the flat, where
+    # every crossing of its width passes. Drawn short to a break line
+    # _SHANK_ABOVE over the flat or the jaw tops, whichever is higher.
+    groups["cutter"].append(_tool(cx, cutter, flat_y, view_top, broken=True))
     groups["label"].append(
-        _el("text", "end view", x=cx, y=cy + r + 40, text_anchor="middle")
+        _el("text", "end view", x=cx, y=cy + big + 40, text_anchor="middle")
     )
     head = _callouts(groups, above, top - 40, above=True)
     if head < 34:
         raise CadError("turned-shaft: labels run off the top of the picture")
-    return _finish(groups, max(y, cy + r + 50))
+    return _finish(groups, max(y, cy + big + 50))
 
 
 def _saw(groups: Groups, values: dict, parameters: dict) -> Layout:
